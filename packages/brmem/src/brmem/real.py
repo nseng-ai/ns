@@ -23,8 +23,11 @@ from brmem.gateway import (
 )
 from brmem.key_validation import validate_key
 from brmem.ref_layout import (
+    BASE_NAMESPACE,
     EntryRef,
     InvalidBranchNameError,
+    entry_ref_sort_key,
+    is_base_namespace,
     parse_snapshot_ref,
     ref_name_for_entry,
     snapshot_ref_name,
@@ -169,61 +172,39 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def list_entries(
         self,
         *,
-        namespace: str | None = None,
+        namespace: str,
         key: str | None = None,
         branch: str | None = None,
     ) -> list[EntryRef]:
-        if namespace is not None:
-            validate_namespace(namespace)
-        if key is not None:
-            validate_key(key)
-        if branch is not None:
-            validate_branch_name(branch)
-
-        ref_prefixes = snapshot_ref_prefixes()
-        result = _run(
-            ["git", "for-each-ref", "--format=%(refname)", *ref_prefixes],
-            cwd=self._cwd,
-            check=False,
+        validate_namespace(namespace)
+        return self._collect_entries(
+            all_namespaces=False,
+            namespace=namespace,
+            key=key,
+            branch=branch,
         )
-        if result.returncode != 0:
-            return []
 
-        entries: list[EntryRef] = []
-        for line in result.stdout.splitlines():
-            snapshot_ref = line.strip()
-            if not snapshot_ref:
-                continue
-            parsed = parse_snapshot_ref(snapshot_ref)
-            if parsed is None:
-                continue
-            if namespace is not None and parsed.namespace != namespace:
-                continue
-            if branch is not None and parsed.branch != branch:
-                continue
-
-            for path, _blob_sha in _enumerate_tree_entries(self._cwd, snapshot_ref):
-                if key is not None and path != key:
-                    continue
-                entries.append(
-                    EntryRef(
-                        namespace=parsed.namespace,
-                        key=path,
-                        branch=parsed.branch,
-                        ref_name=ref_name_for_entry(parsed.namespace, path, parsed.branch),
-                    )
-                )
-
-        entries.sort(key=lambda e: (e.namespace or "", e.key, e.branch))
-        return entries
+    def list_all_entries(
+        self,
+        *,
+        key: str | None = None,
+        branch: str | None = None,
+    ) -> list[EntryRef]:
+        return self._collect_entries(
+            all_namespaces=True,
+            namespace=BASE_NAMESPACE,
+            key=key,
+            branch=branch,
+        )
 
     def put(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         content: str,
     ) -> str:
+        validate_namespace(namespace)
         validate_key(key)
         self._check_branch_ref_format(branch)
         snapshot_ref = snapshot_ref_name(namespace, branch)
@@ -260,12 +241,13 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
 
     def get(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         *,
         at: str | None = None,
     ) -> str | None:
+        validate_namespace(namespace)
         validate_key(key)
         self._check_branch_ref_format(branch)
         snapshot_ref = snapshot_ref_name(namespace, branch)
@@ -281,10 +263,11 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
 
     def delete(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
     ) -> str:
+        validate_namespace(namespace)
         validate_key(key)
         self._check_branch_ref_format(branch)
         snapshot_ref = snapshot_ref_name(namespace, branch)
@@ -313,12 +296,13 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
 
     def check(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         *,
         at: str | None = None,
     ) -> EntryDiagnostic | None:
+        validate_namespace(namespace)
         validate_key(key)
         self._check_branch_ref_format(branch)
         snapshot_ref = snapshot_ref_name(namespace, branch)
@@ -357,14 +341,13 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def copy_entries(
         self,
         *,
-        namespace: str | None,
+        namespace: str,
         from_branch: str,
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
-        if namespace is not None:
-            validate_namespace(namespace)
+        validate_namespace(namespace)
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
         if key_glob is not None:
@@ -415,7 +398,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def _copy_snapshot(
         self,
         *,
-        namespace: str | None,
+        namespace: str,
         to_branch: str,
         source_ref: str,
         source_sha: str,
@@ -464,7 +447,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def _copy_with_glob(
         self,
         *,
-        namespace: str | None,
+        namespace: str,
         from_branch: str,
         to_branch: str,
         source_ref: str,
@@ -511,7 +494,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             merged[path] = blob_sha
 
         tree_sha = _build_tree_from_entries(self._cwd, merged)
-        scope_arg = "--base" if namespace is None else f"--namespace {namespace}"
+        scope_arg = "--base" if is_base_namespace(namespace) else f"--namespace {namespace}"
         commit_cmd = [
             "git",
             "commit-tree",
@@ -536,6 +519,56 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             )
             for path, _blob_sha in sorted(source_matching, key=lambda pair: pair[0])
         )
+
+    def _collect_entries(
+        self,
+        *,
+        all_namespaces: bool,
+        namespace: str,
+        key: str | None,
+        branch: str | None,
+    ) -> list[EntryRef]:
+        if key is not None:
+            validate_key(key)
+        if branch is not None:
+            validate_branch_name(branch)
+
+        ref_prefixes = snapshot_ref_prefixes()
+        result = _run(
+            ["git", "for-each-ref", "--format=%(refname)", *ref_prefixes],
+            cwd=self._cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+
+        entries: list[EntryRef] = []
+        for line in result.stdout.splitlines():
+            snapshot_ref = line.strip()
+            if not snapshot_ref:
+                continue
+            parsed = parse_snapshot_ref(snapshot_ref)
+            if parsed is None:
+                continue
+            if not all_namespaces and parsed.namespace != namespace:
+                continue
+            if branch is not None and parsed.branch != branch:
+                continue
+
+            for path, _blob_sha in _enumerate_tree_entries(self._cwd, snapshot_ref):
+                if key is not None and path != key:
+                    continue
+                entries.append(
+                    EntryRef(
+                        namespace=parsed.namespace,
+                        key=path,
+                        branch=parsed.branch,
+                        ref_name=ref_name_for_entry(parsed.namespace, path, parsed.branch),
+                    )
+                )
+
+        entries.sort(key=entry_ref_sort_key)
+        return entries
 
     def _check_branch_ref_format(self, branch: str) -> None:
         validate_branch_name(branch)

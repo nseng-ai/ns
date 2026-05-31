@@ -19,7 +19,13 @@ from asdl_core.clinkr.operation import clinkr_operation
 from brmem.context import BrmemCliContext
 from brmem.gateway import BranchMemoryGateway
 from brmem.key_validation import check_key
-from brmem.ref_layout import EntryRef, check_branch_name, check_namespace
+from brmem.ref_layout import (
+    EntryRef,
+    check_branch_name,
+    check_namespace,
+    is_base_namespace,
+    normalize_namespace_option,
+)
 from brmem.validation import first_failure
 
 
@@ -77,7 +83,7 @@ class ExportedEntry(ClinkrModel):
 
 
 class ExportResult(ClinkrModel):
-    namespace: str | None
+    namespace: str
     branch: str
     output_dir: str
     overwrite: bool
@@ -111,11 +117,9 @@ def run_export(
     ctx: click.Context,
     request: ExportRequest,
 ) -> ClinkrExit[ExportResult]:
+    namespace = normalize_namespace_option(request.namespace)
     validation_failure = first_failure(
-        (
-            "invalid_namespace",
-            None if request.namespace is None else check_namespace(request.namespace),
-        ),
+        ("invalid_namespace", check_namespace(namespace)),
         (
             "invalid_branch_name",
             None if request.branch is None else check_branch_name(request.branch),
@@ -143,11 +147,11 @@ def run_export(
 
     output_dir = _resolve_output_dir(request.output_dir)
     gateway = brmem_context.brmem_gateway
-    entries = _matching_entries(gateway, request.namespace, branch)
+    entries = _matching_entries(gateway, namespace, branch)
 
     if not entries:
         result = ExportResult(
-            namespace=request.namespace,
+            namespace=namespace,
             branch=branch,
             output_dir=str(output_dir),
             overwrite=request.overwrite,
@@ -156,7 +160,7 @@ def run_export(
         )
         raise ClinkrExit.negative(
             result,
-            message=_empty_selection_message(request.namespace, branch),
+            message=_empty_selection_message(namespace, branch),
         )
 
     prepared = _prepare_exports(gateway, entries, output_dir)
@@ -167,7 +171,7 @@ def run_export(
 
     return ClinkrExit.ok(
         ExportResult(
-            namespace=request.namespace,
+            namespace=namespace,
             branch=branch,
             output_dir=str(output_dir),
             overwrite=request.overwrite,
@@ -179,12 +183,10 @@ def run_export(
 
 def _matching_entries(
     gateway: BranchMemoryGateway,
-    namespace: str | None,
+    namespace: str,
     branch: str,
 ) -> list[EntryRef]:
     entries = gateway.list_entries(namespace=namespace, branch=branch)
-    if namespace is None:
-        entries = [entry for entry in entries if entry.namespace is None]
     return sorted(entries, key=lambda entry: entry.key)
 
 
@@ -344,14 +346,14 @@ def _target_path(output_dir: Path, key: str) -> Path:
     return output_dir.joinpath(*parts)
 
 
-def _empty_selection_message(namespace: str | None, branch: str) -> str:
-    if namespace is None:
+def _empty_selection_message(namespace: str, branch: str) -> str:
+    if is_base_namespace(namespace):
         return f"No base entries found on branch {branch}."
     return f"No entries found on branch {branch} in namespace {namespace}."
 
 
-def _selection_summary(namespace: str | None, count: int) -> str:
-    if namespace is None:
+def _selection_summary(namespace: str, count: int) -> str:
+    if is_base_namespace(namespace):
         return f"{count} base {_entry_word(count)}"
     return f"{count} {_entry_word(count)} from namespace {namespace}"
 

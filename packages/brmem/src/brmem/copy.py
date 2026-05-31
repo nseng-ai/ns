@@ -17,9 +17,12 @@ from asdl_core.clinkr.operation import clinkr_operation
 from brmem.context import BrmemCliContext
 from brmem.gateway import BranchMemoryGateway, BrmemCopyConflictError
 from brmem.ref_layout import (
+    BASE_NAMESPACE,
     EntryRef,
     check_branch_name,
     check_namespace,
+    namespace_display_label,
+    normalize_namespace_option,
     ref_name_for_entry,
 )
 from brmem.validation import check_key_glob, first_failure
@@ -91,7 +94,7 @@ class CopyPlanItem(ClinkrModel):
 
 
 class CopyResult(ClinkrModel):
-    namespace: str | None
+    namespace: str
     from_branch: str
     to_branch: str
     overwrite: bool
@@ -144,10 +147,7 @@ def run_copy(
     namespace = _request_namespace(request)
     key_glob_message = check_key_glob(request.key_glob) if request.key_glob is not None else None
     validation_failure = first_failure(
-        (
-            "invalid_namespace",
-            None if namespace is None else check_namespace(namespace),
-        ),
+        ("invalid_namespace", check_namespace(namespace)),
         ("invalid_from_branch", check_branch_name(request.from_branch)),
         ("invalid_to_branch", check_branch_name(request.to_branch)),
         ("invalid_key_glob", key_glob_message),
@@ -262,30 +262,26 @@ def run_copy(
     return ClinkrExit.ok(_result(request, plan))
 
 
-def _request_namespace(request: CopyRequest) -> str | None:
+def _request_namespace(request: CopyRequest) -> str:
     if request.base:
-        return None
-    return request.namespace
+        return BASE_NAMESPACE
+    return normalize_namespace_option(request.namespace)
 
 
-def _scope_label(namespace: str | None) -> str:
-    if namespace is None:
-        return "Base Namespace"
-    return f"Namespace {namespace}"
+def _scope_label(namespace: str) -> str:
+    return namespace_display_label(namespace)
 
 
 def _list_scope_entries(
     gateway: BranchMemoryGateway,
-    namespace: str | None,
+    namespace: str,
     branch: str,
 ) -> list[EntryRef]:
-    if namespace is not None:
-        return gateway.list_entries(namespace=namespace, branch=branch)
-    return [entry for entry in gateway.list_entries(branch=branch) if entry.namespace is None]
+    return gateway.list_entries(namespace=namespace, branch=branch)
 
 
 def _build_plan(
-    namespace: str | None,
+    namespace: str,
     from_branch: str,
     to_branch: str,
     source_entries: list[EntryRef],
@@ -320,7 +316,7 @@ def _result(request: CopyRequest, plan: list[CopyPlanItem]) -> CopyResult:
 
 def _source_sha(
     gateway: BranchMemoryGateway,
-    namespace: str | None,
+    namespace: str,
     key: str,
     branch: str,
 ) -> str | None:

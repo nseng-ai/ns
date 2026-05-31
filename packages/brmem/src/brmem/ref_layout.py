@@ -21,6 +21,7 @@ from brmem.key_validation import validate_key
 BRMEM_REF_PREFIX = "refs/brmem"
 BRMEM_BASE_SEGMENT = "base"
 BRMEM_NS_SEGMENT = "ns"
+BASE_NAMESPACE = "base"
 _FLAT_SEPARATOR = "---"
 
 
@@ -28,14 +29,14 @@ _FLAT_SEPARATOR = "---"
 class EntryRef:
     """Identifies a single branch-memory entry within its Snapshot.
 
-    ``namespace`` is ``None`` for Base Namespace entries. ``ref_name`` is the
-    legacy dataclass field name for the Entry Locator: a copy-pastable
-    ``git show`` locator of the form ``<snapshot-ref>:<key>`` — not a real Git
-    ref. All Entries in the same ``(namespace, branch)`` Snapshot share the
-    same ``<snapshot-ref>`` prefix.
+    ``namespace`` is the canonical namespace identity. The Base Namespace is
+    represented as ``"base"``. ``ref_name`` is the legacy dataclass field name
+    for the Entry Locator: a copy-pastable ``git show`` locator of the form
+    ``<snapshot-ref>:<key>`` — not a real Git ref. All Entries in the same
+    ``(namespace, branch)`` Snapshot share the same ``<snapshot-ref>`` prefix.
     """
 
-    namespace: str | None
+    namespace: str
     key: str
     branch: str
     ref_name: str
@@ -50,7 +51,7 @@ class EntryRef:
 class SnapshotRef:
     """Parsed branch-memory Snapshot Ref."""
 
-    namespace: str | None
+    namespace: str
     branch: str
     ref_name: str
 
@@ -73,6 +74,45 @@ class InvalidNamespaceError(ValueError):
         super().__init__(f"Invalid namespace {namespace!r}: {reason}")
 
 
+def normalize_namespace_option(namespace: str | None) -> str:
+    """Normalize an optional CLI namespace option to a canonical identity."""
+    if namespace is None:
+        return BASE_NAMESPACE
+    return namespace
+
+
+def is_base_namespace(namespace: str) -> bool:
+    """Return whether ``namespace`` names the reserved Base Namespace."""
+    return namespace == BASE_NAMESPACE
+
+
+def namespace_display_label(namespace: str) -> str:
+    """Return a human-readable namespace label for prose output."""
+    if is_base_namespace(namespace):
+        return "Base Namespace"
+    return f"Namespace {namespace}"
+
+
+def namespace_value_label(namespace: str) -> str:
+    """Return a compact namespace value label for diagnostics."""
+    if is_base_namespace(namespace):
+        return "(base)"
+    return namespace
+
+
+def namespace_sort_key(namespace: str) -> tuple[int, str]:
+    """Sort the Base Namespace before workflow-owned named Namespaces."""
+    if is_base_namespace(namespace):
+        return (0, "")
+    return (1, namespace)
+
+
+def entry_ref_sort_key(entry: EntryRef) -> tuple[int, str, str, str]:
+    """Return a stable sort key for EntryRefs across namespaces."""
+    namespace_rank, namespace_name = namespace_sort_key(entry.namespace)
+    return (namespace_rank, namespace_name, entry.key, entry.branch)
+
+
 def snapshot_ref_prefixes() -> tuple[str, str]:
     """Return real git ref prefixes that may contain branch-memory snapshots."""
     return (
@@ -81,27 +121,30 @@ def snapshot_ref_prefixes() -> tuple[str, str]:
     )
 
 
-def snapshot_ref_name(namespace: str | None, branch: str) -> str:
+def snapshot_ref_name(namespace: str, branch: str) -> str:
     """Return the snapshot ref for ``(namespace, branch)`` (no ``:key`` suffix).
 
     Unlike :func:`ref_name_for_entry`, this is a real git ref usable with
     ``git log``, ``git show <ref>``, etc. — useful when callers need to inspect
     commit metadata of the snapshot itself rather than read a specific key.
+    The canonical Base Namespace value ``"base"`` is stored under
+    ``refs/brmem/base/``; workflow-owned named Namespaces are stored under
+    ``refs/brmem/ns/``.
     """
     validate_branch_name(branch)
     encoded_branch = encode_branch_segment(branch)
-    if namespace is None:
+    if is_base_namespace(namespace):
         return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}"
     validate_namespace(namespace)
     return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}"
 
 
-def ref_name_for_entry(namespace: str | None, key: str, branch: str) -> str:
+def ref_name_for_entry(namespace: str, key: str, branch: str) -> str:
     """Return the Entry Locator for ``(namespace, key, branch)``.
 
     The locator has the form ``<snapshot-ref>:<key>`` where ``<snapshot-ref>``
-    is ``refs/brmem/base/<encoded-branch>`` when ``namespace`` is ``None`` and
-    ``refs/brmem/ns/<namespace>/<encoded-branch>`` otherwise. The result is
+    is ``refs/brmem/base/<encoded-branch>`` when ``namespace`` is ``"base"``
+    and ``refs/brmem/ns/<namespace>/<encoded-branch>`` otherwise. The result is
     not a real Git ref — it is a copy-pastable argument for ``git show``.
     """
     validate_key(key)
@@ -114,7 +157,8 @@ def parse_snapshot_ref(ref: str) -> SnapshotRef | None:
     Accepts ``refs/brmem/base/<encoded-branch>`` and
     ``refs/brmem/ns/<namespace>/<encoded-branch>``. Malformed refs return
     ``None`` so callers that enumerate git refs can skip unknown legacy or
-    corrupt names silently.
+    corrupt names silently. The reserved ``refs/brmem/ns/base/`` path is
+    rejected so there is only one canonical storage path for Base Namespace.
     """
     if not ref.startswith(f"{BRMEM_REF_PREFIX}/"):
         return None
@@ -128,14 +172,19 @@ def parse_snapshot_ref(ref: str) -> SnapshotRef | None:
         if "/" in tail or not tail:
             return None
         return SnapshotRef(
-            namespace=None,
+            namespace=BASE_NAMESPACE,
             branch=decode_branch_segment(tail),
             ref_name=ref,
         )
 
     if head == BRMEM_NS_SEGMENT:
         namespace, _, encoded_branch = tail.partition("/")
-        if not namespace or not encoded_branch or "/" in encoded_branch:
+        if (
+            not namespace
+            or is_base_namespace(namespace)
+            or not encoded_branch
+            or "/" in encoded_branch
+        ):
             return None
         return SnapshotRef(
             namespace=namespace,

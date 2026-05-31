@@ -115,7 +115,7 @@ export type ExtensionAPI = {
 type ExecGateway = Pick<ExtensionAPI, "exec">;
 
 type BrmemEntry = {
-	namespace: string | null;
+	namespace: string;
 	key: string;
 };
 
@@ -600,19 +600,11 @@ function formatBrmemScopes(entries: BrmemEntry[]): string {
 }
 
 function scopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } | undefined {
+	if (EXCLUDED_BRMEM_NAMESPACES.has(entry.namespace)) return undefined;
+
 	const keyParts = entry.key.split("/").filter((part) => part.length > 0);
-	if (entry.namespace !== null) {
-		if (EXCLUDED_BRMEM_NAMESPACES.has(entry.namespace)) return undefined;
-
-		const topLevelKey = keyParts[0] ?? entry.key;
-		return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
-	}
-
-	const namespace = keyParts[0];
-	if (!namespace || EXCLUDED_BRMEM_NAMESPACES.has(namespace)) return undefined;
-
-	const topLevelKey = keyParts[1] ?? entry.key;
-	return topLevelKey ? { namespace, key: topLevelKey } : undefined;
+	const topLevelKey = keyParts[0] ?? entry.key;
+	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
 }
 
 async function loadDownBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {

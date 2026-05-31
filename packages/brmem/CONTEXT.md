@@ -10,11 +10,11 @@ _Avoid:_ Branch Memory, hidden state, scratch files, git notes.
 **Branch Memory** — The collection of Entries attached to one branch across the Base Namespace and any named Namespaces.
 _Avoid:_ Branch Memory System, branch metadata, branch files, working-tree state.
 
-**Namespace** — A Branch Memory scope for Entries on one branch; the Base Namespace is reserved by `brmem`, while named Namespaces are owned by higher-level workflows.
+**Namespace** — A Branch Memory scope for Entries on one branch; the Base Namespace has the canonical name `base` and is reserved by `brmem`, while named Namespaces are owned by higher-level workflows.
 _Avoid:_ directory, package, branch, brmem-owned schema.
 
-**Base Namespace** — The reserved unnamespaced scope used for ad-hoc Entries when `--namespace` is omitted; it is stored under the `base` Snapshot Ref segment but is not named by passing `--namespace base`.
-_Avoid:_ Base Branch Memory, base area, default Namespace value, root Namespace, scratch directory.
+**Base Namespace** — The reserved Namespace whose canonical name is `base`, used for ad-hoc Entries when `--namespace` is omitted; it is stored under `refs/brmem/base/<encoded-branch>`. Where `--namespace base` is accepted, it selects this Base Namespace rather than a workflow-owned named Namespace.
+_Avoid:_ Base Branch Memory, base area, root Namespace, scratch directory.
 
 **Entry** — A small UTF-8 text record stored in Branch Memory under one Entry Key, on one branch, in one Namespace.
 _Avoid:_ file, blob, note, document unqualified, value.
@@ -46,6 +46,7 @@ _Avoid:_ checkout, copy, snapshot, restore.
 - **Branch Memory** is attached to exactly one Git branch. CLI commands default to the current branch, but automation should pass an explicit branch when the workflow already knows one.
 - **Branch Memory** is keyed by branch name; renaming or recreating a Git branch does not by itself rename existing Branch Memory.
 - A **Snapshot Ref** encodes `/` in branch names as `---`; branch names containing `---` are invalid for Branch Memory because they cannot round-trip through this encoding.
+- The **Base Namespace** canonical name is `base`, but its **Snapshot Ref** uses `refs/brmem/base/<encoded-branch>`; `refs/brmem/ns/base/<encoded-branch>` is not a valid second storage path.
 - Named **Namespaces** are single ref/path segments; `/` is not valid in a Namespace name.
 - **Entry Keys** may contain `/` for hierarchy, but they are locator-safe relative names: no leading/trailing slash, `//`, `:`, control characters, glob/ref metacharacters, `..` segment, or `.lock` segment suffix.
 - A branch's **Branch Memory** contains Entries across one **Base Namespace** plus zero or more named **Namespaces**.
@@ -69,5 +70,5 @@ _Avoid:_ checkout, copy, snapshot, restore.
 
 ## Flagged ambiguities
 
-- **Namespace / Base Namespace** — resolved: the Base Namespace is a reserved unnamespaced scope, not a named Namespace value such as `--namespace base`.
+- **Namespace / Base Namespace** — resolved: the Base Namespace is the reserved Namespace whose canonical name is `base`; `--namespace base`, where accepted, aliases the Base Namespace rather than creating a named Namespace at `refs/brmem/ns/base/...`.
 - **Ref / Entry Locator** — resolved: a Snapshot Ref is a real Git ref; an Entry Locator is a `git show` locator of the form `<snapshot-ref-or-commit>:<entry-key>`.

@@ -45,10 +45,10 @@ There are five ideas to keep in mind:
 - **Entry**: a small UTF-8 text blob stored under an Entry Key, such as
   `plan.md` or `dashboard-revamp/body.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
-- **Namespace**: a scope for Entries on one branch. The Base Namespace is
-  reserved by `brmem` for ad-hoc Entries when `--namespace` is omitted. Named
-  Namespaces are workflow-owned buckets such as `notes`, where each Entry has a
-  workflow-defined schema and lifecycle.
+- **Namespace**: a scope for Entries on one branch. The Base Namespace has the
+  canonical name `base` and is reserved by `brmem` for ad-hoc Entries when
+  `--namespace` is omitted. Named Namespaces are workflow-owned buckets such as
+  `notes`, where each Entry has a workflow-defined schema and lifecycle.
 
 Most commands target the current checked-out branch unless you pass `--branch`.
 
@@ -99,9 +99,10 @@ brmem put dashboard-revamp/body.md --namespace notes --file body.md
 ```
 
 Use named Namespaces for workflow-owned records. Use the Base Namespace for
-ad-hoc Entries. A scratch `plan.md` Entry and a
-`notes/dashboard-revamp/body.md` Entry can coexist on the same branch without
-meaning the same thing.
+ad-hoc Entries. Its canonical name is `base`, but it is stored under
+`refs/brmem/base/<encoded-branch>` rather than a named Namespace path. A scratch
+`plan.md` Entry and a `notes/dashboard-revamp/body.md` Entry can coexist on the
+same branch without meaning the same thing.
 
 ### 2. Read it in a later session
 
@@ -218,8 +219,10 @@ customizations.
 - Branch Memory is branch-scoped. Pass `--branch` when automation should not
   depend on the current checkout.
 - Use named Namespaces for workflow-owned records. Use the Base Namespace for
-  ad-hoc Entries; it is reserved by `brmem` and is selected by omitting
-  `--namespace` on single-Entry commands or by passing `--base` to `copy`.
+  ad-hoc Entries; it is reserved by `brmem`, has canonical name `base`, and is
+  selected by omitting `--namespace` on single-Entry commands, by passing
+  `--base` to `copy`, or by passing `--namespace base` where that flag is
+  accepted.
 - Keep Entries small and textual. `brmem` is not a place for generated assets,
   secrets, or large datasets.
 - `copy` is exact and conflict-aware. Choose `--base` or `--namespace <name>`
