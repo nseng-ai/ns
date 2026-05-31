@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import { buildGrillAskRows } from "../src/grill-ui/view.ts";
@@ -5,6 +9,7 @@ import type { SkillCommandInfo } from "../src/skill-expansion.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
+	GRILL_UI_SKILL_NAME,
 	buildGrillUiPrompt,
 	executeGrillAsk,
 	registerGrillUiExtension,
@@ -98,8 +103,8 @@ function commandContext(options: { hasUI?: boolean; editorResult?: string; notif
 }
 
 describe("grill-ui prompt", () => {
-	test("includes the expanded grill-me skill block when provided", () => {
-		const skillBlock = "<skill name=\"grill-me\">Ask one relentless question.</skill>";
+	test("includes the expanded grill UI skill block when provided", () => {
+		const skillBlock = `<skill name="${GRILL_UI_SKILL_NAME}">Ask one relentless question.</skill>`;
 		const prompt = buildGrillUiPrompt(skillBlock, "Design target");
 
 		expect(prompt).toContain(skillBlock);
@@ -128,6 +133,36 @@ describe("/grill-ui command", () => {
 		expect(pi.sentUserMessages[0]).toContain("A short design prompt");
 		expect(pi.sentUserMessages[0]).toContain("structured-grill-question-ui-contract");
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
+	});
+
+	test("expands the pi-grill-ui skill when available", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "pi-grill-ui-test-"));
+		try {
+			const skillPath = join(dir, "SKILL.md");
+			await writeFile(
+				skillPath,
+				`---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
+				"utf8",
+			);
+
+			const { pi, command } = register();
+			pi.commandsList = [
+				{
+					name: `skill:${GRILL_UI_SKILL_NAME}`,
+					source: "skill",
+					sourceInfo: { path: skillPath, baseDir: dir },
+				},
+			];
+
+			await command.handler("Target design", commandContext({ hasUI: false }));
+
+			expect(pi.sentUserMessages).toHaveLength(1);
+			expect(pi.sentUserMessages[0]).toContain(`<skill name="${GRILL_UI_SKILL_NAME}" location="${skillPath}">`);
+			expect(pi.sentUserMessages[0]).toContain("Backend skill body from test.");
+			expect(pi.sentUserMessages[0]).toContain("Target design");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
 	});
 
 	test("without args uses the editor when UI is available", async () => {
