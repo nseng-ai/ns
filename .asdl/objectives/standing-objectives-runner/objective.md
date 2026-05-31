@@ -61,7 +61,12 @@ Risks:
 
 ## Open Questions
 
-- Should `/proto:objective-impl` live in the existing `dev` extension bundle, a new prototype extension bundle, or another opt-in Pi extension path?
-- How much of `objective-stack-impl` should be reused verbatim versus copied and simplified for the prototype?
-- What is the minimal deterministic test surface for a command whose core behavior is skill/orchestrator prose?
-- After prototype validation, should this graduate to `/objective:impl`, remain `proto-`, or fold into `objective-stack-impl` as a mode?
+Resolved for this prototype:
+
+- `/proto:objective-impl` lives behind a dedicated project-local `.pi/extensions/proto.ts` adapter backed by `ts/packages/pi-extensions/src/proto.ts`, not in the existing `dev` bundle and not under the canonical `/objective:*` surface.
+- The wrapper reuses the existing active Objective picker and skill-expansion helper; `objective-stack-impl` remains a separate specialized runner.
+- The deterministic test surface is command registration, explicit slug/path routing, skill-expansion fallback, active Objective picker behavior, cancellation/no-active/non-UI paths, changed-Objective suggestions, and separation from `objective:stack-impl`.
+
+Still deferred:
+
+- After prototype dogfooding, decide whether this should graduate to `/objective:impl`, remain `proto-`, or fold into `objective-stack-impl` as a mode.
