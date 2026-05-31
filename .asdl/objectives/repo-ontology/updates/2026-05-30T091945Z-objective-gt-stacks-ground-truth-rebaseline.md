@@ -8,7 +8,7 @@ Evidence: clean `master` is current trunk; source import scans under `packages/a
 
 ## Objective Impact
 
-- `roadmap.md`: Phase 3 `asdl-objectives` planned scope now includes the `objective gt` command group and stack-projection vocabulary; Phase 4 relationship examples now require `asdl-objectives → asdl-core.gt` as the `objective gt` stack-projection edge; Phase 1 now has a reconciliation task for the unexpected `packages/asdl-core/src/asdl_core/gt/CONTEXT.md` split.
+- `roadmap.md`: Phase 3 `asdl-objectives` planned scope now includes the `objective gt` command group and stack-projection vocabulary; Phase 4 relationship examples now require `asdl-objectives → asdl-core.gt` as the `objective gt` stack-projection edge; Phase 1 now has a reconciliation task for the temporary `asdl_core.gt` context split.
 - `objective.md`: completion criteria now record `asdl-objectives → asdl-core.gt` as known-real and reaffirm that asdl-core must remain a single context file; risks now record the drift materialization and the Non-Goal conflict.
 - The completed `packages/asdl-core/CONTEXT.md` `## Gt` section remains valid for closure; the newer branch-graph and restack terms are follow-on material unless a later context session refreshes that H2.
 
@@ -17,4 +17,4 @@ Evidence: clean `master` is current trunk; source import scans under `packages/a
 - Phase 3 `asdl-objectives` session must cover `objective gt`, `ObjectiveGtStacks*` models, branch-touch attribution, stack projection/scope/render, and the `asdl-core.gt` branch-graph vocabulary it consumes.
 - Phase 4 Relationships must list the `asdl-objectives → asdl-core.gt` edge alongside the existing git, clinkr, console/format/plugin edges.
 - Opportunistically refresh the completed asdl-core `## Gt` H2 with `GtTrackedBranch`, `needs_restack`, `GtBranchGraph`, `branch_graph()`, and `BranchGraphView` if that section is revisited.
-- Reconcile `packages/asdl-core/src/asdl_core/gt/CONTEXT.md` against the single-file-H2 Non-Goal by folding its metadata-store contract into, or carving it out against, the `## Gt` H2 section before closure.
+- Reconcile the temporary `asdl_core.gt` context split against the single-file-H2 Non-Goal by folding its metadata-store contract into, or carving it out against, the `## Gt` H2 section before closure.

@@ -20,5 +20,5 @@ Evidence considered: clean `master` at `origin/master`, recent commit `7c101fda`
 ## Follow-Ups
 
 - Next work should be Phase 0.7: update `/CONTEXT-MAP.md` so it lists `aretro`, treats `roaster` as the renamed review harness package, updates the Python package count, and records current relationship/ambiguity candidates.
-- After the map rebaseline, return to Phase 1 to append `## Sessions` to `packages/asdl-core/CONTEXT.md` and reconcile the `asdl_core.gt/CONTEXT.md` split before moving to Phase 2 `brmem`.
-- Do not create `packages/asdl-reviewer/CONTEXT.md`; the live context target is `packages/roaster/CONTEXT.md`.
+- After the map rebaseline, return to Phase 1 to append `## Sessions` to `packages/asdl-core/CONTEXT.md` and reconcile the temporary `asdl_core.gt` context split before moving to Phase 2 `brmem`.
+- Do not create an `asdl-reviewer` context; the live context target is `packages/roaster/CONTEXT.md`.
