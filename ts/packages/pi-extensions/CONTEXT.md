@@ -49,7 +49,7 @@ _Avoid:_ Branch Memory entry as the user model, generic session summary, compact
 **Continuation focus** — The future work a handoff prepares: what the next session should continue, decide, verify, or implement.
 _Avoid:_ vague title, undirected summary, branch name as sufficient context.
 
-**Handoff technical locator** — Storage evidence for a handoff, currently branch plus Branch Memory namespace `session-artifacts` and key `handoffs/<semantic-slug>.md`.
+**Handoff technical locator** — Storage evidence for a handoff: branch plus Branch Memory namespace `handoffs` and key `<semantic-slug>.md`.
 _Avoid:_ public command vocabulary, picker label, default success copy.
 
 **Branch creation method** — The selected planned-branch creation strategy, currently `plain-git` or `graphite`.

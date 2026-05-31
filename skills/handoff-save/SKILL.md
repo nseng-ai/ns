@@ -1,5 +1,5 @@
 ---
-name: brmem-handoff
+name: handoff-save
 description: "Save a directed handoff artifact for a future continuation. Use when the user asks to save, create, write, or stash a durable handoff, including future-you or future-agent resume context; use brmem only as the storage command."
 allowed-tools:
   - "Bash(git branch *)"
@@ -8,7 +8,7 @@ allowed-tools:
   - "Write"
 ---
 
-# Save a handoff
+# handoff-save
 
 Use this skill to save a concise, directed Markdown handoff artifact for a future continuation. A handoff is saved work context for future-you, a future agent, a future worktree, or a teammate. It is not in-session compaction and not a generic session summary.
 
@@ -20,20 +20,22 @@ A handoff must answer:
 
 > Given this requested focus, what does the next session need to know to proceed correctly?
 
-If the user gave a meaningful continuation focus, use it. If they only asked for "a handoff" with no focus/title/resume goal, ask a cheap clarifying question before writing:
+If the user gave a meaningful continuation focus, use it. If they only asked for "a handoff" with no focus/title/resume goal, ask this question and stop until they answer:
 
 ```text
 What should the future session continue from this handoff?
 ```
 
+Do not write an undirected session summary.
+
 ## Storage contract
 
-- Namespace: `session-artifacts`
-- Entry key shape: `handoffs/<semantic-slug>.md`
+- Namespace: `handoffs`
+- Entry key shape: `<semantic-slug>.md`
 - Store from a file:
 
 ```bash
-brmem put handoffs/<semantic-slug>.md --namespace session-artifacts --branch <branch> --file <artifact.md>
+brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file <artifact.md>
 ```
 
 Use Branch Memory only for UTF-8 text that is safe to keep with branch-local project context. Do not store secrets, credentials, binary data, generated build output, or large logs.
@@ -62,13 +64,14 @@ For `<semantic-slug>`:
   - keep it concise, usually 3-8 words
 - Avoid generic slugs like `handoff`, `session`, `work`, `follow-up`, or `continue`.
 - Prefer semantic slugs like `address-review-feedback`, `add-load-handoff-command`, or `resume-plan-implementation`.
+- Do not include `/` in the key; flat `<semantic-slug>.md` keys are the handoff contract.
 
 ## Prevent accidental overwrites
 
 Before writing, check for an existing artifact:
 
 ```bash
-brmem check handoffs/<semantic-slug>.md --namespace session-artifacts --branch <branch>
+brmem check <semantic-slug>.md --namespace handoffs --branch <branch>
 ```
 
 Interpret the result:
@@ -86,9 +89,7 @@ Create a temporary Markdown file with concise, future-continuation-oriented cont
 ```markdown
 # Handoff: <title>
 
-## Continuation Focus
-
-<What the future session should continue, decide, verify, or implement.>
+Continuation focus: <What the future session should continue, decide, verify, or implement.>
 
 ## Context
 
@@ -118,7 +119,7 @@ Keep the artifact brief and factual. Avoid owners, due dates, task databases, hi
 Store the artifact:
 
 ```bash
-brmem put handoffs/<semantic-slug>.md --namespace session-artifacts --branch <branch> --file <artifact.md>
+brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file <artifact.md>
 ```
 
 Report the result in handoff vocabulary first:
@@ -129,10 +130,10 @@ Saved handoff `<semantic-slug>` on branch `<branch>`.
 
 Then include a compact technical locator when useful:
 
-- Namespace: `session-artifacts`
-- Entry: `handoffs/<semantic-slug>.md`
+- Namespace: `handoffs`
+- Entry: `<semantic-slug>.md`
 - Locator/ref and commit printed by `brmem`
 
 ## Load later
 
-When a user asks to resume from an existing handoff, prefer the `brmem-pickup-handoff` skill. Loading relies on the semantic slug rather than a separate summary or index.
+When a user asks to resume from an existing handoff, prefer the `handoff-load` skill. Loading relies on the semantic slug rather than a separate summary or index.
