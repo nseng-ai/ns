@@ -185,7 +185,10 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: slot free" in result.output
-    assert "Detach one or more assigned managed slots at trunk" in result.output
+    assert "Free selected slots" in result.output
+    assert "no selectors" in result.output
+    assert "merged" in result.output
+    assert "closed" in result.output
     assert "--format" in result.output
     assert "--json-schema" in result.output
     # Short flags advertised in help.
@@ -199,6 +202,7 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
     assert "remote-branch" not in result.output
     assert "--dry-run" in result.output
     assert "--yes" in result.output
+    assert "--force" in result.output
 
 
 def test_slot_free_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -1060,19 +1064,19 @@ def test_slot_free_invalid_slot_wt_errors(cli_group: ClinkrGroup, tmp_path: Path
     assert "not a valid slot name" in result.output
 
 
-def test_slot_free_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_cleanup_without_selector_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
-        ["free"],
+        ["free", "--cleanup", "branch"],
         obj=_make_obj(fakes, slots_root),
     )
 
     assert result.exit_code == 2
-    # Message advertises every selector form, including the new short flags.
+    assert "--cleanup requires explicit slot selectors" in result.output
     assert "-n/--num" in result.output
     assert "-w/--wt" in result.output
     assert "-b/--branch" in result.output

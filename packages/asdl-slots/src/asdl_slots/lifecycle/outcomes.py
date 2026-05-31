@@ -73,7 +73,7 @@ class SlotFreeCleanupResult:
     message: str | None = None
 
 
-SlotGcAction = Literal[
+SlotCompletedPrFreeAction = Literal[
     "freed",
     "would_free",
     "kept_open_pr",
@@ -84,13 +84,13 @@ SlotGcAction = Literal[
 
 
 @dataclass(frozen=True)
-class SlotGcEntry:
-    """Per-slot outcome of a slot GC sweep."""
+class SlotCompletedPrFreeEntry:
+    """Per-slot outcome of a completed-PR slot free sweep."""
 
     slot_name: str
     branch_name: str
     worktree_path: Path
-    action: SlotGcAction
+    action: SlotCompletedPrFreeAction
     pr_number: int | None
     pr_state: PRState | None
     pr_url: str | None
@@ -98,18 +98,18 @@ class SlotGcEntry:
 
 
 @dataclass(frozen=True)
-class SlotGcPlan:
-    """Pre-execution classification for assigned slots."""
+class SlotCompletedPrFreePlan:
+    """Pre-execution classification for assigned slots with completed PRs."""
 
-    entries: tuple[SlotGcEntry, ...]
+    entries: tuple[SlotCompletedPrFreeEntry, ...]
     would_free_count: int
 
 
 @dataclass(frozen=True)
-class SlotGcOutcome:
-    """Aggregate outcome of a slot GC sweep."""
+class SlotCompletedPrFreeOutcome:
+    """Aggregate outcome of a completed-PR slot free sweep."""
 
-    entries: tuple[SlotGcEntry, ...]
+    entries: tuple[SlotCompletedPrFreeEntry, ...]
     freed_count: int
     kept_count: int
     skipped_count: int

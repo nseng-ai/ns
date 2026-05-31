@@ -1,4 +1,4 @@
-"""Scenario tests for `slot gc`."""
+"""Scenario tests for no-selector `slot free`."""
 
 from __future__ import annotations
 
@@ -158,40 +158,49 @@ def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
 # -- help / shape -----------------------------------------------------------
 
 
-def test_slot_gc_help(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gc", "-h"])
+def test_slot_free_completed_pr_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["free", "-h"])
 
     assert result.exit_code == 0
-    assert "Usage: slot gc" in result.output
-    assert "merged or closed PR" in result.output
+    assert "Usage: slot free" in result.output
+    assert "merged" in result.output
+    assert "closed" in result.output
     assert "--format" in result.output
     assert "--json-schema" in result.output
 
 
-def test_slot_gc_appears_in_group_help(cli_group: ClinkrGroup) -> None:
+def test_slot_free_completed_pr_replaces_gc_in_group_help(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["-h"])
 
     assert result.exit_code == 0
-    assert "gc" in result.output
+    assert "free" in result.output
+    assert "gc" not in result.output
+
+
+def test_removed_gc_command_is_no_longer_available(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gc"])
+
+    assert result.exit_code == 2
+    assert "No such command" in result.output
 
 
 # -- error paths ------------------------------------------------------------
 
 
-def test_slot_gc_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
+def test_slot_free_completed_pr_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
     sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(sentinel))
+    result = CliRunner().invoke(cli_group, ["free"], obj=_obj(sentinel))
 
     assert result.exit_code == 2
     assert "Not inside a git repository" in result.output
 
 
-def test_slot_gc_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_completed_pr_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     fakes = _fake_for_repo(tmp_path)
     # No managed slot worktrees → inventory.pool_size == 0.
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=_make_obj(fakes, tmp_path / "slots"))
+    result = CliRunner().invoke(cli_group, ["free"], obj=_make_obj(fakes, tmp_path / "slots"))
 
     assert result.exit_code == 2
     assert "No managed slots configured" in result.output
@@ -201,7 +210,7 @@ def test_slot_gc_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> No
 # -- happy paths ------------------------------------------------------------
 
 
-def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_completed_pr_force_frees_merged(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
@@ -209,7 +218,7 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "-f"],
+        ["free", "-f"],
         obj=_make_obj(fakes, slots_root, pr=pr),
     )
 
@@ -224,7 +233,7 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
     assert _assigned_worktrees(fakes) == {}
 
 
-def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_completed_pr_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
@@ -232,7 +241,7 @@ def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> 
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc"],
+        ["free"],
         obj=_make_obj(fakes, slots_root, pr=pr),
         input="y\n",
     )
@@ -244,7 +253,7 @@ def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
-def test_slot_gc_prompt_default_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_completed_pr_free_prompt_default_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
@@ -252,7 +261,7 @@ def test_slot_gc_prompt_default_accepts(cli_group: ClinkrGroup, tmp_path: Path) 
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc"],
+        ["free"],
         obj=_make_obj(fakes, slots_root, pr=pr),
         input="\n",
     )
@@ -263,7 +272,7 @@ def test_slot_gc_prompt_default_accepts(cli_group: ClinkrGroup, tmp_path: Path) 
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
-def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_completed_pr_free_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root, branch="feat/done")
@@ -271,7 +280,7 @@ def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) ->
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc"],
+        ["free"],
         obj=_make_obj(fakes, slots_root, pr=pr),
         input="n\n",
     )
@@ -284,7 +293,7 @@ def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) ->
     assert fakes.git._detach_head_calls == []
 
 
-def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_completed_pr_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root, branch="feat/wip")
@@ -292,7 +301,7 @@ def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Pa
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc"],
+        ["free"],
         obj=_make_obj(fakes, slots_root, pr=pr),
     )
 
@@ -302,22 +311,10 @@ def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Pa
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/wip"}
 
 
-def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    slots_root = tmp_path / "slots"
-    fakes = _fake_for_repo(tmp_path)
-    _seed_assigned(fakes, slots_root, branch="feat/done")
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["gc", "--dry-run", "-f"],
-        obj=_make_obj(fakes, slots_root),
-    )
-
-    assert result.exit_code == 2
-    assert "mutually exclusive" in result.output.lower()
-
-
-def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_completed_pr_dry_run_and_force_preserves_state(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root, branch="feat/done")
@@ -325,7 +322,25 @@ def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path)
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "--dry-run"],
+        ["free", "--dry-run", "-f"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "would free" in result.output.lower()
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
+    assert fakes.git._detach_head_calls == []
+
+
+def test_completed_pr_free_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--dry-run"],
         obj=_make_obj(fakes, slots_root, pr=pr),
     )
 
@@ -338,7 +353,7 @@ def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path)
 # -- machine mode -----------------------------------------------------------
 
 
-def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_completed_pr_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_pool(
@@ -355,7 +370,7 @@ def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> 
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "-f", "--format", "json"],
+        ["free", "-f", "--format", "json"],
         obj=_make_obj(fakes, slots_root, pr=pr),
     )
 
@@ -374,7 +389,7 @@ def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assert actions_by_slot == {"slot-01": "freed", "slot-02": "kept_open_pr"}
 
 
-def test_slot_gc_format_json_interactive_cancel_has_json_stdout(
+def test_slot_free_completed_pr_format_json_interactive_cancel_has_json_stdout(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -385,7 +400,7 @@ def test_slot_gc_format_json_interactive_cancel_has_json_stdout(
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "--format", "json"],
+        ["free", "--format", "json"],
         obj=_make_obj(fakes, slots_root, pr=pr),
         input="no\n",
     )
@@ -401,7 +416,7 @@ def test_slot_gc_format_json_interactive_cancel_has_json_stdout(
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
 
 
-def test_slot_gc_format_json_interactive_yes_has_json_stdout(
+def test_slot_free_completed_pr_format_json_interactive_yes_has_json_stdout(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -412,7 +427,7 @@ def test_slot_gc_format_json_interactive_yes_has_json_stdout(
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "--format", "json"],
+        ["free", "--format", "json"],
         obj=_make_obj(fakes, slots_root, pr=pr),
         input="yes\n",
     )
@@ -427,7 +442,7 @@ def test_slot_gc_format_json_interactive_yes_has_json_stdout(
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
-def test_slot_gc_format_json_interactive_blank_defaults_to_yes(
+def test_slot_free_completed_pr_format_json_interactive_blank_defaults_to_yes(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -438,7 +453,7 @@ def test_slot_gc_format_json_interactive_blank_defaults_to_yes(
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "--format", "json"],
+        ["free", "--format", "json"],
         obj=_make_obj(fakes, slots_root, pr=pr),
         input="\n",
     )
@@ -453,8 +468,8 @@ def test_slot_gc_format_json_interactive_blank_defaults_to_yes(
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
-def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gc", "--json-schema"])
+def test_slot_free_completed_pr_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["free", "--json-schema"])
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
@@ -464,7 +479,7 @@ def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
 # -- --format json + --json-schema on the primary command ------------------------
 
 
-def test_slot_gc_format_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_completed_pr_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root, branch="feat/done")
@@ -472,7 +487,7 @@ def test_slot_gc_format_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: 
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "--dry-run", "--format", "json"],
+        ["free", "--dry-run", "--format", "json"],
         obj=_make_obj(fakes, slots_root, pr=pr),
     )
     payload = json.loads(result.stdout)
@@ -484,13 +499,13 @@ def test_slot_gc_format_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: 
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
 
 
-def test_slot_gc_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_completed_pr_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     fakes = _fake_for_repo(tmp_path)
     # No managed slots → inventory.pool_size == 0.
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc", "--format", "json"],
+        ["free", "--format", "json"],
         obj=_make_obj(fakes, tmp_path / "slots"),
     )
     payload = json.loads(result.stdout)
@@ -500,8 +515,8 @@ def test_slot_gc_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: 
     assert payload["error_type"] == "pool_empty"
 
 
-def test_slot_gc_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gc", "--json-schema"])
+def test_slot_free_completed_pr_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["free", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0

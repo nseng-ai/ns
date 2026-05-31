@@ -1,4 +1,4 @@
-"""Garbage collection: free slots whose PRs have merged or closed."""
+"""Completed-PR slot free sweep lifecycle helpers."""
 
 from __future__ import annotations
 
@@ -11,23 +11,23 @@ from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotRecord, build_slot_inventory
 from asdl_slots.lifecycle.outcomes import (
-    SlotGcAction,
-    SlotGcEntry,
-    SlotGcOutcome,
-    SlotGcPlan,
+    SlotCompletedPrFreeAction,
+    SlotCompletedPrFreeEntry,
+    SlotCompletedPrFreeOutcome,
+    SlotCompletedPrFreePlan,
     SlotLifecycleFailure,
 )
 
 
 @dataclass(frozen=True)
-class _GcCounts:
+class _CompletedPrFreeCounts:
     freed_count: int
     kept_count: int
     skipped_count: int
     error_count: int
 
 
-def _gc_pool_empty_failure() -> SlotLifecycleFailure:
+def _completed_pr_free_pool_empty_failure() -> SlotLifecycleFailure:
     return SlotLifecycleFailure(
         error_type="pool_empty",
         message="No managed slots configured. Run `slot init --size N` first.",
@@ -36,13 +36,13 @@ def _gc_pool_empty_failure() -> SlotLifecycleFailure:
 
 def _entry_from_record(
     record: SlotRecord,
-    action: SlotGcAction,
+    action: SlotCompletedPrFreeAction,
     *,
     pr_result: PRSummary | None = None,
     message: str | None = None,
-) -> SlotGcEntry:
+) -> SlotCompletedPrFreeEntry:
     assert record.branch is not None
-    return SlotGcEntry(
+    return SlotCompletedPrFreeEntry(
         slot_name=record.slot_name,
         branch_name=record.branch,
         worktree_path=record.path,
@@ -55,15 +55,17 @@ def _entry_from_record(
 
 
 def _with_action(
-    entry: SlotGcEntry,
-    action: SlotGcAction,
+    entry: SlotCompletedPrFreeEntry,
+    action: SlotCompletedPrFreeAction,
     *,
     message: str | None = None,
-) -> SlotGcEntry:
+) -> SlotCompletedPrFreeEntry:
     return dataclasses.replace(entry, action=action, message=message)
 
 
-def _count_gc_actions(entries: Sequence[SlotGcEntry]) -> _GcCounts:
+def _count_completed_pr_free_actions(
+    entries: Sequence[SlotCompletedPrFreeEntry],
+) -> _CompletedPrFreeCounts:
     freed = 0
     kept = 0
     skipped = 0
@@ -77,7 +79,7 @@ def _count_gc_actions(entries: Sequence[SlotGcEntry]) -> _GcCounts:
             skipped += 1
         elif entry.action == "error":
             error += 1
-    return _GcCounts(
+    return _CompletedPrFreeCounts(
         freed_count=freed,
         kept_count=kept,
         skipped_count=skipped,
@@ -85,16 +87,18 @@ def _count_gc_actions(entries: Sequence[SlotGcEntry]) -> _GcCounts:
     )
 
 
-def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
-    """Classify assigned slots for garbage collection without mutating state."""
+def plan_completed_pr_free(
+    slots_ctx: SlotsCliContext,
+) -> SlotCompletedPrFreePlan | SlotLifecycleFailure:
+    """Classify assigned slots for completed-PR freeing without mutating state."""
     inventory = build_slot_inventory(
         slots_ctx.git,
         main_repo_root=slots_ctx.repo.main_repo_root,
     )
     if inventory.pool_size == 0:
-        return _gc_pool_empty_failure()
+        return _completed_pr_free_pool_empty_failure()
 
-    entries: list[SlotGcEntry] = []
+    entries: list[SlotCompletedPrFreeEntry] = []
     would_free_count = 0
 
     for record in inventory.records:
@@ -127,17 +131,20 @@ def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
         entries.append(_entry_from_record(record, "would_free", pr_result=pr_result))
         would_free_count += 1
 
-    return SlotGcPlan(entries=tuple(entries), would_free_count=would_free_count)
+    return SlotCompletedPrFreePlan(entries=tuple(entries), would_free_count=would_free_count)
 
 
-def execute_gc_plan(slots_ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutcome:
+def execute_completed_pr_free_plan(
+    slots_ctx: SlotsCliContext,
+    plan: SlotCompletedPrFreePlan,
+) -> SlotCompletedPrFreeOutcome:
     """Free every ``would_free`` entry in ``plan``; pass through the rest."""
     inventory = build_slot_inventory(
         slots_ctx.git,
         main_repo_root=slots_ctx.repo.main_repo_root,
     )
     trunk = slots_ctx.git.get_trunk_branch()
-    entries: list[SlotGcEntry] = []
+    entries: list[SlotCompletedPrFreeEntry] = []
 
     for entry in plan.entries:
         if entry.action != "would_free":
@@ -151,7 +158,7 @@ def execute_gc_plan(slots_ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutco
                     entry,
                     "error",
                     message=(
-                        f"slot {entry.slot_name} was not assigned during free "
+                        f"slot {entry.slot_name} was not assigned during completed-PR free "
                         f"(state changed between plan and execute)."
                     ),
                 )
@@ -185,8 +192,8 @@ def execute_gc_plan(slots_ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutco
 
         entries.append(_with_action(entry, "freed"))
 
-    counts = _count_gc_actions(entries)
-    return SlotGcOutcome(
+    counts = _count_completed_pr_free_actions(entries)
+    return SlotCompletedPrFreeOutcome(
         entries=tuple(entries),
         freed_count=counts.freed_count,
         kept_count=counts.kept_count,
@@ -196,10 +203,14 @@ def execute_gc_plan(slots_ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutco
     )
 
 
-def outcome_from_gc_plan(plan: SlotGcPlan, *, dry_run: bool) -> SlotGcOutcome:
-    """Turn a GC plan into a non-mutating outcome."""
-    counts = _count_gc_actions(plan.entries)
-    return SlotGcOutcome(
+def outcome_from_completed_pr_free_plan(
+    plan: SlotCompletedPrFreePlan,
+    *,
+    dry_run: bool,
+) -> SlotCompletedPrFreeOutcome:
+    """Turn a completed-PR free plan into a non-mutating outcome."""
+    counts = _count_completed_pr_free_actions(plan.entries)
+    return SlotCompletedPrFreeOutcome(
         entries=plan.entries,
         freed_count=counts.freed_count,
         kept_count=counts.kept_count,
@@ -209,15 +220,15 @@ def outcome_from_gc_plan(plan: SlotGcPlan, *, dry_run: bool) -> SlotGcOutcome:
     )
 
 
-def garbage_collect_slots(
+def free_completed_pr_slots(
     slots_ctx: SlotsCliContext,
     *,
     dry_run: bool,
-) -> SlotGcOutcome | SlotLifecycleFailure:
-    """Plan the GC sweep and execute it unless ``dry_run`` is true."""
-    plan = plan_gc(slots_ctx)
+) -> SlotCompletedPrFreeOutcome | SlotLifecycleFailure:
+    """Plan the completed-PR free sweep and execute it unless ``dry_run`` is true."""
+    plan = plan_completed_pr_free(slots_ctx)
     if isinstance(plan, SlotLifecycleFailure):
         return plan
     if dry_run:
-        return outcome_from_gc_plan(plan, dry_run=True)
-    return execute_gc_plan(slots_ctx, plan)
+        return outcome_from_completed_pr_free_plan(plan, dry_run=True)
+    return execute_completed_pr_free_plan(slots_ctx, plan)

@@ -4,7 +4,6 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_slots.cli.slot.checkout import run_checkout_slot
 from asdl_slots.cli.slot.completion import build_completion_group
 from asdl_slots.cli.slot.free import run_free_slot
-from asdl_slots.cli.slot.gc import run_slot_gc
 from asdl_slots.cli.slot.goto import run_goto_slot
 from asdl_slots.cli.slot.gt.group import build_gt_group
 from asdl_slots.cli.slot.init import run_init_slots
@@ -20,7 +19,6 @@ def build_slot_group() -> ClinkrGroup:
         operations=[
             run_checkout_slot,
             run_free_slot,
-            run_slot_gc,
             run_goto_slot,
             run_init_slots,
             run_list_slots,

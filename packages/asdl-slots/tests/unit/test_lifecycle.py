@@ -14,6 +14,12 @@ from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
+from asdl_slots.lifecycle.completed_pr_free import (
+    execute_completed_pr_free_plan,
+    free_completed_pr_slots,
+    outcome_from_completed_pr_free_plan,
+    plan_completed_pr_free,
+)
 from asdl_slots.lifecycle.free import (
     execute_cleanup_for_freed_slots,
     execute_free_plan,
@@ -22,17 +28,11 @@ from asdl_slots.lifecycle.free import (
     plan_cleanup_for_free_targets,
     plan_free_slots,
 )
-from asdl_slots.lifecycle.gc import (
-    execute_gc_plan,
-    garbage_collect_slots,
-    outcome_from_gc_plan,
-    plan_gc,
-)
 from asdl_slots.lifecycle.outcomes import (
     SlotCheckoutOutcome,
+    SlotCompletedPrFreeOutcome,
     SlotFreeOutcome,
     SlotFreePlan,
-    SlotGcOutcome,
     SlotInitOutcome,
     SlotLifecycleFailure,
     SlotResizeOutcome,
@@ -1096,13 +1096,13 @@ def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
     assert git.delete_local_branch_calls == ()
 
 
-# --- slot GC ---
+# --- completed-PR slot free sweep ---
 
 
-def test_plan_gc_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
+def test_plan_completed_pr_free_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
     ctx, git = _lifecycle_context(tmp_path)
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
 
     assert isinstance(plan, SlotLifecycleFailure)
     assert plan.error_type == "pool_empty"
@@ -1110,25 +1110,25 @@ def test_plan_gc_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
     assert git._detach_head_calls == []
 
 
-def test_garbage_collect_slots_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
     ctx, _git = _lifecycle_context(tmp_path)
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
     assert isinstance(outcome, SlotLifecycleFailure)
     assert outcome.error_type == "pool_empty"
 
 
-def test_garbage_collect_slots_detached_slots_are_ignored(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_detached_slots_are_ignored(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
         worktrees=(_slot_worktree(slots_root, 1, None),),
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert outcome.entries == ()
     assert outcome.freed_count == 0
     assert outcome.kept_count == 0
@@ -1138,7 +1138,7 @@ def test_garbage_collect_slots_detached_slots_are_ignored(tmp_path: Path) -> Non
     assert git._detach_head_calls == []
 
 
-def test_garbage_collect_slots_open_pr_is_kept(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_open_pr_is_kept(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1146,9 +1146,9 @@ def test_garbage_collect_slots_open_pr_is_kept(tmp_path: Path) -> None:
         prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert len(outcome.entries) == 1
     entry = outcome.entries[0]
     assert entry.action == "kept_open_pr"
@@ -1159,7 +1159,7 @@ def test_garbage_collect_slots_open_pr_is_kept(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("pr_state", ["MERGED", "CLOSED"])
-def test_garbage_collect_slots_completed_pr_is_freed(
+def test_free_completed_pr_slots_completed_pr_is_freed(
     tmp_path: Path,
     pr_state: PRState,
 ) -> None:
@@ -1171,9 +1171,9 @@ def test_garbage_collect_slots_completed_pr_is_freed(
         prs_by_branch={"feat/done": _make_pr(7, pr_state, "feat/done")},
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert [entry.action for entry in outcome.entries] == ["freed"]
     assert outcome.entries[0].pr_state == pr_state
     assert outcome.freed_count == 1
@@ -1182,7 +1182,7 @@ def test_garbage_collect_slots_completed_pr_is_freed(
     assert git._checkout_calls == []
 
 
-def test_garbage_collect_slots_no_pr_is_kept(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_no_pr_is_kept(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1190,16 +1190,16 @@ def test_garbage_collect_slots_no_pr_is_kept(tmp_path: Path) -> None:
         prs_by_branch={},
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert [entry.action for entry in outcome.entries] == ["kept_no_pr"]
     assert outcome.entries[0].pr_number is None
     assert outcome.kept_count == 1
     assert git._detach_head_calls == []
 
 
-def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_broken_pr_lookup_yields_error_entry(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1209,16 +1209,16 @@ def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Pat
         ),
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert [entry.action for entry in outcome.entries] == ["error"]
     assert outcome.error_count == 1
     assert "gh: command not found" in (outcome.entries[0].message or "")
     assert git._detach_head_calls == []
 
 
-def test_garbage_collect_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     worktree_path = _slot_path(slots_root, 1)
     ctx, git = _lifecycle_context(
@@ -1230,15 +1230,15 @@ def test_garbage_collect_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None
         prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert [entry.action for entry in outcome.entries] == ["skipped_dirty"]
     assert outcome.skipped_count == 1
     assert git._detach_head_calls == []
 
 
-def test_garbage_collect_slots_dry_run_reports_without_mutating(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_dry_run_reports_without_mutating(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1246,9 +1246,9 @@ def test_garbage_collect_slots_dry_run_reports_without_mutating(tmp_path: Path) 
         prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=True)
+    outcome = free_completed_pr_slots(ctx, dry_run=True)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     assert [entry.action for entry in outcome.entries] == ["would_free"]
     assert outcome.freed_count == 1
     assert outcome.dry_run is True
@@ -1257,7 +1257,7 @@ def test_garbage_collect_slots_dry_run_reports_without_mutating(tmp_path: Path) 
     assert git._detach_head_calls == []
 
 
-def test_garbage_collect_slots_mixed_pool_classifies_per_slot(tmp_path: Path) -> None:
+def test_free_completed_pr_slots_mixed_pool_classifies_per_slot(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1282,9 +1282,9 @@ def test_garbage_collect_slots_mixed_pool_classifies_per_slot(tmp_path: Path) ->
         },
     )
 
-    outcome = garbage_collect_slots(ctx, dry_run=False)
+    outcome = free_completed_pr_slots(ctx, dry_run=False)
 
-    assert isinstance(outcome, SlotGcOutcome)
+    assert isinstance(outcome, SlotCompletedPrFreeOutcome)
     actions_by_slot = {entry.slot_name: entry.action for entry in outcome.entries}
     assert actions_by_slot == {
         "slot-01": "freed",
@@ -1299,7 +1299,7 @@ def test_garbage_collect_slots_mixed_pool_classifies_per_slot(tmp_path: Path) ->
     assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
 
 
-def test_plan_gc_classifies_without_mutating_state(tmp_path: Path) -> None:
+def test_plan_completed_pr_free_classifies_without_mutating_state(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1314,7 +1314,7 @@ def test_plan_gc_classifies_without_mutating_state(tmp_path: Path) -> None:
         },
     )
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
 
     assert not isinstance(plan, SlotLifecycleFailure)
     actions_by_slot = {entry.slot_name: entry.action for entry in plan.entries}
@@ -1327,7 +1327,7 @@ def test_plan_gc_classifies_without_mutating_state(tmp_path: Path) -> None:
     assert git._detach_head_calls == []
 
 
-def test_plan_gc_dirty_worktree_still_classified_as_would_free(tmp_path: Path) -> None:
+def test_completed_pr_free_plan_dirty_worktree_is_candidate(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     worktree_path = _slot_path(slots_root, 1)
     ctx, _git = _lifecycle_context(
@@ -1339,31 +1339,31 @@ def test_plan_gc_dirty_worktree_still_classified_as_would_free(tmp_path: Path) -
         prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
     )
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
 
     assert not isinstance(plan, SlotLifecycleFailure)
     assert [entry.action for entry in plan.entries] == ["would_free"]
     assert plan.would_free_count == 1
 
 
-def test_outcome_from_gc_plan_preserves_dry_run_tally_semantics(tmp_path: Path) -> None:
+def test_completed_pr_free_plan_dry_run_tally_semantics(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, _git = _lifecycle_context(
         tmp_path,
         worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
         prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
     )
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
 
-    outcome = outcome_from_gc_plan(plan, dry_run=True)
+    outcome = outcome_from_completed_pr_free_plan(plan, dry_run=True)
 
     assert [entry.action for entry in outcome.entries] == ["would_free"]
     assert outcome.freed_count == 1
     assert outcome.dry_run is True
 
 
-def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
+def test_execute_completed_pr_free_plan_frees_would_free_entries(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1371,9 +1371,9 @@ def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
         prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
     )
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
-    outcome = execute_gc_plan(ctx, plan)
+    outcome = execute_completed_pr_free_plan(ctx, plan)
 
     assert [entry.action for entry in outcome.entries] == ["freed"]
     assert outcome.freed_count == 1
@@ -1381,7 +1381,7 @@ def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
     assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
 
 
-def test_execute_gc_plan_passthrough_non_would_free(tmp_path: Path) -> None:
+def test_execute_completed_pr_free_plan_passthrough_non_would_free(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1389,9 +1389,9 @@ def test_execute_gc_plan_passthrough_non_would_free(tmp_path: Path) -> None:
         prs_by_branch={"feat/wip": _make_pr(2, "OPEN", "feat/wip")},
     )
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
-    outcome = execute_gc_plan(ctx, plan)
+    outcome = execute_completed_pr_free_plan(ctx, plan)
 
     assert [entry.action for entry in outcome.entries] == ["kept_open_pr"]
     assert outcome.kept_count == 1
@@ -1399,7 +1399,7 @@ def test_execute_gc_plan_passthrough_non_would_free(tmp_path: Path) -> None:
     assert git._detach_head_calls == []
 
 
-def test_execute_gc_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
+def test_execute_completed_pr_free_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     worktree_path = _slot_path(slots_root, 1)
     ctx, git = _lifecycle_context(
@@ -1411,18 +1411,18 @@ def test_execute_gc_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
         prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
     )
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
     assert [entry.action for entry in plan.entries] == ["would_free"]
 
-    outcome = execute_gc_plan(ctx, plan)
+    outcome = execute_completed_pr_free_plan(ctx, plan)
 
     assert [entry.action for entry in outcome.entries] == ["skipped_dirty"]
     assert outcome.skipped_count == 1
     assert git._detach_head_calls == []
 
 
-def test_execute_gc_plan_record_disappears_yields_error(tmp_path: Path) -> None:
+def test_execute_completed_pr_free_plan_record_disappears_yields_error(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -1430,11 +1430,11 @@ def test_execute_gc_plan_record_disappears_yields_error(tmp_path: Path) -> None:
         prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
     )
 
-    plan = plan_gc(ctx)
+    plan = plan_completed_pr_free(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
     git._worktrees.clear()
 
-    outcome = execute_gc_plan(ctx, plan)
+    outcome = execute_completed_pr_free_plan(ctx, plan)
 
     assert [entry.action for entry in outcome.entries] == ["error"]
     assert outcome.error_count == 1

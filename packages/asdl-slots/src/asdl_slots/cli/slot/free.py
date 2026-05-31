@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Sequence
 from typing import Annotated, Literal
 
 import click
+from rich.console import Console
 
 import asdl_slots.inventory as slot_inventory
 from asdl_core import get_console
@@ -11,6 +13,7 @@ from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.gh.types import PRState
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.cli.slot.selectors import (
     SelectorOk,
@@ -21,6 +24,11 @@ from asdl_slots.cli.slot.selectors import (
 )
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch
+from asdl_slots.lifecycle.completed_pr_free import (
+    execute_completed_pr_free_plan,
+    outcome_from_completed_pr_free_plan,
+    plan_completed_pr_free,
+)
 from asdl_slots.lifecycle.free import (
     execute_cleanup_for_freed_slots,
     execute_free_plan,
@@ -32,6 +40,8 @@ from asdl_slots.lifecycle.outcomes import (
     FreedSlot as LifecycleFreedSlot,
 )
 from asdl_slots.lifecycle.outcomes import (
+    SlotCompletedPrFreeAction,
+    SlotCompletedPrFreeOutcome,
     SlotFreeCleanupAction,
     SlotFreeCleanupStatus,
     SlotFreeOutcome,
@@ -67,9 +77,9 @@ class SlotFreeRequest(ClinkrModel):
             type=click.Choice(["branch", "pr", "all"]),
             multiple=True,
             help=(
-                "Extra cleanup after freeing. May be repeated. "
+                "Extra cleanup after freeing selected slots. May be repeated. "
                 "branch: force-delete the local branch; pr: close the matching GitHub PR; "
-                "all: pr + branch."
+                "all: pr + branch. Requires an explicit selector."
             ),
         ),
     ] = ()
@@ -83,7 +93,16 @@ class SlotFreeRequest(ClinkrModel):
             ["-y", "--yes"],
             is_flag=True,
             default=False,
-            help="Skip confirmation for destructive cleanup.",
+            help="Skip confirmation prompts.",
+        ),
+    ] = False
+    force: Annotated[
+        bool,
+        click.Option(
+            ["-f", "--force"],
+            is_flag=True,
+            default=False,
+            help="Skip confirmation prompts.",
         ),
     ] = False
 
@@ -113,7 +132,46 @@ class SlotFreeResult(ClinkrModel):
     cleanup_error_count: int = 0
 
 
-def render_slot_free(result: SlotFreeResult) -> None:
+class SlotCompletedPrFreeResultEntry(ClinkrModel):
+    slot_name: str
+    branch_name: str
+    worktree_path: str
+    action: SlotCompletedPrFreeAction
+    pr_number: int | None
+    pr_state: PRState | None
+    pr_url: str | None
+    message: str | None
+
+
+class SlotCompletedPrFreeResult(ClinkrModel):
+    entries: tuple[SlotCompletedPrFreeResultEntry, ...]
+    freed_count: int
+    kept_count: int
+    skipped_count: int
+    error_count: int
+    dry_run: bool
+    cancelled: bool = False
+
+
+_COMPLETED_PR_ACTION_LABELS: dict[SlotCompletedPrFreeAction, tuple[str, str]] = {
+    "freed": ("[green]✓ freed[/green]", "green"),
+    "would_free": ("[yellow]→ would free[/yellow]", "yellow"),
+    "kept_open_pr": ("[blue]• kept (open PR)[/blue]", "blue"),
+    "kept_no_pr": ("[dim]• kept (no PR)[/dim]", "dim"),
+    "skipped_dirty": ("[yellow]! skipped (dirty)[/yellow]", "yellow"),
+    "error": ("[red]✗ error[/red]", "red"),
+}
+
+
+def render_slot_free(
+    result: SlotFreeResult | SlotCompletedPrFreeResult,
+    *,
+    err: bool = False,
+) -> None:
+    if isinstance(result, SlotCompletedPrFreeResult):
+        _render_completed_pr_free(result, err=err)
+        return
+
     console = get_console()
     for message in result.skipped:
         console.print(f"[dim]{message}[/dim]")
@@ -146,6 +204,42 @@ def render_slot_free(result: SlotFreeResult) -> None:
         )
         for cleanup in cleanup_by_slot.get(entry.slot_name, ()):  # pragma: no branch
             console.print(f"  {_cleanup_result_line(cleanup)}")
+
+
+def _completed_pr_free_console(*, err: bool = False) -> Console:
+    if err:
+        return Console(file=sys.stderr)
+    return get_console()
+
+
+def _render_completed_pr_free(result: SlotCompletedPrFreeResult, *, err: bool = False) -> None:
+    console = _completed_pr_free_console(err=err)
+    if result.cancelled:
+        console.print("[yellow]Cancelled — no slots freed.[/yellow]")
+        return
+    if not result.entries:
+        console.print("[dim]No assigned slots to sweep.[/dim]")
+        return
+
+    for entry in result.entries:
+        label, _colour = _COMPLETED_PR_ACTION_LABELS[entry.action]
+        pr_suffix = ""
+        if entry.pr_number is not None:
+            pr_suffix = f" [dim]PR #{entry.pr_number} {entry.pr_state}[/dim]"
+        console.print(
+            f"{label} [bold cyan]{entry.slot_name}[/bold cyan] "
+            f"([yellow]{entry.branch_name}[/yellow]){pr_suffix}"
+        )
+        if entry.message:
+            console.print(f"    [dim]{entry.message}[/dim]")
+
+    verb = "Would free" if result.dry_run else "Freed"
+    console.print(
+        f"\n[bold]{verb} {result.freed_count}[/bold]; "
+        f"kept {result.kept_count}; "
+        f"skipped {result.skipped_count}; "
+        f"errors {result.error_count}"
+    )
 
 
 def _resolve_targets(
@@ -216,12 +310,15 @@ def _outcome_to_result(
 @clinkr_operation(
     name="free",
     help=(
-        "Detach one or more assigned managed slots at trunk; "
-        "keep the worktree directories for reuse."
+        "Free selected slots, or with no selectors free assigned slots "
+        "whose PR is merged or closed."
     ),
     human_renderer=render_slot_free,
 )
-def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[SlotFreeResult]:
+def run_free_slot(
+    ctx: click.Context,
+    request: SlotFreeRequest,
+) -> ClinkrExit[SlotFreeResult | SlotCompletedPrFreeResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
         raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
@@ -236,14 +333,65 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             message="No managed slots configured. Run `slot init --size N` first.",
         )
 
-    if not request.num and not request.wt and not request.branch and not request.current:
-        raise ClinkrExit.failure(
-            error_type="missing_slot_arg",
+    if not _has_explicit_selectors(request):
+        return _run_completed_pr_free(slots_ctx, request)
+
+    return _run_selected_slot_free(ctx, slots_ctx, request, inventory)
+
+
+def _has_explicit_selectors(request: SlotFreeRequest) -> bool:
+    return bool(request.num or request.wt or request.branch or request.current)
+
+
+def _run_completed_pr_free(
+    slots_ctx: SlotsCliContext,
+    request: SlotFreeRequest,
+) -> ClinkrExit[SlotFreeResult | SlotCompletedPrFreeResult]:
+    if request.cleanup:
+        return ClinkrExit.failure(
+            error_type="cleanup_requires_selector",
             message=(
-                "Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot."
+                "--cleanup requires explicit slot selectors; omit --cleanup for the "
+                "completed-PR sweep or pass -n/--num, -w/--wt, -b/--branch, or -c/--current."
             ),
         )
 
+    plan = plan_completed_pr_free(slots_ctx)
+    if isinstance(plan, SlotLifecycleFailure):
+        return ClinkrExit.failure(error_type=plan.error_type, message=plan.message)
+
+    if request.dry_run:
+        outcome = outcome_from_completed_pr_free_plan(plan, dry_run=True)
+        return ClinkrExit.ok(_completed_pr_result_from_outcome(outcome))
+
+    if plan.would_free_count == 0:
+        outcome = outcome_from_completed_pr_free_plan(plan, dry_run=False)
+        return ClinkrExit.ok(_completed_pr_result_from_outcome(outcome))
+
+    if request.yes or request.force:
+        outcome = execute_completed_pr_free_plan(slots_ctx, plan)
+        return ClinkrExit.ok(_completed_pr_result_from_outcome(outcome))
+
+    preview = _completed_pr_result_from_outcome(
+        outcome_from_completed_pr_free_plan(plan, dry_run=True)
+    )
+    render_slot_free(preview, err=True)
+    sys.stderr.flush()
+    proceed = _confirm_free_slots(plan.would_free_count)
+    if proceed:
+        outcome = execute_completed_pr_free_plan(slots_ctx, plan)
+        return ClinkrExit.ok(_completed_pr_result_from_outcome(outcome))
+
+    cancelled_outcome = outcome_from_completed_pr_free_plan(plan, dry_run=False)
+    return ClinkrExit.ok(_completed_pr_result_from_outcome(cancelled_outcome, cancelled=True))
+
+
+def _run_selected_slot_free(
+    ctx: click.Context,
+    slots_ctx: SlotsCliContext,
+    request: SlotFreeRequest,
+    inventory: SlotInventory,
+) -> ClinkrExit[SlotFreeResult | SlotCompletedPrFreeResult]:
     targets, skipped, shape_errors = _resolve_targets(slots_ctx, request, inventory)
     free_plan = plan_free_slots(slots_ctx, targets, preflight_errors=shape_errors)
     if isinstance(free_plan, SlotLifecycleFailure):
@@ -271,12 +419,16 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             return ClinkrExit.negative(result, message=_cleanup_error_message(result))
         return ClinkrExit.ok(result)
 
+    skip_confirmation = request.yes or request.force
     cleanup_preview: tuple[LifecycleCleanupResult, ...] = ()
-    if cleanup_actions and free_plan.targets and not request.yes:
+    if cleanup_actions and free_plan.targets and not skip_confirmation:
         if is_machine_mode(ctx):
             return ClinkrExit.failure(
                 error_type="confirmation_required",
-                message="Destructive cleanup requires --yes in JSON mode (or use --dry-run first).",
+                message=(
+                    "Destructive cleanup requires --yes or --force in JSON mode "
+                    "(or use --dry-run first)."
+                ),
             )
         cleanup_preview = plan_cleanup_for_free_targets(
             slots_ctx,
@@ -316,6 +468,50 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
     if result.cleanup_error_count:
         return ClinkrExit.negative(result, message=_cleanup_error_message(result))
     return ClinkrExit.ok(result)
+
+
+def _confirm_free_slots(count: int) -> bool:
+    """Confirm on stderr without leaking echoed test input into stdout."""
+    while True:
+        click.echo(f"Free {count} slot(s)? [Y/n]: ", err=True, nl=False)
+        sys.stderr.flush()
+        raw_value = sys.stdin.readline()
+        if raw_value == "":
+            raise click.Abort()
+        value = raw_value.strip().lower()
+        if value in ("", "y", "yes"):
+            return True
+        if value in ("n", "no"):
+            return False
+        click.echo("Error: invalid input", err=True)
+
+
+def _completed_pr_result_from_outcome(
+    outcome: SlotCompletedPrFreeOutcome,
+    *,
+    cancelled: bool = False,
+) -> SlotCompletedPrFreeResult:
+    return SlotCompletedPrFreeResult(
+        entries=tuple(
+            SlotCompletedPrFreeResultEntry(
+                slot_name=entry.slot_name,
+                branch_name=entry.branch_name,
+                worktree_path=str(entry.worktree_path),
+                action=entry.action,
+                pr_number=entry.pr_number,
+                pr_state=entry.pr_state,
+                pr_url=entry.pr_url,
+                message=entry.message,
+            )
+            for entry in outcome.entries
+        ),
+        freed_count=0 if cancelled else outcome.freed_count,
+        kept_count=outcome.kept_count,
+        skipped_count=outcome.skipped_count,
+        error_count=outcome.error_count,
+        dry_run=outcome.dry_run,
+        cancelled=cancelled,
+    )
 
 
 def _freed_to_result(entries: Sequence[LifecycleFreedSlot]) -> tuple[FreedSlot, ...]:

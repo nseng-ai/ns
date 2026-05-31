@@ -164,13 +164,20 @@ Refuses if the slot is detached, missing, or out of range.
 
 ### `slot free`
 
-Detaches one or more assigned managed slots back to trunk and keeps the
-worktree directories for reuse. Targets are passed via `-n/--num`,
-`-w/--wt`, `-b/--branch`, or `-c/--current`, and may be combined;
-duplicates are removed and the rest are processed in first-seen order.
+`slot free` has two modes:
 
-By default, freeing only detaches the slot worktree. Add explicit cleanup
-when you also want to close the PR and/or force-delete the local branch:
+1. With explicit selectors, it detaches selected assigned managed slots
+   back to trunk and keeps the worktree directories for reuse.
+2. With no selectors, it sweeps assigned managed slots and frees the ones
+   whose branch has a merged or closed PR.
+
+Explicit selected-slot targets are passed via `-n/--num`, `-w/--wt`,
+`-b/--branch`, or `-c/--current`, and may be combined; duplicates are
+removed and the rest are processed in first-seen order.
+
+By default, selected-slot freeing only detaches the slot worktree. Add
+explicit cleanup when you also want to close the PR and/or force-delete
+the local branch:
 
 ```
 slot free -c --cleanup branch --yes
@@ -183,26 +190,26 @@ Cleanup modes may be repeated and are deduped. `--cleanup all` expands to
 PR close and local branch force-delete. PRs are closed, not deleted. Local
 branch cleanup uses `git branch -D <branch>` after the slot worktree has
 successfully detached. Trunk is refused for branch cleanup. `slot free` does
-not delete remote branches; clean those up separately if desired.
+not delete remote branches; clean those up separately if desired. Cleanup
+requires explicit selectors; the no-selector completed-PR sweep does not run
+branch or PR cleanup actions.
 
-Destructive cleanup prompts in human mode unless `-y/--yes` is passed.
-Use `--dry-run` to show the free/cleanup plan without detaching, closing
-PRs, or force-deleting branches. JSON mode never prompts: pass `--yes` for
-mutating cleanup, or use `--dry-run` first.
+Destructive selected-slot cleanup prompts in human mode unless `-y/--yes`
+or `-f/--force` is passed. Use `--dry-run` to show the free/cleanup plan
+without detaching, closing PRs, or force-deleting branches. JSON mode never
+prompts for selected-slot cleanup: pass `--yes`/`--force` for mutating
+cleanup, or use `--dry-run` first.
 
-`slot free` refuses dirty worktrees and unassigned slots up front, then
-rechecks each target immediately before detach so a concurrent change
-between validation and action surfaces as `slot_not_assigned` or
-`dirty_worktree` rather than corrupting the worktree. Already-freed
-slots are reported in any partial-failure message.
+No-selector `slot free` keeps open PRs and branches with no PR, reports PR
+lookup errors per slot, and skips dirty worktrees at execution time. Pass
+`--dry-run` to preview completed-PR slots without freeing, or pass
+`-y/--yes` / `-f/--force` to skip the interactive confirmation.
 
-### `slot gc`
-
-Sweeps assigned managed slots and frees the ones whose branch has a
-merged or closed PR. Open PRs are kept; missing PRs are kept; lookup
-errors are reported per-slot; dirty worktrees are skipped. Pass
-`--dry-run` to see the plan without freeing, or `-f/--force` to skip the
-interactive confirmation.
+Selected-slot `slot free` refuses dirty worktrees and unassigned slots up
+front, then rechecks each target immediately before detach so a concurrent
+change between validation and action surfaces as `slot_not_assigned` or
+`dirty_worktree` rather than corrupting the worktree. Already-freed slots
+are reported in any partial-failure message.
 
 ### `slot gt free-stack`
 

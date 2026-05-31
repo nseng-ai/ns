@@ -143,8 +143,8 @@ class PRSummary:
 
     Returned by `get_pr_for_branch` — carries the fields the pr-address skill
     needs for its Phase 0 preflight (number, title, body, URL, head/base refs)
-    plus the lifecycle `state` used by `slot gc` to decide whether to reclaim
-    the slot.
+    plus the lifecycle `state` used by the asdl-slots completed-PR free sweep
+    to decide whether to reclaim the slot.
     """
 
     number: int
