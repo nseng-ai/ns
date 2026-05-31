@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Settle the public handoff artifact vocabulary and document the distinction from compaction and generic session summaries.
+- [~] Settle the public handoff artifact vocabulary and document the distinction from compaction and generic session summaries. Vocabulary settled in this Objective's Thesis (a handoff is directed, saved, loadable work context, distinct from compaction and from generic session summaries), and the handoff/pickup carve-out from `pi-resource-surface-cleanup` is documented in `docs/agent-resource-catalog.md` and `docs/pi/README.md`. Pending: a user-facing handoff doc that states the compaction/summary distinction outside the Objective record.
 - [ ] Decide the public save/load command names and transition policy for the existing `/brmem-handoff` and `/brmem-pickup-handoff` Pi commands.
 - [ ] Make handoff save focus first-class: update prompts and command behavior so the future-continuation focus shapes the handoff artifact and missing focus is handled intentionally.
 - [ ] Rework save/load user-facing copy so normal descriptions, notifications, injected prompts, and success output say "handoff" rather than exposing Branch Memory storage details.
