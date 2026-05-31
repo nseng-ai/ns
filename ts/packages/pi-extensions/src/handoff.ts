@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
 
@@ -10,11 +11,12 @@ const HANDOFF_KEY_SUFFIX = ".md";
 const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
 const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
+export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
 const SAVE_HANDOFF_SKILL_NAME = "handoff-save";
 const BRMEM_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
-const MAX_PREVIEW_CHARS = 96;
+const MAX_PREVIEW_CHARS = 240;
 const SAVE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
@@ -66,6 +68,25 @@ type CommandInfo = {
 	};
 };
 
+type CustomMessage = {
+	customType: string;
+	content: string;
+	display: boolean;
+	details?: unknown;
+};
+
+type RenderTheme = {
+	fg(color: string, text: string): string;
+	bold?(text: string): string;
+};
+
+type RenderComponent = {
+	render(width: number): string[];
+	invalidate(): void;
+};
+
+type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+
 export type CommandContext = {
 	cwd: string;
 	hasUI: boolean;
@@ -89,6 +110,8 @@ export type ExtensionAPI = {
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 	getCommands?(): CommandInfo[];
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string): void;
 };
 
@@ -110,9 +133,27 @@ export type HandoffListItem = {
 	slug: string;
 };
 
-type PreviewedHandoffListItem = HandoffListItem & {
+export type HandoffListMessageItem = HandoffListItem & {
 	preview: string;
 };
+
+export type HandoffListMode = "branch" | "all-branches";
+
+export type HandoffListMessageDetails = {
+	mode: HandoffListMode;
+	branch?: string;
+	items: HandoffListMessageItem[];
+};
+
+export type HandoffListBranchGroup = {
+	branch: string;
+	items: Array<{
+		index: number;
+		item: HandoffListMessageItem;
+	}>;
+};
+
+type PreviewedHandoffListItem = HandoffListMessageItem;
 
 class HandoffUsageError extends Error {
 	constructor(message: string) {
@@ -582,7 +623,10 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 		setStatus(ctx, LIST_HANDOFF_COMMAND_NAME, undefined);
 	}
 
-	ctx.ui.notify(args.allBranches ? formatAllBranchesList(previewedItems) : formatCurrentBranchList(branch ?? "", previewedItems), "info");
+	const details: HandoffListMessageDetails = args.allBranches
+		? { mode: "all-branches", items: previewedItems }
+		: { mode: "branch", branch: branch ?? "", items: previewedItems };
+	emitHandoffList(pi, ctx, details);
 }
 
 function saveHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>, skillReadError: string | undefined): string {
@@ -720,12 +764,153 @@ function pickerLabel(item: PreviewedHandoffListItem): string {
 	return `${item.slug} — ${item.preview}`;
 }
 
-function formatCurrentBranchList(branch: string, items: PreviewedHandoffListItem[]): string {
-	return [`Handoffs on branch ${branch}:`, "", "Slug | Preview", ...items.map((item) => `${item.slug} | ${item.preview}`)].join("\n");
+function emitHandoffList(pi: ExtensionAPI, ctx: CommandContext, details: HandoffListMessageDetails): void {
+	const content = formatHandoffListPlain(details);
+	if (pi.sendMessage !== undefined) {
+		pi.sendMessage({
+			customType: HANDOFF_LIST_MESSAGE_TYPE,
+			content,
+			display: true,
+			details,
+		});
+		return;
+	}
+
+	ctx.ui.notify(content, "info");
 }
 
-function formatAllBranchesList(items: PreviewedHandoffListItem[]): string {
-	return ["Handoffs across branches:", "", "Branch | Slug | Preview", ...items.map((item) => `${item.branch} | ${item.slug} | ${item.preview}`)].join("\n");
+export function formatHandoffListPlain(details: HandoffListMessageDetails): string {
+	return formatHandoffListLines(details).join("\n");
+}
+
+export function renderHandoffListMessage(
+	message: CustomMessage,
+	_options: { expanded: boolean },
+	theme: RenderTheme,
+): RenderComponent {
+	const details = parseHandoffListMessageDetails(message.details);
+	if (details === undefined) {
+		return {
+			render(width: number): string[] {
+				return message.content.split("\n").map((line) => truncateDisplayLine(line, width));
+			},
+			invalidate(): void {},
+		};
+	}
+
+	return {
+		render(width: number): string[] {
+			return formatHandoffListLines(details).map((line, index) => styleHandoffListLine(truncateDisplayLine(line, width), index, theme));
+		},
+		invalidate(): void {},
+	};
+}
+
+export function formatHandoffPickupCommand(item: HandoffListMessageItem, mode: HandoffListMode): string {
+	return mode === "all-branches" ? `/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${item.branch} ${item.slug}` : `/${PICKUP_HANDOFF_COMMAND_NAME} ${item.slug}`;
+}
+
+export function groupHandoffListItemsByBranch(items: HandoffListMessageItem[]): HandoffListBranchGroup[] {
+	const groups: HandoffListBranchGroup[] = [];
+	const branchGroups = new Map<string, HandoffListBranchGroup>();
+
+	for (const [index, item] of items.entries()) {
+		let group = branchGroups.get(item.branch);
+		if (group === undefined) {
+			group = { branch: item.branch, items: [] };
+			branchGroups.set(item.branch, group);
+			groups.push(group);
+		}
+		group.items.push({ index: index + 1, item });
+	}
+
+	return groups;
+}
+
+function formatHandoffListLines(details: HandoffListMessageDetails): string[] {
+	const branch = details.branch ?? details.items[0]?.branch ?? "current branch";
+	const lines = [details.mode === "all-branches" ? "Handoffs across branches" : `Handoffs on ${branch}`];
+	if (details.items.length === 0) {
+		return lines;
+	}
+
+	lines.push("");
+	if (details.mode === "all-branches") {
+		for (const [groupIndex, group] of groupHandoffListItemsByBranch(details.items).entries()) {
+			if (groupIndex > 0) {
+				lines.push("");
+			}
+			lines.push(group.branch);
+			for (const { index, item } of group.items) {
+				appendHandoffListCard(lines, index, item, details.mode);
+			}
+		}
+		return lines;
+	}
+
+	for (const [index, item] of details.items.entries()) {
+		appendHandoffListCard(lines, index + 1, item, details.mode);
+	}
+	return lines;
+}
+
+function appendHandoffListCard(lines: string[], index: number, item: HandoffListMessageItem, mode: HandoffListMode): void {
+	lines.push(`  ${index}. ${item.slug}`);
+	lines.push(`     ${item.preview}`);
+	lines.push(`     → ${formatHandoffPickupCommand(item, mode)}`);
+}
+
+function parseHandoffListMessageDetails(details: unknown): HandoffListMessageDetails | undefined {
+	if (!isRecord(details)) {
+		return undefined;
+	}
+
+	const mode = details.mode;
+	if (mode !== "branch" && mode !== "all-branches") {
+		return undefined;
+	}
+	if (!Array.isArray(details.items)) {
+		return undefined;
+	}
+
+	const items: HandoffListMessageItem[] = [];
+	for (const item of details.items) {
+		if (!isRecord(item) || typeof item.branch !== "string" || typeof item.key !== "string" || typeof item.slug !== "string" || typeof item.preview !== "string") {
+			return undefined;
+		}
+		items.push({ branch: item.branch, key: item.key, slug: item.slug, preview: item.preview });
+	}
+
+	const branch = typeof details.branch === "string" ? details.branch : undefined;
+	if (mode === "branch") {
+		return branch === undefined ? { mode, items } : { mode, branch, items };
+	}
+	return { mode, items };
+}
+
+function styleHandoffListLine(line: string, index: number, theme: RenderTheme): string {
+	if (line.length === 0) {
+		return line;
+	}
+	if (index === 0) {
+		return accentText(theme, line, true);
+	}
+	if (line.startsWith("     → ")) {
+		return theme.fg("muted", line);
+	}
+
+	const itemMatch = /^(\s*\d+\.\s+)(.+)$/.exec(line);
+	if (itemMatch?.[1] !== undefined && itemMatch[2] !== undefined) {
+		return `${theme.fg("dim", itemMatch[1])}${accentText(theme, itemMatch[2], true)}`;
+	}
+	if (!line.startsWith(" ")) {
+		return accentText(theme, line);
+	}
+	return line;
+}
+
+function accentText(theme: RenderTheme, text: string, bold = false): string {
+	return theme.fg("accent", bold && theme.bold !== undefined ? theme.bold(text) : text);
 }
 
 function sortHandoffItems(items: HandoffListItem[]): HandoffListItem[] {
@@ -769,6 +954,8 @@ function truncateError(message: string): string {
 }
 
 export default function handoffExtension(pi: ExtensionAPI): void {
+	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
+
 	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
 		description: "Create a directed handoff artifact for a future continuation.",
 		handler: async (args, ctx) => handleSaveHandoffCommand(pi, args, ctx),

@@ -4,16 +4,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import handoffExtension, {
+	HANDOFF_LIST_MESSAGE_TYPE,
 	buildCreateHandoffPrompt,
 	buildPickupHandoffPrompt,
 	deriveHandoffPreview,
+	formatHandoffListPlain,
+	formatHandoffPickupCommand,
+	groupHandoffListItemsByBranch,
 	parseHandoffKeysFromBrmemList,
 	parseListHandoffArgs,
 	parsePickupHandoffArgs,
+	renderHandoffListMessage,
 	resolveHandoffKey,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
+	type HandoffListMessageDetails,
+	type HandoffListMessageItem,
 } from "../src/handoff.ts";
 
 const ROOT = "/repo";
@@ -21,6 +28,8 @@ const BRANCH = "feature/handoff";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type CommandInfo = NonNullable<ReturnType<NonNullable<ExtensionAPI["getCommands"]>>>[number];
+type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
+type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
 
 type ExecCall = {
 	command: string;
@@ -53,13 +62,31 @@ class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
+	readonly renderers = new Map<string, MessageRenderer>();
+	readonly sentMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
+	readonly sendMessage?: (message: CustomMessage) => void;
 	private readonly script: ScriptedExec[];
 	private readonly commandInfos: CommandInfo[];
 
-	constructor(script: ScriptedExec[] = [], commandInfos: CommandInfo[] = []) {
+	constructor(
+		script: ScriptedExec[] = [],
+		commandInfos: CommandInfo[] = [],
+		options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
+	) {
 		this.script = [...script];
 		this.commandInfos = [...commandInfos];
+		if (options.registerMessageRenderer ?? true) {
+			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
+				this.renderers.set(customType, renderer);
+			};
+		}
+		if (options.sendMessage ?? true) {
+			this.sendMessage = (message: CustomMessage): void => {
+				this.sentMessages.push(message);
+			};
+		}
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
@@ -182,6 +209,7 @@ async function runCommand(
 		inputUnavailable?: boolean;
 	} = {},
 	commandInfos: CommandInfo[] = [],
+	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -190,7 +218,7 @@ async function runCommand(
 	statuses: Array<string | undefined>;
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const pi = new FakePi(script, commandInfos, piOptions);
 	handoffExtension(pi);
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
@@ -240,6 +268,32 @@ function getStep(branch: string, key: string, artifact: string): ScriptedExec {
 	return step("brmem", ["get", key, "--namespace", "handoffs", "--branch", branch], { stdout: artifact });
 }
 
+function noopTheme(): { fg(_color: string, text: string): string; bold(text: string): string } {
+	return {
+		fg(_color: string, text: string): string {
+			return text;
+		},
+		bold(text: string): string {
+			return text;
+		},
+	};
+}
+
+function taggedTheme(): { fg(color: string, text: string): string; bold(text: string): string } {
+	return {
+		fg(color: string, text: string): string {
+			return `<${color}>${text}</${color}>`;
+		},
+		bold(text: string): string {
+			return `<bold>${text}</bold>`;
+		},
+	};
+}
+
+function renderMessageText(message: CustomMessage, width = 120): string {
+	return renderHandoffListMessage(message, { expanded: false }, noopTheme()).render(width).join("\n");
+}
+
 async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Promise<T> {
 	const dir = await mkdtemp(join(tmpdir(), "handoff-save-skill-"));
 	const skillPath = join(dir, "SKILL.md");
@@ -278,6 +332,7 @@ describe("handoff extension", () => {
 		expect(pi.commands.has("handoff:load")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
+		expect([...pi.renderers.keys()]).toEqual([HANDOFF_LIST_MESSAGE_TYPE]);
 		expect(pi.commands.get("handoff:create")?.description).toBe("Create a directed handoff artifact for a future continuation.");
 		expect(pi.commands.get("handoff:pickup")?.description).toBe("Pick up a saved handoff by slug, selector, or picker.");
 		expect(pi.commands.get("handoff:list")?.description).toBe("List saved handoffs on this branch or across all branches.");
@@ -430,7 +485,7 @@ describe("handoff extension", () => {
 		]);
 	});
 
-	test("list current branch displays slug and preview columns", async () => {
+	test("list current branch sends a card-style custom message", async () => {
 		const result = await runCommand("handoff:list", "", [
 			branchStep(),
 			listStep(BRANCH, ["address-review-feedback.md"]),
@@ -443,14 +498,41 @@ describe("handoff extension", () => {
 			["brmem", ["list", "--namespace", "handoffs", "--branch", BRANCH, "--format", "json"]],
 			["brmem", ["get", "address-review-feedback.md", "--namespace", "handoffs", "--branch", BRANCH]],
 		]);
-		expect(result.notifications.at(-1)).toEqual({
-			message: `Handoffs on branch ${BRANCH}:\n\nSlug | Preview\naddress-review-feedback | Address review feedback`,
-			level: "info",
+		expect(result.notifications).toEqual([]);
+		expect(result.pi.sentMessages).toHaveLength(1);
+
+		const message = result.pi.sentMessages[0];
+		expect(message).toEqual({
+			customType: HANDOFF_LIST_MESSAGE_TYPE,
+			content: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /handoff:pickup address-review-feedback`,
+			display: true,
+			details: {
+				mode: "branch",
+				branch: BRANCH,
+				items: [
+					{
+						branch: BRANCH,
+						key: "address-review-feedback.md",
+						slug: "address-review-feedback",
+						preview: "Address review feedback",
+					},
+				],
+			},
 		});
-		expect(result.notifications.at(-1)?.message).not.toContain("address-review-feedback.md");
+		expect(message).toBeDefined();
+		if (message === undefined) {
+			throw new Error("list command did not send a message");
+		}
+		const rendered = renderMessageText(message);
+		expect(rendered).toContain(`Handoffs on ${BRANCH}`);
+		expect(rendered).toContain("address-review-feedback");
+		expect(rendered).toContain("Address review feedback");
+		expect(rendered).toContain("/handoff:pickup address-review-feedback");
+		expect(rendered).not.toContain("address-review-feedback.md");
+		expect(rendered).not.toContain("Slug | Preview");
 	});
 
-	test("list all branches displays branch slug and preview columns", async () => {
+	test("list all branches sends grouped pickup commands", async () => {
 		const result = await runCommand("handoff:list", "--all-branches", [
 			listAllStep([
 				{ key: "alpha.md", branch: "feat/a" },
@@ -462,10 +544,53 @@ describe("handoff extension", () => {
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["brmem", "brmem", "brmem"]);
-		expect(result.notifications.at(-1)).toEqual({
-			message: "Handoffs across branches:\n\nBranch | Slug | Preview\nfeat/a | alpha | Alpha handoff\nfeat/b | bravo | Bravo work",
-			level: "info",
+		expect(result.notifications).toEqual([]);
+		expect(result.pi.sentMessages).toHaveLength(1);
+
+		const message = result.pi.sentMessages[0];
+		expect(message).toBeDefined();
+		if (message === undefined) {
+			throw new Error("list command did not send a message");
+		}
+		expect(message.details).toEqual({
+			mode: "all-branches",
+			items: [
+				{ branch: "feat/a", key: "alpha.md", slug: "alpha", preview: "Alpha handoff" },
+				{ branch: "feat/b", key: "bravo.md", slug: "bravo", preview: "Bravo work" },
+			],
 		});
+		const rendered = renderMessageText(message);
+		expect(rendered).toContain("Handoffs across branches");
+		expect(rendered).toContain("feat/a\n  1. alpha");
+		expect(rendered).toContain("→ /handoff:pickup --branch feat/a alpha");
+		expect(rendered).toContain("feat/b\n  2. bravo");
+		expect(rendered).toContain("→ /handoff:pickup --branch feat/b bravo");
+		expect(rendered).not.toContain("Branch | Slug | Preview");
+		expect(rendered).not.toContain("alpha.md");
+	});
+
+	test("list falls back to a notification when custom messages are unavailable", async () => {
+		const result = await runCommand(
+			"handoff:list",
+			"",
+			[
+				branchStep(),
+				listStep(BRANCH, ["address-review-feedback.md"]),
+				getStep(BRANCH, "address-review-feedback.md", "Continuation focus: Address review feedback\n"),
+			],
+			{},
+			[],
+			{ sendMessage: false },
+		);
+
+		result.pi.assertDone();
+		expect(result.pi.sentMessages).toEqual([]);
+		expect(result.notifications).toEqual([
+			{
+				message: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /handoff:pickup address-review-feedback`,
+				level: "info",
+			},
+		]);
 	});
 
 	test("list parser rejects branch plus all branches", async () => {
@@ -553,5 +678,94 @@ describe("handoff pure helpers", () => {
 	test("preview prefers continuation focus and otherwise headings", () => {
 		expect(deriveHandoffPreview("Continuation focus: Finish the tests\n# Later")).toBe("Finish the tests");
 		expect(deriveHandoffPreview("# Handoff: Continue docs\n\nBody")).toBe("Handoff: Continue docs");
+	});
+
+	test("formats handoff list cards and pickup commands without storage keys", () => {
+		const item: HandoffListMessageItem = {
+			branch: "feature/docs",
+			key: "ship-docs.md",
+			slug: "ship-docs",
+			preview: "Ship the docs update",
+		};
+		const details: HandoffListMessageDetails = { mode: "branch", branch: "feature/docs", items: [item] };
+
+		expect(formatHandoffPickupCommand(item, "branch")).toBe("/handoff:pickup ship-docs");
+		expect(formatHandoffPickupCommand(item, "all-branches")).toBe("/handoff:pickup --branch feature/docs ship-docs");
+		expect(formatHandoffListPlain(details)).toBe(
+			"Handoffs on feature/docs\n\n  1. ship-docs\n     Ship the docs update\n     → /handoff:pickup ship-docs",
+		);
+		expect(formatHandoffListPlain(details)).not.toContain("ship-docs.md");
+	});
+
+	test("groups all-branches list items with stable numbering", () => {
+		const alpha: HandoffListMessageItem = { branch: "feat/a", key: "alpha.md", slug: "alpha", preview: "Alpha" };
+		const aardvark: HandoffListMessageItem = { branch: "feat/a", key: "aardvark.md", slug: "aardvark", preview: "Aardvark" };
+		const bravo: HandoffListMessageItem = { branch: "feat/b", key: "bravo.md", slug: "bravo", preview: "Bravo" };
+		const items = [alpha, aardvark, bravo];
+
+		expect(groupHandoffListItemsByBranch(items)).toEqual([
+			{
+				branch: "feat/a",
+				items: [
+					{ index: 1, item: alpha },
+					{ index: 2, item: aardvark },
+				],
+			},
+			{ branch: "feat/b", items: [{ index: 3, item: bravo }] },
+		]);
+	});
+
+	test("renderer falls back to content for malformed details", () => {
+		const component = renderHandoffListMessage(
+			{ customType: HANDOFF_LIST_MESSAGE_TYPE, content: "line one\nline two", display: true, details: { mode: "branch" } },
+			{ expanded: false },
+			noopTheme(),
+		);
+
+		expect(component.render(20)).toEqual(["line one", "line two"]);
+	});
+
+	test("renderer truncates display lines to the available width", () => {
+		const details: HandoffListMessageDetails = {
+			mode: "branch",
+			branch: "feature/with-a-very-long-branch-name",
+			items: [
+				{
+					branch: "feature/with-a-very-long-branch-name",
+					key: "very-long-handoff-slug.md",
+					slug: "very-long-handoff-slug",
+					preview: "This preview is intentionally too long for the target render width",
+				},
+			],
+		};
+		const component = renderHandoffListMessage(
+			{ customType: HANDOFF_LIST_MESSAGE_TYPE, content: formatHandoffListPlain(details), display: true, details },
+			{ expanded: false },
+			noopTheme(),
+		);
+
+		expect(component.render(24)).toContain("Handoffs on feature/wit…");
+		expect(component.render(24).some((line) => line.endsWith("…"))).toBe(true);
+	});
+
+	test("renderer applies theme colors to header slug branch and command", () => {
+		const details: HandoffListMessageDetails = {
+			mode: "all-branches",
+			items: [{ branch: "feat/a", key: "alpha.md", slug: "alpha", preview: "Alpha work" }],
+		};
+		const component = renderHandoffListMessage(
+			{ customType: HANDOFF_LIST_MESSAGE_TYPE, content: formatHandoffListPlain(details), display: true, details },
+			{ expanded: false },
+			taggedTheme(),
+		);
+
+		expect(component.render(120)).toEqual([
+			"<accent><bold>Handoffs across branches</bold></accent>",
+			"",
+			"<accent>feat/a</accent>",
+			"<dim>  1. </dim><accent><bold>alpha</bold></accent>",
+			"     Alpha work",
+			"<muted>     → /handoff:pickup --branch feat/a alpha</muted>",
+		]);
 	});
 });

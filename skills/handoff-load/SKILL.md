@@ -46,7 +46,7 @@ All branches:
 brmem list --namespace handoffs --all-branches --format json
 ```
 
-Show normal results as handoff choices: branch when listing across branches, slug, and a short continuation focus or preview when available. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+Show normal results as handoff choices grouped by branch when listing across branches. For each choice, show the slug, a short continuation focus or preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 

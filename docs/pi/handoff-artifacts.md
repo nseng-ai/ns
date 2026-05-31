@@ -98,15 +98,33 @@ Good pickup copy:
 Picked up handoff `address-review-feedback` from branch `feature/review`.
 ```
 
-Current-branch listing should show handoff slugs or titles and enough metadata to choose one. All-branch listing must include a branch column so stale or branch-specific artifacts are understandable.
+Current-branch listing should show card-style handoff choices with slug, short continuation focus or preview, and a copyable pickup command:
 
-Recommended list columns:
+```text
+Handoffs on feature/review
 
-- branch when listing across branches
-- slug or title
-- short continuation focus or preview when available
-- updated/stored time when available
-- optional technical locator only in expanded or diagnostic output
+  1. address-review-feedback
+     Address review feedback after test cleanup…
+     → /handoff:pickup address-review-feedback
+```
+
+All-branch listing should group by branch so stale or branch-specific artifacts are understandable, and each pickup command should include the branch qualifier:
+
+```text
+Handoffs across branches
+
+feature/review
+  1. address-review-feedback
+     Address review feedback after test cleanup…
+     → /handoff:pickup --branch feature/review address-review-feedback
+
+feature/docs
+  2. document-handoff-surface
+     Document the directed handoff artifact workflow…
+     → /handoff:pickup --branch feature/docs document-handoff-surface
+```
+
+Normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output or recovery documentation.
 
 ## Current commands and skills
 
