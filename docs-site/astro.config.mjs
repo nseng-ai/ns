@@ -16,8 +16,31 @@ export default defineConfig({
         src: './src/assets/logo.svg',
         alt: 'asdl',
       },
+      social: [
+        {
+          icon: 'github',
+          label: 'GitHub',
+          href: 'https://github.com/dagster-io/asdl-tools',
+        },
+      ],
       editLink: {
         baseUrl: 'https://github.com/dagster-io/asdl-tools/edit/master/docs-site/',
+      },
+      customCss: ['./src/styles/theme.css'],
+      expressiveCode: {
+        themes: ['github-dark-default', 'github-light-default'],
+        styleOverrides: {
+          borderRadius: '0.5rem',
+          borderColor: 'var(--sl-color-hairline)',
+          codeFontFamily: 'var(--sl-font-mono)',
+          frames: { shadowColor: 'transparent' },
+        },
+      },
+      components: {
+        SiteTitle: './src/components/SiteTitle.astro',
+        Header: './src/components/Header.astro',
+        Hero: './src/components/Hero.astro',
+        ThemeProvider: './src/components/ThemeProvider.astro',
       },
       plugins: [
         starlightLlmsTxt({
@@ -47,20 +70,49 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: 'Start',
-          items: [{ label: 'Docs overview', slug: 'docs' }],
+          label: 'Get started',
+          items: [
+            { label: 'Introduction', slug: 'index' },
+            { label: 'Quickstart', slug: 'start/quickstart' },
+            { label: 'Installation', slug: 'start/installation' },
+          ],
         },
         {
           label: 'Concepts',
-          items: [{ label: 'Objectives', slug: 'concepts/objectives' }],
+          items: [
+            { label: 'The asdl umbrella', slug: 'concepts/umbrella' },
+            { label: 'CLI conventions', slug: 'concepts/conventions' },
+            { label: 'Objectives', slug: 'concepts/objectives' },
+          ],
         },
         {
           label: 'Tools',
-          items: [{ label: 'Branch Memory', slug: 'tools/brmem' }],
+          items: [
+            { label: 'slot — parallel worktrees', slug: 'tools/slot' },
+            { label: 'brmem — branch memory', slug: 'tools/brmem' },
+            { label: 'pr-address — review replies', slug: 'tools/pr-address' },
+            { label: 'aretro — retrospectives', slug: 'tools/aretro' },
+            { label: 'objective — durable plans', slug: 'tools/objective' },
+            { label: 'roaster — review harness', slug: 'tools/roaster' },
+          ],
+        },
+        {
+          label: 'Guides',
+          items: [
+            { label: 'Parallel branches with slot', slug: 'guides/parallel-branches' },
+            { label: 'Context across sessions', slug: 'guides/context-across-sessions' },
+            { label: 'Addressing PR feedback', slug: 'guides/addressing-pr-feedback' },
+          ],
         },
         {
           label: 'Skills',
-          items: [{ label: 'Branch retrospective', slug: 'skills/branch-retro' }],
+          items: [
+            { label: 'What are skills?', slug: 'skills' },
+            { label: 'brmem', slug: 'skills/brmem' },
+            { label: 'pr-address', slug: 'skills/pr-address' },
+            { label: 'branch-retro', slug: 'skills/branch-retro' },
+            { label: 'objective', slug: 'skills/objective' },
+          ],
         },
       ],
     }),
