@@ -89,7 +89,7 @@ jobs:
       - name: Build docs site
         run: bun run --cwd docs-site build
 
-  nonslop-check:
+  areg-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -98,5 +98,5 @@ jobs:
       - uses: ./.github/actions/setup-python-uv
       - name: Use vendored just
         run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
-      - name: Run nonslop check
-        run: just nonslop-check
+      - name: Run areg check
+        run: just areg-check
