@@ -10,7 +10,7 @@ import {
 	registerGrillUiExtension,
 	type ExtensionAPI,
 	type GrillAskInput,
-	type GrillAskOverlayRunner,
+	type GrillAskUiRunner,
 	type GrillAskToolContext,
 	type GrillUiCommandContext,
 	type ToolDefinition,
@@ -242,8 +242,8 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("Recommended option selected: true");
 	});
 
-	test("custom overlay is preferred over legacy select/editor and returns a choice answer", async () => {
-		const overlayRunner: GrillAskOverlayRunner = async (input) => {
+	test("custom inline UI is preferred over legacy select/editor and returns a choice answer", async () => {
+		const uiRunner: GrillAskUiRunner = async (input) => {
 			expect(input.allowFreeform).toBe(true);
 			const choice = buildGrillAskRows(input).find((row) => row.kind === "choice" && row.option.value === "generic-questionnaire");
 			if (choice === undefined || choice.kind !== "choice") throw new Error("expected generic-questionnaire choice");
@@ -256,15 +256,15 @@ describe("grill_ask execution", () => {
 				hasUI: true,
 				ui: {
 					custom: async <T>() => {
-						throw new Error("overlay runner test should not invoke fake custom directly");
+						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 					select: async () => {
-						throw new Error("legacy select should not be used when overlay succeeds");
+						throw new Error("legacy select should not be used when inline UI succeeds");
 					},
 					editor: async () => "unused",
 				},
 			},
-			{ overlayRunner },
+			{ uiRunner },
 		);
 
 		expect(result.details).toMatchObject({
@@ -275,65 +275,65 @@ describe("grill_ask execution", () => {
 		});
 	});
 
-	test("custom overlay freeform answer does not call legacy editor", async () => {
+	test("custom inline UI freeform answer does not call legacy editor", async () => {
 		const result = await executeGrillAsk(
 			baseInput(),
 			{
 				hasUI: true,
 				ui: {
 					custom: async <T>() => {
-						throw new Error("overlay runner test should not invoke fake custom directly");
+						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 					editor: async () => {
-						throw new Error("legacy editor should not be used for inline overlay freeform");
+						throw new Error("legacy editor should not be used for inline UI freeform");
 					},
 				},
 			},
-			{ overlayRunner: async () => ({ action: "freeform", answer: " Inline overlay answer. " }) },
+			{ uiRunner: async () => ({ action: "freeform", answer: " Inline UI answer. " }) },
 		);
 
 		expect(result.details).toEqual({
 			action: "answer",
 			kind: "freeform",
 			question: "How should we ship this UI improvement?",
-			answer: "Inline overlay answer.",
+			answer: "Inline UI answer.",
 		});
 	});
 
-	test("custom overlay cancellation returns action cancelled", async () => {
+	test("custom inline UI cancellation returns action cancelled", async () => {
 		const result = await executeGrillAsk(
 			baseInput(),
 			{
 				hasUI: true,
 				ui: {
 					custom: async <T>() => {
-						throw new Error("overlay runner test should not invoke fake custom directly");
+						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 				},
 			},
-			{ overlayRunner: async () => ({ action: "cancelled" }) },
+			{ uiRunner: async () => ({ action: "cancelled" }) },
 		);
 
 		expect(result.details).toEqual({ action: "cancelled", question: "How should we ship this UI improvement?" });
 		expect(text(result)).toContain("Do not silently continue grilling");
 	});
 
-	test("overlay failure falls back to legacy select/editor", async () => {
+	test("inline UI failure falls back to legacy select/editor", async () => {
 		const result = await executeGrillAsk(
 			baseInput(),
 			{
 				hasUI: true,
 				ui: {
 					custom: async <T>() => {
-						throw new Error("overlay runtime unavailable");
+						throw new Error("inline UI runtime unavailable");
 					},
 					select: async (_title, options) => options[0],
 					editor: async () => "unused",
 				},
 			},
 			{
-				overlayRunner: async () => {
-					throw new Error("overlay runtime unavailable");
+				uiRunner: async () => {
+					throw new Error("inline UI runtime unavailable");
 				},
 			},
 		);
