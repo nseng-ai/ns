@@ -57,11 +57,12 @@ not supported. The explicit path only needs to be absolute/home-relative and end
 in `.md`; the filename stem is not validated as the branch slug.
 
 After selecting the file, `/create-planned-branch` invokes a tiny Pi model on the
-saved plan content only. The model output is normalized and validated as the
-content-derived planned-branch slug. If the model command fails, returns empty
-output, or cannot be validated as a planned-branch slug, the command fails before
-mutation and does not fall back to the filename, heading, path, or any
-deterministic backup.
+saved plan content only. The model output is normalized into lowercase kebab-case
+and mechanically repaired where safe; in particular, overlong model phrases are
+trimmed to the first seven complete slug words before validation. If the model
+command fails, returns empty output, or cannot be normalized and validated after
+that repair, the command fails before mutation. It does not fall back to the
+saved-plan filename, heading, path, or any non-model deterministic backup.
 
 In this repo, planned branches default to the content-derived slug itself
 (`<content-derived-slug>`). Branch creation defaults to Graphite through the
@@ -148,8 +149,8 @@ Common recovery paths:
 - If the target branch already exists, choose another target branch or inspect
   the existing branch before retrying.
 - If content slug derivation fails, fix model access or adjust the plan content
-  and retry; `/create-planned-branch` will not fall back to the saved-plan
-  filename.
+  and retry. The command repairs overlong model phrases to seven complete words,
+  but it will not fall back to the saved-plan filename, path, or heading.
 - If the target Branch Memory entry already exists, the workflow refuses to
   overwrite it; inspect the existing `brmem-plans/<content-derived-slug>.md`
   entry before deciding what to do next.

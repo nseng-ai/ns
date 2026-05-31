@@ -101,6 +101,17 @@ describe("derivePlanContentSlug", () => {
 		expect(evidence.slug).toBe("add-docs-portal-site");
 	});
 
+	test("overlong model output is repaired to seven complete slug words", async () => {
+		const filePath = await makePlanFile();
+		const rawOutput = "asdl docs site slot page conventions skeleton theme foundation\n";
+		const pi = new FakeSlugPi({ result: { stdout: rawOutput } });
+
+		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+
+		expect(evidence.slug).toBe("asdl-docs-site-slot-page-conventions-skeleton");
+		expect(evidence.rawOutput).toBe(rawOutput);
+	});
+
 	test("nonzero Pi model command fails with no fallback", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { code: 1, stderr: "model unavailable" } });
