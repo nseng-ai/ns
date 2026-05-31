@@ -89,7 +89,7 @@ export function rowRecommendationTag(row: GrillAskRow): string | undefined {
 	return row.kind === "choice" && row.recommended ? "★ recommended" : undefined;
 }
 
-export function focusedDetailLines(input: NormalizedGrillAskInput, row: GrillAskRow): string[] {
+export function choiceDetailLines(input: NormalizedGrillAskInput, row: GrillAskRow): string[] {
 	if (row.kind !== "choice") return [];
 
 	const lines: string[] = [];
