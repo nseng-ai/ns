@@ -1,0 +1,13 @@
+{
+  "name": "asdl-dev",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "asdl-dev": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "devDependencies": {}
+}
