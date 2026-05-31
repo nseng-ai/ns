@@ -53,7 +53,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Command                  | Source                             | Description                                                                                         |
 | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `/handoff:save`          | `.pi/extensions/handoff.ts`        | Save a directed handoff artifact for a future continuation.                                         |
+| `/handoff:create`        | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
 | `/handoff:load`          | `.pi/extensions/handoff.ts`        | Load a saved handoff by slug, selector, or picker.                                                  |
 | `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches.                                          |
 | `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
@@ -84,7 +84,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Family                | Disposition                                                                                                                                                                                                                         |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Planned branches      | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed. |
-| Handoff artifacts     | Final first-party surface: `/handoff:save`, `/handoff:load`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. No old `brmem`-named handoff aliases are retained.                                                  |
+| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:load`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. No old `brmem`-named handoff aliases are retained.                                                |
 | Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.               |
 
 ## Engineered Pi extension package

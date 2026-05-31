@@ -171,7 +171,7 @@ function createContext(
 }
 
 async function runCommand(
-	commandName: "handoff:save" | "handoff:load" | "handoff:list",
+	commandName: "handoff:create" | "handoff:load" | "handoff:list",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: {
@@ -269,22 +269,22 @@ function skillCommandInfo(skillPath: string): CommandInfo {
 }
 
 describe("handoff extension", () => {
-	test("registers only save load and list commands", () => {
+	test("registers only create load and list commands", () => {
 		const pi = new FakePi();
 
 		handoffExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual(["handoff:list", "handoff:load", "handoff:save"]);
+		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:load"]);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
-		expect(pi.commands.get("handoff:save")?.description).toBe("Save a directed handoff artifact for a future continuation.");
+		expect(pi.commands.get("handoff:create")?.description).toBe("Create a directed handoff artifact for a future continuation.");
 		expect(pi.commands.get("handoff:load")?.description).toBe("Load a saved handoff by slug, selector, or picker.");
 		expect(pi.commands.get("handoff:list")?.description).toBe("List saved handoffs on this branch or across all branches.");
 	});
 
-	test("save command expands the handoff-save skill when available", async () => {
+	test("create command expands the handoff-save skill when available", async () => {
 		await withTempSkill(async (skillPath) => {
-			const result = await runCommand("handoff:save", "resume extension frontend work", [], {}, [
+			const result = await runCommand("handoff:create", "resume extension frontend work", [], {}, [
 				skillCommandInfo(skillPath),
 			]);
 
@@ -298,8 +298,8 @@ describe("handoff extension", () => {
 		});
 	});
 
-	test("save fallback uses the handoffs namespace and semantic slug key", async () => {
-		const result = await runCommand("handoff:save", "handoff focus");
+	test("create fallback uses the handoffs namespace and semantic slug key", async () => {
+		const result = await runCommand("handoff:create", "handoff focus");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
@@ -314,8 +314,8 @@ describe("handoff extension", () => {
 		]);
 	});
 
-	test("save with no args prompts for focus and continues when supplied", async () => {
-		const result = await runCommand("handoff:save", "", [], { inputResponse: "continue the list command" });
+	test("create with no args prompts for focus and continues when supplied", async () => {
+		const result = await runCommand("handoff:create", "", [], { inputResponse: "continue the list command" });
 
 		result.pi.assertDone();
 		expect(result.inputs).toEqual([
@@ -325,8 +325,8 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("continue the list command");
 	});
 
-	test("save with no args and cancelled input stops without save prompt", async () => {
-		const result = await runCommand("handoff:save", "");
+	test("create with no args and cancelled input stops without save prompt", async () => {
+		const result = await runCommand("handoff:create", "");
 
 		result.pi.assertDone();
 		expect(result.inputs).toHaveLength(1);
@@ -334,8 +334,8 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
-	test("save with no input UI asks the assistant to request focus without saving", async () => {
-		const result = await runCommand("handoff:save", "", [], { hasUI: false, inputUnavailable: true });
+	test("create with no input UI asks the assistant to request focus without saving", async () => {
+		const result = await runCommand("handoff:create", "", [], { hasUI: false, inputUnavailable: true });
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages).toEqual([

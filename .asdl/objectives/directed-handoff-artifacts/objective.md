@@ -51,7 +51,7 @@ This Objective can close when all of the following are true:
 Assumptions:
 
 - "Handoff" is the right public noun when consistently treated as a directed saved artifact: users save a handoff, load a handoff, list handoffs, and resume from a handoff later.
-- The final project-local Pi surface is `/handoff:save`, `/handoff:load`, and `/handoff:list`; the first-party portable skills are `handoff-save` and `handoff-load`.
+- The final project-local Pi surface is `/handoff:create`, `/handoff:load`, and `/handoff:list`; the first-party portable skills are `handoff-save` and `handoff-load`.
 - The final handoff storage contract is Branch Memory namespace `handoffs` with flat key `<semantic-slug>.md` on the branch carrying the handoff.
 - Branch Memory remains the right underlying storage abstraction for branch-scoped handoff artifacts, but it is invisible in normal save/load/list UX except as technical locator or recovery evidence.
 - The old `brmem`-named handoff commands, first-party skills, symlinks, and storage contract have no compatibility users in this repo; no aliases, shims, or migration are needed.
@@ -69,7 +69,7 @@ Risks:
 
 Resolved in the 2026-05-30 save/load/list rename slice:
 
-- Command and skill names: `/handoff:save`, `/handoff:load`, `/handoff:list`, `handoff-save`, and `handoff-load`.
+- Command and skill names: `/handoff:create`, `/handoff:load`, `/handoff:list`, `handoff-save`, and `handoff-load`.
 - Listing shape: a public Pi list command plus low-level `brmem list --all-branches` for storage/recovery.
 - Transition policy: immediate removal of old `brmem`-named handoff surfaces; no aliases, shims, or migration.
 - Technical locators: Branch Memory namespace `handoffs`, entry `<semantic-slug>.md`, branch, ref, and commit appear only as technical evidence or recovery detail.

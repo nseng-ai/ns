@@ -113,7 +113,7 @@ Recommended list columns:
 Project-local Pi commands:
 
 ```text
-/handoff:save <continuation focus>
+/handoff:create <continuation focus>
 /handoff:load [--branch <branch>] [semantic-slug|search words]
 /handoff:list [--branch <branch> | --all-branches]
 ```
@@ -121,7 +121,7 @@ Project-local Pi commands:
 Examples:
 
 ```text
-/handoff:save address review feedback after test cleanup
+/handoff:create address review feedback after test cleanup
 /handoff:load address-review-feedback
 /handoff:list
 /handoff:list --all-branches
@@ -132,7 +132,7 @@ Portable first-party skills:
 - `handoff-save`
 - `handoff-load`
 
-`/handoff:save` requires a meaningful continuation focus. If the user omits it, the command asks:
+`/handoff:create` requires a meaningful continuation focus. If the user omits it, the command asks:
 
 ```text
 What should the future session continue from this handoff?

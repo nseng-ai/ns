@@ -7,7 +7,7 @@ export type { ExecResult } from "./command-runtime.ts";
 
 const HANDOFF_NAMESPACE = "handoffs";
 const HANDOFF_KEY_SUFFIX = ".md";
-const SAVE_HANDOFF_COMMAND_NAME = "handoff:save";
+const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
 const LOAD_HANDOFF_COMMAND_NAME = "handoff:load";
 const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 const SAVE_HANDOFF_SKILL_NAME = "handoff-save";
@@ -769,8 +769,8 @@ function truncateError(message: string): string {
 }
 
 export default function handoffExtension(pi: ExtensionAPI): void {
-	pi.registerCommand(SAVE_HANDOFF_COMMAND_NAME, {
-		description: "Save a directed handoff artifact for a future continuation.",
+	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
+		description: "Create a directed handoff artifact for a future continuation.",
 		handler: async (args, ctx) => handleSaveHandoffCommand(pi, args, ctx),
 	});
 
