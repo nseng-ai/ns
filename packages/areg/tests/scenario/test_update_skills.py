@@ -38,7 +38,7 @@ def _ctx(npx: FakeNpxSkills | None = None) -> AregContext:
 def _write_lockfile(project_dir, entries: dict[str, dict]) -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / "skills-lock.json").write_text(
-        json.dumps({"version": 1, "skills": entries}, indent=2)
+        json.dumps({"version": 1, "skills": entries}, indent=2), encoding="utf-8"
     )
 
 
@@ -202,7 +202,9 @@ def test_update_skills_dry_run_makes_no_calls(tmp_path) -> None:
 def test_update_skills_reads_agents_from_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"ns-pytest": _github_entry()})
-    (project / "areg.json").write_text(json.dumps({"agents": ["codex", "cursor"]}))
+    (project / "areg.json").write_text(
+        json.dumps({"agents": ["codex", "cursor"]}), encoding="utf-8"
+    )
     fake = FakeNpxSkills(catalog=_catalog_all_default())
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
@@ -214,7 +216,9 @@ def test_update_skills_reads_agents_from_areg_json(tmp_path) -> None:
 def test_update_skills_explicit_agent_overrides_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"ns-pytest": _github_entry()})
-    (project / "areg.json").write_text(json.dumps({"agents": ["codex", "cursor"]}))
+    (project / "areg.json").write_text(
+        json.dumps({"agents": ["codex", "cursor"]}), encoding="utf-8"
+    )
     fake = FakeNpxSkills(catalog=_catalog_all_default())
 
     result = CliRunner().invoke(

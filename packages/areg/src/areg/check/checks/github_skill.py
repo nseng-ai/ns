@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import ClassVar
 
 from areg.check.base import SkillCheck
@@ -55,8 +54,8 @@ class GitHubSkillStructureCheck(SkillCheck):
                 )
             )
         else:
-            actual_target = os.readlink(claude_path)
-            if actual_target != expected_claude_target:
+            actual_target = claude_path.readlink()
+            if str(actual_target) != expected_claude_target:
                 issues.append(
                     SkillIssue(
                         name,

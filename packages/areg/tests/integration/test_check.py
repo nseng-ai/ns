@@ -17,7 +17,7 @@ from areg.cli import main
 
 def _make_lockfile(project: Path, skills: dict) -> None:
     (project / "skills-lock.json").write_text(
-        json.dumps({"version": 1, "skills": skills}, indent=2)
+        json.dumps({"version": 1, "skills": skills}, indent=2), encoding="utf-8"
     )
 
 
@@ -25,22 +25,23 @@ def _make_agents_md(project: Path, _skill_names: list[str]) -> None:
     (project / "AGENTS.md").write_text(
         "# Skills\n\n"
         "Installed skills are discovered from the on-disk skill directories and "
-        "`SKILL.md` frontmatter.\n"
+        "`SKILL.md` frontmatter.\n",
+        encoding="utf-8",
     )
-    (project / "CLAUDE.md").write_text("# project\n\n@AGENTS.md\n")
+    (project / "CLAUDE.md").write_text("# project\n\n@AGENTS.md\n", encoding="utf-8")
 
 
 def _write_file(project: Path, relpath: str, body: str) -> None:
     path = project / relpath
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
 
 
 def _make_local_skill(project: Path, name: str) -> None:
     """Create a properly-structured local skill with correct symlink chain."""
     skill_dir = project / "skills" / name
     skill_dir.mkdir(parents=True, exist_ok=True)
-    (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
+    (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
 
     agents_dir = project / ".agents" / "skills"
     agents_dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +56,7 @@ def _make_github_skill(project: Path, name: str) -> None:
     """Create a properly-structured GitHub-sourced skill."""
     agents_dir = project / ".agents" / "skills" / name
     agents_dir.mkdir(parents=True, exist_ok=True)
-    (agents_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
+    (agents_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
 
     claude_dir = project / ".claude" / "skills"
     claude_dir.mkdir(parents=True, exist_ok=True)
@@ -131,7 +132,9 @@ def test_check_local_missing_skills_dir(tmp_path: Path) -> None:
     agents_dir.mkdir(parents=True)
     # Can't make a valid symlink without the target, so make a real dir
     (agents_dir / "my-skill").mkdir()
-    (agents_dir / "my-skill" / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (agents_dir / "my-skill" / "SKILL.md").write_text(
+        "---\nname: my-skill\n---\n", encoding="utf-8"
+    )
     claude_dir = tmp_path / ".claude" / "skills"
     claude_dir.mkdir(parents=True)
     (claude_dir / "my-skill").symlink_to(Path("../../.agents/skills/my-skill"))
@@ -179,7 +182,7 @@ def test_check_local_skills_dir_is_symlink(tmp_path: Path) -> None:
     """The backwards case: skills/<name> is a symlink into .agents/skills/."""
     agents_dir = tmp_path / ".agents" / "skills" / "my-skill"
     agents_dir.mkdir(parents=True)
-    (agents_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (agents_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
 
     skills_dir = tmp_path / "skills"
     skills_dir.mkdir(parents=True)
@@ -200,12 +203,12 @@ def test_check_local_skills_dir_is_symlink(tmp_path: Path) -> None:
 def test_check_local_agents_not_symlink(tmp_path: Path) -> None:
     skill_dir = tmp_path / "skills" / "my-skill"
     skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
 
     # .agents/skills/<name> is a real dir instead of symlink
     agents_dir = tmp_path / ".agents" / "skills" / "my-skill"
     agents_dir.mkdir(parents=True)
-    (agents_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (agents_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
 
     claude_dir = tmp_path / ".claude" / "skills"
     claude_dir.mkdir(parents=True)
@@ -222,7 +225,7 @@ def test_check_local_agents_not_symlink(tmp_path: Path) -> None:
 def test_check_local_agents_wrong_target(tmp_path: Path) -> None:
     skill_dir = tmp_path / "skills" / "my-skill"
     skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
 
     agents_dir = tmp_path / ".agents" / "skills"
     agents_dir.mkdir(parents=True)
@@ -247,7 +250,7 @@ def test_check_local_claude_not_symlink(tmp_path: Path) -> None:
     claude_path = tmp_path / ".claude" / "skills" / "my-skill"
     claude_path.unlink()
     claude_path.mkdir()
-    (claude_path / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (claude_path / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
 
     _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
     _make_agents_md(tmp_path, ["my-skill"])
@@ -276,7 +279,7 @@ def test_check_local_claude_wrong_target(tmp_path: Path) -> None:
 def test_check_local_agents_missing(tmp_path: Path) -> None:
     skill_dir = tmp_path / "skills" / "my-skill"
     skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
     # No .agents/skills/my-skill at all
 
     claude_dir = tmp_path / ".claude" / "skills"
@@ -293,7 +296,7 @@ def test_check_local_agents_missing(tmp_path: Path) -> None:
 def test_check_local_claude_missing(tmp_path: Path) -> None:
     skill_dir = tmp_path / "skills" / "my-skill"
     skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
 
     agents_dir = tmp_path / ".agents" / "skills"
     agents_dir.mkdir(parents=True)
@@ -313,7 +316,7 @@ def test_check_local_skill_description_too_long(tmp_path: Path) -> None:
     skill_dir.mkdir(parents=True)
     long_description = "a" * 1025
     (skill_dir / "SKILL.md").write_text(
-        f'---\nname: my-skill\ndescription: "{long_description}"\n---\n'
+        f'---\nname: my-skill\ndescription: "{long_description}"\n---\n', encoding="utf-8"
     )
 
     agents_dir = tmp_path / ".agents" / "skills"
@@ -355,7 +358,7 @@ def test_check_github_agents_is_symlink(tmp_path: Path) -> None:
     """GitHub skill's .agents/skills/<name> should be a real dir, not a symlink."""
     real_dir = tmp_path / "somewhere" / "my-remote"
     real_dir.mkdir(parents=True)
-    (real_dir / "SKILL.md").write_text("---\nname: my-remote\n---\n")
+    (real_dir / "SKILL.md").write_text("---\nname: my-remote\n---\n", encoding="utf-8")
 
     agents_dir = tmp_path / ".agents" / "skills"
     agents_dir.mkdir(parents=True)
@@ -389,7 +392,7 @@ def test_check_github_unexpected_skills_dir(tmp_path: Path) -> None:
 def test_check_github_claude_missing(tmp_path: Path) -> None:
     agents_dir = tmp_path / ".agents" / "skills" / "my-remote"
     agents_dir.mkdir(parents=True)
-    (agents_dir / "SKILL.md").write_text("---\nname: my-remote\n---\n")
+    (agents_dir / "SKILL.md").write_text("---\nname: my-remote\n---\n", encoding="utf-8")
     # No .claude/skills/my-remote
 
     _make_lockfile(tmp_path, {"my-remote": _github_lock_entry("org/repo")})
@@ -452,7 +455,7 @@ def test_check_edge_no_lockfile(tmp_path: Path) -> None:
 
 
 def test_check_edge_invalid_json(tmp_path: Path) -> None:
-    (tmp_path / "skills-lock.json").write_text("not valid json{{{")
+    (tmp_path / "skills-lock.json").write_text("not valid json{{{", encoding="utf-8")
 
     result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
     assert result.exit_code != 0
@@ -484,7 +487,7 @@ def test_check_edge_multiple_issues_per_skill(tmp_path: Path) -> None:
     """A single local skill with no skills/ dir and a real dir in .agents."""
     agents_dir = tmp_path / ".agents" / "skills" / "bad-skill"
     agents_dir.mkdir(parents=True)
-    (agents_dir / "SKILL.md").write_text("---\nname: bad-skill\n---\n")
+    (agents_dir / "SKILL.md").write_text("---\nname: bad-skill\n---\n", encoding="utf-8")
 
     claude_dir = tmp_path / ".claude" / "skills"
     claude_dir.mkdir(parents=True)
@@ -504,7 +507,7 @@ def test_check_edge_multiple_issues_per_skill(tmp_path: Path) -> None:
 def test_check_edge_invalid_skill_frontmatter(tmp_path: Path) -> None:
     skill_dir = tmp_path / "skills" / "my-skill"
     skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n")
+    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n", encoding="utf-8")
 
     agents_dir = tmp_path / ".agents" / "skills"
     agents_dir.mkdir(parents=True)
@@ -579,7 +582,8 @@ def test_locally_excluded_skills_parses_exclude_file(tmp_path: Path) -> None:
         ".claude/skills/foo-skill\n"
         ".agents/skills/bar-skill\n"
         ".claude/skills/bar-skill\n"
-        "some/other/path\n"
+        "some/other/path\n",
+        encoding="utf-8",
     )
     result = locally_excluded_skills(tmp_path)
     assert result == {"foo-skill", "bar-skill"}
@@ -601,7 +605,9 @@ def test_check_excluded_skill_not_flagged_as_orphan(tmp_path: Path) -> None:
 
     git_info = tmp_path / ".git" / "info"
     git_info.mkdir(parents=True)
-    (git_info / "exclude").write_text(".agents/skills/local-only\n.claude/skills/local-only\n")
+    (git_info / "exclude").write_text(
+        ".agents/skills/local-only\n.claude/skills/local-only\n", encoding="utf-8"
+    )
 
     result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
     assert result.exit_code == 0
@@ -618,7 +624,7 @@ def test_check_non_excluded_orphan_still_flagged(tmp_path: Path) -> None:
 
     git_info = tmp_path / ".git" / "info"
     git_info.mkdir(parents=True)
-    (git_info / "exclude").write_text(".agents/skills/other-skill\n")
+    (git_info / "exclude").write_text(".agents/skills/other-skill\n", encoding="utf-8")
 
     result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
     assert result.exit_code == 1
