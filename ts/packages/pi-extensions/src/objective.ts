@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
@@ -22,16 +19,16 @@ const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const OBJECTIVE_STATUS_TIMEOUT_MS = 30_000;
 const OBJECTIVE_GT_STACKS_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
-const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
+const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
-const OBJECTIVE_GT_STACKS_COMMAND_NAME = "objective-gt-stacks";
+const OBJECTIVE_GT_STACKS_COMMAND_NAME = "objective:gt-stacks";
 const OBJECTIVE_GT_STACKS_MESSAGE_TYPE = "objective-gt-stacks-output";
 
-const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--names] [--status all|active|open|closed] [--help]
+const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--status all|active|open|closed] [--help]
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_GT_STACKS_USAGE = `Usage: /objective-gt-stacks [--help]
+const OBJECTIVE_GT_STACKS_USAGE = `Usage: /objective:gt-stacks [--help]
 
 Shows \`objective gt stacks\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
@@ -94,7 +91,8 @@ export type ExtensionAPI = {
 	sendUserMessage(content: string): void;
 };
 
-type ObjectiveCommandName = "objective-next" | "objective-current" | "objective-update";
+type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
+type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
 
 type ObjectiveSelectionSpec = {
 	statusKey: string;
@@ -104,16 +102,18 @@ type ObjectiveSelectionSpec = {
 
 type ObjectiveCommandSpec = ObjectiveSelectionSpec & {
 	commandName: ObjectiveCommandName;
-	skillName: ObjectiveCommandName;
+	skillName: ObjectiveSkillName;
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
 };
 
 type ObjectiveStackImplCommandSpec = ObjectiveSelectionSpec & {
-	commandName: "objective-stack-impl";
+	commandName: "objective:stack-impl";
+	skillName: "objective-stack-impl";
 	description: string;
-	promptTemplateName: "objective-stack-impl";
+	fallbackPrompt: string;
+	actionPrompt: string;
 };
 
 export type ObjectiveListParsedArgs = {
@@ -160,10 +160,10 @@ class CustomCliUsageError extends Error {
 
 const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
-		commandName: "objective-next",
+		commandName: "objective:next",
 		skillName: "objective-next",
 		description: "Pick an active Objective, then invoke objective-next for the selected slug.",
-		statusKey: "objective-next",
+		statusKey: "objective:next",
 		selectionTitle: "Select an active Objective for next-work recommendation",
 		fallbackPrompt:
 			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below. If likely unrecorded progress blocks the recommendation, ask whether to run objective-update for the same Objective and only mutate through that explicit handoff.",
@@ -171,20 +171,20 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		compactDiffSuggestion: true,
 	},
 	{
-		commandName: "objective-current",
+		commandName: "objective:current",
 		skillName: "objective-current",
 		description: "Pick an active Objective, then invoke objective-current for the selected slug.",
-		statusKey: "objective-current",
+		statusKey: "objective:current",
 		selectionTitle: "Select an active Objective to summarize",
 		fallbackPrompt:
 			"The objective-current skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: summarize the current state of the explicit Objective below without mutating files.",
 		actionPrompt: "Run objective-current for this explicitly selected Objective slug or path:",
 	},
 	{
-		commandName: "objective-update",
+		commandName: "objective:update",
 		skillName: "objective-update",
 		description: "Pick an active Objective, then invoke objective-update for the selected slug.",
-		statusKey: "objective-update",
+		statusKey: "objective:update",
 		selectionTitle: "Select an active Objective to update",
 		fallbackPrompt:
 			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
@@ -193,17 +193,16 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 ];
 
 const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
-	commandName: "objective-stack-impl",
-	description: "Pick an active Objective, then invoke the Objective stack implementation prompt for the selected slug.",
-	statusKey: "objective-stack-impl",
+	commandName: "objective:stack-impl",
+	skillName: "objective-stack-impl",
+	description: "Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
+	statusKey: "objective:stack-impl",
 	selectionTitle: "Select an active Objective for stack implementation",
 	compactDiffSuggestion: true,
-	promptTemplateName: "objective-stack-impl",
+	fallbackPrompt:
+		"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
+	actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
 };
-
-function stripPromptTemplateFrontmatter(markdown: string): string {
-	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
-}
 
 function truncateTail(text: string, maxChars: number): string {
 	const tail = tailText(text, { maxChars });
@@ -374,23 +373,23 @@ ${objective}
 Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
 }
 
-function findPromptTemplatePath(pi: ExtensionAPI, ctx: CommandContext, promptTemplateName: string): string {
-	const command = pi
-		.getCommands()
-		.find((candidate) => candidate.source === "prompt" && candidate.name === promptTemplateName);
-	return command?.sourceInfo.path ?? resolve(ctx.cwd, ".pi/prompts", `${promptTemplateName}.md`);
+function buildObjectiveStackImplSkillPrompt(
+	spec: ObjectiveStackImplCommandSpec,
+	skillBlock: string | undefined,
+	objective: string,
+): string {
+	return `${skillBlock ?? spec.fallbackPrompt}
+
+${spec.actionPrompt}
+
+\`\`\`text
+${objective}
+\`\`\`
+
+Treat this as an explicit user selection. Do not auto-select a different Objective.`;
 }
 
-export function buildObjectiveStackImplPrompt(templateMarkdown: string, objective: string): string {
-	return stripPromptTemplateFrontmatter(templateMarkdown).replace(/\$ARGUMENTS/g, () => objective);
-}
-
-function formatPromptTemplateReadError(promptTemplateName: string, promptPath: string, error: unknown): string {
-	const detail = error instanceof Error ? error.message : String(error);
-	return `Failed to read /${promptTemplateName} prompt template at ${promptPath}: ${detail}`;
-}
-
-async function invokeObjectiveStackImplPrompt(
+async function invokeObjectiveStackImplSkill(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveStackImplCommandSpec,
@@ -398,22 +397,17 @@ async function invokeObjectiveStackImplPrompt(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	const promptPath = findPromptTemplatePath(pi, ctx, spec.promptTemplateName);
-	let templateMarkdown: string;
-	try {
-		templateMarkdown = await readFile(promptPath, "utf8");
-	} catch (error) {
-		if (ctx.hasUI) {
-			ctx.ui.notify(formatPromptTemplateReadError(spec.promptTemplateName, promptPath, error), "error");
-		}
-		return;
-	}
-
+	const skill = await expandSkillBlock(pi, spec.skillName);
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Invoking ${spec.commandName} for ${objective}.`, "info");
+		ctx.ui.notify(
+			skill
+				? `Invoking ${spec.commandName} for ${objective}.`
+				: `${spec.skillName} skill was not found; using fallback prompt.`,
+			skill ? "info" : "warning",
+		);
 	}
 
-	pi.sendUserMessage(buildObjectiveStackImplPrompt(templateMarkdown, objective));
+	pi.sendUserMessage(buildObjectiveStackImplSkillPrompt(spec, skill?.block, objective));
 }
 
 async function selectObjectiveSlug(
@@ -581,7 +575,7 @@ async function handleObjectiveStackImplCommand(
 	const explicitObjective = args.trim();
 	try {
 		if (explicitObjective) {
-			await invokeObjectiveStackImplPrompt(pi, ctx, spec, explicitObjective);
+			await invokeObjectiveStackImplSkill(pi, ctx, spec, explicitObjective);
 			return;
 		}
 
@@ -590,7 +584,7 @@ async function handleObjectiveStackImplCommand(
 			return;
 		}
 
-		await invokeObjectiveStackImplPrompt(pi, ctx, spec, slug);
+		await invokeObjectiveStackImplSkill(pi, ctx, spec, slug);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {
@@ -664,7 +658,7 @@ export function parseObjectiveGtStacksArgs(rawArgs: string): ObjectiveGtStacksPa
 			);
 		}
 		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			throw new CustomCliUsageError("--json-schema is not supported by /objective-gt-stacks.");
+			throw new CustomCliUsageError("--json-schema is not supported by /objective:gt-stacks.");
 		}
 		if (token.startsWith("-")) {
 			throw new CustomCliUsageError(`Unsupported /${OBJECTIVE_GT_STACKS_COMMAND_NAME} flag: ${token}.`);
@@ -684,7 +678,7 @@ function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
 			throw new CustomCliUsageError("--format is controlled by the Pi extension and is not supported here.");
 		}
 		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			throw new CustomCliUsageError("--json-schema is not supported by /objective-list.");
+			throw new CustomCliUsageError("--json-schema is not supported by /objective:list.");
 		}
 	}
 }

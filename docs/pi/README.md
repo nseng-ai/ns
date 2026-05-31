@@ -72,7 +72,7 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 
 | Area/file                                                         | Current layer                                  | Notes                                                                                                                  |
 | ----------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `.pi/extensions/objective.ts`                                     | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                                     |
+| `.pi/extensions/objective.ts`                                     | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates namespaced `/objective:*` command wrappers to package code.             |
 | `.pi/extensions/land-stack.ts`                                    | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable landing behavior lives in the package.                               |
 | `.pi/extensions/brmem-handoff.ts`                                 | Project-local adapter over engineered behavior | Adds `/brmem-handoff` and `/brmem-pickup-handoff` Branch Memory handoff frontends.                                     |
 | `.pi/extensions/cp.ts`                                            | Project-local adapter over engineered behavior | Adds `/cp` checkpoint commits over package-tested pending-worktree/checkpoint helpers.                                 |
@@ -101,7 +101,7 @@ Pi's visible slash-command inventory for this repo is the RPC `get_commands` res
 Repo-owned project surface:
 
 - `.pi/extensions/...` project-local extension commands.
-- `.pi/prompts/*.md` project prompt templates.
+- `.pi/prompts/*.md` project prompt templates, when a lightweight Pi-only text expansion is the intended public surface.
 - `skills/<name>/SKILL.md`, exposed through symlinks under `.agents/skills/<name>` for local asdl skills.
 
 External or personal surface:
@@ -111,7 +111,9 @@ External or personal surface:
 
 Rules:
 
-- Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, or document the intentional duplication.
+- Repo-owned Pi extension command families should use `/namespace:command` names when introduced or renamed. Use the domain/CLI namespace when obvious, such as `/objective:list`, `/objective:next`, or `/objective:stack-impl`. Reserve `/skill:<name>` for Pi's skill-command namespace and do not register extension commands under `skill:*`.
+- Existing short top-level extension commands may remain when they are deliberately standalone or awaiting explicit disposition. Do not add legacy aliases only for autocomplete convenience; visible aliases increase surface area.
+- Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, convert it to a skill, or document the intentional duplication.
 - Mutating commands that touch git or GitHub state need either engineered tests/adapters or explicit docs saying why the vibecoded command is retained and what safety checks it owns.
 - Command descriptions should distinguish adjacent commands in autocomplete. If two command names intentionally share behavior, say which one is the alias or focused entrypoint.
 - For local command skills, use `description: "Command: <skill-name>"` rather than bare `Command`; keep richer routing in the skill body or original-description comment.
@@ -120,19 +122,19 @@ Rules:
 
 The resource-surface cleanup proceeds in small slices:
 
-1. Metadata/docs first: record policy, normalize low-risk descriptions, and make aliases legible.
-2. Resolve the duplicate `/objective-stack-impl` extension/prompt surface.
+1. Metadata/docs first: record policy, normalize low-risk descriptions, and make aliases legible. Completed.
+2. Resolve the duplicate Objective stack implementation surface by using the namespaced Pi wrapper `/objective:stack-impl` and the portable skill `/skill:objective-stack-impl`. Completed.
 3. Decide the `/land` disposition: promote and test, deprecate/replace, or retain with explicit safety rationale.
 4. Re-run Pi RPC command inventory after material changes and record the final surface as closure evidence.
 
-| Surface                                                | Disposition                                                                                                                 |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `skills/<name>` local symlinked skills                 | Repo-owned; metadata cleanup is allowed. Command skills should use the explicit `Command: <skill-name>` description marker. |
-| Real-directory skills under `.agents/skills/<name>/`   | External/vendored runtime skills; remain live by default, excluded from deep review, and edited only by explicit request.   |
-| `worktree-status`, `brmem-status`, and `gt-status`     | Shared behavior is acceptable, but autocomplete descriptions should distinguish the combined view from alias entrypoints.   |
-| `/objective-stack-impl` extension plus prompt template | Known duplicate visible surface; next cleanup slice should make the public wrapper and internal prompt relationship clear.  |
-| `/land`                                                | Legacy mutating GitHub command; retained temporarily pending the explicit risk disposition slice.                           |
-| User-local CMUX, `gh-pr`, `stack-latest`, and skills   | Personal-resource findings only; do not promote or mutate unless explicitly requested.                                      |
+| Surface                                                    | Disposition                                                                                                                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skills/<name>` local symlinked skills                     | Repo-owned; metadata cleanup is allowed. Command skills should use the explicit `Command: <skill-name>` description marker.                                               |
+| Real-directory skills under `.agents/skills/<name>/`       | External/vendored runtime skills; remain live by default, excluded from deep review, and edited only by explicit request.                                                 |
+| `worktree-status`, `brmem-status`, and `gt-status`         | Shared behavior is acceptable, but autocomplete descriptions should distinguish the combined view from alias entrypoints.                                                 |
+| `/objective:stack-impl` plus `/skill:objective-stack-impl` | Resolved Objective stack implementation surface: Pi uses the namespaced picker wrapper; Codex/Claude use the portable skill; no public prompt-template duplicate remains. |
+| `/land`                                                    | Legacy mutating GitHub command; retained temporarily pending the explicit risk disposition slice.                                                                         |
+| User-local CMUX, `gh-pr`, `stack-latest`, and skills       | Personal-resource findings only; do not promote or mutate unless explicitly requested.                                                                                    |
 
 ## Planned branch workflow
 

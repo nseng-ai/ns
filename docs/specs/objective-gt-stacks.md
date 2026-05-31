@@ -1,7 +1,7 @@
-# Specification: `objective gt stacks` and the `/objective-gt-stacks` display command
+# Specification: `objective gt stacks` and the `/objective:gt-stacks` display command
 
 Status: Specification (distilled from a working prototype)
-Scope: the `objective gt stacks` command and its companion Pi display command `/objective-gt-stacks`.
+Scope: the `objective gt stacks` command and its companion Pi display command `/objective:gt-stacks`.
 
 This document specifies observable behavior only. It defines _what_ the feature does, not _how_ it is built. It is the authoritative contract that a production implementation must satisfy. Nothing here should be read as prescribing internal structure, storage, languages, or libraries.
 
@@ -565,17 +565,17 @@ segment 1
 
 ---
 
-## 11. The `/objective-gt-stacks` Pi display command
+## 11. The `/objective:gt-stacks` Pi display command
 
 A companion command exists for agent/chat environments (Pi). It is a **thin display wrapper** over `objective gt stacks`. It exists so a developer can view the stack projection inline without asking the agent to run a shell command or interpret output.
 
 ### 11.1 Contract
 
-- **Invocation:** `/objective-gt-stacks` or `/objective-gt-stacks --help` (also `-h`).
+- **Invocation:** `/objective:gt-stacks` or `/objective:gt-stacks --help` (also `-h`).
 - **Default action:** runs `objective gt stacks` in **markdown** format and presents the result as a display message in the session.
 - **Help:** `--help`/`-h` runs `objective gt stacks --help` and displays that usage text. The command's own usage banner is:
   ```
-  Usage: /objective-gt-stacks [--help]
+  Usage: /objective:gt-stacks [--help]
 
   Shows `objective gt stacks` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.
   ```
@@ -611,7 +611,7 @@ Each display message carries structured details alongside the human-readable con
 - the exit code and a killed/timed-out flag,
 - the byte/char sizes of the captured output streams.
 
-> The companion `/objective-list` command and the changed-Objective picker live in the same surface but are out of scope for this specification.
+> The companion `/objective:list` command and the changed-Objective picker live in the same surface but are out of scope for this specification.
 
 ---
 
@@ -645,4 +645,4 @@ A conforming implementation must satisfy all of the following:
 - [ ] JSON exposes semantic facts only (no glyphs) and matches the schema in §7.3.2.
 - [ ] Fails with exit code 2 and a stable `error_type` for environment-unavailable, stack-metadata-unavailable, and underlying-data-read failures, never emitting a partial projection.
 - [ ] Surfaces non-fatal warnings without aborting (§9).
-- [ ] Ships `/objective-gt-stacks` as a thin markdown display wrapper with the strict argument policy and presentation behavior of §11.
+- [ ] Ships `/objective:gt-stacks` as a thin markdown display wrapper with the strict argument policy and presentation behavior of §11.
