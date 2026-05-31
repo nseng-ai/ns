@@ -1,5 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import { runFirstAvailableBrmemCommand } from "../brmem-cli.ts";
 import { formatOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
@@ -86,6 +87,12 @@ export function validatePlanSlug(slug: string): string | undefined {
 export function normalizePlanFilePath(rawPath: string): string {
 	const trimmed = rawPath.trim();
 	const withoutAt = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+	if (withoutAt === "~") {
+		return homedir();
+	}
+	if (withoutAt.startsWith("~/")) {
+		return join(homedir(), withoutAt.slice(2));
+	}
 	return withoutAt;
 }
 
@@ -102,7 +109,7 @@ export async function resolvePlanSourceFile(
 ): Promise<string> {
 	const normalizedPath = normalizePlanFilePath(rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
-		throw new Error(`Plan file path must be absolute; got ${normalizedPath || "(empty)"}.`);
+		throw new Error(`Plan file path must be absolute or home-relative; got ${normalizedPath || "(empty)"}.`);
 	}
 
 	let fileStat: Awaited<ReturnType<typeof stat>>;

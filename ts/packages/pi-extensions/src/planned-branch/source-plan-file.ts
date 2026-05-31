@@ -195,7 +195,7 @@ export async function findLatestSourceBranchPlanFile(
 			[
 				"No Markdown saved plan files exist in the local plan store for the current repository and branch.",
 				`Plan store directory: ${directory.directoryPath}`,
-				"Run /write-plan first, or pass an explicit absolute plan file path.",
+				"Run /write-plan first, or pass an explicit absolute or home-relative plan file path.",
 			].join("\n"),
 		);
 	}
@@ -352,7 +352,7 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Pr
 					`Repo key: ${directory.repoKey}`,
 					`Source branch: ${directory.sourceBranch}`,
 					`Branch path segment: ${directory.branchKey}`,
-					"Run /write-plan first, or pass an explicit absolute plan file path.",
+					"Run /write-plan first, or pass an explicit absolute or home-relative plan file path.",
 				].join("\n"),
 			);
 		}
