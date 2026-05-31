@@ -25,6 +25,7 @@ activate.sh
 
 # Local
 .env
+.vercel/
 CLAUDE.local.md
 .mcp.json
 local.just
