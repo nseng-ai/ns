@@ -215,6 +215,11 @@
       "sourceType": "local",
       "computedHash": "0d2187fa43f59d6d34f9ebc4d8dfa3fb229b47e11fad1729a02a14fae9639912"
     },
+    "proto-objective-impl": {
+      "source": "skills/proto-objective-impl",
+      "sourceType": "local",
+      "computedHash": "e1aec3720d7c77999c8f2cf5deb16f66ed5bde1b629a196d90b553da74b9837f"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",

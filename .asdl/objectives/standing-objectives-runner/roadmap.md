@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Add the `proto-objective-impl` internal skill.
+- [x] Add the `proto-objective-impl` internal skill.
   - Scope: Create a prototype skill that reads a selected Objective, distinguishes autonomy-designed from human-assisted operation, requires an upfront preview, defines branch/commit/PR-submission boundaries, and preserves the no-hidden-run-ledger rule.
-  - Evidence: Skill file exists with internal metadata and is formatted; guidance is concrete enough for an agent to run without changing canonical Objective behavior.
+  - Evidence: `skills/proto-objective-impl/SKILL.md` exists with internal metadata and documented runner guidance; `.agents`/`.claude` skill links resolve to the canonical source; `dprint check skills/proto-objective-impl/SKILL.md skills-lock.json` passed.
 
 - [ ] Add the `/proto:objective-impl` Pi wrapper/picker.
   - Scope: Provide an opt-in prototype command that selects an explicit active Objective and injects the selected slug into `proto-objective-impl`, reusing existing picker/skill-expansion patterns where practical.
