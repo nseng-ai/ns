@@ -12,7 +12,7 @@ allowed-tools:
 
 Use this skill to save a concise, directed Markdown handoff artifact for a future continuation. A handoff is saved work context for future-you, a future agent, a future worktree, or a teammate. It is not in-session compaction and not a generic session summary.
 
-Normal user language is save/load/resume a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
+Normal user language is save/pick up/resume a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
 ## Direction first
 
@@ -54,7 +54,7 @@ Stop if the repo is in detached HEAD.
 For `<semantic-slug>`:
 
 - Use an explicit slug if the user provides one and it is specific enough to recognize later.
-- Otherwise derive it from the continuation focus or title. The slug is the future load hint, so include the subject and likely resume action when possible.
+- Otherwise derive it from the continuation focus or title. The slug is the future pickup hint, so include the subject and likely resume action when possible.
 - Format it as:
   - lowercase
   - replace punctuation and whitespace with `-`
@@ -63,7 +63,7 @@ For `<semantic-slug>`:
   - trim leading/trailing `-`
   - keep it concise, usually 3-8 words
 - Avoid generic slugs like `handoff`, `session`, `work`, `follow-up`, or `continue`.
-- Prefer semantic slugs like `address-review-feedback`, `add-load-handoff-command`, or `resume-plan-implementation`.
+- Prefer semantic slugs like `address-review-feedback`, `add-pickup-handoff-command`, or `resume-plan-implementation`.
 - Do not include `/` in the key; flat `<semantic-slug>.md` keys are the handoff contract.
 
 ## Prevent accidental overwrites
@@ -134,6 +134,6 @@ Then include a compact technical locator when useful:
 - Entry: `<semantic-slug>.md`
 - Locator/ref and commit printed by `brmem`
 
-## Load later
+## Pick up later
 
-When a user asks to resume from an existing handoff, prefer the `handoff-load` skill. Loading relies on the semantic slug rather than a separate summary or index.
+When a user asks to resume from an existing handoff, prefer the `handoff-load` skill. Picking up relies on the semantic slug rather than a separate summary or index.

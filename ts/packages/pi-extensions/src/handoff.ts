@@ -8,7 +8,7 @@ export type { ExecResult } from "./command-runtime.ts";
 const HANDOFF_NAMESPACE = "handoffs";
 const HANDOFF_KEY_SUFFIX = ".md";
 const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
-const LOAD_HANDOFF_COMMAND_NAME = "handoff:load";
+const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 const SAVE_HANDOFF_SKILL_NAME = "handoff-save";
 const BRMEM_TIMEOUT_MS = 30_000;
@@ -17,15 +17,15 @@ const MAX_ERROR_CHARS = 4_000;
 const MAX_PREVIEW_CHARS = 96;
 const SAVE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
 
-const LOAD_HANDOFF_USAGE = `Usage: /${LOAD_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
+const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
 
-Load a saved handoff from this branch and continue from its content.
+Pick up a saved handoff from this branch and continue from its content.
 
 Options:
-  --branch <branch>  Load handoffs from an explicit branch instead of the current branch.
+  --branch <branch>  Pick up handoffs from an explicit branch instead of the current branch.
   --help, -h         Show this help.
 
-With no selector, the command loads the only handoff when exactly one exists, or opens a picker when several exist.`;
+With no selector, the command picks up the only handoff when exactly one exists, or opens a picker when several exist.`;
 
 const LIST_HANDOFF_USAGE = `Usage: /${LIST_HANDOFF_COMMAND_NAME} [--branch <branch> | --all-branches]
 
@@ -92,7 +92,7 @@ export type ExtensionAPI = {
 	sendUserMessage(content: string): void;
 };
 
-export type LoadHandoffArgs = {
+export type PickupHandoffArgs = {
 	help: boolean;
 	branch?: string;
 	selector: string[];
@@ -121,8 +121,8 @@ class HandoffUsageError extends Error {
 	}
 }
 
-export function parseLoadHandoffArgs(rawArgs: string): LoadHandoffArgs {
-	const parsed: LoadHandoffArgs = { help: false, selector: [] };
+export function parsePickupHandoffArgs(rawArgs: string): PickupHandoffArgs {
+	const parsed: PickupHandoffArgs = { help: false, selector: [] };
 	const tokens = tokenizeArgs(rawArgs);
 
 	for (let index = 0; index < tokens.length; index += 1) {
@@ -303,8 +303,8 @@ export function resolveHandoffKey(selector: string[], handoffKeys: string[]): { 
 	return {};
 }
 
-export function buildLoadHandoffPrompt(branch: string, key: string, artifact: string): string {
-	return `Load this saved handoff artifact as active context for the session.
+export function buildPickupHandoffPrompt(branch: string, key: string, artifact: string): string {
+	return `Pick up this saved handoff artifact as active context for the session.
 
 Branch: ${branch}
 Handoff: ${handoffSlug(key)}
@@ -313,7 +313,7 @@ Technical locator:
 - Namespace: ${HANDOFF_NAMESPACE}
 - Entry: ${key}
 
-Briefly report the branch and handoff slug loaded, then continue with the concrete next step identified by the artifact. If the artifact is stale or incomplete, verify the current repository state before acting and proceed from the present state.
+Briefly report the branch and handoff slug picked up, then continue with the concrete next step identified by the artifact. If the artifact is stale or incomplete, verify the current repository state before acting and proceed from the present state.
 
 ${fencedBlock("markdown", artifact)}`;
 }
@@ -328,7 +328,7 @@ Continuation focus:
 
 ${fencedBlock("text", focusText)}
 
-Treat this as an explicit request to run the handoff save workflow. The handoff must be directed toward the supplied continuation focus. Derive a semantic slug from that focus unless the user explicitly supplied one, avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on saving/loading a handoff.
+Treat this as an explicit request to run the handoff save workflow. The handoff must be directed toward the supplied continuation focus. Derive a semantic slug from that focus unless the user explicitly supplied one, avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on saving/picking up a handoff.
 
 Before writing, confirm the branch unless the user explicitly named one and check for an existing key:
 
@@ -454,42 +454,42 @@ async function resolveSaveFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandC
 	return undefined;
 }
 
-async function handleLoadHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
+async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
 
-	let args: LoadHandoffArgs;
+	let args: PickupHandoffArgs;
 	try {
-		args = parseLoadHandoffArgs(rawArgs);
+		args = parsePickupHandoffArgs(rawArgs);
 	} catch (error) {
 		if (error instanceof HandoffUsageError) {
-			ctx.ui.notify(`Usage error: ${error.message}\n\n${LOAD_HANDOFF_USAGE}`, "error");
+			ctx.ui.notify(`Usage error: ${error.message}\n\n${PICKUP_HANDOFF_USAGE}`, "error");
 			return;
 		}
 		throw error;
 	}
 
 	if (args.help) {
-		ctx.ui.notify(LOAD_HANDOFF_USAGE, "info");
+		ctx.ui.notify(PICKUP_HANDOFF_USAGE, "info");
 		return;
 	}
 
 	let branch: string;
 	try {
-		branch = args.branch ?? (await currentBranch(pi, ctx, "load"));
+		branch = args.branch ?? (await currentBranch(pi, ctx, "pick up"));
 	} catch (error) {
 		ctx.ui.notify(errorMessage(error), "error");
 		return;
 	}
 
 	let handoffItems: HandoffListItem[];
-	setStatus(ctx, LOAD_HANDOFF_COMMAND_NAME, "listing handoffs…");
+	setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, "listing handoffs…");
 	try {
 		handoffItems = await listHandoffItems(pi, ctx, { branch });
 	} catch (error) {
 		ctx.ui.notify(errorMessage(error), "error");
 		return;
 	} finally {
-		setStatus(ctx, LOAD_HANDOFF_COMMAND_NAME, undefined);
+		setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, undefined);
 	}
 
 	if (handoffItems.length === 0) {
@@ -515,20 +515,20 @@ async function handleLoadHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	}
 
 	let artifact: string;
-	setStatus(ctx, LOAD_HANDOFF_COMMAND_NAME, `reading ${handoffSlug(selectedKey)}…`);
+	setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, `reading ${handoffSlug(selectedKey)}…`);
 	try {
 		artifact = await readHandoff(pi, ctx, branch, selectedKey);
 	} catch (error) {
 		ctx.ui.notify(errorMessage(error), "error");
 		return;
 	} finally {
-		setStatus(ctx, LOAD_HANDOFF_COMMAND_NAME, undefined);
+		setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, undefined);
 	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Loaded handoff ${handoffSlug(selectedKey)} from branch ${branch}.`, "info");
+		ctx.ui.notify(`Picked up handoff ${handoffSlug(selectedKey)} from branch ${branch}.`, "info");
 	}
-	pi.sendUserMessage(buildLoadHandoffPrompt(branch, selectedKey, artifact));
+	pi.sendUserMessage(buildPickupHandoffPrompt(branch, selectedKey, artifact));
 }
 
 async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
@@ -614,7 +614,7 @@ function stripFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 }
 
-async function currentBranch(pi: ExtensionAPI, ctx: CommandContext, action: "load" | "list"): Promise<string> {
+async function currentBranch(pi: ExtensionAPI, ctx: CommandContext, action: "pick up" | "list"): Promise<string> {
 	const commandArgs = ["branch", "--show-current"];
 	let result: ExecResult;
 	try {
@@ -684,7 +684,7 @@ async function chooseHandoff(
 	const labelToKey = new Map(previewedItems.map((item) => [pickerLabel(item), item.key]));
 	const selected = await ctx.ui.select(`Select handoff on ${branch}`, [...labelToKey.keys()]);
 	if (selected === undefined) {
-		ctx.ui.notify("Handoff load cancelled.", "info");
+		ctx.ui.notify("Handoff pickup cancelled.", "info");
 		return undefined;
 	}
 	return labelToKey.get(selected);
@@ -774,9 +774,9 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => handleSaveHandoffCommand(pi, args, ctx),
 	});
 
-	pi.registerCommand(LOAD_HANDOFF_COMMAND_NAME, {
-		description: "Load a saved handoff by slug, selector, or picker.",
-		handler: async (args, ctx) => handleLoadHandoffCommand(pi, args, ctx),
+	pi.registerCommand(PICKUP_HANDOFF_COMMAND_NAME, {
+		description: "Pick up a saved handoff by slug, selector, or picker.",
+		handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
 	});
 
 	pi.registerCommand(LIST_HANDOFF_COMMAND_NAME, {

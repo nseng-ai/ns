@@ -2,9 +2,9 @@
 
 ## Summary
 
-Settled the public vocabulary around directed handoff artifacts: users save a handoff, load a handoff, list handoffs, and resume from a handoff. Added `docs/pi/handoff-artifacts.md` to define the artifact model, distinguish handoffs from Pi compaction and generic session summaries, and record the Branch Memory boundary as a technical storage locator rather than the normal user model.
+Settled the public vocabulary around directed handoff artifacts: users save a handoff, pick up a handoff, list handoffs, and resume from a handoff. Added `docs/pi/handoff-artifacts.md` to define the artifact model, distinguish handoffs from Pi compaction and generic session summaries, and record the Branch Memory boundary as a technical storage locator rather than the normal user model.
 
-Updated `docs/pi/README.md`, `docs/agent-resource-catalog.md`, and `ts/packages/pi-extensions/CONTEXT.md` to point at the artifact vocabulary. Updated the existing `brmem-handoff` and `brmem-pickup-handoff` skill surfaces to teach save/load handoff language while keeping `brmem` as the storage command. Updated the current Pi handoff extension descriptions, prompts, picker title, and notifications to use handoff save/load vocabulary without renaming the commands yet.
+Updated `docs/pi/README.md`, `docs/agent-resource-catalog.md`, and `ts/packages/pi-extensions/CONTEXT.md` to point at the artifact vocabulary. Updated the existing `brmem-handoff` and `brmem-pickup-handoff` skill surfaces to teach save/pickup handoff language while keeping `brmem` as the storage command. Updated the current Pi handoff extension descriptions, prompts, picker title, and notifications to use handoff save/pickup vocabulary without renaming the commands yet.
 
 Validation: targeted `bun test ts/packages/pi-extensions/test/brmem-handoff.test.ts` passed; full `just ts-test` passed; `just ts-check` passed; `just dprint-check` passed after `just dprint-fix` formatted Markdown.
 

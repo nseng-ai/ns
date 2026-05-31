@@ -5,11 +5,11 @@ import { join } from "node:path";
 
 import handoffExtension, {
 	buildCreateHandoffPrompt,
-	buildLoadHandoffPrompt,
+	buildPickupHandoffPrompt,
 	deriveHandoffPreview,
 	parseHandoffKeysFromBrmemList,
 	parseListHandoffArgs,
-	parseLoadHandoffArgs,
+	parsePickupHandoffArgs,
 	resolveHandoffKey,
 	type CommandContext,
 	type ExecResult,
@@ -171,7 +171,7 @@ function createContext(
 }
 
 async function runCommand(
-	commandName: "handoff:create" | "handoff:load" | "handoff:list",
+	commandName: "handoff:create" | "handoff:pickup" | "handoff:list",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: {
@@ -269,16 +269,17 @@ function skillCommandInfo(skillPath: string): CommandInfo {
 }
 
 describe("handoff extension", () => {
-	test("registers only create load and list commands", () => {
+	test("registers only create pickup and list commands", () => {
 		const pi = new FakePi();
 
 		handoffExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:load"]);
+		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:pickup"]);
+		expect(pi.commands.has("handoff:load")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
 		expect(pi.commands.get("handoff:create")?.description).toBe("Create a directed handoff artifact for a future continuation.");
-		expect(pi.commands.get("handoff:load")?.description).toBe("Load a saved handoff by slug, selector, or picker.");
+		expect(pi.commands.get("handoff:pickup")?.description).toBe("Pick up a saved handoff by slug, selector, or picker.");
 		expect(pi.commands.get("handoff:list")?.description).toBe("List saved handoffs on this branch or across all branches.");
 	});
 
@@ -344,9 +345,9 @@ describe("handoff extension", () => {
 		expect(result.notifications).toEqual([]);
 	});
 
-	test("load command loads an explicit slug from the current branch", async () => {
+	test("pickup command picks up an explicit slug from the current branch", async () => {
 		const artifact = "# Handoff: Continue tests\n\n## Next Steps\n\nRun the tests.";
-		const result = await runCommand("handoff:load", "continue-tests", [
+		const result = await runCommand("handoff:pickup", "continue-tests", [
 			branchStep(),
 			listStep(BRANCH, ["continue-tests.md"]),
 			getStep(BRANCH, "continue-tests.md", artifact),
@@ -367,7 +368,7 @@ describe("handoff extension", () => {
 			},
 		]);
 		expect(result.selections).toEqual([]);
-		expect(result.notifications.at(-1)).toEqual({ message: `Loaded handoff continue-tests from branch ${BRANCH}.`, level: "info" });
+		expect(result.notifications.at(-1)).toEqual({ message: `Picked up handoff continue-tests from branch ${BRANCH}.`, level: "info" });
 		expect(result.pi.sentUserMessages[0]).toContain(`Branch: ${BRANCH}`);
 		expect(result.pi.sentUserMessages[0]).toContain("Namespace: handoffs");
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: continue-tests.md");
@@ -375,8 +376,8 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
 	});
 
-	test("load command uses an explicit branch and key without reading current branch", async () => {
-		const result = await runCommand("handoff:load", "--branch other/branch foo.md", [
+	test("pickup command uses an explicit branch and key without reading current branch", async () => {
+		const result = await runCommand("handoff:pickup", "--branch other/branch foo.md", [
 			listStep("other/branch", ["foo.md"]),
 			getStep("other/branch", "foo.md", "# Handoff"),
 		]);
@@ -387,9 +388,9 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: foo.md");
 	});
 
-	test("load command opens a picker with slug and preview labels", async () => {
+	test("pickup command opens a picker with slug and preview labels", async () => {
 		const result = await runCommand(
-			"handoff:load",
+			"handoff:pickup",
 			"",
 			[
 				branchStep(),
@@ -411,9 +412,9 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: bravo.md");
 	});
 
-	test("load command asks for a slug when multiple handoffs exist without picker UI", async () => {
+	test("pickup command asks for a slug when multiple handoffs exist without picker UI", async () => {
 		const result = await runCommand(
-			"handoff:load",
+			"handoff:pickup",
 			"",
 			[branchStep(), listStep(BRANCH, ["alpha.md", "bravo.md"])],
 			{ hasUI: false },
@@ -488,14 +489,14 @@ describe("handoff extension", () => {
 });
 
 describe("handoff pure helpers", () => {
-	test("parses load args", () => {
-		expect(parseLoadHandoffArgs("--branch feature/x foo.md")).toEqual({
+	test("parses pickup args", () => {
+		expect(parsePickupHandoffArgs("--branch feature/x foo.md")).toEqual({
 			help: false,
 			branch: "feature/x",
 			selector: ["foo.md"],
 		});
-		expect(parseLoadHandoffArgs("review feedback")).toEqual({ help: false, selector: ["review", "feedback"] });
-		expect(() => parseLoadHandoffArgs("handoffs/foo.md")).toThrow("cannot contain '/'");
+		expect(parsePickupHandoffArgs("review feedback")).toEqual({ help: false, selector: ["review", "feedback"] });
+		expect(() => parsePickupHandoffArgs("handoffs/foo.md")).toThrow("cannot contain '/'");
 	});
 
 	test("parses list args", () => {
@@ -517,12 +518,12 @@ describe("handoff pure helpers", () => {
 	});
 
 	test("resolves exact keys normalized slugs search terms and ambiguity", () => {
-		const keys = ["address-review-feedback.md", "add-load-handoff-command.md"];
+		const keys = ["address-review-feedback.md", "add-pickup-handoff-command.md"];
 		expect(resolveHandoffKey(["address-review-feedback.md"], keys)).toEqual({
 			key: "address-review-feedback.md",
 		});
-		expect(resolveHandoffKey(["add-load-handoff-command"], keys)).toEqual({
-			key: "add-load-handoff-command.md",
+		expect(resolveHandoffKey(["add-pickup-handoff-command"], keys)).toEqual({
+			key: "add-pickup-handoff-command.md",
 		});
 		expect(resolveHandoffKey(["review", "feedback"], keys)).toEqual({
 			key: "address-review-feedback.md",
@@ -531,8 +532,8 @@ describe("handoff pure helpers", () => {
 		expect(resolveHandoffKey(["handoffs/address-review-feedback.md"], keys)).toEqual({});
 	});
 
-	test("load prompt fences artifacts that contain markdown fences", () => {
-		const prompt = buildLoadHandoffPrompt(BRANCH, "foo.md", "```text\ninside\n```");
+	test("pickup prompt fences artifacts that contain markdown fences", () => {
+		const prompt = buildPickupHandoffPrompt(BRANCH, "foo.md", "```text\ninside\n```");
 
 		expect(prompt).toContain("````markdown");
 		expect(prompt).toContain("```text\ninside\n```");

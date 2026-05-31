@@ -4,7 +4,7 @@
 
 Recorded the user decision that renaming handoff-related skills and commands away from the `brmem` prefix is part of this Objective, not an optional follow-up. The requirement applies to the public handoff artifact UX surfaces: the current `/brmem-handoff`, `/brmem-pickup-handoff`, `brmem-handoff`, and `brmem-pickup-handoff` names should be replaced with non-`brmem` handoff names.
 
-The generic low-level `brmem` CLI and `brmem` skill remain valid storage/recovery surfaces. Branch Memory can still be the implementation detail, but the normal save/load/list/resume handoff surface should not advertise that storage layer in its name.
+The generic low-level `brmem` CLI and `brmem` skill remain valid storage/recovery surfaces. Branch Memory can still be the implementation detail, but the normal save/pickup/list/resume handoff surface should not advertise that storage layer in its name.
 
 ## Objective Impact
 

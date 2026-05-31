@@ -1,6 +1,6 @@
 # Agent Resource Catalog
 
-Generated from the repo checkout on 2026-05-30.
+Generated from the repo checkout on 2026-05-31.
 
 This catalog covers repo-defined agent and harness resources with command-level rows where a resource exposes commands or tools.
 
@@ -25,7 +25,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | `/skill:branch-retro`           | `skills/branch-retro/SKILL.md`           | Collects deterministic branch/session evidence and turns it into retrospective recommendations.    |
 | `/skill:brmem`                  | `skills/brmem/SKILL.md`                  | Guides use of the `brmem` CLI for branch-scoped durable memory.                                    |
 | `/skill:handoff-save`           | `skills/handoff-save/SKILL.md`           | Saves a directed handoff artifact for a specific future continuation.                              |
-| `/skill:handoff-load`           | `skills/handoff-load/SKILL.md`           | Loads, chooses, or lists saved handoff artifacts so another session can resume focused work.       |
+| `/skill:handoff-load`           | `skills/handoff-load/SKILL.md`           | Picks up, chooses, or lists saved handoff artifacts so another session can resume focused work.    |
 | `/skill:dev-checkpoint`         | `skills/dev-checkpoint/SKILL.md`         | Creates a terse checkpoint commit for the current non-main branch diff.                            |
 | `/skill:dev-gh`                 | `skills/dev-gh/SKILL.md`                 | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                     |
 | `/skill:dev-gh-ci-debug`        | `skills/dev-gh-ci-debug/SKILL.md`        | Diagnoses GitHub Actions failures from a run URL or run ID.                                        |
@@ -54,7 +54,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Command                  | Source                             | Description                                                                                         |
 | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `/handoff:create`        | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
-| `/handoff:load`          | `.pi/extensions/handoff.ts`        | Load a saved handoff by slug, selector, or picker.                                                  |
+| `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
 | `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches.                                          |
 | `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
 | `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
@@ -84,7 +84,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Family                | Disposition                                                                                                                                                                                                                         |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Planned branches      | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed. |
-| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:load`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. No old `brmem`-named handoff aliases are retained.                                                |
+| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. No old `brmem`-named handoff aliases are retained.                                              |
 | Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.               |
 
 ## Engineered Pi extension package
