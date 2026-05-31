@@ -23,12 +23,12 @@ export async function loadCurrentBranch(pi: ExtensionAPI, repoRoot: string): Pro
 	const result = await exec(pi, "git", ["symbolic-ref", "--short", "HEAD"], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		fail(
-			`Detached HEAD; check out a branch before running /land-stack.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+			`Detached HEAD; check out a branch before running /gt:land-stack.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
 		);
 	}
 	const branch = result.stdout.trim();
 	if (!branch) {
-		fail("Could not resolve current branch before running /land-stack.");
+		fail("Could not resolve current branch before running /gt:land-stack.");
 	}
 	return branch;
 }

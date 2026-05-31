@@ -1,7 +1,36 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+export type NotifyLevel = "info" | "success" | "warning" | "error";
 
-const COMMAND_NAME = "land";
+export type ExecResult = {
+	stdout: string;
+	stderr: string;
+	code: number;
+	killed?: boolean;
+};
+
+export type ExtensionCommandContext = {
+	cwd: string;
+	ui: {
+		notify(message: string, level?: NotifyLevel): void;
+	};
+	waitForIdle(): Promise<void>;
+};
+
+export type ExtensionAPI = {
+	registerCommand(
+		name: string,
+		options: {
+			description: string;
+			handler(args: string, ctx: ExtensionCommandContext): Promise<void> | void;
+		},
+	): void;
+	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
+};
+
+const COMMAND_NAME = "gh:land";
 const REQUIRED_BASE_BRANCH = "master";
+const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
+const PR_VIEW_TIMEOUT_MS = 30_000;
+const PR_MERGE_TIMEOUT_MS = 120_000;
 
 type PullRequestView = {
 	number?: number;
@@ -12,7 +41,7 @@ type PullRequestView = {
 	headRefOid?: string;
 };
 
-type ValidPullRequestView = {
+export type ValidPullRequestView = {
 	number: number;
 	headRefName: string;
 	baseRefName: string;
@@ -21,7 +50,7 @@ type ValidPullRequestView = {
 	headRefOid: string;
 };
 
-export default function landExtension(pi: ExtensionAPI) {
+export default function landExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Squash-merge the current branch's GitHub PR into master",
 		handler: async (_args, ctx) => {
@@ -59,7 +88,7 @@ export default function landExtension(pi: ExtensionAPI) {
 				],
 				{
 					cwd: ctx.cwd,
-					timeout: 120_000,
+					timeout: PR_MERGE_TIMEOUT_MS,
 				},
 			);
 
@@ -76,10 +105,10 @@ export default function landExtension(pi: ExtensionAPI) {
 	});
 }
 
-async function loadPullRequest(pi: ExtensionAPI, cwd: string): Promise<ValidPullRequestView | { error: string }> {
-	const result = await pi.exec("gh", ["pr", "view", "--json", "number,headRefName,baseRefName,title,body,headRefOid"], {
+export async function loadPullRequest(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<ValidPullRequestView | { error: string }> {
+	const result = await pi.exec("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], {
 		cwd,
-		timeout: 30_000,
+		timeout: PR_VIEW_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
@@ -97,7 +126,7 @@ async function loadPullRequest(pi: ExtensionAPI, cwd: string): Promise<ValidPull
 	}
 }
 
-function parsePullRequestView(pr: PullRequestView): ValidPullRequestView | { error: string } {
+export function parsePullRequestView(pr: PullRequestView): ValidPullRequestView | { error: string } {
 	const number = typeof pr.number === "number" ? pr.number : undefined;
 	const headRefName = nonEmptyString(pr.headRefName) ? pr.headRefName : undefined;
 	const baseRefName = nonEmptyString(pr.baseRefName) ? pr.baseRefName : undefined;

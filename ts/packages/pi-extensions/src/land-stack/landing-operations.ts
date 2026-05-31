@@ -45,9 +45,9 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			[
 				`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 				details,
-				`No PRs were landed. Run ${manualCommandText} manually, then rerun /land-stack --yes.`,
+				`No PRs were landed. Run ${manualCommandText} manually, then rerun /gt:land-stack --yes.`,
 			].join("\n"),
-			{ suggestedAction: `Run ${manualCommandText} manually, then rerun /land-stack --yes.` },
+			{ suggestedAction: `Run ${manualCommandText} manually, then rerun /gt:land-stack --yes.` },
 		);
 	}
 
@@ -64,7 +64,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			fail("gt restack failed before any PRs were landed.", {
 				commandDisplay: formatCommand("gt", restackArgs),
 				result: restacked,
-				suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /land-stack.`,
+				suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /gt:land-stack.`,
 			});
 		}
 	}
@@ -75,7 +75,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		fail("gt submit/update failed before any PRs were landed.", {
 			commandDisplay: formatCommand("gt", submitArgs),
 			result,
-			suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /land-stack.`,
+			suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /gt:land-stack.`,
 		});
 	}
 }
@@ -140,7 +140,7 @@ export async function confirmAndFreeManagedSlots(
 			[
 				"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 				details,
-				`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /land-stack --yes.`,
+				`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /gt:land-stack --yes.`,
 			].join("\n"),
 		);
 	}
@@ -156,7 +156,7 @@ export async function confirmAndFreeManagedSlots(
 		fail("Targeted slot cleanup failed before any PRs were landed.", {
 			commandDisplay,
 			result,
-			suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /land-stack.",
+			suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /gt:land-stack.",
 		});
 	}
 
@@ -171,7 +171,7 @@ export async function confirmAndFreeManagedSlots(
 				...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
 				"No PRs were landed.",
 			].join("\n"),
-			{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /land-stack." },
+			{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /gt:land-stack." },
 		);
 	}
 }
@@ -242,7 +242,7 @@ export async function runMergeLoop(
 				result: merge,
 				failedBranch: branch,
 				failedPr: pr.number,
-				suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /land-stack from the desired branch.`,
+				suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /gt:land-stack from the desired branch.`,
 			});
 		}
 
@@ -279,7 +279,7 @@ export async function runMergeLoop(
 						result: got,
 						failedBranch: branch,
 						failedPr: pr.number,
-						suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, inspect the stack, and rerun /land-stack if appropriate.`,
+						suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, inspect the stack, and rerun /gt:land-stack if appropriate.`,
 					});
 				}
 
@@ -311,7 +311,7 @@ export async function runMergeLoop(
 					result: deleted,
 					failedBranch: branch,
 					failedPr: pr.number,
-					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /land-stack.`,
+					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /gt:land-stack.`,
 				});
 			}
 
@@ -337,7 +337,7 @@ export async function runMergeLoop(
 						commandDisplay: formatCommand("gt", restackArgs),
 						result: restacked,
 						failedBranch: maintenance.branch,
-						suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /land-stack if appropriate.`,
+						suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /gt:land-stack if appropriate.`,
 					});
 				}
 
@@ -359,7 +359,7 @@ export async function runMergeLoop(
 						commandDisplay: formatCommand("gt", submitArgs),
 						result: submitted,
 						failedBranch: maintenance.branch,
-						suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /land-stack if appropriate.`,
+						suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /gt:land-stack if appropriate.`,
 					});
 				}
 
