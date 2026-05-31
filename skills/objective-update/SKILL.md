@@ -146,6 +146,10 @@ Prefer command plus pass/fail over exact aggregate counts in durable Objective f
 
 The final response may include exact command output when useful; durable Objective files should not churn because unrelated test counts changed.
 
+- Do not add or preserve routine validation-only roadmap rows merely to keep Objective tracking open.
+- When an existing row is merely routine validation and no longer carries semantic Objective work, fold its result into evidence on the relevant semantic row, Semantic Update, or closure context instead of maintaining it as work.
+- Validation may remain roadmap work when the Objective is about validation/test/CI infrastructure, release qualification, or a non-routine validation investigation.
+
 ## Workflow
 
 1. Run `objective exec read-objective <slug> --format md` per Objective read scope.

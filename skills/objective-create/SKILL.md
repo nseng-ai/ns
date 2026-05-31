@@ -46,6 +46,13 @@ Also check the archive root before creating a slug:
 
 Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 
+Roadmap item quality:
+
+- Initial roadmap items must be substantive semantic work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up.
+- Do not add a final routine validation-only row by default, such as `run just`, `run tests`, `wait for CI`, or `full repo validation`.
+- During the creation interview, if validation appears as a possible branch point, steer it into completion evidence unless validation/test/CI behavior is itself in scope.
+- The initial roadmap may include expected evidence under a semantic row, such as `Evidence: targeted tests and relevant repo checks passed`; do not make that evidence a standalone final row.
+
 ## Slug and path
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing files.
@@ -59,7 +66,7 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 
 ## Workflow
 
-1. Gather enough context to write a useful title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and initial roadmap.
+1. Gather enough context to write a useful title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and semantic initial roadmap.
 2. Conduct a user interview before writing, inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md):
    - Interview the user relentlessly about every aspect of the objective until shared understanding is reached.
    - Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
