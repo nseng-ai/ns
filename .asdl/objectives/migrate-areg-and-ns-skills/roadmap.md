@@ -1,0 +1,15 @@
+# Roadmap
+
+## Work
+
+- [ ] Inventory and disposition audit — enumerate `areg` modules/templates/tests, all 21 nonslop `ns-*` skills, existing asdl-tools vendored `ns-*` copies, missing skills, duplicate/renamed skill names, lockfile entries, and every live `nonslop`/`nseng-ai/nonslop` reference. Produce a migration map that names each destination and any content-reconciliation decision before moving files. Evidence: inventory covers `/Users/schrockn/code/nonslop/src/areg`, `/Users/schrockn/code/nonslop/skills`, current `.agents/skills/ns-*`, `skills-lock.json`, `justfile`, docs, and tests.
+- [ ] Port `areg` as a standalone workspace package — create `packages/areg`, move/adapt source and tests, wire root workspace metadata, keep the `areg` script, and remove the root dev dependency on `nonslop`. Evidence: `areg` unit/scenario/gateway tests exercise `create-project`, `check`, `update-skills`, `exec skillx`, and `exec nsx` with fake gateways.
+- [ ] Promote the exact `ns-*` catalog to first-party local skills — create canonical `skills/<name>/` directories for all 21 nonslop skills, reconcile differing existing copies, create `.agents`/`.claude` symlinks, and update `skills-lock.json` to local sources. Evidence: local-skill structure checks pass and the migrated catalog includes the nonslop-only skills.
+- [ ] Repoint distribution and command references — rewrite `areg` defaults, generated templates, `nsx`, `ns-install`, `ns-skillx`, `ns-skill-management`, just recipes, docs, and tests from `nonslop`/`nseng-ai/nonslop`/`uvx nonslop` to `areg` and `dagster-io/asdl-tools`. Evidence: targeted searches show no stale live references outside explicit retirement notes.
+- [ ] Prove nonslop deletion readiness — demonstrate that normal repo development and skill invocation no longer require `/Users/schrockn/code/nonslop`, the old package, or the old GitHub source. Evidence: targeted package tests and relevant repo checks pass, and a final dependency/reference search supports deletion readiness.
+
+## Parked
+
+- Actual deletion of `/Users/schrockn/code/nonslop`, deletion/archive of `nseng-ai/nonslop`, or removal of external project artifacts — perform only after an explicit future request.
+- Mounting `areg` under the top-level `asdl` CLI — revisit only if the standalone package boundary becomes a burden.
+- Backward-compatible `nonslop` package aliases or `uvx nonslop` command support — intentionally out of scope for these private in-development projects.
