@@ -14,10 +14,11 @@ planned-branch policy.
 The public command surface is:
 
 1. `/write-plan` saves a reviewed plan in the local plan store.
-2. `/create-planned-branch` creates the implementation branch and attaches the
-   plan.
+2. `/create-planned-branch` selects a saved plan, derives the planned-branch
+   slug from the plan content with a tiny Pi model, creates the implementation
+   branch, and attaches the plan.
 3. The attachment is written to Branch Memory namespace `brmem-plans` with key
-   `<slug>.md` on the implementation branch.
+   `<content-derived-slug>.md` on the implementation branch.
 4. `/impl-planned-branch [key-or-slug]` loads the canonical attached plan and
    starts implementation.
 
@@ -34,7 +35,9 @@ and save it in the local plan store:
 
 The saved plan is scoped to the repository and the source branch where planning
 happened. Branch slashes in `<encoded-source-branch>` are encoded as a
-filesystem-safe path segment, and `<slug>` is the semantic kebab-case plan slug.
+filesystem-safe path segment, and `<slug>` is the semantic kebab-case saved-plan
+filename slug. That filename slug is a local locator; it is not the canonical
+planned-branch slug.
 
 This command creates no implementation branch, writes no Branch Memory, and
 checks in no plan artifact. The local plan store is the pre-branch handoff point
@@ -45,22 +48,32 @@ between planning and branch creation.
 `/create-planned-branch` selects a saved plan, creates the target implementation
 branch, and attaches that plan to the target branch in Branch Memory.
 
-With no explicit file path, the command prefers the most recent valid saved plan
-from the current Pi session, then falls back to the newest Markdown plan in the
+With no explicit file path, the command prefers the most recent saved plan from
+the current Pi session, then falls back to the newest Markdown plan in the
 current repo/source-branch local plan store directory. An explicit saved plan
 path may be absolute or current-user home-relative, such as
 `~/.claude/plans/where-would-we-host-mossy-lampson.md`; repo-relative paths are
-not supported.
+not supported. The explicit path only needs to be absolute/home-relative and end
+in `.md`; the filename stem is not validated as the branch slug.
 
-In this repo, planned branches default to the plan slug itself (`<slug>`). Branch
-creation defaults to Graphite through the project-local extension configuration,
-while command flags can still select plain Git or Graphite behavior explicitly.
+After selecting the file, `/create-planned-branch` invokes a tiny Pi model on the
+saved plan content only. The model output is normalized and validated as the
+content-derived planned-branch slug. If the model command fails, returns empty
+output, or cannot be validated as a planned-branch slug, the command fails before
+mutation and does not fall back to the filename, heading, path, or any
+deterministic backup.
+
+In this repo, planned branches default to the content-derived slug itself
+(`<content-derived-slug>`). Branch creation defaults to Graphite through the
+project-local extension configuration, while command flags can still select plain
+Git or Graphite behavior explicitly. An explicit `--branch` overrides only the
+target branch name; the Branch Memory key remains derived from the content slug.
 
 The attached plan contract is:
 
 ```text
 Namespace: brmem-plans
-Key: <slug>.md
+Key: <content-derived-slug>.md
 Branch: <target-implementation-branch>
 ```
 
@@ -83,10 +96,11 @@ that attached plan as the authoritative plan text.
 The workflow has two storage locations with different jobs:
 
 - **Local plan store:** `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`
-  stores reviewed plans before an implementation branch exists.
-- **Attached plan:** Branch Memory namespace `brmem-plans`, key `<slug>.md`, on
-  the implementation branch stores the canonical plan that implementation should
-  follow.
+  stores reviewed plans before an implementation branch exists. Here `<slug>` is
+  the saved-plan filename slug.
+- **Attached plan:** Branch Memory namespace `brmem-plans`, key
+  `<content-derived-slug>.md`, on the implementation branch stores the canonical
+  plan that implementation should follow.
 
 The planning layer owns saved plans and attached plans. Branch Memory only stores
 the attached plan content under the namespace/key contract, so other Branch
@@ -96,8 +110,9 @@ Memory use remains generic branch-scoped text storage.
 
 Branch creation is repo-specific Pi extension policy. In this repo, the
 project-local shim at `.pi/extensions/planned-branch.ts` configures the
-planned-branch workflow to default to Graphite branch creation and to use the plan
-slug as the target branch name unless the user passes an explicit branch.
+planned-branch workflow to default to Graphite branch creation and to use the
+content-derived slug as the target branch name unless the user passes an explicit
+branch.
 
 Graphite creation creates the local Git branch first:
 
@@ -120,7 +135,8 @@ current checkout.
 The commands present planning-level status first and include lower-level Branch
 Memory evidence for recovery:
 
-- branch name and branch creation method
+- saved-plan file path/stem, content-derived slug, branch name, and branch
+  creation method
 - namespace and key
 - Branch Memory ref and commit for successful attachments
 - selected key, ref, and byte count for loaded plans
@@ -131,9 +147,12 @@ Common recovery paths:
   or pass an explicit absolute or current-user home-relative saved-plan path.
 - If the target branch already exists, choose another target branch or inspect
   the existing branch before retrying.
+- If content slug derivation fails, fix model access or adjust the plan content
+  and retry; `/create-planned-branch` will not fall back to the saved-plan
+  filename.
 - If the target Branch Memory entry already exists, the workflow refuses to
-  overwrite it; inspect the existing `brmem-plans/<slug>.md` entry before
-  deciding what to do next.
+  overwrite it; inspect the existing `brmem-plans/<content-derived-slug>.md`
+  entry before deciding what to do next.
 - If Graphite tracking fails after local branch creation, no attached plan is
   stored and no cleanup is attempted; inspect the created branch manually.
 - If `/impl-planned-branch` reports multiple attached plans, rerun it with the
