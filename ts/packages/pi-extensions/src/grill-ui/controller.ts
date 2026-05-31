@@ -2,7 +2,6 @@ import type { NormalizedGrillAskInput } from "../grill-ui.ts";
 import {
 	buildGrillAskRows,
 	defaultGrillAskRowIndex,
-	previewTextForRow,
 	type GrillAskChoiceRow,
 	type GrillAskMode,
 	type GrillAskRow,
@@ -41,10 +40,6 @@ export class GrillAskController {
 			throw new Error("grill_ask controller requires at least one row");
 		}
 		return row;
-	}
-
-	get focusedPreviewText(): string {
-		return previewTextForRow(this.input, this.focusedRow);
 	}
 
 	moveFocus(delta: number): void {

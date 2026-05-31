@@ -15,10 +15,12 @@ export type GrillAskChoiceRow = {
 
 export type GrillAskFreeformRow = {
 	kind: "freeform";
+	index: number;
 };
 
 export type GrillAskEndGrillRow = {
 	kind: "end_grill";
+	index: number;
 };
 
 export type GrillAskRow = GrillAskChoiceRow | GrillAskFreeformRow | GrillAskEndGrillRow;
@@ -32,10 +34,10 @@ export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[]
 	}));
 
 	if (input.allowFreeform) {
-		rows.push({ kind: "freeform" });
+		rows.push({ kind: "freeform", index: rows.length + 1 });
 	}
 	if (input.allowEnd) {
-		rows.push({ kind: "end_grill" });
+		rows.push({ kind: "end_grill", index: rows.length + 1 });
 	}
 
 	return rows;
@@ -70,14 +72,12 @@ export function rowValue(row: GrillAskRow): string {
 
 export function rowLabel(row: GrillAskRow): string {
 	switch (row.kind) {
-		case "choice": {
-			const marker = row.recommended ? " (recommended)" : "";
-			return `${row.index}. ${singleLine(row.option.label)}${marker}`;
-		}
+		case "choice":
+			return `${row.index}. ${singleLine(row.option.label)}`;
 		case "freeform":
-			return "Other / freeform answer";
+			return `${row.index}. Other / freeform answer`;
 		case "end_grill":
-			return "End grilling session";
+			return `${row.index}. End grilling session`;
 		default: {
 			const exhaustive: never = row;
 			return exhaustive;
@@ -85,40 +85,27 @@ export function rowLabel(row: GrillAskRow): string {
 	}
 }
 
-export function previewTextForRow(input: NormalizedGrillAskInput, row: GrillAskRow): string {
-	switch (row.kind) {
-		case "choice": {
-			const parts = [`Value: ${row.option.value}`];
-			if (row.option.description !== undefined) {
-				parts.push(row.option.description);
-			}
-			if (row.recommended) {
-				parts.push(`Recommended: ${input.recommended.answer}`);
-				if (input.recommended.rationale !== undefined) {
-					parts.push(`Rationale: ${input.recommended.rationale}`);
-				}
-			}
-			return parts.join("\n\n");
-		}
-		case "freeform":
-			return "Write a custom answer when none of the explicit choices captures your position.";
-		case "end_grill":
-			return "End this grilling session. The model should stop asking questions and summarize decisions, unresolved branches, and its final recommendation.";
-		default: {
-			const exhaustive: never = row;
-			return exhaustive;
-		}
+export function rowRecommendationTag(row: GrillAskRow): string | undefined {
+	return row.kind === "choice" && row.recommended ? "★ recommended" : undefined;
+}
+
+export function focusedDetailLines(input: NormalizedGrillAskInput, row: GrillAskRow): string[] {
+	if (row.kind !== "choice") return [];
+
+	const lines: string[] = [];
+	if (row.option.description !== undefined) {
+		lines.push(row.option.description);
 	}
+	if (row.recommended && input.recommended.rationale !== undefined) {
+		lines.push(`Why: ${input.recommended.rationale}`);
+	}
+	return lines;
 }
 
 export function footerText(mode: GrillAskMode): string {
 	return mode === "freeform"
 		? "Enter submit • Esc back to choices"
-		: "↑↓ navigate • Enter select • Esc cancel";
-}
-
-export function shouldUseSplitPreview(width: number): boolean {
-	return width >= 100;
+		: "↑↓/j/k navigate • number/Enter select • Esc cancel";
 }
 
 export function selectorEntryForRow(row: GrillAskRow): GrillAskSelectorEntry {
@@ -135,9 +122,9 @@ export function selectorEntryForRow(row: GrillAskRow): GrillAskSelectorEntry {
 			};
 		}
 		case "freeform":
-			return { kind: "freeform", display: "✎ Other / freeform answer" };
+			return { kind: "freeform", display: `${row.index}. ✎ Other / freeform answer` };
 		case "end_grill":
-			return { kind: "end_grill", display: "⏹ End grilling session" };
+			return { kind: "end_grill", display: `${row.index}. ⏹ End grilling session` };
 		default: {
 			const exhaustive: never = row;
 			return exhaustive;
