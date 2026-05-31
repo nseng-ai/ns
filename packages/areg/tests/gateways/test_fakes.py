@@ -134,7 +134,7 @@ def test_fake_npx_merges_lock_file_entries(tmp_path: Path) -> None:
 
     npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
 
-    lock = json.loads((tmp_path / "skills-lock.json").read_text())
+    lock = json.loads((tmp_path / "skills-lock.json").read_text(encoding="utf-8"))
     assert lock["skills"]["existing-skill"]["source"] == "someone/else"
     assert lock["skills"]["my-skill"]["source"] == "owner/repo"
 
