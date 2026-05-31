@@ -7,6 +7,7 @@ import {
 	loadAttachedPlan,
 	type LoadedAttachedPlan,
 } from "./planned-branch/attached-plan.ts";
+import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
@@ -14,7 +15,7 @@ import {
 	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch/planned-branch-creation.ts";
-import { isPathInside, normalizePlanFilePath, validatePlanSlug, type ExecOptions } from "./planned-branch/plan-persistence.ts";
+import { isPathInside, normalizePlanFilePath, type ExecOptions } from "./planned-branch/plan-persistence.ts";
 import {
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
@@ -111,9 +112,11 @@ export type CreatePlannedBranchArgs = {
 export type CreatePlannedBranchPreview = {
 	mode: "latest" | "explicit" | "session";
 	slug: string;
+	savedPlanFileStem: string;
 	filePath: string;
 	fileName: string;
 	targetBranch: string;
+	slugEvidence: PlanContentSlugEvidence;
 	branchCreation: BranchCreationMethod;
 	namespace: string;
 	key: string;
@@ -173,7 +176,7 @@ export type ExtensionAPI = {
 
 export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /create-planned-branch [options] [absolute-or-home-plan-file.md]
 
-Create a planned branch from a saved plan, then attach that plan to the branch in Branch Memory.
+Create a planned branch from a saved plan. The branch slug and attached-plan key are derived from the plan content by a tiny Pi model, then the plan is attached to the branch in Branch Memory.
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
@@ -183,8 +186,9 @@ Options:
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
-With no file path, the command prefers the most recent valid saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
-An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute.`;
+With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
+The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
 export function buildWritePlanPrompt(steering: string): string {
 	return `This is a /write-plan request. Write a detailed implementation plan and save it in the local plan store.
@@ -217,8 +221,8 @@ Recommended saved plan sections:
 Workflow:
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
 2. Produce a detailed Markdown implementation plan.
-3. Review the final Markdown plan content and choose a semantic kebab-case slug from that final content.
-4. Call write_source_branch_plan_file with the slug, full Markdown content, and optional one-sentence summary.
+3. Review the final Markdown plan content and choose a semantic kebab-case saved-plan filename slug from that final content.
+4. Call write_source_branch_plan_file with the saved-plan filename slug, full Markdown content, and optional one-sentence summary.
 5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, and summary when present.
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any plan-branch tool.
 
@@ -226,12 +230,12 @@ Local plan store contract:
 - Path convention: ~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
-- <slug>: semantic kebab-case slug without .md
+- <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
 - Existing saved plan file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
 - Working-tree behavior: no checked-in plan file is created.
 
-Slug rules:
-- The command did not provide a slug; you must generate the final slug.
+Saved-plan filename slug rules:
+- The command did not provide a slug; you must generate the final saved-plan filename slug.
 - Use kebab-case.
 - Use 3–7 words.
 - Make it specific to the work described by the final plan.
@@ -239,7 +243,7 @@ Slug rules:
 - Do not use generic-only slugs such as plan, task, implementation-plan, or work-plan.
 
 When the plan is ready, call write_source_branch_plan_file with:
-- slug: the semantic slug, without .md
+- slug: the semantic saved-plan filename slug, without .md
 - content: the complete reviewed Markdown plan content
 - summary: optional one-sentence summary of the plan
 
@@ -345,16 +349,20 @@ export async function resolveCreatePlannedBranchPreview(
 	options: PlannedBranchExtensionOptions = {},
 ): Promise<CreatePlannedBranchPreview> {
 	const selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
+	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "deriving branch slug from plan content…");
+	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selected.filePath, cwd: ctx.cwd });
 	const branchCreation = args.branchCreation ?? resolvePlannedBranchDefaultCreation(options);
-	const targetBranch = derivePlannedTargetBranch(args, selected.slug, options);
+	const targetBranch = derivePlannedTargetBranch(args, slugEvidence.slug, options);
 	const base = {
-		slug: selected.slug,
+		slug: slugEvidence.slug,
+		savedPlanFileStem: selected.savedPlanFileStem,
 		filePath: selected.filePath,
 		fileName: selected.fileName,
 		targetBranch,
 		branchCreation,
+		slugEvidence,
 		namespace: PLAN_BRANCH_NAMESPACE,
-		key: `${selected.slug}.md`,
+		key: `${slugEvidence.slug}.md`,
 	};
 
 	if (selected.mode === "explicit") {
@@ -382,7 +390,9 @@ export function formatCreatePlannedBranchPreview(preview: CreatePlannedBranchPre
 				: "Latest saved plan from local plan store:",
 	];
 	lines.push(`Path: ${preview.filePath}`);
-	lines.push(`Slug: ${preview.slug}`);
+	lines.push(`Saved-plan file stem: ${preview.savedPlanFileStem}`);
+	lines.push(`Content-derived slug: ${preview.slug}`);
+	lines.push(`Slug model: ${preview.slugEvidence.provider}/${preview.slugEvidence.model}`);
 	if (preview.mode !== "explicit") {
 		lines.push(`Repo key: ${preview.repoKey}`);
 		lines.push(`Repo root: ${preview.repoRoot}`);
@@ -413,7 +423,7 @@ export default function registerPlannedBranchExtension(
 	});
 
 	pi.registerCommand(CREATE_PLANNED_BRANCH_COMMAND_NAME, {
-		description: "Create a planned branch from a saved plan, then attach the plan in Branch Memory.",
+		description: "Create a planned branch using a content-derived slug, then attach the saved plan in Branch Memory.",
 		handler: async (args, ctx) => handleCreatePlannedBranchCommand(pi, args, ctx, options),
 	});
 
@@ -483,7 +493,7 @@ async function handleCreatePlannedBranchCommand(
 	try {
 		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, options);
 	} catch (error) {
-		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file.", error);
+		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
 		return;
 	} finally {
 		ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, undefined);
@@ -573,12 +583,12 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 type SelectedSavedPlanFile =
 	| {
 			mode: "explicit";
-			slug: string;
+			savedPlanFileStem: string;
 			filePath: string;
 			fileName: string;
 	  }
-	| (LatestSourceBranchPlanFileEvidence & { mode: "latest" })
-	| (LatestSourceBranchPlanFileEvidence & { mode: "session" });
+	| (LatestSourceBranchPlanFileEvidence & { mode: "latest"; savedPlanFileStem: string })
+	| (LatestSourceBranchPlanFileEvidence & { mode: "session"; savedPlanFileStem: string });
 
 type PlannedBranchMessageDetails = {
 	status: "usage" | "dry-run" | "success" | "failure";
@@ -604,7 +614,7 @@ async function resolveSelectedSavedPlanFile(
 			cwd: ctx.cwd,
 			planStoreRoot: resolvePlanStoreRootOption(options),
 		});
-		return { ...evidence, mode: "latest" };
+		return { ...evidence, mode: "latest", savedPlanFileStem: evidence.slug };
 	}
 
 	const filePath = normalizePlanFilePath(args.filePath);
@@ -617,20 +627,14 @@ async function resolveSelectedSavedPlanFile(
 		throw new Error(`Plan file must use a .md filename; got ${fileName || "(empty)"}.`);
 	}
 
-	const slug = fileName.slice(0, -".md".length);
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) {
-		throw new Error(`Invalid plan slug derived from filename ${JSON.stringify(fileName)}: ${slugError}`);
-	}
-
-	return { mode: "explicit", slug, filePath, fileName };
+	return { mode: "explicit", savedPlanFileStem: fileName.slice(0, -".md".length), filePath, fileName };
 }
 
 async function findLatestSavedPlanFileFromSessionHistory(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	options: PlannedBranchExtensionOptions,
-): Promise<(LatestSourceBranchPlanFileEvidence & { mode: "session" }) | undefined> {
+): Promise<(LatestSourceBranchPlanFileEvidence & { mode: "session"; savedPlanFileStem: string }) | undefined> {
 	const entries = ctx.sessionManager?.getBranch?.();
 	if (entries === undefined) {
 		return undefined;
@@ -650,7 +654,7 @@ async function findLatestSavedPlanFileFromSessionHistory(
 
 		const candidate = await validateSessionSavedPlanCandidate(evidence, directory);
 		if (candidate !== undefined) {
-			return { ...candidate, mode: "session" };
+			return { ...candidate, mode: "session", savedPlanFileStem: candidate.slug };
 		}
 	}
 
@@ -719,15 +723,12 @@ async function validateSessionSavedPlanCandidate(
 	evidence: SourceBranchPlanFileEvidence,
 	directory: PlanStoreDirectoryEvidence,
 ): Promise<LatestSourceBranchPlanFileEvidence | undefined> {
-	if (validatePlanSlug(evidence.slug) !== undefined) {
-		return undefined;
-	}
 	if (!isAbsolute(evidence.filePath) || !evidence.filePath.endsWith(".md")) {
 		return undefined;
 	}
 
 	const fileName = basename(evidence.filePath);
-	if (fileName !== `${evidence.slug}.md`) {
+	if (!fileName.endsWith(".md")) {
 		return undefined;
 	}
 	if (!isPathInside(directory.directoryPath, evidence.filePath)) {
@@ -755,7 +756,7 @@ async function validateSessionSavedPlanCandidate(
 
 	return {
 		...directory,
-		slug: evidence.slug,
+		slug: fileName.slice(0, -".md".length),
 		filePath: evidence.filePath,
 		fileName,
 		modifiedTimeMs: fileStat.mtimeMs,

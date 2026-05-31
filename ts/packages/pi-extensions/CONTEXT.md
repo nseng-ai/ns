@@ -25,13 +25,19 @@ _Avoid:_ attached plan, Branch Memory entry, checked-in plan.
 **Local plan store** — The machine-local pre-branch store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` used by `/write-plan` and `/create-planned-branch`.
 _Avoid:_ Branch Memory namespace, repo docs directory, objective update.
 
+**Saved-plan filename slug** — The `<slug>` filename stem in the Local plan store, chosen by `/write-plan` as a semantic local locator for a reviewed plan file.
+_Avoid:_ planned-branch slug, Branch Memory key, target branch.
+
 **Source branch plan file** — One saved plan file scoped to the repository and source branch where planning happened.
 _Avoid:_ attached plan, implementation branch plan, source file unqualified.
+
+**Content-derived planned-branch slug** — The implementation slug derived by `/create-planned-branch` from the saved plan body through a mandatory tiny Pi model call. It drives the default target branch and the attached-plan key.
+_Avoid:_ saved-plan filename slug, path stem, deterministic fallback.
 
 **Planned branch** — An implementation branch created from a saved plan and carrying that plan as branch-scoped context.
 _Avoid:_ brmem branch, Objective branch, plan branch.
 
-**Attached plan** — The canonical implementation plan stored on a planned branch in Branch Memory namespace `brmem-plans` with key `<slug>.md`.
+**Attached plan** — The canonical implementation plan stored on a planned branch in Branch Memory namespace `brmem-plans` with key `<content-derived-planned-branch-slug>.md`.
 _Avoid:_ saved plan, local plan store file, prompt template.
 
 **Branch Memory attachment** — The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `brmem-plans` namespace contract.
@@ -87,11 +93,11 @@ The planned-branch layer owns **saved plans**, **planned branches**, and **attac
 
 ```text
 Namespace: brmem-plans
-Key: <slug>.md
+Key: <content-derived-planned-branch-slug>.md
 Branch: <target implementation branch>
 ```
 
-`/write-plan` writes only the **Local plan store**. `/create-planned-branch` creates the target branch and writes the **Branch Memory attachment**. `/impl-planned-branch` reads the **Attached plan** from the current implementation branch and injects it into a new implementation turn.
+`/write-plan` writes only the **Local plan store** and chooses a **Saved-plan filename slug**. `/create-planned-branch` selects that file, derives a **Content-derived planned-branch slug** from the plan body with a mandatory model call, creates the target branch, and writes the **Branch Memory attachment**. `/impl-planned-branch` reads the **Attached plan** from the current implementation branch and injects it into a new implementation turn.
 
 ### Checkpoint and new-branch boundary
 

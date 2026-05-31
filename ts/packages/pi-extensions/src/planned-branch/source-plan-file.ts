@@ -4,13 +4,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { formatCommand, type ExecResult } from "../command-runtime.ts";
-import {
-	formatCommandFailure,
-	normalizeSummary,
-	validatePlanSlug,
-	type PlanCommandExecApi,
-	type ExecOptions,
-} from "./plan-persistence.ts";
+import { formatCommandFailure, normalizeSummary, validatePlanSlug, type PlanCommandExecApi, type ExecOptions } from "./plan-persistence.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_SEGMENT_LENGTH = 120;
@@ -205,22 +199,9 @@ export async function findLatestSourceBranchPlanFile(
 		throw new Error(`No Markdown saved plan files exist in the local plan store directory ${directory.directoryPath}.`);
 	}
 
-	const slug = latest.fileName.slice(0, -".md".length);
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) {
-		throw new Error(
-			[
-				"Latest saved plan filename has an invalid slug.",
-				`Path: ${latest.filePath}`,
-				`Slug: ${slug}`,
-				`Reason: ${slugError}`,
-			].join("\n"),
-		);
-	}
-
 	return {
 		...directory,
-		slug,
+		slug: latest.fileName.slice(0, -".md".length),
 		filePath: latest.filePath,
 		fileName: latest.fileName,
 		modifiedTimeMs: latest.modifiedTimeMs,
