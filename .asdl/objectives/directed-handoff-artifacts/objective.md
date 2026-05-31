@@ -73,3 +73,13 @@ Resolved in the 2026-05-30 save/pickup/list rename slice:
 - Listing shape: a public Pi list command plus low-level `brmem list --all-branches` for storage/recovery.
 - Transition policy: immediate removal of old `brmem`-named handoff surfaces; no aliases, shims, or migration.
 - Technical locators: Branch Memory namespace `handoffs`, entry `<semantic-slug>.md`, branch, ref, and commit appear only as technical evidence or recovery detail.
+
+## Closure
+
+Outcome: completed.
+
+The directed handoff artifact workflow shipped end to end. The public Pi surface is `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; the portable first-party skills are `handoff-save` and `handoff-load`. The old `brmem`-named handoff commands, skills, and symlink mirrors were removed outright with no aliases, shims, or migration. The save flow makes the future-continuation focus first-class and clarifies a missing focus before saving; pickup resolves a handoff by slug, selector, or picker without exposing storage mechanics; listing covers the current branch by default and all branches with `--all-branches`, rendered as branch-grouped cards that keep `.md` keys and Branch Memory locators out of normal copy. Low-level `brmem` remains available and documented as storage/recovery machinery. The handoff artifact model and its distinction from compaction and generic session summaries are documented in `docs/pi/handoff-artifacts.md`, with catalog and README cross-references updated.
+
+Evidence: every non-parked roadmap row is `[x]` with shipped/inventory/validation updates in `updates/`; source verification confirms `handoff:create`/`handoff:pickup`/`handoff:list` and the `HANDOFF_LIST_MESSAGE_TYPE` card renderer in `ts/packages/pi-extensions/src/handoff.ts`; targeted `bun test ts/packages/pi-extensions/test/handoff.test.ts` passed (27 tests) at closure; prior slices recorded `just ts-check`, `just ts-test`, `just dprint-check`, and full `just` passing. Landed-state basis: current-branch commits over Graphite parent `handoff-save-load-list-rename`, corroborated by PR #736.
+
+Caveats and follow-ups (all parked, none blocking): unifying plans, retrospectives, and handoffs under a broader context-continuity namespace; migrating existing stored handoff entries; redesigning low-level Branch Memory storage/refs/CLI beyond `brmem list --all-branches`; and turning handoffs into a task/owner/due-date system are intentionally out of scope. Watch for user feedback on focus-required save friction and all-branch listing noise.
