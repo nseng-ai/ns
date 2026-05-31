@@ -1,47 +1,57 @@
 # areg
 
-AI-native project scaffolding and skill management helpers.
+Initialize existing Git projects for agent-resource and skill workflows.
 
 ## The idea
 
-The new way to bootstrap projects is **skills**. Instead of language-specific scaffolding tools, you start with a skills-ready project and compose what you need. Skills are universal -- they work across any project, any language, and any AI coding agent.
+Create or scaffold projects with the tool or skill appropriate to the project. Then run `areg init` at the Git repository root to install the baseline skill infrastructure agents need to discover and manage skills.
+
+`areg init` does not replace `npx skills add`. It bootstraps a repo so agents can discover and use skills. Use `npx skills` to install more persistent skills after initialization.
 
 ## Quick start
 
-From this workspace:
+Create or scaffold a project first, however you prefer, then initialize it:
 
 ```bash
-uv run areg create-project my-project
+cd my-project
+uv run areg init
 ```
 
 Once published, the same CLI can be run as a tool:
 
 ```bash
-uvx areg create-project my-project
+cd my-project
+uvx areg init
 ```
 
-Creates a new `my-project/` directory in the current working directory, pre-wired with skill infrastructure. Default skills are installed from `dagster-io/asdl-tools`:
+To initialize a different existing Git root:
+
+```bash
+uv run areg init path/to/repo
+```
+
+## What init installs
+
+`areg init` installs the default bootstrap skills from `dagster-io/asdl-tools`:
 
 - **skill-management** -- manage persistent skills with `npx skills`
 - **skillx** -- invoke any skill ephemerally from a GitHub repo, like `npx` for skills
 
-## Example: creating a Python project
+It also records the target agents in `areg.json`. By default, skills are installed for `codex` and `claude-code`; use repeatable `--agent` flags to select different targets.
 
-From your new project, invoke `skillx` to scaffold a Python package:
+## Installing more persistent skills
 
-In **Claude Code**:
+Use `npx skills add` after initialization:
 
-```text
-/skillx dagster-io/asdl-tools --skill create-python-package
+```bash
+npx skills add dagster-io/asdl-tools --skill pytest --agent codex claude-code -y
 ```
 
-In **Codex**:
+Use the installed `skill-management` skill for add, update, remove, list, and publish workflows.
 
-```text
-$skillx dagster-io/asdl-tools --skill create-python-package
-```
+## Running transient skills
 
-For lower-level agent workflows, `areg` also exposes hidden exec helpers:
+Use the installed `skillx` skill when you want to run a skill from GitHub without permanently installing it. For lower-level agent workflows, `areg` exposes hidden exec helpers:
 
 ```bash
 uv run areg exec skillx parse "dagster-io/asdl-tools --skill create-python-package"
@@ -49,22 +59,23 @@ uv run areg exec skillx list --repo dagster-io/asdl-tools
 uv run areg exec skillx fetch --repo dagster-io/asdl-tools --skill create-python-package
 ```
 
-The skill is fetched, executed, and discarded -- your project gets the Python scaffolding without permanently installing anything.
+The skill is fetched, executed, and discarded.
 
 ## What you get
 
-After `create-project`, your project has:
+After `areg init`, your existing Git project has:
 
 ```text
 my-project/
 ├── .agents/skills/         # installed skills (universal agent directory)
 ├── .claude/                # Claude Code config + skill symlinks
 ├── AGENTS.md               # project instructions for agents
-├── CLAUDE.md               # project instructions
+├── CLAUDE.md               # Claude-specific project instructions
 ├── areg.json               # agents this project targets
-├── skills-lock.json        # installed skill metadata
-└── .gitignore
+└── skills-lock.json        # installed skill metadata
 ```
+
+`areg init` does not create project language files, package files, or `.gitignore`.
 
 ## Development
 

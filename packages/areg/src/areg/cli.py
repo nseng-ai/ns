@@ -4,9 +4,9 @@ import click
 
 from areg.check.runner import check_cmd
 from areg.context import AregContext
-from areg.create_project import create_project
 from areg.gateways.gh.real import RealGhCli
 from areg.gateways.npx_skills.real import RealNpxSkills
+from areg.init_project import init_project_cmd
 from areg.skillx import exec_group
 from areg.update_skills import update_skills_cmd
 
@@ -19,7 +19,7 @@ def main(ctx: click.Context) -> None:
         ctx.obj = AregContext(gh=RealGhCli(), npx_skills=RealNpxSkills())
 
 
-main.add_command(create_project)
+main.add_command(init_project_cmd)
 main.add_command(check_cmd)
 main.add_command(exec_group)
 main.add_command(update_skills_cmd)

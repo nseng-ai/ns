@@ -8,5 +8,4 @@ def test_templates_dir_resolves_to_real_bundled_dir() -> None:
     assert result is not None
     assert result.is_dir()
     assert result.name == "_templates"
-    assert (result / "CLAUDE.md").is_file()
-    assert (result / "AGENTS.md").is_file()
+    assert (result / "settings.local.json").is_file()

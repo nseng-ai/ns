@@ -106,15 +106,30 @@ class FakeNpxSkills(NpxSkills):
                     link.symlink_to(target)
 
         if self._write_lock and to_install:
-            lock = {
-                "version": 1,
-                "skills": {
-                    name: {
-                        "source": repo,
-                        "sourceType": "github",
-                        "computedHash": f"fake-{name}",
-                    }
-                    for name in to_install
-                },
-            }
-            (cwd / "skills-lock.json").write_text(json.dumps(lock, indent=2), encoding="utf-8")
+            lock_path = cwd / "skills-lock.json"
+            if lock_path.is_file():
+                existing_data = json.loads(lock_path.read_text(encoding="utf-8"))
+                if isinstance(existing_data, dict):
+                    existing_version = existing_data.get("version")
+                    existing_skills = existing_data.get("skills")
+                    lock_version = existing_version if isinstance(existing_version, int) else 1
+                    if isinstance(existing_skills, dict):
+                        lock_skills = existing_skills.copy()
+                    else:
+                        lock_skills = {}
+                else:
+                    lock_version = 1
+                    lock_skills = {}
+            else:
+                lock_version = 1
+                lock_skills = {}
+
+            for name in to_install:
+                lock_skills[name] = {
+                    "source": repo,
+                    "sourceType": "github",
+                    "computedHash": f"fake-{name}",
+                }
+
+            lock = {"version": lock_version, "skills": lock_skills}
+            lock_path.write_text(json.dumps(lock, indent=2), encoding="utf-8")

@@ -24,17 +24,17 @@ def _ctx() -> AregContext:
     return AregContext(gh=FakeGhCli(), npx_skills=FakeNpxSkills())
 
 
-def test_create_project_requires_npx(tmp_path) -> None:
+def test_init_requires_npx(tmp_path) -> None:
     with patch("areg.preconditions.shutil.which", autospec=True, return_value=None):
         result = CliRunner().invoke(
             main,
-            ["create-project", "x", "--path", str(tmp_path)],
+            ["init", str(tmp_path)],
             obj=_ctx(),
         )
     assert result.exit_code != 0
     assert "npx is required" in result.output
-    # Fail-fast: project directory was never created.
-    assert not (tmp_path / "x").exists()
+    # Fail-fast: no initialization files were created.
+    assert not (tmp_path / "areg.json").exists()
 
 
 def test_skillx_list_requires_gh() -> None:
