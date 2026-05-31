@@ -2,7 +2,9 @@
 
 ## Thesis
 
-`/Users/schrockn/code/nonslop` should stop being a separate code, skill, and distribution source. Its useful capabilities are the standalone `areg` CLI/package and the exact 21-skill `ns-*` catalog. This Objective moves those capabilities into `asdl-tools` so the nonslop repository and project can be deleted afterward without leaving this repo dependent on `nonslop`, `nseng-ai/nonslop`, or a local checkout.
+`/Users/schrockn/code/nonslop` should stop being a separate code, skill, and distribution source. This Objective migrates every useful capability in that checkout—not only the `areg` package and `ns-*` skills—so the nonslop repository and project can be deleted afterward without leaving this repo dependent on `nonslop`, `nseng-ai/nonslop`, or a local checkout.
+
+The known primary capabilities are the standalone `areg` CLI/package and the exact 21-skill `ns-*` catalog, but the first migration slice must catalog all nonslop capabilities before assigning dispositions. That inventory includes source code, skills, tests, docs, scripts, CI/workflow configuration, package/release configuration, agent configuration, local development integrations, lockfiles, generated templates, and any checkout-local symlinked capabilities that are not part of the tracked first-party catalog.
 
 The target shape is intentionally private/in-development: preserve useful behavior, not backward compatibility. `areg` remains a standalone workspace package and CLI in this monorepo, while the `ns-*` catalog becomes first-party local skill content in this repo. Existing installed copies in `asdl-tools` must be reconciled with the nonslop source before promotion rather than blindly overwritten.
 
@@ -12,9 +14,11 @@ Local evidence gathered at Objective creation:
 - `nonslop/skills` contains 21 local `ns-*` skills: `ns-changelog-update`, `ns-create-bun-ts-project`, `ns-create-py-dev-cli`, `ns-create-pypackage-project`, `ns-dignified-python`, `ns-fake-driven-test-layout`, `ns-install`, `ns-py-fake-driven-testing`, `ns-pytest`, `ns-refac-cli-push-down`, `ns-refactor-swarm`, `ns-resolve-merge-conflicts`, `ns-setup-dprint`, `ns-setup-dprint-gh-ci`, `ns-setup-pypi-publish`, `ns-setup-python-gh-ci`, `ns-setup-repo-to-use-gt`, `ns-skill-audit`, `ns-skill-management`, `ns-skillx`, and `nsx`.
 - `asdl-tools` already vendors many `ns-*` skills under `.agents/skills` from `nseng-ai/nonslop`, has `nonslop` in the root dev dependency group, and references nonslop in `justfile`, `skills-lock.json`, `docs/agent-resource-catalog.md`, and skill-management tests.
 - The current replacement GitHub source for migrated skill install/fetch instructions is `dagster-io/asdl-tools`.
+- A bounded source-tree inventory of `/Users/schrockn/code/nonslop` found additional non-`areg` capabilities that must be cataloged: GitHub Actions workflows (`python-ci`, `ns-ci`) and the `setup-python-uv` action; root development/release recipes (`justfile`, `pyproject.toml`, `dprint.json`, `.gitignore`, `uv.lock`); skill-authoring standards in `docs/skill-standards.md`; upstream sync/cleanup scripts for `ns-dignified-python`; agent/tool configuration under `.codex` and `.claude`; `local.just` twerk-development linkage; checkout-local `.agents`/`.claude` symlinks to twerk skills; and an empty/skeletal `packages/nonslop-dev` directory tree.
 
 ## Scope
 
+- Catalog every capability in `/Users/schrockn/code/nonslop` before moving files, including tracked source, tests, skills, docs, scripts, CI/workflows/actions, packaging/release/dev recipes, generated templates, agent configuration, lockfiles, local-only symlinked skills, local dev integrations, and empty or skeletal package directories. Assign each item an explicit disposition: migrate, rewrite, fold into an existing asdl-tools capability, retire, or ignore as cache/build output/local-only state.
 - Add `areg` as a standalone workspace package in `asdl-tools`, preserving the package/module/CLI identity rather than mounting it into the top-level `asdl` CLI initially.
 - Port `areg` source, templates, and tests from nonslop into the monorepo structure, adapting package metadata, workspace wiring, and test configuration to this repo's conventions.
 - Preserve `areg` capabilities: project scaffolding, skill-layout checks, curated lockfile-based skill updates, and hidden `exec skillx/nsx` helpers for agent-facing skill fetch/list/cleanup mechanics.
@@ -35,6 +39,7 @@ Local evidence gathered at Objective creation:
 
 ## Completion Criteria
 
+- A nonslop capability catalog exists before implementation finishes and covers every non-cache source/config/documentation/development artifact in `/Users/schrockn/code/nonslop`, with explicit dispositions for both tracked files and relevant checkout-local symlinked capabilities.
 - `packages/areg` exists as a workspace package with the `areg` script, module source, templates, package metadata, and tests ported from nonslop and adapted to this repo.
 - Root workspace metadata includes `areg` and removes the dev dependency on `nonslop`; repo checks exercise the ported package in the normal workspace flow.
 - `areg create-project`, `areg check`, `areg update-skills`, `areg exec skillx ...`, and `areg exec nsx ...` work in scenario tests with fake gateways and no dependency on the old nonslop package or repo.
@@ -53,6 +58,7 @@ Assumptions:
 - `areg` is the package identity to preserve. The old repo name `nonslop` is distribution history, not a compatibility constraint.
 - `dagster-io/asdl-tools` is the correct replacement GitHub source for `npx skills add ... --skill <ns-skill>` and for `areg`'s default `nsx` behavior.
 - The exact 21 `ns-*` skill names should remain available after migration, even if some content needs rewrite away from nonslop-specific instructions.
+- Some nonslop checkout capabilities may be intentionally retired or ignored rather than migrated, but they must still be cataloged with a rationale before deletion readiness is claimed.
 - Reconciliation can be done from local checkouts: `/Users/schrockn/code/nonslop` as the retiring source and this repo's existing `.agents/skills/ns-*` copies as potentially newer local edits.
 - The existing asdl-tools local-skill convention is the right destination: canonical content in `skills/<name>/`, universal agent discovery via `.agents/skills/<name>` symlink, and Claude discovery via `.claude/skills/<name>` symlink.
 
@@ -64,6 +70,7 @@ Risks:
 - Porting `areg` tests may expose repo-style differences: this repo uses workspace packages, Clinkr conventions in several packages, empty `__init__.py` re-export rules, and fake-driven testing expectations. Mitigation: adapt only where needed for this repo's packaging and test layout, without expanding `areg` into an asdl plugin.
 - `npx skills` behavior around update/install has known quirks that `areg update-skills` works around. Mitigation: keep the workaround covered by scenario tests and update skill-management docs to reference `areg update-skills` instead of `uvx nonslop update-skills`.
 - Deletion readiness may miss hidden references in generated artifacts or docs. Mitigation: include targeted repo-wide searches excluding caches/dist/lock noise and make any intentional historical references explicit.
+- The initial migration framing could over-focus on `areg` and the `ns-*` catalog, missing nonslop's CI setup, release/dev recipes, skill standards, sync scripts, agent configuration, or checkout-local linked skills. Mitigation: the first roadmap row is now an all-capabilities audit over the whole nonslop checkout, with caches/build output/virtualenvs explicitly excluded rather than silently ignored.
 
 ## Open Questions
 
