@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { buildGrillAskRows } from "../src/grill-ui/view.ts";
 import type { SkillCommandInfo } from "../src/skill-expansion.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
@@ -9,6 +10,7 @@ import {
 	registerGrillUiExtension,
 	type ExtensionAPI,
 	type GrillAskInput,
+	type GrillAskOverlayRunner,
 	type GrillAskToolContext,
 	type GrillUiCommandContext,
 	type ToolDefinition,
@@ -238,6 +240,109 @@ describe("grill_ask execution", () => {
 		});
 		expect(text(result)).toContain("User selected option `focused-extension`: Ship a focused extension");
 		expect(text(result)).toContain("Recommended option selected: true");
+	});
+
+	test("custom overlay is preferred over legacy select/editor and returns a choice answer", async () => {
+		const overlayRunner: GrillAskOverlayRunner = async (input) => {
+			expect(input.allowFreeform).toBe(true);
+			const choice = buildGrillAskRows(input).find((row) => row.kind === "choice" && row.option.value === "generic-questionnaire");
+			if (choice === undefined || choice.kind !== "choice") throw new Error("expected generic-questionnaire choice");
+			return { action: "choice", entry: choice };
+		};
+
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					custom: async <T>() => {
+						throw new Error("overlay runner test should not invoke fake custom directly");
+					},
+					select: async () => {
+						throw new Error("legacy select should not be used when overlay succeeds");
+					},
+					editor: async () => "unused",
+				},
+			},
+			{ overlayRunner },
+		);
+
+		expect(result.details).toMatchObject({
+			action: "answer",
+			kind: "choice",
+			value: "generic-questionnaire",
+			recommended: false,
+		});
+	});
+
+	test("custom overlay freeform answer does not call legacy editor", async () => {
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					custom: async <T>() => {
+						throw new Error("overlay runner test should not invoke fake custom directly");
+					},
+					editor: async () => {
+						throw new Error("legacy editor should not be used for inline overlay freeform");
+					},
+				},
+			},
+			{ overlayRunner: async () => ({ action: "freeform", answer: " Inline overlay answer. " }) },
+		);
+
+		expect(result.details).toEqual({
+			action: "answer",
+			kind: "freeform",
+			question: "How should we ship this UI improvement?",
+			answer: "Inline overlay answer.",
+		});
+	});
+
+	test("custom overlay cancellation returns action cancelled", async () => {
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					custom: async <T>() => {
+						throw new Error("overlay runner test should not invoke fake custom directly");
+					},
+				},
+			},
+			{ overlayRunner: async () => ({ action: "cancelled" }) },
+		);
+
+		expect(result.details).toEqual({ action: "cancelled", question: "How should we ship this UI improvement?" });
+		expect(text(result)).toContain("Do not silently continue grilling");
+	});
+
+	test("overlay failure falls back to legacy select/editor", async () => {
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					custom: async <T>() => {
+						throw new Error("overlay runtime unavailable");
+					},
+					select: async (_title, options) => options[0],
+					editor: async () => "unused",
+				},
+			},
+			{
+				overlayRunner: async () => {
+					throw new Error("overlay runtime unavailable");
+				},
+			},
+		);
+
+		expect(result.details).toMatchObject({
+			action: "answer",
+			kind: "choice",
+			value: "focused-extension",
+		});
 	});
 
 	test("freeform path calls editor and returns a freeform answer", async () => {
