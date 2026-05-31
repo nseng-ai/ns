@@ -13,6 +13,7 @@ import {
 	defaultGrillAskRowIndex,
 	rowLabel,
 	rowRecommendationTag,
+	rowSelectDisplay,
 	rowValue,
 } from "../src/grill-ui/view.ts";
 import type { GrillAskCustomComponent, GrillAskToolContext, NormalizedGrillAskInput } from "../src/grill-ui.ts";
@@ -56,6 +57,9 @@ describe("grill_ask view helpers", () => {
 		expect(rowLabel(rows[2]!)).toBe("3. Other / freeform answer");
 		expect(rowLabel(rows[3]!)).toBe("4. End grilling session");
 		expect(rowLabel(rows[1]!)).not.toContain("(recommended)");
+		expect(rowSelectDisplay(rows[1]!)).toBe("2. ★ Ship the focused inline UI — Use one custom inline UI with visible exceptional rows.");
+		expect(rowSelectDisplay(rows[2]!)).toBe("3. ✎ Other / freeform answer");
+		expect(rowSelectDisplay(rows[3]!)).toBe("4. ⏹ End grilling session");
 		expect(rowRecommendationTag(rows[1]!)).toBe("★ recommended");
 		expect(rowRecommendationTag(rows[0]!)).toBeUndefined();
 		expect(choiceDetailLines(input, rows[1]!)).toEqual([
