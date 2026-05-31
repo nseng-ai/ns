@@ -4,6 +4,7 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
+    "areg",
     "aretro",
     "asdl-core",
     "asdl-dispatcher",
@@ -24,6 +25,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53", size = 13643, upload-time = "2024-05-20T21:33:24.1Z" },
 ]
+
+[[package]]
+name = "areg"
+version = "0.1.0"
+source = { editable = "packages/areg" }
+dependencies = [
+    { name = "click" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
 
 [[package]]
 name = "aretro"
@@ -136,6 +148,7 @@ plugins = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "areg" },
     { name = "aretro" },
     { name = "asdl-core" },
     { name = "asdl-dispatcher" },
@@ -143,7 +156,6 @@ dev = [
     { name = "asdl-pr-address" },
     { name = "asdl-slots" },
     { name = "brmem" },
-    { name = "nonslop" },
     { name = "packagechk" },
     { name = "pytest" },
     { name = "pytest-xdist" },
@@ -165,6 +177,7 @@ provides-extras = ["plugins"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "areg", editable = "packages/areg" },
     { name = "aretro", editable = "packages/aretro" },
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
@@ -172,7 +185,6 @@ dev = [
     { name = "asdl-pr-address", editable = "packages/asdl-pr-address" },
     { name = "asdl-slots", editable = "packages/asdl-slots" },
     { name = "brmem", editable = "packages/brmem" },
-    { name = "nonslop" },
     { name = "packagechk", editable = "packages/packagechk" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
@@ -254,18 +266,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
-]
-
-[[package]]
-name = "nonslop"
-version = "0.1.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/83/e6/84d0f7ddca7ee1a7c8fffd96d93446f72368377ca43778697b921ab29148/nonslop-0.1.5.tar.gz", hash = "sha256:8175369a68f4264449b23bfa5c11a1c93c5b67b8552881d8d5a449c9cc213cd9", size = 17375, upload-time = "2026-04-25T22:35:04.094Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/c4/7c77757791dbb404523bb01d9fd897b7a0b29ca54b289ee423d76e43f0b7/nonslop-0.1.5-py3-none-any.whl", hash = "sha256:2ed73fdcee9fd6712007fc5719e39aaac6a8b4fb830c9a4aff94a395004de2f0", size = 28578, upload-time = "2026-04-25T22:35:02.949Z" },
 ]
 
 [[package]]

@@ -65,8 +65,8 @@ live-github-readonly repo:
 test-all:
     uv run pytest -n auto
 
-nonslop-check:
-    uv run nonslop check
+areg-check:
+    uv run areg check
 
 refresh-nonslop:
     uv sync --upgrade-package nonslop

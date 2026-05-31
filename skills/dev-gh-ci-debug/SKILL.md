@@ -1,11 +1,12 @@
 ---
 name: dev-gh-ci-debug
-description: "Command: dev-gh-ci-debug"
-# Original description (preserved for reference):
-# Debug a failing GitHub Actions run end-to-end. Fires when the user pastes a GitHub Actions URL, gives a run ID, or says things like 'debug this CI run', 'why did CI fail', 'look at gh actions run <id>', 'investigate the failing workflow'. Uses `gh run view` + `--log-failed` to fetch only failed-step logs, correlates `##[error]` annotations with steps in the workflow YAML, reads invoked scripts, and returns a structured diagnosis with the file/line to fix. Developer-only; defers to `dev-gh` for general `gh` CLI questions and to `dev-just-fix` for applying fixes locally.
+description: "Debug a failing GitHub Actions run end-to-end from an Actions run URL/ID, PR URL/number, Graphite PR URL, or current branch. Uses `gh pr` to resolve PR checks to run/job URLs when needed, then `gh run view --log-failed` to diagnose failed steps and return a structured fix."
 allowed-tools:
+  - "Bash(gh pr *)"
   - "Bash(gh run *)"
   - "Bash(gh api *)"
+  - "Bash(git branch *)"
+  - "Bash(git status *)"
   - "Read"
   - "Grep"
   - "Glob"
@@ -17,13 +18,14 @@ metadata:
 
 # dev-gh-ci-debug
 
-A focused playbook for diagnosing GitHub Actions CI failures from a run URL or run ID. Narrower than `dev-gh` (which is the broad `gh` CLI reference); this skill is a diagnostic recipe, not a command catalog.
+A focused playbook for diagnosing GitHub Actions CI failures from a run URL, run ID, PR URL/number, Graphite PR URL, or the current branch. Narrower than `dev-gh` (which is the broad `gh` CLI reference); this skill is a diagnostic recipe, not a command catalog.
 
 ## When to use
 
 - User pastes a GitHub Actions run URL (e.g. `https://github.com/<owner>/<repo>/actions/runs/<id>`, optionally with `/job/<jid>`).
 - User gives a bare run ID and asks to debug it.
-- User says "debug CI", "why did CI fail", "look at gh actions run …", "investigate the failing workflow".
+- User pastes a PR URL or Graphite PR URL (e.g. `https://github.com/<owner>/<repo>/pull/<n>` or `https://app.graphite.com/github/pr/<owner>/<repo>/<n>`).
+- User says "debug CI", "why did CI fail", "look at gh actions run …", "investigate the failing workflow", or asks about failing checks on the current branch.
 
 Defer to `dev-gh` for general `gh` questions (PRs, issues, API, auth). Defer to `dev-just-fix` when the failure is local `just` output and no run is involved.
 
@@ -31,8 +33,24 @@ Defer to `dev-gh` for general `gh` questions (PRs, issues, API, auth). Defer to 
 
 ### 1. Normalize the input
 
-- **URL form** `https://github.com/<owner>/<repo>/actions/runs/<id>[/job/<jid>]` → extract `run_id = <id>`, `repo = <owner>/<repo>`, and (if present) `job_id = <jid>`.
+- **Actions URL form** `https://github.com/<owner>/<repo>/actions/runs/<id>[/job/<jid>]` → extract `run_id = <id>`, `repo = <owner>/<repo>`, and (if present) `job_id = <jid>`.
 - **Bare run ID** → require the repo. Use `--repo <owner>/<repo>` explicitly on every `gh run` call rather than relying on the current directory's origin.
+- **GitHub PR URL / PR number** → resolve the PR with `gh pr view <pr> --repo <owner>/<repo> --json number,url,headRefName,statusCheckRollup`.
+- **Graphite PR URL** `https://app.graphite.com/github/pr/<owner>/<repo>/<n>` → treat `<n>` as the GitHub PR number and resolve it with the same `gh pr view` command.
+- **Current branch / no explicit run** → resolve the branch's PR first:
+
+  ```
+  gh pr view --repo <owner>/<repo> --json number,url,headRefName,statusCheckRollup
+  ```
+
+  If that cannot infer the PR, get the branch name and look it up explicitly:
+
+  ```
+  git branch --show-current
+  gh pr list --repo <owner>/<repo> --head <branch> --json number,url,headRefName,statusCheckRollup
+  ```
+
+- **After resolving a PR** → inspect `statusCheckRollup` or run `gh pr checks <pr> --repo <owner>/<repo>`; choose failed check runs' `detailsUrl` values, extract their `run_id` and optional `job_id`, then continue with the run-summary workflow below.
 
 ### 2. Run summary (cheap, orienting)
 
