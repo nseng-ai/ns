@@ -80,7 +80,7 @@ def render_put(result: PutResult) -> None:
                     f"Stored Entry Key {result.key} from {source} in {scope} "
                     f"on Branch {result.branch}."
                 ),
-                f"Ref: {result.ref_name}",
+                f"Entry Locator: {result.ref_name}",
                 f"Commit: {result.commit}",
                 f"Inspect: git show {result.ref_name}",
             ]

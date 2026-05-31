@@ -121,7 +121,7 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
         f"Stored Entry Key plan/plan.md from {source_file} in Namespace scratch on Branch feat/x."
         in put_result.output
     )
-    assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
+    assert "Entry Locator: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert "Commit: fake-0001" in put_result.output
     assert "Inspect: git show refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert get_result.exit_code == 0, get_result.output
@@ -304,7 +304,7 @@ def test_brmem_put_from_stdin(cli_group: ClinkrGroup) -> None:
         "Stored Entry Key plan/plan.md from stdin in Namespace scratch on Branch feat/x."
         in put_result.output
     )
-    assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
+    assert "Entry Locator: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert "Commit: fake-0001" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "contents\n"
@@ -490,7 +490,7 @@ def test_brmem_put_defaults_source_file_from_key_basename(
         "Stored Entry Key plan/plan.md from plan.md in Namespace scratch on Branch feat/x."
         in put_result.output
     )
-    assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
+    assert "Entry Locator: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
 
@@ -1151,7 +1151,7 @@ def test_brmem_put_without_namespace_human_output(cli_group: ClinkrGroup, tmp_pa
     assert (
         f"Stored Entry Key scratchpad from {source_file} in Base on Branch feat/x." in result.output
     )
-    assert "Ref: refs/brmem/base/feat---x:scratchpad" in result.output
+    assert "Entry Locator: refs/brmem/base/feat---x:scratchpad" in result.output
 
 
 def test_brmem_get_without_namespace_reads_base_ref(cli_group: ClinkrGroup) -> None:
@@ -1565,6 +1565,7 @@ def test_brmem_copy_help_lists_flags(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["copy", "-h"])
 
     assert result.exit_code == 0
+    assert "--base" in result.output
     assert "--namespace" in result.output
     assert "--from-branch" in result.output
     assert "--to-branch" in result.output
@@ -1574,6 +1575,157 @@ def test_brmem_copy_help_lists_flags(cli_group: ClinkrGroup) -> None:
     # The help text must warn that '*' matches '/' so skill authors know
     # `<slug>/*` is recursive (flat and nested keys both match).
     assert "'/'" in result.output
+
+
+def test_brmem_copy_base_happy_path_copies_base_entries(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "master", "plan\n")
+    gateway.put(None, "notes/session.md", "master", "session\n")
+    gateway.put("notes", "plan.md", "master", "named\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--base",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Copied 2 Entries in Base Namespace from Branch master to Branch feat/x" in result.output
+    assert gateway.get(None, "plan.md", "feat/x") == "plan\n"
+    assert gateway.get(None, "notes/session.md", "feat/x") == "session\n"
+    assert gateway.get("notes", "plan.md", "feat/x") is None
+
+
+def test_brmem_copy_base_with_key_glob_filters_entries(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plans/a.md", "master", "a\n")
+    gateway.put(None, "plans/nested/b.md", "master", "b\n")
+    gateway.put(None, "notes/a.md", "master", "notes\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--base",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "plans/*",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Base Namespace" in result.output
+    assert gateway.get(None, "plans/a.md", "feat/x") == "a\n"
+    assert gateway.get(None, "plans/nested/b.md", "feat/x") == "b\n"
+    assert gateway.get(None, "notes/a.md", "feat/x") is None
+
+
+def test_brmem_copy_requires_scope(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["copy", "--from-branch", "master", "--to-branch", "feat/x"],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "Pass --base or --namespace <name>" in result.output
+
+
+def test_brmem_copy_rejects_base_and_namespace_together(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--base",
+            "--namespace",
+            "notes",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "--base and --namespace are mutually exclusive" in result.output
+
+
+def test_brmem_copy_base_json_envelope_reports_null_namespace(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "master", "plan\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--base",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["namespace"] is None
+    assert [item["key"] for item in data["copied"]] == ["plan.md"]
+    copied = data["copied"][0]
+    assert copied["source_ref"].startswith("refs/brmem/base/master:")
+    assert copied["destination_ref"].startswith("refs/brmem/base/feat---x:")
+
+
+def test_brmem_copy_empty_destination_snapshot_does_not_conflict(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("notes", "plan.md", "master", "plan\n")
+    gateway.put("notes", "temporary.md", "feat/x", "temporary\n")
+    gateway.delete("notes", "temporary.md", "feat/x")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "notes",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert gateway.get("notes", "plan.md", "feat/x") == "plan\n"
 
 
 def test_brmem_copy_happy_path_copies_every_file_in_namespace(
@@ -1804,7 +1956,7 @@ def test_brmem_delete_existing_key(cli_group: ClinkrGroup) -> None:
         "Deleted Entry Key plan/plan.md from Namespace scratch on Branch feat/x."
         in delete_result.output
     )
-    assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in delete_result.output
+    assert "Entry Locator: refs/brmem/ns/scratch/feat---x:plan/plan.md" in delete_result.output
     assert "Commit: fake-0002" in delete_result.output
     assert get_result.exit_code == 2
     assert "No content for Entry Key plan/plan.md" in get_result.output
@@ -1902,7 +2054,7 @@ def test_brmem_delete_without_namespace_targets_base_entry(cli_group: ClinkrGrou
 
     assert delete_result.exit_code == 0, delete_result.output
     assert "Deleted Entry Key scratchpad from Base on Branch feat/x." in delete_result.output
-    assert "Ref: refs/brmem/base/feat---x:scratchpad" in delete_result.output
+    assert "Entry Locator: refs/brmem/base/feat---x:scratchpad" in delete_result.output
     assert get_result.exit_code == 2
 
 

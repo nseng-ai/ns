@@ -228,6 +228,73 @@ def test_fake_brmem_base_and_namespaced_entries_do_not_collide() -> None:
     ]
 
 
+def test_fake_brmem_copy_entries_supports_base_namespace() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "master", "plan\n")
+    source_head = gateway.put(None, "notes/session.md", "master", "session\n")
+    gateway.put("notes", "plan.md", "master", "named\n")
+
+    copied = gateway.copy_entries(
+        namespace=None,
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob=None,
+    )
+
+    assert [(e.key, e.ref_name) for e in copied] == [
+        ("notes/session.md", "refs/brmem/base/feat---x:notes/session.md"),
+        ("plan.md", "refs/brmem/base/feat---x:plan.md"),
+    ]
+    assert gateway.get(None, "plan.md", "feat/x") == "plan\n"
+    assert gateway.get(None, "notes/session.md", "feat/x") == "session\n"
+    assert gateway.get("notes", "plan.md", "feat/x") is None
+
+    diagnostic = gateway.check(None, "plan.md", "feat/x")
+    assert diagnostic is not None
+    assert diagnostic.head_sha == source_head
+
+
+def test_fake_brmem_copy_entries_base_key_glob_preserves_non_matching_dest_keys() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plans/a.md", "master", "a\n")
+    gateway.put(None, "notes/a.md", "master", "notes\n")
+    gateway.put(None, "keep.md", "feat/x", "keep\n")
+
+    copied = gateway.copy_entries(
+        namespace=None,
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="plans/*",
+    )
+
+    assert [e.key for e in copied] == ["plans/a.md"]
+    assert gateway.get(None, "plans/a.md", "feat/x") == "a\n"
+    assert gateway.get(None, "keep.md", "feat/x") == "keep\n"
+    assert gateway.get(None, "notes/a.md", "feat/x") is None
+
+
+def test_fake_brmem_copy_entries_empty_dest_snapshot_is_not_conflict() -> None:
+    gateway = FakeBranchMemoryGateway()
+    source_head = gateway.put("notes", "plan.md", "master", "plan\n")
+    gateway.put("notes", "temporary.md", "feat/x", "temporary\n")
+    gateway.delete("notes", "temporary.md", "feat/x")
+
+    copied = gateway.copy_entries(
+        namespace="notes",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob=None,
+    )
+
+    assert [e.key for e in copied] == ["plan.md"]
+    diagnostic = gateway.check("notes", "plan.md", "feat/x")
+    assert diagnostic is not None
+    assert diagnostic.head_sha == source_head
+
+
 def test_fake_brmem_copy_entries_copies_every_key_without_prefix() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("notes", "foo/body.md", "master", "body\n")

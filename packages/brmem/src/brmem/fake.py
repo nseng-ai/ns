@@ -216,13 +216,14 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
     def copy_entries(
         self,
         *,
-        namespace: str,
+        namespace: str | None,
         from_branch: str,
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
-        validate_namespace(namespace)
+        if namespace is not None:
+            validate_namespace(namespace)
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
         if key_glob is not None:
@@ -236,19 +237,21 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         dest_head = self._snapshot_heads.get(dest_key)
 
         if key_glob is None:
-            if dest_head is not None and not overwrite:
-                # Conflict is snapshot-level: surface every key currently on the
-                # destination snapshot that would be replaced.
-                conflicts = tuple(
-                    EntryRef(
-                        namespace=namespace,
-                        key=tree_entry.key,
-                        branch=to_branch,
-                        ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
+            if dest_head is not None:
+                dest_entries = tuple(sorted(self._commits[dest_head].tree))
+                if dest_entries and not overwrite:
+                    # Conflict is Entry-based: surface every key currently on
+                    # the destination snapshot that would be replaced.
+                    conflicts = tuple(
+                        EntryRef(
+                            namespace=namespace,
+                            key=tree_entry.key,
+                            branch=to_branch,
+                            ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
+                        )
+                        for tree_entry in dest_entries
                     )
-                    for tree_entry in sorted(self._commits[dest_head].tree)
-                )
-                raise BrmemCopyConflictError(conflicts)
+                    raise BrmemCopyConflictError(conflicts)
 
             self._snapshot_heads[dest_key] = source_head
 

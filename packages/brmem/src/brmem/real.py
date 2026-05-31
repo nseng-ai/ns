@@ -357,13 +357,14 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def copy_entries(
         self,
         *,
-        namespace: str,
+        namespace: str | None,
         from_branch: str,
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
-        validate_namespace(namespace)
+        if namespace is not None:
+            validate_namespace(namespace)
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
         if key_glob is not None:
@@ -414,7 +415,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def _copy_snapshot(
         self,
         *,
-        namespace: str,
+        namespace: str | None,
         to_branch: str,
         source_ref: str,
         source_sha: str,
@@ -422,23 +423,25 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         dest_sha: str | None,
         overwrite: bool,
     ) -> tuple[EntryRef, ...]:
-        if dest_sha is not None and not overwrite:
-            # Conflict is snapshot-level; the EntryRefs we surface describe
-            # every key that currently lives on the destination snapshot and
-            # would be overwritten.
-            conflicts = tuple(
-                EntryRef(
-                    namespace=namespace,
-                    key=path,
-                    branch=to_branch,
-                    ref_name=ref_name_for_entry(namespace, path, to_branch),
-                )
-                for path, _blob_sha in sorted(
-                    _enumerate_tree_entries(self._cwd, dest_ref),
-                    key=lambda pair: pair[0],
-                )
+        if dest_sha is not None:
+            dest_entries = sorted(
+                _enumerate_tree_entries(self._cwd, dest_ref),
+                key=lambda pair: pair[0],
             )
-            raise BrmemCopyConflictError(conflicts)
+            if dest_entries and not overwrite:
+                # Conflict is Entry-based; the EntryRefs we surface describe
+                # every key that currently lives on the destination snapshot
+                # and would be overwritten.
+                conflicts = tuple(
+                    EntryRef(
+                        namespace=namespace,
+                        key=path,
+                        branch=to_branch,
+                        ref_name=ref_name_for_entry(namespace, path, to_branch),
+                    )
+                    for path, _blob_sha in dest_entries
+                )
+                raise BrmemCopyConflictError(conflicts)
 
         _run(
             ["git", "update-ref", dest_ref, source_sha],
@@ -461,7 +464,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     def _copy_with_glob(
         self,
         *,
-        namespace: str,
+        namespace: str | None,
         from_branch: str,
         to_branch: str,
         source_ref: str,
@@ -508,13 +511,14 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             merged[path] = blob_sha
 
         tree_sha = _build_tree_from_entries(self._cwd, merged)
+        scope_arg = "--base" if namespace is None else f"--namespace {namespace}"
         commit_cmd = [
             "git",
             "commit-tree",
             tree_sha,
             "-m",
             (
-                f"brmem copy --namespace {namespace} --from-branch {from_branch} "
+                f"brmem copy {scope_arg} --from-branch {from_branch} "
                 f"--to-branch {to_branch} --key-glob {key_glob}"
             ),
         ]

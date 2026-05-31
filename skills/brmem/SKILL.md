@@ -21,13 +21,16 @@ delete, or explain Branch Memory.
 
 ## Mental model
 
-- **Branch Memory**: Entries attached to one branch, either in the ad-hoc base
-  area or in a Namespace.
+- **Branch Memory**: Entries attached to one branch, either in the Base
+  Namespace or in a named Namespace.
 - **Entry**: a small text blob stored under an Entry Key such as `plan.md` or
   `plans/table-filter.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
-- **Namespace**: a tool-owned bucket such as `notes`. Omit `--namespace`
-  for ad-hoc base Entries.
+- **Namespace**: a branch-scoped Entry bucket. The Base Namespace is reserved by
+  `brmem` for ad-hoc Entries when `--namespace` is omitted. Named Namespaces
+  are workflow-owned buckets such as `notes`.
+- **Entry Locator**: the copy-pastable `git show` locator printed by commands,
+  shaped like `<snapshot-ref>:<entry-key>`.
 
 Commands default to the current branch unless you pass `--branch`.
 
@@ -36,20 +39,20 @@ private tokens, binary assets, generated build output, or large datasets.
 
 ## Command chooser
 
-| Goal                                     | Command                                                         | Writes? |
-| ---------------------------------------- | --------------------------------------------------------------- | ------- |
-| Store or update text                     | `brmem put <key> --file <path>`                                 | Yes     |
-| Print one Entry's content                | `brmem get <key>`                                               | No      |
-| Probe one Entry and get locator/size     | `brmem check <key>`                                             | No      |
-| List Entries on a branch                 | `brmem list`                                                    | No      |
-| Export Entries to files                  | `brmem export [--output-dir <dir>]`                             | Files   |
-| Remove one Entry                         | `brmem delete <key>`                                            | Yes     |
-| Copy namespaced Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
-| Resolve a repo/global prompt plugin      | `brmem exec resolve-prompt <name>`                              | No      |
+| Goal                                          | Command                                                         | Writes? |
+| --------------------------------------------- | --------------------------------------------------------------- | ------- |
+| Store or update text                          | `brmem put <key> --file <path>`                                 | Yes     |
+| Print one Entry's content                     | `brmem get <key>`                                               | No      |
+| Probe one Entry and get Entry Locator/size    | `brmem check <key>`                                             | No      |
+| List Entries on a branch                      | `brmem list`                                                    | No      |
+| Export Entries to files                       | `brmem export [--output-dir <dir>]`                             | Files   |
+| Remove one Entry                              | `brmem delete <key>`                                            | Yes     |
+| Copy Base Entries between branches            | `brmem copy --base --from-branch <a> --to-branch <b>`           | Yes     |
+| Copy named Namespace Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
 
 Add `--namespace <ns>` to `put`, `get`, `check`, `delete`, `list`, or `export`
-for namespaced Entries. Omit it for base Entries. `brmem copy` requires a
-Namespace; base Entries are handled individually.
+for named Namespace Entries. Omit it for Base Namespace Entries. For `copy`,
+choose exactly one scope: `--base` or `--namespace <ns>`.
 
 ## Operating rules
 
@@ -57,26 +60,29 @@ Namespace; base Entries are handled individually.
    `--branch <branch>` (or `--from-branch` / `--to-branch` for `copy`) instead
    of relying on the checkout. If no branch is provided, confirm the current Git
    branch before mutating memory.
-2. **Choose the Namespace deliberately.** Use base Entries for ad-hoc scratch
-   notes. Use a Namespace for tool-owned state so unrelated workflows do not
-   collide. Namespaces are single path segments: no `/`.
-3. **Use simple Entry Keys.** Prefer POSIX-like relative paths such as
+2. **Choose the Namespace deliberately.** Use the Base Namespace for ad-hoc
+   scratch notes. Use named Namespaces for workflow-owned state so unrelated
+   workflows do not collide. Namespaces are single path segments: no `/`.
+3. **Choose the copy scope explicitly.** Use `brmem copy --base ...` for the
+   Base Namespace, or `brmem copy --namespace <ns> ...` for a named Namespace.
+   Do not omit the scope and do not pass both flags.
+4. **Use simple Entry Keys.** Prefer POSIX-like relative paths such as
    `plans/add-cache.md` or `session/summary.md`. Avoid spaces and punctuation.
    Entry Keys cannot be empty, start/end with `/`, contain `//`, contain `:`,
    contain a `..` segment, contain glob/ref metacharacters, or end a segment
    with `.lock`.
-4. **Treat `put` as an overwrite.** If overwriting is not explicitly desired,
+5. **Treat `put` as an overwrite.** If overwriting is not explicitly desired,
    preflight with `brmem check <key> ...`. Exit code `0` means present, `1`
    means absent, `2` means an invalid request or command failure.
-5. **Keep Entries textual and small.** `put` accepts UTF-8 text, rejects likely
+6. **Keep Entries textual and small.** `put` accepts UTF-8 text, rejects likely
    binary content, and caps Entries at 1 MiB unless `--force` is supplied. Use
    `--force` only when the user explicitly accepts the storage cost/risk.
-6. **Prefer JSON for machine parsing.** Add `--format json` when you need stable
+7. **Prefer JSON for machine parsing.** Add `--format json` when you need stable
    fields from `put`, `list`, `check`, `export`, `copy`, `delete`, or
    `resolve-prompt`. For `get`, the human output is intentionally just the
    stored content; use that when feeding the text directly into your workflow.
-7. **Report mutations.** After `put`, `copy`, or `delete`, tell the user the
-   branch, Namespace/base, Entry Key(s), Entry locator(s), and commit(s)
+8. **Report mutations.** After `put`, `copy`, or `delete`, tell the user the
+   branch, Namespace/base, Entry Key(s), Entry Locator(s), and commit(s)
    printed by the CLI.
 
 ## Store an Entry
@@ -153,7 +159,8 @@ Important details:
 
 ## Check or inspect an Entry
 
-Use `check` to test existence or get the locator without printing the full text:
+Use `check` to test existence or get the Entry Locator without printing the full
+text:
 
 ```text
 brmem check plans/add-cache.md --branch feature/add-cache --format json
@@ -167,12 +174,30 @@ Interpret exit codes carefully:
 - `2`: invalid Namespace/Entry Key/Branch, detached HEAD when branch was
   omitted, or another command failure.
 
-## Copy namespaced Branch Memory between branches
+## Copy Branch Memory between branches
 
-Use `copy` when namespaced Branch Memory should travel from one branch to
-another.
+Use `copy` when Branch Memory should travel from one branch to another. Choose
+exactly one scope.
 
-Preview first:
+Copy the Base Namespace:
+
+```text
+brmem copy \
+  --base \
+  --from-branch main \
+  --to-branch feature/table-filter
+```
+
+Copy a named Namespace:
+
+```text
+brmem copy \
+  --namespace notes \
+  --from-branch main \
+  --to-branch feature/table-filter
+```
+
+Preview first when replacement risk matters:
 
 ```text
 brmem copy \
@@ -183,24 +208,16 @@ brmem copy \
   --format json
 ```
 
-Then perform the copy:
-
-```text
-brmem copy \
-  --namespace notes \
-  --from-branch main \
-  --to-branch feature/table-filter
-```
-
 Important details:
 
-- Without `--key-glob`, the whole Namespace is copied. If `--overwrite` is
-  used, the destination Branch Memory for that Namespace is replaced.
+- Without `--key-glob`, the whole chosen Namespace is copied. If `--overwrite`
+  is used, the destination Branch Memory for that Namespace is replaced.
 - With `--key-glob 'slug/*'`, only matching Entry Keys are copied and unrelated
   destination Entries are preserved. In this CLI, `*` matches `/`, so `slug/*`
   covers nested Entry Keys too.
-- Existing matching destination Entries make `copy` abort unless `--overwrite` is
-  supplied. Do not add `--overwrite` unless replacement is intentional.
+- Existing matching destination Entries make `copy` abort unless `--overwrite`
+  is supplied. An empty destination Snapshot is not a conflict. Do not add
+  `--overwrite` unless replacement is intentional.
 
 ## Delete an Entry
 
@@ -212,11 +229,14 @@ brmem delete stale-note.md --branch feature/add-cache
 brmem delete stale-note.md --namespace scratch --branch feature/add-cache
 ```
 
-After deletion, report the Branch, Namespace/base, Entry Key, ref, and commit.
+After deletion, report the Branch, Namespace/base, Entry Key, Entry Locator,
+and commit.
 
-## Resolve prompt plugins
+## Skill-facing prompt plugin resolution
 
-Some skills let a repo customize one narrow prompt file. Resolve those with:
+Some skills let a repo customize one narrow prompt file. This is for skills and
+automation, not a normal user-facing Branch Memory operation. Resolve prompts
+with:
 
 ```text
 brmem exec resolve-prompt <prompt-name> --format json
@@ -236,7 +256,7 @@ For mutations, include:
 ```text
 Branch: <branch>
 Entry: <namespace-or-base>/<key>
-Ref: <locator printed by brmem>
+Entry Locator: <locator printed by brmem>
 Commit: <commit printed by brmem>
 ```
 
