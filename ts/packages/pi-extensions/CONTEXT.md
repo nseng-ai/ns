@@ -43,7 +43,7 @@ _Avoid:_ saved plan, local plan store file, prompt template.
 **Branch Memory attachment** — The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `brmem-plans` namespace contract.
 _Avoid:_ Branch Memory policy, brmem-owned workflow, package import edge.
 
-**Handoff artifact** — A directed, saved, loadable work-context artifact for a specific future continuation.
+**Handoff artifact** — A directed, saved work-context artifact for a specific future continuation.
 _Avoid:_ Branch Memory entry as the user model, generic session summary, compaction.
 
 **Continuation focus** — The future work a handoff prepares: what the next session should continue, decide, verify, or implement.

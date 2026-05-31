@@ -7,7 +7,7 @@ Categorized the remaining repo-owned workflow command families and created follo
 Dispositions:
 
 - Planned branches: retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the public Pi planning-layer sequence. The portable contract is the documented local saved-plan store plus Branch Memory `brmem-plans` attachment contract in `docs/pi/planned-branch-workflow.md`; no dedicated Codex/Claude shortcut is claimed in this slice.
-- Handoff/pickup artifacts: carve out the existing `/brmem-handoff` and `/brmem-pickup-handoff` flow to follow-up Objective `directed-handoff-artifacts`. The target UX is a directed saved handoff artifact that users save and load without needing to understand Branch Memory namespaces, keys, refs, or commits. The current `brmem`-named commands remain the factual present-state implementation until that Objective replaces, deprecates, or explicitly retains them.
+- Handoff/pickup artifacts: carve out the existing `/brmem-handoff` and `/brmem-pickup-handoff` flow to follow-up Objective `directed-handoff-artifacts`. The target UX is a directed saved handoff artifact that users save and pick up without needing to understand Branch Memory namespaces, keys, refs, or commits. The current `brmem`-named commands remain the factual present-state implementation until that Objective replaces, deprecates, or explicitly retains them.
 - Branch retrospectives: retain `/skill:branch-retro` as the human-facing retrospective workflow. `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill, not a replacement public name.
 
 Updated `docs/pi/README.md` and `docs/agent-resource-catalog.md` with these dispositions. Updated the Objective assumptions/open questions and roadmap to reflect that the `branch-retro` naming question is resolved and that directed handoff artifact work now has its own Objective.
@@ -26,5 +26,5 @@ No TypeScript behavior changed in this slice, so command-surface tests were not 
 
 ## Follow-Ups
 
-- Implement the directed save/load handoff artifact workflow under Objective `directed-handoff-artifacts`.
+- Implement the directed save/pickup handoff artifact workflow under Objective `directed-handoff-artifacts`.
 - If no new non-parked work appears in this broader resource-surface Objective, it appears ready for `objective-close` confirmation with the handoff artifact rework carried as a separate active Objective.

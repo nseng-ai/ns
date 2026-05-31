@@ -2,7 +2,7 @@
 
 ## Thesis
 
-A handoff should be a directed saved work-context artifact that a future session, agent, worktree, or human can load to continue a specific piece of work. The public user model should be "save a handoff" and "load a handoff," not "write Branch Memory entries." Branch Memory remains a useful lower-level storage abstraction, but ordinary handoff UX should hide namespaces, keys, refs, and commits unless the user needs technical recovery details.
+A handoff should be a directed saved work-context artifact that a future session, agent, worktree, or human can pick up to continue a specific piece of work. The public user model should be "save a handoff" and "pick up a handoff," not "write Branch Memory entries." Branch Memory remains a useful lower-level storage abstraction, but ordinary handoff UX should hide namespaces, keys, refs, and commits unless the user needs technical recovery details.
 
 The important distinction is direction. A generic session summary answers what happened; compaction helps the current conversation fit in the model context window. A handoff answers a future-continuation question: given this requested focus, what does the next session need to know to proceed correctly? Two handoffs from the same session may differ because they prepare different future continuations.
 
@@ -10,13 +10,13 @@ The important distinction is direction. A generic session summary answers what h
 
 In scope:
 
-- Define the public handoff artifact vocabulary for this repo: what a handoff is, how it differs from compaction and generic session summaries, and what users should expect to save and load.
+- Define the public handoff artifact vocabulary for this repo: what a handoff is, how it differs from compaction and generic session summaries, and what users should expect to save and pick up.
 - Reframe the existing handoff/pickup flow so normal user-facing Pi commands, prompts, descriptions, notifications, docs, and skills talk about saved handoffs rather than Branch Memory.
-- Rename the public handoff save/load/list Pi commands and Codex/Claude-facing handoff skills so normal handoff names no longer use the `brmem` prefix; decide exact non-`brmem` names and transition policy for the existing `/brmem-handoff`, `/brmem-pickup-handoff`, `brmem-handoff`, and `brmem-pickup-handoff` surfaces.
+- Rename the public handoff save/pickup/list Pi commands and Codex/Claude-facing handoff skills so normal handoff names no longer use the `brmem` prefix; decide exact non-`brmem` names and transition policy for the existing `/brmem-handoff`, `/brmem-pickup-handoff`, `brmem-handoff`, and `brmem-pickup-handoff` surfaces.
 - Make handoff focus first-class. A save request should strongly encourage or require the future-continuation focus and should ask for one when omitted instead of producing an undirected summary.
 - Add a way to list handoffs on the current branch.
 - Add a way to list handoffs across all branches in the current repo, with branch name as a visible column.
-- Preserve Branch Memory as the implementation detail for storing and loading handoff text when it remains the right storage layer, while keeping low-level `brmem` operations available for debugging and recovery.
+- Preserve Branch Memory as the implementation detail for storing and retrieving handoff text when it remains the right storage layer, while keeping low-level `brmem` operations available for debugging and recovery.
 - Update checked-in docs and resource catalogs so Pi, Codex, and Claude users see the handoff artifact workflow rather than the storage mechanism.
 - Add or update tests for any changed command parsing, prompt construction, listing behavior, storage gateway behavior, or TypeScript/Python CLI paths touched by the implementation.
 
@@ -33,15 +33,15 @@ In scope:
 
 This Objective can close when all of the following are true:
 
-- The repo documents a concise handoff artifact model: a handoff is directed, saved, loadable work context for a specific future continuation.
+- The repo documents a concise handoff artifact model: a handoff is directed, saved work context for a specific future continuation.
 - The docs explain how handoffs differ from compaction and generic session summaries.
-- The public save/load/list handoff command and skill names are decided and implemented in checked-in Pi, Codex, and Claude surfaces, and normal public handoff names no longer use the `brmem` prefix; old `brmem`-named handoff entrypoints are removed or retained only as explicitly documented deprecated compatibility/recovery shims.
+- The public save/pickup/list handoff command and skill names are decided and implemented in checked-in Pi, Codex, and Claude surfaces, and normal public handoff names no longer use the `brmem` prefix; old `brmem`-named handoff entrypoints are removed or retained only as explicitly documented deprecated compatibility/recovery shims.
 - The save flow makes the future-continuation focus first-class and handles missing focus intentionally.
-- The load flow lets the user load a saved handoff by slug, selector, or picker without requiring knowledge of Branch Memory namespaces or keys.
+- The pickup flow lets the user pick up a saved handoff by slug, selector, or picker without requiring knowledge of Branch Memory namespaces or keys.
 - Users can list handoffs on the current branch.
 - Users can list handoffs across all branches in the current repo, with branch name shown as a column.
 - Normal success, picker, prompt-injection, and error copy uses handoff vocabulary. Branch Memory implementation details appear only in technical recovery output, logs, or low-level docs.
-- Codex and Claude have renamed, documented skill paths for saving and loading handoffs that present the same artifact model while treating low-level `brmem` only as storage/recovery machinery.
+- Codex and Claude have renamed, documented skill paths for saving and picking up handoffs that present the same artifact model while treating low-level `brmem` only as storage/recovery machinery.
 - Low-level `brmem` storage/recovery affordances remain available and documented as implementation/recovery details rather than the primary UX.
 - Fresh Pi command inventory and relevant skill/instruction inventory have been run after material surface changes and summarized in an Objective update.
 - Relevant tests and formatting checks have passed for touched TypeScript, Python, Markdown, and CLI areas.
@@ -50,10 +50,10 @@ This Objective can close when all of the following are true:
 
 Assumptions:
 
-- "Handoff" is the right public noun when consistently treated as a directed saved artifact: users save a handoff, load a handoff, list handoffs, and resume from a handoff later.
-- The final project-local Pi surface is `/handoff:save`, `/handoff:load`, and `/handoff:list`; the first-party portable skills are `handoff-save` and `handoff-load`.
+- "Handoff" is the right public noun when consistently treated as a directed saved artifact: users save a handoff, pick up a handoff, list handoffs, and resume from a handoff later.
+- The final project-local Pi surface is `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; the first-party portable skills are `handoff-save` and `handoff-load`.
 - The final handoff storage contract is Branch Memory namespace `handoffs` with flat key `<semantic-slug>.md` on the branch carrying the handoff.
-- Branch Memory remains the right underlying storage abstraction for branch-scoped handoff artifacts, but it is invisible in normal save/load/list UX except as technical locator or recovery evidence.
+- Branch Memory remains the right underlying storage abstraction for branch-scoped handoff artifacts, but it is invisible in normal save/pickup/list UX except as technical locator or recovery evidence.
 - The old `brmem`-named handoff commands, first-party skills, symlinks, and storage contract have no compatibility users in this repo; no aliases, shims, or migration are needed.
 - The generic low-level `brmem` CLI and `brmem` skill can remain `brmem`-named because they are storage/recovery surfaces; the non-`brmem` naming requirement applies to handoff artifact UX surfaces.
 
@@ -67,9 +67,19 @@ Risks:
 
 ## Open Questions
 
-Resolved in the 2026-05-30 save/load/list rename slice:
+Resolved in the 2026-05-30 save/pickup/list rename slice:
 
-- Command and skill names: `/handoff:save`, `/handoff:load`, `/handoff:list`, `handoff-save`, and `handoff-load`.
+- Command and skill names: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `handoff-save`, and `handoff-load`.
 - Listing shape: a public Pi list command plus low-level `brmem list --all-branches` for storage/recovery.
 - Transition policy: immediate removal of old `brmem`-named handoff surfaces; no aliases, shims, or migration.
 - Technical locators: Branch Memory namespace `handoffs`, entry `<semantic-slug>.md`, branch, ref, and commit appear only as technical evidence or recovery detail.
+
+## Closure
+
+Outcome: completed.
+
+The directed handoff artifact workflow shipped end to end. The public Pi surface is `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; the portable first-party skills are `handoff-save` and `handoff-load`. The old `brmem`-named handoff commands, skills, and symlink mirrors were removed outright with no aliases, shims, or migration. The save flow makes the future-continuation focus first-class and clarifies a missing focus before saving; pickup resolves a handoff by slug, selector, or picker without exposing storage mechanics; listing covers the current branch by default and all branches with `--all-branches`, rendered as branch-grouped cards that keep `.md` keys and Branch Memory locators out of normal copy. Low-level `brmem` remains available and documented as storage/recovery machinery. The handoff artifact model and its distinction from compaction and generic session summaries are documented in `docs/pi/handoff-artifacts.md`, with catalog and README cross-references updated.
+
+Evidence: every non-parked roadmap row is `[x]` with shipped/inventory/validation updates in `updates/`; source verification confirms `handoff:create`/`handoff:pickup`/`handoff:list` and the `HANDOFF_LIST_MESSAGE_TYPE` card renderer in `ts/packages/pi-extensions/src/handoff.ts`; targeted `bun test ts/packages/pi-extensions/test/handoff.test.ts` passed (27 tests) at closure; prior slices recorded `just ts-check`, `just ts-test`, `just dprint-check`, and full `just` passing. Landed-state basis: current-branch commits over Graphite parent `handoff-save-load-list-rename`, corroborated by PR #736.
+
+Caveats and follow-ups (all parked, none blocking): unifying plans, retrospectives, and handoffs under a broader context-continuity namespace; migrating existing stored handoff entries; redesigning low-level Branch Memory storage/refs/CLI beyond `brmem list --all-branches`; and turning handoffs into a task/owner/due-date system are intentionally out of scope. Watch for user feedback on focus-required save friction and all-branch listing noise.

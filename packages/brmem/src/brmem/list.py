@@ -37,7 +37,7 @@ class ListEntriesRequest(ClinkrModel):
 class ListEntriesResult(ClinkrModel):
     namespace_scope: str
     key: str | None
-    branch: str
+    branch: str | None
     base: bool
     all_branches: bool
     entries: list[EntryRef]

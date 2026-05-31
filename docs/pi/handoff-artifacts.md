@@ -1,13 +1,13 @@
 # Handoff Artifacts
 
-A handoff is a directed, saved, loadable work-context artifact for a specific future continuation. It is written for future-you, a future agent, a future worktree, or a teammate who needs to resume one focused piece of work.
+A handoff is a directed, saved work-context artifact for a specific future continuation. It is written for future-you, a future agent, a future worktree, or a teammate who needs to resume one focused piece of work.
 
 The public model is:
 
 - **Save a handoff** when pausing or transferring focused work.
-- **Load a handoff** when resuming from a saved artifact.
+- **Pick up a handoff** when resuming from a saved artifact.
 - **List handoffs** when choosing what to resume.
-- **Resume from a handoff** after it has been loaded.
+- **Resume from a handoff** after it has been picked up.
 
 Branch Memory may store the artifact, but Branch Memory namespaces, keys, refs, and commits are technical locators. They should not be the default user model.
 
@@ -19,8 +19,8 @@ Use these terms in normal Pi commands, skills, docs, notifications, and prompts:
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Handoff artifact, or handoff | A saved Markdown work-context artifact for a specific continuation.                                        |
 | Continuation focus           | The future work the handoff prepares: what should the next session continue, decide, verify, or implement? |
-| Save a handoff               | Create the artifact and store it so another session can load it.                                           |
-| Load a handoff               | Select and inject a saved artifact as active context.                                                      |
+| Save a handoff               | Create the artifact and store it so another session can pick it up.                                        |
+| Pick up a handoff            | Select and inject a saved artifact as active context.                                                      |
 | Handoff slug                 | A semantic, user-recognizable selector such as `address-review-feedback`.                                  |
 | Technical locator            | Storage details such as branch, namespace, entry key, ref, and commit.                                     |
 
@@ -31,7 +31,7 @@ Avoid these as the default user-facing model:
 - namespace/key/ref-first instructions in success, picker, or prompt copy
 - undirected "session summary" language when the user asked for a handoff
 
-It is fine to show a compact technical locator after a successful save/load, on error, or in recovery documentation.
+It is fine to show a compact technical locator after a successful save/pickup, on error, or in recovery documentation.
 
 ## What makes a handoff directed
 
@@ -54,11 +54,11 @@ A useful handoff normally includes:
 
 ## Handoff vs. compaction vs. generic summary
 
-| Mechanism               | Trigger                                     | Persistence                                            | Direction                                                     | Use                                                         |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| Compaction              | Automatic context pressure or `/compact`    | Pi session internals                                   | Usually preserves enough context for the current conversation | Keep the current session under the model context window.    |
-| Generic session summary | Explicit request to summarize what happened | Wherever the user asks to put it                       | Often retrospective and history-shaped                        | Explain or archive the session's history.                   |
-| Handoff artifact        | Explicit save/transfer/resume intent        | Saved artifact, currently stored through Branch Memory | Future-continuation focused                                   | Let another session load focused work context and continue. |
+| Mechanism               | Trigger                                     | Persistence                                            | Direction                                                     | Use                                                            |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Compaction              | Automatic context pressure or `/compact`    | Pi session internals                                   | Usually preserves enough context for the current conversation | Keep the current session under the model context window.       |
+| Generic session summary | Explicit request to summarize what happened | Wherever the user asks to put it                       | Often retrospective and history-shaped                        | Explain or archive the session's history.                      |
+| Handoff artifact        | Explicit save/transfer/resume intent        | Saved artifact, currently stored through Branch Memory | Future-continuation focused                                   | Let another session pick up focused work context and continue. |
 
 Compaction is an in-session context-management mechanism. It is not a named saved artifact and should not be treated as the durable resume surface.
 
@@ -88,41 +88,59 @@ Namespace: handoffs
 Entry: address-review-feedback.md
 ```
 
-## Load and list flow implications
+## Pickup and list flow implications
 
-A load flow should let the user choose by slug, picker, or search words without knowing storage keys. Normal load copy should say what handoff was loaded and from which branch.
+A pickup flow should let the user choose by slug, picker, or search words without knowing storage keys. Normal pickup copy should say what handoff was picked up and from which branch.
 
-Good load copy:
+Good pickup copy:
 
 ```text
-Loaded handoff `address-review-feedback` from branch `feature/review`.
+Picked up handoff `address-review-feedback` from branch `feature/review`.
 ```
 
-Current-branch listing should show handoff slugs or titles and enough metadata to choose one. All-branch listing must include a branch column so stale or branch-specific artifacts are understandable.
+Current-branch listing should show card-style handoff choices with slug, short continuation focus or preview, and a copyable pickup command:
 
-Recommended list columns:
+```text
+Handoffs on feature/review
 
-- branch when listing across branches
-- slug or title
-- short continuation focus or preview when available
-- updated/stored time when available
-- optional technical locator only in expanded or diagnostic output
+  1. address-review-feedback
+     Address review feedback after test cleanup…
+     → /handoff:pickup address-review-feedback
+```
+
+All-branch listing should group by branch so stale or branch-specific artifacts are understandable, and each pickup command should include the branch qualifier:
+
+```text
+Handoffs across branches
+
+feature/review
+  1. address-review-feedback
+     Address review feedback after test cleanup…
+     → /handoff:pickup --branch feature/review address-review-feedback
+
+feature/docs
+  2. document-handoff-surface
+     Document the directed handoff artifact workflow…
+     → /handoff:pickup --branch feature/docs document-handoff-surface
+```
+
+Normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output or recovery documentation.
 
 ## Current commands and skills
 
 Project-local Pi commands:
 
 ```text
-/handoff:save <continuation focus>
-/handoff:load [--branch <branch>] [semantic-slug|search words]
+/handoff:create <continuation focus>
+/handoff:pickup [--branch <branch>] [semantic-slug|search words]
 /handoff:list [--branch <branch> | --all-branches]
 ```
 
 Examples:
 
 ```text
-/handoff:save address review feedback after test cleanup
-/handoff:load address-review-feedback
+/handoff:create address review feedback after test cleanup
+/handoff:pickup address-review-feedback
 /handoff:list
 /handoff:list --all-branches
 ```
@@ -132,7 +150,7 @@ Portable first-party skills:
 - `handoff-save`
 - `handoff-load`
 
-`/handoff:save` requires a meaningful continuation focus. If the user omits it, the command asks:
+`/handoff:create` requires a meaningful continuation focus. If the user omits it, the command asks:
 
 ```text
 What should the future session continue from this handoff?
@@ -150,7 +168,7 @@ key:       <semantic-slug>.md
 branch:    <branch carrying the handoff>
 ```
 
-Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public save/load/list UX should hide those details until the user needs technical evidence.
+Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public save/pickup/list UX should hide those details until the user needs technical evidence.
 
 Useful recovery commands:
 

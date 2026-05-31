@@ -1,8 +1,8 @@
-# Handoff Save/Load/List Renamed
+# Handoff Create/Pickup/List Renamed
 
 ## Summary
 
-Implemented the final directed handoff artifact surface: `/handoff:save`, `/handoff:load`, `/handoff:list`, `handoff-save`, and `handoff-load`. Removed the old first-party `brmem`-named handoff commands, skills, and symlink mirrors rather than keeping aliases or migration shims.
+Implemented the final directed handoff artifact surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `handoff-save`, and `handoff-load`. Removed the old first-party `brmem`-named handoff commands, skills, and symlink mirrors rather than keeping aliases or migration shims.
 
 Changed the active handoff storage contract to Branch Memory namespace `handoffs` with flat keys `<semantic-slug>.md`. The old `session-artifacts` plus `handoffs/<slug>.md` contract is no longer used by active handoff UX. Save now requires a meaningful continuation focus, prompts for one when UI input exists, and otherwise instructs the assistant to ask the exact focus question before saving.
 
@@ -12,7 +12,7 @@ Added current-branch and all-branches handoff listing. The Pi list output shows 
 
 All active roadmap work is now marked complete. The final decisions are durable:
 
-- Commands: `/handoff:save`, `/handoff:load`, `/handoff:list`.
+- Commands: `/handoff:create`, `/handoff:pickup`, `/handoff:list`.
 - Skills: `handoff-save`, `handoff-load`.
 - Compatibility: no old handoff aliases, no deprecated shims, no migration.
 - Storage: namespace `handoffs`, key `<semantic-slug>.md`.
@@ -21,7 +21,7 @@ All active roadmap work is now marked complete. The final decisions are durable:
 
 Inventory evidence:
 
-- Pi RPC `get_commands` reported project extension commands `handoff:save`, `handoff:load`, and `handoff:list` from `.pi/extensions/handoff.ts` with the expected descriptions, and no `/brmem-handoff` or `/brmem-pickup-handoff` commands.
+- Pi RPC `get_commands` reported project extension commands `handoff:create`, `handoff:pickup`, and `handoff:list` from `.pi/extensions/handoff.ts` with the expected descriptions, and no `/handoff:load`, `/brmem-handoff`, or `/brmem-pickup-handoff` commands.
 - The project Pi extension command count in `docs/agent-resource-catalog.md` is now 18.
 - `npx skills list --json` reported `handoff-save` and `handoff-load` installed from `.agents/skills/...`; no `brmem-handoff` or `brmem-pickup-handoff` entries were present.
 - Symlink checks resolved `.agents/skills/handoff-save -> ../../skills/handoff-save`, `.agents/skills/handoff-load -> ../../skills/handoff-load`, `.claude/skills/handoff-save -> ../../.agents/skills/handoff-save`, and `.claude/skills/handoff-load -> ../../.agents/skills/handoff-load`.

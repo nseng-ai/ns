@@ -906,7 +906,7 @@ def test_brmem_json_list_all_branches(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert payload["exit_code"] == 0
     assert payload["data"] == {
-        "namespace": "scratch",
+        "namespace_scope": "scratch",
         "key": None,
         "branch": None,
         "base": False,
