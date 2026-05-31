@@ -55,6 +55,10 @@ export class LandStackCommandStream {
 		this.append(formatCommandStreamBlock("✗", message));
 	}
 
+	note(message: string): void {
+		this.append(formatCommandStreamBlock("→", message));
+	}
+
 	private append(message: string, details?: CommandStreamMessageDetails): void {
 		if (!this.ctx.hasUI || !this.pi.sendMessage) return;
 		const customMessage: CustomMessage = {

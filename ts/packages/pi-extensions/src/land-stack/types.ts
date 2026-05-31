@@ -163,6 +163,7 @@ export type CommandStreamMessageDetails = {
 };
 
 export type LandingWarning = {
+	level?: "warning" | "info";
 	message: string;
 	commandDisplay?: string;
 	result?: ExecResult;

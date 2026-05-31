@@ -5,6 +5,7 @@ import {
 	isGtDeleteCheckedOutElsewhere,
 	isGtDeleteMissingBranch,
 	outputTail,
+	parseGitCheckedOutElsewhere,
 	shortSha,
 	stripAnsi,
 } from "../src/land-stack/command-exec.ts";
@@ -595,6 +596,15 @@ describe("land-stack pure helpers", () => {
 		expect(tail).toContain("line 45");
 	});
 
+	test("parses Git checked-out-elsewhere failures", () => {
+		expect(
+			parseGitCheckedOutElsewhere(
+				execResult({ code: 1, stderr: "fatal: 'master' is already checked out at '/Users/schrockn/code/asdl-tools'\n" }),
+			),
+		).toEqual({ branch: "master", path: "/Users/schrockn/code/asdl-tools" });
+		expect(parseGitCheckedOutElsewhere(execResult({ code: 1, stderr: "ERROR: authentication failed\n" }))).toBeUndefined();
+	});
+
 	test("detects benign Graphite delete failures", () => {
 		expect(isGtDeleteMissingBranch(execResult({ code: 1, stderr: "ERROR: Could not find branch feature-a.\n" }), "feature-a")).toBe(
 			true,
@@ -918,6 +928,60 @@ describe("land-stack command scenarios", () => {
 				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
 				.map((call) => call.args[2]),
 		).toEqual(["101", "102"]);
+	});
+
+	test("optional descendant gt get checkout conflict completes successfully with deferred note", async () => {
+		const getArgs = ["get", DESCENDANT, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
+		const script = [
+			...featureStackPreflight(),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+			step("gt", getArgs, { code: 1, stderr: "fatal: 'main' is already checked out at '/repo-main'\n" }),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Left open; restack/update deferred: feature-c.");
+		expect(streamText).toContain("→ Deferred optional descendant maintenance for feature-c because main is checked out at /repo-main.");
+		expect(streamText).toContain("Notes:");
+		expect(streamText).toContain(
+			"Optional descendant restack/update was deferred because Graphite could not refresh descendant branch feature-c: main is checked out at /repo-main.",
+		);
+		expect(streamText).not.toContain(`✗ $ ${formatCommand("gt", getArgs)} — exit 1`);
+		expect(streamText).not.toContain("Completed with 1 warning:");
+		expect(streamText).not.toContain("fatal: 'main' is already checked out");
+		expect(streamText).not.toContain("land-stack stopped");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete" && call.args[1] === "feature-b")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT)).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT)).toBe(false);
+	});
+
+	test("required next-landing gt get checkout conflict stops before merging the next target PR", async () => {
+		const getArgs = ["get", "feature-b", "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
+		const script = [
+			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
+			...mergeFeatureA({ includeCleanup: false }),
+			step("gt", getArgs, { code: 1, stderr: "fatal: 'main' is already checked out at '/repo-main'\n" }),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		expect(notifications.at(-1)?.message).toContain("land-stack stopped at feature-b");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain("Graphite could not refresh next landing branch feature-b: main is checked out at /repo-main.");
+		expect(streamText).toContain("Suggested next action: Switch/detach /repo-main from main");
+		expect(streamText).toContain(formatCommand("gt", getArgs));
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
+				.map((call) => call.args[2]),
+		).toEqual(["101"]);
 	});
 
 	test("optional descendant maintenance failure completes with a warning", async () => {
