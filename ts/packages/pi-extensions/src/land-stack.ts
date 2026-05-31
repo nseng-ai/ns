@@ -90,7 +90,8 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				await runMergeLoop(runtimePi, ctx, plan, landed, warnings, { commandStream, unstreamedPi: pi });
 
 				const successSummary = formatSuccessSummary(landed, plan.descendantMaintenance, warnings);
-				const completionLevel = warnings.length > 0 ? "warning" : "success";
+				const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
+				const completionLevel = hasWarnings ? "warning" : "success";
 				const commandStreamDetails = commandStreamDetailsForLanded(landed);
 				commandStream.finishSuccess(successSummary, commandStreamDetails);
 				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, commandStreamDetails));

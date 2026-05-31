@@ -1,5 +1,12 @@
 import { formatCommand, type ExecResult } from "../command-runtime.ts";
-import { exec, execRaw, isGtDeleteCheckedOutElsewhere, normalizeCommandFinish } from "./command-exec.ts";
+import {
+	exec,
+	execRaw,
+	isGtDeleteCheckedOutElsewhere,
+	normalizeCommandFinish,
+	parseGitCheckedOutElsewhere,
+	type CheckedOutElsewhere,
+} from "./command-exec.ts";
 import { GH_MERGE_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
 import { errorMessage, fail } from "./errors.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
@@ -25,6 +32,11 @@ type NextGraphiteMaintenance =
 	| { kind: "optional-descendant"; branch: string }
 	| { kind: "skip-descendant" }
 	| { kind: "none" };
+
+type OptionalDescendantGraphiteCommandResult = {
+	result: ExecResult;
+	checkoutConflict?: CheckedOutElsewhere;
+};
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	pi: ExtensionAPI,
@@ -271,23 +283,50 @@ export async function runMergeLoop(
 		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
 			setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
 			const getArgs = ["get", maintenance.branch, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
-			const got = await exec(pi, "gt", getArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+			const getCommandDisplay = formatCommand("gt", getArgs);
+			const getResult: OptionalDescendantGraphiteCommandResult =
+				maintenance.kind === "optional-descendant"
+					? await runOptionalDescendantGraphiteCommand(pi, options, repoRoot, getCommandDisplay, "gt", getArgs)
+					: { result: await exec(pi, "gt", getArgs, repoRoot, GT_MUTATION_TIMEOUT_MS) };
+			const got = getResult.result;
 			if (got.code !== 0) {
 				if (maintenance.kind === "required-next-landing") {
+					const checkoutConflict = parseGitCheckedOutElsewhere(got);
+					if (checkoutConflict) {
+						fail(
+							`PR #${pr.number} merged, but Graphite could not refresh next landing branch ${maintenance.branch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
+							{
+								commandDisplay: getCommandDisplay,
+								result: got,
+								failedBranch: maintenance.branch,
+								suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /dev:land-stack if appropriate.`,
+							},
+						);
+					}
+
 					fail(`PR #${pr.number} merged, but targeted Graphite refresh failed.`, {
-						commandDisplay: formatCommand("gt", getArgs),
+						commandDisplay: getCommandDisplay,
 						result: got,
-						failedBranch: branch,
-						failedPr: pr.number,
-						suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, inspect the stack, and rerun /dev:land-stack if appropriate.`,
+						failedBranch: maintenance.branch,
+						suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /dev:land-stack if appropriate.`,
 					});
+				}
+
+				if (getResult.checkoutConflict) {
+					warnings.push(
+						optionalDescendantRefreshDeferredWarning(maintenance.branch, branch, getCommandDisplay, getResult.checkoutConflict),
+					);
+					options.commandStream?.note(
+						`Deferred optional descendant maintenance for ${maintenance.branch} because ${formatCheckedOutElsewhere(getResult.checkoutConflict)}.\nRun ${getCommandDisplay} manually when that worktree is free.`,
+					);
+					continue;
 				}
 
 				warnings.push({
 					message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenance.branch} failed; local branch ${branch} cleanup and descendant restack/update were skipped.`,
-					commandDisplay: formatCommand("gt", getArgs),
+					commandDisplay: getCommandDisplay,
 					result: got,
-					suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, restack/update ${maintenance.branch}, and delete local branch ${branch} when safe.`,
+					suggestedAction: `Run ${getCommandDisplay} manually, restack/update ${maintenance.branch}, and delete local branch ${branch} when safe.`,
 				});
 				continue;
 			}
@@ -372,6 +411,70 @@ export async function runMergeLoop(
 			}
 		}
 	}
+}
+
+async function runOptionalDescendantGraphiteCommand(
+	pi: ExtensionAPI,
+	options: { commandStream?: LandStackCommandStream; unstreamedPi?: ExtensionAPI },
+	repoRoot: string,
+	commandDisplay: string,
+	command: string,
+	args: string[],
+): Promise<OptionalDescendantGraphiteCommandResult> {
+	if (!options.commandStream || !options.unstreamedPi) {
+		const result = await exec(pi, command, args, repoRoot, GT_MUTATION_TIMEOUT_MS);
+		return optionalGraphiteCommandResult(result, parseOptionalCheckoutConflict(result));
+	}
+
+	options.commandStream.start(commandDisplay);
+	const raw = await execRaw(options.unstreamedPi, command, args, repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const rawCheckoutConflict = parseOptionalCheckoutConflict(raw);
+	if (rawCheckoutConflict) {
+		return optionalGraphiteCommandResult(raw, rawCheckoutConflict);
+	}
+
+	const finish = normalizeCommandFinish(command, args, raw);
+	options.commandStream.finish(commandDisplay, finish);
+	return optionalGraphiteCommandResult(finish.result, parseOptionalCheckoutConflict(finish.result));
+}
+
+function parseOptionalCheckoutConflict(result: ExecResult): CheckedOutElsewhere | undefined {
+	return result.code !== 0 && !result.killed ? parseGitCheckedOutElsewhere(result) : undefined;
+}
+
+function optionalGraphiteCommandResult(
+	result: ExecResult,
+	checkoutConflict: CheckedOutElsewhere | undefined,
+): OptionalDescendantGraphiteCommandResult {
+	return checkoutConflict ? { result, checkoutConflict } : { result };
+}
+
+function optionalDescendantRefreshDeferredWarning(
+	descendantBranch: string,
+	landedBranch: string,
+	getCommandDisplay: string,
+	checkoutConflict: CheckedOutElsewhere,
+): LandingWarning {
+	const restackCommandDisplay = formatCommand("gt", ["restack", "--branch", descendantBranch, "--upstack", "--no-interactive"]);
+	const submitCommandDisplay = formatCommand("gt", [
+		"submit",
+		"--branch",
+		descendantBranch,
+		"--no-stack",
+		"--update-only",
+		"--no-edit",
+		"--no-ai",
+		"--no-interactive",
+	]);
+	return {
+		level: "info",
+		message: `Optional descendant restack/update was deferred because Graphite could not refresh descendant branch ${descendantBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
+		suggestedAction: `When convenient, switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch} or run the Graphite refresh from that checkout, then run ${getCommandDisplay}, ${restackCommandDisplay}, and ${submitCommandDisplay} if appropriate. Delete local branch ${landedBranch} manually when safe.`,
+	};
+}
+
+function formatCheckedOutElsewhere(checkoutConflict: CheckedOutElsewhere): string {
+	return `${checkoutConflict.branch} is checked out at ${checkoutConflict.path}`;
 }
 
 function nextGraphiteMaintenance(plan: LandingPlan, index: number): NextGraphiteMaintenance {

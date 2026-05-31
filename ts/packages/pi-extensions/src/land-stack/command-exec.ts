@@ -9,6 +9,11 @@ import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL
 import { errorMessage } from "./errors.ts";
 import type { CommandStreamFinish, ExtensionAPI } from "./types.ts";
 
+export type CheckedOutElsewhere = {
+	branch: string;
+	path: string;
+};
+
 export async function exec(
 	pi: ExtensionAPI,
 	command: string,
@@ -79,9 +84,18 @@ export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boo
 	return output.includes(`could not find branch ${branch.toLowerCase()}`);
 }
 
-export function isGtDeleteCheckedOutElsewhere(result: ExecResult): boolean {
+export function parseGitCheckedOutElsewhere(result: ExecResult): CheckedOutElsewhere | undefined {
 	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
-	return /fatal:\s*['"][^'"]+['"] is already checked out at ['"][^'"]+['"]/i.test(output);
+	const match = output.match(/fatal:\s*['"]([^'"]+)['"] is already checked out at ['"]([^'"]+)['"]/i);
+	if (!match) return undefined;
+	const branch = match[1];
+	const path = match[2];
+	if (!branch || !path) return undefined;
+	return { branch, path };
+}
+
+export function isGtDeleteCheckedOutElsewhere(result: ExecResult): boolean {
+	return parseGitCheckedOutElsewhere(result) !== undefined;
 }
 
 export function stripAnsi(text: string): string {

@@ -130,31 +130,52 @@ export function formatSuccessSummary(
 	descendantMaintenance: DescendantMaintenancePlan,
 	warnings: LandingWarning[] = [],
 ): string {
+	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
+	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
 	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
 	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
 	if (descendantMaintenance.kind === "auto" && descendantMaintenance.branches.length > 0) {
-		lines.push(
-			hasDescendantMaintenanceWarning(warnings)
-				? `Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`
-				: `Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`,
-		);
+		if (hasDescendantMaintenanceDeferral(noteEntries)) {
+			lines.push(`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`);
+		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
+			lines.push(`Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`);
+		} else {
+			lines.push(`Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`);
+		}
 	} else if (descendantMaintenance.kind === "skipped") {
 		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
 		lines.push(`Reason: ${descendantMaintenance.reason}.`);
 	}
 	lines.push("Remote branches were not deleted.");
 	lines.push("Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
-	if (warnings.length > 0) {
-		lines.push("", `Completed with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}:`);
-		for (const warning of warnings) {
+	if (warningEntries.length > 0) {
+		lines.push("", `Completed with ${warningEntries.length} warning${warningEntries.length === 1 ? "" : "s"}:`);
+		for (const warning of warningEntries) {
 			lines.push(...formatLandingWarning(warning));
+		}
+	}
+	if (noteEntries.length > 0) {
+		lines.push("", "Notes:");
+		for (const note of noteEntries) {
+			lines.push(...formatLandingWarning(note));
 		}
 	}
 	return lines.join("\n");
 }
 
+function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
+	return warning.level ?? "warning";
+}
+
 function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
 	return warnings.some((warning) => warning.message.toLowerCase().includes("descendant"));
+}
+
+function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
+	return warnings.some((warning) => {
+		const message = warning.message.toLowerCase();
+		return message.includes("descendant") && message.includes("deferred");
+	});
 }
 
 export function formatLandingWarning(warning: LandingWarning): string[] {
