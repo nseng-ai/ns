@@ -48,7 +48,9 @@ branch, and attaches that plan to the target branch in Branch Memory.
 With no explicit file path, the command prefers the most recent valid saved plan
 from the current Pi session, then falls back to the newest Markdown plan in the
 current repo/source-branch local plan store directory. An explicit saved plan
-path must be absolute.
+path may be absolute or current-user home-relative, such as
+`~/.claude/plans/where-would-we-host-mossy-lampson.md`; repo-relative paths are
+not supported.
 
 In this repo, planned branches default to the plan slug itself (`<slug>`). Branch
 creation defaults to Graphite through the project-local extension configuration,
@@ -126,7 +128,7 @@ Memory evidence for recovery:
 Common recovery paths:
 
 - If `/create-planned-branch` cannot find a saved plan, run `/write-plan` first
-  or pass an explicit absolute saved-plan path.
+  or pass an explicit absolute or current-user home-relative saved-plan path.
 - If the target branch already exists, choose another target branch or inspect
   the existing branch before retrying.
 - If the target Branch Memory entry already exists, the workflow refuses to

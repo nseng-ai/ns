@@ -171,7 +171,7 @@ export type ExtensionAPI = {
 	sendUserMessage(content: string): void;
 };
 
-export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /create-planned-branch [options] [absolute-plan-file.md]
+export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /create-planned-branch [options] [absolute-or-home-plan-file.md]
 
 Create a planned branch from a saved plan, then attach that plan to the branch in Branch Memory.
 
@@ -184,7 +184,7 @@ Options:
   --help, -h         Show this help.
 
 With no file path, the command prefers the most recent valid saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
-An explicit file path must be absolute; a leading @ is accepted and stripped.`;
+An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute.`;
 
 export function buildWritePlanPrompt(steering: string): string {
 	return `This is a /write-plan request. Write a detailed implementation plan and save it in the local plan store.
@@ -583,7 +583,7 @@ async function resolveSelectedSavedPlanFile(
 
 	const filePath = normalizePlanFilePath(args.filePath);
 	if (!isAbsolute(filePath)) {
-		throw new Error(`Plan file path must be absolute for /create-planned-branch; got ${filePath || "(empty)"}.`);
+		throw new Error(`Plan file path must be absolute or home-relative for /create-planned-branch; got ${filePath || "(empty)"}.`);
 	}
 
 	const fileName = basename(filePath);

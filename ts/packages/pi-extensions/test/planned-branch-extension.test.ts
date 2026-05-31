@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import registerPlannedBranchExtension, {
@@ -14,6 +14,7 @@ import registerPlannedBranchExtension, {
 	formatPlanBranchEvidence,
 	formatSourceBranchPlanFileEvidence,
 	isPathInside,
+	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
 	parseCreatePlannedBranchArgs,
 	validatePlanSlug,
@@ -733,6 +734,18 @@ describe("isPathInside", () => {
 	});
 });
 
+describe("normalizePlanFilePath", () => {
+	test("strips leading @ and expands current-user home shorthand", () => {
+		const scenarioPath = join(homedir(), ".claude", "plans", "where-would-we-host-mossy-lampson.md");
+
+		expect(normalizePlanFilePath("@/tmp/my-source-plan.md")).toBe("/tmp/my-source-plan.md");
+		expect(normalizePlanFilePath("~")).toBe(homedir());
+		expect(normalizePlanFilePath("~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(scenarioPath);
+		expect(normalizePlanFilePath("@~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(scenarioPath);
+		expect(normalizePlanFilePath("relative-source-plan.md")).toBe("relative-source-plan.md");
+	});
+});
+
 describe("plan workflow commands", () => {
 	test("registers only the planned-branch command surface and write-plan tool", () => {
 		const pi = new FakePi();
@@ -946,6 +959,27 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Path: ${explicitPath}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${explicitSlug}`);
 		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
+	});
+
+	test("create-planned-branch dry-run expands current-user home shorthand for explicit paths", async () => {
+		const slug = "where-would-we-host-mossy-lampson";
+		const expandedPath = join(homedir(), ".claude", "plans", `${slug}.md`);
+
+		for (const rawPath of [`~/.claude/plans/${slug}.md`, `@~/.claude/plans/${slug}.md`]) {
+			const pi = new FakePi();
+			registerPlannedBranchExtension(pi);
+			const command = pi.commands.get("create-planned-branch");
+
+			await command?.handler(`--dry-run ${rawPath}`, createContext().ctx);
+
+			pi.assertDone();
+			expect(pi.execCalls).toEqual([]);
+			expect(pi.sentMessages).toHaveLength(1);
+			expect(pi.sentMessages[0]?.content).toContain("Explicit saved plan file:");
+			expect(pi.sentMessages[0]?.content).toContain(`Path: ${expandedPath}`);
+			expect(pi.sentMessages[0]?.content).toContain(`Slug: ${slug}`);
+			expect(pi.sentMessages[0]?.content).toContain(`Branch: ${slug}`);
+		}
 	});
 
 	test("create-planned-branch ignores missing session file and falls back to disk latest", async () => {
@@ -1234,7 +1268,7 @@ describe("plan workflow commands", () => {
 		await command?.handler("relative-source-plan.md --yes", createContext().ctx);
 
 		expect(pi.execCalls).toEqual([]);
-		expect(pi.sentMessages[0]?.content).toContain("Plan file path must be absolute");
+		expect(pi.sentMessages[0]?.content).toContain("Plan file path must be absolute or home-relative");
 	});
 
 	test("create-planned-branch surfaces primitive failures without retrying", async () => {
