@@ -23,6 +23,7 @@ export {
 
 export const GRILL_UI_COMMAND_NAME = "grill-ui";
 export const GRILL_ASK_TOOL_NAME = "grill_ask";
+export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
 
 const UNKNOWN_SELECTION_MESSAGE =
 	"The structured grill question returned an unknown selection. Do not treat this as an answer; summarize what is known or ask whether to continue.";
@@ -136,7 +137,7 @@ export type ExtensionAPI = SkillExpansionHost & {
 	sendUserMessage(content: string): void;
 };
 
-export const FALLBACK_GRILL_ME_SKILL_BLOCK = `<skill name="grill-me" fallback="true">
+export const FALLBACK_GRILL_UI_SKILL_BLOCK = `<skill name="${GRILL_UI_SKILL_NAME}" fallback="true">
 Interview the user relentlessly about every aspect of the plan or design until reaching shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. For each question, provide your recommended answer.
 
 Ask the questions one at a time.
@@ -163,7 +164,7 @@ When you need user input during this grill session:
 </structured-grill-question-ui-contract>`;
 
 export function buildGrillUiPrompt(skillBlock: string | undefined, target: string): string {
-	const instructions = skillBlock?.trim() || FALLBACK_GRILL_ME_SKILL_BLOCK;
+	const instructions = skillBlock?.trim() || FALLBACK_GRILL_UI_SKILL_BLOCK;
 	return `${instructions}
 
 ${GRILL_UI_CONTRACT}
@@ -253,9 +254,9 @@ export async function handleGrillUiCommand(pi: ExtensionAPI, args: string, ctx: 
 
 	let skillBlock: string | undefined;
 	try {
-		skillBlock = (await expandSkillBlock(pi, "grill-me"))?.block;
+		skillBlock = (await expandSkillBlock(pi, GRILL_UI_SKILL_NAME))?.block;
 	} catch {
-		notify(ctx, "Could not expand grill-me skill; using fallback grill instructions.", "warning");
+		notify(ctx, "Could not expand pi-grill-ui skill; using fallback grill instructions.", "warning");
 	}
 
 	pi.sendUserMessage(buildGrillUiPrompt(skillBlock, target));

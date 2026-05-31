@@ -205,6 +205,11 @@
       "sourceType": "local",
       "computedHash": "079f190ae86ebcba272a5e2cfecad056b4a3a31b6f845eea4f2cfc16e706a2fa"
     },
+    "pi-grill-ui": {
+      "source": "skills/pi-grill-ui",
+      "sourceType": "local",
+      "computedHash": "f49cbadcf884d3789a473b1c0051f9e1ea314f943391675ef4e7b90935678d78"
+    },
     "pr-address": {
       "source": "skills/pr-address",
       "sourceType": "local",
