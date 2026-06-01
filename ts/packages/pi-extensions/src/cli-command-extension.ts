@@ -7,6 +7,7 @@ type NotifyLevel = "info" | "warning" | "error";
 export type CliCommandInfo = {
 	name: string;
 	description: string;
+	allowsPositionalArgs?: boolean;
 };
 
 export type CliCommandRunDeps = {
@@ -36,6 +37,7 @@ export type CommandContext = {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
+		setEditorText?(text: string): void;
 	};
 	waitForIdle(): Promise<void>;
 };
@@ -193,10 +195,9 @@ async function runRegisteredCliCommand(
 	rawArgs: string,
 	ctx: CommandContext,
 ): Promise<void> {
-	await ctx.waitForIdle();
-
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) {
+		restoreCommandInvocationToEditor(ctx, piCommandName, rawArgs, `Could not parse /${piCommandName}: ${parsed.error}`);
 		emitCliCommandOutput(
 			pi,
 			ctx,
@@ -208,6 +209,29 @@ async function runRegisteredCliCommand(
 		);
 		return;
 	}
+
+	if (startsWithPositionalArgs(parsed.args) && command.allowsPositionalArgs !== true) {
+		const restored = restoreCommandInvocationToEditor(
+			ctx,
+			piCommandName,
+			rawArgs,
+			`Not running /${piCommandName}: text after the command looks like prose, not options.`,
+		);
+		if (!restored) {
+			emitCliCommandOutput(
+				pi,
+				ctx,
+				buildOutputDetails(spec, command, piCommandName, rawArgs, parsed.args, ctx.cwd, {
+					exitCode: 2,
+					stdout: "",
+					stderr: `Error: /${piCommandName} only accepts option-style arguments here. Use --help for usage.\n`,
+				}),
+			);
+		}
+		return;
+	}
+
+	await ctx.waitForIdle();
 
 	let stdout = "";
 	let stderr = "";
@@ -228,15 +252,15 @@ async function runRegisteredCliCommand(
 		stderr += `Unhandled ${spec.cliName} command error: ${errorMessage(error)}\n`;
 	}
 
-	emitCliCommandOutput(
-		pi,
-		ctx,
-		buildOutputDetails(spec, command, piCommandName, rawArgs, parsed.args, ctx.cwd, {
-			exitCode,
-			stdout,
-			stderr,
-		}),
-	);
+	const details = buildOutputDetails(spec, command, piCommandName, rawArgs, parsed.args, ctx.cwd, {
+		exitCode,
+		stdout,
+		stderr,
+	});
+	emitCliCommandOutput(pi, ctx, details);
+	if (isCliUsageError(details)) {
+		restoreCommandInvocationToEditor(ctx, piCommandName, rawArgs, `Restored /${piCommandName} after a CLI usage error.`);
+	}
 }
 
 function buildOutputDetails(
@@ -261,6 +285,29 @@ function buildOutputDetails(
 		stderr: result.stderr,
 		level: result.exitCode === 0 ? "info" : "error",
 	};
+}
+
+function startsWithPositionalArgs(args: readonly string[]): boolean {
+	const first = args[0];
+	return first !== undefined && (first === "--" || !first.startsWith("-"));
+}
+
+function restoreCommandInvocationToEditor(ctx: CommandContext, piCommandName: string, rawArgs: string, reason: string): boolean {
+	if (!ctx.hasUI || ctx.ui.setEditorText === undefined) {
+		return false;
+	}
+
+	ctx.ui.setEditorText(formatPiCommandInvocation(piCommandName, rawArgs));
+	ctx.ui.notify(`${reason} The text was restored to the editor.`, "warning");
+	return true;
+}
+
+function formatPiCommandInvocation(piCommandName: string, rawArgs: string): string {
+	return rawArgs === "" ? `/${piCommandName}` : `/${piCommandName} ${rawArgs}`;
+}
+
+function isCliUsageError(details: CliCommandOutputDetails): boolean {
+	return details.exitCode === 2 && details.stderr.startsWith("Error:");
 }
 
 function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {

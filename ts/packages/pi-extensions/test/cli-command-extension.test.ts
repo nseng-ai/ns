@@ -4,6 +4,7 @@ import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
 	parseCliCommandArgs,
 	registerCliCommandExtension,
+	type CliCommandInfo,
 	type CliCommandRunDeps,
 	type CommandContext,
 	type ExtensionAPI,
@@ -42,16 +43,21 @@ class FakePi implements ExtensionAPI {
 	}
 }
 
-function createContext(order: string[] = []): { ctx: CommandContext; notifications: Notification[] } {
+function createContext(order: string[] = []): { ctx: CommandContext; notifications: Notification[]; editorTexts: string[] } {
 	const notifications: Notification[] = [];
+	const editorTexts: string[] = [];
 	return {
 		notifications,
+		editorTexts,
 		ctx: {
 			cwd: "/repo",
 			hasUI: true,
 			ui: {
 				notify(message, level) {
 					notifications.push({ message, level });
+				},
+				setEditorText(text) {
+					editorTexts.push(text);
 				},
 			},
 			async waitForIdle(): Promise<void> {
@@ -74,7 +80,7 @@ function registerFakeCli(
 	options: {
 		runCli?: (args: readonly string[], deps: CliCommandRunDeps) => Promise<number> | number;
 		env?: Record<string, string | undefined>;
-		commands?: Array<{ name: string; description: string }>;
+		commands?: CliCommandInfo[];
 	} = {},
 ): void {
 	registerCliCommandExtension(pi, {
@@ -184,6 +190,74 @@ describe("cli command extension helper", () => {
 			stderr: "Error: Unterminated double quote.\n",
 			level: "error",
 		});
+	});
+
+	test("restores prose-looking command tails without waiting or invoking the CLI", async () => {
+		const pi = new FakePi();
+		const order: string[] = [];
+		let runnerCalled = false;
+		registerFakeCli(pi, {
+			runCli: () => {
+				runnerCalled = true;
+				return 0;
+			},
+		});
+		const { ctx, editorTexts, notifications } = createContext(order);
+
+		await commandFor(pi, "dev:preview-url").handler("broke in this pr", ctx);
+
+		expect(runnerCalled).toBe(false);
+		expect(order).toEqual([]);
+		expect(editorTexts).toEqual(["/dev:preview-url broke in this pr"]);
+		expect(notifications).toEqual([
+			{
+				message:
+					"Not running /dev:preview-url: text after the command looks like prose, not options. The text was restored to the editor.",
+				level: "warning",
+			},
+		]);
+		expect(pi.sentMessages).toEqual([]);
+	});
+
+	test("restores command text after CLI usage errors", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stderr("Error: Unexpected argument: words\n");
+				return 2;
+			},
+		});
+		const { ctx, editorTexts } = createContext();
+
+		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
+
+		expect(pi.sentMessages[0]?.details).toMatchObject({
+			exitCode: 2,
+			stderr: "Error: Unexpected argument: words\n",
+			level: "error",
+		});
+		expect(editorTexts).toEqual(["/dev:preview-url --json words"]);
+	});
+
+	test("allows positional arguments for commands that opt in", async () => {
+		const pi = new FakePi();
+		const calls: RunCall[] = [];
+		registerFakeCli(pi, {
+			env: { SAMPLE: "1" },
+			commands: [{ name: "echo", description: "Echo text.", allowsPositionalArgs: true }],
+			runCli: (args, deps) => {
+				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
+				deps.stdout("ok\n");
+				return 0;
+			},
+		});
+		const { ctx, editorTexts } = createContext();
+
+		await commandFor(pi, "dev:echo").handler("hello world", ctx);
+
+		expect(calls).toEqual([{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } }]);
+		expect(editorTexts).toEqual([]);
+		expect(pi.sentMessages[0]?.content).toBe("ok\n");
 	});
 
 	test("falls back to notifications when custom messages are unavailable", async () => {
