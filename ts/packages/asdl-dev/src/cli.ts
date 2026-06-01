@@ -14,6 +14,11 @@ export type CliDeps = {
 	env?: Record<string, string | undefined> | undefined;
 };
 
+export type AsdlDevCommandInfo = {
+	name: string;
+	description: string;
+};
+
 type ParsedPreviewUrlArgs = {
 	jsonOutput: boolean;
 	branch?: string;
@@ -57,6 +62,10 @@ const COMMANDS: CommandSpec[] = [
 		run: runPreviewUrlCommand,
 	},
 ];
+
+export function listAsdlDevCommands(): AsdlDevCommandInfo[] {
+	return COMMANDS.map(({ name, description }) => ({ name, description }));
+}
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => {
