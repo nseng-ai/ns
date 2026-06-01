@@ -26,6 +26,10 @@ export type SubmitPrLink = {
 	url: string;
 };
 
+export type SubmitSemanticFailureCause = "empty_branch_skipped";
+
+export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
+
 export type SubmitPreflightResult =
 	| {
 			kind: "ready";
@@ -60,7 +64,7 @@ export type SubmitRunResult =
 			kind: "success";
 			output: SubmitCommandOutput;
 			prLinks: SubmitPrLink[];
-			semanticFailure?: string;
+			semanticFailureCause?: SubmitSemanticFailureCause;
 	  }
 	| {
 			kind: "failed";
@@ -76,12 +80,12 @@ export type CurrentPrVerificationResult =
 	| {
 			kind: "no_current_pr";
 			output: SubmitCommandOutput;
-			message: string;
+			cause: "no_current_pr";
 	  }
 	| {
 			kind: "failed";
 			output: SubmitCommandOutput;
-			message: string;
+			cause: CurrentPrVerificationFailureCause;
 	  };
 
 export type SubmitGateway = {
@@ -141,47 +145,31 @@ export class RealSubmitGateway implements SubmitGateway {
 			return { kind: "failed", output };
 		}
 
-		const semanticFailure = detectSubmitSemanticFailure(joinOutput(output));
+		const semanticFailureCause = detectSubmitSemanticFailureCause(joinOutput(output));
 		const result: SubmitRunResult = {
 			kind: "success",
 			output,
 			prLinks: extractPrLinks(joinOutput(output)),
 		};
-		if (semanticFailure !== undefined) {
-			result.semanticFailure = semanticFailure;
+		if (semanticFailureCause !== undefined) {
+			result.semanticFailureCause = semanticFailureCause;
 		}
 		return result;
 	}
 
 	async verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult> {
 		const output = await this.runGt([...CURRENT_PR_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS);
-		if (output.startupError) {
-			return {
-				kind: "failed",
-				output,
-				message: `gt submit exited 0, but current PR verification could not start: ${output.startupError}`,
-			};
+		if (output.startupError !== undefined) {
+			return { kind: "failed", output, cause: "startup_error" };
 		}
-		if (output.killed) {
-			return {
-				kind: "failed",
-				output,
-				message: `gt submit exited 0, but current PR verification timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s.`,
-			};
+		if (output.killed === true) {
+			return { kind: "failed", output, cause: "timeout" };
 		}
 		if (output.exitCode !== 0) {
 			if (/No PR found/i.test(stripAnsi(joinOutput(output)))) {
-				return {
-					kind: "no_current_pr",
-					output,
-					message: "gt submit exited 0, but the current branch still has no PR.",
-				};
+				return { kind: "no_current_pr", output, cause: "no_current_pr" };
 			}
-			return {
-				kind: "failed",
-				output,
-				message: `gt submit exited 0, but current PR verification failed with exit code ${output.exitCode}.`,
-			};
+			return { kind: "failed", output, cause: "command_failed" };
 		}
 
 		return { kind: "present", output, prLinks: extractPrLinks(joinOutput(output)) };
@@ -228,7 +216,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	}
 
 	const currentPr = await options.gateway.verifyCurrentPr({ cwd: options.cwd });
-	if (submitted.semanticFailure !== undefined || currentPr.kind !== "present") {
+	if (submitted.semanticFailureCause !== undefined || currentPr.kind !== "present") {
 		return failure(
 			1,
 			formatPostSubmitFailureOutput({
@@ -410,7 +398,7 @@ function formatPostSubmitFailureOutput({
 	currentPr: CurrentPrVerificationResult;
 }): string {
 	return [
-		formatPostSubmitFailureReason(submitted.semanticFailure, currentPr),
+		formatPostSubmitFailureReason(submitted.semanticFailureCause, currentPr),
 		"",
 		"$ gt submit -nps --ai",
 		"",
@@ -423,9 +411,45 @@ function formatPostSubmitFailureOutput({
 		.join("\n");
 }
 
-function formatPostSubmitFailureReason(semanticFailure: string | undefined, currentPr: CurrentPrVerificationResult): string {
-	const currentPrMessage = currentPr.kind === "present" ? undefined : currentPr.message;
-	return [semanticFailure, currentPrMessage].filter((line): line is string => Boolean(line)).join("\n");
+function formatPostSubmitFailureReason(
+	semanticFailureCause: SubmitSemanticFailureCause | undefined,
+	currentPr: CurrentPrVerificationResult,
+): string {
+	return [
+		semanticFailureCause === undefined ? undefined : formatSubmitSemanticFailureCause(semanticFailureCause),
+		formatCurrentPrVerificationFailureReason(currentPr),
+	]
+		.filter((line): line is string => Boolean(line))
+		.join("\n");
+}
+
+function formatSubmitSemanticFailureCause(cause: SubmitSemanticFailureCause): string {
+	switch (cause) {
+		case "empty_branch_skipped":
+			return "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty.";
+	}
+	return assertNever(cause);
+}
+
+function formatCurrentPrVerificationFailureReason(currentPr: CurrentPrVerificationResult): string | undefined {
+	if (currentPr.kind === "present") return undefined;
+	if (currentPr.kind === "no_current_pr") {
+		return "gt submit exited 0, but the current branch still has no PR.";
+	}
+	const cause = currentPr.cause;
+	switch (cause) {
+		case "startup_error":
+			return `gt submit exited 0, but current PR verification could not start: ${currentPr.output.startupError ?? "unknown startup error"}`;
+		case "timeout":
+			return `gt submit exited 0, but current PR verification timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s.`;
+		case "command_failed":
+			return `gt submit exited 0, but current PR verification failed with exit code ${currentPr.output.exitCode}.`;
+	}
+	return assertNever(cause);
+}
+
+function assertNever(value: never): never {
+	throw new Error(`Unhandled value: ${String(value)}`);
 }
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {
@@ -577,14 +601,14 @@ function uniqueNonEmpty(values: string[]): string[] {
 	return unique;
 }
 
-function detectSubmitSemanticFailure(output: string): string | undefined {
+function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailureCause | undefined {
 	const strippedOutput = stripAnsi(output).replace(/\r/g, "\n");
 	const emptyBranchWarning = /This branch does not introduce any changes:/i.test(strippedOutput);
 	const skippedSubmissionWarning =
 		/will not be submitted/i.test(strippedOutput) || /GitHub does not allow empty PRs/i.test(strippedOutput);
 
 	if (emptyBranchWarning && skippedSubmissionWarning) {
-		return "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty.";
+		return "empty_branch_skipped";
 	}
 
 	return undefined;

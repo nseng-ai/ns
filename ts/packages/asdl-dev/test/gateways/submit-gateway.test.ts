@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { RealSubmitGateway } from "../../src/submit.ts";
-import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
+import { ScriptedCommandRunner, startupErrorStep, step } from "../support/scripted-command-runner.ts";
 
 describe("RealSubmitGateway", () => {
 	test("checkSubmitReadiness invokes Graphite dry-run submit", async () => {
@@ -69,7 +69,7 @@ describe("RealSubmitGateway", () => {
 
 		expect(result).toMatchObject({
 			kind: "success",
-			semanticFailure: "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty.",
+			semanticFailureCause: "empty_branch_skipped",
 		});
 		runner.assertDone();
 	});
@@ -80,7 +80,41 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "no_current_pr" });
+		expect(result).toMatchObject({ kind: "no_current_pr", cause: "no_current_pr" });
+		runner.assertDone();
+	});
+
+	test("verifyCurrentPr maps startup errors", async () => {
+		const runner = new ScriptedCommandRunner([startupErrorStep("gt", ["pr"], "spawn gt ENOENT")]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: "startup_error",
+			output: { startupError: "spawn gt ENOENT" },
+		});
+		runner.assertDone();
+	});
+
+	test("verifyCurrentPr maps timeouts", async () => {
+		const runner = new ScriptedCommandRunner([{ command: "gt", args: ["pr"], exitCode: 124, killed: true }]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ kind: "failed", cause: "timeout" });
+		runner.assertDone();
+	});
+
+	test("verifyCurrentPr maps generic command failures", async () => {
+		const runner = new ScriptedCommandRunner([step("gt", ["pr"], "", 2, "Graphite failed\n")]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ kind: "failed", cause: "command_failed" });
 		runner.assertDone();
 	});
 });
