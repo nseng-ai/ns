@@ -19,6 +19,8 @@ Issue #434 defines the vocabulary and workflow that should remain recognizable i
 
 The primary user workflow is: prepare baseline and treatment workdirs, run the same plan in each, inspect `vibechk diff`, push the generated `vibechk/<run-id>` branches with ordinary git tooling, create or choose the treatment PR, then run `vibechk publish` to insert the comparison evidence. The single-run workflow is the same shape with one run and one generated branch.
 
+Implementation sequencing should prioritize a thin, incomplete vertical slice of that workflow before hardening every supporting surface: run a plan in two prepared workdirs, inspect `vibechk diff`, and have Markdown evidence that can be manually pasted into a PR. Store polish, complete runner parity, `runs`, and `publish` should deepen the loop after the first real comparison is possible.
+
 Design choices from the issue should not be accidentally reversed during implementation: baseline means an autonomous re-run with old context, not the original human PR; the user writes the plan; v1 measures efficiency only; N is exactly one per side; there is no default runtime budget; `vibechk` stays local and never pushes or creates PRs; failed runner bundles remain useful evidence rather than being hidden.
 
 ## Scope
@@ -69,6 +71,7 @@ Design choices from the issue should not be accidentally reversed during impleme
 Assumptions:
 
 - A standalone `packages/vibechk` package remains the right home for v1 and does not need to be an `asdl` plugin; the initial scaffold validated that home with workspace wiring, help/version behavior, and repo validation passing.
+- User-facing workflow feedback is more valuable early than complete infrastructure polish; the implementation should land a thin `run -> show/diff` walking skeleton with one real runner, minimal metadata, and `null` metrics before hardening.
 - Users preparing baseline and treatment workdirs outside the tool is acceptable and keeps v1 composable.
 - The `claude`, `codex`, and `pi` CLIs can each be driven non-interactively from Python in a supplied clean workdir, even if their output formats and available metrics differ.
 - Treating Pi through the uniform runner interface is acceptable for v1; direct Pi SDK session forking/resource-manifest evaluation can wait until after the first Python CLI proves the bundle/report workflow.
@@ -86,6 +89,7 @@ Risks:
 - Live GitHub publish validation depends on `gh` authentication, network availability, and a suitable test PR, so closure evidence must record exactly what was exercised.
 - Markdown rendering and fence replacement can accidentally clobber user prose if marker matching is too broad; idempotency tests should cover existing prose and repeated publishes.
 - The bundle schema may become a de facto public interface immediately, so v1 should avoid underspecified optional fields and keep future additions additive.
+- Layering all store/schema/list/publish hardening before the first comparison could overfit abstractions and delay user workflow feedback; roadmap sequencing should keep infrastructure no thicker than the next vertical slice requires.
 - The deliberate absence of a default runtime budget keeps the tool honest but can surprise users with long or costly agent runs; help text and docs should make that behavior explicit.
 
 ## Open Questions

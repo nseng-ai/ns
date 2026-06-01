@@ -3,13 +3,15 @@
 ## Work
 
 - [x] Scaffold the standalone `packages/vibechk` workspace package and `vibechk` CLI with help/version behavior.
-- [ ] Define bundle store layout, run-id generation, schema models, prefix resolution, and `runs` listing.
-- [ ] Implement git workdir preconditions, provenance capture, diff capture, local `vibechk/<run-id>` branch creation, and switch-back behavior.
-- [ ] Implement the runner abstraction plus `claude`, `codex`, and `pi` subprocess/RPC adapters, incremental raw transcript/event writing, and normalized metric parsing with graceful partial-run handling.
-- [ ] Implement `vibechk run` end-to-end against fake-driven test seams.
-- [ ] Implement single-run and comparison Markdown renderers for `show` and `diff`.
+- [ ] Implement a thin `run -> show -> diff` walking skeleton that can run the same plan in two prepared workdirs and render comparison evidence, even with one real runner, minimal bundle metadata, no `publish`, and some metrics as `null`.
+- [ ] Add only the bundle store and run-id support required by the walking skeleton: store root resolution, 8-character ids, plan snapshot, raw transcript/artifacts, basic metadata, diff patch, and enough prefix resolution for `show`/`diff`.
+- [ ] Implement the minimal runner contract plus the first real subprocess adapter and a `FakeRunner` seam; defer full `claude`/`codex`/`pi` parity until the loop works.
+- [ ] Implement git workdir preconditions, provenance capture, diff capture, local `vibechk/<run-id>` branch creation, and switch-back behavior needed by real runs.
+- [ ] Make single-run and comparison Markdown reports useful enough to paste into a PR manually, including branch refs, plan, metrics or `null`s, and config differences.
+- [ ] Harden the store surface after the loop works: collision handling, complete prefix-resolution errors, XDG/$VIBECHK_HOME/--store precedence, and `vibechk runs` tabular/JSON listing.
+- [ ] Add remaining runner adapters and normalization coverage for `claude`, `codex`, and `pi`.
 - [ ] Implement GitHub PR reference resolution, fence replacement, branch-on-remote validation, and `publish` through `gh`.
-- [ ] Add fake-driven unit and scenario coverage for the canonical comparison flow, single-run flow, runner selection and per-runner metric normalization, failure modes, no-change runs, report rendering, publish idempotency, and JSON/tabular listings.
+- [ ] Expand fake-driven unit and scenario coverage for the canonical comparison flow, single-run flow, runner selection and per-runner metric normalization, failure modes, no-change runs, report rendering, publish idempotency, and JSON/tabular listings.
 - [ ] Run a real GitHub PR publish smoke and record closure evidence for insertion, replacement, and no-op republish behavior.
 - [ ] Run the final repo validation suite after the remaining v1 feature work.
 
