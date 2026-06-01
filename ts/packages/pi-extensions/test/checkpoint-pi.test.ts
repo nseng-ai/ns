@@ -12,7 +12,7 @@ mock.module("@earendil-works/pi-ai", () => ({
 
 const { prepareCheckpointMessageForPi } = await import("../src/checkpoint-pi.ts");
 
-const HARNESS_ENV = "PI_CP_HARNESS";
+const HARNESS_ENV = "PI_DRAFT_HARNESS";
 const ROOT = "/repo";
 const VALID_CHECKPOINT_MESSAGE = `[cp] Update widget progress
 

@@ -30,15 +30,19 @@ describe("dev extension registration", () => {
 		const pi = new FakePi();
 		devExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["dev:cp", "dev:autobranch", "dev:submit", "dev:land", "dev:land-stack"]);
+		expect([...pi.commands.keys()]).toEqual(["dev:cp", "dev:changes", "dev:autobranch", "dev:submit", "dev:land", "dev:land-stack"]);
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("newbr")).toBe(false);
+		expect(pi.commands.has("changes")).toBe(false);
+		expect(pi.commands.has("summary")).toBe(false);
 		expect(pi.commands.has("submit")).toBe(false);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("gt:land-stack")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
 		expect(pi.commands.has("land-stack")).toBe(false);
+		expect(pi.commands.get("dev:changes")?.description).toContain("without committing");
 		expect(pi.commands.get("dev:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
+		expect(pi.messageRenderers.has("dev-changes-summary")).toBe(true);
 		expect(pi.messageRenderers.has("land-stack-command-stream")).toBe(true);
 	});
 });
