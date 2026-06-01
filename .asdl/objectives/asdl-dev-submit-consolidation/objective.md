@@ -48,11 +48,11 @@ Assumptions:
 Risks:
 
 - Pi duplication drift is a major risk: a thin wrapper could gradually recreate a parallel submit implementation with its own Graphite orchestration and failure policy.
-- Shared runner hardening may affect other commands using `runCommand`; SIGKILL fallback and timeout result semantics need tests and careful compatibility review.
+- Shared runner hardening could affect other `runCommand` callers; substantially de-risked — the SIGKILL fallback and exit-code-124 timeout semantics are additive behind an optional `timeoutKillGraceMs` (default 5s), so existing callers that pass no new options keep working while gaining bounded timeout escalation, and command-runner tests guard the behavior (PR #787).
 - Submit UX may regress if the headless command permanently loses useful old Pi affordances such as progress feedback or checkpoint-recovery prompts.
 - Graphite output parsing remains inherently brittle; semantic detection should stay narrow, tested, and isolated from formatting.
 
 ## Open Questions
 
 - After the headless CLI path is hardened, is a thin Pi UX wrapper actually needed? If so, what concrete evidence or user pain justifies adding it?
-- What is the blast radius of adding SIGTERM-to-SIGKILL fallback to the shared command runner, and do any existing callers depend on the current weaker timeout behavior?
+- Resolved: the blast radius of the SIGTERM→SIGKILL fallback is contained. `timeoutKillGraceMs` is optional with a 5s default and the new behavior only adds a bounded SIGKILL escalation plus a normalized exit code 124 for timed-out runs; callers that pass no new options are otherwise unchanged, so no existing caller depended on the prior weaker timeout behavior (PR #787).

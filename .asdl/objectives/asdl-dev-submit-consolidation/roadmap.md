@@ -4,8 +4,8 @@
 
 - [~] Complete the submit consolidation so `asdl-dev submit` owns durable behavior and Pi exposes it through the shared `/dev:*` command adapter.
       Evidence: current branch adds the CLI command/gateway/tests/docs and removes the legacy Pi-only submit file/tests; remaining work is to reconcile review hardening before treating the migration as review-ready.
-- [ ] Harden shared command timeout handling for long-running Graphite commands.
-      Evidence: `runCommand` enforces timeout completion robustly, including SIGTERM escalation when needed, and tests cover timeout/startup/close behavior without reintroducing submit-specific process machinery.
+- [x] Harden shared command timeout handling for long-running Graphite commands.
+      Evidence: `runCommand` now escalates SIGTERM → SIGKILL after a configurable grace window (`timeoutKillGraceMs`, default 5s) and normalizes timed-out runs to exit code 124, all in the generic `command-runner` gateway with no submit-specific process machinery. Tests cover normal close, startup error, SIGTERM-handled timeout, and SIGKILL escalation; targeted command-runner tests and the package typecheck passed. Evidence: PR #787 branch diff against `consolidate-submit-to-asdl-dev-timeout-semantics`.
 - [ ] Replace presentation-string submit gateway fields with typed semantic result causes.
       Evidence: submit formatting owns English prose, `RealSubmitGateway` returns semantic causes for empty-branch/no-current-PR/startup/timeout/failure states, and in-memory fakes model those states without duplicating final user-facing messages.
 - [ ] Decide whether `/dev:submit` needs a thin Pi UX wrapper after the headless path is hardened.
