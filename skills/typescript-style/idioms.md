@@ -188,8 +188,12 @@ async function* runJob(input: JobInput, signal?: AbortSignal): AsyncGenerator<Jo
 
 // 2) Synchronous fallible logic: Result<T, E>.
 type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
-const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
-const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
+function ok<T>(value: T): Result<T, never> {
+  return { ok: true, value };
+}
+function err<E>(error: E): Result<never, E> {
+  return { ok: false, error };
+}
 
 // 3) Stable typed error for thrown programmer/integration failures.
 class ConfigError extends Error {
@@ -276,14 +280,16 @@ declare module "../core/events.ts" {
 }
 ```
 
-## Schema → types end to end
+## Zod schema → types end to end
 
 ```ts
-const readSchema = Type.Object({
-  path: Type.String(),
-  lineRange: Type.Optional(Type.String()),
+import { z } from "zod";
+
+const readSchema = z.object({
+  path: z.string().describe("Path to read"),
+  lineRange: z.string().optional().describe("Optional line range"),
 });
-type ReadInput = Static<typeof readSchema>;
+type ReadInput = z.infer<typeof readSchema>;
 
 const readTool = defineTool({
   name: "read",

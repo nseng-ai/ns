@@ -42,7 +42,8 @@ type. Avoid maintaining a TS enum plus a separate runtime list.
 
 ## Discriminated unions
 
-Use one stable field to identify each runtime variant:
+Use one stable field to identify each runtime variant. Prefer `type` as the default tag for ordinary
+internal variants:
 
 ```ts
 type LoadState =
@@ -52,8 +53,10 @@ type LoadState =
   | { type: "failed"; error: LoadError };
 ```
 
-Consume with `switch`. Add `assertNever` when the project does not have exhaustive-switch linting.
-Prefer one explicit union over several booleans like `isLoading`, `hasLoaded`, and `hasFailed`.
+Use a domain or external-contract tag such as `role` or `status` only when that name is the honest
+model. Consume with `switch`. Add `assertNever` when the project does not have exhaustive-switch
+linting. Prefer one explicit union over several booleans like `isLoading`, `hasLoaded`, and
+`hasFailed`.
 
 ## Open unions for registries
 
@@ -155,9 +158,23 @@ type RenderEvent = { type: "start" } | { type: "end" };
 type RenderFunction = (event: RenderEvent) => void;
 ```
 
-## `unknown` at boundaries
+## `unknown` and Zod at boundaries
 
-External data is `unknown` until proven:
+External data is `unknown` until proven. Prefer Zod schemas for external, HTTP, model, tool, and config
+boundaries, then derive the static type from the schema:
+
+```ts
+import { z } from "zod";
+
+const configSchema = z.object({ endpoint: z.string().url() });
+type Config = z.infer<typeof configSchema>;
+
+function parseConfig(value: unknown): Config {
+  return configSchema.parse(value);
+}
+```
+
+Use handwritten guards for small local checks or when an existing API expects a predicate:
 
 ```ts
 function isConfig(value: unknown): value is Config {
