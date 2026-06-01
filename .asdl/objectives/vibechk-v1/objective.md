@@ -71,7 +71,7 @@ Design choices from the issue should not be accidentally reversed during impleme
 Assumptions:
 
 - A standalone `packages/vibechk` package remains the right home for v1 and does not need to be an `asdl` plugin; the initial scaffold validated that home with workspace wiring, help/version behavior, and repo validation passing.
-- User-facing workflow feedback is more valuable early than complete infrastructure polish; the implementation should land a thin `run -> show/diff` walking skeleton with one real runner, minimal metadata, and `null` metrics before hardening.
+- User-facing workflow feedback is more valuable early than complete infrastructure polish; the thin `run -> show/diff` walking skeleton now validates that loop, so remaining v1 work should deepen runner parity, `runs`, `publish`, and hardening around the proven bundle/report shape.
 - Users preparing baseline and treatment workdirs outside the tool is acceptable and keeps v1 composable.
 - The `claude`, `codex`, and `pi` CLIs can each be driven non-interactively from Python in a supplied clean workdir, even if their output formats and available metrics differ.
 - Treating Pi through the uniform runner interface is acceptable for v1; direct Pi SDK session forking/resource-manifest evaluation can wait until after the first Python CLI proves the bundle/report workflow.
@@ -84,7 +84,7 @@ Risks:
 
 - Runner output/event shapes may vary across `claude`, `codex`, and `pi` versions; metric parsing should be per-runner, degrade gracefully, and leave unavailable fields as `null` while preserving raw artifacts.
 - A uniform runner contract can hide meaningful capability differences; reports should surface runner/model/version/config differences so cross-runner comparisons are not mistaken for pure context A/Bs.
-- Auto-staging and committing all workdir changes is powerful; precondition checks, switch-back behavior, and tests must avoid leaving user workdirs dirty or on unexpected branches.
+- Auto-staging and committing all workdir changes is powerful; the walking skeleton partially de-risks this with clean-workdir checks, result-branch commits, switch-back behavior, and real git gateway coverage, while rollback behavior for mid-commit failures still needs hardening.
 - PR reference resolution and remote branch validation can become ambiguous in repos with multiple remotes or fork-style setups; errors must name the ambiguity clearly.
 - Live GitHub publish validation depends on `gh` authentication, network availability, and a suitable test PR, so closure evidence must record exactly what was exercised.
 - Markdown rendering and fence replacement can accidentally clobber user prose if marker matching is too broad; idempotency tests should cover existing prose and repeated publishes.
