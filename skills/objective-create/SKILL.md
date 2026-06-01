@@ -49,6 +49,7 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 Roadmap item quality:
 
 - Initial roadmap items must be substantive semantic work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up.
+- Size roadmap items by human-legible decision count and thesis clarity, not by diff size, file count, or line count. A broad mechanical change can be one simple item when it implements one clear decision; a small mixed change may need multiple items.
 - Do not add a final routine validation-only row by default, such as `run just`, `run tests`, `wait for CI`, or `full repo validation`.
 - During the creation interview, if validation appears as a possible branch point, steer it into completion evidence unless validation/test/CI behavior is itself in scope.
 - The initial roadmap may include expected evidence under a semantic row, such as `Evidence: targeted tests and relevant repo checks passed`; do not make that evidence a standalone final row.

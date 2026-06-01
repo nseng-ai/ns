@@ -99,6 +99,11 @@ Bail and surface to the user if any fail:
 Convert the input plan into the internal `stacker-slice-manifest/v1`
 shape defined in `references/runtime-contract.md`.
 
+Normalize slices by human-legible decision count and thesis clarity, not
+by diff size, file count, or line count. A large mechanical change can be
+one slice when it expresses one clear decision; a small change that mixes
+unrelated decisions should be split or surfaced as ambiguous.
+
 Record the run output shape too:
 
 - `branch-stack` default: one branch per slice.
