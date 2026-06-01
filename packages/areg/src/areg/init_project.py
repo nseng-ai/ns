@@ -62,8 +62,17 @@ class TextWritePlan:
 
 
 @dataclass(frozen=True)
+class SkippedTextWrite:
+    path: Path
+    reason: str
+
+
+TextFilePlan = TextWritePlan | SkippedTextWrite
+
+
+@dataclass(frozen=True)
 class InitPlan:
-    writes: tuple[TextWritePlan, ...]
+    text_files: tuple[TextFilePlan, ...]
 
 
 def _read_template(name: str) -> str:
@@ -117,7 +126,10 @@ def _write_text(path: Path, content: str, description: str) -> None:
         raise click.ClickException(f"Failed to write {description} at {path}: {e}") from e
 
 
-def _apply_text_write(plan: TextWritePlan) -> None:
+def _apply_text_file_plan(plan: TextFilePlan) -> None:
+    if isinstance(plan, SkippedTextWrite):
+        return
+
     if plan.create_parent:
         try:
             plan.path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,7 +191,7 @@ def _plan_managed_block(
     no_append: bool,
     append_prompt: str,
     update_prompt: str,
-) -> TextWritePlan | None:
+) -> TextFilePlan:
     if not path.exists():
         return TextWritePlan(path=path, content=new_file_content, description=path.name)
 
@@ -195,9 +207,12 @@ def _plan_managed_block(
     )
     if bounds is None:
         if no_append:
-            return None
+            return SkippedTextWrite(
+                path=path,
+                reason="--no-append skips existing file without managed block",
+            )
         if not assume_yes and not click.confirm(append_prompt, default=False):
-            return None
+            return SkippedTextWrite(path=path, reason="user declined adding managed block")
         return TextWritePlan(
             path=path, content=_append_block(content, block), description=path.name
         )
@@ -205,11 +220,14 @@ def _plan_managed_block(
     start, end = bounds
     current_block = content[start:end]
     if current_block == block:
-        return None
+        return SkippedTextWrite(path=path, reason="managed block is already current")
     if no_append:
-        return None
+        return SkippedTextWrite(
+            path=path,
+            reason="--no-append skips existing managed block replacement",
+        )
     if not assume_yes and not click.confirm(update_prompt, default=False):
-        return None
+        return SkippedTextWrite(path=path, reason="user declined replacing managed block")
     return TextWritePlan(
         path=path, content=content[:start] + block + content[end:], description=path.name
     )
@@ -255,7 +273,7 @@ def _plan_agents_md(
     *,
     assume_yes: bool,
     no_append: bool,
-) -> TextWritePlan | None:
+) -> TextFilePlan:
     return _plan_managed_block(
         project_dir / "AGENTS.md",
         new_file_content=_agents_file_content(),
@@ -274,7 +292,7 @@ def _plan_claude_md(
     *,
     assume_yes: bool,
     no_append: bool,
-) -> TextWritePlan | None:
+) -> TextFilePlan:
     path = project_dir / "CLAUDE.md"
     include_agents_ref = True
     if path.exists():
@@ -329,7 +347,7 @@ def _plan_areg_json(project_dir: Path, *, agents: tuple[str, ...]) -> TextWriteP
     )
 
 
-def _plan_settings(project_dir: Path) -> TextWritePlan | None:
+def _plan_settings(project_dir: Path) -> TextFilePlan:
     claude_dir = project_dir / ".claude"
     if claude_dir.exists() and not claude_dir.is_dir():
         raise click.ClickException(f"{claude_dir} exists but is not a directory.")
@@ -338,7 +356,7 @@ def _plan_settings(project_dir: Path) -> TextWritePlan | None:
     if settings_path.exists():
         if not settings_path.is_file():
             raise click.ClickException(f"{settings_path} exists but is not a file.")
-        return None
+        return SkippedTextWrite(path=settings_path, reason="existing settings file is preserved")
 
     return TextWritePlan(
         path=settings_path,
@@ -355,15 +373,13 @@ def _build_init_plan(
     assume_yes: bool,
     no_append: bool,
 ) -> InitPlan:
-    writes: list[TextWritePlan] = [_plan_areg_json(project_dir, agents=agents)]
-    for maybe_write in (
+    text_files: list[TextFilePlan] = [
+        _plan_areg_json(project_dir, agents=agents),
         _plan_agents_md(project_dir, assume_yes=assume_yes, no_append=no_append),
         _plan_claude_md(project_dir, assume_yes=assume_yes, no_append=no_append),
         _plan_settings(project_dir),
-    ):
-        if maybe_write is not None:
-            writes.append(maybe_write)
-    return InitPlan(writes=tuple(writes))
+    ]
+    return InitPlan(text_files=tuple(text_files))
 
 
 @click.command("init")
@@ -420,8 +436,8 @@ def init_project_cmd(
     except NpxSkillsError as e:
         raise click.ClickException(f"npx skills add failed: {e}") from e
 
-    for write in init_plan.writes:
-        _apply_text_write(write)
+    for text_file in init_plan.text_files:
+        _apply_text_file_plan(text_file)
 
     click.echo(f"\nInitialized areg in {project_dir}")
     click.echo("Bootstrap skills installed: skill-management, skillx")
