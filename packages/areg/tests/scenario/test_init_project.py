@@ -109,7 +109,7 @@ def test_init_uses_custom_agents(tmp_path: Path) -> None:
     assert invocation.cwd == tmp_path
 
 
-def test_init_overwrites_existing_areg_json(tmp_path: Path) -> None:
+def test_init_preserves_existing_areg_json_unknown_keys(tmp_path: Path) -> None:
     _git_init(tmp_path)
     (tmp_path / "areg.json").write_text(
         json.dumps({"agents": ["old"], "unknown": True}),
@@ -119,7 +119,10 @@ def test_init_overwrites_existing_areg_json(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
 
     assert result.exit_code == 0, result.output
-    assert _read_json(tmp_path / "areg.json") == {"agents": ["codex", "claude-code"]}
+    assert _read_json(tmp_path / "areg.json") == {
+        "agents": ["codex", "claude-code"],
+        "unknown": True,
+    }
 
 
 def test_init_leaves_existing_claude_settings_unchanged(tmp_path: Path) -> None:
@@ -323,14 +326,74 @@ def test_init_existing_marked_agents_block_no_append_leaves_old_block(tmp_path: 
     assert agents.read_text(encoding="utf-8") == original
 
 
-def test_init_malformed_agents_marker_errors(tmp_path: Path) -> None:
+def test_init_malformed_agents_marker_errors_before_install(tmp_path: Path) -> None:
     _git_init(tmp_path)
-    (tmp_path / "AGENTS.md").write_text("<!-- areg:skills:start -->\nold\n", encoding="utf-8")
+    agents = tmp_path / "AGENTS.md"
+    original = "<!-- areg:skills:start -->\nold\n"
+    agents.write_text(original, encoding="utf-8")
+    fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
 
     assert result.exit_code != 0
     assert "malformed areg-managed block" in result.output
+    assert fake_npx.invocations == []
+    assert agents.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "areg.json").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_malformed_claude_marker_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude = tmp_path / "CLAUDE.md"
+    original = "<!-- areg:claude-skills:start -->\nold\n"
+    claude.write_text(original, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "malformed areg-managed block" in result.output
+    assert fake_npx.invocations == []
+    assert claude.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "areg.json").exists()
+    assert not (tmp_path / "AGENTS.md").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_invalid_areg_json_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    areg_json = tmp_path / "areg.json"
+    original = "{not json\n"
+    areg_json.write_text(original, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "Invalid JSON in areg.json" in result.output
+    assert fake_npx.invocations == []
+    assert areg_json.read_text(encoding="utf-8") == original
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_non_object_areg_json_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    areg_json = tmp_path / "areg.json"
+    areg_json.write_text("[]\n", encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "areg.json must contain a JSON object" in result.output
+    assert fake_npx.invocations == []
+    assert areg_json.read_text(encoding="utf-8") == "[]\n"
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
 
 
 def test_init_rejects_yes_with_no_append(tmp_path: Path) -> None:
@@ -355,6 +418,10 @@ def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
     assert "npx skills add failed: boom" in result.output
     assert tmp_path.is_dir()
     assert readme.read_text(encoding="utf-8") == "keep me\n"
+    assert not (tmp_path / "areg.json").exists()
+    assert not (tmp_path / "AGENTS.md").exists()
+    assert not (tmp_path / "CLAUDE.md").exists()
+    assert not (tmp_path / ".claude" / "settings.local.json").exists()
 
 
 def test_create_project_command_is_removed() -> None:

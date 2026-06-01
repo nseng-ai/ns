@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.resources
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -50,6 +51,28 @@ _CLAUDE_NOTE = (
     "available. Use `skill-management` for persistent skill changes and `skillx` for "
     "transient GitHub skill execution."
 )
+
+
+@dataclass(frozen=True)
+class TextWritePlan:
+    path: Path
+    content: str
+    description: str
+    create_parent: bool = False
+
+
+@dataclass(frozen=True)
+class SkippedTextWrite:
+    path: Path
+    reason: str
+
+
+TextFilePlan = TextWritePlan | SkippedTextWrite
+
+
+@dataclass(frozen=True)
+class InitPlan:
+    text_files: tuple[TextFilePlan, ...]
 
 
 def _read_template(name: str) -> str:
@@ -103,6 +126,18 @@ def _write_text(path: Path, content: str, description: str) -> None:
         raise click.ClickException(f"Failed to write {description} at {path}: {e}") from e
 
 
+def _apply_text_file_plan(plan: TextFilePlan) -> None:
+    if isinstance(plan, SkippedTextWrite):
+        return
+
+    if plan.create_parent:
+        try:
+            plan.path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise click.ClickException(f"Failed to create {plan.path.parent}: {e}") from e
+    _write_text(plan.path, plan.content, plan.description)
+
+
 def _read_existing_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -145,7 +180,7 @@ def _append_block(content: str, block: str) -> str:
     return content + "\n\n" + block + "\n"
 
 
-def _apply_managed_block(
+def _plan_managed_block(
     path: Path,
     *,
     new_file_content: str,
@@ -156,10 +191,9 @@ def _apply_managed_block(
     no_append: bool,
     append_prompt: str,
     update_prompt: str,
-) -> None:
+) -> TextFilePlan:
     if not path.exists():
-        _write_text(path, new_file_content, path.name)
-        return
+        return TextWritePlan(path=path, content=new_file_content, description=path.name)
 
     if not path.is_file():
         raise click.ClickException(f"{path} exists but is not a file.")
@@ -173,21 +207,30 @@ def _apply_managed_block(
     )
     if bounds is None:
         if no_append:
-            return
+            return SkippedTextWrite(
+                path=path,
+                reason="--no-append skips existing file without managed block",
+            )
         if not assume_yes and not click.confirm(append_prompt, default=False):
-            return
-        _write_text(path, _append_block(content, block), path.name)
-        return
+            return SkippedTextWrite(path=path, reason="user declined adding managed block")
+        return TextWritePlan(
+            path=path, content=_append_block(content, block), description=path.name
+        )
 
     start, end = bounds
     current_block = content[start:end]
     if current_block == block:
-        return
+        return SkippedTextWrite(path=path, reason="managed block is already current")
     if no_append:
-        return
+        return SkippedTextWrite(
+            path=path,
+            reason="--no-append skips existing managed block replacement",
+        )
     if not assume_yes and not click.confirm(update_prompt, default=False):
-        return
-    _write_text(path, content[:start] + block + content[end:], path.name)
+        return SkippedTextWrite(path=path, reason="user declined replacing managed block")
+    return TextWritePlan(
+        path=path, content=content[:start] + block + content[end:], description=path.name
+    )
 
 
 def _agents_file_content() -> str:
@@ -225,8 +268,13 @@ def _content_without_managed_block(
     return content[:start] + content[end:]
 
 
-def _ensure_agents_md(project_dir: Path, *, assume_yes: bool, no_append: bool) -> None:
-    _apply_managed_block(
+def _plan_agents_md(
+    project_dir: Path,
+    *,
+    assume_yes: bool,
+    no_append: bool,
+) -> TextFilePlan:
+    return _plan_managed_block(
         project_dir / "AGENTS.md",
         new_file_content=_agents_file_content(),
         block=_AGENTS_BLOCK,
@@ -239,12 +287,15 @@ def _ensure_agents_md(project_dir: Path, *, assume_yes: bool, no_append: bool) -
     )
 
 
-def _ensure_claude_md(project_dir: Path, *, assume_yes: bool, no_append: bool) -> None:
+def _plan_claude_md(
+    project_dir: Path,
+    *,
+    assume_yes: bool,
+    no_append: bool,
+) -> TextFilePlan:
     path = project_dir / "CLAUDE.md"
-    if not path.exists():
-        block = _claude_block(include_agents_ref=True)
-        content = f"# {project_dir.name}\n\n{block}\n"
-    else:
+    include_agents_ref = True
+    if path.exists():
         if not path.is_file():
             raise click.ClickException(f"{path} exists but is not a file.")
         existing = _read_existing_text(path)
@@ -254,12 +305,12 @@ def _ensure_claude_md(project_dir: Path, *, assume_yes: bool, no_append: bool) -
             start_marker=_CLAUDE_BLOCK_START,
             end_marker=_CLAUDE_BLOCK_END,
         )
-        block = _claude_block(include_agents_ref="@AGENTS.md" not in outside_managed_block)
-        content = f"# {project_dir.name}\n\n{block}\n"
+        include_agents_ref = "@AGENTS.md" not in outside_managed_block
 
-    _apply_managed_block(
+    block = _claude_block(include_agents_ref=include_agents_ref)
+    return _plan_managed_block(
         path,
-        new_file_content=content,
+        new_file_content=f"# {project_dir.name}\n\n{block}\n",
         block=block,
         start_marker=_CLAUDE_BLOCK_START,
         end_marker=_CLAUDE_BLOCK_END,
@@ -270,22 +321,65 @@ def _ensure_claude_md(project_dir: Path, *, assume_yes: bool, no_append: bool) -
     )
 
 
-def _ensure_settings(project_dir: Path) -> None:
+def _plan_areg_json(project_dir: Path, *, agents: tuple[str, ...]) -> TextWritePlan:
+    path = project_dir / "areg.json"
+    data: dict[str, object] = {}
+
+    if path.exists():
+        if not path.is_file():
+            raise click.ClickException(f"{path} exists but is not a file.")
+        content = _read_existing_text(path)
+        try:
+            existing_data = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise click.ClickException(f"Invalid JSON in areg.json: {e}") from e
+        if not isinstance(existing_data, dict):
+            raise click.ClickException("areg.json must contain a JSON object.")
+        for key, value in existing_data.items():
+            if isinstance(key, str):
+                data[key] = value
+
+    data["agents"] = list(agents)
+    return TextWritePlan(
+        path=path,
+        content=json.dumps(data, indent=2) + "\n",
+        description="areg.json",
+    )
+
+
+def _plan_settings(project_dir: Path) -> TextFilePlan:
     claude_dir = project_dir / ".claude"
     if claude_dir.exists() and not claude_dir.is_dir():
         raise click.ClickException(f"{claude_dir} exists but is not a directory.")
-    try:
-        claude_dir.mkdir(exist_ok=True)
-    except OSError as e:
-        raise click.ClickException(f"Failed to create {claude_dir}: {e}") from e
 
     settings_path = claude_dir / "settings.local.json"
     if settings_path.exists():
         if not settings_path.is_file():
             raise click.ClickException(f"{settings_path} exists but is not a file.")
-        return
+        return SkippedTextWrite(path=settings_path, reason="existing settings file is preserved")
 
-    _write_text(settings_path, _read_template("settings.local.json"), settings_path.name)
+    return TextWritePlan(
+        path=settings_path,
+        content=_read_template("settings.local.json"),
+        description=settings_path.name,
+        create_parent=True,
+    )
+
+
+def _build_init_plan(
+    project_dir: Path,
+    *,
+    agents: tuple[str, ...],
+    assume_yes: bool,
+    no_append: bool,
+) -> InitPlan:
+    text_files: list[TextFilePlan] = [
+        _plan_areg_json(project_dir, agents=agents),
+        _plan_agents_md(project_dir, assume_yes=assume_yes, no_append=no_append),
+        _plan_claude_md(project_dir, assume_yes=assume_yes, no_append=no_append),
+        _plan_settings(project_dir),
+    ]
+    return InitPlan(text_files=tuple(text_files))
 
 
 @click.command("init")
@@ -324,6 +418,12 @@ def init_project_cmd(
     requires_npx()
     project_dir = _resolve_target_dir(target)
     _require_git_root(project_dir)
+    init_plan = _build_init_plan(
+        project_dir,
+        agents=agents,
+        assume_yes=assume_yes,
+        no_append=no_append,
+    )
 
     click.echo("Installing bootstrap skills via npx skills add...")
     try:
@@ -336,14 +436,8 @@ def init_project_cmd(
     except NpxSkillsError as e:
         raise click.ClickException(f"npx skills add failed: {e}") from e
 
-    _write_text(
-        project_dir / "areg.json",
-        json.dumps({"agents": list(agents)}, indent=2) + "\n",
-        "areg.json",
-    )
-    _ensure_agents_md(project_dir, assume_yes=assume_yes, no_append=no_append)
-    _ensure_claude_md(project_dir, assume_yes=assume_yes, no_append=no_append)
-    _ensure_settings(project_dir)
+    for text_file in init_plan.text_files:
+        _apply_text_file_plan(text_file)
 
     click.echo(f"\nInitialized areg in {project_dir}")
     click.echo("Bootstrap skills installed: skill-management, skillx")
