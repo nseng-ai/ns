@@ -501,8 +501,7 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 
 		try {
 			const data = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
-			const entries = Array.isArray(data.entries) ? (data.entries as BrmemEntry[]) : [];
-			const status = formatBrmemScopes(entries);
+			const status = formatBrmemScopes(parseBrmemEntries(data.entries));
 			return status.length > 0 ? status : undefined;
 		} catch {
 			// Try the next brmem CLI candidate.
@@ -512,7 +511,28 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 	return signal?.aborted ? undefined : "unavailable";
 }
 
-function formatBrmemScopes(entries: BrmemEntry[]): string {
+function parseBrmemEntries(value: unknown): BrmemEntry[] {
+	if (!Array.isArray(value)) return [];
+
+	const entries: BrmemEntry[] = [];
+	for (const item of value) {
+		const entry = brmemEntryFromValue(item);
+		if (entry !== undefined) entries.push(entry);
+	}
+	return entries;
+}
+
+function brmemEntryFromValue(value: unknown): BrmemEntry | undefined {
+	if (!isRecord(value)) return undefined;
+	if (typeof value.namespace !== "string" || typeof value.key !== "string") return undefined;
+	return { namespace: value.namespace, key: value.key };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatBrmemScopes(entries: readonly BrmemEntry[]): string {
 	const namespaces: Array<{ name: string; keys: string[]; seenKeys: Set<string> }> = [];
 	const seenNamespaces = new Map<string, { name: string; keys: string[]; seenKeys: Set<string> }>();
 

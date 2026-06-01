@@ -11,39 +11,55 @@ export async function loadPr(pi: ExtensionAPI, repoRoot: string, branchOrNumber:
 		fail(`Could not load GitHub PR for ${branchOrNumber}.\n${formatCommandDetails(result, formatCommand("gh", args))}`);
 	}
 
-	let raw: Partial<PullRequestSnapshot>;
+	let raw: unknown;
 	try {
-		raw = JSON.parse(result.stdout) as Partial<PullRequestSnapshot>;
+		raw = JSON.parse(result.stdout);
 	} catch (error) {
 		fail(`Failed to parse gh pr view output for ${branchOrNumber}: ${errorMessage(error)}.`);
 	}
 
-	const body = raw.body;
-	if (
-		typeof raw.number !== "number" ||
-		typeof raw.title !== "string" ||
-		(typeof body !== "string" && body !== null) ||
-		typeof raw.state !== "string" ||
-		typeof raw.headRefName !== "string" ||
-		typeof raw.baseRefName !== "string" ||
-		typeof raw.headRefOid !== "string"
-	) {
+	const pr = parsePullRequestSnapshot(raw);
+	if (pr === undefined) {
 		fail(`gh pr view for ${branchOrNumber} did not return required PR fields.`);
+	}
+	return pr;
+}
+
+function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefined {
+	if (!isRecord(value)) return undefined;
+
+	const body = value.body;
+	if (
+		typeof value.number !== "number" ||
+		!Number.isFinite(value.number) ||
+		typeof value.title !== "string" ||
+		(typeof body !== "string" && body !== null) ||
+		typeof value.state !== "string" ||
+		typeof value.isDraft !== "boolean" ||
+		typeof value.headRefName !== "string" ||
+		typeof value.baseRefName !== "string" ||
+		typeof value.headRefOid !== "string"
+	) {
+		return undefined;
 	}
 
 	return {
-		number: raw.number,
-		title: raw.title,
+		number: value.number,
+		title: value.title,
 		body,
-		state: raw.state,
-		isDraft: Boolean(raw.isDraft),
-		headRefName: raw.headRefName,
-		baseRefName: raw.baseRefName,
-		headRefOid: raw.headRefOid,
-		mergeStateStatus: typeof raw.mergeStateStatus === "string" ? raw.mergeStateStatus : undefined,
-		url: typeof raw.url === "string" ? raw.url : undefined,
-		mergedAt: typeof raw.mergedAt === "string" || raw.mergedAt === null ? raw.mergedAt : undefined,
+		state: value.state,
+		isDraft: value.isDraft,
+		headRefName: value.headRefName,
+		baseRefName: value.baseRefName,
+		headRefOid: value.headRefOid,
+		mergeStateStatus: typeof value.mergeStateStatus === "string" ? value.mergeStateStatus : undefined,
+		url: typeof value.url === "string" ? value.url : undefined,
+		mergedAt: typeof value.mergedAt === "string" || value.mergedAt === null ? value.mergedAt : undefined,
 	};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function validateInitialPrPreflight(

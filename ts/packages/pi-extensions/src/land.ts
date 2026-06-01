@@ -32,15 +32,6 @@ const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 
-interface PullRequestView {
-	number?: number;
-	headRefName?: string;
-	baseRefName?: string;
-	title?: string;
-	body?: string | null;
-	headRefOid?: string;
-}
-
 export interface ValidPullRequestView {
 	number: number;
 	headRefName: string;
@@ -115,24 +106,26 @@ export async function loadPullRequest(pi: Pick<ExtensionAPI, "exec">, cwd: strin
 		return { error: output || `gh pr view failed with exit code ${result.code}. Merge not attempted.` };
 	}
 
+	let raw: unknown;
 	try {
-		const pr = parsePullRequestView(JSON.parse(result.stdout) as PullRequestView);
-		if ("error" in pr) {
-			return pr;
-		}
-		return pr;
+		raw = JSON.parse(result.stdout);
 	} catch (error) {
 		return { error: `Failed to parse gh pr view output: ${errorMessage(error)}. Merge not attempted.` };
 	}
+
+	return parsePullRequestView(raw);
 }
 
-export function parsePullRequestView(pr: PullRequestView): ValidPullRequestView | { error: string } {
-	const number = typeof pr.number === "number" ? pr.number : undefined;
-	const headRefName = nonEmptyString(pr.headRefName) ? pr.headRefName : undefined;
-	const baseRefName = nonEmptyString(pr.baseRefName) ? pr.baseRefName : undefined;
-	const title = nonEmptyString(pr.title) ? pr.title : undefined;
-	const headRefOid = nonEmptyString(pr.headRefOid) ? pr.headRefOid : undefined;
-	const body = typeof pr.body === "string" ? pr.body : "";
+export function parsePullRequestView(value: unknown): ValidPullRequestView | { error: string } {
+	if (!isRecord(value)) {
+		return { error: "gh pr view did not return a PR object. Merge not attempted." };
+	}
+
+	const number = typeof value.number === "number" && Number.isFinite(value.number) ? value.number : undefined;
+	const headRefName = nonEmptyString(value.headRefName) ? value.headRefName : undefined;
+	const baseRefName = nonEmptyString(value.baseRefName) ? value.baseRefName : undefined;
+	const title = nonEmptyString(value.title) ? value.title : undefined;
+	const headRefOid = nonEmptyString(value.headRefOid) ? value.headRefOid : undefined;
 
 	const missingFields: string[] = [];
 	if (number === undefined) missingFields.push("number");
@@ -151,11 +144,20 @@ export function parsePullRequestView(pr: PullRequestView): ValidPullRequestView 
 		return { error: `gh pr view did not return required field(s): ${missingFields.join(", ")}. Merge not attempted.` };
 	}
 
-	return { number, headRefName, baseRefName, title, body, headRefOid };
+	const body = value.body;
+	if (body !== undefined && body !== null && typeof body !== "string") {
+		return { error: "gh pr view returned a non-string body. Merge not attempted." };
+	}
+
+	return { number, headRefName, baseRefName, title, body: typeof body === "string" ? body : "", headRefOid };
 }
 
 function nonEmptyString(value: unknown): value is string {
 	return typeof value === "string" && value.length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function errorMessage(error: unknown): string {

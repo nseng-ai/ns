@@ -11,7 +11,7 @@ import {
 } from "../src/land-stack/command-exec.ts";
 import { LandStackError } from "../src/land-stack/errors.ts";
 import landStackExtension, { parseArgs } from "../src/land-stack.ts";
-import { validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
+import { loadPr, validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
 import { formatFailure, formatPlan } from "../src/land-stack/presentation.ts";
 import { parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
 import type {
@@ -695,6 +695,118 @@ describe("land-stack pure helpers", () => {
 				pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B }),
 			}),
 		).toThrow("head SHA does not match");
+	});
+});
+
+describe("loadPr boundary parsing", () => {
+	function prViewStep(result: Partial<ExecResult>): ScriptedExec {
+		return step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], result);
+	}
+
+	test("returns a normalized snapshot for valid PR JSON", async () => {
+		const pi = new FakePi([
+			prViewStep({
+				stdout: JSON.stringify({
+					number: 101,
+					title: "Ship it",
+					body: null,
+					state: "OPEN",
+					isDraft: false,
+					headRefName: "feature-a",
+					baseRefName: TRUNK,
+					headRefOid: SHA_A,
+					mergeStateStatus: "CLEAN",
+					url: "https://github.example/pull/101",
+					mergedAt: null,
+					unexpected: "ignored",
+				}),
+			}),
+		]);
+
+		const pr = await loadPr(pi, ROOT, "feature-a");
+
+		pi.assertDone();
+		expect(pr).toEqual({
+			number: 101,
+			title: "Ship it",
+			body: null,
+			state: "OPEN",
+			isDraft: false,
+			headRefName: "feature-a",
+			baseRefName: TRUNK,
+			headRefOid: SHA_A,
+			mergeStateStatus: "CLEAN",
+			url: "https://github.example/pull/101",
+			mergedAt: null,
+		});
+	});
+
+	test("drops malformed optional fields instead of trusting them", async () => {
+		const pi = new FakePi([
+			prViewStep({
+				stdout: JSON.stringify({
+					number: 101,
+					title: "Ship it",
+					body: "Body",
+					state: "OPEN",
+					isDraft: true,
+					headRefName: "feature-a",
+					baseRefName: TRUNK,
+					headRefOid: SHA_A,
+					mergeStateStatus: 5,
+					url: { not: "a string" },
+					mergedAt: 12345,
+				}),
+			}),
+		]);
+
+		const pr = await loadPr(pi, ROOT, "feature-a");
+
+		pi.assertDone();
+		expect(pr.isDraft).toBe(true);
+		expect(pr.mergeStateStatus).toBeUndefined();
+		expect(pr.url).toBeUndefined();
+		expect(pr.mergedAt).toBeUndefined();
+	});
+
+	test("rejects a non-object top-level PR JSON", async () => {
+		const pi = new FakePi([prViewStep({ stdout: "[]" })]);
+
+		let caught: unknown;
+		try {
+			await loadPr(pi, ROOT, "feature-a");
+		} catch (error) {
+			caught = error;
+		}
+
+		pi.assertDone();
+		expect(caught).toBeInstanceOf(LandStackError);
+		expect((caught as LandStackError).message).toContain("did not return required PR fields");
+	});
+
+	test("rejects a non-boolean isDraft rather than coercing it", async () => {
+		const pi = new FakePi([
+			prViewStep({
+				stdout: JSON.stringify({
+					number: 101,
+					title: "Ship it",
+					body: "Body",
+					state: "OPEN",
+					isDraft: "false",
+					headRefName: "feature-a",
+					baseRefName: TRUNK,
+					headRefOid: SHA_A,
+				}),
+			}),
+		]);
+
+		await expect(loadPr(pi, ROOT, "feature-a")).rejects.toThrow("did not return required PR fields");
+	});
+
+	test("fails clearly on invalid PR JSON", async () => {
+		const pi = new FakePi([prViewStep({ stdout: "not json" })]);
+
+		await expect(loadPr(pi, ROOT, "feature-a")).rejects.toThrow("Failed to parse gh pr view output for feature-a");
 	});
 });
 
