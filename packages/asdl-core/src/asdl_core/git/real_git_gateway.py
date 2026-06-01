@@ -19,6 +19,7 @@ from asdl_core.git.types import (
     PathTouch,
     RestructuredFile,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 
 
@@ -153,6 +154,64 @@ def parse_worktree_list_output(stdout: str) -> tuple[WorktreeInfo, ...]:
         )
 
     return tuple(worktrees)
+
+
+def _strip_refs_heads(ref: str) -> str:
+    prefix = "refs/heads/"
+    if ref.startswith(prefix):
+        return ref[len(prefix) :]
+    return ref
+
+
+def _resolve_worktree_admin_dir(worktree_path: Path) -> Path | None:
+    """Return the per-worktree admin gitdir, or ``None`` when unresolvable.
+
+    The main worktree's ``.git`` is a directory and is itself the admin dir.
+    A linked worktree's ``.git`` is a file containing ``gitdir: <abs>`` that
+    points at ``<common>/.git/worktrees/<name>``.
+    """
+
+    dot_git = worktree_path / ".git"
+    if dot_git.is_dir():
+        return dot_git
+    if dot_git.is_file():
+        content = dot_git.read_text(encoding="utf-8").strip()
+        prefix = "gitdir:"
+        if content.startswith(prefix):
+            raw = content[len(prefix) :].strip()
+            if raw:
+                admin = Path(raw)
+                if not admin.is_absolute():
+                    admin = (worktree_path / admin).resolve()
+                return admin
+    return None
+
+
+def _worktree_operation(worktree_path: Path) -> tuple[str, str] | None:
+    """Return ``(operation, branch)`` when ``worktree_path`` is mid-rebase/bisect.
+
+    Reads the per-worktree admin dir for the authoritative in-progress signal:
+    ``rebase-merge/head-name`` or ``rebase-apply/head-name`` for a rebase, and
+    ``BISECT_START`` for a bisect. Returns ``None`` when no such operation is
+    underway (the merge mid-state keeps HEAD on the branch, so it needs no
+    special handling).
+    """
+
+    admin_dir = _resolve_worktree_admin_dir(worktree_path)
+    if admin_dir is None:
+        return None
+    for rebase_subdir in ("rebase-merge", "rebase-apply"):
+        head_name_file = admin_dir / rebase_subdir / "head-name"
+        if head_name_file.is_file():
+            raw = head_name_file.read_text(encoding="utf-8").strip()
+            if raw:
+                return ("rebase", _strip_refs_heads(raw))
+    bisect_start = admin_dir / "BISECT_START"
+    if bisect_start.is_file():
+        raw = bisect_start.read_text(encoding="utf-8").strip()
+        if raw:
+            return ("bisect", _strip_refs_heads(raw))
+    return None
 
 
 def _branch_exists(repo_root: Path, branch: str) -> bool:
@@ -602,6 +661,27 @@ class RealGitGateway(GitGateway):
         )
         return parse_worktree_list_output(result.stdout)
 
+    def list_branch_occupancies(self) -> tuple[WorktreeOccupancy, ...]:
+        occupancies: list[WorktreeOccupancy] = []
+        for worktree in self.list_worktrees():
+            if worktree.is_bare:
+                continue
+            operation = _worktree_operation(worktree.path)
+            if operation is not None:
+                op_name, branch = operation
+                occupancies.append(
+                    WorktreeOccupancy(path=worktree.path, branch=branch, operation=op_name)
+                )
+            elif worktree.branch is not None:
+                occupancies.append(
+                    WorktreeOccupancy(
+                        path=worktree.path,
+                        branch=worktree.branch,
+                        operation="checked-out",
+                    )
+                )
+        return tuple(occupancies)
+
     def add_worktree(
         self,
         path: Path,
@@ -631,8 +711,15 @@ class RealGitGateway(GitGateway):
             check=True,
         )
 
-    def checkout_branch(self, cwd: Path, branch: str) -> None:
-        _run(["git", "checkout", branch], cwd=cwd, check=True)
+    def checkout_branch(self, cwd: Path, branch: str) -> GitCommandFailure | None:
+        result = _run(["git", "checkout", branch], cwd=cwd, check=False)
+        if result.returncode == 0:
+            return None
+        return GitCommandFailure(
+            message=result.stderr.strip() or "git checkout failed",
+            returncode=result.returncode,
+            error_type="git_checkout_failed",
+        )
 
     def detach_head(self, cwd: Path, ref: str) -> None:
         _run(["git", "checkout", "--detach", ref], cwd=cwd, check=True)

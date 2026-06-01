@@ -104,6 +104,21 @@ class WorktreeInfo:
     is_bare: bool
 
 
+@dataclass(frozen=True)
+class WorktreeOccupancy:
+    """A branch held by a worktree, including worktrees mid-rebase/bisect.
+
+    A rebasing or bisecting worktree detaches its HEAD, so its
+    :class:`WorktreeInfo` reports ``branch is None`` even though git still
+    treats the branch as in use and refuses to check it out elsewhere. This
+    type recovers the held branch name and the operation holding it.
+    """
+
+    path: Path  # worktree root holding the branch
+    branch: str  # short branch name (refs/heads/ stripped)
+    operation: str  # "checked-out" | "rebase" | "bisect"
+
+
 class FileStatus(NamedTuple):
     """Summary of a worktree's dirty state from ``git status --porcelain``."""
 

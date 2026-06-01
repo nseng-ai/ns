@@ -8,7 +8,13 @@ import pytest
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRGatewayFailure, PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead, FileStatus, GitCommandFailure, WorktreeInfo
+from asdl_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    WorktreeInfo,
+    WorktreeOccupancy,
+)
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
@@ -75,6 +81,8 @@ def _lifecycle_context(
     previous_branch_by_path: dict[Path, str | None] | None = None,
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
+    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
+    checkout_failures_by_path: dict[Path, GitCommandFailure] | None = None,
     detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
     delete_local_branch_failure_by_branch: dict[str, GitCommandFailure] | None = None,
     prs_by_branch: dict[str, PRSummary] | None = None,
@@ -103,6 +111,8 @@ def _lifecycle_context(
         previous_branch_by_path=previous_branch_by_path,
         trunk_branch=trunk_branch,
         file_status_by_path=file_status_by_path,
+        operations_by_path=operations_by_path,
+        checkout_failures_by_path=checkout_failures_by_path,
         detach_head_failures_by_path=detach_head_failures_by_path,
         delete_local_branch_failure_by_branch=delete_local_branch_failure_by_branch,
         existing_paths=existing_paths,
@@ -266,6 +276,57 @@ def test_checkout_branch_pool_full_returns_failure_without_checkout(tmp_path: Pa
     assert "slot-01 -> feat/a" in outcome.message
     assert git.list_worktrees() == worktrees_before
     assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/a"
+
+
+def test_checkout_branch_in_use_by_rebasing_slot_returns_branch_in_use_failure(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    rebasing_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("feat/x", "main"),
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+        operations_by_path={
+            rebasing_path: WorktreeOccupancy(
+                path=rebasing_path,
+                branch="feat/x",
+                operation="rebase",
+            ),
+        },
+    )
+
+    outcome = checkout_branch(ctx, "feat/x", new_branch=False, base=None)
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "branch_in_use"
+    assert str(rebasing_path) in outcome.message
+    assert "rebase" in outcome.message
+    # No checkout was attempted into any slot.
+    assert git._checkout_calls == []
+
+
+def test_checkout_branch_surfaces_git_checkout_failure_without_raising(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, 1)
+    failure = GitCommandFailure(
+        message="fatal: 'feat/x' is already checked out at '/wt/slot-06'",
+        returncode=128,
+        error_type="git_checkout_failed",
+    )
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("feat/x", "main"),
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+        checkout_failures_by_path={slot_path: failure},
+    )
+
+    outcome = checkout_branch(ctx, "feat/x", new_branch=False, base=None)
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "checkout_failed"
+    assert "already checked out" in outcome.message
+    assert git._checkout_calls == [(slot_path, "feat/x")]
 
 
 def test_checkout_current_preserves_existing_redirect_behavior(tmp_path: Path) -> None:

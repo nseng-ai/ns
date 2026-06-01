@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from asdl_core.git.types import WorktreeOccupancy
 from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
+    BranchInUse,
     CurrentCheckoutPlan,
     PoolFull,
     ReuseAssignment,
@@ -70,6 +72,8 @@ def checkout_branch(
     plan = plan_checkout(inventory, slots_ctx.git, branch_name)
     if isinstance(plan, PoolFull):
         return _pool_full_failure(plan)
+    if isinstance(plan, BranchInUse):
+        return _branch_in_use_failure(plan.occupancy)
     return _execute_plan(
         plan,
         slots_ctx=slots_ctx,
@@ -114,6 +118,8 @@ def checkout_current(slots_ctx: SlotsCliContext) -> SlotCheckoutOutcome | SlotLi
     assert isinstance(current_plan, CurrentCheckoutPlan)
     if isinstance(current_plan.plan, PoolFull):
         return _pool_full_failure(current_plan.plan)
+    if isinstance(current_plan.plan, BranchInUse):
+        return _branch_in_use_failure(current_plan.plan.occupancy)
     return _execute_plan(
         current_plan.plan,
         slots_ctx=slots_ctx,
@@ -140,6 +146,22 @@ def _pool_full_failure(outcome: PoolFull) -> SlotLifecycleFailure:
     return SlotLifecycleFailure(error_type="pool_full", message=message)
 
 
+def _branch_in_use_failure(occupancy: WorktreeOccupancy) -> SlotLifecycleFailure:
+    if occupancy.operation == "rebase":
+        message = (
+            f"Branch '{occupancy.branch}' has a rebase in progress at {occupancy.path}. "
+            "Run `git rebase --continue`/`--abort` there, then retry."
+        )
+    elif occupancy.operation == "bisect":
+        message = (
+            f"Branch '{occupancy.branch}' has a bisect in progress at {occupancy.path}. "
+            "Run `git bisect reset` there, then retry."
+        )
+    else:
+        message = f"Branch '{occupancy.branch}' is already checked out at {occupancy.path}."
+    return SlotLifecycleFailure(error_type="branch_in_use", message=message)
+
+
 def _execute_plan(
     plan: ExecutableCheckoutPlan,
     *,
@@ -147,7 +169,7 @@ def _execute_plan(
     branch_name: str,
     created_branch: bool,
     current_wt_note: str | None,
-) -> SlotCheckoutOutcome:
+) -> SlotCheckoutOutcome | SlotLifecycleFailure:
     if isinstance(plan, ReuseAssignment):
         return SlotCheckoutOutcome(
             slot_name=plan.record.slot_name,
@@ -167,7 +189,15 @@ def _execute_plan(
             current_wt_note=current_wt_note,
         )
 
-    slots_ctx.git.checkout_branch(plan.record.path, branch_name)
+    failure = slots_ctx.git.checkout_branch(plan.record.path, branch_name)
+    if failure is not None:
+        return SlotLifecycleFailure(
+            error_type="checkout_failed",
+            message=(
+                f"Failed to check out '{branch_name}' into {plan.record.slot_name}: "
+                f"{failure.message}"
+            ),
+        )
     return SlotCheckoutOutcome(
         slot_name=plan.record.slot_name,
         branch_name=branch_name,

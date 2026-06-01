@@ -26,6 +26,8 @@ from asdl_core.git.types import (
     PathChangeTouch,
     PathTouch,
     RestructuredFile,
+    WorktreeInfo,
+    WorktreeOccupancy,
 )
 
 
@@ -133,6 +135,100 @@ def test_delete_branch_methods_return_command_failure(monkeypatch: pytest.Monkey
 
     assert local_result == GitCommandFailure(message="not merged", returncode=1)
     assert remote_result == GitCommandFailure(message="not merged", returncode=1)
+
+
+def test_checkout_branch_returns_none_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert cmd == ["git", "checkout", "feature"]
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    assert RealGitGateway().checkout_branch(Path("/repo"), "feature") is None
+
+
+def test_checkout_branch_returns_failure_on_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            cmd,
+            128,
+            stdout="",
+            stderr="fatal: 'feature' is already checked out at '/wt/slot-06'\n",
+        )
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    assert RealGitGateway().checkout_branch(Path("/repo"), "feature") == GitCommandFailure(
+        message="fatal: 'feature' is already checked out at '/wt/slot-06'",
+        returncode=128,
+        error_type="git_checkout_failed",
+    )
+
+
+def test_list_branch_occupancies_reports_rebasing_linked_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt_path = tmp_path / "wt"
+    wt_path.mkdir()
+    admin_dir = tmp_path / "main" / ".git" / "worktrees" / "wt"
+    (admin_dir / "rebase-merge").mkdir(parents=True)
+    (admin_dir / "rebase-merge" / "head-name").write_text("refs/heads/feature\n", encoding="utf-8")
+    # A linked worktree's `.git` is a file pointing at the admin gitdir.
+    (wt_path / ".git").write_text(f"gitdir: {admin_dir}\n", encoding="utf-8")
+
+    gateway = RealGitGateway(repo_root=tmp_path / "main")
+    monkeypatch.setattr(
+        gateway,
+        "list_worktrees",
+        lambda: (WorktreeInfo(path=wt_path, branch=None, is_bare=False),),
+    )
+
+    assert gateway.list_branch_occupancies() == (
+        WorktreeOccupancy(path=wt_path, branch="feature", operation="rebase"),
+    )
+
+
+def test_list_branch_occupancies_reports_bisecting_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt_path = tmp_path / "wt"
+    (wt_path / ".git").mkdir(parents=True)
+    (wt_path / ".git" / "BISECT_START").write_text("feature\n", encoding="utf-8")
+
+    gateway = RealGitGateway(repo_root=wt_path)
+    monkeypatch.setattr(
+        gateway,
+        "list_worktrees",
+        lambda: (WorktreeInfo(path=wt_path, branch=None, is_bare=False),),
+    )
+
+    assert gateway.list_branch_occupancies() == (
+        WorktreeOccupancy(path=wt_path, branch="feature", operation="bisect"),
+    )
+
+
+def test_list_branch_occupancies_reports_cleanly_checked_out_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt_path = tmp_path / "wt"
+    (wt_path / ".git").mkdir(parents=True)
+
+    gateway = RealGitGateway(repo_root=wt_path)
+    monkeypatch.setattr(
+        gateway,
+        "list_worktrees",
+        lambda: (
+            WorktreeInfo(path=wt_path, branch="feature", is_bare=False),
+            WorktreeInfo(path=tmp_path / "detached", branch=None, is_bare=False),
+        ),
+    )
+
+    assert gateway.list_branch_occupancies() == (
+        WorktreeOccupancy(path=wt_path, branch="feature", operation="checked-out"),
+    )
 
 
 @pytest.mark.parametrize(

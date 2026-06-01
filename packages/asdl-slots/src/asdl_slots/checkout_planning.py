@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from asdl_core.git.git_gateway import GitGateway
-from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_core.git.types import DetachedHead, GitCommandFailure, WorktreeOccupancy
 from asdl_slots.errors import (
     DetachedHeadError,
     DirtyCurrentWorktreeError,
@@ -49,13 +49,24 @@ class AssignToSlot:
 
 
 @dataclass(frozen=True)
+class BranchInUse:
+    """Branch is held by another worktree (checked out, rebasing, or bisecting).
+
+    Caught up front so the user sees a clear, actionable message instead of a
+    raw git checkout failure deep in the lifecycle.
+    """
+
+    occupancy: WorktreeOccupancy
+
+
+@dataclass(frozen=True)
 class PoolFull:
     """No clean detached slot is available; surface the assigned pairs."""
 
     assigned: tuple[SlotRecord, ...]
 
 
-CheckoutPlan = ReuseAssignment | BranchInMainWorktree | AssignToSlot | PoolFull
+CheckoutPlan = ReuseAssignment | BranchInMainWorktree | BranchInUse | AssignToSlot | PoolFull
 
 
 def plan_checkout(
@@ -68,6 +79,13 @@ def plan_checkout(
         return ReuseAssignment(record=match.record)
     if isinstance(match, MainWorktreeMatch):
         return BranchInMainWorktree(main_path=match.worktree.path)
+
+    occupancy = next(
+        (occ for occ in git.list_branch_occupancies() if occ.branch == branch_name),
+        None,
+    )
+    if occupancy is not None:
+        return BranchInUse(occupancy=occupancy)
 
     target = inventory.lowest_available(git)
     if target is None:
@@ -99,7 +117,11 @@ def resolve_current_wt_redirect(
             None,
         )
         if conflict is None:
-            git.checkout_branch(cwd, previous)
+            failure = git.checkout_branch(cwd, previous)
+            if failure is not None:
+                raise SlotAllocationError(
+                    f"Failed to check out '{previous}' in {cwd}: {failure.message}"
+                )
             return None
 
     trunk = git.get_trunk_branch()
@@ -112,7 +134,11 @@ def resolve_current_wt_redirect(
         None,
     )
     if busy_wt is None:
-        git.checkout_branch(cwd, trunk)
+        failure = git.checkout_branch(cwd, trunk)
+        if failure is not None:
+            raise SlotAllocationError(
+                f"Failed to check out trunk branch '{trunk}' in {cwd}: {failure.message}"
+            )
         return None
     git.detach_head(cwd, moving_branch)
     return (
