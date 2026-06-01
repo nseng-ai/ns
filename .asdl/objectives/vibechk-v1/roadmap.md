@@ -8,10 +8,10 @@
 - [x] Implement the minimal runner contract plus the first real subprocess adapter and a `FakeRunner` seam; defer full `claude`/`codex`/`pi` parity until the loop works.
 - [x] Implement git workdir preconditions, provenance capture, diff capture, local `vibechk/<run-id>` branch creation, and switch-back behavior needed by real runs.
 - [x] Make single-run and comparison Markdown reports useful enough to paste into a PR manually, including branch refs, plan, metrics or `null`s, and config differences.
-- [~] Harden the store surface after the loop works: collision handling, complete prefix-resolution errors, XDG/$VIBECHK_HOME/--store precedence, and `vibechk runs` tabular/JSON listing.
+- [x] Harden the store surface after the loop works: collision handling, complete prefix-resolution errors, XDG/$VIBECHK_HOME/--store precedence, and `vibechk runs` tabular/JSON listing.
 - [ ] Add remaining runner adapters and normalization coverage for `claude`, `codex`, and `pi`.
 - [ ] Implement GitHub PR reference resolution, fence replacement, branch-on-remote validation, and `publish` through `gh`.
-- [~] Expand fake-driven unit and scenario coverage for the canonical comparison flow, single-run flow, runner selection and per-runner metric normalization, failure modes, no-change runs, report rendering, publish idempotency, and JSON/tabular listings.
+- [~] Expand fake-driven unit and scenario coverage for the canonical comparison flow, single-run flow, runner selection and per-runner metric normalization, failure modes, no-change runs, report rendering, publish idempotency, and remaining runner/publish hardening.
 - [ ] Run a real GitHub PR publish smoke and record closure evidence for insertion, replacement, and no-op republish behavior.
 - [ ] Run the final repo validation suite after the remaining v1 feature work.
 

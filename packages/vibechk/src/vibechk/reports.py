@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from vibechk.models import LoadedBundle
 
 MetricRow = tuple[str, str]
@@ -11,6 +13,7 @@ METRIC_ROWS: tuple[MetricRow, ...] = (
     ("Total tokens", "total_tokens"),
     ("Cost USD", "cost_usd"),
 )
+RUNS_TABLE_HEADERS = ("RUN ID", "STARTED AT", "STATUS", "RUNNER", "MODEL", "BRANCH", "WORKDIR")
 
 
 def render_run_report(loaded: LoadedBundle) -> str:
@@ -72,6 +75,38 @@ def render_run_report(loaded: LoadedBundle) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def render_runs_table(loaded_bundles: Sequence[LoadedBundle]) -> str:
+    rows = [_runs_table_row(loaded) for loaded in loaded_bundles]
+    widths = [
+        max([len(RUNS_TABLE_HEADERS[index]), *(len(row[index]) for row in rows)])
+        for index in range(len(RUNS_TABLE_HEADERS))
+    ]
+    lines = [_format_table_row(RUNS_TABLE_HEADERS, widths)]
+    lines.extend(_format_table_row(row, widths) for row in rows)
+    return "\n".join(lines)
+
+
+def run_list_entry_to_json(loaded: LoadedBundle) -> dict[str, object]:
+    bundle = loaded.bundle
+    return {
+        "run_id": bundle.run_id,
+        "started_at": bundle.started_at.isoformat(),
+        "finished_at": bundle.finished_at.isoformat(),
+        "status": bundle.status,
+        "runner": bundle.runner,
+        "runner_version": bundle.runner_version,
+        "model": bundle.model,
+        "workdir": bundle.workdir,
+        "starting_branch": bundle.git.starting_branch,
+        "starting_commit": bundle.git.starting_commit,
+        "result_branch": bundle.result_branch,
+        "branch_created": bundle.branch_created,
+        "runner_exit_code": bundle.runner_exit_code,
+        "metrics": bundle.metrics.to_json(),
+        "run_dir": str(loaded.run_dir),
+    }
 
 
 def render_comparison_report(baseline: LoadedBundle, treatment: LoadedBundle) -> str:
@@ -166,6 +201,30 @@ def render_comparison_report(baseline: LoadedBundle, treatment: LoadedBundle) ->
         ]
     )
     return "\n".join(lines)
+
+
+def _runs_table_row(loaded: LoadedBundle) -> tuple[str, ...]:
+    bundle = loaded.bundle
+    return (
+        bundle.run_id,
+        bundle.started_at.isoformat(),
+        bundle.status,
+        bundle.runner,
+        _format_table_value(bundle.model),
+        _format_table_value(bundle.result_branch),
+        bundle.workdir,
+    )
+
+
+def _format_table_row(values: Sequence[str], widths: Sequence[int]) -> str:
+    padded = [value.ljust(widths[index]) for index, value in enumerate(values[:-1])]
+    return "  ".join([*padded, values[-1]])
+
+
+def _format_table_value(value: object) -> str:
+    if value is None:
+        return "-"
+    return str(value)
 
 
 def _render_plan_comparison(baseline_plan: str, treatment_plan: str) -> list[str]:

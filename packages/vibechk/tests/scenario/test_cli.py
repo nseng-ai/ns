@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -23,6 +24,7 @@ def test_vibechk_help() -> None:
     assert "Run lightweight agent context evals and publish Markdown evidence." in result.output
     assert "--version" in result.output
     assert "run" in result.output
+    assert "runs" in result.output
     assert "show" in result.output
     assert "diff" in result.output
 
@@ -278,6 +280,121 @@ def test_failed_runner_persists_consumable_bundle(tmp_path: Path) -> None:
     assert "- Status: failed" in show_result.output
     assert "fake transcript for repo" in show_result.output
     assert "+failed output" in show_result.output
+
+
+def test_runs_empty_store_outputs_empty_states_without_creating_store(tmp_path: Path) -> None:
+    store = tmp_path / "missing-store"
+    cli = build_cli()
+    runner = CliRunner()
+
+    table_result = runner.invoke(cli, ["runs", "--store", str(store)])
+    json_result = runner.invoke(cli, ["runs", "--format", "json", "--store", str(store)])
+
+    assert table_result.exit_code == 0, table_result.output
+    assert table_result.output == "No vibechk runs found.\n"
+    assert json_result.exit_code == 0, json_result.output
+    assert json.loads(json_result.output) == []
+    assert not store.exists()
+
+
+def test_runs_lists_bundles_newest_first_in_table_and_json(tmp_path: Path) -> None:
+    baseline_repo = _init_repo(tmp_path / "baseline")
+    treatment_repo = _init_repo(tmp_path / "treatment")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    store = tmp_path / "store"
+    deps = _deps(
+        ids=["aaaabbbb", "ccccdddd"],
+        runner=FakeRunner(
+            changes_by_workdir={"treatment": "treatment result\n"},
+            metrics_by_workdir={"treatment": Metrics(wall_time_seconds=1.2, total_tokens=10)},
+        ),
+    )
+    cli = build_cli(deps=deps)
+    runner = CliRunner()
+
+    baseline_result = runner.invoke(
+        cli,
+        [
+            "run",
+            "--plan",
+            str(plan_path),
+            "--workdir",
+            str(baseline_repo),
+            "--runner",
+            "fake",
+            "--store",
+            str(store),
+        ],
+    )
+    treatment_result = runner.invoke(
+        cli,
+        [
+            "run",
+            "--plan",
+            str(plan_path),
+            "--workdir",
+            str(treatment_repo),
+            "--runner",
+            "fake",
+            "--model",
+            "model-b",
+            "--store",
+            str(store),
+        ],
+    )
+
+    assert baseline_result.exit_code == 0, baseline_result.output
+    assert treatment_result.exit_code == 0, treatment_result.output
+
+    table_result = runner.invoke(cli, ["runs", "--store", str(store)])
+
+    assert table_result.exit_code == 0, table_result.output
+    lines = table_result.output.splitlines()
+    assert lines[0].startswith("RUN ID")
+    newest_cells = lines[1].split()
+    oldest_cells = lines[2].split()
+    assert newest_cells == [
+        "ccccdddd",
+        "2026-05-23T12:00:02+00:00",
+        "success",
+        "fake",
+        "model-b",
+        "vibechk/ccccdddd",
+        str(treatment_repo.resolve()),
+    ]
+    assert oldest_cells == [
+        "aaaabbbb",
+        "2026-05-23T12:00:00+00:00",
+        "success",
+        "fake",
+        "-",
+        "-",
+        str(baseline_repo.resolve()),
+    ]
+
+    json_result = runner.invoke(cli, ["runs", "--format", "json", "--store", str(store)])
+
+    assert json_result.exit_code == 0, json_result.output
+    entries = json.loads(json_result.output)
+    assert [entry["run_id"] for entry in entries] == ["ccccdddd", "aaaabbbb"]
+    assert entries[0]["started_at"] == "2026-05-23T12:00:02+00:00"
+    assert entries[0]["finished_at"] == "2026-05-23T12:00:03+00:00"
+    assert entries[0]["runner"] == "fake"
+    assert entries[0]["runner_version"] == "fake-1"
+    assert entries[0]["model"] == "model-b"
+    assert entries[0]["workdir"] == str(treatment_repo.resolve())
+    assert entries[0]["starting_branch"] == "main"
+    assert entries[0]["result_branch"] == "vibechk/ccccdddd"
+    assert entries[0]["branch_created"] is True
+    assert entries[0]["runner_exit_code"] == 0
+    assert entries[0]["metrics"]["wall_time_seconds"] == 1.2
+    assert entries[0]["metrics"]["total_tokens"] == 10
+    assert entries[0]["run_dir"] == str(store / "runs" / "ccccdddd")
+    assert entries[1]["model"] is None
+    assert entries[1]["result_branch"] is None
+    assert entries[1]["branch_created"] is False
+    assert entries[1]["metrics"]["total_tokens"] is None
 
 
 class FakeRunner(Runner):
