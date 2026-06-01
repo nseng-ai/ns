@@ -10,6 +10,7 @@ members = [
   "packages/roaster",
   "packages/asdl-slots",
   "packages/packagechk",
+  "packages/vibechk",
 ]
 
 [tool.uv.sources]
@@ -23,6 +24,7 @@ aretro = { workspace = true }
 roaster = { workspace = true }
 asdl-slots = { workspace = true }
 packagechk = { workspace = true }
+vibechk = { workspace = true }
 
 [project]
 name = "asdl-tools"
@@ -64,6 +66,7 @@ dev = [
   "roaster",
   "asdl-slots",
   "packagechk",
+  "vibechk",
   "ty>=0.0.1a7",
 ]
 
@@ -89,6 +92,7 @@ src = [
   "packages/roaster/src",
   "packages/asdl-slots/src",
   "packages/packagechk/src",
+  "packages/vibechk/src",
 ]
 exclude = [".claude/", ".agents/skills/"]
 force-exclude = true
@@ -115,6 +119,7 @@ known-first-party = [
   "roaster",
   "asdl_slots",
   "packagechk",
+  "vibechk",
 ]
 
 [tool.ty.src]
@@ -143,4 +148,5 @@ testpaths = [
   "packages/roaster/tests",
   "packages/asdl-slots/tests",
   "packages/packagechk/tests",
+  "packages/vibechk/tests",
 ]
