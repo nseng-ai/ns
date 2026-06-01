@@ -5,11 +5,12 @@ behavior. Prefer patterns that keep JavaScript output simple and type informatio
 
 ## Erasable TypeScript
 
+Write erasable TypeScript: TypeScript syntax should be removable without changing runtime behavior.
 In many modern runtimes and build setups, TypeScript syntax is stripped rather than transformed. Code
 that uses `enum`, `namespace`, parameter properties, or CommonJS `import =`/`export =` needs emit-time
 transformation and is less portable.
 
-Default for new code:
+Default:
 
 ```ts
 type Status = "idle" | "running" | "failed";

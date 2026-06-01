@@ -18,9 +18,10 @@ references:
 
 # typescript-style
 
-A portable, opinionated TypeScript style guide for strict, maintainable projects. It should make sense
-when copied into any TypeScript codebase: follow the local repository's tooling, runtime, and public API
-constraints first; use this guide for the design defaults that are not already settled.
+A portable, opinionated TypeScript style guide for strict, maintainable projects. Write erasable
+TypeScript: type syntax should be removable without changing runtime behavior. This guide should make
+sense when copied into any TypeScript codebase: follow the local repository's tooling, runtime, and
+public API constraints first; use this guide for the design defaults that are not already settled.
 
 The examples are motivating patterns, not dependencies on a particular codebase. Adapt names, import
 suffixes, formatter settings, and package layout to the project in front of you.
@@ -44,7 +45,7 @@ run **`checklist.md`**.
 
 ## One-paragraph version
 
-Prefer strict, erasable TypeScript: no `enum`, no `namespace`, no parameter properties unless the
+Write strict, erasable TypeScript: no `enum`, no `namespace`, no parameter properties unless the
 project already requires TS emit features. Closed sets are **string-literal unions**; runtime variants
 are **discriminated unions** on a domain field and consumed by exhaustive `switch`. Use `unknown` at
 boundaries and avoid `any` unless a library forces it. Encode expected failure as returned data at
