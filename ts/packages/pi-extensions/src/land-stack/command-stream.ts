@@ -20,10 +20,13 @@ import type {
 } from "./types.ts";
 
 export class LandStackCommandStream {
-	constructor(
-		private readonly pi: ExtensionAPI,
-		private readonly ctx: ExtensionCommandContext,
-	) {}
+	private readonly pi: ExtensionAPI;
+	private readonly ctx: ExtensionCommandContext;
+
+	constructor(pi: ExtensionAPI, ctx: ExtensionCommandContext) {
+		this.pi = pi;
+		this.ctx = ctx;
+	}
 
 	start(_commandDisplay: string): void {
 		// The active operation is already reflected in the status line. Only completed

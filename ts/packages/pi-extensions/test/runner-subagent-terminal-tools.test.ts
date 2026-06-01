@@ -55,9 +55,12 @@ type Handler = (event: Record<string, unknown>, ctx: { abort?: () => void }) => 
 
 class FakePi {
 	readonly tools: RegisteredTool[] = [];
+	private readonly initialTools: Array<{ name: string }>;
 	private readonly handlers = new Map<string, Handler[]>();
 
-	constructor(private readonly initialTools: Array<{ name: string }> = []) {}
+	constructor(initialTools: Array<{ name: string }> = []) {
+		this.initialTools = initialTools;
+	}
 
 	on(event: string, handler: Handler): void {
 		const handlers = this.handlers.get(event) ?? [];
