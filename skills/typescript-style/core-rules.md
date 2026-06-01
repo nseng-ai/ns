@@ -17,9 +17,10 @@ new or touched code while preserving local conventions.
 
 ## 2. Language constraints
 
-- **Prefer erasable / strip-only syntax.** New code should avoid TypeScript constructs that require JS
-  emit: `enum`, `namespace`/`module`, parameter properties, `import =`, and `export =`. If the project
-  already depends on emit-time features, do not mix styles casually; follow the local pattern.
+- **Write erasable / strip-only TypeScript.** Type syntax should be removable without changing runtime
+  behavior. Avoid TypeScript constructs that require JS emit: `enum`, `namespace`/`module`, parameter
+  properties, `import =`, and `export =`. If the project already depends on emit-time features, do not
+  mix styles casually; follow the local pattern.
   ```ts
   // Good: erasable fields + constructor assignment.
   class RetryTimer {
