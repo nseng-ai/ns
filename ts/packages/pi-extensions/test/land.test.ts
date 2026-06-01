@@ -291,4 +291,62 @@ describe("gh land PR parsing", () => {
 			headRefOid: "abc123",
 		});
 	});
+
+	test("treats a missing body as an empty merge body", () => {
+		expect(
+			parsePullRequestView({
+				number: 7,
+				headRefName: "feature",
+				baseRefName: "master",
+				title: "Title",
+				headRefOid: "abc123",
+			}),
+		).toEqual({
+			number: 7,
+			headRefName: "feature",
+			baseRefName: "master",
+			title: "Title",
+			body: "",
+			headRefOid: "abc123",
+		});
+	});
+
+	test("rejects a non-object top-level value without throwing", () => {
+		for (const value of [null, [], "not an object", 42]) {
+			expect(parsePullRequestView(value)).toEqual({
+				error: "gh pr view did not return a PR object. Merge not attempted.",
+			});
+		}
+	});
+
+	test("reports missing required fields without throwing", () => {
+		expect(parsePullRequestView({ number: 7, title: "Title" })).toEqual({
+			error: "gh pr view did not return required field(s): headRefName, baseRefName, headRefOid. Merge not attempted.",
+		});
+	});
+
+	test("rejects a non-finite PR number as a missing field", () => {
+		expect(
+			parsePullRequestView({
+				number: Number.NaN,
+				headRefName: "feature",
+				baseRefName: "master",
+				title: "Title",
+				headRefOid: "abc123",
+			}),
+		).toEqual({ error: "gh pr view did not return required field(s): number. Merge not attempted." });
+	});
+
+	test("rejects a present non-string, non-null body", () => {
+		expect(
+			parsePullRequestView({
+				number: 7,
+				headRefName: "feature",
+				baseRefName: "master",
+				title: "Title",
+				body: 123,
+				headRefOid: "abc123",
+			}),
+		).toEqual({ error: "gh pr view returned a non-string body. Merge not attempted." });
+	});
 });

@@ -44,14 +44,14 @@ Assumptions:
 - The user's selected scope is full compliance across existing TypeScript, not only minimal hard-violation cleanup.
 - Simplicity is measured by the number of human-legible decisions, not by diff size or file count. A rename or type-shape conversion that touches many files can still be simple if it expresses one clear decision.
 - Broad conversion from object-literal `type` aliases to `interface` is acceptable despite churn, provided behavior and public exports remain compatible.
-- Most JSON/runtime casts can be replaced with small local guards without needing a large schema library.
+- Most JSON/runtime casts can be replaced with small local guards without needing a large schema library. Confirmed for the CLI/process boundary slice: `land`, `land-stack/pr-facts`, and `worktree-status` were hardened with small local `isRecord`/field guards and per-element normalizers, with no schema dependency added.
 - Some modules, such as process runners or filesystem watchers, may legitimately remain Node adapters; the compliance bar is explicit ownership and containment, not removing all Node API usage.
 
 Risks:
 
 - The main complexity risk is accidentally mixing multiple unrelated design decisions into one remediation slice. Large mechanical edits are acceptable when they remain traceable to one simple decision.
 - Reworking throw-based APIs into returned data can cascade through tests and command handlers; careless conversion could weaken user-facing error messages.
-- Tightening unknown-boundary validation may reveal malformed external command output cases that existing code tolerated implicitly.
+- Tightening unknown-boundary validation may reveal malformed external command output cases that existing code tolerated implicitly. Partially materialized and accepted in the CLI/process slice: malformed `gh pr view` output that prior casts laundered is now rejected deliberately — a present non-string/non-null `body` is rejected instead of coerced to `""`, and a non-boolean `isDraft` is rejected instead of passing through `Boolean(...)`. Malformed `brmem list` entries are skipped individually so a single bad element no longer forces the whole footer to `unavailable`. Valid command output behaves exactly as before.
 - Adding automated guardrails for the style guide could require choosing between TypeScript compiler options, lint rules, or custom scripts; this is partly de-risked by starting with a markdown Roaster reviewer for low-context Tier A diff checks rather than a broad compiler/lint gate.
 - Some existing public exported type aliases may need compatibility-preserving migration rather than direct replacement.
 

@@ -441,6 +441,44 @@ describe("loadWorktreeStatus", () => {
 		expect(status.brmem).toBe("unavailable");
 		expect(status.gt.down).toBe("main");
 	});
+
+	test("ignores malformed brmem entries while formatting valid ones", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({
+				stdout: JSON.stringify({
+					exit_code: 0,
+					data: {
+						entries: [
+							{ namespace: "plans", key: "adapter/details.md" },
+							{ namespace: 123, key: "bad" },
+							{ namespace: "bad" },
+							null,
+							"not an object",
+						],
+					},
+				}),
+			}),
+			...basicGtScript(),
+		]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBe("(plans: adapter)");
+	});
+
+	test("treats a non-array brmem entries field as no scopes without throwing", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: "nope" } }) }),
+			...basicGtScript(),
+		]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBeUndefined();
+		expect(status.gt.down).toBe("main");
+	});
 });
 
 describe("loadGtStatus", () => {
