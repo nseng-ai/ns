@@ -22,27 +22,27 @@ Use the explicitly selected Objective.
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type CommandInfo = ReturnType<ExtensionAPI["getCommands"]>[number];
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: { cwd?: string; timeout?: number } | undefined;
-};
+}
 
-type ScriptedExec = {
+interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<ExecResult>;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
-};
+}
 
-type Selection = {
+interface Selection {
 	title: string;
 	items: string[];
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

@@ -38,22 +38,22 @@ const OBJECTIVE_GT_STACKS_ARG_COMPLETIONS = ["--help", "-h"] as const;
 
 export type NotifyLevel = "info" | "warning" | "error";
 
-export type AutocompleteItem = {
+export interface AutocompleteItem {
 	value: string;
 	label?: string;
 	description?: string;
-};
+}
 
 type CustomMessageContent = string | Array<{ type: string; text?: string }>;
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-type CommandInfo = {
+interface CommandInfo {
 	name: string;
 	source: string;
 	sourceInfo: {
@@ -63,9 +63,9 @@ type CommandInfo = {
 		origin?: string;
 		baseDir?: string;
 	};
-};
+}
 
-export type CommandContext = {
+export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -74,9 +74,9 @@ export type CommandContext = {
 		setStatus(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -89,48 +89,48 @@ export type ExtensionAPI = {
 	getCommands(): CommandInfo[];
 	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 	sendUserMessage(content: string): void;
-};
+}
 
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
 type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
 
-export type ObjectiveSelectionSpec = {
+export interface ObjectiveSelectionSpec {
 	statusKey: string;
 	selectionTitle: string;
 	compactDiffSuggestion?: boolean;
-};
+}
 
-type ObjectiveCommandSpec = ObjectiveSelectionSpec & {
+interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	commandName: ObjectiveCommandName;
 	skillName: ObjectiveSkillName;
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
-};
+}
 
-type ObjectiveStackImplCommandSpec = ObjectiveSelectionSpec & {
+interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
 	commandName: "objective:stack-impl";
 	skillName: "objective-stack-impl";
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
-};
+}
 
-export type ObjectiveListParsedArgs = {
+export interface ObjectiveListParsedArgs {
 	args: string[];
 	help: boolean;
-};
+}
 
-export type ObjectiveGtStacksParsedArgs = {
+export interface ObjectiveGtStacksParsedArgs {
 	help: boolean;
-};
+}
 
-type CustomCliParsedArgs = {
+interface CustomCliParsedArgs {
 	args: string[];
 	help: boolean;
-};
+}
 
-type CustomCliMessageDetails = {
+interface CustomCliMessageDetails {
 	status: "success" | "failure" | "rejected";
 	command: string;
 	args: string[];
@@ -139,9 +139,9 @@ type CustomCliMessageDetails = {
 	killed?: boolean;
 	stdoutChars?: number;
 	stderrChars?: number;
-};
+}
 
-type CustomCliCommandSpec = {
+interface CustomCliCommandSpec {
 	commandName: string;
 	messageType: string;
 	timeoutMs: number;
@@ -149,7 +149,7 @@ type CustomCliCommandSpec = {
 	parseArgs: (raw: string) => CustomCliParsedArgs;
 	buildArgs: (parsed: CustomCliParsedArgs) => string[];
 	completer: (prefix: string) => AutocompleteItem[] | null;
-};
+}
 
 class CustomCliUsageError extends Error {
 	constructor(message: string) {

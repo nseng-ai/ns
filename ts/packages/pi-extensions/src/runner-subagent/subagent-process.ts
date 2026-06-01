@@ -38,28 +38,28 @@ const DEFAULT_KILL_TIMEOUT_MS = 5_000;
 const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
 const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Subagent Pi stopped without useful final assistant text.";
 
-export type PiInvocation = {
+export interface PiInvocation {
 	command: string;
 	args: string[];
-};
+}
 
-export type SpawnChildProcessOptions = {
+export interface SpawnChildProcessOptions {
 	cwd: string;
 	shell: false;
 	stdio: ["ignore", "pipe", "pipe"];
-};
+}
 
-export type ReadableDataStreamLike = {
+export interface ReadableDataStreamLike {
 	on(event: "data", listener: (chunk: string | Uint8Array) => void): unknown;
-};
+}
 
-export type SpawnedChildProcess = {
+export interface SpawnedChildProcess {
 	stdout?: ReadableDataStreamLike | null;
 	stderr?: ReadableDataStreamLike | null;
 	kill(signal?: NodeJS.Signals | number): boolean;
 	on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
 	on(event: "error", listener: (error: Error) => void): unknown;
-};
+}
 
 export type SpawnChildProcess = (command: string, args: string[], options: SpawnChildProcessOptions) => SpawnedChildProcess;
 
@@ -69,7 +69,7 @@ export type CreateRunnerSubagentRuntimeFiles = (
 
 export type ReadRunnerSubagentRuntimeResult = (resultPath: string) => RuntimeResultV1 | undefined | Promise<RuntimeResultV1 | undefined>;
 
-export type RunnerSubagentDispatcherDependencies = {
+export interface RunnerSubagentDispatcherDependencies {
 	spawn?: SpawnChildProcess;
 	now?: () => number;
 	createSessionFile?: (input: { cwd: string; title?: string }) => string | Promise<string>;
@@ -82,7 +82,7 @@ export type RunnerSubagentDispatcherDependencies = {
 	clearTimeout?: (timeout: ReturnType<typeof setTimeout>) => void;
 	killTimeoutMs?: number;
 	stderrLimitBytes?: number;
-};
+}
 
 export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	pi: RunnerSubagentPi,
@@ -329,7 +329,7 @@ export function resolvePiInvocation(args: string[], dependencies: RunnerSubagent
 	return { command: "pi", args };
 }
 
-type ResolveClosedRunnerSubagentResultInput = {
+interface ResolveClosedRunnerSubagentResultInput {
 	title: string | undefined;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	code: number | null;
@@ -341,7 +341,7 @@ type ResolveClosedRunnerSubagentResultInput = {
 	readRuntimeResult: ReadRunnerSubagentRuntimeResult;
 	returnMode: RunnerSubagentReturnMode;
 	terminalToolStatuses: ReadonlyMap<string, "completed" | "blocked">;
-};
+}
 
 async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	input: ResolveClosedRunnerSubagentResultInput,

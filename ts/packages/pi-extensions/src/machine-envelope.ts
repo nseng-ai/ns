@@ -1,9 +1,9 @@
 import { tailText, type TailTextOptions } from "./command-runtime.ts";
 
-export type MachineEnvelopeParseOptions = {
+export interface MachineEnvelopeParseOptions {
 	label: string;
 	stdoutTail?: TailTextOptions | false;
-};
+}
 
 export function parseMachineEnvelopeData(
 	stdout: string,

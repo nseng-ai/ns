@@ -2,12 +2,12 @@ import type { ObjectiveList, ObjectiveListRecord } from "./objective-list.ts";
 
 export const VIEW_OTHER_OBJECTIVES_CHOICE = "View other active Objectives…";
 
-export type ObjectiveDiffSelection = {
+export interface ObjectiveDiffSelection {
 	trunkBranch: string;
 	changeBasisLabel: string;
 	allChangedSlugs: string[];
 	changedActiveSlugs: string[];
-};
+}
 
 export function parseObjectiveDiffChangedSlugs(stdout: string): string[] {
 	const slugs = new Set<string>();

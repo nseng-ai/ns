@@ -26,27 +26,27 @@ type ExecOptions = Parameters<ExtensionAPI["exec"]>[2];
 type WidgetContent = Parameters<NonNullable<ExtensionCommandContext["ui"]["setWidget"]>>[1];
 type WidgetOptions = Parameters<NonNullable<ExtensionCommandContext["ui"]["setWidget"]>>[2];
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: ExecOptions;
-};
+}
 
-type StatusUpdate = {
+interface StatusUpdate {
 	key: string;
 	value: string | undefined;
-};
+}
 
-type WidgetUpdate = {
+interface WidgetUpdate {
 	key: string;
 	value: WidgetContent;
 	options: WidgetOptions;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: "info" | "warning" | "error" | undefined;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly calls: ExecCall[] = [];

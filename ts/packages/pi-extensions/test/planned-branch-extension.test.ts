@@ -43,11 +43,11 @@ type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
 type SentMessage = Parameters<SendMessage>[0] & { options?: Parameters<SendMessage>[1] };
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: ExecOptions | undefined;
-};
+}
 
 type ScriptedExec =
 	| {
@@ -61,10 +61,10 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: string | undefined;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

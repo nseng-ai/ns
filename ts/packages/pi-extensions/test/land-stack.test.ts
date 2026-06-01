@@ -44,38 +44,38 @@ type SentMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0] & {
 	options?: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[1];
 };
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: { cwd?: string; timeout?: number } | undefined;
-};
+}
 
-type ScriptedExec = {
+interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<ExecResult> | undefined;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
-};
+}
 
-type Confirmation = {
+interface Confirmation {
 	title: string;
 	message: string;
-};
+}
 
-type StatusUpdate = {
+interface StatusUpdate {
 	key: string;
 	value: string | undefined;
-};
+}
 
-type WidgetUpdate = {
+interface WidgetUpdate {
 	key: string;
 	value: string[] | undefined;
 	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

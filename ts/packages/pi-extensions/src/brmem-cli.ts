@@ -12,36 +12,36 @@ import {
 
 const MAX_ERROR_CHARS = 4_000;
 
-export type BrmemExecGateway = {
+export interface BrmemExecGateway {
 	exec(
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
 	): Promise<PiExecResultLike>;
-};
+}
 
-export type BrmemCommandCandidate = {
+export interface BrmemCommandCandidate {
 	command: string;
 	prefixArgs: string[];
-};
+}
 
-export type CompletedBrmemRun = {
+export interface CompletedBrmemRun {
 	type: "completed";
 	candidate: BrmemCommandCandidate;
 	command: string;
 	args: string[];
 	displayCommand: string;
 	result: ExecResult;
-};
+}
 
-export type UnavailableBrmemRun = {
+export interface UnavailableBrmemRun {
 	type: "unavailable";
 	candidate: BrmemCommandCandidate;
 	command: string;
 	args: string[];
 	displayCommand: string;
 	failure: string;
-};
+}
 
 export type BrmemCandidateRun = CompletedBrmemRun | UnavailableBrmemRun;
 

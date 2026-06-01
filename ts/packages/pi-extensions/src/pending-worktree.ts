@@ -1,21 +1,21 @@
 const GIT_FACT_TIMEOUT_MS = 30_000;
 
-export type WorktreeCommandResult = {
+export interface WorktreeCommandResult {
 	code: number;
 	stdout: string;
 	stderr: string;
 	killed?: boolean;
-};
+}
 
 export type ExecGit = (args: string[], timeout: number) => Promise<WorktreeCommandResult>;
 
-export type PendingWorktreeSnapshot = {
+export interface PendingWorktreeSnapshot {
 	root: string;
 	branch: string;
 	status: string;
 	diff: string;
 	clean: boolean;
-};
+}
 
 export type PendingWorktreeError =
 	| { kind: "not_git_repo"; message: string; result: WorktreeCommandResult }

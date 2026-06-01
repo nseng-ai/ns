@@ -40,20 +40,20 @@ const IGNORED_WORKTREE_PATH_PARTS = new Set([
 	"build",
 ]);
 
-export type ExecResult = {
+export interface ExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed?: boolean;
-};
+}
 
-type ExecOptions = {
+interface ExecOptions {
 	cwd?: string;
 	timeout?: number;
 	signal?: AbortSignal;
-};
+}
 
-export type ExtensionContext = {
+export interface ExtensionContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -61,78 +61,78 @@ export type ExtensionContext = {
 		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: undefined): void;
 	};
-};
+}
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-type RenderTheme = {
+interface RenderTheme {
 	fg(color: string, text: string): string;
-};
+}
 
-type RenderComponent = {
+interface RenderComponent {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
-type ToolResultEvent = {
+interface ToolResultEvent {
 	toolName: string;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void): void;
 	on(event: "tool_result", handler: (event: ToolResultEvent) => Promise<void> | void): void;
 	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-};
+}
 
 type ExecGateway = Pick<ExtensionAPI, "exec">;
 
-type BrmemEntry = {
+interface BrmemEntry {
 	namespace: string;
 	key: string;
-};
+}
 
-type GitPaths = {
+interface GitPaths {
 	repoDir: string;
 	gitDir: string;
 	commonGitDir: string;
 	headPath: string;
-};
+}
 
-export type GtPrStatus = {
+export interface GtPrStatus {
 	number: number;
 	url: string;
-};
+}
 
-export type GtStatus = {
+export interface GtStatus {
 	down: string | undefined;
 	up: string;
 	commits: "yes" | "no" | "?" | "n/a";
 	dirty: "yes" | "no";
 	pr?: GtPrStatus;
-};
+}
 
-export type WorktreeStatus = {
+export interface WorktreeStatus {
 	brmem: string | undefined;
 	gt: GtStatus;
-};
+}
 
-type ActiveSession = {
+interface ActiveSession {
 	id: number;
 	ctx: ExtensionContext;
 	cwd: string;
 	hasUI: boolean;
 	abortController: AbortController;
 	closed: boolean;
-};
+}
 
 export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	pi.registerMessageRenderer?.(UI_KEY, renderWorktreeStatusMessage);
@@ -748,10 +748,10 @@ function worktreeStatusLineColor(line: string): string {
 	return line.startsWith("[gt]") ? "accent" : "dim";
 }
 
-export type StatusTheme = {
+export interface StatusTheme {
 	fg(color: "dim" | "accent", value: string): string;
 	underline?(value: string): string;
-};
+}
 
 export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme): string[] {
 	const lines: string[] = [];

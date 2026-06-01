@@ -10,19 +10,19 @@ const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 
 type NotifyLevel = "info" | "warning" | "error";
 
-type ExecResult = {
+interface ExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed: boolean;
-};
+}
 
-type RegisteredCommand = {
+interface RegisteredCommand {
 	description?: string;
 	handler(args: string, ctx: CommandContext): Promise<void> | void;
-};
+}
 
-type CommandContext = {
+interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -30,23 +30,23 @@ type CommandContext = {
 		setStatus(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: { cwd?: string; timeout?: number } | undefined;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
-};
+}
 
-type StatusUpdate = {
+interface StatusUpdate {
 	key: string;
 	value: string | undefined;
-};
+}
 
 type JustFixExtension = (pi: FakePi) => void;
 

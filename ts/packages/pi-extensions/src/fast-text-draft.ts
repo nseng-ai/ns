@@ -24,14 +24,14 @@ export type NotifyLevel = "info" | "warning" | "error";
 
 type WidgetPlacement = "aboveEditor" | "belowEditor";
 
-type Theme = {
+interface Theme {
 	fg(color: string, text: string): string;
-};
+}
 
-type Component = {
+interface Component {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
 
@@ -39,12 +39,12 @@ type ModelAuth =
 	| { ok: true; apiKey?: string; headers?: Record<string, string> }
 	| { ok: false; error: string };
 
-type ModelRegistryLike = {
+interface ModelRegistryLike {
 	find(provider: string, modelId: string): unknown | undefined;
 	getApiKeyAndHeaders(model: unknown): Promise<ModelAuth>;
-};
+}
 
-export type ExtensionCommandContext = {
+export interface ExtensionCommandContext {
 	cwd: string;
 	modelRegistry: ModelRegistryLike;
 	ui: {
@@ -54,9 +54,9 @@ export type ExtensionCommandContext = {
 		theme?: Theme;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -65,7 +65,7 @@ export type ExtensionAPI = {
 		},
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<CommandResult>;
-};
+}
 
 export type FastTextDraftInput = {
 	harness: DraftHarness;

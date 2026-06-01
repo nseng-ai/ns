@@ -20,11 +20,11 @@ const PLAN_KEY = `${PLAN_SLUG}.md`;
 const PLAN_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${PLAN_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const PLAN_CONTENT = "# Attached Plan\n\n- Preserve all Markdown.\n- Then implement.\n";
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: ExecOptions | undefined;
-};
+}
 
 type ScriptedExec =
 	| {

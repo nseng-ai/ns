@@ -2,33 +2,33 @@ import type { ExecResult, PiExecResultLike } from "../command-runtime.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
-export type AutocompleteItem = {
+export interface AutocompleteItem {
 	value: string;
 	label?: string;
 	description?: string;
-};
+}
 
 export type CustomMessageContent = string | Array<{ type: string; text?: string }>;
 
-export type CustomMessage = {
+export interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-export type RenderTheme = {
+export interface RenderTheme {
 	fg(color: string, text: string): string;
-};
+}
 
-export type RenderComponent = {
+export interface RenderComponent {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 export type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
-export type ExtensionCommandContext = {
+export interface ExtensionCommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -38,9 +38,9 @@ export type ExtensionCommandContext = {
 		setWidget?(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -55,23 +55,23 @@ export type ExtensionAPI = {
 		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResultLike>;
-};
+}
 
-export type ParsedArgs = {
+export interface ParsedArgs {
 	yes: boolean;
 	dryRun: boolean;
 	help: boolean;
-};
+}
 
-export type StackSnapshot = {
+export interface StackSnapshot {
 	trunk: string;
 	current: string;
 	landingBranches: string[];
 	descendantBranches: string[];
 	warnings: string[];
-};
+}
 
-export type PullRequestSnapshot = {
+export interface PullRequestSnapshot {
 	number: number;
 	title: string;
 	body: string | null;
@@ -83,15 +83,15 @@ export type PullRequestSnapshot = {
 	mergeStateStatus: string | undefined;
 	url: string | undefined;
 	mergedAt: string | null | undefined;
-};
+}
 
-export type BranchPlan = {
+export interface BranchPlan {
 	branch: string;
 	localSha: string;
 	pr: PullRequestSnapshot;
-};
+}
 
-export type PrSubmitRequirement = {
+export interface PrSubmitRequirement {
 	branch: string;
 	prNumber: number;
 	localSha: string;
@@ -99,18 +99,18 @@ export type PrSubmitRequirement = {
 	baseRefName: string;
 	expectedBaseRefName: string | undefined;
 	reasons: string[];
-};
+}
 
-export type RestackRequirement = {
+export interface RestackRequirement {
 	branch: string;
 	parent: string;
-};
+}
 
-export type WorktreeConflict = {
+export interface WorktreeConflict {
 	branch: string;
 	path: string;
 	kind: "current" | "managed-slot" | "manual-worktree";
-};
+}
 
 export type DescendantMaintenancePlan =
 	| { kind: "none"; branches: [] }
@@ -123,20 +123,20 @@ export type DescendantMaintenancePlan =
 			reason: string;
 		};
 
-export type WorktreeEntry = {
+export interface WorktreeEntry {
 	path: string;
 	branch?: string;
-};
+}
 
-export type ParsedStackOutput = {
+export interface ParsedStackOutput {
 	trunk: string;
 	current: string;
 	ancestors: string[];
 	descendants: string[];
 	warnings: string[];
-};
+}
 
-export type LandingPlan = {
+export interface LandingPlan {
 	repoRoot: string;
 	stack: StackSnapshot;
 	branchPlans: BranchPlan[];
@@ -144,33 +144,33 @@ export type LandingPlan = {
 	submitRestackRequirements: RestackRequirement[];
 	managedSlotConflicts: WorktreeConflict[];
 	descendantMaintenance: DescendantMaintenancePlan;
-};
+}
 
-export type LandedPr = {
+export interface LandedPr {
 	branch: string;
 	number: number;
 	title: string;
 	url?: string;
-};
+}
 
-export type CommandStreamPrLink = {
+export interface CommandStreamPrLink {
 	number: number;
 	url: string;
-};
+}
 
-export type CommandStreamMessageDetails = {
+export interface CommandStreamMessageDetails {
 	prLinks: CommandStreamPrLink[];
-};
+}
 
-export type LandingWarning = {
+export interface LandingWarning {
 	level?: "warning" | "info";
 	message: string;
 	commandDisplay?: string;
 	result?: ExecResult;
 	suggestedAction?: string;
-};
+}
 
-export type CommandStreamFinish = {
+export interface CommandStreamFinish {
 	result: ExecResult;
 	note?: string;
-};
+}

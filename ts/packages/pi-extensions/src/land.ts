@@ -1,21 +1,21 @@
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
-export type ExecResult = {
+export interface ExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed?: boolean;
-};
+}
 
-export type ExtensionCommandContext = {
+export interface ExtensionCommandContext {
 	cwd: string;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -24,7 +24,7 @@ export type ExtensionAPI = {
 		},
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
-};
+}
 
 const COMMAND_NAME = "dev:land";
 const REQUIRED_BASE_BRANCH = "master";
@@ -32,23 +32,23 @@ const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 
-type PullRequestView = {
+interface PullRequestView {
 	number?: number;
 	headRefName?: string;
 	baseRefName?: string;
 	title?: string;
 	body?: string | null;
 	headRefOid?: string;
-};
+}
 
-export type ValidPullRequestView = {
+export interface ValidPullRequestView {
 	number: number;
 	headRefName: string;
 	baseRefName: string;
 	title: string;
 	body: string;
 	headRefOid: string;
-};
+}
 
 export default function landExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {

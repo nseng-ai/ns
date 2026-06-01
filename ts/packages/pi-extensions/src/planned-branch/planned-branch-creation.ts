@@ -19,20 +19,20 @@ const MAX_ERROR_CHARS = 4_000;
 
 export type BranchCreationMethod = "plain-git" | "graphite";
 
-export type CreatePlannedBranchFromFileParams = {
+export interface CreatePlannedBranchFromFileParams {
 	slug: string;
 	filePath: string;
 	branchName?: string;
 	branchCreation?: BranchCreationMethod;
 	summary?: string;
-};
+}
 
-export type CreatePlannedBranchFromFileOptions = {
+export interface CreatePlannedBranchFromFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-};
+}
 
-export type PlannedBranchEvidence = {
+export interface PlannedBranchEvidence {
 	slug: string;
 	branch: string;
 	branchCreation: BranchCreationMethod;
@@ -43,12 +43,12 @@ export type PlannedBranchEvidence = {
 	commit: string;
 	sourceFile: string;
 	summary?: string;
-};
+}
 
-type CommandRun = {
+interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
-};
+}
 
 export async function createPlannedBranchFromFile(
 	pi: PlanCommandExecApi,

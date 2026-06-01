@@ -1,14 +1,17 @@
-export type CustomMessageTextPart = { type: string; text?: string };
+export interface CustomMessageTextPart {
+	type: string;
+	text?: string;
+}
 export type CustomMessageContent = string | CustomMessageTextPart[];
 
-export type PrLink = {
+export interface PrLink {
 	number: number;
 	url: string;
-};
+}
 
-export type PrLinksDetails = {
+export interface PrLinksDetails {
 	prLinks: PrLink[];
-};
+}
 
 const TERMINAL_ESCAPE_PATTERN = /\x1B(?:\](?:[^\x07\x1B]|\x1B(?!\\))*?(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 

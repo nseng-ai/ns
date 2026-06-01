@@ -1,10 +1,10 @@
 export const CHECKPOINT_SUBJECT_MAX_LENGTH = 52;
 export const CHECKPOINT_MAX_BULLETS = 3;
 
-export type CheckpointMessage = {
+export interface CheckpointMessage {
 	subject: string;
 	bullets: string[];
-};
+}
 
 export type CheckpointMessageIssue =
 	| { code: "missing_subject" }

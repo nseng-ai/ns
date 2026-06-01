@@ -13,20 +13,20 @@ const MAX_DIFF_CHARS = 24_000;
 const MAX_UNTRACKED_FILES = 12;
 const MAX_UNTRACKED_FILE_CHARS = 4_000;
 
-export type ParsedNewBranchArgs = {
+export interface ParsedNewBranchArgs {
 	slug?: string;
-};
+}
 
-export type NewBranchSnapshot = PendingWorktreeSnapshot & {
+export interface NewBranchSnapshot extends PendingWorktreeSnapshot {
 	untracked: string;
-};
+}
 
-export type FileStat = {
+export interface FileStat {
 	size: number;
 	isFile(): boolean;
-};
+}
 
-export type NewBranchPreparationInput = {
+export interface NewBranchPreparationInput {
 	cwd: string;
 	args: ParsedNewBranchArgs;
 	snapshot: PendingWorktreeSnapshot;
@@ -35,17 +35,20 @@ export type NewBranchPreparationInput = {
 	setStatus: (message: string | undefined) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
-};
+}
 
-export type NewBranchPlan = {
+export interface NewBranchPlan {
 	branchName: string;
 	baseSlug: string;
 	slugSource: "requested" | "model" | "fallback";
 	usedSuffix: boolean;
 	checkpointMessage: string;
-};
+}
 
-export type NewBranchPreparationWarning = { kind: "slug_model_failed"; fallbackSlug: string };
+export interface NewBranchPreparationWarning {
+	kind: "slug_model_failed";
+	fallbackSlug: string;
+}
 
 export type NewBranchPreparationResult =
 	| { ok: true; plan: NewBranchPlan; warnings: NewBranchPreparationWarning[] }

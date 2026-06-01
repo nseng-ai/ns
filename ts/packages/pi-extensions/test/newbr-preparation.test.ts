@@ -12,9 +12,12 @@ function fail(stderr: string): CommandResult {
 	return { code: 1, stdout: "", stderr };
 }
 
-type ExecCall = { command: string; args: string[] };
+interface ExecCall {
+	command: string;
+	args: string[];
+}
 
-type HarnessOptions = {
+interface HarnessOptions {
 	slug?: string;
 	snapshot?: Partial<PendingWorktreeSnapshot>;
 	piResult?: CommandResult;
@@ -23,7 +26,7 @@ type HarnessOptions = {
 	invalidBranches?: Set<string>;
 	untrackedFiles?: Record<string, string | Uint8Array>;
 	untrackedListFails?: boolean;
-};
+}
 
 function createHarness(options: HarnessOptions = {}) {
 	const calls: ExecCall[] = [];

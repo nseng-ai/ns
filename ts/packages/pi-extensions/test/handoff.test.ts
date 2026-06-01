@@ -31,32 +31,32 @@ type CommandInfo = NonNullable<ReturnType<NonNullable<ExtensionAPI["getCommands"
 type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: { cwd?: string; timeout?: number } | undefined;
-};
+}
 
-type ScriptedExec = {
+interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<ExecResult> | undefined;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: "info" | "warning" | "error" | undefined;
-};
+}
 
-type Selection = {
+interface Selection {
 	title: string;
 	items: string[];
-};
+}
 
-type InputPrompt = {
+interface InputPrompt {
 	title: string;
 	placeholder: string | undefined;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

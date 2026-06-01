@@ -33,10 +33,10 @@ type NextGraphiteMaintenance =
 	| { kind: "skip-descendant" }
 	| { kind: "none" };
 
-type OptionalDescendantGraphiteCommandResult = {
+interface OptionalDescendantGraphiteCommandResult {
 	result: ExecResult;
 	checkoutConflict?: CheckedOutElsewhere;
-};
+}
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	pi: ExtensionAPI,

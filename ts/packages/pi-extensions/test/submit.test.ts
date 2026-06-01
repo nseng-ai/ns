@@ -33,58 +33,58 @@ type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type WidgetContent = Parameters<ExtensionCommandContext["ui"]["setWidget"]>[1];
 type WidgetOptions = Parameters<ExtensionCommandContext["ui"]["setWidget"]>[2];
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
-};
+}
 
-type Confirmation = {
+interface Confirmation {
 	title: string;
 	message: string;
-};
+}
 
-type WidgetUpdate = {
+interface WidgetUpdate {
 	key: string;
 	value: WidgetContent;
 	options: WidgetOptions;
-};
+}
 
-type BufferedStep = {
+interface BufferedStep {
 	kind: "buffered";
 	command: string;
 	args: string[];
 	result: Partial<BufferedSubmitCommandResult> | undefined;
-};
+}
 
-type StreamingStep = {
+interface StreamingStep {
 	kind: "streaming";
 	command: string;
 	args: string[];
 	stdoutChunks: string[];
 	stderrChunks: string[];
 	result: Partial<StreamedSubmitCommandResult> | undefined;
-};
+}
 
 type ScriptedStep = BufferedStep | StreamingStep;
 
-type RunnerCall = {
+interface RunnerCall {
 	kind: "buffered" | "streaming";
 	command: string;
 	args: string[];
 	options: { cwd: string; timeoutMs: number };
-};
+}
 
-type ContextOptions = {
+interface ContextOptions {
 	cwd?: string;
 	hasUI?: boolean;
 	confirms?: boolean[];
 	checkpoint?: SubmitCheckpointOperations;
-};
+}
 
-type StatusUpdate = {
+interface StatusUpdate {
 	key: string;
 	value: string | undefined;
-};
+}
 
 type PreparedMessageResult = Awaited<ReturnType<SubmitCheckpointOperations["prepareMessage"]>>;
 

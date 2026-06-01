@@ -15,22 +15,22 @@ const PR_MERGE_TIMEOUT_MS = 120_000;
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: { cwd?: string; timeout?: number } | undefined;
-};
+}
 
-type ScriptedExec = {
+interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<ExecResult> | undefined;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

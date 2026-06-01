@@ -10,11 +10,11 @@ import type { ExecOptions, PlanCommandExecApi } from "../src/planned-branch/plan
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: ExecOptions | undefined;
-};
+}
 
 class FakeSlugPi implements PlanCommandExecApi {
 	readonly calls: ExecCall[] = [];

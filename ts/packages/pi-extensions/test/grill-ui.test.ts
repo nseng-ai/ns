@@ -25,7 +25,10 @@ import {
 const ROOT = "/repo";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type Notification = { message: string; level: string | undefined };
+interface Notification {
+	message: string;
+	level: string | undefined;
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

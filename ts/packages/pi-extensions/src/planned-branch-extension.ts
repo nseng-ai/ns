@@ -66,50 +66,50 @@ const IMPL_PLANNED_BRANCH_STATUS_KEY = "impl-planned-branch";
 
 type NotifyLevel = "info" | "warning" | "error";
 
-type TextContent = {
+interface TextContent {
 	type: "text";
 	text: string;
-};
+}
 
 type CustomMessageContent = string | TextContent[];
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-type ToolResult = {
+interface ToolResult {
 	content: TextContent[];
 	details?: unknown;
-};
+}
 
 type SessionHistoryEntry = unknown;
 
-type SessionManagerLike = {
+interface SessionManagerLike {
 	getBranch?(): SessionHistoryEntry[];
 	getEntries?(): SessionHistoryEntry[];
-};
+}
 
-export type PlannedBranchExtensionOptions = {
+export interface PlannedBranchExtensionOptions {
 	plannedBranchDefaultCreation?: BranchCreationMethod;
 	plannedBranchPrefix?: string;
 	planStoreRoot?: string;
 	/** @deprecated Use plannedBranchDefaultCreation. */
 	latestPlanBranchDefaultCreation?: BranchCreationMethod;
-};
+}
 
-export type CreatePlannedBranchArgs = {
+export interface CreatePlannedBranchArgs {
 	help: boolean;
 	dryRun: boolean;
 	yes: boolean;
 	branchName?: string;
 	branchCreation?: BranchCreationMethod;
 	filePath?: string;
-};
+}
 
-export type CreatePlannedBranchPreview = {
+export interface CreatePlannedBranchPreview {
 	mode: "latest" | "explicit" | "session";
 	slug: string;
 	savedPlanFileStem: string;
@@ -126,13 +126,13 @@ export type CreatePlannedBranchPreview = {
 	sourceBranch?: string;
 	branchKey?: string;
 	modifiedTimeMs?: number;
-};
+}
 
-export type ToolContext = {
+export interface ToolContext {
 	cwd: string;
-};
+}
 
-export type ToolDefinition = {
+export interface ToolDefinition {
 	name: string;
 	label?: string;
 	description: string;
@@ -146,9 +146,9 @@ export type ToolDefinition = {
 		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
 		ctx: ToolContext,
 	): Promise<ToolResult> | ToolResult;
-};
+}
 
-export type CommandContext = {
+export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -158,9 +158,9 @@ export type CommandContext = {
 	};
 	waitForIdle(): Promise<void>;
 	sessionManager?: SessionManagerLike;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -172,7 +172,7 @@ export type ExtensionAPI = {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 	sendUserMessage(content: string): void;
-};
+}
 
 export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /create-planned-branch [options] [absolute-or-home-plan-file.md]
 
@@ -590,13 +590,13 @@ type SelectedSavedPlanFile =
 	| (LatestSourceBranchPlanFileEvidence & { mode: "latest"; savedPlanFileStem: string })
 	| (LatestSourceBranchPlanFileEvidence & { mode: "session"; savedPlanFileStem: string });
 
-type PlannedBranchMessageDetails = {
+interface PlannedBranchMessageDetails {
 	status: "usage" | "dry-run" | "success" | "failure";
 	preview?: CreatePlannedBranchPreview;
 	evidence?: PlannedBranchEvidence;
 	loadedPlan?: LoadedAttachedPlan;
 	error?: string;
-};
+}
 
 async function resolveSelectedSavedPlanFile(
 	pi: ExtensionAPI,

@@ -11,7 +11,7 @@ function fail(stderr: string): CommandResult {
 	return { code: 1, stdout: "", stderr };
 }
 
-type HarnessOptions = {
+interface HarnessOptions {
 	args?: NewBranchFlowInput["args"];
 	piResult?: CommandResult;
 	prepareResult?: { ok: true; message: string } | { ok: false; error: string };
@@ -23,7 +23,7 @@ type HarnessOptions = {
 	stashPopFails?: boolean;
 	detachedHead?: boolean;
 	cleanWorktree?: boolean;
-};
+}
 
 function createHarness(options: HarnessOptions = {}) {
 	const events: string[] = [];

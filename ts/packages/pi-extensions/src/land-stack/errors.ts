@@ -1,14 +1,14 @@
 import type { ExecResult } from "../command-runtime.ts";
 import type { NotifyLevel } from "./types.ts";
 
-export type LandStackErrorOptions = {
+export interface LandStackErrorOptions {
 	level?: NotifyLevel;
 	commandDisplay?: string;
 	result?: ExecResult;
 	failedBranch?: string;
 	failedPr?: number;
 	suggestedAction?: string;
-};
+}
 
 export class LandStackError extends Error {
 	readonly level: NotifyLevel;

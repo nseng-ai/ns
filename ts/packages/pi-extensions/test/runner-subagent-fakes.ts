@@ -11,20 +11,20 @@ import {
 	type RuntimeResultV1,
 } from "../src/runner-subagent/subagent-runtime.ts";
 
-export type SpawnCall = {
+export interface SpawnCall {
 	command: string;
 	args: string[];
 	options: SpawnChildProcessOptions;
 	process: FakeSpawnedChildProcess;
-};
+}
 
 type CloseListener = (code: number | null, signal: NodeJS.Signals | null) => void;
 type ErrorListener = (error: Error) => void;
 
-type FakeSpawnedChildProcessEvents = {
+interface FakeSpawnedChildProcessEvents {
 	close: Parameters<CloseListener>;
 	error: Parameters<ErrorListener>;
-};
+}
 
 export class FakeSpawnedChildProcess implements SpawnedChildProcess {
 	readonly stdout = new EventEmitter();

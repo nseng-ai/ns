@@ -2,18 +2,18 @@ import type { RunnerSubagentProgress } from "../runner-subagent.ts";
 
 export const RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS = 240;
 
-export type RunnerSubagentActivity = {
+export interface RunnerSubagentActivity {
 	assistantPreview?: string;
 	currentToolInputPreview?: string;
 	lastToolName?: string;
 	lastToolResultPreview?: string;
 	lastToolResultIsError?: boolean;
-};
+}
 
-export type RunnerSubagentUpdate = {
+export interface RunnerSubagentUpdate {
 	progress: RunnerSubagentProgress;
 	activity: RunnerSubagentActivity;
-};
+}
 
 export function emptyRunnerSubagentActivity(): RunnerSubagentActivity {
 	return {};

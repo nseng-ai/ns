@@ -9,10 +9,10 @@ import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL
 import { errorMessage } from "./errors.ts";
 import type { CommandStreamFinish, ExtensionAPI } from "./types.ts";
 
-export type CheckedOutElsewhere = {
+export interface CheckedOutElsewhere {
 	branch: string;
 	path: string;
-};
+}
 
 export async function exec(
 	pi: ExtensionAPI,

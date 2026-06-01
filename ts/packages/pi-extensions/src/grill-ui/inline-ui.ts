@@ -2,18 +2,18 @@ import type { GrillAskCustomComponent, GrillAskToolContext, NormalizedGrillAskIn
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
 import { renderGrillAskInlineUi, type GrillAskRenderPrimitives, type GrillAskRenderTheme } from "./render.ts";
 
-type EditorLike = {
+interface EditorLike {
 	focused?: boolean;
 	onSubmit?: (value: string) => void;
 	setText(value: string): void;
 	render(width: number): string[];
 	handleInput(data: string): void;
 	invalidate?(): void;
-};
+}
 
 type EditorConstructor = new (tui: unknown, theme: unknown) => EditorLike;
 
-export type GrillAskInlineRuntime = {
+export interface GrillAskInlineRuntime {
 	Editor: EditorConstructor;
 	Key?: Record<string, string>;
 	matchesKey(data: string, key: string): boolean;
@@ -22,7 +22,7 @@ export type GrillAskInlineRuntime = {
 	visibleWidth?: (value: string) => number;
 	Markdown?: new (text: string, paddingX: number, paddingY: number, theme: unknown) => { render(width: number): string[] };
 	markdownTheme?: unknown;
-};
+}
 
 export async function runGrillAskInlineUi(
 	input: NormalizedGrillAskInput,

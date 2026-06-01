@@ -10,13 +10,13 @@ function fail(stderr: string): CommandResult {
 	return { code: 1, stdout: "", stderr };
 }
 
-type HarnessOptions = {
+interface HarnessOptions {
 	stashPushFails?: boolean;
 	stashRefMissing?: boolean;
 	gtCreateFails?: boolean;
 	stashPopFails?: boolean;
 	commitResult?: { summary: string } | { error: string };
-};
+}
 
 function createHarness(options: HarnessOptions = {}) {
 	const events: string[] = [];

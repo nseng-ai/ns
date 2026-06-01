@@ -18,16 +18,16 @@ import worktreeStatusExtension, {
 
 const ROOT = "/repo";
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
-};
+}
 
-type ScriptedExec = {
+interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<ExecResult> | undefined;
-};
+}
 
 class FakePi {
 	readonly calls: ExecCall[] = [];

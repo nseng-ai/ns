@@ -14,7 +14,7 @@ const RUNTIME_VERSION = 1;
 const TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const RUNTIME_ROOT_PREFIX = "pi-runner-subagent-runtime-";
 
-export type RuntimeConfigV1 = {
+export interface RuntimeConfigV1 {
 	version: 1;
 	title?: string;
 	terminalTools: Array<{
@@ -23,7 +23,7 @@ export type RuntimeConfigV1 = {
 		description: string;
 		parameters: TypeBoxLikeSchema;
 	}>;
-};
+}
 
 export type RuntimeResultV1 =
 	| {
@@ -41,18 +41,18 @@ export type RuntimeResultV1 =
 			message: string;
 	  };
 
-export type CreateRunnerSubagentRuntimeFilesInput = {
+export interface CreateRunnerSubagentRuntimeFilesInput {
 	title?: string;
 	terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
-};
+}
 
-export type RunnerSubagentRuntimeFiles = {
+export interface RunnerSubagentRuntimeFiles {
 	runtimeDir: string;
 	configPath: string;
 	resultPath: string;
 	extensionPath: string;
 	cleanup?: () => Promise<void> | void;
-};
+}
 
 export class RuntimeConfigValidationError extends Error {
 	constructor(message: string) {

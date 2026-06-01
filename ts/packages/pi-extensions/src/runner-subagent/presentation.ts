@@ -2,10 +2,10 @@ import type { RunnerSubagentProgress, RunnerSubagentResult } from "../runner-sub
 
 export type RunnerSubagentPresentationSource = RunnerSubagentProgress | RunnerSubagentResult<unknown>;
 
-export type RunnerSubagentProgressWidgetOptions = {
+export interface RunnerSubagentProgressWidgetOptions {
 	fallbackTitle?: string;
 	includeElapsed?: boolean;
-};
+}
 
 export function formatRunnerSubagentElapsed(elapsedMs: number): string {
 	if (elapsedMs < 1_000) return `${elapsedMs}ms`;

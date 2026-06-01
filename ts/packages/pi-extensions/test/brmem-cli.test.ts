@@ -16,11 +16,11 @@ const ROOT = "/repo";
 
 type ExecOptions = Parameters<BrmemExecGateway["exec"]>[2];
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: ExecOptions;
-};
+}
 
 type ScriptedExec =
 	| {

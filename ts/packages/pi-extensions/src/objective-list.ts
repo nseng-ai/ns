@@ -1,18 +1,18 @@
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 
-export type ObjectiveListRecord = {
+export interface ObjectiveListRecord {
 	slug: string;
 	status: string;
 	latestUpdateIso: string | null;
-};
+}
 
-export type ObjectiveList = {
+export interface ObjectiveList {
 	trunkBranch: string;
 	rootPath: string;
 	statusFilter: string;
 	namesOnly: boolean;
 	records: ObjectiveListRecord[];
-};
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
