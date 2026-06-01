@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Remove hard language-style violations across source and tests.
-      Evidence: constructor parameter properties are replaced with explicit fields and assignments, the test-only `any` is removed or isolated, and a scan shows no disallowed emit-time TypeScript constructs.
+- [x] Remove hard language-style violations across source and tests.
+      Evidence: constructor parameter properties were replaced with explicit fields and assignments in the targeted source and test classes, the test-only `any` in runner-subagent fake process listeners was removed, focused scans found no remaining constructor parameter properties or explicit type-level `any` in `ts/packages/pi-extensions`, and the broad emit-time construct scan reports only ambient declarations or text/identifier false positives. Validation: `bun run --cwd ts/packages/pi-extensions check`, `bun run --cwd ts/packages/pi-extensions test`, `just ts-check`, and `just ts-test` passed.
 - [ ] Convert existing object-shape and contract aliases to interfaces while preserving union and function aliases as `type`.
       Evidence: public and internal object contracts in the TypeScript packages follow the interface/type split, with any compatibility aliases documented intentionally. This may be a large mechanical diff, but it should remain one simple, human-legible decision.
 - [ ] Harden untyped JSON, tool, and runtime boundaries with `unknown` plus guards or decoders.
