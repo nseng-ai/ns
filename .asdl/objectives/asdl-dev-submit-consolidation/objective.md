@@ -1,0 +1,58 @@
+# Consolidate Submit Into asdl-dev
+
+## Thesis
+
+`/dev:submit` should become a durable repo-local developer command instead of a Pi-only workflow. The canonical behavior belongs in `asdl-dev submit`, where humans, agents, scripts, and tests can exercise the same headless contract. Pi may expose or lightly compose that command, but it must not grow a second Graphite submit implementation.
+
+This Objective tracks the end-to-end consolidation plus the review hardening needed before the branch is structurally review-ready.
+
+## Scope
+
+This Objective covers:
+
+- Moving submit behavior into `ts/packages/asdl-dev/` as a headless command with explicit arguments, stdout/stderr, exit codes, gateway-backed workflow decisions, and CLI scenario/gateway tests.
+- Removing the legacy Pi-only submit command surface and tests once `/dev:submit` is backed by the `asdl-dev` command table.
+- Keeping Pi submit composition thin: Pi may add UX wrapper behavior such as display, progress, or confirmation, but Graphite orchestration, output interpretation, retries, and failure policy remain canonical in `asdl-dev`.
+- Hardening process timeout behavior so long-running submit/restack commands cannot hang indefinitely after a timeout.
+- Cleaning the submit boundary so real gateways return semantic result causes rather than user-facing English strings that leak presentation into adapter/fake contracts.
+- Updating docs and inventories so the consolidation model is clear: “mirror” means exposing the CLI command through Pi, not maintaining parallel implementations.
+
+## Non-Goals
+
+- Do not restore a standalone Pi-owned submit implementation with duplicate Graphite decision logic.
+- Do not redesign Graphite, `gt submit`, or this repository's broader Graphite workflow.
+- Do not turn `asdl-dev` into a nested command framework; it continues to use a flat task-command table.
+- Do not perform a broad Pi extension architecture rewrite except where needed to keep `/dev:submit` correctly surfaced.
+- Do not create routine validation-only work items; targeted tests and repo checks are completion evidence for semantic work.
+
+## Completion Criteria
+
+- `asdl-dev submit` is the canonical submit workflow and `/dev:submit` reaches it through the shared asdl-dev Pi adapter.
+- The old Pi-only submit registration, implementation, and behavior tests are removed or reduced only to genuinely Pi-specific thin composition.
+- Submit preflight, optional restack, submit, current-PR verification, semantic empty-branch detection, conflict reporting, and no-current-PR guidance are covered by CLI scenario tests and real-gateway tests.
+- Shared command timeout handling robustly enforces timeout semantics, including escalation after SIGTERM when appropriate, with tests that protect against indefinite hangs.
+- Submit gateway results expose typed semantic causes; formatting owns user-facing prose, and in-memory fakes model semantic states rather than duplicated English messages.
+- Documentation describes the CLI-owned/Pi-mirrored consolidation pattern and calls out the allowed boundary for any future thin Pi UX wrapper.
+- Targeted TypeScript checks/tests and the relevant strict code-quality review evidence pass for the changed areas.
+
+## Assumptions and Risks
+
+Assumptions:
+
+- A single Objective is the right tracking unit because the migration, deletion of duplicate Pi behavior, docs, tests, and review hardening all serve one thesis: make submit a durable `asdl-dev` workflow with Pi as a surface.
+- `asdl-dev` is the correct canonical layer for durable submit behavior because the command's contract can be expressed through arguments, stdout, stderr, and exit codes.
+- Any Pi-specific submit work can remain a thin UX composition layer without owning Graphite policy or shell-output interpretation.
+- The existing submit behavior can be preserved while replacing presentation-string gateway fields with typed semantic causes.
+- Shared command timeout behavior can be hardened centrally without surprising other `asdl-dev` gateway users.
+
+Risks:
+
+- Pi duplication drift is a major risk: a thin wrapper could gradually recreate a parallel submit implementation with its own Graphite orchestration and failure policy.
+- Shared runner hardening may affect other commands using `runCommand`; SIGKILL fallback and timeout result semantics need tests and careful compatibility review.
+- Submit UX may regress if the headless command permanently loses useful old Pi affordances such as progress feedback or checkpoint-recovery prompts.
+- Graphite output parsing remains inherently brittle; semantic detection should stay narrow, tested, and isolated from formatting.
+
+## Open Questions
+
+- After the headless CLI path is hardened, is a thin Pi UX wrapper actually needed? If so, what concrete evidence or user pain justifies adding it?
+- What is the blast radius of adding SIGTERM-to-SIGKILL fallback to the shared command runner, and do any existing callers depend on the current weaker timeout behavior?
