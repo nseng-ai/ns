@@ -52,12 +52,12 @@ Risks:
 - The main complexity risk is accidentally mixing multiple unrelated design decisions into one remediation slice. Large mechanical edits are acceptable when they remain traceable to one simple decision.
 - Reworking throw-based APIs into returned data can cascade through tests and command handlers; careless conversion could weaken user-facing error messages.
 - Tightening unknown-boundary validation may reveal malformed external command output cases that existing code tolerated implicitly.
-- Adding automated guardrails for the style guide could require choosing between TypeScript compiler options, lint rules, or custom scripts; the wrong guardrail could be noisy or brittle.
+- Adding automated guardrails for the style guide could require choosing between TypeScript compiler options, lint rules, or custom scripts; this is partly de-risked by starting with a markdown Roaster reviewer for low-context Tier A diff checks rather than a broad compiler/lint gate.
 - Some existing public exported type aliases may need compatibility-preserving migration rather than direct replacement.
 
 ## Open Questions
 
-- Should `erasableSyntaxOnly` or another compiler/lint guard be enabled once parameter properties are removed?
+- Should `erasableSyntaxOnly` or another compiler/lint guard supplement the Roaster reviewer later if review-only coverage proves insufficient?
 - Which exported object-shape aliases, if any, must remain as compatibility aliases over new interfaces for downstream consumers?
 - Where should the line be drawn between acceptable adapter modules with direct Node/Pi globals and domain logic that must receive injected collaborators?
 - Should machine-envelope and CLI JSON parsing converge on shared decoder helpers, or stay as local guards to avoid over-abstracting?
