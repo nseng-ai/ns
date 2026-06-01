@@ -671,10 +671,13 @@ function errorMessage(error: unknown): string {
 }
 
 class BoundedTextBuffer {
+	private readonly limitBytes: number;
 	private value = "";
 	private omittedBytes = 0;
 
-	constructor(private readonly limitBytes: number) {}
+	constructor(limitBytes: number) {
+		this.limitBytes = limitBytes;
+	}
 
 	append(chunk: string | Uint8Array): void {
 		this.value += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");

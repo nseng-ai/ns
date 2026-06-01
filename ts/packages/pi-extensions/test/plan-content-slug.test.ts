@@ -18,8 +18,11 @@ type ExecCall = {
 
 class FakeSlugPi implements PlanCommandExecApi {
 	readonly calls: ExecCall[] = [];
+	private readonly behavior: { result?: Partial<ExecResult>; error?: Error };
 
-	constructor(private readonly behavior: { result?: Partial<ExecResult>; error?: Error }) {}
+	constructor(behavior: { result?: Partial<ExecResult>; error?: Error }) {
+		this.behavior = behavior;
+	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });

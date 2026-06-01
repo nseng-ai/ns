@@ -55,17 +55,27 @@ export function createGrillAskInlineComponent(
 }
 
 class GrillAskInlineUi implements GrillAskCustomComponent {
+	private readonly input: NormalizedGrillAskInput;
+	private readonly runtime: GrillAskInlineRuntime;
+	private readonly tui: unknown;
+	private readonly theme: GrillAskRenderTheme;
+	private readonly done: (outcome: GrillAskOutcome) => void;
 	private readonly controller: GrillAskController;
 	private readonly editor: EditorLike;
 	private focusedValue = false;
 
 	constructor(
-		private readonly input: NormalizedGrillAskInput,
-		private readonly runtime: GrillAskInlineRuntime,
-		private readonly tui: unknown,
-		private readonly theme: GrillAskRenderTheme,
-		private readonly done: (outcome: GrillAskOutcome) => void,
+		input: NormalizedGrillAskInput,
+		runtime: GrillAskInlineRuntime,
+		tui: unknown,
+		theme: GrillAskRenderTheme,
+		done: (outcome: GrillAskOutcome) => void,
 	) {
+		this.input = input;
+		this.runtime = runtime;
+		this.tui = tui;
+		this.theme = theme;
+		this.done = done;
 		this.controller = new GrillAskController(input);
 		this.editor = new runtime.Editor(tui, editorTheme(theme));
 		this.editor.onSubmit = (value) => {

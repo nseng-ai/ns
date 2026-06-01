@@ -18,24 +18,33 @@ export type SpawnCall = {
 	process: FakeSpawnedChildProcess;
 };
 
+type CloseListener = (code: number | null, signal: NodeJS.Signals | null) => void;
+type ErrorListener = (error: Error) => void;
+
+type FakeSpawnedChildProcessEvents = {
+	close: Parameters<CloseListener>;
+	error: Parameters<ErrorListener>;
+};
+
 export class FakeSpawnedChildProcess implements SpawnedChildProcess {
 	readonly stdout = new EventEmitter();
 	readonly stderr = new EventEmitter();
 	readonly killSignals: Array<NodeJS.Signals | number | undefined> = [];
-	private readonly events = new EventEmitter();
+	private readonly events = new EventEmitter<FakeSpawnedChildProcessEvents>();
 
 	kill(signal?: NodeJS.Signals | number): boolean {
 		this.killSignals.push(signal);
 		return true;
 	}
 
-	on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
-	on(event: "error", listener: (error: Error) => void): unknown;
-	on(
-		event: "close" | "error",
-		listener: ((code: number | null, signal: NodeJS.Signals | null) => void) | ((error: Error) => void),
-	): unknown {
-		this.events.on(event, listener as (...args: any[]) => void);
+	on(event: "close", listener: CloseListener): unknown;
+	on(event: "error", listener: ErrorListener): unknown;
+	on(event: "close" | "error", listener: CloseListener | ErrorListener): unknown {
+		if (event === "close") {
+			this.events.on("close", listener as CloseListener);
+			return this;
+		}
+		this.events.on("error", listener as ErrorListener);
 		return this;
 	}
 
