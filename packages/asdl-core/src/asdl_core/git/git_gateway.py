@@ -16,6 +16,7 @@ from asdl_core.git.types import (
     PathTouch,
     RestructuredFile,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 
 
@@ -111,6 +112,17 @@ class GitGateway(ABC):
         """List worktrees registered with the bound repo."""
 
     @abstractmethod
+    def list_branch_occupancies(self) -> tuple[WorktreeOccupancy, ...]:
+        """Return every branch held by any worktree in the bound repo.
+
+        Includes worktrees mid-rebase or mid-bisect whose HEAD is detached:
+        git still treats their branch as in use and refuses to check it out
+        elsewhere, even though ``git worktree list`` reports them as detached.
+        Cleanly checked-out branches are reported with operation
+        ``"checked-out"``.
+        """
+
+    @abstractmethod
     def add_worktree(
         self,
         path: Path,
@@ -129,8 +141,14 @@ class GitGateway(ABC):
         """Remove the worktree rooted at ``path``."""
 
     @abstractmethod
-    def checkout_branch(self, cwd: Path, branch: str) -> None:
-        """Check out ``branch`` in the worktree rooted at ``cwd``."""
+    def checkout_branch(self, cwd: Path, branch: str) -> GitCommandFailure | None:
+        """Check out ``branch`` in the worktree rooted at ``cwd``.
+
+        Returns ``None`` on success, or a :class:`GitCommandFailure` carrying
+        git's stderr when the checkout fails (e.g. the branch is already in use
+        by another worktree). Callers must surface the failure rather than let
+        a raw subprocess error escape.
+        """
 
     @abstractmethod
     def detach_head(self, cwd: Path, ref: str) -> None:

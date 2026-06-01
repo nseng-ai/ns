@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
+from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo, WorktreeOccupancy
 from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
+    BranchInUse,
     CurrentCheckoutPlan,
     PoolFull,
     ReuseAssignment,
@@ -103,6 +104,29 @@ def test_plan_checkout_skips_dirty_with_untracked_only() -> None:
 
     assert isinstance(plan, AssignToSlot)
     assert plan.record.slot_number == 2
+
+
+def test_plan_checkout_branch_in_use_by_rebasing_detached_slot() -> None:
+    """A branch held by a slot mid-rebase has ``WorktreeInfo.branch is None``,
+    so it misses ``find_by_branch`` — the occupancy probe must catch it as
+    ``BranchInUse`` rather than routing to ``AssignToSlot`` and crashing in git."""
+    slot_path = Path("/wt/slot-06")
+    inv = _inventory(_record(6))
+    git = FakeGitGateway(
+        worktrees=(WorktreeInfo(path=slot_path, branch=None, is_bare=False),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/x", operation="rebase"),
+        },
+    )
+
+    plan = plan_checkout(inv, git, "feat/x")
+
+    assert isinstance(plan, BranchInUse)
+    assert plan.occupancy == WorktreeOccupancy(
+        path=slot_path,
+        branch="feat/x",
+        operation="rebase",
+    )
 
 
 def test_plan_checkout_pool_full_lists_assigned_records() -> None:

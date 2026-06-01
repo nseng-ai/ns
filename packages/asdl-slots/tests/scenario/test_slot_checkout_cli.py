@@ -17,6 +17,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 from asdl_slots.cli.main import build_cli
 from asdl_slots.context import SlotsCliContext
@@ -81,6 +82,7 @@ def _fake_for_repo(
     previous_branch_by_path: dict[Path, str | None] | None = None,
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
+    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
     extra_existing: Iterable[Path] = (),
     repository_root_by_cwd: dict[Path, Path] | None = None,
     clipboard_should_succeed: bool = True,
@@ -128,6 +130,7 @@ def _fake_for_repo(
         previous_branch_by_path=previous_branch_by_path,
         trunk_branch=trunk_branch,
         file_status_by_path=file_status_by_path,
+        operations_by_path=operations_by_path,
         existing_paths={repo_root, Path.cwd(), *seeded_paths, *extra_existing},
         repository_root_by_cwd=root_map,
         on_add_worktree=storage.ensure_dir,
@@ -845,6 +848,38 @@ def test_slot_checkout_branch_in_main_worktree_redirects(
     # No checkout into the slot occurred.
     assert fakes.git._checkout_calls == []
     assert fakes.git._add_worktree_calls == []
+
+
+def test_slot_checkout_branch_in_use_by_rebasing_slot(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    """`slot co feat/x` when feat/x is held by a slot mid-rebase (detached HEAD)
+    must print a clear branch-in-use message and exit 2 — not crash with a raw
+    `subprocess.CalledProcessError` traceback."""
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-01")
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x",),
+        pool_worktrees=(_detached_slot(slots_root, 1),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/x", operation="rebase"),
+        },
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x"],
+        obj=_make_obj(fakes),
+    )
+
+    assert result.exit_code == 2
+    assert "rebase in progress" in result.output
+    assert str(slot_path) in result.output
+    assert "Traceback" not in result.output
+    # No checkout was attempted into any slot.
+    assert fakes.git._checkout_calls == []
+    assert fakes.clipboard.copy_calls == 0
 
 
 def test_slot_co_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:

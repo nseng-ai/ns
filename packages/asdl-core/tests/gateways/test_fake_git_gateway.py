@@ -13,6 +13,8 @@ from asdl_core.git.types import (
     PathChangeTouch,
     PathTouch,
     RestructuredFile,
+    WorktreeInfo,
+    WorktreeOccupancy,
 )
 
 
@@ -167,6 +169,65 @@ def test_fake_delete_local_branch_failure_preserves_branch() -> None:
     assert result == failure
     assert gateway.branch_exists("feature")
     assert gateway.delete_local_branch_calls == (("feature", False),)
+
+
+def test_fake_checkout_branch_returns_none_and_mutates_on_success() -> None:
+    cwd = Path("/wt/slot-01")
+    gateway = FakeGitGateway(
+        worktrees=(WorktreeInfo(path=cwd, branch=None, is_bare=False),),
+    )
+
+    result = gateway.checkout_branch(cwd, "feat/x")
+
+    assert result is None
+    assert gateway.get_current_branch(cwd) == "feat/x"
+
+
+def test_fake_checkout_branch_returns_seeded_failure_without_mutating() -> None:
+    cwd = Path("/wt/slot-06")
+    failure = GitCommandFailure(
+        message="fatal: 'feat/x' is already checked out at '/wt/slot-06'",
+        returncode=128,
+        error_type="git_checkout_failed",
+    )
+    gateway = FakeGitGateway(
+        worktrees=(WorktreeInfo(path=cwd, branch=None, is_bare=False),),
+        checkout_failures_by_path={cwd: failure},
+    )
+
+    result = gateway.checkout_branch(cwd, "feat/x")
+
+    assert result == failure
+    # No mutation: the worktree stays detached.
+    assert gateway.get_current_branch(cwd) == DetachedHead()
+    assert gateway._checkout_calls == [(cwd, "feat/x")]
+
+
+def test_fake_list_branch_occupancies_derives_checked_out_from_worktrees() -> None:
+    gateway = FakeGitGateway(
+        worktrees=(
+            WorktreeInfo(path=Path("/wt/slot-01"), branch="feat/a", is_bare=False),
+            WorktreeInfo(path=Path("/wt/slot-02"), branch=None, is_bare=False),
+        ),
+    )
+
+    assert gateway.list_branch_occupancies() == (
+        WorktreeOccupancy(path=Path("/wt/slot-01"), branch="feat/a", operation="checked-out"),
+    )
+
+
+def test_fake_list_branch_occupancies_reports_seeded_rebasing_detached_slot() -> None:
+    slot_path = Path("/wt/slot-06")
+    gateway = FakeGitGateway(
+        worktrees=(WorktreeInfo(path=slot_path, branch=None, is_bare=False),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/x", operation="rebase"),
+        },
+    )
+
+    assert gateway.list_branch_occupancies() == (
+        WorktreeOccupancy(path=slot_path, branch="feat/x", operation="rebase"),
+    )
 
 
 def test_fake_delete_remote_branch_tracks_call_and_returns_seeded_failure() -> None:

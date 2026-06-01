@@ -21,6 +21,7 @@ from asdl_core.git.types import (
     PathTouch,
     RestructuredFile,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 
 
@@ -76,6 +77,8 @@ class FakeGitGateway(GitGateway):
         trunk_branch: str = "main",
         file_status_by_path: dict[Path, FileStatus] | None = None,
         uncommitted_changes_by_cwd_path: dict[tuple[Path, str], bool] | None = None,
+        operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
+        checkout_failures_by_path: dict[Path, GitCommandFailure] | None = None,
         detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
@@ -125,6 +128,8 @@ class FakeGitGateway(GitGateway):
         self._trunk_branch = trunk_branch
         self._file_status_by_path = dict(file_status_by_path or {})
         self._uncommitted_changes_by_cwd_path = dict(uncommitted_changes_by_cwd_path or {})
+        self._operations_by_path = dict(operations_by_path or {})
+        self._checkout_failures_by_path = dict(checkout_failures_by_path or {})
         self._detach_head_failures_by_path = dict(detach_head_failures_by_path or {})
         self._existing_paths = set(existing_paths)
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
@@ -272,6 +277,18 @@ class FakeGitGateway(GitGateway):
     def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
         return tuple(self._worktrees)
 
+    def list_branch_occupancies(self) -> tuple[WorktreeOccupancy, ...]:
+        occupancies: list[WorktreeOccupancy] = []
+        for wt in self._worktrees:
+            seeded = self._operations_by_path.get(wt.path)
+            if seeded is not None:
+                occupancies.append(seeded)
+            elif wt.branch is not None:
+                occupancies.append(
+                    WorktreeOccupancy(path=wt.path, branch=wt.branch, operation="checked-out")
+                )
+        return tuple(occupancies)
+
     def add_worktree(
         self,
         path: Path,
@@ -305,13 +322,17 @@ class FakeGitGateway(GitGateway):
         self._current_branch_by_path.pop(path, None)
         self._file_status_by_path.pop(path, None)
 
-    def checkout_branch(self, cwd: Path, branch: str) -> None:
+    def checkout_branch(self, cwd: Path, branch: str) -> GitCommandFailure | None:
         self._checkout_calls.append((cwd, branch))
+        failure = self._checkout_failures_by_path.get(cwd)
+        if failure is not None:
+            return failure
         self._current_branch_by_path[cwd] = branch
         self._worktrees = [
             WorktreeInfo(path=wt.path, branch=branch, is_bare=wt.is_bare) if wt.path == cwd else wt
             for wt in self._worktrees
         ]
+        return None
 
     def detach_head(self, cwd: Path, ref: str) -> None:
         self._detach_head_calls.append((cwd, ref))
