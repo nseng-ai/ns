@@ -39,7 +39,7 @@ Keep the command Pi-only when its core behavior is Pi-specific:
 - It streams long-running progress into widgets or custom renderers as the product surface.
 - It registers LLM tools rather than a user-invoked slash command.
 
-Hybrid flows are allowed. Keep the reusable deterministic core in `asdl-dev`, then let Pi-only commands compose it. Current examples are `dev:autobranch` and `dev:submit`, which reuse checkpoint-message and pending-worktree logic from `asdl-dev` while retaining Pi-specific UI and Graphite workflow behavior.
+Hybrid flows are allowed. Keep the reusable deterministic core in `asdl-dev`, then let Pi-only commands compose it. `dev:autobranch` remains a hybrid example: it reuses checkpoint-message and pending-worktree logic from `asdl-dev` while retaining Pi-specific UI and Graphite workflow behavior. `dev:submit` has been promoted to the mirrored `asdl-dev submit` path.
 
 ## File map
 

@@ -36,8 +36,9 @@ describe("dev extension registration", () => {
 		const pi = new FakePi();
 		devExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["dev:changes", "dev:autobranch", "dev:submit", "dev:land", "dev:land-stack"]);
+		expect([...pi.commands.keys()]).toEqual(["dev:changes", "dev:autobranch", "dev:land", "dev:land-stack"]);
 		expect(pi.commands.has("dev:cp")).toBe(false);
+		expect(pi.commands.has("dev:submit")).toBe(false);
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("autobranch")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
@@ -53,13 +54,14 @@ describe("dev extension registration", () => {
 		expect(pi.messageRenderers.has("land-stack-command-stream")).toBe(true);
 	});
 
-	test("asdl-dev owns dev:cp when project-local dev extensions are loaded together", () => {
+	test("asdl-dev owns mirrored CLI commands when project-local dev extensions are loaded together", () => {
 		const pi = new FakePi();
 
 		devExtension(pi);
 		asdlDevExtension(pi);
 
 		expect(pi.commandNames.filter((name) => name === "dev:cp")).toEqual(["dev:cp"]);
-		expect(pi.commandNames).toEqual(["dev:changes", "dev:autobranch", "dev:submit", "dev:land", "dev:land-stack", "dev:preview-url", "dev:cp"]);
+		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual(["dev:submit"]);
+		expect(pi.commandNames).toEqual(["dev:changes", "dev:autobranch", "dev:land", "dev:land-stack", "dev:preview-url", "dev:cp", "dev:submit"]);
 	});
 });

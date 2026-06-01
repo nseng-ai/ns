@@ -5,6 +5,14 @@ import type { ProjectConfigReadResult, VercelProjectConfigStore } from "../../sr
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "../../src/gateways/vercel.ts";
 import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "../../src/pending-worktree.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "../../src/result.ts";
+import type {
+	CurrentPrVerificationResult,
+	SubmitCommandOutput,
+	SubmitGateway,
+	SubmitPreflightResult,
+	SubmitRestackResult,
+	SubmitRunResult,
+} from "../../src/submit.ts";
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "../../src/text-generation.ts";
 
 export type FakeCurrentBranchState = string | { kind: "detached" } | { kind: "failure"; error?: ErrorInfo };
@@ -130,6 +138,83 @@ export class InMemoryCheckpointGateway implements CheckpointGateway {
 	async createCommitWithPreparedMessage(params: { cwd: string; message: string }): Promise<{ summary: string } | { error: string }> {
 		this.commitLog.push({ cwd: params.cwd, message: params.message });
 		return this.commitResult;
+	}
+}
+
+export type InMemorySubmitGatewayState = {
+	preflight?: SubmitPreflightResult;
+	restack?: SubmitRestackResult;
+	submit?: SubmitRunResult;
+	currentPr?: CurrentPrVerificationResult;
+};
+
+export type SubmitGatewayCall = {
+	cwd: string;
+};
+
+export class InMemorySubmitGateway implements SubmitGateway {
+	private readonly preflightResult: SubmitPreflightResult;
+	private readonly restackResult: SubmitRestackResult;
+	private readonly submitResult: SubmitRunResult;
+	private readonly currentPrResult: CurrentPrVerificationResult;
+	private readonly preflightLog: SubmitGatewayCall[] = [];
+	private readonly restackLog: SubmitGatewayCall[] = [];
+	private readonly submitLog: SubmitGatewayCall[] = [];
+	private readonly currentPrLog: SubmitGatewayCall[] = [];
+
+	constructor(state: InMemorySubmitGatewayState = {}) {
+		this.preflightResult = copySubmitPreflightResult(state.preflight ?? { kind: "ready", output: defaultSubmitOutput() });
+		this.restackResult = copySubmitRestackResult(state.restack ?? { kind: "success", output: defaultSubmitOutput("restacked\n") });
+		this.submitResult = copySubmitRunResult(
+			state.submit ?? {
+				kind: "success",
+				output: defaultSubmitOutput("Created PR https://github.com/acme/project/pull/123\n"),
+				prLinks: [{ label: "#123", url: "https://github.com/acme/project/pull/123" }],
+			},
+		);
+		this.currentPrResult = copyCurrentPrVerificationResult(
+			state.currentPr ?? {
+				kind: "present",
+				output: defaultSubmitOutput("https://github.com/acme/project/pull/123\n"),
+				prLinks: [{ label: "#123", url: "https://github.com/acme/project/pull/123" }],
+			},
+		);
+	}
+
+	get checkSubmitReadinessCalls(): readonly SubmitGatewayCall[] {
+		return this.preflightLog.map((call) => ({ ...call }));
+	}
+
+	get restackCurrentStackCalls(): readonly SubmitGatewayCall[] {
+		return this.restackLog.map((call) => ({ ...call }));
+	}
+
+	get submitCurrentStackCalls(): readonly SubmitGatewayCall[] {
+		return this.submitLog.map((call) => ({ ...call }));
+	}
+
+	get verifyCurrentPrCalls(): readonly SubmitGatewayCall[] {
+		return this.currentPrLog.map((call) => ({ ...call }));
+	}
+
+	async checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult> {
+		this.preflightLog.push({ cwd: params.cwd });
+		return copySubmitPreflightResult(this.preflightResult);
+	}
+
+	async restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult> {
+		this.restackLog.push({ cwd: params.cwd });
+		return copySubmitRestackResult(this.restackResult);
+	}
+
+	async submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult> {
+		this.submitLog.push({ cwd: params.cwd });
+		return copySubmitRunResult(this.submitResult);
+	}
+
+	async verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult> {
+		this.currentPrLog.push({ cwd: params.cwd });
+		return copyCurrentPrVerificationResult(this.currentPrResult);
 	}
 }
 
@@ -280,6 +365,7 @@ export type InMemoryContextState = {
 	vercel?: InMemoryVercelDeploymentGatewayState;
 	projectConfig?: ProjectConfigReadResult;
 	checkpoint?: InMemoryCheckpointGatewayState;
+	submit?: InMemorySubmitGatewayState;
 	textGeneration?: InMemoryTextGenerationGatewayState;
 };
 
@@ -289,21 +375,80 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	vercel: InMemoryVercelDeploymentGateway;
 	projectConfig: InMemoryVercelProjectConfigStore;
 	checkpoint: InMemoryCheckpointGateway;
+	submit: InMemorySubmitGateway;
 	textGeneration: InMemoryTextGenerationGateway;
 } {
 	const git = new InMemoryGitGateway(state.git);
 	const vercel = new InMemoryVercelDeploymentGateway(state.vercel);
 	const projectConfig = new InMemoryVercelProjectConfigStore(state.projectConfig);
 	const checkpoint = new InMemoryCheckpointGateway(state.checkpoint);
+	const submit = new InMemorySubmitGateway(state.submit);
 	const textGeneration = new InMemoryTextGenerationGateway(state.textGeneration);
 	return {
-		context: { git, vercel, projectConfig, checkpoint, textGeneration },
+		context: { git, vercel, projectConfig, checkpoint, submit, textGeneration },
 		git,
 		vercel,
 		projectConfig,
 		checkpoint,
+		submit,
 		textGeneration,
 	};
+}
+
+function defaultSubmitOutput(stdout = "", stderr = "", exitCode = 0): SubmitCommandOutput {
+	return { stdout, stderr, exitCode };
+}
+
+function copySubmitOutput(output: SubmitCommandOutput): SubmitCommandOutput {
+	return {
+		stdout: output.stdout,
+		stderr: output.stderr,
+		exitCode: output.exitCode,
+		...(output.startupError !== undefined ? { startupError: output.startupError } : {}),
+		...(output.killed === true ? { killed: true } : {}),
+	};
+}
+
+function copySubmitPreflightResult(result: SubmitPreflightResult): SubmitPreflightResult {
+	if (result.kind === "ready") {
+		return { kind: "ready", output: copySubmitOutput(result.output) };
+	}
+	if (result.kind === "restack_required") {
+		return { kind: "restack_required", output: copySubmitOutput(result.output) };
+	}
+	return { kind: "failed", output: copySubmitOutput(result.output) };
+}
+
+function copySubmitRestackResult(result: SubmitRestackResult): SubmitRestackResult {
+	if (result.kind === "success") {
+		return { kind: "success", output: copySubmitOutput(result.output) };
+	}
+	if (result.kind === "conflict") {
+		return { kind: "conflict", output: copySubmitOutput(result.output), conflictedFiles: [...result.conflictedFiles] };
+	}
+	return { kind: "failed", output: copySubmitOutput(result.output) };
+}
+
+function copySubmitRunResult(result: SubmitRunResult): SubmitRunResult {
+	if (result.kind === "failed") {
+		return { kind: "failed", output: copySubmitOutput(result.output) };
+	}
+	return {
+		kind: "success",
+		output: copySubmitOutput(result.output),
+		prLinks: result.prLinks.map((link) => ({ ...link })),
+		...(result.semanticFailure !== undefined ? { semanticFailure: result.semanticFailure } : {}),
+	};
+}
+
+function copyCurrentPrVerificationResult(result: CurrentPrVerificationResult): CurrentPrVerificationResult {
+	if (result.kind === "present") {
+		return { kind: "present", output: copySubmitOutput(result.output), prLinks: result.prLinks.map((link) => ({ ...link })) };
+	}
+	if (result.kind === "no_current_pr") {
+		return { kind: "no_current_pr", output: copySubmitOutput(result.output), message: result.message };
+	}
+	return { kind: "failed", output: copySubmitOutput(result.output), message: result.message };
 }
 
 function defaultPendingWorktreeSnapshot(): PendingWorktreeSnapshot {

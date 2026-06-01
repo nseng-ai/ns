@@ -1,0 +1,591 @@
+import { runCommand, type CommandResult as RunnerCommandResult, type CommandRunner } from "./command-runner.ts";
+
+const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
+const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
+const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
+const CURRENT_PR_ARGS = ["pr"] as const;
+const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
+const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
+const SUBMIT_TIMEOUT_MS = 600_000;
+const RESTACK_TIMEOUT_MS = 600_000;
+const CURRENT_PR_TIMEOUT_MS = 60_000;
+const GIT_CHECK_TIMEOUT_MS = 30_000;
+const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
+const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
+
+export type SubmitCommandOutput = {
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+	startupError?: string;
+	killed?: boolean;
+};
+
+export type SubmitPrLink = {
+	label: string;
+	url: string;
+};
+
+export type SubmitPreflightResult =
+	| {
+			kind: "ready";
+			output: SubmitCommandOutput;
+	  }
+	| {
+			kind: "restack_required";
+			output: SubmitCommandOutput;
+	  }
+	| {
+			kind: "failed";
+			output: SubmitCommandOutput;
+	  };
+
+export type SubmitRestackResult =
+	| {
+			kind: "success";
+			output: SubmitCommandOutput;
+	  }
+	| {
+			kind: "conflict";
+			output: SubmitCommandOutput;
+			conflictedFiles: string[];
+	  }
+	| {
+			kind: "failed";
+			output: SubmitCommandOutput;
+	  };
+
+export type SubmitRunResult =
+	| {
+			kind: "success";
+			output: SubmitCommandOutput;
+			prLinks: SubmitPrLink[];
+			semanticFailure?: string;
+	  }
+	| {
+			kind: "failed";
+			output: SubmitCommandOutput;
+	  };
+
+export type CurrentPrVerificationResult =
+	| {
+			kind: "present";
+			output: SubmitCommandOutput;
+			prLinks: SubmitPrLink[];
+	  }
+	| {
+			kind: "no_current_pr";
+			output: SubmitCommandOutput;
+			message: string;
+	  }
+	| {
+			kind: "failed";
+			output: SubmitCommandOutput;
+			message: string;
+	  };
+
+export type SubmitGateway = {
+	checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult>;
+	restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult>;
+	submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult>;
+	verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult>;
+};
+
+export type SubmitCommandResult = {
+	exitCode: number;
+	stdout: string;
+	stderr: string;
+};
+
+export type RunSubmitCommandOptions = {
+	cwd: string;
+	gateway: SubmitGateway;
+	restack: boolean;
+};
+
+export class RealSubmitGateway implements SubmitGateway {
+	private readonly runner: CommandRunner;
+
+	constructor(runner: CommandRunner = runCommand) {
+		this.runner = runner;
+	}
+
+	async checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult> {
+		const output = await this.runGt([...SUBMIT_DRY_RUN_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS);
+		if (isSuccessfulOutput(output)) {
+			return { kind: "ready", output };
+		}
+		if (!output.startupError && !output.killed && detectRestackNeeded(joinOutput(output))) {
+			return { kind: "restack_required", output };
+		}
+		return { kind: "failed", output };
+	}
+
+	async restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult> {
+		const output = await this.runGt([...RESTACK_ARGS], params.cwd, RESTACK_TIMEOUT_MS);
+		if (isSuccessfulOutput(output)) {
+			return { kind: "success", output };
+		}
+
+		const conflictedFiles = await this.getConflictedFiles(params.cwd);
+		if (detectRestackMergeConflict(joinOutput(output), conflictedFiles)) {
+			return { kind: "conflict", output, conflictedFiles };
+		}
+
+		return { kind: "failed", output };
+	}
+
+	async submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult> {
+		const output = await this.runGt([...SUBMIT_ARGS], params.cwd, SUBMIT_TIMEOUT_MS);
+		if (!isSuccessfulOutput(output)) {
+			return { kind: "failed", output };
+		}
+
+		const semanticFailure = detectSubmitSemanticFailure(joinOutput(output));
+		const result: SubmitRunResult = {
+			kind: "success",
+			output,
+			prLinks: extractPrLinks(joinOutput(output)),
+		};
+		if (semanticFailure !== undefined) {
+			result.semanticFailure = semanticFailure;
+		}
+		return result;
+	}
+
+	async verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult> {
+		const output = await this.runGt([...CURRENT_PR_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS);
+		if (output.startupError) {
+			return {
+				kind: "failed",
+				output,
+				message: `gt submit exited 0, but current PR verification could not start: ${output.startupError}`,
+			};
+		}
+		if (output.killed) {
+			return {
+				kind: "failed",
+				output,
+				message: `gt submit exited 0, but current PR verification timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s.`,
+			};
+		}
+		if (output.exitCode !== 0) {
+			if (/No PR found/i.test(stripAnsi(joinOutput(output)))) {
+				return {
+					kind: "no_current_pr",
+					output,
+					message: "gt submit exited 0, but the current branch still has no PR.",
+				};
+			}
+			return {
+				kind: "failed",
+				output,
+				message: `gt submit exited 0, but current PR verification failed with exit code ${output.exitCode}.`,
+			};
+		}
+
+		return { kind: "present", output, prLinks: extractPrLinks(joinOutput(output)) };
+	}
+
+	private async getConflictedFiles(cwd: string): Promise<string[]> {
+		const unmerged = await this.runGit([...GIT_UNMERGED_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
+		const status = await this.runGit([...GIT_STATUS_PORCELAIN_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
+
+		return uniqueNonEmpty([...parseConflictedFiles(unmerged.stdout), ...parsePorcelainConflictedFiles(status.stdout)]);
+	}
+
+	private async runGt(args: string[], cwd: string, timeoutMs: number): Promise<SubmitCommandOutput> {
+		return toSubmitCommandOutput(await this.runner("gt", args, { cwd, timeoutMs }));
+	}
+
+	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<SubmitCommandOutput> {
+		return toSubmitCommandOutput(await this.runner("git", args, { cwd, timeoutMs }));
+	}
+}
+
+export async function runSubmitCommand(options: RunSubmitCommandOptions): Promise<SubmitCommandResult> {
+	const readiness = await options.gateway.checkSubmitReadiness({ cwd: options.cwd });
+	if (readiness.kind === "failed") {
+		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output));
+	}
+	if (readiness.kind === "restack_required") {
+		if (!options.restack) {
+			return failure(1, formatRestackRequiredOutput(readiness.output));
+		}
+
+		const restack = await options.gateway.restackCurrentStack({ cwd: options.cwd });
+		if (restack.kind === "conflict") {
+			return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
+		}
+		if (restack.kind === "failed") {
+			return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output));
+		}
+	}
+
+	const submitted = await options.gateway.submitCurrentStack({ cwd: options.cwd });
+	if (submitted.kind === "failed") {
+		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output));
+	}
+
+	const currentPr = await options.gateway.verifyCurrentPr({ cwd: options.cwd });
+	if (submitted.semanticFailure !== undefined || currentPr.kind !== "present") {
+		return failure(
+			1,
+			formatPostSubmitFailureOutput({
+				submitted,
+				currentPr,
+			}),
+		);
+	}
+
+	const prLinks = mergePrLinks(submitted.prLinks, currentPr.prLinks);
+	const successText = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
+	return success(successText);
+}
+
+function toSubmitCommandOutput(result: RunnerCommandResult): SubmitCommandOutput {
+	return {
+		stdout: result.stdout,
+		stderr: result.stderr,
+		exitCode: result.exitCode,
+		...(result.startupError !== undefined ? { startupError: result.startupError } : {}),
+		...(result.killed === true ? { killed: true } : {}),
+	};
+}
+
+function isSuccessfulOutput(output: SubmitCommandOutput): boolean {
+	return output.exitCode === 0 && !output.killed && output.startupError === undefined;
+}
+
+function normalizedFailureExitCode(output: SubmitCommandOutput): number {
+	if (output.startupError !== undefined) return 2;
+	if (output.killed === true) return 124;
+	return output.exitCode === 0 ? 1 : output.exitCode;
+}
+
+function success(stdout: string): SubmitCommandResult {
+	return {
+		exitCode: 0,
+		stdout: stdout.endsWith("\n") ? stdout : `${stdout}\n`,
+		stderr: "",
+	};
+}
+
+function failure(exitCode: number, stderr: string): SubmitCommandResult {
+	return {
+		exitCode,
+		stdout: "",
+		stderr: stderr.endsWith("\n") ? stderr : `${stderr}\n`,
+	};
+}
+
+function joinOutput(output: Pick<SubmitCommandOutput, "stdout" | "stderr">): string {
+	return `${output.stdout}\n${output.stderr}`;
+}
+
+function formatSubmitSuccessText(prLinks: SubmitPrLink[]): string {
+	return ["gt submit succeeded", "", "PRs:", ...prLinks.map(formatPrLinkTextRow)].join("\n");
+}
+
+function formatPrLinkTextRow(link: SubmitPrLink): string {
+	if (link.label === link.url) return `• ${link.url}`;
+	return `• ${link.label} ${link.url}`;
+}
+
+function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
+	const lines = ["gt submit succeeded, but no PR URLs were detected in output."];
+	const outputTail = formatSubmitOutputTail(stdout, stderr);
+	if (outputTail) {
+		lines.push("", "Recent output:", outputTail);
+	}
+	return lines.join("\n");
+}
+
+function formatSubmitOutputTail(stdout: string, stderr: string): string {
+	const output = stripAnsi(`${stdout}\n${stderr}`).replace(/\r/g, "\n").trimEnd();
+	if (!output) return "";
+
+	const lines = output.split("\n");
+	const tailLines = lines.slice(-SUCCESS_OUTPUT_TAIL_MAX_LINES);
+	let tail = tailLines.join("\n");
+	if (tail.length > SUCCESS_OUTPUT_TAIL_MAX_CHARS) {
+		tail = `…${tail.slice(-SUCCESS_OUTPUT_TAIL_MAX_CHARS)}`;
+	}
+	if (lines.length > tailLines.length) {
+		return `… ${lines.length - tailLines.length} earlier line(s) omitted\n${tail}`;
+	}
+	return tail;
+}
+
+function formatPreflightFailureOutput(output: SubmitCommandOutput): string {
+	const reason = output.startupError
+		? `gt submit --dry-run could not start: ${output.startupError}. Submission was not attempted.`
+		: output.killed
+			? `gt submit --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `gt submit -nps --ai --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
+
+	return [
+		reason,
+		"",
+		"$ gt submit -nps --ai --dry-run",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
+	return [
+		"Graphite requires a restack before submission.",
+		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to let asdl-dev run `gt restack --no-interactive`.",
+		"Submission was not attempted.",
+		"",
+		"$ gt submit -nps --ai --dry-run",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackConflictOutput(output: SubmitCommandOutput, conflictedFiles: string[]): string {
+	const fileLines = conflictedFiles.length > 0 ? ["Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`), ""] : [];
+
+	return [
+		"`gt restack` hit merge conflicts. Submission was not attempted.",
+		"",
+		...fileLines,
+		"Resolve the conflicts, continue or abort the rebase as appropriate, then run `asdl-dev submit` again.",
+		"",
+		"$ gt restack --no-interactive",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackFailureOutput(output: SubmitCommandOutput): string {
+	const reason = output.startupError
+		? `gt restack could not start: ${output.startupError}. Submission was not attempted.`
+		: output.killed
+			? `gt restack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `gt restack --no-interactive failed with exit code ${output.exitCode}. Submission was not attempted.`;
+
+	return [
+		reason,
+		"",
+		"$ gt restack --no-interactive",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatSubmitFailureOutput(output: SubmitCommandOutput): string {
+	const reason = output.startupError ?? (output.killed ? "gt submit timed out and was killed." : `gt submit -nps --ai failed with exit code ${output.exitCode}.`);
+	return [
+		reason,
+		"",
+		"$ gt submit -nps --ai",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatPostSubmitFailureOutput({
+	submitted,
+	currentPr,
+}: {
+	submitted: Extract<SubmitRunResult, { kind: "success" }>;
+	currentPr: CurrentPrVerificationResult;
+}): string {
+	return [
+		formatPostSubmitFailureReason(submitted.semanticFailure, currentPr),
+		"",
+		"$ gt submit -nps --ai",
+		"",
+		formatOutputSection("stdout", submitted.output.stdout),
+		formatOutputSection("stderr", submitted.output.stderr),
+		formatBufferedCommandSection("$ gt pr", currentPr.output, CURRENT_PR_TIMEOUT_MS),
+		...(currentPr.kind === "no_current_pr" ? ["", ...formatNoCurrentPrRecoveryGuidance()] : []),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatPostSubmitFailureReason(semanticFailure: string | undefined, currentPr: CurrentPrVerificationResult): string {
+	const currentPrMessage = currentPr.kind === "present" ? undefined : currentPr.message;
+	return [semanticFailure, currentPrMessage].filter((line): line is string => Boolean(line)).join("\n");
+}
+
+function formatNoCurrentPrRecoveryGuidance(): string[] {
+	return [
+		"No checkpoint commit was created because `asdl-dev submit` is non-interactive.",
+		"Run `asdl-dev cp` to checkpoint outstanding changes, then run `asdl-dev submit` again.",
+	];
+}
+
+function formatBufferedCommandSection(commandDisplay: string, output: SubmitCommandOutput, timeoutMs: number): string {
+	const status = output.startupError
+		? `startup error: ${output.startupError}`
+		: output.killed
+			? `timed out after ${timeoutMs / 1000}s`
+			: `exit code ${output.exitCode}`;
+	return [
+		`${commandDisplay} (${status})`,
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	].join("\n");
+}
+
+function formatOutputSection(name: "stdout" | "stderr", output: string): string {
+	const body = output.length > 0 ? output.replace(/\r/g, "\n") : "(empty)\n";
+	return `----- ${name} -----\n${body}${body.endsWith("\n") ? "" : "\n"}`;
+}
+
+function mergePrLinks(first: readonly SubmitPrLink[], second: readonly SubmitPrLink[]): SubmitPrLink[] {
+	const links: SubmitPrLink[] = [];
+	const seenUrls = new Set<string>();
+	for (const link of [...first, ...second]) {
+		if (seenUrls.has(link.url)) continue;
+		seenUrls.add(link.url);
+		links.push({ ...link });
+	}
+	return links;
+}
+
+function extractPrLinks(output: string): SubmitPrLink[] {
+	const strippedOutput = stripAnsi(output);
+	const links: SubmitPrLink[] = [];
+	const seenUrls = new Set<string>();
+
+	for (const match of strippedOutput.matchAll(/https?:\/\/[^\s<>"'\u0060]+/g)) {
+		const rawUrl = match[0];
+		const url = trimTerminalPunctuation(rawUrl);
+		if (seenUrls.has(url)) continue;
+
+		const link = toPrLink(url);
+		if (!link) continue;
+
+		seenUrls.add(url);
+		links.push(link);
+	}
+
+	return links;
+}
+
+function toPrLink(url: string): SubmitPrLink | undefined {
+	const prNumber = prNumberFromUrl(url);
+	if (prNumber) return { label: `#${prNumber}`, url };
+	if (isPotentialPrUrl(url)) return { label: url, url };
+	return undefined;
+}
+
+function prNumberFromUrl(url: string): string | undefined {
+	const graphiteMatch = url.match(/^https:\/\/app\.graphite\.com\/github\/pr\/[^\/\s?#]+\/[^\/\s?#]+\/(\d+)(?:[\/?#].*)?$/);
+	if (graphiteMatch?.[1]) return graphiteMatch[1];
+
+	const githubMatch = url.match(/^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\/(\d+)(?:[\/?#].*)?$/);
+	return githubMatch?.[1];
+}
+
+function isPotentialPrUrl(url: string): boolean {
+	return (
+		/^https:\/\/app\.graphite\.com\/github\/pr\//.test(url) || /^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\//.test(url)
+	);
+}
+
+function stripAnsi(text: string): string {
+	return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, "");
+}
+
+function trimTerminalPunctuation(url: string): string {
+	let trimmed = url;
+	while (/[),.;:!?}\]]$/.test(trimmed)) {
+		trimmed = trimmed.slice(0, -1);
+	}
+	return trimmed;
+}
+
+function detectRestackNeeded(output: string): boolean {
+	const strippedOutput = stripAnsi(output).replace(/\r/g, "\n");
+	const mentionsRestack = /\brestack(?:ed|ing)?\b/i.test(strippedOutput);
+	const requiresRestackBeforeSubmit =
+		/before submit(?:ting|sion)?/i.test(strippedOutput) ||
+		/need(?:s|ed)? to be restacked/i.test(strippedOutput) ||
+		/must be restacked/i.test(strippedOutput) ||
+		/requires? (?:a )?restack/i.test(strippedOutput) ||
+		/restack (?:is )?required/i.test(strippedOutput);
+
+	return mentionsRestack && requiresRestackBeforeSubmit;
+}
+
+function detectRestackMergeConflict(output: string, conflictedFiles: string[]): boolean {
+	const strippedOutput = stripAnsi(output);
+	return (
+		conflictedFiles.length > 0 ||
+		/CONFLICT \(/i.test(strippedOutput) ||
+		/merge conflict/i.test(strippedOutput) ||
+		/fix conflicts/i.test(strippedOutput) ||
+		/resolve conflicts/i.test(strippedOutput)
+	);
+}
+
+function parseConflictedFiles(output: string): string[] {
+	return uniqueNonEmpty(stripAnsi(output).replace(/\r/g, "\n").split("\n"));
+}
+
+function parsePorcelainConflictedFiles(output: string): string[] {
+	const conflictStatuses = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
+	const files: string[] = [];
+
+	for (const line of stripAnsi(output).replace(/\r/g, "\n").split("\n")) {
+		if (line.length < 4) continue;
+
+		const status = line.slice(0, 2);
+		if (!conflictStatuses.has(status)) continue;
+
+		files.push(line.slice(3));
+	}
+
+	return uniqueNonEmpty(files);
+}
+
+function uniqueNonEmpty(values: string[]): string[] {
+	const seen = new Set<string>();
+	const unique: string[] = [];
+
+	for (const value of values) {
+		const trimmed = value.trim();
+		if (!trimmed || seen.has(trimmed)) continue;
+
+		seen.add(trimmed);
+		unique.push(trimmed);
+	}
+
+	return unique;
+}
+
+function detectSubmitSemanticFailure(output: string): string | undefined {
+	const strippedOutput = stripAnsi(output).replace(/\r/g, "\n");
+	const emptyBranchWarning = /This branch does not introduce any changes:/i.test(strippedOutput);
+	const skippedSubmissionWarning =
+		/will not be submitted/i.test(strippedOutput) || /GitHub does not allow empty PRs/i.test(strippedOutput);
+
+	if (emptyBranchWarning && skippedSubmissionWarning) {
+		return "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty.";
+	}
+
+	return undefined;
+}
