@@ -8,6 +8,7 @@ from roaster.review_definition import parse_review_definition
 
 _REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
+_TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
 
 
 def test_parse_real_dignified_python_review() -> None:
@@ -15,6 +16,16 @@ def test_parse_real_dignified_python_review() -> None:
     definition = parse_review_definition(source, name="dignified-python")
 
     assert definition.name == "dignified-python"
+    assert definition.description.strip()
+    assert definition.default_model == "haiku"
+    assert definition.instructions.strip()
+
+
+def test_parse_real_typescript_style_review() -> None:
+    source = _TYPESCRIPT_STYLE_REVIEW.read_text(encoding="utf-8")
+    definition = parse_review_definition(source, name="typescript-style")
+
+    assert definition.name == "typescript-style"
     assert definition.description.strip()
     assert definition.default_model == "haiku"
     assert definition.instructions.strip()
