@@ -12,6 +12,7 @@ import worktreeStatusExtension, {
 	renderWorktreeStatusMessage,
 	type ExecResult,
 	type ExtensionAPI,
+	type ExtensionContext,
 	type StatusTheme,
 } from "../src/worktree-status.ts";
 
@@ -90,6 +91,8 @@ class OrderlessFakePi {
 }
 
 type RegisteredEventName = "session_start" | "tool_result" | "agent_end" | "session_shutdown";
+type SessionStartHandler = (event: unknown, ctx: ExtensionContext) => Promise<void> | void;
+type SessionShutdownHandler = () => Promise<void> | void;
 
 class RegistrationFakePi {
 	readonly commands: string[] = [];
@@ -110,6 +113,16 @@ class RegistrationFakePi {
 
 	registerMessageRenderer(customType: string): void {
 		this.renderers.push(customType);
+	}
+}
+
+class LifecycleFakePi extends OrderlessFakePi {
+	sessionStart: SessionStartHandler | undefined;
+	sessionShutdown: SessionShutdownHandler | undefined;
+
+	on(event: RegisteredEventName, handler: unknown): void {
+		if (event === "session_start") this.sessionStart = handler as SessionStartHandler;
+		if (event === "session_shutdown") this.sessionShutdown = handler as SessionShutdownHandler;
 	}
 }
 
@@ -204,6 +217,46 @@ describe("worktree status extension registration", () => {
 		expect(pi.commands).toEqual([]);
 		expect(pi.renderers).toEqual(["worktree-status"]);
 		expect(pi.events).toEqual(["session_start", "tool_result", "agent_end", "session_shutdown"]);
+	});
+
+	test("sets brmem and gt footer status on separate lines", async () => {
+		const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
+		try {
+			const pi = new LifecycleFakePi([
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: {
+							entries: [{ namespace: "brmem-plans", key: "model-only-checkpoint-message-text-generation.md" }],
+						},
+					}),
+				}),
+				...basicGtScript(),
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[brmem] (brmem-plans: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)",
+			);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 });
 
