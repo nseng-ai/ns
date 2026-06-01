@@ -65,6 +65,11 @@ type ParserState = RunnerSubagentProgress["state"];
 
 type JsonRecord = Record<string, unknown>;
 
+interface JsonEvent {
+	type: string;
+	[key: string]: unknown;
+}
+
 export class RunnerSubagentJsonEventParser {
 	private readonly title: string | undefined;
 	private readonly now: () => number;
@@ -166,15 +171,15 @@ export class RunnerSubagentJsonEventParser {
 			return;
 		}
 
-		if (!isRecord(event) || typeof event.type !== "string") {
+		if (!isJsonEvent(event)) {
 			this.fail(line, new Error("JSONL event must be an object with a string type."));
 			return;
 		}
 
-		this.processEvent(event as JsonRecord & { type: string });
+		this.processEvent(event);
 	}
 
-	private processEvent(event: JsonRecord & { type: string }): void {
+	private processEvent(event: JsonEvent): void {
 		switch (event.type) {
 			case "session":
 				this.captureSessionHeader(event);
@@ -234,7 +239,7 @@ export class RunnerSubagentJsonEventParser {
 		}
 	}
 
-	private captureSessionHeader(event: JsonRecord & { type: string }): void {
+	private captureSessionHeader(event: JsonEvent): void {
 		const header: RunnerSubagentJsonSessionHeader = { type: "session" };
 		for (const [key, value] of Object.entries(event)) {
 			header[key] = value;
@@ -416,6 +421,10 @@ export function assistantTextFromContent(content: unknown): string | undefined {
 
 function chunkToString(chunk: string | Uint8Array): string {
 	return typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+}
+
+function isJsonEvent(value: unknown): value is JsonEvent {
+	return isRecord(value) && typeof value.type === "string";
 }
 
 function isRecord(value: unknown): value is JsonRecord {

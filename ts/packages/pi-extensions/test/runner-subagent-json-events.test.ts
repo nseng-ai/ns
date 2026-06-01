@@ -180,6 +180,19 @@ describe("runner subagent JSON event parser", () => {
 		expect(snapshot.progress.state).toBe("stopped");
 	});
 
+	test("treats parsed JSON values without a string event type as malformed JSONL", () => {
+		for (const value of [{}, { type: 123 }, []]) {
+			const parser = createRunnerSubagentJsonEventParser();
+
+			parser.pushChunk(jsonLine(value));
+
+			const snapshot = parser.getSnapshot();
+			expect(snapshot.error?.name).toBe("RunnerSubagentJsonEventParserError");
+			expect(snapshot.error?.message).toContain("Malformed runner subagent Pi JSONL output");
+			expect(snapshot.progress.state).toBe("stopped");
+		}
+	});
+
 	test("detects terminal tool calls mixed with sibling tools in the same turn", () => {
 		const parser = createRunnerSubagentJsonEventParser({ terminalToolNames: ["complete_runner_subagent"] });
 
