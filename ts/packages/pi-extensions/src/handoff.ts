@@ -50,13 +50,13 @@ Confirm the current branch before writing unless the user explicitly names a bra
 
 type NotifyLevel = "info" | "warning" | "error";
 
-type AutocompleteItem = {
+interface AutocompleteItem {
 	value: string;
 	label?: string;
 	description?: string;
-};
+}
 
-type CommandInfo = {
+interface CommandInfo {
 	name: string;
 	source: string;
 	sourceInfo: {
@@ -66,28 +66,28 @@ type CommandInfo = {
 		origin?: string;
 		baseDir?: string;
 	};
-};
+}
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: string;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-type RenderTheme = {
+interface RenderTheme {
 	fg(color: string, text: string): string;
 	bold?(text: string): string;
-};
+}
 
-type RenderComponent = {
+interface RenderComponent {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
-export type CommandContext = {
+export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -97,9 +97,9 @@ export type CommandContext = {
 		setStatus?(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -113,45 +113,45 @@ export type ExtensionAPI = {
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string): void;
-};
+}
 
-export type PickupHandoffArgs = {
+export interface PickupHandoffArgs {
 	help: boolean;
 	branch?: string;
 	selector: string[];
-};
+}
 
-export type ListHandoffArgs = {
+export interface ListHandoffArgs {
 	help: boolean;
 	branch?: string;
 	allBranches: boolean;
-};
+}
 
-export type HandoffListItem = {
+export interface HandoffListItem {
 	branch: string;
 	key: string;
 	slug: string;
-};
+}
 
-export type HandoffListMessageItem = HandoffListItem & {
+export interface HandoffListMessageItem extends HandoffListItem {
 	preview: string;
-};
+}
 
 export type HandoffListMode = "branch" | "all-branches";
 
-export type HandoffListMessageDetails = {
+export interface HandoffListMessageDetails {
 	mode: HandoffListMode;
 	branch?: string;
 	items: HandoffListMessageItem[];
-};
+}
 
-export type HandoffListBranchGroup = {
+export interface HandoffListBranchGroup {
 	branch: string;
 	items: Array<{
 		index: number;
 		item: HandoffListMessageItem;
 	}>;
-};
+}
 
 type PreviewedHandoffListItem = HandoffListMessageItem;
 

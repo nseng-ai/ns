@@ -32,63 +32,66 @@ const BLANK_FREEFORM_MESSAGE =
 
 type NotifyLevel = "info" | "warning" | "error";
 
-type TextContent = { type: "text"; text: string };
+interface TextContent {
+	type: "text";
+	text: string;
+}
 
-export type ToolResult<Details = unknown> = {
+export interface ToolResult<Details = unknown> {
 	content: TextContent[];
 	details: Details;
 	terminate?: boolean;
-};
+}
 
-export type GrillAskOption = {
+export interface GrillAskOption {
 	value: string;
 	label: string;
 	description?: string;
-};
+}
 
-export type GrillAskRecommendation = {
+export interface GrillAskRecommendation {
 	answer: string;
 	rationale?: string;
 	optionValue?: string;
-};
+}
 
-export type GrillAskInput = {
+export interface GrillAskInput {
 	question: string;
 	context?: string;
 	recommended: GrillAskRecommendation;
 	options: GrillAskOption[];
 	allowFreeform?: boolean;
 	allowEnd?: boolean;
-};
+}
 
-export type NormalizedGrillAskInput = {
+export interface NormalizedGrillAskInput {
 	question: string;
 	context?: string;
 	recommended: GrillAskRecommendation;
 	options: GrillAskOption[];
 	allowFreeform: boolean;
 	allowEnd: boolean;
-};
+}
 
 export type GrillAskUiRunner = (
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
 ) => Promise<GrillAskOutcome | undefined>;
 
-export type GrillAskExecutionOptions = {
+export interface GrillAskExecutionOptions {
 	uiRunner?: GrillAskUiRunner;
 	signal?: AbortSignal | undefined;
-};
+}
 
-export type GrillAskCustomComponent = {
+export interface GrillAskCustomComponent {
 	render(width: number): string[];
 	handleInput?(data: string): void;
 	invalidate(): void;
 	focused?: boolean;
 	dispose?(): void;
-};
+}
 
-export type GrillAskToolContext = {
+export interface GrillAskToolContext {
 	hasUI: boolean;
 	ui: {
 		select?(title: string, options: string[]): Promise<string | undefined>;
@@ -98,18 +101,18 @@ export type GrillAskToolContext = {
 			options?: unknown,
 		): Promise<T>;
 	};
-};
+}
 
-export type GrillUiCommandContext = {
+export interface GrillUiCommandContext {
 	hasUI: boolean;
 	ui: {
 		editor?(title: string, initialText?: string): Promise<string | undefined>;
 		notify?(message: string, level?: NotifyLevel): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ToolDefinition = {
+export interface ToolDefinition {
 	name: string;
 	label: string;
 	description: string;
@@ -123,9 +126,9 @@ export type ToolDefinition = {
 		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
 		ctx: GrillAskToolContext,
 	): Promise<ToolResult<GrillAskDetails>> | ToolResult<GrillAskDetails>;
-};
+}
 
-export type ExtensionAPI = SkillExpansionHost & {
+export interface ExtensionAPI extends SkillExpansionHost {
 	registerCommand(
 		name: string,
 		options: {
@@ -135,7 +138,7 @@ export type ExtensionAPI = SkillExpansionHost & {
 	): void;
 	registerTool(definition: ToolDefinition): void;
 	sendUserMessage(content: string): void;
-};
+}
 
 export const FALLBACK_GRILL_UI_SKILL_BLOCK = `<skill name="${GRILL_UI_SKILL_NAME}" fallback="true">
 Interview the user relentlessly about every aspect of the plan or design until reaching shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. For each question, provide your recommended answer.

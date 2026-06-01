@@ -4,8 +4,8 @@
 
 - [x] Remove hard language-style violations across source and tests.
       Evidence: constructor parameter properties were replaced with explicit fields and assignments in the targeted source and test classes, the test-only `any` in runner-subagent fake process listeners was removed, focused scans found no remaining constructor parameter properties or explicit type-level `any` in `ts/packages/pi-extensions`, and the broad emit-time construct scan reports only ambient declarations or text/identifier false positives. Validation: `bun run --cwd ts/packages/pi-extensions check`, `bun run --cwd ts/packages/pi-extensions test`, `just ts-check`, and `just ts-test` passed.
-- [ ] Convert existing object-shape and contract aliases to interfaces while preserving union and function aliases as `type`.
-      Evidence: public and internal object contracts in the TypeScript packages follow the interface/type split, with any compatibility aliases documented intentionally. This may be a large mechanical diff, but it should remain one simple, human-legible decision.
+- [x] Convert existing object-shape and contract aliases to interfaces while preserving union and function aliases as `type`.
+      Evidence: the pi-extensions AST inventory moved from 268 direct object-literal aliases to 0 across `src` and `test`; 19 simple object-contract intersections were converted to `interface extends`; the 4 remaining intersections are intentional utility/union compositions (`DevExtensionAPI`, `RunnerSubagentOptions`, and two test `SentMessage` helpers); and the fast scan only reports the intentionally preserved `RunnerSubagentOptions` object-base-plus-union alias. Validation: `bun run --cwd ts/packages/pi-extensions check`, `bun run --cwd ts/packages/pi-extensions test`, `just ts-check`, and `just ts-test` passed.
 - [ ] Harden untyped JSON, tool, and runtime boundaries with `unknown` plus guards or decoders.
       Evidence: CLI JSON parse sites in land/land-stack/worktree status and runner/grill runtime inputs no longer depend on broad casts before validation.
 - [ ] Rework expected failure APIs toward discriminated returned data where callers branch on failures.

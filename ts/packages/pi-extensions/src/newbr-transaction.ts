@@ -6,7 +6,7 @@ const GT_CREATE_TIMEOUT_MS = 120_000;
 const STASH_PUSH_TIMEOUT_MS = 120_000;
 const STASH_POP_TIMEOUT_MS = 120_000;
 
-export type NewBranchTransactionInput = {
+export interface NewBranchTransactionInput {
 	cwd: string;
 	branchName: string;
 	checkpointMessage: string;
@@ -14,7 +14,7 @@ export type NewBranchTransactionInput = {
 	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
 	setStatus: (message: string | undefined) => void;
 	now?: () => number;
-};
+}
 
 export type NewBranchTransactionResult =
 	| { ok: true; commitSummary: string }

@@ -17,7 +17,7 @@ import { runNewBranchTransaction, type NewBranchTransactionResult } from "./newb
 export const NEWBR_COMMAND_NAME = "dev:autobranch";
 const GIT_TIMEOUT_MS = 30_000;
 
-export type NewBranchFlowInput = {
+export interface NewBranchFlowInput {
 	cwd: string;
 	args: ParsedNewBranchArgs;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
@@ -28,7 +28,7 @@ export type NewBranchFlowInput = {
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 	now?: () => number;
-};
+}
 
 export function parseNewBranchArgs(argsText: string): ParsedNewBranchArgs {
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);

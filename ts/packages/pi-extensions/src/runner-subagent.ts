@@ -17,14 +17,14 @@ export type RunnerSubagentFailureStatus =
 	| "protocol-error";
 export type RunnerSubagentStatus = RunnerSubagentTerminalStatus | RunnerSubagentFinalTextStatus | RunnerSubagentFailureStatus;
 
-export type RunnerSubagentTerminalToolDefinition<TInput = unknown> = {
+export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 	name: string;
 	status: RunnerSubagentTerminalStatus;
 	description: string;
 	parameters: TypeBoxLikeSchema;
-};
+}
 
-export type RunnerSubagentProgress = {
+export interface RunnerSubagentProgress {
 	title?: string;
 	state: "starting" | "running" | "terminating" | "stopped";
 	currentTool?: string;
@@ -32,7 +32,7 @@ export type RunnerSubagentProgress = {
 	turnCount: number;
 	elapsedMs: number;
 	sessionFile?: string;
-};
+}
 
 export type RunnerSubagentProgressCallback = (update: RunnerSubagentUpdate) => void;
 
@@ -53,67 +53,67 @@ export type RunnerSubagentOptions = {
 	  }
 );
 
-export type RunnerSubagentTerminalCapture<
+export interface RunnerSubagentTerminalCapture<
 	TInput = unknown,
 	TStatus extends RunnerSubagentTerminalStatus = RunnerSubagentTerminalStatus,
-> = {
+> {
 	toolName: string;
 	toolCallId?: string;
 	status: TStatus;
 	input: TInput;
-};
+}
 
-type RunnerSubagentResultBase<TStatus extends RunnerSubagentStatus> = {
+interface RunnerSubagentResultBase<TStatus extends RunnerSubagentStatus> {
 	status: TStatus;
 	title?: string;
 	elapsedMs: number;
 	progress: RunnerSubagentProgress;
 	sessionFile?: string;
-};
+}
 
-export type RunnerSubagentCompletedResult<TInput = unknown> = RunnerSubagentResultBase<"completed"> & {
+export interface RunnerSubagentCompletedResult<TInput = unknown> extends RunnerSubagentResultBase<"completed"> {
 	terminal: RunnerSubagentTerminalCapture<TInput, "completed">;
-};
+}
 
-export type RunnerSubagentBlockedResult<TInput = unknown> = RunnerSubagentResultBase<"blocked"> & {
+export interface RunnerSubagentBlockedResult<TInput = unknown> extends RunnerSubagentResultBase<"blocked"> {
 	terminal: RunnerSubagentTerminalCapture<TInput, "blocked">;
-};
+}
 
-export type RunnerSubagentFinalTextResult = RunnerSubagentResultBase<"final-text"> & {
+export interface RunnerSubagentFinalTextResult extends RunnerSubagentResultBase<"final-text"> {
 	finalText: string;
 	stopReason?: string;
-};
+}
 
-type RunnerSubagentFailureResultBase<TStatus extends RunnerSubagentFailureStatus> = RunnerSubagentResultBase<TStatus> & {
+interface RunnerSubagentFailureResultBase<TStatus extends RunnerSubagentFailureStatus> extends RunnerSubagentResultBase<TStatus> {
 	diagnostic: string;
-};
+}
 
-export type RunnerSubagentStoppedWithoutTerminalResult = RunnerSubagentFailureResultBase<"stopped-without-terminal"> & {
+export interface RunnerSubagentStoppedWithoutTerminalResult extends RunnerSubagentFailureResultBase<"stopped-without-terminal"> {
 	stopReason?: string;
-};
+}
 
-export type RunnerSubagentStoppedWithoutUsefulTextResult = RunnerSubagentFailureResultBase<"stopped-without-useful-text"> & {
+export interface RunnerSubagentStoppedWithoutUsefulTextResult extends RunnerSubagentFailureResultBase<"stopped-without-useful-text"> {
 	stopReason?: string;
-};
+}
 
-export type RunnerSubagentCancelledResult = RunnerSubagentFailureResultBase<"cancelled"> & {
+export interface RunnerSubagentCancelledResult extends RunnerSubagentFailureResultBase<"cancelled"> {
 	reason?: string;
-};
+}
 
-export type RunnerSubagentErrorResult = RunnerSubagentFailureResultBase<"error"> & {
+export interface RunnerSubagentErrorResult extends RunnerSubagentFailureResultBase<"error"> {
 	error: {
 		message: string;
 		name?: string;
 		stack?: string;
 	};
-};
+}
 
-export type RunnerSubagentProtocolErrorResult = RunnerSubagentFailureResultBase<"protocol-error"> & {
+export interface RunnerSubagentProtocolErrorResult extends RunnerSubagentFailureResultBase<"protocol-error"> {
 	protocolError: {
 		message: string;
 		event?: unknown;
 	};
-};
+}
 
 export type RunnerSubagentResult<TInput = unknown> =
 	| RunnerSubagentCompletedResult<TInput>
@@ -127,15 +127,15 @@ export type RunnerSubagentResult<TInput = unknown> =
 
 export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol("dispatchRunnerSubagentDispatcherDependencies");
 
-export type RunnerSubagentPi = {
+export interface RunnerSubagentPi {
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	[key: string]: unknown;
-};
+}
 
-export type RunnerSubagentContext = {
+export interface RunnerSubagentContext {
 	cwd: string;
 	signal?: AbortSignal;
-};
+}
 
 export async function dispatchRunnerSubagent<TTerminalInput = unknown>(
 	pi: RunnerSubagentPi,

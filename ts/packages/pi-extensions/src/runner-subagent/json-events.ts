@@ -7,36 +7,36 @@ import {
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
 
-export type RunnerSubagentJsonEventParserOptions = {
+export interface RunnerSubagentJsonEventParserOptions {
 	title?: string;
 	sessionFile?: string;
 	now?: () => number;
 	startTimeMs?: number;
 	terminalToolNames?: Iterable<string>;
-};
+}
 
-export type RunnerSubagentJsonSessionHeader = {
+export interface RunnerSubagentJsonSessionHeader {
 	type: "session";
 	version?: number;
 	id?: string;
 	timestamp?: string;
 	cwd?: string;
 	[key: string]: unknown;
-};
+}
 
-export type RunnerSubagentJsonProtocolError = {
+export interface RunnerSubagentJsonProtocolError {
 	message: string;
 	event?: unknown;
-};
+}
 
-export type RunnerSubagentJsonTerminalExecutionError = {
+export interface RunnerSubagentJsonTerminalExecutionError {
 	message: string;
 	toolName: string;
 	toolCallId?: string;
 	event?: unknown;
-};
+}
 
-export type RunnerSubagentJsonEventParserSnapshot = {
+export interface RunnerSubagentJsonEventParserSnapshot {
 	progress: RunnerSubagentProgress;
 	activity: RunnerSubagentActivity;
 	terminalAttempted: boolean;
@@ -47,7 +47,7 @@ export type RunnerSubagentJsonEventParserSnapshot = {
 	error?: RunnerSubagentJsonEventParserError;
 	protocolError?: RunnerSubagentJsonProtocolError;
 	terminalExecutionError?: RunnerSubagentJsonTerminalExecutionError;
-};
+}
 
 export class RunnerSubagentJsonEventParserError extends Error {
 	readonly line: string;

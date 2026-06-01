@@ -39,7 +39,7 @@ const blockedTool: RunnerSubagentTerminalToolDefinition<{ reason: string }> = {
 	},
 };
 
-type RegisteredTool = {
+interface RegisteredTool {
 	name: string;
 	executionMode: "sequential";
 	execute(
@@ -49,7 +49,7 @@ type RegisteredTool = {
 		onUpdate: unknown,
 		ctx: { abort?: () => void },
 	): Promise<{ terminate?: boolean }>;
-};
+}
 
 type Handler = (event: Record<string, unknown>, ctx: { abort?: () => void }) => unknown | Promise<unknown>;
 

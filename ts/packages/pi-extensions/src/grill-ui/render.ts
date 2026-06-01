@@ -1,25 +1,25 @@
 import type { NormalizedGrillAskInput } from "../grill-ui.ts";
 import { choiceDetailLines, footerText, rowRecommendationTag, type GrillAskMode, type GrillAskRow } from "./view.ts";
 
-export type GrillAskRenderTheme = {
+export interface GrillAskRenderTheme {
 	fg?(color: string, text: string): string;
 	bg?(color: string, text: string): string;
 	bold?(text: string): string;
-};
+}
 
-export type GrillAskRenderPrimitives = {
+export interface GrillAskRenderPrimitives {
 	truncateToWidth?: (value: string, width: number, ellipsis?: string) => string;
 	wrapTextWithAnsi?: (value: string, width: number) => string[];
 	visibleWidth?: (value: string) => number;
 	renderMarkdown?: (markdown: string, width: number) => string[];
-};
+}
 
-export type GrillAskRenderState = {
+export interface GrillAskRenderState {
 	mode: GrillAskMode;
 	rows: readonly GrillAskRow[];
 	focusIndex: number;
 	editorLines?: readonly string[];
-};
+}
 
 export function renderGrillAskInlineUi(
 	input: NormalizedGrillAskInput,

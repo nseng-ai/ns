@@ -11,12 +11,12 @@ const MAX_PLAN_SLUG_WORDS = 7;
 
 export const MAX_PLAN_CONTENT_CHARS = 32_000;
 
-export type PlanContentSlugEvidence = {
+export interface PlanContentSlugEvidence {
 	slug: string;
 	rawOutput: string;
 	provider: string;
 	model: string;
-};
+}
 
 export function normalizePlanContentSlugOutput(value: string): string | undefined {
 	const firstLine = firstNonEmptyModelOutputLine(value);

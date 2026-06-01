@@ -2,24 +2,24 @@ import { stripTerminalEscapes } from "./terminal-presentation.ts";
 
 export { stripTerminalEscapes } from "./terminal-presentation.ts";
 
-export type ExecResult = {
+export interface ExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed: boolean;
-};
+}
 
-export type PiExecResultLike = {
+export interface PiExecResultLike {
 	stdout?: string;
 	stderr?: string;
 	code: number;
 	killed?: boolean;
-};
+}
 
-export type TailTextOptions = {
+export interface TailTextOptions {
 	maxChars: number;
 	maxLines?: number;
-};
+}
 
 export function normalizeExecResult(result: PiExecResultLike): ExecResult {
 	return {

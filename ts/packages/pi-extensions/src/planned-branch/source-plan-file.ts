@@ -11,35 +11,35 @@ const MAX_SEGMENT_LENGTH = 120;
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
 
-export type SourceBranchPlanFileParams = {
+export interface SourceBranchPlanFileParams {
 	slug: string;
 	content: string;
 	summary?: string;
-};
+}
 
-export type SourceBranchPlanFileOptions = {
+export interface SourceBranchPlanFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
-};
+}
 
-export type PlanStoreDirectoryEvidence = {
+export interface PlanStoreDirectoryEvidence {
 	repoRoot: string;
 	repoKey: string;
 	repoIdentitySource: RepoIdentitySource;
 	sourceBranch: string;
 	branchKey: string;
 	directoryPath: string;
-};
+}
 
-export type LatestSourceBranchPlanFileEvidence = PlanStoreDirectoryEvidence & {
+export interface LatestSourceBranchPlanFileEvidence extends PlanStoreDirectoryEvidence {
 	slug: string;
 	filePath: string;
 	fileName: string;
 	modifiedTimeMs: number;
-};
+}
 
-export type SourceBranchPlanFileEvidence = {
+export interface SourceBranchPlanFileEvidence {
 	slug: string;
 	repoRoot: string;
 	repoKey: string;
@@ -48,17 +48,17 @@ export type SourceBranchPlanFileEvidence = {
 	branchKey: string;
 	filePath: string;
 	summary?: string;
-};
+}
 
-type CommandRun = {
+interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
-};
+}
 
-type RepoIdentity = {
+interface RepoIdentity {
 	source: RepoIdentitySource;
 	identity: string;
-};
+}
 
 export function defaultPlanStoreRoot(): string {
 	return join(homedir(), ".asdl", "plans");
@@ -410,10 +410,10 @@ function normalizeAsUrl(value: string): string | undefined {
 	return `${protocol}//${username}${host}${port}/${path}`;
 }
 
-type GitHubRepoIdentity = {
+interface GitHubRepoIdentity {
 	owner: string;
 	repo: string;
-};
+}
 
 function parseGitHubRepoIdentity(normalizedIdentity: string): GitHubRepoIdentity | undefined {
 	let url: URL;

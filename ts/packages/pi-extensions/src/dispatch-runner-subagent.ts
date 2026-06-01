@@ -19,19 +19,22 @@ export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 
-type TextContent = { type: "text"; text: string };
+interface TextContent {
+	type: "text";
+	text: string;
+}
 
-export type ToolResult = {
+export interface ToolResult {
 	content: TextContent[];
 	details?: unknown;
-};
+}
 
-export type DispatchRunnerSubagentInput = {
+export interface DispatchRunnerSubagentInput {
 	title: string;
 	prompt: string;
-};
+}
 
-export type DispatchRunnerSubagentDetails = {
+export interface DispatchRunnerSubagentDetails {
 	status: RunnerSubagentResult["status"];
 	title?: string;
 	elapsedMs: number;
@@ -43,18 +46,18 @@ export type DispatchRunnerSubagentDetails = {
 	stopReason?: string;
 	error?: unknown;
 	protocolError?: unknown;
-};
+}
 
-export type ExtensionContext = {
+export interface ExtensionContext {
 	cwd: string;
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, text: string | undefined): void;
 		setWidget?(key: string, content: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
 	};
-};
+}
 
-export type ToolDefinition = {
+export interface ToolDefinition {
 	name: string;
 	label: string;
 	description: string;
@@ -68,11 +71,11 @@ export type ToolDefinition = {
 		onUpdate: ((partial: ToolResult) => void) | undefined,
 		ctx: ExtensionContext,
 	): Promise<ToolResult>;
-};
+}
 
-export type ExtensionAPI = RunnerSubagentPi & {
+export interface ExtensionAPI extends RunnerSubagentPi {
 	registerTool(tool: ToolDefinition): void;
-};
+}
 
 export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	type: "object",

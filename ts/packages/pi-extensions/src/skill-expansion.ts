@@ -1,31 +1,31 @@
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-export type SkillCommandInfo = {
+export interface SkillCommandInfo {
 	name: string;
 	source: string;
 	sourceInfo: {
 		path: string;
 		baseDir?: string;
 	};
-};
+}
 
-export type SkillExpansionHost = {
+export interface SkillExpansionHost {
 	getCommands(): readonly SkillCommandInfo[];
-};
+}
 
-export type ExpandedSkillBlock = {
+export interface ExpandedSkillBlock {
 	name: string;
 	commandName: string;
 	path: string;
 	baseDir: string;
 	body: string;
 	block: string;
-};
+}
 
-export type SkillExpansionOptions = {
+export interface SkillExpansionOptions {
 	readTextFile?: (path: string) => Promise<string>;
-};
+}
 
 function stripSkillFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();

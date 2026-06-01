@@ -2,22 +2,22 @@ import type { GrillAskOption, NormalizedGrillAskInput } from "../grill-ui.ts";
 
 export type GrillAskMode = "choices" | "freeform";
 
-export type GrillAskChoiceRow = {
+export interface GrillAskChoiceRow {
 	kind: "choice";
 	index: number;
 	option: GrillAskOption;
 	recommended: boolean;
-};
+}
 
-export type GrillAskFreeformRow = {
+export interface GrillAskFreeformRow {
 	kind: "freeform";
 	index: number;
-};
+}
 
-export type GrillAskEndGrillRow = {
+export interface GrillAskEndGrillRow {
 	kind: "end_grill";
 	index: number;
-};
+}
 
 export type GrillAskRow = GrillAskChoiceRow | GrillAskFreeformRow | GrillAskEndGrillRow;
 

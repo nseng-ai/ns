@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import devExtension from "../src/dev.ts";
 
-type RegisteredCommand = {
+interface RegisteredCommand {
 	description?: string;
 	getArgumentCompletions?: (prefix: string) => unknown;
 	handler(args: string, ctx: unknown): unknown;
-};
+}
 
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();

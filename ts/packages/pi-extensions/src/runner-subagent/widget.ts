@@ -5,10 +5,10 @@ import {
 	runnerSubagentSessionFile,
 } from "./presentation.ts";
 
-export type RunnerSubagentWidgetOptions = {
+export interface RunnerSubagentWidgetOptions {
 	fallbackTitle?: string;
 	includeElapsed?: boolean;
-};
+}
 
 export function formatRunnerSubagentActivityWidgetLines(
 	update: RunnerSubagentUpdate,

@@ -13,21 +13,21 @@ import {
 } from "../src/runner-subagent.ts";
 import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
 
-type CompletionInput = {
+interface CompletionInput {
 	summary: string;
-};
+}
 
-type BlockedInput = {
+interface BlockedInput {
 	reason: string;
-};
+}
 
-type TypeBoxStyleObjectSchema = {
+interface TypeBoxStyleObjectSchema {
 	readonly type: "object";
 	readonly properties: {
 		readonly summary: { readonly type: "string" };
 	};
 	readonly required: readonly ["summary"];
-};
+}
 
 const completionTool: RunnerSubagentTerminalToolDefinition<CompletionInput> = {
 	name: "complete_runner_subagent",

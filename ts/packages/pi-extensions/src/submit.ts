@@ -19,27 +19,27 @@ export type NotifyLevel = "info" | "success" | "warning" | "error";
 
 type WidgetPlacement = "aboveEditor" | "belowEditor";
 
-type Theme = {
+interface Theme {
 	fg(color: string, text: string): string;
-};
+}
 
-type Component = {
+interface Component {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
 
-export type ExtensionCommandContext = Omit<CheckpointExtensionCommandContext, "ui"> & {
+export interface ExtensionCommandContext extends Omit<CheckpointExtensionCommandContext, "ui"> {
 	hasUI: boolean;
 	ui: Omit<CheckpointExtensionCommandContext["ui"], "notify" | "setWidget"> & {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm(title: string, message: string): Promise<boolean>;
 		setWidget(key: string, value: WidgetContent, options?: { placement?: WidgetPlacement }): void;
 	};
-};
+}
 
-export type ExtensionAPI = Pick<CheckpointExtensionAPI, "exec"> & {
+export interface ExtensionAPI extends Pick<CheckpointExtensionAPI, "exec"> {
 	registerCommand(
 		name: string,
 		command: {
@@ -47,7 +47,7 @@ export type ExtensionAPI = Pick<CheckpointExtensionAPI, "exec"> & {
 			handler(args: string, ctx: ExtensionCommandContext): void | Promise<void>;
 		},
 	): void;
-};
+}
 
 const COMMAND_NAME = "dev:submit";
 const CHECKPOINT_COMMAND_NAME = "dev:cp";
@@ -66,32 +66,32 @@ const PROGRESS_THROTTLE_MS = 100;
 const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
 const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
 
-export type BufferedSubmitCommandResult = {
+export interface BufferedSubmitCommandResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed: boolean;
 	startupError: string | undefined;
-};
+}
 
-export type StreamedSubmitCommandResult = {
+export interface StreamedSubmitCommandResult {
 	code: number;
 	killed: boolean;
 	startupError: string | undefined;
-};
+}
 
-type SubmitCommandOptions = {
+interface SubmitCommandOptions {
 	cwd: string;
 	timeoutMs: number;
-};
+}
 
-type SubmitStreamingCommandOptions = SubmitCommandOptions & {
+interface SubmitStreamingCommandOptions extends SubmitCommandOptions {
 	onStdout(chunk: string): void;
 	onStderr(chunk: string): void;
 	onTimedOut?(): void;
-};
+}
 
-export type SubmitCommandRunner = {
+export interface SubmitCommandRunner {
 	runBuffered(
 		command: string,
 		args: readonly string[],
@@ -102,23 +102,23 @@ export type SubmitCommandRunner = {
 		args: readonly string[],
 		options: SubmitStreamingCommandOptions,
 	): Promise<StreamedSubmitCommandResult>;
-};
+}
 
 export type LoadedPendingWorktreeSnapshotResult = Awaited<ReturnType<typeof loadPendingWorktreeSnapshot>>;
 
-export type SubmitCheckpointOperations = {
+export interface SubmitCheckpointOperations {
 	loadSnapshot(ctx: ExtensionCommandContext): Promise<LoadedPendingWorktreeSnapshotResult>;
 	prepareMessage(
 		ctx: ExtensionCommandContext,
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	): Promise<PreparedCheckpointMessage>;
 	commit(ctx: ExtensionCommandContext, message: string): Promise<{ summary: string } | { error: string }>;
-};
+}
 
-export type SubmitDependencies = {
+export interface SubmitDependencies {
 	runner?: SubmitCommandRunner;
 	checkpoint?: SubmitCheckpointOperations;
-};
+}
 
 export default function submitExtension(pi: ExtensionAPI): void {
 	submitExtensionWithDependencies(pi);
@@ -161,10 +161,10 @@ export function submitExtensionWithDependencies(pi: ExtensionAPI, dependencies: 
 	});
 }
 
-type PrLink = {
+interface PrLink {
 	label: string;
 	url: string;
-};
+}
 
 type BufferedCommandResult = BufferedSubmitCommandResult;
 
@@ -191,16 +191,16 @@ type PostSubmitNoCurrentPrOutcome = Extract<SubmitAttemptOutcome, { kind: "post_
 
 type CheckpointRecoveryDecision = "retry" | "handled";
 
-type SubmitCommandOutput = {
+interface SubmitCommandOutput {
 	result: StreamedSubmitCommandResult;
 	stdout: string;
 	stderr: string;
-};
+}
 
-type SubmitProgress = {
+interface SubmitProgress {
 	show(line: string): void;
 	clear(): void;
-};
+}
 
 function createSubmitProgress(ctx: ExtensionCommandContext): SubmitProgress {
 	return {

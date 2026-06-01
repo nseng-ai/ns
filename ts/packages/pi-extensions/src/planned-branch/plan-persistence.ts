@@ -23,29 +23,29 @@ const GENERIC_SLUG_WORDS = new Set([
 	"updates",
 ]);
 
-export type ExecOptions = {
+export interface ExecOptions {
 	cwd?: string;
 	timeout?: number;
 	signal?: AbortSignal;
-};
+}
 
-export type PlanCommandExecApi = {
+export interface PlanCommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-};
+}
 
-type BrmemRun = {
+interface BrmemRun {
 	result: ExecResult;
 	displayCommand: string;
-};
+}
 
-export type BrmemPutData = {
+export interface BrmemPutData {
 	namespace: string;
 	key: string;
 	branch: string;
 	refName: string;
 	commit: string;
 	sourceFile: string;
-};
+}
 
 export function validatePlanSlug(slug: string): string | undefined {
 	const normalized = slug.trim();

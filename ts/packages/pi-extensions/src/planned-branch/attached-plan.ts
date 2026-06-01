@@ -9,14 +9,14 @@ const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 const IMPL_PLANNED_BRANCH_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/impl-planned-branch.md", import.meta.url), "utf8").trimEnd();
 
-export type AttachedPlanEntry = {
+export interface AttachedPlanEntry {
 	namespace: string;
 	key: string;
 	branch: string;
 	refName: string;
-};
+}
 
-export type LoadedAttachedPlan = {
+export interface LoadedAttachedPlan {
 	branch: string;
 	namespace: string;
 	selectedKey: string;
@@ -24,26 +24,26 @@ export type LoadedAttachedPlan = {
 	content: string;
 	byteCount: number;
 	availableKeys: string[];
-};
+}
 
-export type LoadAttachedPlanParams = {
+export interface LoadAttachedPlanParams {
 	requestedKey?: string;
-};
+}
 
-export type LoadAttachedPlanOptions = {
+export interface LoadAttachedPlanOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-};
+}
 
-type CommandRun = {
+interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
-};
+}
 
-type BrmemGetContent = {
+interface BrmemGetContent {
 	content: string;
 	refName: string;
-};
+}
 
 export async function loadAttachedPlan(
 	pi: PlanCommandExecApi,

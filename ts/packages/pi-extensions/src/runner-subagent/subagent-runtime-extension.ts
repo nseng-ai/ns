@@ -5,37 +5,40 @@ import {
 	type RuntimeResultV1,
 } from "./subagent-runtime.ts";
 
-export type RunnerSubagentRuntimeExtensionOptions = {
+export interface RunnerSubagentRuntimeExtensionOptions {
 	configPath: string;
 	resultPath: string;
-};
+}
 
-type TextContent = { type: "text"; text: string };
+interface TextContent {
+	type: "text";
+	text: string;
+}
 
-type AgentToolResult = {
+interface AgentToolResult {
 	content: TextContent[];
 	details?: unknown;
 	terminate?: boolean;
-};
+}
 
-type ExtensionContextLike = {
+interface ExtensionContextLike {
 	abort?: () => void;
-};
+}
 
-type BeforeAgentStartEventLike = {
+interface BeforeAgentStartEventLike {
 	systemPrompt: string;
-};
+}
 
-type ToolCallEventLike = {
+interface ToolCallEventLike {
 	toolName: string;
-};
+}
 
-type ToolCallResultLike = {
+interface ToolCallResultLike {
 	block: true;
 	reason?: string;
-};
+}
 
-type ToolDefinitionLike = {
+interface ToolDefinitionLike {
 	name: string;
 	label: string;
 	description: string;
@@ -50,9 +53,9 @@ type ToolDefinitionLike = {
 		onUpdate: unknown,
 		ctx: ExtensionContextLike,
 	): Promise<AgentToolResult>;
-};
+}
 
-type ExtensionApiLike = {
+interface ExtensionApiLike {
 	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContextLike) => void | Promise<void>): void;
 	on(
 		event: "before_agent_start",
@@ -67,7 +70,7 @@ type ExtensionApiLike = {
 	): void;
 	registerTool(tool: ToolDefinitionLike): void;
 	getAllTools(): Array<{ name: string }>;
-};
+}
 
 export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRuntimeExtensionOptions) {
 	return function runnerSubagentRuntimeExtension(pi: ExtensionApiLike): void {

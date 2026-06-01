@@ -8,19 +8,19 @@ import {
 	validateCheckpointMessage,
 } from "./checkpoint-message.ts";
 
-export type CommandResult = {
+export interface CommandResult {
 	code: number;
 	stdout: string;
 	stderr: string;
 	killed?: boolean;
-};
+}
 
-export type DraftCheckpointRequest = {
+export interface DraftCheckpointRequest {
 	status: string;
 	diff: string;
 	previousDraft?: string;
 	validationFeedback?: string;
-};
+}
 
 export type DraftCheckpoint = (request: DraftCheckpointRequest) => Promise<{ output: string } | { error: string }>;
 

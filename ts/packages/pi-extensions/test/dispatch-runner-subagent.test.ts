@@ -19,12 +19,12 @@ import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subag
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";
 
-type JsonSchemaObject = {
+interface JsonSchemaObject {
 	type: string;
 	properties?: Record<string, unknown>;
 	required?: string[];
 	additionalProperties?: boolean;
-};
+}
 
 class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	readonly tools = new Map<string, ToolDefinition>();
@@ -62,8 +62,16 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 	});
 }
 
-type UiRecord = { key: string; value: string | undefined };
-type WidgetRecord = { key: string; value: string[] | undefined; options?: { placement?: "aboveEditor" | "belowEditor" } };
+interface UiRecord {
+	key: string;
+	value: string | undefined;
+}
+
+interface WidgetRecord {
+	key: string;
+	value: string[] | undefined;
+	options?: { placement?: "aboveEditor" | "belowEditor" };
+}
 
 function updateTexts(updates: readonly ToolResult[]): string {
 	return updates.map((update) => update.content[0]?.text ?? "").join("\n---\n");
