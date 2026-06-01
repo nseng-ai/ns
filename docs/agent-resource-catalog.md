@@ -11,7 +11,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
 | First-party skill commands               |    38 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    18 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| Project Pi extension commands            |    19 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     2 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -96,6 +96,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
 | `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
 | `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
+| `/dev:changes`           | `.pi/extensions/dev.ts`            | Summarizes outstanding worktree changes without committing.                                         |
 | `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
 | `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
 | `/dev:land`              | `.pi/extensions/dev.ts`            | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
