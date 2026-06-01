@@ -10,12 +10,13 @@ export type CommandResult = {
 	stdout: string;
 	stderr: string;
 	startupError?: string;
+	killed?: boolean;
 };
 
 export type CommandRunner = (
 	command: string,
 	args: readonly string[],
-	options?: { cwd?: string },
+	options?: { cwd?: string; timeoutMs?: number },
 ) => Promise<CommandResult>;
 
 export type CommandResolver = (name: string) => string | undefined;
@@ -28,12 +29,14 @@ export type CommandPrefix = {
 export async function runCommand(
 	command: string,
 	args: readonly string[],
-	options: { cwd?: string } = {},
+	options: { cwd?: string; timeoutMs?: number } = {},
 ): Promise<CommandResult> {
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
 		let settled = false;
+		let killed = false;
+		let timeout: ReturnType<typeof setTimeout> | undefined;
 
 		const spawnOptions: SpawnOptions = {
 			shell: false,
@@ -43,7 +46,29 @@ export async function runCommand(
 			spawnOptions.cwd = options.cwd;
 		}
 
+		const finish = (result: Omit<CommandResult, "command" | "args" | "stdout" | "stderr">): void => {
+			if (settled) return;
+			settled = true;
+			if (timeout !== undefined) {
+				clearTimeout(timeout);
+			}
+			resolve({
+				command,
+				args: [...args],
+				stdout,
+				stderr,
+				...result,
+				...(killed ? { killed: true } : {}),
+			});
+		};
+
 		const child = spawn(command, [...args], spawnOptions);
+		if (options.timeoutMs !== undefined && options.timeoutMs > 0) {
+			timeout = setTimeout(() => {
+				killed = true;
+				child.kill("SIGTERM");
+			}, options.timeoutMs);
+		}
 		child.stdout?.setEncoding("utf8");
 		child.stderr?.setEncoding("utf8");
 		child.stdout?.on("data", (chunk: string) => {
@@ -54,28 +79,14 @@ export async function runCommand(
 		});
 
 		child.on("error", (error) => {
-			if (settled) return;
-			settled = true;
-			resolve({
-				command,
-				args: [...args],
+			finish({
 				exitCode: 127,
-				stdout,
-				stderr,
 				startupError: error instanceof Error ? error.message : String(error),
 			});
 		});
 
 		child.on("close", (code) => {
-			if (settled) return;
-			settled = true;
-			resolve({
-				command,
-				args: [...args],
-				exitCode: code ?? 1,
-				stdout,
-				stderr,
-			});
+			finish({ exitCode: code ?? 1 });
 		});
 	});
 }

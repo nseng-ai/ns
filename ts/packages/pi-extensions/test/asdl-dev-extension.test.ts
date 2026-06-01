@@ -19,12 +19,14 @@ describe("asdl-dev Pi extension", () => {
 
 		asdlDevExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["dev:preview-url"]);
+		expect([...pi.commands.keys()]).toEqual(["dev:preview-url", "dev:cp"]);
 		expect(pi.commands.has("asdl-dev:preview-url")).toBe(false);
+		expect(pi.commands.has("asdl-dev:cp")).toBe(false);
 		expect(pi.commands.has("dev:latest-branch-deployment")).toBe(false);
 		expect(pi.commands.has("asdl-dev:latest-branch-deployment")).toBe(false);
 		expect(pi.commands.get("dev:preview-url")?.description).toBe(
 			"asdl-dev preview-url: Print the Vercel preview URL for a branch.",
 		);
+		expect(pi.commands.get("dev:cp")?.description).toBe("asdl-dev cp: Create a checkpoint commit for the current diff.");
 	});
 });

@@ -1,10 +1,33 @@
-import type { CommandResult } from "./checkpoint-flow.ts";
-import { commitPreparedCheckpointMessage, prepareCheckpointMessageForPi, type ExtensionAPI, type ExtensionCommandContext } from "./checkpoint-pi.ts";
+import {
+	commitPreparedCheckpointMessageWithAsdlDev,
+	prepareCheckpointMessageWithAsdlDev,
+	type CommandResult,
+	type ExtensionExec,
+} from "./asdl-dev-checkpoint.ts";
 import { createAutobranchCheckpointFlow, parseAutobranchArgs } from "./autobranch-flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
 
 const COMMAND_NAME = "dev:autobranch";
 const STATUS_KEY = "autobranch";
+
+export type ExtensionCommandContext = {
+	cwd: string;
+	ui: {
+		notify(message: string, level?: "info" | "warning" | "error"): void;
+		setStatus(key: string, value: string | undefined): void;
+	};
+	waitForIdle(): Promise<void>;
+};
+
+export type ExtensionAPI = ExtensionExec & {
+	registerCommand(
+		name: string,
+		options: {
+			description?: string;
+			handler(args: string, ctx: ExtensionCommandContext): Promise<void> | void;
+		},
+	): void;
+};
 
 export default function autobranchExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
@@ -21,8 +44,8 @@ async function createAutobranchCheckpoint(pi: ExtensionAPI, ctx: ExtensionComman
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => exec(pi, command, commandArgs, cwd, timeout),
-		prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageForPi(pi, ctx, snapshot),
-		commitPreparedCheckpointMessage: (message) => commitPreparedCheckpointMessage(pi, ctx.cwd, message),
+		prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot),
+		commitPreparedCheckpointMessage: (message) => commitPreparedCheckpointMessageWithAsdlDev(pi, ctx.cwd, message),
 		notify: (message, level) => notify(ctx, message, level),
 		setStatus: (message) => setStatus(ctx, message),
 	});

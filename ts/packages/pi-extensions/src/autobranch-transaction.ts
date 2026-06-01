@@ -1,5 +1,5 @@
-import type { CommandResult } from "./checkpoint-flow.ts";
-import { formatPendingWorktreeCommandDetails } from "./pending-worktree.ts";
+import type { CommandResult } from "../../asdl-dev/src/checkpoint-flow.ts";
+import { formatPendingWorktreeCommandDetails } from "../../asdl-dev/src/pending-worktree.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;

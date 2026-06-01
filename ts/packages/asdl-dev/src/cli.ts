@@ -2,9 +2,11 @@
 
 import process from "node:process";
 
+import { runCheckpointCommand } from "./checkpoint.ts";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
-import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
+import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, DEFAULT_TEXT_BACKEND, TEXT_BACKEND_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
+import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
 
 export type CliDeps = {
 	context?: AsdlDevContext | undefined;
@@ -26,10 +28,22 @@ type ParsedPreviewUrlArgs = {
 	scope?: string;
 };
 
-type ParseResult =
+type PreviewUrlParseResult =
 	| {
 			kind: "ok";
 			options: ParsedPreviewUrlArgs;
+	  }
+	| {
+			kind: "help";
+	  }
+	| {
+			kind: "error";
+			message: string;
+	  };
+
+type CheckpointParseResult =
+	| {
+			kind: "ok";
 	  }
 	| {
 			kind: "help";
@@ -60,6 +74,12 @@ const COMMANDS: CommandSpec[] = [
 		description: "Print the Vercel preview URL for a branch.",
 		help: previewUrlHelp,
 		run: runPreviewUrlCommand,
+	},
+	{
+		name: "cp",
+		description: "Create a checkpoint commit for the current diff.",
+		help: checkpointHelp,
+		run: runCheckpointCliCommand,
 	},
 ];
 
@@ -94,6 +114,32 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		stderr,
 		env: deps.env ?? process.env,
 	});
+}
+
+async function runCheckpointCliCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
+	const parsed = parseCheckpointArgs(args);
+	if (parsed.kind === "help") {
+		deps.stdout(checkpointHelp());
+		return 0;
+	}
+	if (parsed.kind === "error") {
+		deps.stderr(`Error: ${parsed.message}\n\n${checkpointHelp()}`);
+		return 2;
+	}
+
+	const result = await runCheckpointCommand({
+		cwd: deps.cwd,
+		env: deps.env,
+		gateway: deps.context.checkpoint,
+		textGeneration: deps.context.textGeneration,
+	});
+	if (result.stdout !== "") {
+		deps.stdout(result.stdout);
+	}
+	if (result.stderr !== "") {
+		deps.stderr(result.stderr);
+	}
+	return result.exitCode;
 }
 
 async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
@@ -135,7 +181,7 @@ async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDe
 	return result.exitCode;
 }
 
-function parsePreviewUrlArgs(args: readonly string[]): ParseResult {
+function parsePreviewUrlArgs(args: readonly string[]): PreviewUrlParseResult {
 	const options: ParsedPreviewUrlArgs = { jsonOutput: false };
 
 	for (let index = 0; index < args.length; index += 1) {
@@ -195,6 +241,17 @@ function parsePreviewUrlArgs(args: readonly string[]): ParseResult {
 	return { kind: "ok", options };
 }
 
+function parseCheckpointArgs(args: readonly string[]): CheckpointParseResult {
+	for (const arg of args) {
+		if (arg === "--help" || arg === "-h") {
+			return { kind: "help" };
+		}
+		return { kind: "error", message: arg.startsWith("-") ? `Unknown option: ${arg}` : `Unexpected argument: ${arg}` };
+	}
+
+	return { kind: "ok" };
+}
+
 function inlineOptionValue(arg: string, optionName: string): string | undefined {
 	const prefix = `${optionName}=`;
 	if (!arg.startsWith(prefix)) {
@@ -230,6 +287,20 @@ Options:
   --scope TEXT    Vercel scope/team. Defaults to VERCEL_SCOPE, then schrockns-projects.
   --json          Emit machine-readable JSON on stdout, including failures.
   -h, --help      Show this help message.
+`;
+}
+
+function checkpointHelp(): string {
+	return `Usage: asdl-dev cp
+
+Create a checkpoint commit for the current git diff using a model-authored message.
+
+Environment:
+  ${TEXT_BACKEND_ENV}      Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
+  ${CHECKPOINT_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}.
+
+Options:
+  -h, --help  Show this help message.
 `;
 }
 
