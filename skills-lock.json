@@ -11,15 +11,30 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
-    "handoff-save": {
-      "source": "skills/handoff-save",
+    "changelog-update": {
+      "source": "skills/changelog-update",
       "sourceType": "local",
-      "computedHash": "f152cdf4b8c62ed1406b6ab8f1023cf47624ac8af1f4c2d3d4c42f7ab7cbd694"
+      "computedHash": "a2eba8cfba4d63454a55bf72a63a2afd6bcd2a4fc26d07320c40df4d415a4584"
     },
-    "handoff-load": {
-      "source": "skills/handoff-load",
+    "cli-push-down": {
+      "source": "skills/cli-push-down",
       "sourceType": "local",
-      "computedHash": "02e9525fbf0101e3f336efb7ff3afd3afe90fd5a336bd2d4b9a2c1974ac5070d"
+      "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
+    },
+    "create-bun-typescript-project": {
+      "source": "skills/create-bun-typescript-project",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "create-python-dev-cli": {
+      "source": "skills/create-python-dev-cli",
+      "sourceType": "local",
+      "computedHash": "5f77d5cd4c45939f703138c5e3402965b5d088967974ebe38f1a29a5d1efae3c"
+    },
+    "create-python-package": {
+      "source": "skills/create-python-package",
+      "sourceType": "local",
+      "computedHash": "a05f76714e88cdd41eb506c006783a77a0fa8cbbbbf7d2b3ce26e988ffa9a9d8"
     },
     "dev-checkpoint": {
       "source": "skills/dev-checkpoint",
@@ -56,6 +71,11 @@
       "sourceType": "local",
       "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
     },
+    "dignified-python": {
+      "source": "skills/dignified-python",
+      "sourceType": "local",
+      "computedHash": "9a5643a93e035bc14d1a1a789e789decc70bcab6d1a968911f4b5f329f178cf5"
+    },
     "fdt-refactor-mock-to-fake": {
       "source": "dagster-io/fake-driven-testing",
       "sourceType": "github",
@@ -84,106 +104,21 @@
       "skillPath": "skills/productivity/handoff/SKILL.md",
       "computedHash": "d543685cbfb0c64b7bc51a8dc3465975528da9b64f987f863765973b2f3867ab"
     },
+    "handoff-load": {
+      "source": "skills/handoff-load",
+      "sourceType": "local",
+      "computedHash": "02e9525fbf0101e3f336efb7ff3afd3afe90fd5a336bd2d4b9a2c1974ac5070d"
+    },
+    "handoff-save": {
+      "source": "skills/handoff-save",
+      "sourceType": "local",
+      "computedHash": "f152cdf4b8c62ed1406b6ab8f1023cf47624ac8af1f4c2d3d4c42f7ab7cbd694"
+    },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "c77b86b4332919499608f9af1880074e1fec65a59b95c70c27a9f39cd137865e"
-    },
-    "changelog-update": {
-      "source": "skills/changelog-update",
-      "sourceType": "local",
-      "computedHash": "a2eba8cfba4d63454a55bf72a63a2afd6bcd2a4fc26d07320c40df4d415a4584"
-    },
-    "create-bun-typescript-project": {
-      "source": "skills/create-bun-typescript-project",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "create-python-dev-cli": {
-      "source": "skills/create-python-dev-cli",
-      "sourceType": "local",
-      "computedHash": "5f77d5cd4c45939f703138c5e3402965b5d088967974ebe38f1a29a5d1efae3c"
-    },
-    "create-python-package": {
-      "source": "skills/create-python-package",
-      "sourceType": "local",
-      "computedHash": "a05f76714e88cdd41eb506c006783a77a0fa8cbbbbf7d2b3ce26e988ffa9a9d8"
-    },
-    "dignified-python": {
-      "source": "skills/dignified-python",
-      "sourceType": "local",
-      "computedHash": "9a5643a93e035bc14d1a1a789e789decc70bcab6d1a968911f4b5f329f178cf5"
-    },
-    "python-fake-driven-test-layout": {
-      "source": "skills/python-fake-driven-test-layout",
-      "sourceType": "local",
-      "computedHash": "7e96441ead1b42ad588d100f0015ca9fd22257161bbc9728eb457bca8a1a8ae0"
-    },
-    "python-fake-driven-testing": {
-      "source": "skills/python-fake-driven-testing",
-      "sourceType": "local",
-      "computedHash": "668da2d7e3596c8759a5521ac88b4c079a13e54ca5effcd956c6bca10ce31788"
-    },
-    "pytest": {
-      "source": "skills/pytest",
-      "sourceType": "local",
-      "computedHash": "42447813df7ee7c740aa4062e0a290c639e1f9608280dd89fe93beae42f7a666"
-    },
-    "cli-push-down": {
-      "source": "skills/cli-push-down",
-      "sourceType": "local",
-      "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
-    },
-    "refactor-swarm": {
-      "source": "skills/refactor-swarm",
-      "sourceType": "local",
-      "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
-    },
-    "resolve-merge-conflicts": {
-      "source": "skills/resolve-merge-conflicts",
-      "sourceType": "local",
-      "computedHash": "a28f61d711bc2afb84ac3c0bc7d30d4122475185b5efb1847f1550de90fb76b2"
-    },
-    "setup-dprint": {
-      "source": "skills/setup-dprint",
-      "sourceType": "local",
-      "computedHash": "517d8a05b5e6cadcc872f1973a7636cad5dd8b02700c51b95d8ee26aad326f17"
-    },
-    "setup-dprint-gh-ci": {
-      "source": "skills/setup-dprint-gh-ci",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "setup-pypi-publish": {
-      "source": "skills/setup-pypi-publish",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "setup-python-gh-ci": {
-      "source": "skills/setup-python-gh-ci",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "setup-graphite": {
-      "source": "skills/setup-graphite",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "skill-audit": {
-      "source": "skills/skill-audit",
-      "sourceType": "local",
-      "computedHash": "d3ad4ac6df5ecb291be458e85de227ca3cf43307b170cb1626087f28ba75801c"
-    },
-    "skill-management": {
-      "source": "skills/skill-management",
-      "sourceType": "local",
-      "computedHash": "c742652d181932a368d08331686b4e28052a6b27ae7f12f2509e1118a56b8b99"
-    },
-    "skillx": {
-      "source": "skills/skillx",
-      "sourceType": "local",
-      "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
     },
     "objective": {
       "source": "skills/objective",
@@ -235,16 +170,86 @@
       "sourceType": "local",
       "computedHash": "e1aec3720d7c77999c8f2cf5deb16f66ed5bde1b629a196d90b553da74b9837f"
     },
+    "pytest": {
+      "source": "skills/pytest",
+      "sourceType": "local",
+      "computedHash": "42447813df7ee7c740aa4062e0a290c639e1f9608280dd89fe93beae42f7a666"
+    },
+    "python-fake-driven-test-layout": {
+      "source": "skills/python-fake-driven-test-layout",
+      "sourceType": "local",
+      "computedHash": "7e96441ead1b42ad588d100f0015ca9fd22257161bbc9728eb457bca8a1a8ae0"
+    },
+    "python-fake-driven-testing": {
+      "source": "skills/python-fake-driven-testing",
+      "sourceType": "local",
+      "computedHash": "668da2d7e3596c8759a5521ac88b4c079a13e54ca5effcd956c6bca10ce31788"
+    },
+    "refactor-swarm": {
+      "source": "skills/refactor-swarm",
+      "sourceType": "local",
+      "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
+    },
+    "resolve-merge-conflicts": {
+      "source": "skills/resolve-merge-conflicts",
+      "sourceType": "local",
+      "computedHash": "a28f61d711bc2afb84ac3c0bc7d30d4122475185b5efb1847f1550de90fb76b2"
+    },
+    "setup-dprint": {
+      "source": "skills/setup-dprint",
+      "sourceType": "local",
+      "computedHash": "517d8a05b5e6cadcc872f1973a7636cad5dd8b02700c51b95d8ee26aad326f17"
+    },
+    "setup-dprint-gh-ci": {
+      "source": "skills/setup-dprint-gh-ci",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "setup-graphite": {
+      "source": "skills/setup-graphite",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "setup-pypi-publish": {
+      "source": "skills/setup-pypi-publish",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "setup-python-gh-ci": {
+      "source": "skills/setup-python-gh-ci",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "skill-audit": {
+      "source": "skills/skill-audit",
+      "sourceType": "local",
+      "computedHash": "d3ad4ac6df5ecb291be458e85de227ca3cf43307b170cb1626087f28ba75801c"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "b122f4d1e91aa1d83027e050b5b37c3156203ee85458d7b1360bc48167c9e02a"
+    },
+    "skill-management": {
+      "source": "skills/skill-management",
+      "sourceType": "local",
+      "computedHash": "c742652d181932a368d08331686b4e28052a6b27ae7f12f2509e1118a56b8b99"
+    },
+    "skillx": {
+      "source": "skills/skillx",
+      "sourceType": "local",
+      "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
     },
     "thermo-nuclear-code-quality-review": {
       "source": "cursor/plugins",
       "sourceType": "github",
       "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
       "computedHash": "9052b01b46b1d8dbf94c45f9313ec1983443f9a460e83d49cdc7fe0f640ca476"
+    },
+    "typescript-style": {
+      "source": "skills/typescript-style",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
     }
   }
 }
