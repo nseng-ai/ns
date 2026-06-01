@@ -808,7 +808,7 @@ function formatStatusSegment(text: string, theme: StatusTheme | undefined): stri
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
 	ctx.ui.setWidget(UI_KEY, undefined);
-	ctx.ui.setStatus(UI_KEY, lines.join(" "));
+	ctx.ui.setStatus(UI_KEY, lines.join("\n"));
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {
