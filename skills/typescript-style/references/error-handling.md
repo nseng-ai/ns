@@ -3,6 +3,31 @@
 The goal is predictable control flow. Callers should know from the type whether failure is expected and
 how to handle it.
 
+## Parked follow-up: two-channel error model
+
+This reference still describes the current guide. A follow-up design session should revisit it against
+this parked decision record:
+
+- Use a two-channel model in single-owner TypeScript codebases:
+  - `throw` for hard errors: broken invariants, unrecoverable states, and cases where the current
+    computation should unwind to the nearest declared error boundary.
+  - `Result<T, N>` for non-ideal states: expected in-band outcomes that the direct caller is supposed
+    to handle here. `N` means non-ideal state, not necessarily an `Error`.
+- Treat `throw` as late-bound. The throwing leaf should not know whether the enclosing boundary is an
+  HTTP request, React subtree, worker job, CLI command, task group, or supervisor.
+- Treat `Result<T, N>` as early-bound. Returning it means the immediate caller owns the local handling
+  decision.
+- Do not catch mid-stack to recover unless that frame is a declared boundary. A catch that continues
+  has relocated the boundary and demoted a hard error into an in-band state.
+- Do not launder exceptions into `Result<T, N>` just to quiet the type checker.
+- Keep two axes separate:
+  - machinery: plain discriminated unions vs. wrapper libraries such as neverthrow/fp-ts;
+  - spelling: `ok`, `success`, or string-literal tags.
+- Prefer string-literal discriminants for generic `Result` helpers if boolean discriminants narrow
+  poorly; boolean `success`/`ok` remains fine for concrete serialized returns.
+- Flat `{ success: true | false, ... }` objects are useful for tool/agent-callable JSON boundaries, but
+  that does not require banning `Result<T, N>` internally.
+
 ## Expected failures are values
 
 At system boundaries, failure is normal: network requests fail, files are missing, users cancel,
@@ -22,8 +47,12 @@ function parsePort(value: unknown): Result<number, { code: "invalid-port"; messa
 Use helper constructors if the project likes them:
 
 ```ts
-const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
-const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
+function ok<T>(value: T): Result<T, never> {
+  return { ok: true, value };
+}
+function err<E>(error: E): Result<never, E> {
+  return { ok: false, error };
+}
 ```
 
 ## Async streams terminate with error events

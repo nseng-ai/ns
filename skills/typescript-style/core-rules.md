@@ -19,8 +19,9 @@ new or touched code while preserving local conventions.
 
 - **Write erasable / strip-only TypeScript.** Type syntax should be removable without changing runtime
   behavior. Avoid TypeScript constructs that require JS emit: `enum`, `namespace`/`module`, parameter
-  properties, `import =`, and `export =`. If the project already depends on emit-time features, do not
-  mix styles casually; follow the local pattern.
+  properties, `import =`, and `export =`. Do not add parameter properties to new code; if an existing
+  project already depends on emit-time features, contain local consistency exceptions instead of mixing
+  styles casually.
   ```ts
   // Good: erasable fields + constructor assignment.
   class RetryTimer {
@@ -40,8 +41,9 @@ new or touched code while preserving local conventions.
   ```
 - **No `enum` by default.** Use string-literal unions for closed sets. When a schema needs runtime
   validation, derive the runtime values and static type from the same literal list.
-- **Avoid `any`.** Use `unknown` at untyped boundaries, then narrow with guards. If a library forces
-  `any`, isolate it behind an alias or a narrow wrapper with a comment.
+- **No `any` in ordinary code.** Use `unknown` at untyped boundaries, then narrow with guards. If a
+  library type truly forces `any`, isolate it at the smallest wrapper or alias, comment why it is
+  unavoidable, and never let it leak into project-owned types.
 - **Prefer top-level type imports.** Avoid `await import()` or `import("pkg").Type` for types. Runtime
   lazy `import()` is fine when it reduces startup cost or optional dependencies.
 - **Follow the project's import suffix convention.** Strip-only Node/Bun projects often use `.ts` in
@@ -60,14 +62,18 @@ Full reasoning: `references/type-system.md`.
   simple aliases.** Prefer `extends` for interface composition.
 - **Closed sets are string-literal unions.** Keep runtime lists and types synchronized with `as const`
   arrays when both are needed.
-- **Runtime variants are discriminated unions.** Use a domain field such as `type`, `kind`, `role`, or
-  `status`; consume with an exhaustive `switch`.
+- **Runtime variants are discriminated unions.** Prefer `type` as the literal tag for ordinary internal
+  variants; use domain or external-contract tags such as `role` or `status` when that is the honest
+  model. Consume variants with an exhaustive `switch`.
 - **Extensible registries use open unions:** `type BackendId = KnownBackendId | (string & {})`. Known
   values keep autocomplete while custom plugins can still register new values.
 - **Push tags through generics.** If a value has a backend/type tag, carry that tag through helper
   signatures and use conditional types to expose only legal config for that tag.
 - **Use `satisfies` for object literals.** It checks shape without widening away useful literal
   inference. Use `as const satisfies T` for config tables.
+- **Use Zod-first validation at external boundaries.** External, HTTP, model, tool, and config input
+  should be parsed by a Zod schema. Derive static types from schemas with `z.infer`; do not hand-write
+  duplicate mirror types for values that already have a schema.
 - **Model state machines as explicit unions.** Prefer one field like
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
@@ -121,15 +127,28 @@ Full reasoning: `references/error-handling.md`.
 
 ## 6. Functions, classes, and state
 
+- **Use `function` declarations for top-level module logic.** Exported APIs, async helpers, React
+  components, and named module-level logic should be declared with `function`. Use arrow functions for
+  callbacks, event handlers, inline higher-order expressions, and factory shapes that are naturally
+  expression-valued.
 - **Pure functions for logic; classes for stateful coordination.** Parsing, selection, estimation,
   matching, normalization, and conversion should be functions over plain data. Classes coordinate
   lifecycle, caches, subscriptions, and mutable state.
+- **Prefer guard clauses and early returns.** Validate preconditions and edge cases up front, then keep
+  the main path linear. A single-line `if (condition) return value;` is fine when it reads clearly.
+- **Use `??` and `?.` for nullish semantics.** Do not use `||` for defaults when `""`, `0`, or `false`
+  are valid values that must be preserved.
+- **Use options objects for several or optional inputs.** Prefer a named `*Options` object over long
+  positional parameter lists when call sites need defaults, flags, or optional values.
 - **Keep engine functions readable.** A top-level dispatcher can be large if it is linear and names the
   phases; move real sub-work into small private helpers when it improves the narrative.
 - **Inline one-use helpers.** A new module for one tiny function is usually needless indirection.
   Prefer a local closure that captures local state over a public helper with a long parameter list.
-- **Use defensive copies at API boundaries.** Return copies from public getters and copy caller-owned
-  arrays/objects on assign. Mutate internally where it is local, hot, and tested.
+- **Respect ownership-boundary immutability.** Do not mutate inputs, returned values, or shared/public
+  state in place. Return copies from public getters and copy caller-owned arrays/objects on assign. Use
+  `readonly`, `ReadonlyArray<T>`, `ReadonlyMap<K,V>`, or `ReadonlySet<T>` in public contracts where the
+  callee must not mutate. Local owned mutation inside a function or stateful class is fine when clear
+  and tested.
 - **Keep lifecycle state coherent.** Prefer one source of truth over parallel flags, duplicated caches,
   or shadow state that must be manually synchronized.
 
@@ -141,8 +160,13 @@ Full reasoning: `references/philosophy.md` plus the case studies.
 
 - **Name by role.** `create*` for factories, `build*` for derivations, `prepare*`/`execute*`/`finalize*`
   for pipelines, `normalize*` for boundary cleanup, `is*` for type guards.
+- **Name booleans by predicate.** Prefer `is*`, `has*`, `should*`, or `can*` so conditions read as
+  assertions. Type guards should be named `isX(value): value is X`.
 - **Use meaningful suffixes.** `*Options` for caller inputs, `*Config` for stable configuration,
-  `*Event`, `*Result`, `*State`, `*Capabilities`/`*Compat`, `*Function` for callable aliases.
+  `*Event`, `*Result`, `*State`, `*Capabilities`/`*Compat`, `*Function` for callable aliases, and
+  `<noun>Schema` for Zod schemas.
+- **Include units in measured constants.** Prefer names such as `TIMEOUT_MS`, `MAX_BYTES`, and
+  `RETRY_DELAY_MS` over unitless constants.
 - **Concrete classes are plain nouns.** Reserve `Component`, `Provider`, `Adapter`, `Manager`, etc. for
   real abstractions, not decoration.
 - **Event names are stable strings.** Use a consistent casing convention (`snake_case` is a good
@@ -162,6 +186,9 @@ Full reasoning: `references/philosophy.md` plus the case studies.
   follow-up task.
 - **Comments explain why, contracts, and edge cases.** Do not narrate mechanics that the code already
   states.
+- **Suppressions and empty catches explain why.** Use `@ts-expect-error` with a one-line reason; avoid
+  `@ts-ignore`. An empty `catch` must say why ignoring the failure is safe. Repeated suppressions in one
+  file usually mean the types or boundary are wrong.
 - **Review directly.** Start with agreement/disagreement or the required change, then give the reason.
   Avoid cheerleading, emojis, and filler in technical review.
 

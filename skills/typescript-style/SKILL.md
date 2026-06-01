@@ -1,6 +1,6 @@
 ---
 name: typescript-style
-description: "General TypeScript style guide for strict, portable TS: erasable syntax, string-literal unions, discriminated unions, errors-as-values, minimal-core architecture, backend neutrality, and terse review."
+description: "General TypeScript style guide for strict TS: erasable syntax, Zod boundary schemas, function declarations for module logic, discriminated unions, errors-as-values, minimal-core architecture, backend neutrality, and terse review."
 references:
   - core-rules
   - idioms
@@ -18,19 +18,22 @@ references:
 
 # typescript-style
 
-A portable, opinionated TypeScript style guide for strict, maintainable projects. Write erasable
-TypeScript: type syntax should be removable without changing runtime behavior. This guide should make
-sense when copied into any TypeScript codebase: follow the local repository's tooling, runtime, and
-public API constraints first; use this guide for the design defaults that are not already settled.
+An opinionated TypeScript style guide for strict, maintainable projects. It is toolchain-neutral about
+package managers, formatters, linters, test runners, and import suffixes, while making code-level
+defaults: erasable TypeScript, Zod-first boundary validation, honest types, and small architecture.
+Follow the local repository's runtime and public API constraints first; use this guide for design
+defaults that are not already settled.
 
 The examples are motivating patterns, not dependencies on a particular codebase. Adapt names, import
-suffixes, formatter settings, and package layout to the project in front of you.
+suffixes, formatter settings, and package layout to the project in front of you; keep Zod as the default
+runtime validation library for new external boundaries unless the project has already chosen otherwise.
 
 ## Scope
 
 Use this as a reference for:
 
-- strict type design with string-literal unions, discriminated unions, generics, and `satisfies`;
+- strict type design with Zod boundary schemas, string-literal unions, discriminated unions, generics,
+  and `satisfies`;
 - choosing `interface` vs. `type`, `throw` vs. returned errors, and core vs. plugin/adapter boundaries;
 - designing backend-neutral abstractions, stateful runtimes, extension/plugin APIs, and terminal UIs;
 - reviewing TypeScript for needless machinery, incoherent types, hidden globals, and unowned complexity.
@@ -45,14 +48,19 @@ run **`checklist.md`**.
 
 ## One-paragraph version
 
-Write strict, erasable TypeScript: no `enum`, no `namespace`, no parameter properties unless the
-project already requires TS emit features. Closed sets are **string-literal unions**; runtime variants
-are **discriminated unions** on a domain field and consumed by exhaustive `switch`. Use `unknown` at
-boundaries and avoid `any` unless a library forces it. Encode expected failure as returned data at
-async/system boundaries (`Result<T,E>`, terminal error events); throw only for programmer errors and
-broken invariants. Keep the core minimal: optional behavior lives behind plugins, adapters, or
-capability flags. Functions do logic; classes coordinate state. Inline one-use helpers. Be direct in
-reviews and comments; explain why, not mechanics.
+Write strict, erasable TypeScript: no `enum`, no `namespace`, and no parameter properties in new code.
+Closed sets are **string-literal unions**; runtime variants are **discriminated unions** using `type` by
+default, with domain/external tags only when they better express the model. Use `unknown` at boundaries
+and avoid `any` except isolated, commented library-forced seams. Validate external boundaries with Zod
+schemas and derive types with `z.infer`. Encode expected failure as returned data at async/system
+boundaries (`Result<T,E>`, terminal error events); throw only for programmer errors and broken
+invariants. Top-level module logic uses `function` declarations; callbacks and expression-position
+factories can use arrows. Prefer guard clauses, nullish operators for nullish semantics, and options
+objects for several/optional inputs. Respect ownership-boundary immutability: do not mutate inputs,
+returned values, or shared/public state in place. Keep the core minimal: optional behavior lives behind
+plugins, adapters, or capability flags. Functions do logic; classes coordinate state. Inline one-use
+helpers. Suppressions and empty catches explain why. Be direct in reviews and comments; explain why, not
+mechanics.
 
 ## Conditional loading
 
