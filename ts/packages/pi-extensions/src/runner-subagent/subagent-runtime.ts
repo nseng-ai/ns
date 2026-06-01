@@ -294,7 +294,11 @@ function cloneJsonSerializable(value: unknown, label: string): TypeBoxLikeSchema
 	if (raw === undefined) {
 		throw new RuntimeConfigValidationError(`${label} must be JSON-serializable.`);
 	}
-	return JSON.parse(raw) as TypeBoxLikeSchema;
+	const parsed: unknown = JSON.parse(raw);
+	if (!isRecord(parsed)) {
+		throw new RuntimeConfigValidationError(`${label} must serialize to a JSON object.`);
+	}
+	return parsed;
 }
 
 function isTerminalStatus(value: unknown): value is RunnerSubagentTerminalStatus {

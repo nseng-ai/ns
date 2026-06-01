@@ -125,6 +125,16 @@ describe("runner subagent runtime config and result helpers", () => {
 		).toThrow("JSON-serializable");
 	});
 
+	test("rejects schemas that serialize to non-object JSON", () => {
+		const primitiveSchema = { toJSON: () => "not a schema object" };
+
+		expect(() =>
+			createRuntimeConfig({
+				terminalTools: [{ ...completionTool, parameters: primitiveSchema }],
+			}),
+		).toThrow("must serialize to a JSON object");
+	});
+
 	test("reads missing, malformed, and valid result sinks deterministically", async () => {
 		await withTempDir(async (dir) => {
 			const resultPath = join(dir, "result.json");

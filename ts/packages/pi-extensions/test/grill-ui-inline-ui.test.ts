@@ -3,6 +3,9 @@ import { describe, expect, test } from "bun:test";
 import { GrillAskController } from "../src/grill-ui/controller.ts";
 import {
 	createGrillAskInlineComponent,
+	grillAskInlineRuntimeFromModule,
+	grillAskRenderThemeFromValue,
+	markdownThemeFromCodingAgentModule,
 	runGrillAskInlineUiWithRuntime,
 	type GrillAskInlineRuntime,
 } from "../src/grill-ui/inline-ui.ts";
@@ -163,6 +166,84 @@ describe("grill_ask render helpers", () => {
 		expect(output).not.toContain("Choices");
 		expect(output).not.toContain("│");
 		expect(lines.every((line) => line.length <= 120)).toBe(true);
+	});
+});
+
+describe("grill_ask inline runtime boundary helpers", () => {
+	test("normalizes valid Pi TUI-like module exports", () => {
+		const markdownTheme = { name: "markdown-theme" };
+		const runtime = grillAskInlineRuntimeFromModule(
+			fakeRuntimeModule({
+				Key: { up: "ArrowUp", enter: "Enter" },
+				wrapTextWithAnsi: (value: string, width: number) => [value.slice(0, width)],
+				visibleWidth: (value: string) => value.length,
+				Markdown: FakeMarkdown,
+			}),
+			markdownTheme,
+		);
+
+		expect(runtime.Editor).toBe(FakeEditor);
+		expect(runtime.Key).toEqual({ up: "ArrowUp", enter: "Enter" });
+		expect(runtime.matchesKey("Enter", "Enter")).toBe(true);
+		expect(runtime.truncateToWidth("abcdef", 3)).toBe("abc");
+		expect(runtime.wrapTextWithAnsi?.("abcdef", 2)).toEqual(["ab"]);
+		expect(runtime.visibleWidth?.("abc")).toBe(3);
+		expect(runtime.Markdown).toBe(FakeMarkdown);
+		expect(runtime.markdownTheme).toBe(markdownTheme);
+	});
+
+	test("rejects missing or malformed required Pi TUI exports", () => {
+		expect(() => grillAskInlineRuntimeFromModule({}, undefined)).toThrow("Pi TUI runtime does not provide");
+		expect(() =>
+			grillAskInlineRuntimeFromModule(
+				fakeRuntimeModule({
+					matchesKey: "not callable",
+				}),
+				undefined,
+			),
+		).toThrow("Pi TUI runtime does not provide");
+	});
+
+	test("ignores malformed optional Pi TUI exports", () => {
+		const runtime = grillAskInlineRuntimeFromModule(
+			fakeRuntimeModule({
+				Key: { up: "up", down: 42 },
+				wrapTextWithAnsi: "not callable",
+				visibleWidth: "not callable",
+				Markdown: { render: () => [] },
+			}),
+			undefined,
+		);
+
+		expect(runtime.Key).toBeUndefined();
+		expect(runtime.wrapTextWithAnsi).toBeUndefined();
+		expect(runtime.visibleWidth).toBeUndefined();
+		expect(runtime.Markdown).toBeUndefined();
+		expect(runtime.markdownTheme).toBeUndefined();
+		expect(runtime.matchesKey("enter", "enter")).toBe(true);
+	});
+
+	test("reads markdown theme only from a callable coding-agent export", () => {
+		const sentinel = { name: "theme" };
+
+		expect(markdownThemeFromCodingAgentModule({ getMarkdownTheme: () => sentinel })).toBe(sentinel);
+		expect(markdownThemeFromCodingAgentModule({})).toBeUndefined();
+		expect(markdownThemeFromCodingAgentModule({ getMarkdownTheme: "not callable" })).toBeUndefined();
+		expect(markdownThemeFromCodingAgentModule([])).toBeUndefined();
+	});
+
+	test("normalizes custom UI themes to callable render functions", () => {
+		const fg = (color: string, text: string) => `${color}:${text}`;
+		const bg = (color: string, text: string) => `${color}:${text}`;
+		const bold = (text: string) => `**${text}**`;
+
+		const theme = grillAskRenderThemeFromValue({ fg, bg: "not callable", bold });
+		expect(theme.fg).toBe(fg);
+		expect(theme.bg).toBeUndefined();
+		expect(theme.bold).toBe(bold);
+		expect(grillAskRenderThemeFromValue({ fg, bg, bold }).bg).toBe(bg);
+		expect(grillAskRenderThemeFromValue(null)).toEqual({});
+		expect(grillAskRenderThemeFromValue([])).toEqual({});
 	});
 });
 
@@ -334,6 +415,15 @@ function fakeRuntime(): GrillAskInlineRuntime {
 	};
 }
 
+function fakeRuntimeModule(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		Editor: FakeEditor,
+		matchesKey: (data: string, key: string) => data === key,
+		truncateToWidth: (value: string, width: number) => value.slice(0, width),
+		...overrides,
+	};
+}
+
 function fakeTui(): { requestRender(): void } {
 	return { requestRender: () => {} };
 }
@@ -364,6 +454,18 @@ class FakeEditor {
 	}
 
 	invalidate(): void {}
+}
+
+class FakeMarkdown {
+	private readonly text: string;
+
+	constructor(text: string, _paddingX: number, _paddingY: number, _theme: unknown) {
+		this.text = text;
+	}
+
+	render(width: number): string[] {
+		return [this.text.slice(0, width)];
+	}
 }
 
 function wrapPlain(value: string, width: number): string[] {
