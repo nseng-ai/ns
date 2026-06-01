@@ -1,6 +1,6 @@
 # Agent Resource Catalog
 
-Generated from the repo checkout on 2026-05-31.
+Generated from the repo checkout on 2026-06-01.
 
 This catalog covers repo-defined agent and harness resources with command-level rows where a resource exposes commands or tools.
 
@@ -11,7 +11,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
 | First-party skill commands               |    38 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    19 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| Project Pi extension commands            |    20 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     2 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -95,7 +95,8 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/handoff:create`        | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
 | `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
 | `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
-| `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
+| `/dev:preview-url`       | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
+| `/dev:cp`                | `.pi/extensions/asdl-dev.ts`       | Creates a checkpoint commit for the current diff.                                                   |
 | `/dev:changes`           | `.pi/extensions/dev.ts`            | Summarizes outstanding worktree changes without committing.                                         |
 | `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
 | `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
@@ -167,6 +168,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | Artifact                                                | Description                                                                                                               |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance. |
+| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored as `/dev:*` Pi commands.                  |
 | `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                       |
 | `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.        |
 | `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                            |
