@@ -74,6 +74,7 @@ The preview must include:
 - 1 to 3 planned PRs/Graphite branches by default;
 - one high-level thesis per planned PR/branch;
 - why each planned PR/branch is independently reviewable;
+- slice boundaries based on human-legible decision count and thesis clarity, not diff size, file count, or line count;
 - expected validation for the planned work;
 - expected Objective update evidence, if meaningful progress is made;
 - expected Objective state at the end of the planned execution;
@@ -108,6 +109,8 @@ Proceed with this execution plan?
 ```
 
 Proceed only after an explicit affirmative response such as `yes`, `proceed`, or a clear equivalent. If the user asks for changes, revise the preview and ask again. If the user declines, is ambiguous, or asks a question, answer or stop; do not execute the plan yet.
+
+Reviewability is about one clear decision/thesis per PR or branch, not small diffs. A 1,000-file mechanical rename can be one reviewable slice; a 20-line change that mixes unrelated decisions should be split or clarified.
 
 Use this repo's Graphite workflow instructions before creating branches, navigating the stack, committing, amending, or restacking.
 
