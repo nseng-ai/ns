@@ -77,3 +77,11 @@ Risks:
 - Resolved: the existing asdl-only `ns-setup-python-ci` skill was retired after `setup-python-gh-ci` landed under the exact nonslop catalog name.
 - Should `areg` eventually mount under the top-level `asdl` CLI after the migration proves stable? Initial decision: no; standalone only.
 - Deletion readiness is now proven for this repo, but the old nonslop GitHub repository deletion/archive/redirect remains a future explicit destructive decision outside this Objective.
+
+## Closure
+
+Outcome: completed. `asdl-tools` is deletion-ready for the old nonslop checkout/repository from this repo's perspective: `areg` has been ported as a standalone workspace package, the retained skill catalog has been promoted to first-party flat local skills, stale live references to `nonslop`, `uvx nonslop`, and `nseng-ai/nonslop` have been removed or limited to historical Objective context, and all non-parked roadmap work is complete.
+
+Key evidence is recorded in `roadmap.md`, `nonslop-capability-inventory.md`, and the Semantic Updates under `updates/`. Verification recorded during the Objective included `uv run areg check`, `uv run areg exec skillx parse "dagster-io/asdl-tools --skill ns-pytest"`, `uv run pytest packages/areg/tests -q`, `just dprint-check`, full `just`, local-skill structure checks, and a live-reference search excluding Objective history and cache/build output.
+
+Remaining caveats are intentionally parked rather than blocking closure: deleting `/Users/schrockn/code/nonslop`, archiving/deleting the old GitHub repository or external project artifacts, mounting `areg` under the top-level `asdl` CLI, and preserving backward-compatible `nonslop`/`uvx nonslop` aliases all require separate explicit future decisions.
