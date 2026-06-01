@@ -56,6 +56,7 @@ const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
 const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
 const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["pr"] as const;
+const GIT_WORKTREE_STATUS_ARGS = ["status", "--porcelain=v1"] as const;
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const SUBMIT_TIMEOUT_MS = 600_000;
@@ -129,7 +130,7 @@ export function submitExtensionWithDependencies(pi: ExtensionAPI, dependencies: 
 	const checkpointOperations = dependencies.checkpoint ?? createDefaultSubmitCheckpointOperations(pi);
 
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Submit the current Graphite stack with gt submit -nps --ai",
+		description: "Submit the current Graphite stack with gt submit -nps --ai after a clean-worktree check",
 		handler: async (_args, ctx) => {
 			await ctx.waitForIdle();
 			ctx.ui.setWidget(WIDGET_ID, undefined);
@@ -197,6 +198,11 @@ interface SubmitCommandOutput {
 	stderr: string;
 }
 
+type SubmitWorktreeReadinessResult =
+	| { kind: "clean"; result: BufferedCommandResult }
+	| { kind: "dirty"; result: BufferedCommandResult }
+	| { kind: "failed"; result: BufferedCommandResult };
+
 interface SubmitProgress {
 	show(line: string): void;
 	clear(): void;
@@ -240,6 +246,9 @@ async function runSubmitAttempt(input: {
 	allowNoCurrentPrRecovery: boolean;
 }): Promise<SubmitAttemptOutcome> {
 	const { ctx, progress, runner } = input;
+	const worktreeClean = await ensureWorkingTreeCleanForSubmit(ctx, progress, runner);
+	if (!worktreeClean) return { kind: "failure_handled" };
+
 	const ready = await ensureStackReadyForSubmit(ctx, progress, runner);
 	if (!ready) return { kind: "preflight_handled" };
 
@@ -561,6 +570,32 @@ function sanitizeProgressText(text: string): string {
 		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
 		.replace(/ +/g, " ")
 		.trim();
+}
+
+async function ensureWorkingTreeCleanForSubmit(
+	ctx: ExtensionCommandContext,
+	progress: SubmitProgress,
+	runner: SubmitCommandRunner,
+): Promise<boolean> {
+	progress.show("git status: checking for uncommitted changes…");
+	const readiness = await checkWorkingTreeClean(ctx.cwd, runner).finally(() => progress.clear());
+
+	if (readiness.kind === "clean") return true;
+
+	if (readiness.kind === "dirty") {
+		displayFailureOutput(ctx, formatDirtyWorktreeOutput(readiness.result));
+		return false;
+	}
+
+	displayFailureOutput(ctx, formatWorktreeCheckFailureOutput(readiness.result));
+	return false;
+}
+
+async function checkWorkingTreeClean(cwd: string, runner: SubmitCommandRunner): Promise<SubmitWorktreeReadinessResult> {
+	const result = await runner.runBuffered("git", [...GIT_WORKTREE_STATUS_ARGS], { cwd, timeoutMs: GIT_CHECK_TIMEOUT_MS });
+	if (result.startupError || result.killed || result.code !== 0) return { kind: "failed", result };
+	if (result.stdout.trim().length > 0) return { kind: "dirty", result };
+	return { kind: "clean", result };
 }
 
 async function ensureStackReadyForSubmit(
@@ -1103,6 +1138,40 @@ function formatClickablePrLabel(link: PrLink): string {
 
 function sanitizeOsc8Url(url: string): string {
 	return url.replace(/[\x00-\x1f\x7f]/g, "");
+}
+
+function formatDirtyWorktreeOutput(result: BufferedCommandResult): string {
+	return [
+		`Working tree has uncommitted changes. /${COMMAND_NAME} only submits committed Graphite branches.`,
+		`Run /${CHECKPOINT_COMMAND_NAME} to checkpoint outstanding changes, then run /${COMMAND_NAME} again.`,
+		"Submission was not attempted.",
+		"",
+		"$ git status --porcelain=v1",
+		"",
+		formatOutputSection("stdout", result.stdout),
+		formatOutputSection("stderr", result.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatWorktreeCheckFailureOutput(result: BufferedCommandResult): string {
+	const reason = result.startupError
+		? `git status could not start: ${result.startupError}. Submission was not attempted.`
+		: result.killed
+			? `git status --porcelain=v1 timed out after ${GIT_CHECK_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `git status --porcelain=v1 failed with exit code ${result.code}. Submission was not attempted.`;
+
+	return [
+		reason,
+		"",
+		"$ git status --porcelain=v1",
+		"",
+		formatOutputSection("stdout", result.stdout),
+		formatOutputSection("stderr", result.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
 }
 
 function formatPreflightFailureOutput(result: BufferedCommandResult): string {
