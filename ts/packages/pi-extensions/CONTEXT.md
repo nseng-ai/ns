@@ -25,8 +25,8 @@ _Avoid:_ attached plan, Branch Memory entry, checked-in plan.
 **Local plan store** — The machine-local pre-branch store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` used by `/write-plan` and `/create-planned-branch`.
 _Avoid:_ Branch Memory namespace, repo docs directory, objective update.
 
-**Saved-plan filename slug** — The `<slug>` filename stem in the Local plan store, chosen by `/write-plan` as a semantic local locator for a reviewed plan file.
-_Avoid:_ planned-branch slug, Branch Memory key, target branch.
+**Saved-plan filename slug** — The `<slug>` filename stem in the Local plan store, derived by `/write-plan` from the final reviewed plan content through the Codex-backed slug model as a semantic local locator for a reviewed plan file.
+_Avoid:_ planned-branch slug, Branch Memory key, target branch, assistant-generated slug.
 
 **Source branch plan file** — One saved plan file scoped to the repository and source branch where planning happened.
 _Avoid:_ attached plan, implementation branch plan, source file unqualified.
@@ -112,7 +112,7 @@ Key: <content-derived-planned-branch-slug>.md
 Branch: <target implementation branch>
 ```
 
-`/write-plan` writes only the **Local plan store** and chooses a **Saved-plan filename slug**. `/create-planned-branch` selects that file, derives a **Content-derived planned-branch slug** from the plan body with a mandatory model call, creates the target branch, and writes the **Branch Memory attachment**. `/impl-planned-branch` reads the **Attached plan** from the current implementation branch and injects it into a new implementation turn.
+`/write-plan` writes only the **Local plan store** and derives a **Saved-plan filename slug** from final plan content through the Codex-backed slug model. `/create-planned-branch` selects that file, derives a **Content-derived planned-branch slug** from the plan body with a mandatory model call, creates the target branch, and writes the **Branch Memory attachment**. `/impl-planned-branch` reads the **Attached plan** from the current implementation branch and injects it into a new implementation turn.
 
 ### Changes, checkpoint, and new-branch boundary
 

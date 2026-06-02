@@ -8,9 +8,6 @@ import { truncateDisplayLine } from "./terminal-presentation.ts";
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
 export const DEFAULT_HARNESS = "codex-pi";
 
-const OPENAI_PROVIDER = "openai";
-const GPT_NANO_MODEL = "gpt-5.4-nano";
-const GPT_NANO_MODEL_LABEL = "GPT-5.4 Nano";
 const CODEX_PROVIDER = "openai-codex";
 const CODEX_MODEL = "gpt-5.4-mini";
 const CODEX_MODEL_LABEL = "GPT-5.4 Mini via Codex";
@@ -21,7 +18,7 @@ const DEFAULT_MAX_TOKENS = 512;
 
 type CompleteSimpleFunction = typeof PiAi.completeSimple;
 
-export type DraftHarness = "gpt-nano-pi" | "codex-pi" | "claude-cli";
+export type DraftHarness = "codex-pi" | "claude-cli";
 export type NotifyLevel = "info" | "warning" | "error";
 
 type WidgetPlacement = "aboveEditor" | "belowEditor";
@@ -87,14 +84,6 @@ type PiModelConfig = {
 	reasoning: "minimal" | "low";
 };
 
-const GPT_NANO_CONFIG: PiModelConfig = {
-	provider: OPENAI_PROVIDER,
-	modelId: GPT_NANO_MODEL,
-	label: GPT_NANO_MODEL_LABEL,
-	authLabel: "OpenAI",
-	reasoning: "low",
-};
-
 const CODEX_CONFIG: PiModelConfig = {
 	provider: CODEX_PROVIDER,
 	modelId: CODEX_MODEL,
@@ -105,12 +94,12 @@ const CODEX_CONFIG: PiModelConfig = {
 
 export function selectDraftHarness(): { value: DraftHarness } | { error: string } {
 	const configured = process.env[HARNESS_ENV]?.trim() || DEFAULT_HARNESS;
-	if (configured === "gpt-nano-pi" || configured === "codex-pi" || configured === "claude-cli") {
+	if (configured === "codex-pi" || configured === "claude-cli") {
 		return { value: configured };
 	}
 
 	return {
-		error: `Invalid ${HARNESS_ENV}=${JSON.stringify(configured)}. Valid values: gpt-nano-pi, codex-pi, claude-cli.`,
+		error: `Invalid ${HARNESS_ENV}=${JSON.stringify(configured)}. Valid values: codex-pi, claude-cli.`,
 	};
 }
 
@@ -119,9 +108,6 @@ export async function draftWithFastText(
 	ctx: ExtensionCommandContext,
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
-	if (input.harness === "gpt-nano-pi") {
-		return draftWithPiModel(ctx, GPT_NANO_CONFIG, input);
-	}
 	if (input.harness === "codex-pi") {
 		return draftWithPiModel(ctx, CODEX_CONFIG, input);
 	}
