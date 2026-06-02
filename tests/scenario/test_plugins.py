@@ -151,13 +151,13 @@ def test_handoff_plugin_integration() -> None:
     gateway.put("handoffs", "resume-tests.md", "feat/handoff", "resume tests")
     ctx = HandoffCliContext(
         brmem_gateway=gateway,
-        git_gateway=FakeGitGateway(),
+        git_gateway=FakeGitGateway(branches=("feat/handoff",)),
     )
     obj = build_clinkr_context_object(lambda: ctx)
 
     result = CliRunner().invoke(
         parent,
-        ["handoff", "list", "--all-branches", "--format", "json"],
+        ["handoff", "list", "--all", "--format", "json"],
         obj=obj,
     )
 
@@ -166,9 +166,11 @@ def test_handoff_plugin_integration() -> None:
     assert payload["data"]["handoffs"] == [
         {
             "branch": "feat/handoff",
+            "branch_state": "active",
             "slug": "resume-tests",
             "key": "resume-tests.md",
             "entry_locator": "refs/brmem/ns/handoffs/feat---handoff:resume-tests.md",
+            "updated_at": "2026-01-01T00:00:01+00:00",
         }
     ]
 
@@ -185,7 +187,7 @@ def test_discover_plugins_installs_context_on_root_for_json_mode(
     gateway.put("handoffs", "root-json.md", "feat/handoff", "root json")
     ctx = HandoffCliContext(
         brmem_gateway=gateway,
-        git_gateway=FakeGitGateway(),
+        git_gateway=FakeGitGateway(branches=("feat/handoff",)),
     )
 
     monkeypatch.setattr(
@@ -201,7 +203,7 @@ def test_discover_plugins_installs_context_on_root_for_json_mode(
 
     result = CliRunner().invoke(
         parent,
-        ["handoff", "list", "--all-branches", "--format", "json"],
+        ["handoff", "list", "--all", "--format", "json"],
     )
 
     assert result.exit_code == 0, result.output

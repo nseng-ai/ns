@@ -29,13 +29,13 @@ Options:
 
 With no selector, the command picks up the only handoff when exactly one exists, or opens a picker when several exist.`;
 
-const LIST_HANDOFF_USAGE = `Usage: /${LIST_HANDOFF_COMMAND_NAME} [--branch <branch> | --all-branches]
+const LIST_HANDOFF_USAGE = `Usage: /${LIST_HANDOFF_COMMAND_NAME} [--branch <branch> | --all]
 
 List saved handoffs on this branch or across all branches.
 
 Options:
   --branch <branch>  List handoffs from an explicit branch instead of the current branch.
-  --all-branches     List handoffs across every branch.
+  --all              List handoffs across every branch.
   --help, -h         Show this help.`;
 
 const SAVE_HANDOFF_FALLBACK = `Use the handoff-save workflow to save a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
@@ -220,7 +220,7 @@ export function parseListHandoffArgs(rawArgs: string): ListHandoffArgs {
 			parsed.help = true;
 			continue;
 		}
-		if (token === "--all-branches") {
+		if (token === "--all") {
 			parsed.allBranches = true;
 			continue;
 		}
@@ -249,7 +249,7 @@ export function parseListHandoffArgs(rawArgs: string): ListHandoffArgs {
 	}
 
 	if (parsed.branch !== undefined && parsed.allBranches) {
-		throw new HandoffUsageError("--branch and --all-branches are mutually exclusive.");
+		throw new HandoffUsageError("--branch and --all are mutually exclusive.");
 	}
 
 	return parsed;
@@ -672,7 +672,7 @@ async function currentBranch(pi: ExtensionAPI, ctx: CommandContext, action: "pic
 
 	const branch = result.stdout.trim();
 	if (branch.length === 0) {
-		const recovery = action === "list" ? "pass --branch <branch> or --all-branches" : "pass --branch <branch>";
+		const recovery = action === "list" ? "pass --branch <branch> or --all" : "pass --branch <branch>";
 		throw new Error(`Cannot ${action} handoffs in detached HEAD; ${recovery}.`);
 	}
 	return branch;

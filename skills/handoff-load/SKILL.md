@@ -31,7 +31,7 @@ For current-branch pickup or list:
 git branch --show-current
 ```
 
-Stop if the repo is in detached HEAD and the user did not provide a branch. If the user asks to discover handoffs across branches, use all-branches listing instead.
+Stop if the repo is in detached HEAD and the user did not provide a branch. If the user asks to discover handoffs across branches, use all-branch listing instead.
 
 ## List handoffs
 
@@ -50,10 +50,10 @@ handoff list --branch <branch> --format json
 All branches:
 
 ```bash
-handoff list --all-branches --format json
+handoff list --all --format json
 ```
 
-The JSON payload's `data.handoffs` list contains handoff records with `branch`, `slug`, `key`, and `entry_locator`. Show normal results as handoff choices grouped by branch when listing across branches. For each choice, show the slug, a short continuation focus or preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branch_state`, `slug`, `key`, `entry_locator`, and `updated_at`. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 

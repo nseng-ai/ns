@@ -32,6 +32,19 @@ def _init_repo(tmp_path: Path) -> Path:
     return repo
 
 
+def _put_with_dates(
+    monkeypatch: pytest.MonkeyPatch,
+    gateway: RealBranchMemoryGateway,
+    *,
+    when: str,
+    key: str,
+    content: str,
+) -> None:
+    monkeypatch.setenv("GIT_AUTHOR_DATE", when)
+    monkeypatch.setenv("GIT_COMMITTER_DATE", when)
+    gateway.put("scratch", key, "feat/x", content)
+
+
 def test_real_brmem_round_trip_uses_snapshot_refs_and_preserves_history(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
@@ -66,6 +79,44 @@ def test_real_brmem_multiple_entries_coexist_on_same_branch(tmp_path: Path) -> N
 
     assert gateway.get("scratch", "plan", "feat/x") == "a-updated\n"
     assert gateway.get("scratch", "notes", "feat/x") == "b\n"
+
+
+def test_real_brmem_entry_updated_at_tracks_specific_key_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    _put_with_dates(
+        monkeypatch,
+        gateway,
+        when="2026-01-01T00:00:00+00:00",
+        key="alpha.md",
+        content="alpha v1\n",
+    )
+    _put_with_dates(
+        monkeypatch,
+        gateway,
+        when="2026-01-02T00:00:00+00:00",
+        key="bravo.md",
+        content="bravo v1\n",
+    )
+    _put_with_dates(
+        monkeypatch,
+        gateway,
+        when="2026-01-03T00:00:00+00:00",
+        key="alpha.md",
+        content="alpha v2\n",
+    )
+
+    assert (
+        gateway.get_entry_updated_at("scratch", "alpha.md", "feat/x") == "2026-01-03T00:00:00+00:00"
+    )
+    assert (
+        gateway.get_entry_updated_at("scratch", "bravo.md", "feat/x") == "2026-01-02T00:00:00+00:00"
+    )
+    assert gateway.get_entry_updated_at("scratch", "missing.md", "feat/x") is None
 
 
 def test_real_brmem_sibling_keys_under_a_prefix_are_independent(tmp_path: Path) -> None:

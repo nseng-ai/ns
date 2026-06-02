@@ -201,6 +201,45 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
             size_bytes=len(content.encode("utf-8")),
         )
 
+    def get_entry_updated_at(self, namespace: str, key: str, branch: str) -> str | None:
+        validate_namespace(namespace)
+        validate_key(key)
+        validate_branch_name(branch)
+
+        commit_sha = self._snapshot_heads.get(_SnapshotKey(namespace, branch))
+        if commit_sha is None:
+            return None
+
+        head = self._commits.get(commit_sha)
+        if head is None:
+            return None
+        if key not in dict(head.tree):
+            return None
+
+        while commit_sha is not None:
+            snapshot = self._commits.get(commit_sha)
+            if snapshot is None:
+                return None
+
+            current_tree = dict(snapshot.tree)
+            current_content_sha = current_tree.get(key)
+            if current_content_sha is None:
+                return None
+
+            parent_content_sha = None
+            if snapshot.parent is not None:
+                parent = self._commits.get(snapshot.parent)
+                if parent is None:
+                    return None
+                parent_content_sha = dict(parent.tree).get(key)
+
+            if current_content_sha != parent_content_sha:
+                return self._commit_dates_by_sha.get(commit_sha)
+
+            commit_sha = snapshot.parent
+
+        return None
+
     def copy_entries(
         self,
         *,
