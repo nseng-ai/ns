@@ -39,11 +39,12 @@ Assumptions:
 - A single Objective is the right tracking unit because the findings share one purpose: making the areg migration branch structurally review-ready.
 - The intended remediation bar is structural/code-judo cleanup, not a checklist of narrow local patches.
 - The current branch can absorb these fixes without reopening the entire nonslop-to-areg migration strategy.
+- For `areg init` first-row safety, predictable local validation failures and `npx skills add` failures are sufficient evidence; rollback for arbitrary post-install OS write failures remains outside this row unless a later storage abstraction targets it.
 
 Risks:
 
 - The gateway/fake cleanup may reveal a missing domain abstraction, especially around installed skill trees versus project filesystem state, and could grow beyond a small patch.
-- Making `areg init` more atomic may require deciding whether to preserve, merge, prompt for, or overwrite existing `areg.json`; the wrong default could surprise users.
+- The `areg init` config-semantics risk is de-risked for the first row: unknown `areg.json` keys are preserved and the `agents` value is replaced with the requested agents; prompt/force variants remain out of scope unless fresh review evidence requires them.
 - Symlink/path hardening can become either too permissive to be safe or too strict for real repos with legitimate symlinked config directories.
 - Tightening lockfile validation may expose existing repository lockfile debt, including `PENDING_REGEN` placeholders, that must be resolved before CI can enforce the stronger rule.
 
@@ -51,4 +52,4 @@ Risks:
 
 - Should tool availability and Git-root discovery be separate gateways, methods on an existing context, or part of a broader project environment boundary?
 - Should `NpxSkills.add` continue to model side-effectful installation, or should it return an installed skill tree while a separate store owns filesystem application?
-- Should existing `areg.json` unknown keys be preserved by default, or should replacement require an explicit force/yes path?
+- Should future broader `areg.json` workflows add prompts or force-style controls beyond the current tested `init` behavior of preserving unknown keys and replacing `agents` with the requested values?

@@ -51,6 +51,21 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _assert_init_error_before_install(
+    tmp_path: Path,
+    *,
+    fake_npx: FakeNpxSkills,
+    expected_output: str,
+) -> None:
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert expected_output in result.output
+    assert fake_npx.invocations == []
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
 def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
     _git_init(tmp_path)
 
@@ -109,18 +124,22 @@ def test_init_uses_custom_agents(tmp_path: Path) -> None:
     assert invocation.cwd == tmp_path
 
 
-def test_init_preserves_existing_areg_json_unknown_keys(tmp_path: Path) -> None:
+def test_init_replaces_existing_areg_json_agents_with_requested_agents(tmp_path: Path) -> None:
     _git_init(tmp_path)
     (tmp_path / "areg.json").write_text(
         json.dumps({"agents": ["old"], "unknown": True}),
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
+        obj=_ctx(),
+    )
 
     assert result.exit_code == 0, result.output
     assert _read_json(tmp_path / "areg.json") == {
-        "agents": ["codex", "claude-code"],
+        "agents": ["codex", "windsurf"],
         "unknown": True,
     }
 
@@ -162,6 +181,67 @@ def test_init_rejects_git_subdirectory(tmp_path: Path) -> None:
     assert result.exit_code != 0
     assert "is inside a Git worktree but is not the root" in result.output
     assert f"Run areg init {tmp_path}" in result.output
+
+
+def test_init_areg_json_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "areg.json").mkdir()
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
+
+
+def test_init_agents_md_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "AGENTS.md").mkdir()
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
+
+
+def test_init_claude_md_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "CLAUDE.md").mkdir()
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
+
+
+def test_init_claude_path_file_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / ".claude").write_text("not a directory\n", encoding="utf-8")
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a directory",
+    )
+
+
+def test_init_claude_settings_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    settings = tmp_path / ".claude" / "settings.local.json"
+    settings.mkdir(parents=True)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
 
 
 def test_init_existing_agents_md_prompt_no_leaves_file_unchanged(tmp_path: Path) -> None:
@@ -363,6 +443,44 @@ def test_init_malformed_claude_marker_errors_before_install(tmp_path: Path) -> N
     assert not (tmp_path / "skills-lock.json").exists()
 
 
+@pytest.mark.parametrize(
+    ("path_name", "content"),
+    [
+        (
+            "AGENTS.md",
+            "<!-- areg:skills:start -->\nold\n<!-- areg:skills:start -->\n"
+            "<!-- areg:skills:end -->\n",
+        ),
+        (
+            "CLAUDE.md",
+            "<!-- areg:claude-skills:start -->\nold\n"
+            "<!-- areg:claude-skills:end -->\n<!-- areg:claude-skills:end -->\n",
+        ),
+        (
+            "AGENTS.md",
+            "<!-- areg:skills:end -->\nold\n<!-- areg:skills:start -->\n",
+        ),
+    ],
+)
+def test_init_malformed_marker_variants_error_before_install(
+    tmp_path: Path,
+    path_name: str,
+    content: str,
+) -> None:
+    _git_init(tmp_path)
+    path = tmp_path / path_name
+    path.write_text(content, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="malformed areg-managed block",
+    )
+    assert path.read_text(encoding="utf-8") == content
+    assert not (tmp_path / "areg.json").exists()
+
+
 def test_init_invalid_areg_json_errors_before_install(tmp_path: Path) -> None:
     _git_init(tmp_path)
     areg_json = tmp_path / "areg.json"
@@ -422,6 +540,41 @@ def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
     assert not (tmp_path / "AGENTS.md").exists()
     assert not (tmp_path / "CLAUDE.md").exists()
     assert not (tmp_path / ".claude" / "settings.local.json").exists()
+
+
+def test_init_npx_failure_preserves_existing_planned_files(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    areg_json = tmp_path / "areg.json"
+    agents = tmp_path / "AGENTS.md"
+    claude = tmp_path / "CLAUDE.md"
+    settings = tmp_path / ".claude" / "settings.local.json"
+    settings.parent.mkdir()
+
+    original_areg_json = '{"agents": ["old"], "unknown": true}\n'
+    original_agents = "# Existing agent instructions\n"
+    original_claude = "# Existing Claude instructions\n"
+    original_settings = '{"custom": true}\n'
+    areg_json.write_text(original_areg_json, encoding="utf-8")
+    agents.write_text(original_agents, encoding="utf-8")
+    claude.write_text(original_claude, encoding="utf-8")
+    settings.write_text(original_settings, encoding="utf-8")
+    fake_npx = FakeNpxSkills(raise_on_add=NpxSkillsError("boom"))
+
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), "--yes"],
+        obj=_ctx(npx=fake_npx),
+    )
+
+    assert result.exit_code != 0
+    assert "npx skills add failed: boom" in result.output
+    assert len(fake_npx.invocations) == 1
+    assert areg_json.read_text(encoding="utf-8") == original_areg_json
+    assert agents.read_text(encoding="utf-8") == original_agents
+    assert claude.read_text(encoding="utf-8") == original_claude
+    assert settings.read_text(encoding="utf-8") == original_settings
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
 
 
 def test_create_project_command_is_removed() -> None:

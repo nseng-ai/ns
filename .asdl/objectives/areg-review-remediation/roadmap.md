@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Rework `areg init` into a safer preflight/planning/apply flow, including explicit behavior for existing `areg.json`, malformed managed blocks, prompts, and partial-failure prevention.
-      Evidence: scenario tests cover malformed blocks before install, config preservation/replacement semantics, and successful initialization.
+- [x] Rework `areg init` into a safer preflight/planning/apply flow, including explicit behavior for existing `areg.json`, malformed managed blocks, prompts, and partial-failure prevention.
+      Evidence: scenario tests cover successful initialization, prompts and `--yes`/`--no-append`, malformed managed marker variants before install, invalid/non-object and existing `areg.json` semantics, path-shape preflight failures before install, and `npx skills add` failure preserving planned local files. Targeted areg tests and full `just` passed locally.
 - [ ] Harden destructive and path-sensitive filesystem operations with canonical path validation and symlink policy for managed writes, `.claude` settings, and `skillx cleanup`.
       Evidence: tests cover traversal, symlink escape, non-directory, missing, and happy-path cleanup/write cases.
 - [ ] Clean up areg's external boundary model so host-tool checks, Git root discovery, `gh`, `npx skills`, and project skill state have coherent injectable ownership.
