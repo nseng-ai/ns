@@ -57,9 +57,9 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			[
 				`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 				details,
-				`No PRs were landed. Run ${manualCommandText} manually, then rerun /dev:land-stack --yes.`,
+				`No PRs were landed. Run ${manualCommandText} manually, then rerun /code:land-stack --yes.`,
 			].join("\n"),
-			{ suggestedAction: `Run ${manualCommandText} manually, then rerun /dev:land-stack --yes.` },
+			{ suggestedAction: `Run ${manualCommandText} manually, then rerun /code:land-stack --yes.` },
 		);
 	}
 
@@ -76,7 +76,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			fail("gt restack failed before any PRs were landed.", {
 				commandDisplay: formatCommand("gt", restackArgs),
 				result: restacked,
-				suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /dev:land-stack.`,
+				suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /code:land-stack.`,
 			});
 		}
 	}
@@ -87,7 +87,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		fail("gt submit/update failed before any PRs were landed.", {
 			commandDisplay: formatCommand("gt", submitArgs),
 			result,
-			suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /dev:land-stack.`,
+			suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /code:land-stack.`,
 		});
 	}
 }
@@ -152,7 +152,7 @@ export async function confirmAndFreeManagedSlots(
 			[
 				"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 				details,
-				`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /dev:land-stack --yes.`,
+				`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /code:land-stack --yes.`,
 			].join("\n"),
 		);
 	}
@@ -168,7 +168,7 @@ export async function confirmAndFreeManagedSlots(
 		fail("Targeted slot cleanup failed before any PRs were landed.", {
 			commandDisplay,
 			result,
-			suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /dev:land-stack.",
+			suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /code:land-stack.",
 		});
 	}
 
@@ -183,7 +183,7 @@ export async function confirmAndFreeManagedSlots(
 				...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
 				"No PRs were landed.",
 			].join("\n"),
-			{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /dev:land-stack." },
+			{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /code:land-stack." },
 		);
 	}
 }
@@ -254,7 +254,7 @@ export async function runMergeLoop(
 				result: merge,
 				failedBranch: branch,
 				failedPr: pr.number,
-				suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /dev:land-stack from the desired branch.`,
+				suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /code:land-stack from the desired branch.`,
 			});
 		}
 
@@ -299,7 +299,7 @@ export async function runMergeLoop(
 								commandDisplay: getCommandDisplay,
 								result: got,
 								failedBranch: maintenance.branch,
-								suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /dev:land-stack if appropriate.`,
+								suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /code:land-stack if appropriate.`,
 							},
 						);
 					}
@@ -308,7 +308,7 @@ export async function runMergeLoop(
 						commandDisplay: getCommandDisplay,
 						result: got,
 						failedBranch: maintenance.branch,
-						suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /dev:land-stack if appropriate.`,
+						suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /code:land-stack if appropriate.`,
 					});
 				}
 
@@ -350,7 +350,7 @@ export async function runMergeLoop(
 					result: deleted,
 					failedBranch: branch,
 					failedPr: pr.number,
-					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /dev:land-stack.`,
+					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /code:land-stack.`,
 				});
 			}
 
@@ -376,7 +376,7 @@ export async function runMergeLoop(
 						commandDisplay: formatCommand("gt", restackArgs),
 						result: restacked,
 						failedBranch: maintenance.branch,
-						suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /dev:land-stack if appropriate.`,
+						suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /code:land-stack if appropriate.`,
 					});
 				}
 
@@ -398,7 +398,7 @@ export async function runMergeLoop(
 						commandDisplay: formatCommand("gt", submitArgs),
 						result: submitted,
 						failedBranch: maintenance.branch,
-						suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /dev:land-stack if appropriate.`,
+						suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /code:land-stack if appropriate.`,
 					});
 				}
 

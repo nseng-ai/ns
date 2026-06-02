@@ -46,11 +46,11 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:brmem`                          | `skills/brmem/SKILL.md`                          | Guides use of the `brmem` CLI for branch-scoped durable memory.                                                     |
 | `/skill:handoff-save`                   | `skills/handoff-save/SKILL.md`                   | Saves a directed handoff artifact for a specific future continuation.                                               |
 | `/skill:handoff-load`                   | `skills/handoff-load/SKILL.md`                   | Picks up, chooses, or lists saved handoff artifacts so another session can resume focused work.                     |
-| `/skill:dev-checkpoint`                 | `skills/dev-checkpoint/SKILL.md`                 | Creates a terse checkpoint commit for the current non-main branch diff.                                             |
+| `/skill:code-checkpoint`                | `skills/code-checkpoint/SKILL.md`                | Creates a terse checkpoint commit for the current non-main branch diff.                                             |
 | `/skill:dev-gh`                         | `skills/dev-gh/SKILL.md`                         | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                                      |
 | `/skill:dev-gh-ci-debug`                | `skills/dev-gh-ci-debug/SKILL.md`                | Diagnoses GitHub Actions failures from a run URL or run ID.                                                         |
-| `/skill:dev-gt-restack-resolve`         | `skills/dev-gt-restack-resolve/SKILL.md`         | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
-| `/skill:dev-gt-stackify-branch`         | `skills/dev-gt-stackify-branch/SKILL.md`         | Splits a mixed branch into an ordered Graphite stack while preserving the source branch.                            |
+| `/skill:code-gt-restack-resolve`        | `skills/code-gt-restack-resolve/SKILL.md`        | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
+| `/skill:code-gt-stackify-branch`        | `skills/code-gt-stackify-branch/SKILL.md`        | Splits a mixed branch into an ordered Graphite stack while preserving the source branch.                            |
 | `/skill:dev-just-fix`                   | `skills/dev-just-fix/SKILL.md`                   | Runs `just`, categorizes failures, fixes root causes, and reruns the suite until green or blocked.                  |
 | `/skill:dev-stacker-agent`              | `skills/dev-stacker-agent/SKILL.md`              | Executes a multi-slice implementation plan as a serial local branch stack or commit series.                         |
 | `/skill:changelog-update`               | `skills/changelog-update/SKILL.md`               | Runs the changelog update command workflow.                                                                         |
@@ -95,13 +95,13 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/handoff:create`        | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
 | `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
 | `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
+| `/code:changes`          | `.pi/extensions/code.ts`           | Summarizes outstanding worktree changes without committing.                                         |
+| `/code:autobranch`       | `.pi/extensions/code.ts`           | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
+| `/code:land`             | `.pi/extensions/code.ts`           | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
+| `/code:land-stack`       | `.pi/extensions/code.ts`           | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/dev:preview-url`       | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
 | `/dev:cp`                | `.pi/extensions/asdl-dev.ts`       | Creates a checkpoint commit for the current diff.                                                   |
-| `/dev:changes`           | `.pi/extensions/dev.ts`            | Summarizes outstanding worktree changes without committing.                                         |
-| `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
 | `/dev:submit`            | `.pi/extensions/asdl-dev.ts`       | Mirrors `asdl-dev submit` to submit or update the current Graphite stack with headless guards.      |
-| `/dev:land`              | `.pi/extensions/dev.ts`            | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
-| `/dev:land-stack`        | `.pi/extensions/dev.ts`            | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `dev-just-fix` workflow prompt when the suite fails.                    |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
 | `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |

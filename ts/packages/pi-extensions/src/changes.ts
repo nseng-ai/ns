@@ -10,8 +10,8 @@ import {
 } from "../../asdl-dev/src/pending-worktree.ts";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
 
-const COMMAND_NAME = "dev:changes";
-export const CHANGES_SUMMARY_MESSAGE_TYPE = "dev-changes-summary";
+const COMMAND_NAME = "code:changes";
+export const CHANGES_SUMMARY_MESSAGE_TYPE = "code-changes-summary";
 
 type CustomMessage = {
 	customType: string;

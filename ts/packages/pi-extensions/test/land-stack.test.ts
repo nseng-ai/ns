@@ -215,7 +215,7 @@ async function runLandStack(
 }> {
 	const pi = new FakePi(script);
 	landStackExtension(pi);
-	const command = pi.commands.get("dev:land-stack");
+	const command = pi.commands.get("code:land-stack");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
@@ -515,7 +515,7 @@ describe("land-stack extension registration", () => {
 		const pi = new FakePi();
 		landStackExtension(pi);
 
-		const command = pi.commands.get("dev:land-stack");
+		const command = pi.commands.get("code:land-stack");
 		expect(pi.commands.has("gt:land-stack")).toBe(false);
 		expect(pi.commands.has("land-stack")).toBe(false);
 		expect(command?.description).toContain("Graphite stack");

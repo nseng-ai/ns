@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import asdlDevExtension from "../src/asdl-dev-extension.ts";
-import devExtension from "../src/dev.ts";
+import codeExtension from "../src/code.ts";
 
 interface RegisteredCommand {
 	description?: string;
@@ -27,18 +27,18 @@ class FakePi {
 	}
 
 	async exec(): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }> {
-		throw new Error("unexpected exec during dev extension registration");
+		throw new Error("unexpected exec during code extension registration");
 	}
 }
 
-describe("dev extension registration", () => {
-	test("consolidates local development and source-control commands under dev without legacy aliases", () => {
+describe("code extension registration", () => {
+	test("consolidates codebase and source-control commands under code without legacy aliases", () => {
 		const pi = new FakePi();
-		devExtension(pi);
+		codeExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["dev:changes", "dev:autobranch", "dev:land", "dev:land-stack"]);
-		expect(pi.commands.has("dev:cp")).toBe(false);
-		expect(pi.commands.has("dev:submit")).toBe(false);
+		expect([...pi.commands.keys()]).toEqual(["code:changes", "code:autobranch", "code:land", "code:land-stack"]);
+		expect(pi.commands.has("code:cp")).toBe(false);
+		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("autobranch")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
@@ -48,20 +48,25 @@ describe("dev extension registration", () => {
 		expect(pi.commands.has("gt:land-stack")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
 		expect(pi.commands.has("land-stack")).toBe(false);
-		expect(pi.commands.get("dev:changes")?.description).toContain("without committing");
-		expect(pi.commands.get("dev:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
-		expect(pi.messageRenderers.has("dev-changes-summary")).toBe(true);
+		const oldCommandPrefix = "dev";
+		for (const command of ["cp", "changes", "autobranch", "submit", "land", "land-stack"]) {
+			expect(pi.commands.has(`${oldCommandPrefix}:${command}`)).toBe(false);
+		}
+		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
+		expect(pi.commands.get("code:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
+		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
+		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
 		expect(pi.messageRenderers.has("land-stack-command-stream")).toBe(true);
 	});
 
-	test("asdl-dev owns mirrored CLI commands when project-local dev extensions are loaded together", () => {
+	test("asdl-dev owns mirrored CLI commands when project-local code extensions are loaded together", () => {
 		const pi = new FakePi();
 
-		devExtension(pi);
+		codeExtension(pi);
 		asdlDevExtension(pi);
 
 		expect(pi.commandNames.filter((name) => name === "dev:cp")).toEqual(["dev:cp"]);
 		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual(["dev:submit"]);
-		expect(pi.commandNames).toEqual(["dev:changes", "dev:autobranch", "dev:land", "dev:land-stack", "dev:preview-url", "dev:cp", "dev:submit"]);
+		expect(pi.commandNames).toEqual(["code:changes", "code:autobranch", "code:land", "code:land-stack", "dev:preview-url", "dev:cp", "dev:submit"]);
 	});
 });

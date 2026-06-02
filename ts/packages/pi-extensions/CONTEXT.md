@@ -55,10 +55,13 @@ _Avoid:_ public command vocabulary, picker label, default success copy.
 **Branch creation method** — The selected planned-branch creation strategy, currently `plain-git` or `graphite`.
 _Avoid:_ branch type, storage backend, target branch name.
 
-**Pending worktree snapshot** — A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/dev:changes`, `/dev:cp`, and `/dev:autobranch` before presentation or mutation.
+**Code command prefix** — The Pi slash-command namespace for codebase/source-control management workflows; it separates code-management commands from `dev-*` skills or commands whose future is tied to `asdl-dev` decisions.
+_Avoid:_ visibility flag, prototype marker, package prefix.
+
+**Pending worktree snapshot** — A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/code:changes`, `/code:cp`, and `/code:autobranch` before presentation or mutation.
 _Avoid:_ stash, checkpoint, worktree status renderer.
 
-**Outstanding changes summary** — A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `/dev:changes` before any checkpoint decision. The summary text is drafted by the shared fast-text model harness; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
+**Outstanding changes summary** — A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `/code:changes` before any checkpoint decision. The summary text is drafted by the shared fast-text model harness; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
 _Avoid:_ checkpoint message, diffstat only, worktree status footer.
 
 **Checkpoint message** — The validated commit message generated, repaired, or fallback-created from a pending worktree snapshot.
@@ -67,10 +70,10 @@ _Avoid:_ checkpoint commit, PR title, branch slug.
 **Checkpoint commit** — A git commit created from pending worktree changes using a prepared checkpoint message.
 _Avoid:_ checkpoint message, stash, branch creation.
 
-**Autobranch preparation** — The deterministic pre-transaction plan for `/dev:autobranch`: choose a branch slug/name, collect warnings, and prepare the checkpoint message without moving work.
+**Autobranch preparation** — The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name, collect warnings, and prepare the checkpoint message without moving work.
 _Avoid:_ branch transaction, stash operation, model prompt alone.
 
-**Autobranch transaction** — The mutating `/dev:autobranch` sequence that stashes pending changes, creates a Graphite branch, restores the stash, and writes the checkpoint commit with explicit typed failure outcomes.
+**Autobranch transaction** — The mutating `/code:autobranch` sequence that stashes pending changes, creates a Graphite branch, restores the stash, and writes the checkpoint commit with explicit typed failure outcomes.
 _Avoid:_ preparation, plain git branch creation, restack.
 
 **Runner subagent** — A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode.
@@ -113,7 +116,7 @@ Branch: <target implementation branch>
 
 ### Changes, checkpoint, and new-branch boundary
 
-`/dev:changes`, `/dev:cp`, and `/dev:autobranch` share **Pending worktree snapshot** vocabulary, but their mutation scopes differ. `/dev:changes` creates an **Outstanding changes summary** only and does not stage, commit, stash, or switch branches. `/dev:cp` creates a **Checkpoint commit** on the current branch from a **Checkpoint message**. `/dev:autobranch` performs **New branch preparation** first, then a **New branch transaction** that creates a Graphite branch before committing. Preparation does not stash or switch work; the transaction owns stash/restore and typed partial-failure outcomes.
+`/code:changes`, `/code:cp`, and `/code:autobranch` share **Pending worktree snapshot** vocabulary, but their mutation scopes differ. `/code:changes` creates an **Outstanding changes summary** only and does not stage, commit, stash, or switch branches. `/code:cp` creates a **Checkpoint commit** on the current branch from a **Checkpoint message**. `/code:autobranch` performs **New branch preparation** first, then a **New branch transaction** that creates a Graphite branch before committing. Preparation does not stash or switch work; the transaction owns stash/restore and typed partial-failure outcomes.
 
 ### Runner subagent boundary
 

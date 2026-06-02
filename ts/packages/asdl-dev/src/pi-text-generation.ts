@@ -1,5 +1,4 @@
-import { completeSimple, type Api, type Model } from "@earendil-works/pi-ai";
-import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type * as PiAi from "@earendil-works/pi-ai";
 
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
 
@@ -7,11 +6,32 @@ const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";
 const DEFAULT_TIMEOUT_MS = 120_000;
 
-export class PiTextGenerationGateway implements TextGenerationGateway {
-	private readonly modelRegistry: ModelRegistry;
+type CompleteSimpleFunction = typeof PiAi.completeSimple;
 
-	constructor(modelRegistry: ModelRegistry = ModelRegistry.create(AuthStorage.create())) {
-		this.modelRegistry = modelRegistry;
+type ModelAuth =
+	| { ok: true; apiKey?: string; headers?: Record<string, string> }
+	| { ok: false; error: string };
+
+export interface PiModelRegistry {
+	find(provider: string, modelId: string): PiAi.Model<PiAi.Api> | undefined;
+	getApiKeyAndHeaders(model: PiAi.Model<PiAi.Api>): Promise<ModelAuth>;
+}
+
+export type PiTextGenerationGatewayOptions = {
+	modelRegistry?: PiModelRegistry;
+	completeSimple?: CompleteSimpleFunction;
+	loadDefaultModelRegistry?: () => Promise<PiModelRegistry>;
+};
+
+export class PiTextGenerationGateway implements TextGenerationGateway {
+	private readonly modelRegistry: PiModelRegistry | undefined;
+	private readonly completeSimple: CompleteSimpleFunction | undefined;
+	private readonly loadDefaultModelRegistry: () => Promise<PiModelRegistry>;
+
+	constructor(options: PiTextGenerationGatewayOptions = {}) {
+		this.modelRegistry = options.modelRegistry;
+		this.completeSimple = options.completeSimple;
+		this.loadDefaultModelRegistry = options.loadDefaultModelRegistry ?? loadDefaultModelRegistry;
 	}
 
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
@@ -20,12 +40,13 @@ export class PiTextGenerationGateway implements TextGenerationGateway {
 			return { ok: false, error: parsed.error };
 		}
 
-		const model = this.modelRegistry.find(parsed.provider, parsed.modelId);
+		const modelRegistry = this.modelRegistry ?? (await this.loadDefaultModelRegistry());
+		const model = modelRegistry.find(parsed.provider, parsed.modelId);
 		if (model === undefined) {
 			return { ok: false, error: `Could not find Pi model ${request.modelRef}.` };
 		}
 
-		const auth = await this.modelRegistry.getApiKeyAndHeaders(model);
+		const auth = await modelRegistry.getApiKeyAndHeaders(model);
 		if (!auth.ok) {
 			return { ok: false, error: `Pi auth failed for ${request.modelRef}: ${auth.error}` };
 		}
@@ -34,8 +55,9 @@ export class PiTextGenerationGateway implements TextGenerationGateway {
 		}
 
 		try {
+			const completeSimple = this.completeSimple ?? (await loadCompleteSimple());
 			const response = await completeSimple(
-				model as Model<Api>,
+				model,
 				{
 					systemPrompt: request.system,
 					messages: [
@@ -93,6 +115,16 @@ function parsePiModelRef(modelRef: string): ParsedPiModelRef {
 		provider: modelRef.slice(0, separator),
 		modelId: modelRef.slice(separator + 1),
 	};
+}
+
+async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
+	const piAi = await import("@earendil-works/pi-ai");
+	return piAi.completeSimple;
+}
+
+async function loadDefaultModelRegistry(): Promise<PiModelRegistry> {
+	const { AuthStorage, ModelRegistry } = await import("@earendil-works/pi-coding-agent");
+	return ModelRegistry.create(AuthStorage.create());
 }
 
 function errorMessage(error: unknown): string {

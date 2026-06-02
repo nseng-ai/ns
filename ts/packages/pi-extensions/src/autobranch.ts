@@ -7,7 +7,7 @@ import {
 import { createAutobranchCheckpointFlow, parseAutobranchArgs } from "./autobranch-flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
 
-const COMMAND_NAME = "dev:autobranch";
+const COMMAND_NAME = "code:autobranch";
 const STATUS_KEY = "autobranch";
 
 export type ExtensionCommandContext = {
