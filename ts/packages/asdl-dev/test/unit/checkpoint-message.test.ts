@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
+
 import {
 	CHECKPOINT_SUBJECT_MAX_LENGTH,
-	fallbackCheckpointMessage,
 	formatCheckpointMessage,
 	validateCheckpointMessage,
 	type CheckpointMessageIssue,
-} from "../src/checkpoint-message.ts";
+} from "../../src/checkpoint-message.ts";
 
 const validOneBullet = `[cp] Update checkpoint tests
 
@@ -14,7 +14,7 @@ const validThreeBullets = `[cp] Update checkpoint tests
 
 - Add validator coverage
 - Exercise repair feedback
-- Verify fallback messages`;
+- Verify model-only failures`;
 
 function issueCodes(issues: CheckpointMessageIssue[]): string[] {
 	return issues.map((issue) => issue.code);
@@ -28,6 +28,7 @@ describe("validateCheckpointMessage", () => {
 		if (result.ok) {
 			expect(result.message.subject).toBe("[cp] Update checkpoint tests");
 			expect(result.message.bullets).toEqual(["- Add validator coverage"]);
+			expect(formatCheckpointMessage(result.message)).toBe(validOneBullet);
 		}
 	});
 
@@ -123,43 +124,4 @@ Thanks!`);
 			expect(issueCodes(result.issues)).toContain("extra_prose");
 		}
 	});
-});
-
-describe("fallbackCheckpointMessage", () => {
-	const cases = [
-		{
-			name: "status-only input",
-			status: " M extensions/cp.ts\n",
-			diff: "",
-		},
-		{
-			name: "diff-only input",
-			status: "",
-			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
-		},
-		{
-			name: "very long file paths",
-			status: ` M ${"deep/".repeat(30)}checkpoint-message-validation.ts\n`,
-			diff: "",
-		},
-		{
-			name: "untracked-file-only status",
-			status: "?? extensions/shared/checkpoint-message.test.ts\n",
-			diff: "",
-		},
-		{
-			name: "empty odd input",
-			status: "\n",
-			diff: "not a diff but still context",
-		},
-	];
-
-	for (const input of cases) {
-		test(`validates for ${input.name}`, () => {
-			const fallback = fallbackCheckpointMessage(input);
-			const result = validateCheckpointMessage(formatCheckpointMessage(fallback));
-
-			expect(result.ok).toBe(true);
-		});
-	}
 });

@@ -1,8 +1,11 @@
+import type { CheckpointGateway } from "../../src/checkpoint.ts";
 import type { AsdlDevContext } from "../../src/context.ts";
 import type { GitGateway } from "../../src/gateways/git.ts";
 import type { ProjectConfigReadResult, VercelProjectConfigStore } from "../../src/gateways/project-config.ts";
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "../../src/gateways/vercel.ts";
+import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "../../src/pending-worktree.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "../../src/result.ts";
+import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "../../src/text-generation.ts";
 
 export type FakeCurrentBranchState = string | { kind: "detached" } | { kind: "failure"; error?: ErrorInfo };
 export type FakeRepoRootState = string | { kind: "failure"; error?: ErrorInfo };
@@ -63,6 +66,92 @@ export class InMemoryGitGateway implements GitGateway {
 		}
 
 		return err(this.repoRootState.error ?? { code: "repo_root_unresolved", message: "Could not resolve the git repository root." });
+	}
+}
+
+export type FakePendingWorktreeSnapshotState =
+	| PendingWorktreeSnapshot
+	| {
+			kind: PendingWorktreeError["kind"];
+			message?: string;
+			result?: WorktreeCommandResult;
+	  };
+
+export type InMemoryCheckpointGatewayState = {
+	snapshot?: FakePendingWorktreeSnapshotState;
+	commit?: { summary: string } | { error: string };
+};
+
+export type CheckpointLoadCall = {
+	cwd: string;
+};
+
+export type CheckpointCommitCall = {
+	cwd: string;
+	message: string;
+};
+
+export class InMemoryCheckpointGateway implements CheckpointGateway {
+	private readonly snapshotState: FakePendingWorktreeSnapshotState;
+	private readonly commitResult: { summary: string } | { error: string };
+	private readonly loadLog: CheckpointLoadCall[] = [];
+	private readonly commitLog: CheckpointCommitCall[] = [];
+
+	constructor(state: InMemoryCheckpointGatewayState = {}) {
+		this.snapshotState = copySnapshotState(state.snapshot ?? defaultPendingWorktreeSnapshot());
+		this.commitResult = state.commit ?? { summary: "abc123 [cp] Update checkpoint tests" };
+	}
+
+	get loadPendingWorktreeCalls(): readonly CheckpointLoadCall[] {
+		return this.loadLog.map((call) => ({ ...call }));
+	}
+
+	get createCommitWithPreparedMessageCalls(): readonly CheckpointCommitCall[] {
+		return this.commitLog.map((call) => ({ ...call }));
+	}
+
+	async loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<
+		| {
+				ok: true;
+				snapshot: PendingWorktreeSnapshot;
+			}
+		| {
+				ok: false;
+				error: PendingWorktreeError;
+			}
+	> {
+		this.loadLog.push({ cwd: params.cwd });
+		if (isPendingWorktreeFailureState(this.snapshotState)) {
+			return { ok: false, error: pendingWorktreeFailure(this.snapshotState) };
+		}
+		return { ok: true, snapshot: copySnapshot(this.snapshotState) };
+	}
+
+	async createCommitWithPreparedMessage(params: { cwd: string; message: string }): Promise<{ summary: string } | { error: string }> {
+		this.commitLog.push({ cwd: params.cwd, message: params.message });
+		return this.commitResult;
+	}
+}
+
+export type InMemoryTextGenerationGatewayState = {
+	results?: readonly TextGenerationResult[];
+};
+
+export class InMemoryTextGenerationGateway implements TextGenerationGateway {
+	private readonly results: TextGenerationResult[];
+	private readonly callLog: TextGenerationRequest[] = [];
+
+	constructor(state: InMemoryTextGenerationGatewayState = {}) {
+		this.results = [...(state.results ?? [{ ok: true, text: defaultCheckpointMessage() }])];
+	}
+
+	get generateTextCalls(): readonly TextGenerationRequest[] {
+		return this.callLog.map(copyTextGenerationRequest);
+	}
+
+	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
+		this.callLog.push(copyTextGenerationRequest(request));
+		return this.results.shift() ?? { ok: true, text: defaultCheckpointMessage() };
 	}
 }
 
@@ -190,6 +279,8 @@ export type InMemoryContextState = {
 	git?: InMemoryGitGatewayState;
 	vercel?: InMemoryVercelDeploymentGatewayState;
 	projectConfig?: ProjectConfigReadResult;
+	checkpoint?: InMemoryCheckpointGatewayState;
+	textGeneration?: InMemoryTextGenerationGatewayState;
 };
 
 export function inMemoryContext(state: InMemoryContextState = {}): {
@@ -197,16 +288,98 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	git: InMemoryGitGateway;
 	vercel: InMemoryVercelDeploymentGateway;
 	projectConfig: InMemoryVercelProjectConfigStore;
+	checkpoint: InMemoryCheckpointGateway;
+	textGeneration: InMemoryTextGenerationGateway;
 } {
 	const git = new InMemoryGitGateway(state.git);
 	const vercel = new InMemoryVercelDeploymentGateway(state.vercel);
 	const projectConfig = new InMemoryVercelProjectConfigStore(state.projectConfig);
+	const checkpoint = new InMemoryCheckpointGateway(state.checkpoint);
+	const textGeneration = new InMemoryTextGenerationGateway(state.textGeneration);
 	return {
-		context: { git, vercel, projectConfig },
+		context: { git, vercel, projectConfig, checkpoint, textGeneration },
 		git,
 		vercel,
 		projectConfig,
+		checkpoint,
+		textGeneration,
 	};
+}
+
+function defaultPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
+	return {
+		root: "/repo",
+		branch: "feature/demo",
+		status: " M ts/packages/asdl-dev/src/cli.ts\n",
+		diff: "diff --git a/ts/packages/asdl-dev/src/cli.ts b/ts/packages/asdl-dev/src/cli.ts\n",
+		clean: false,
+	};
+}
+
+function defaultCheckpointMessage(): string {
+	return `[cp] Update checkpoint tests
+
+- Add checkpoint CLI coverage`;
+}
+
+function isPendingWorktreeFailureState(
+	state: FakePendingWorktreeSnapshotState,
+): state is Extract<FakePendingWorktreeSnapshotState, { kind: PendingWorktreeError["kind"] }> {
+	return "kind" in state;
+}
+
+function pendingWorktreeFailure(state: Extract<FakePendingWorktreeSnapshotState, { kind: PendingWorktreeError["kind"] }>): PendingWorktreeError {
+	const result = state.result ?? failedWorktreeResult();
+	if (state.kind === "not_git_repo") {
+		return { kind: "not_git_repo", message: state.message ?? "Not inside a git repository.", result };
+	}
+	if (state.kind === "detached_head") {
+		return { kind: "detached_head", message: state.message ?? "Detached HEAD.", result };
+	}
+	if (state.kind === "status_failed") {
+		return { kind: "status_failed", message: state.message ?? "Could not read git status.", result };
+	}
+	return { kind: "diff_failed", message: state.message ?? "Could not read git diff.", result };
+}
+
+function failedWorktreeResult(): WorktreeCommandResult {
+	return { code: 1, stdout: "", stderr: "git failed" };
+}
+
+function copySnapshotState(state: FakePendingWorktreeSnapshotState): FakePendingWorktreeSnapshotState {
+	if (isPendingWorktreeFailureState(state)) {
+		const copy: Extract<FakePendingWorktreeSnapshotState, { kind: PendingWorktreeError["kind"] }> = { kind: state.kind };
+		if (state.message !== undefined) {
+			copy.message = state.message;
+		}
+		if (state.result !== undefined) {
+			copy.result = { ...state.result };
+		}
+		return copy;
+	}
+	return copySnapshot(state);
+}
+
+function copySnapshot(snapshot: PendingWorktreeSnapshot): PendingWorktreeSnapshot {
+	return { ...snapshot };
+}
+
+function copyTextGenerationRequest(request: TextGenerationRequest): TextGenerationRequest {
+	const copy: TextGenerationRequest = {
+		modelRef: request.modelRef,
+		system: request.system,
+		prompt: request.prompt,
+	};
+	if (request.maxTokens !== undefined) {
+		copy.maxTokens = request.maxTokens;
+	}
+	if (request.reasoning !== undefined) {
+		copy.reasoning = request.reasoning;
+	}
+	if (request.operation !== undefined) {
+		copy.operation = request.operation;
+	}
+	return copy;
 }
 
 function toCandidate(record: FakeVercelDeploymentRecord): DeploymentCandidate {

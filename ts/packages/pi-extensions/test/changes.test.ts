@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { CommandContext, ExtensionAPI } from "../src/changes.ts";
 import { formatOutstandingChangesMessage, summarizePorcelainStatus } from "../src/changes-summary.ts";
-import type { PendingWorktreeSnapshot, WorktreeCommandResult } from "../src/pending-worktree.ts";
+import type { PendingWorktreeSnapshot, WorktreeCommandResult } from "../../asdl-dev/src/pending-worktree.ts";
 import { stripTerminalEscapes } from "../src/terminal-presentation.ts";
 
 type ModelResponse = {

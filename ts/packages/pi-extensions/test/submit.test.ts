@@ -10,14 +10,8 @@ import type {
 	SubmitCheckpointOperations,
 	SubmitCommandRunner,
 } from "../src/submit.ts";
+import type { PendingWorktreeSnapshot } from "../../asdl-dev/src/pending-worktree.ts";
 import { stripTerminalEscapes } from "../src/terminal-presentation.ts";
-import type { PendingWorktreeSnapshot } from "../src/pending-worktree.ts";
-
-mock.module("@earendil-works/pi-ai", () => ({
-	async completeSimple(): Promise<never> {
-		throw new Error("unexpected model call from submit tests");
-	},
-}));
 
 const { submitExtensionWithDependencies } = await import("../src/submit.ts");
 
@@ -201,14 +195,6 @@ function createContext(options: ContextOptions = {}): {
 	const ctx: ExtensionCommandContext = {
 		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
-		modelRegistry: {
-			find(): unknown | undefined {
-				return undefined;
-			},
-			async getApiKeyAndHeaders(): Promise<{ ok: false; error: string }> {
-				return { ok: false, error: "unexpected model auth lookup" };
-			},
-		},
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });

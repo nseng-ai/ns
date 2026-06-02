@@ -119,7 +119,7 @@ describe("in-memory project config store", () => {
 
 describe("in-memory context", () => {
 	test("returns an AsdlDevContext plus concrete fake references", async () => {
-		const { context, git, vercel, projectConfig } = inMemoryContext({
+		const { context, git, vercel, projectConfig, checkpoint, textGeneration } = inMemoryContext({
 			vercel: { deployments: [deploymentRecord()] },
 			projectConfig: { kind: "missing" },
 		});
@@ -127,5 +127,7 @@ describe("in-memory context", () => {
 		expect(context.git).toBe(git);
 		expect(context.vercel).toBe(vercel);
 		expect(context.projectConfig).toBe(projectConfig);
+		expect(context.checkpoint).toBe(checkpoint);
+		expect(context.textGeneration).toBe(textGeneration);
 	});
 });

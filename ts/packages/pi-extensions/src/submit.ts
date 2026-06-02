@@ -1,18 +1,18 @@
 import { spawn } from "node:child_process";
 
 import {
-	commitPreparedCheckpointMessage,
-	prepareCheckpointMessageForPi,
-	type ExtensionAPI as CheckpointExtensionAPI,
-	type ExtensionCommandContext as CheckpointExtensionCommandContext,
-	type PreparedCheckpointMessage,
-} from "./checkpoint-pi.ts";
-import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "./pending-worktree.ts";
+} from "../../asdl-dev/src/pending-worktree.ts";
+
+import {
+	commitPreparedCheckpointMessageWithAsdlDev,
+	prepareCheckpointMessageWithAsdlDev,
+	type ExtensionExec,
+	type PreparedCheckpointMessage,
+} from "./asdl-dev-checkpoint.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
@@ -30,16 +30,20 @@ interface Component {
 
 type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
 
-export interface ExtensionCommandContext extends Omit<CheckpointExtensionCommandContext, "ui"> {
+export interface ExtensionCommandContext {
+	cwd: string;
 	hasUI: boolean;
-	ui: Omit<CheckpointExtensionCommandContext["ui"], "notify" | "setWidget"> & {
+	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm(title: string, message: string): Promise<boolean>;
+		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: WidgetContent, options?: { placement?: WidgetPlacement }): void;
+		theme?: Theme;
 	};
+	waitForIdle(): Promise<void>;
 }
 
-export interface ExtensionAPI extends Pick<CheckpointExtensionAPI, "exec"> {
+export interface ExtensionAPI extends ExtensionExec {
 	registerCommand(
 		name: string,
 		command: {
@@ -228,13 +232,13 @@ function createDefaultSubmitCheckpointOperations(pi: ExtensionAPI): SubmitCheckp
 			});
 		},
 		prepareMessage(
-			ctx: ExtensionCommandContext,
+			_ctx: ExtensionCommandContext,
 			snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 		): Promise<PreparedCheckpointMessage> {
-			return prepareCheckpointMessageForPi(pi, ctx, snapshot);
+			return prepareCheckpointMessageWithAsdlDev(snapshot);
 		},
 		commit(ctx: ExtensionCommandContext, message: string): Promise<{ summary: string } | { error: string }> {
-			return commitPreparedCheckpointMessage(pi, ctx.cwd, message);
+			return commitPreparedCheckpointMessageWithAsdlDev(pi, ctx.cwd, message);
 		},
 	};
 }
