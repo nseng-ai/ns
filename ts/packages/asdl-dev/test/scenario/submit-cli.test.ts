@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
 import { runCli } from "asdl-dev/src/cli.ts";
+import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import type { SubmitCommandOutput, SubmitPrLink } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
 function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: { cwd?: string } = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const fakes = inMemoryContext(state);
+	const fakes = inMemoryContext({
+		...state,
+		checkpoint: state.checkpoint ?? { snapshot: cleanPendingWorktreeSnapshot() },
+	});
 	return {
 		...fakes,
 		stdout,
@@ -34,6 +38,26 @@ function prLink(number: number): SubmitPrLink {
 	return { label: `#${number}`, url: `https://github.com/acme/project/pull/${number}` };
 }
 
+function cleanPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
+	return {
+		root: "/repo",
+		branch: "feature/demo",
+		status: "",
+		diff: "",
+		clean: true,
+	};
+}
+
+function dirtyPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
+	return {
+		root: "/repo",
+		branch: "feature/demo",
+		status: " M src/app.ts\n",
+		diff: "diff --git a/src/app.ts b/src/app.ts\n",
+		clean: false,
+	};
+}
+
 describe("asdl-dev submit CLI behavior", () => {
 	test("successful submit prints PR links and verifies the current PR", async () => {
 		const run = runWithFakes(["submit"]);
@@ -46,6 +70,48 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.submit.restackCurrentStackCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
 		expect(run.submit.verifyCurrentPrCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+	});
+
+	test("checkpoints outstanding worktree changes before Graphite submit", async () => {
+		const message = `[cp] Checkpoint before submit
+
+- Capture pending edits`;
+		const run = runWithFakes(["submit"], {
+			checkpoint: {
+				snapshot: dirtyPendingWorktreeSnapshot(),
+				commit: { summary: "def456 [cp] Checkpoint before submit" },
+			},
+			textGeneration: { results: [{ ok: true, text: message }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("").startsWith(`def456 [cp] Checkpoint before submit\n${message}\n`)).toBe(true);
+		expect(run.stdout.join("")).toContain("gt submit succeeded");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
+		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## git status --porcelain\n\n M src/app.ts");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
+	});
+
+	test("checkpoint failure stops before Graphite submit", async () => {
+		const run = runWithFakes(["submit"], {
+			checkpoint: {
+				snapshot: dirtyPendingWorktreeSnapshot(),
+				commit: { error: "commit failed" },
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Checkpoint before submit failed. Submission was not attempted.");
+		expect(run.stderr.join("")).toContain("commit failed");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([]);
 	});
 
 	test("restack-required dry-run stops before submit without --restack", async () => {
@@ -128,7 +194,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("current branch still has no PR");
-		expect(run.stderr.join("")).toContain("Run `asdl-dev cp` to checkpoint outstanding changes");
+		expect(run.stderr.join("")).toContain("`asdl-dev submit` checkpoints outstanding worktree changes before submitting.");
 	});
 
 	test("post-submit empty-branch semantic failure reports formatter-owned guidance", async () => {

@@ -36,7 +36,10 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(listAsdlDevCommands()).toEqual([
 			{ name: "preview-url", description: "Print the Vercel preview URL for a branch." },
 			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
-			{ name: "submit", description: "Submit the current Graphite stack with gt submit -nps --ai." },
+			{
+				name: "submit",
+				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
+			},
 		]);
 	});
 
@@ -84,7 +87,9 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: asdl-dev submit");
+		expect(help).toContain("Checkpoint outstanding worktree changes");
 		expect(help).toContain("gt submit -nps --ai");
+		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
 		expect(help).toContain("--restack");
 		expect(help).toContain("-h, --help");
 	});

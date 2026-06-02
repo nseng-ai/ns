@@ -454,8 +454,8 @@ function assertNever(value: never): never {
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {
 	return [
-		"No checkpoint commit was created because `asdl-dev submit` is non-interactive.",
-		"Run `asdl-dev cp` to checkpoint outstanding changes, then run `asdl-dev submit` again.",
+		"`asdl-dev submit` checkpoints outstanding worktree changes before submitting.",
+		"If the branch still has no PR, inspect the Graphite output above and rerun `asdl-dev submit` after resolving the reported issue.",
 	];
 }
 

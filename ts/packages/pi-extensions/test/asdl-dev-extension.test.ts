@@ -30,7 +30,7 @@ describe("asdl-dev Pi extension", () => {
 		);
 		expect(pi.commands.get("dev:cp")?.description).toBe("asdl-dev cp: Create a checkpoint commit for the current diff.");
 		expect(pi.commands.get("dev:submit")?.description).toBe(
-			"asdl-dev submit: Submit the current Graphite stack with gt submit -nps --ai.",
+			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		);
 	});
 });

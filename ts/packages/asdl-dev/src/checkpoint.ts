@@ -35,6 +35,19 @@ export interface RunCheckpointCommandOptions {
 	textGeneration: TextGenerationGateway;
 }
 
+export type CheckpointIfPendingResult =
+	| {
+			kind: "clean";
+	  }
+	| {
+			kind: "checkpointed";
+			output: CheckpointCommandResult;
+	  }
+	| {
+			kind: "failed";
+			output: CheckpointCommandResult;
+	  };
+
 export class RealCheckpointGateway implements CheckpointGateway {
 	private readonly runner: CommandRunner;
 
@@ -91,11 +104,42 @@ export async function runCheckpointCommand(options: RunCheckpointCommandOptions)
 		return failure(1, "Working tree is clean; nothing to checkpoint.");
 	}
 
+	return createCheckpointFromSnapshot(options, snapshot, textConfig.value.modelRef);
+}
+
+export async function runCheckpointIfPending(options: RunCheckpointCommandOptions): Promise<CheckpointIfPendingResult> {
+	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
+	if (!loaded.ok) {
+		return { kind: "failed", output: failure(2, formatCheckpointSnapshotError(loaded.error)) };
+	}
+
+	const snapshot = loaded.snapshot;
+	if (snapshot.clean) {
+		return { kind: "clean" };
+	}
+	if (snapshot.branch === "main" || snapshot.branch === "master") {
+		return { kind: "failed", output: failure(1, `Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`) };
+	}
+
+	const textConfig = selectCheckpointTextGenerationConfig(options.env);
+	if (!textConfig.ok) {
+		return { kind: "failed", output: failure(2, textConfig.error) };
+	}
+
+	const output = await createCheckpointFromSnapshot(options, snapshot, textConfig.value.modelRef);
+	return output.exitCode === 0 ? { kind: "checkpointed", output } : { kind: "failed", output };
+}
+
+async function createCheckpointFromSnapshot(
+	options: RunCheckpointCommandOptions,
+	snapshot: PendingWorktreeSnapshot,
+	modelRef: string,
+): Promise<CheckpointCommandResult> {
 	const prepared = await prepareCheckpointMessage({
 		status: snapshot.status,
 		diff: snapshot.diff,
 		textGeneration: options.textGeneration,
-		modelRef: textConfig.value.modelRef,
+		modelRef,
 	});
 	if (!prepared.ok) {
 		return failure(2, prepared.error);
