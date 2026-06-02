@@ -6,7 +6,7 @@ const GT_CREATE_TIMEOUT_MS = 120_000;
 const STASH_PUSH_TIMEOUT_MS = 120_000;
 const STASH_POP_TIMEOUT_MS = 120_000;
 
-export interface NewBranchTransactionInput {
+export interface AutobranchTransactionInput {
 	cwd: string;
 	branchName: string;
 	checkpointMessage: string;
@@ -16,7 +16,7 @@ export interface NewBranchTransactionInput {
 	now?: () => number;
 }
 
-export type NewBranchTransactionResult =
+export type AutobranchTransactionResult =
 	| { ok: true; commitSummary: string }
 	| { ok: false; kind: "stash_failed"; error: string }
 	| { ok: false; kind: "stash_ref_missing"; stashMessage: string; error: string }
@@ -25,8 +25,8 @@ export type NewBranchTransactionResult =
 	| { ok: false; kind: "restore_failed_after_branch_create"; restoreError: string }
 	| { ok: false; kind: "commit_failed_after_branch_create"; commitError: string };
 
-export async function runNewBranchTransaction(input: NewBranchTransactionInput): Promise<NewBranchTransactionResult> {
-	const stashMessage = `pi-newbr:${input.now?.() ?? Date.now()}:${input.branchName}`;
+export async function runAutobranchTransaction(input: AutobranchTransactionInput): Promise<AutobranchTransactionResult> {
+	const stashMessage = `pi-autobranch:${input.now?.() ?? Date.now()}:${input.branchName}`;
 	const stashed = await stashPendingChanges(input, stashMessage);
 	if (!stashed.ok) {
 		return stashed;
@@ -60,7 +60,7 @@ export async function runNewBranchTransaction(input: NewBranchTransactionInput):
 	return { ok: true, commitSummary: committed.summary };
 }
 
-type TransactionExecutionInput = Pick<NewBranchTransactionInput, "cwd" | "exec" | "setStatus">;
+type TransactionExecutionInput = Pick<AutobranchTransactionInput, "cwd" | "exec" | "setStatus">;
 
 type StashPendingChangesResult =
 	| { ok: true; ref: string }
@@ -96,7 +96,7 @@ async function findStashRef(input: TransactionExecutionInput, message: string): 
 	return { ok: false, error: "No matching stash entry found." };
 }
 
-async function createGraphiteBranch(input: Pick<NewBranchTransactionInput, "branchName" | "cwd" | "exec" | "setStatus">): Promise<{ ok: true } | { ok: false; error: string }> {
+async function createGraphiteBranch(input: Pick<AutobranchTransactionInput, "branchName" | "cwd" | "exec" | "setStatus">): Promise<{ ok: true } | { ok: false; error: string }> {
 	return withStatus(input, `creating ${input.branchName}…`, async () => {
 		const created = await input.exec("gt", ["create", input.branchName, "--no-interactive", "--no-ai"], input.cwd, GT_CREATE_TIMEOUT_MS);
 		if (created.code !== 0) {
@@ -116,12 +116,12 @@ async function restoreStash(input: TransactionExecutionInput, ref: string): Prom
 	});
 }
 
-async function createCheckpointCommit(input: Pick<NewBranchTransactionInput, "checkpointMessage" | "commitPreparedCheckpointMessage" | "setStatus">): Promise<{ summary: string } | { error: string }> {
+async function createCheckpointCommit(input: Pick<AutobranchTransactionInput, "checkpointMessage" | "commitPreparedCheckpointMessage" | "setStatus">): Promise<{ summary: string } | { error: string }> {
 	return withStatus(input, "creating checkpoint commit…", () => input.commitPreparedCheckpointMessage(input.checkpointMessage));
 }
 
 async function withStatus<T>(
-	input: Pick<NewBranchTransactionInput, "setStatus">,
+	input: Pick<AutobranchTransactionInput, "setStatus">,
 	message: string,
 	action: () => Promise<T>,
 ): Promise<T> {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "../src/checkpoint-flow.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "../src/branch-slug.ts";
 import { buildSlugModelArgs } from "../src/model-slug.ts";
-import { prepareNewBranchPlan, type NewBranchPreparationInput } from "../src/newbr-preparation.ts";
+import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch-preparation.ts";
 import type { PendingWorktreeSnapshot } from "../src/pending-worktree.ts";
 
 function ok(stdout = "", stderr = ""): CommandResult {
@@ -47,7 +47,7 @@ function createHarness(options: HarnessOptions = {}) {
 	const untrackedFiles = options.untrackedFiles ?? {};
 	const prepareResult = options.prepareResult ?? { ok: true, message: "[cp] Update app\n\n- Add coverage" };
 
-	const input: NewBranchPreparationInput = {
+	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
@@ -121,11 +121,11 @@ function piPrompt(calls: ExecCall[]): string {
 	return call.args.at(-1) ?? "";
 }
 
-describe("prepareNewBranchPlan", () => {
+describe("prepareAutobranchPlan", () => {
 	test("explicit valid slug returns requested plan without model or untracked reads", async () => {
 		const harness = createHarness({ slug: "Test Branch" });
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result).toEqual({
 			ok: true,
@@ -147,7 +147,7 @@ describe("prepareNewBranchPlan", () => {
 	test("explicit invalid slug fails before branch checks or checkpoint preparation", async () => {
 		const harness = createHarness({ slug: "---" });
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "invalid_requested_slug", requestedSlug: "---" });
 		expect(harness.calls.some((call) => call.command === "git" && call.args[0] === "check-ref-format")).toBe(false);
@@ -161,7 +161,7 @@ describe("prepareNewBranchPlan", () => {
 			untrackedFiles: { "notes.txt": "new idea from untracked file" },
 		});
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -188,7 +188,7 @@ describe("prepareNewBranchPlan", () => {
 			untrackedFiles: { "notes.txt": "new idea" },
 		});
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -211,7 +211,7 @@ describe("prepareNewBranchPlan", () => {
 			existingBranches: new Set([baseSlug]),
 		});
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -230,7 +230,7 @@ describe("prepareNewBranchPlan", () => {
 		}
 		const harness = createHarness({ slug: "busy", existingBranches });
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "branch_name_unavailable", baseSlug: "busy" });
 		expect(harness.events).not.toContain("prepare");
@@ -244,7 +244,7 @@ describe("prepareNewBranchPlan", () => {
 		}
 		const harness = createHarness({ slug: "invalid", invalidBranches });
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "branch_name_unavailable", baseSlug: "invalid" });
 		expect(harness.events).not.toContain("prepare");
@@ -253,7 +253,7 @@ describe("prepareNewBranchPlan", () => {
 	test("checkpoint preparation failure returns typed failure", async () => {
 		const harness = createHarness({ slug: "test-branch", prepareResult: { ok: false, error: "checkpoint prep failed" } });
 
-		const result = await prepareNewBranchPlan(harness.input);
+		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "checkpoint_prepare_failed", error: "checkpoint prep failed" });
 		expect(eventIndex(harness.events, "exec:git show-ref")).toBeLessThan(eventIndex(harness.events, "prepare"));

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createNewBranchCheckpointFlow, type NewBranchFlowInput } from "../src/newbr-flow.ts";
+import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch-flow.ts";
 import type { CommandResult } from "../src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "../src/pending-worktree.ts";
 
@@ -12,7 +12,7 @@ function fail(stderr: string): CommandResult {
 }
 
 interface HarnessOptions {
-	args?: NewBranchFlowInput["args"];
+	args?: AutobranchFlowInput["args"];
 	piResult?: CommandResult;
 	prepareResult?: { ok: true; message: string } | { ok: false; error: string };
 	commitResult?: { summary: string } | { error: string };
@@ -34,7 +34,7 @@ function createHarness(options: HarnessOptions = {}) {
 	const prepareResult = options.prepareResult ?? { ok: true, message: `[cp] Update checkpoint tests\n\n- Add coverage` };
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
 
-	const input: NewBranchFlowInput = {
+	const input: AutobranchFlowInput = {
 		cwd: "/repo",
 		args: options.args ?? { slug: "test-branch" },
 		now: () => 123,
@@ -109,11 +109,11 @@ function eventIndex(events: string[], prefix: string): number {
 	return events.findIndex((event) => event.startsWith(prefix));
 }
 
-describe("createNewBranchCheckpointFlow", () => {
+describe("createAutobranchCheckpointFlow", () => {
 	test("message preparation failure happens before stash or Graphite branch creation", async () => {
 		const harness = createHarness({ prepareResult: { ok: false, error: "checkpoint prep failed" } });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).toContain("prepare");
 		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
@@ -124,7 +124,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("clean worktree reports nothing to move and stops before preparation", async () => {
 		const harness = createHarness({ cleanWorktree: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
 		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
@@ -134,7 +134,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("detached HEAD reports the autobranch-specific checkout guidance", async () => {
 		const harness = createHarness({ detachedHead: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
 		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /dev:autobranch."))).toBe(true);
@@ -143,7 +143,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {
 		const harness = createHarness();
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		const prepare = eventIndex(harness.events, "prepare");
 		const stash = eventIndex(harness.events, "exec:git stash push");
@@ -164,7 +164,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("preparation warnings surface before transaction success", async () => {
 		const harness = createHarness({ args: {}, piResult: fail("pi failed") });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		const warning = harness.notifications.findIndex((notice) => notice.message === "Slug model failed; using fallback branch name update-file-ts.");
 		const success = harness.notifications.findIndex((notice) => notice.message.includes("New branch: update-file-ts"));
@@ -175,7 +175,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("stash push failure stops before Graphite branch creation", async () => {
 		const harness = createHarness({ stashPushFails: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
 		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
@@ -190,7 +190,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("missing stash ref stops before Graphite branch creation", async () => {
 		const harness = createHarness({ stashRefMissing: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(eventIndex(harness.events, "exec:git stash list")).toBeGreaterThan(eventIndex(harness.events, "exec:git stash push"));
 		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
@@ -206,7 +206,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("Graphite creation failure attempts stash restoration and skips final commit", async () => {
 		const harness = createHarness({ gtCreateFails: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(eventIndex(harness.events, "exec:gt create")).toBeGreaterThan(-1);
 		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
@@ -217,7 +217,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("Graphite creation failure plus stash restoration failure reports both problems", async () => {
 		const harness = createHarness({ gtCreateFails: true, stashPopFails: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
 		expect(harness.events).not.toContain("commit");
@@ -234,7 +234,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("stash restoration failure after branch creation stops before commit", async () => {
 		const harness = createHarness({ stashPopFails: true });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(eventIndex(harness.events, "exec:gt create")).toBeGreaterThan(-1);
 		expect(harness.events).not.toContain("commit");
@@ -244,7 +244,7 @@ describe("createNewBranchCheckpointFlow", () => {
 	test("final commit failure reports that the branch exists and changes remain", async () => {
 		const harness = createHarness({ commitResult: { error: "commit failed" } });
 
-		await createNewBranchCheckpointFlow(harness.input);
+		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).toContain("commit");
 		expect(

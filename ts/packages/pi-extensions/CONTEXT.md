@@ -67,10 +67,10 @@ _Avoid:_ checkpoint commit, PR title, branch slug.
 **Checkpoint commit** — A git commit created from pending worktree changes using a prepared checkpoint message.
 _Avoid:_ checkpoint message, stash, branch creation.
 
-**New branch preparation** — The deterministic pre-transaction plan for `/newbr`: choose a branch slug/name, collect warnings, and prepare the checkpoint message without moving work.
+**Autobranch preparation** — The deterministic pre-transaction plan for `/dev:autobranch`: choose a branch slug/name, collect warnings, and prepare the checkpoint message without moving work.
 _Avoid:_ branch transaction, stash operation, model prompt alone.
 
-**New branch transaction** — The mutating `/newbr` sequence that stashes pending changes, creates a Graphite branch, restores the stash, and writes the checkpoint commit with explicit typed failure outcomes.
+**Autobranch transaction** — The mutating `/dev:autobranch` sequence that stashes pending changes, creates a Graphite branch, restores the stash, and writes the checkpoint commit with explicit typed failure outcomes.
 _Avoid:_ preparation, plain git branch creation, restack.
 
 **Runner subagent** — A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode.

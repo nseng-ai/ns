@@ -10,11 +10,11 @@ const MAX_DIFF_CHARS = 24_000;
 const MAX_UNTRACKED_FILES = 12;
 const MAX_UNTRACKED_FILE_CHARS = 4_000;
 
-export interface ParsedNewBranchArgs {
+export interface ParsedAutobranchArgs {
 	slug?: string;
 }
 
-export interface NewBranchSnapshot extends PendingWorktreeSnapshot {
+export interface AutobranchSnapshot extends PendingWorktreeSnapshot {
 	untracked: string;
 }
 
@@ -23,9 +23,9 @@ export interface FileStat {
 	isFile(): boolean;
 }
 
-export interface NewBranchPreparationInput {
+export interface AutobranchPreparationInput {
 	cwd: string;
-	args: ParsedNewBranchArgs;
+	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -34,7 +34,7 @@ export interface NewBranchPreparationInput {
 	stat?: (path: string) => Promise<FileStat>;
 }
 
-export interface NewBranchPlan {
+export interface AutobranchPlan {
 	branchName: string;
 	baseSlug: string;
 	slugSource: "requested" | "model" | "fallback";
@@ -42,20 +42,20 @@ export interface NewBranchPlan {
 	checkpointMessage: string;
 }
 
-export interface NewBranchPreparationWarning {
+export interface AutobranchPreparationWarning {
 	kind: "slug_model_failed";
 	fallbackSlug: string;
 }
 
-export type NewBranchPreparationResult =
-	| { ok: true; plan: NewBranchPlan; warnings: NewBranchPreparationWarning[] }
+export type AutobranchPreparationResult =
+	| { ok: true; plan: AutobranchPlan; warnings: AutobranchPreparationWarning[] }
 	| { ok: false; kind: "invalid_requested_slug"; requestedSlug: string }
 	| { ok: false; kind: "slug_generation_failed"; error: string }
 	| { ok: false; kind: "branch_name_unavailable"; baseSlug: string }
 	| { ok: false; kind: "checkpoint_prepare_failed"; error: string };
 
-export async function prepareNewBranchPlan(input: NewBranchPreparationInput): Promise<NewBranchPreparationResult> {
-	const warnings: NewBranchPreparationWarning[] = [];
+export async function prepareAutobranchPlan(input: AutobranchPreparationInput): Promise<AutobranchPreparationResult> {
+	const warnings: AutobranchPreparationWarning[] = [];
 	const slug = await prepareBaseSlug(input);
 	if (!slug.ok) {
 		return slug;
@@ -88,10 +88,10 @@ export async function prepareNewBranchPlan(input: NewBranchPreparationInput): Pr
 }
 
 type PreparedBaseSlugResult =
-	| { ok: true; baseSlug: string; source: NewBranchPlan["slugSource"]; warning?: NewBranchPreparationWarning }
-	| Extract<NewBranchPreparationResult, { kind: "invalid_requested_slug" | "slug_generation_failed" }>;
+	| { ok: true; baseSlug: string; source: AutobranchPlan["slugSource"]; warning?: AutobranchPreparationWarning }
+	| Extract<AutobranchPreparationResult, { kind: "invalid_requested_slug" | "slug_generation_failed" }>;
 
-async function prepareBaseSlug(input: NewBranchPreparationInput): Promise<PreparedBaseSlugResult> {
+async function prepareBaseSlug(input: AutobranchPreparationInput): Promise<PreparedBaseSlugResult> {
 	if (input.args.slug) {
 		const requestedSlug = sanitizeBranchName(input.args.slug);
 		if (!requestedSlug) {
@@ -104,7 +104,7 @@ async function prepareBaseSlug(input: NewBranchPreparationInput): Promise<Prepar
 	return generateSlugFromChanges(input, { ...input.snapshot, untracked });
 }
 
-async function readUntrackedSnippets(input: NewBranchPreparationInput, root: string): Promise<string> {
+async function readUntrackedSnippets(input: AutobranchPreparationInput, root: string): Promise<string> {
 	const listed = await input.exec("git", ["ls-files", "--others", "--exclude-standard", "-z"], input.cwd, GIT_TIMEOUT_MS);
 	if (listed.code !== 0 || listed.stdout.length === 0) {
 		return "";
@@ -142,7 +142,7 @@ async function readUntrackedSnippets(input: NewBranchPreparationInput, root: str
 	return snippets.join("\n\n");
 }
 
-async function generateSlugFromChanges(input: NewBranchPreparationInput, snapshot: NewBranchSnapshot): Promise<PreparedBaseSlugResult> {
+async function generateSlugFromChanges(input: AutobranchPreparationInput, snapshot: AutobranchSnapshot): Promise<PreparedBaseSlugResult> {
 	input.setStatus("generating branch slug…");
 	try {
 		const prompt = buildSlugPrompt(snapshot);
@@ -170,7 +170,7 @@ async function generateSlugFromChanges(input: NewBranchPreparationInput, snapsho
 	}
 }
 
-function buildSlugPrompt(snapshot: NewBranchSnapshot): string {
+function buildSlugPrompt(snapshot: AutobranchSnapshot): string {
 	return [
 		"Generate a concise git branch slug for the pending changes below.",
 		"Infer the actual code, docs, or product change from the diff contents.",
@@ -195,7 +195,7 @@ function buildSlugPrompt(snapshot: NewBranchSnapshot): string {
 		.join("\n");
 }
 
-function fallbackSlugFromSnapshot(snapshot: NewBranchSnapshot): string | undefined {
+function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefined {
 	const changedPaths = snapshot.status
 		.split("\n")
 		.map((line) => line.slice(3).trim())
@@ -208,7 +208,7 @@ function fallbackSlugFromSnapshot(snapshot: NewBranchSnapshot): string | undefin
 	return sanitizeBranchName(`update ${basenameWords || snapshot.branch}`);
 }
 
-async function chooseAvailableBranchName(input: NewBranchPreparationInput, baseSlug: string): Promise<{ ok: true; name: string; usedSuffix: boolean } | { ok: false }> {
+async function chooseAvailableBranchName(input: AutobranchPreparationInput, baseSlug: string): Promise<{ ok: true; name: string; usedSuffix: boolean } | { ok: false }> {
 	for (let index = 0; index < 50; index += 1) {
 		const suffix = index === 0 ? "" : `-${index + 1}`;
 		const candidate = trimBranchSlugToLength(baseSlug, MAX_BRANCH_SLUG_LENGTH - suffix.length) + suffix;
