@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -47,8 +48,8 @@ def _git_init(project_dir: Path) -> None:
     )
 
 
-def _read_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _read_toml(path: Path) -> dict:
+    return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
 def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
@@ -62,7 +63,8 @@ def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
     assert (tmp_path / ".claude" / "skills" / "skill-management").is_symlink()
     assert (tmp_path / ".claude" / "skills" / "skillx").is_symlink()
     assert (tmp_path / "skills-lock.json").is_file()
-    assert _read_json(tmp_path / "areg.json") == {"agents": ["codex", "claude-code"]}
+    assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "claude-code"]}}
+    assert not (tmp_path / "areg.json").exists()
     assert "<!-- areg:skills:start -->" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     claude_md = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
     assert "<!-- areg:claude-skills:start -->" in claude_md
@@ -86,7 +88,8 @@ def test_init_defaults_to_current_directory(
 
     assert result.exit_code == 0, result.output
     assert (tmp_path / "AGENTS.md").is_file()
-    assert (tmp_path / "areg.json").is_file()
+    assert (tmp_path / "asdl.toml").is_file()
+    assert not (tmp_path / "areg.json").exists()
 
 
 def test_init_uses_custom_agents(tmp_path: Path) -> None:
@@ -100,7 +103,8 @@ def test_init_uses_custom_agents(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert _read_json(tmp_path / "areg.json") == {"agents": ["codex", "windsurf"]}
+    assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "windsurf"]}}
+    assert not (tmp_path / "areg.json").exists()
     assert len(fake_npx.invocations) == 1
     invocation = fake_npx.invocations[0]
     assert invocation.repo == BOOTSTRAP_REPO
@@ -109,20 +113,54 @@ def test_init_uses_custom_agents(tmp_path: Path) -> None:
     assert invocation.cwd == tmp_path
 
 
-def test_init_preserves_existing_areg_json_unknown_keys(tmp_path: Path) -> None:
+def test_init_preserves_other_asdl_toml_sections_when_updating_areg(tmp_path: Path) -> None:
     _git_init(tmp_path)
-    (tmp_path / "areg.json").write_text(
-        json.dumps({"agents": ["old"], "unknown": True}),
+    (tmp_path / "asdl.toml").write_text(
+        '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n\n[areg]\nagents = ["old"]\n',
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
+        obj=_ctx(),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert _read_toml(tmp_path / "asdl.toml") == {
+        "roaster": {"diff": {"exclude": [".agents/skills/**/*.py"]}},
+        "areg": {"agents": ["codex", "windsurf"]},
+    }
+
+
+def test_init_appends_areg_section_to_existing_asdl_toml(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "asdl.toml").write_text(
+        '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
         encoding="utf-8",
     )
 
     result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
 
     assert result.exit_code == 0, result.output
-    assert _read_json(tmp_path / "areg.json") == {
-        "agents": ["codex", "claude-code"],
-        "unknown": True,
+    assert _read_toml(tmp_path / "asdl.toml") == {
+        "roaster": {"diff": {"exclude": [".agents/skills/**/*.py"]}},
+        "areg": {"agents": ["codex", "claude-code"]},
     }
+
+
+def test_init_migrates_agents_from_legacy_areg_json(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    legacy_content = json.dumps({"agents": ["codex", "cursor"]})
+    (tmp_path / "areg.json").write_text(legacy_content, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code == 0, result.output
+    assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "cursor"]}}
+    assert (tmp_path / "areg.json").read_text(encoding="utf-8") == legacy_content
+    assert fake_npx.invocations[0].agents == ("codex", "cursor")
 
 
 def test_init_leaves_existing_claude_settings_unchanged(tmp_path: Path) -> None:
@@ -339,6 +377,7 @@ def test_init_malformed_agents_marker_errors_before_install(tmp_path: Path) -> N
     assert "malformed areg-managed block" in result.output
     assert fake_npx.invocations == []
     assert agents.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "asdl.toml").exists()
     assert not (tmp_path / "areg.json").exists()
     assert not (tmp_path / ".agents").exists()
     assert not (tmp_path / "skills-lock.json").exists()
@@ -357,6 +396,7 @@ def test_init_malformed_claude_marker_errors_before_install(tmp_path: Path) -> N
     assert "malformed areg-managed block" in result.output
     assert fake_npx.invocations == []
     assert claude.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "asdl.toml").exists()
     assert not (tmp_path / "areg.json").exists()
     assert not (tmp_path / "AGENTS.md").exists()
     assert not (tmp_path / ".agents").exists()
@@ -376,6 +416,7 @@ def test_init_invalid_areg_json_errors_before_install(tmp_path: Path) -> None:
     assert "Invalid JSON in areg.json" in result.output
     assert fake_npx.invocations == []
     assert areg_json.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "asdl.toml").exists()
     assert not (tmp_path / ".agents").exists()
     assert not (tmp_path / "skills-lock.json").exists()
 
@@ -392,6 +433,59 @@ def test_init_non_object_areg_json_errors_before_install(tmp_path: Path) -> None
     assert "areg.json must contain a JSON object" in result.output
     assert fake_npx.invocations == []
     assert areg_json.read_text(encoding="utf-8") == "[]\n"
+    assert not (tmp_path / "asdl.toml").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_explicit_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    areg_json = tmp_path / "areg.json"
+    original = "{not json\n"
+    areg_json.write_text(original, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
+        obj=_ctx(npx=fake_npx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "windsurf"]}}
+    assert areg_json.read_text(encoding="utf-8") == original
+    assert fake_npx.invocations[0].agents == ("codex", "windsurf")
+
+
+def test_init_asdl_toml_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
+    areg_json = tmp_path / "areg.json"
+    original = "{not json\n"
+    areg_json.write_text(original, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code == 0, result.output
+    assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "cursor"]}}
+    assert areg_json.read_text(encoding="utf-8") == original
+    assert fake_npx.invocations[0].agents == ("codex", "cursor")
+
+
+def test_init_invalid_asdl_toml_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    asdl_toml = tmp_path / "asdl.toml"
+    original = "[areg\n"
+    asdl_toml.write_text(original, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "Invalid TOML" in result.output
+    assert fake_npx.invocations == []
+    assert asdl_toml.read_text(encoding="utf-8") == original
     assert not (tmp_path / ".agents").exists()
     assert not (tmp_path / "skills-lock.json").exists()
 
@@ -418,6 +512,7 @@ def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
     assert "npx skills add failed: boom" in result.output
     assert tmp_path.is_dir()
     assert readme.read_text(encoding="utf-8") == "keep me\n"
+    assert not (tmp_path / "asdl.toml").exists()
     assert not (tmp_path / "areg.json").exists()
     assert not (tmp_path / "AGENTS.md").exists()
     assert not (tmp_path / "CLAUDE.md").exists()

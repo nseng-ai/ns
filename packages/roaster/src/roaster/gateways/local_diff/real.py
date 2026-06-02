@@ -5,11 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.git.real_git_gateway import resolve_trunk_branch
+from asdl_core.project_config import load_asdl_project_config
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.git_toplevel import git_toplevel, run_git
 from roaster.models import BaseRefUnavailable, GitDiffFailedError, LocalDiff
-
-_VENDORED_SKILL_PYTHON_PATH_PREFIXES = (".agents/skills", ".claude/skills")
 
 
 class RealLocalDiffGateway(LocalDiffGateway):
@@ -28,10 +27,11 @@ class RealLocalDiffGateway(LocalDiffGateway):
                 message="Unable to resolve a base branch. Pass --base-ref explicitly.",
             )
 
+        config = load_asdl_project_config(repo_root)
         diff_result = run_git(
             _git_diff_command(
                 base_ref=resolved_base_ref,
-                repo_root=repo_root,
+                exclude_globs=config.roaster.diff.exclude,
             ),
             cwd=repo_root,
         )
@@ -50,33 +50,9 @@ class RealLocalDiffGateway(LocalDiffGateway):
         return git_toplevel(cwd=self._cwd)
 
 
-def _git_diff_command(*, base_ref: str, repo_root: Path) -> list[str]:
+def _git_diff_command(*, base_ref: str, exclude_globs: tuple[str, ...]) -> list[str]:
     cmd = ["git", "diff", "--no-ext-diff", f"origin/{base_ref}...HEAD"]
-    pathspecs = _vendored_skill_python_exclude_pathspecs(repo_root)
-    if pathspecs:
-        cmd.extend(["--", ".", *pathspecs])
+    if exclude_globs:
+        exclude_pathspecs = tuple(f":(exclude,glob){pattern}" for pattern in exclude_globs)
+        cmd.extend(["--", ".", *exclude_pathspecs])
     return cmd
-
-
-def _vendored_skill_python_exclude_pathspecs(repo_root: Path) -> tuple[str, ...]:
-    skill_names = _vendored_skill_names(repo_root)
-    return tuple(
-        f":(exclude,glob){prefix}/{skill_name}/**/*.py"
-        for skill_name in skill_names
-        for prefix in _VENDORED_SKILL_PYTHON_PATH_PREFIXES
-    )
-
-
-def _vendored_skill_names(repo_root: Path) -> tuple[str, ...]:
-    skill_names = set(_real_skill_directory_names(repo_root / ".agents" / "skills"))
-    skill_names.update(_real_skill_directory_names(repo_root / ".claude" / "skills"))
-    return tuple(sorted(skill_names))
-
-
-def _real_skill_directory_names(skills_dir: Path) -> tuple[str, ...]:
-    if not skills_dir.exists() or not skills_dir.is_dir():
-        return ()
-
-    return tuple(
-        entry.name for entry in skills_dir.iterdir() if not entry.is_symlink() and entry.is_dir()
-    )

@@ -38,6 +38,20 @@ roaster review run dignified-python --format json
 roaster harness list --format json
 ```
 
+## Project config
+
+`roaster` reads project-level diff exclusions from the repository root `asdl.toml`:
+
+```toml
+[roaster.diff]
+exclude = [
+  ".agents/skills/**/*.py",
+  ".claude/skills/**/*.py",
+]
+```
+
+These are plain repo-relative glob patterns. `roaster` converts them to Git pathspec excludes before assembling the reviewer prompt, so excluded paths never enter the model input.
+
 ## Harness selection
 
 `roaster` runs parsed review definitions through a unified harness

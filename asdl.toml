@@ -1,0 +1,8 @@
+[areg]
+agents = ["codex", "claude-code"]
+
+[roaster.diff]
+exclude = [
+  ".agents/skills/**/*.py",
+  ".claude/skills/**/*.py",
+]

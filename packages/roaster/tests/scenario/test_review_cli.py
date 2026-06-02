@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -9,12 +10,15 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.project_config import AsdlProjectConfigError
 from roaster.cli.main import build_cli
 from roaster.context import RoasterCliContext
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import (
+    BaseRefUnavailable,
     FindingsReview,
     LocalDiff,
     ProseReview,
@@ -27,6 +31,11 @@ from roaster.models import (
 REPO_ROOT = Path("/repo")
 REVIEWS_DIR = REPO_ROOT / "reviews"
 REVIEW_KEY = "dignified-python"
+
+
+class _InvalidConfigDiffGateway(LocalDiffGateway):
+    def load_diff(self, *, base_ref: str | None) -> LocalDiff | BaseRefUnavailable:
+        raise AsdlProjectConfigError("bad asdl.toml")
 
 
 def _sample_source(*, include_default_model: bool = True) -> str:
@@ -472,6 +481,23 @@ def test_review_run_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
     assert payload["exit_code"] == 2
     assert "error_type" in payload
     assert "message" in payload
+
+
+def test_review_run_surfaces_invalid_asdl_config(cli_group: ClinkrGroup) -> None:
+    ctx = dataclasses.replace(_build_context(), diff=_InvalidConfigDiffGateway())
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "json"],
+        obj=_obj(ctx),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "asdl_config_invalid"
+    assert payload["message"] == "bad asdl.toml"
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    assert ctx.harness_runtime.executed_requests == ()
 
 
 def test_review_run_requires_typed_context(cli_group: ClinkrGroup) -> None:
