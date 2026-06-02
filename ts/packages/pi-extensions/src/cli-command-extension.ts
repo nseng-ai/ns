@@ -436,17 +436,17 @@ function isCliUsageError(details: CliCommandOutputDetails): boolean {
 	return details.exitCode === 2 && details.stderr.startsWith("Error:");
 }
 
-type LiveCommandProgressOptions = {
+interface LiveCommandProgressOptions {
 	cliName: string;
 	commandName: string;
 	piCommandName: string;
 	argv: readonly string[];
-};
+}
 
-type LiveOutputLine = {
+interface LiveOutputLine {
 	stream: OutputStreamName;
 	text: string;
-};
+}
 
 class LiveCommandProgress {
 	private readonly ctx: CommandContext;
@@ -460,7 +460,7 @@ class LiveCommandProgress {
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
 	private timer: ReturnType<typeof setInterval> | undefined;
-	private closed = false;
+	private isClosed = false;
 
 	constructor(ctx: CommandContext, options: LiveCommandProgressOptions) {
 		this.ctx = ctx;
@@ -509,8 +509,8 @@ class LiveCommandProgress {
 	}
 
 	close(): void {
-		if (this.closed) return;
-		this.closed = true;
+		if (this.isClosed) return;
+		this.isClosed = true;
 		if (this.timer !== undefined) {
 			clearInterval(this.timer);
 			this.timer = undefined;
@@ -531,7 +531,7 @@ class LiveCommandProgress {
 	}
 
 	private render(): void {
-		if (this.target === "none" || this.closed) return;
+		if (this.target === "none" || this.isClosed) return;
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
 		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, `/${this.options.piCommandName} ${this.phase} (${elapsed})`);
