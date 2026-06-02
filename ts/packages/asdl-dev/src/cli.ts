@@ -2,25 +2,19 @@
 
 import process from "node:process";
 
-import {
-	defaultCommandResolver,
-	runCommand,
-	type CommandResolver,
-	type CommandRunner,
-} from "./command-runner.ts";
-import { latestBranchDeployment, type LatestBranchDeploymentOptions } from "./deployment-lookup.ts";
-import { formatHumanFailure, formatHumanSuccess, formatJson } from "./output.ts";
+import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
+import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
+import { formatHumanFailure, formatJson } from "./output.ts";
 
 export type CliDeps = {
-	runner?: CommandRunner | undefined;
+	context?: AsdlDevContext | undefined;
 	cwd?: string | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
-	resolveCommand?: CommandResolver | undefined;
 };
 
-type ParsedLatestArgs = {
+type ParsedPreviewUrlArgs = {
 	jsonOutput: boolean;
 	branch?: string;
 	project?: string;
@@ -30,7 +24,7 @@ type ParsedLatestArgs = {
 type ParseResult =
 	| {
 			kind: "ok";
-			options: ParsedLatestArgs;
+			options: ParsedPreviewUrlArgs;
 	  }
 	| {
 			kind: "help";
@@ -40,7 +34,29 @@ type ParseResult =
 			message: string;
 	  };
 
-const LATEST_BRANCH_DEPLOYMENT_COMMAND = "latest-branch-deployment";
+type CommandSpec = {
+	name: string;
+	description: string;
+	help: () => string;
+	run: (args: readonly string[], deps: RequiredCliDeps) => Promise<number>;
+};
+
+type RequiredCliDeps = {
+	context: AsdlDevContext;
+	cwd: string;
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
+	env: Record<string, string | undefined>;
+};
+
+const COMMANDS: CommandSpec[] = [
+	{
+		name: "preview-url",
+		description: "Print the Vercel preview URL for a branch.",
+		help: previewUrlHelp,
+		run: runPreviewUrlCommand,
+	},
+];
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => {
@@ -50,32 +66,41 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		process.stderr.write(text);
 	});
 
-	const command = args[0];
-	if (command === undefined || command === "--help" || command === "-h") {
+	const commandName = args[0];
+	if (commandName === undefined || commandName === "--help" || commandName === "-h") {
 		stdout(topLevelHelp());
 		return 0;
 	}
 
-	if (command !== LATEST_BRANCH_DEPLOYMENT_COMMAND) {
-		stderr(`Unknown command: ${command}\n\n${topLevelHelp()}`);
+	const command = COMMANDS.find((candidate) => candidate.name === commandName);
+	if (command === undefined) {
+		stderr(`Unknown command: ${commandName}\n\n${topLevelHelp()}`);
 		return 2;
 	}
 
-	const parsed = parseLatestBranchDeploymentArgs(args.slice(1));
+	return command.run(args.slice(1), {
+		context: deps.context ?? createRealAsdlDevContext(),
+		cwd: deps.cwd ?? process.cwd(),
+		stdout,
+		stderr,
+		env: deps.env ?? process.env,
+	});
+}
+
+async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
+	const parsed = parsePreviewUrlArgs(args);
 	if (parsed.kind === "help") {
-		stdout(latestBranchDeploymentHelp());
+		deps.stdout(previewUrlHelp());
 		return 0;
 	}
 	if (parsed.kind === "error") {
-		stderr(`Error: ${parsed.message}\n\n${latestBranchDeploymentHelp()}`);
+		deps.stderr(`Error: ${parsed.message}\n\n${previewUrlHelp()}`);
 		return 2;
 	}
 
-	const lookupOptions: LatestBranchDeploymentOptions = {
-		cwd: deps.cwd ?? process.cwd(),
-		env: deps.env ?? process.env,
-		runner: deps.runner ?? runCommand,
-		resolveCommand: deps.resolveCommand ?? defaultCommandResolver,
+	const lookupOptions: PreviewUrlOptions = {
+		cwd: deps.cwd,
+		env: deps.env,
 	};
 	if (parsed.options.branch !== undefined) {
 		lookupOptions.branch = parsed.options.branch;
@@ -87,22 +112,22 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		lookupOptions.scope = parsed.options.scope;
 	}
 
-	const result = await latestBranchDeployment(lookupOptions);
+	const result = await lookupPreviewUrl(lookupOptions, deps.context);
 	if (parsed.options.jsonOutput) {
-		stdout(formatJson(result.payload));
+		deps.stdout(formatJson(result.payload));
 		return result.exitCode;
 	}
 
 	if (result.payload.success) {
-		stdout(formatHumanSuccess(result.payload));
+		deps.stdout(`${result.payload.preview_url}\n`);
 	} else {
-		stderr(formatHumanFailure(result.payload));
+		deps.stderr(formatHumanFailure(result.payload));
 	}
 	return result.exitCode;
 }
 
-function parseLatestBranchDeploymentArgs(args: readonly string[]): ParseResult {
-	const options: ParsedLatestArgs = { jsonOutput: false };
+function parsePreviewUrlArgs(args: readonly string[]): ParseResult {
+	const options: ParsedPreviewUrlArgs = { jsonOutput: false };
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -155,7 +180,7 @@ function parseLatestBranchDeploymentArgs(args: readonly string[]): ParseResult {
 			continue;
 		}
 
-		return { kind: "error", message: `Unknown option: ${arg}` };
+		return { kind: "error", message: arg.startsWith("-") ? `Unknown option: ${arg}` : `Unexpected argument: ${arg}` };
 	}
 
 	return { kind: "ok", options };
@@ -170,28 +195,31 @@ function inlineOptionValue(arg: string, optionName: string): string | undefined 
 }
 
 function topLevelHelp(): string {
+	const commandLines = COMMANDS.map((command) => `  ${command.name.padEnd(12)}  ${command.description}`).join("\n");
 	return `Usage: asdl-dev <command> [options]
 
 Developer tools for asdl-tools.
 
+*-dev CLIs use a flat list of task commands; avoid nested command groups.
+
 Commands:
-  latest-branch-deployment  Report the latest Vercel preview deployment for a branch.
+${commandLines}
 
 Options:
-  -h, --help                Show this help message.
+  -h, --help    Show this help message.
 `;
 }
 
-function latestBranchDeploymentHelp(): string {
-	return `Usage: asdl-dev latest-branch-deployment [options]
+function previewUrlHelp(): string {
+	return `Usage: asdl-dev preview-url [options]
 
-Report the latest Ready Vercel preview deployment for the current branch.
+Print the Vercel preview URL for the selected branch.
 
 Options:
-  --branch TEXT   Branch to look up. Defaults to git branch --show-current.
+  --branch TEXT   Branch to look up. Defaults to the current git branch.
   --project TEXT  Vercel project. Defaults to VERCEL_PROJECT, .vercel/project.json, then asdl-tools.
   --scope TEXT    Vercel scope/team. Defaults to VERCEL_SCOPE, then schrockns-projects.
-  --json          Emit machine-readable JSON on stdout.
+  --json          Emit machine-readable JSON on stdout, including failures.
   -h, --help      Show this help message.
 `;
 }

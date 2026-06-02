@@ -250,6 +250,11 @@
       "source": "skills/typescript-style",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
+    },
+    "typescript-fake-driven-testing": {
+      "source": "skills/typescript-fake-driven-testing",
+      "sourceType": "local",
+      "computedHash": "37c1b8015fb8c7b270cbb665a9de7add828bba24e438e118c887d3283cb83f7b"
     }
   }
 }
