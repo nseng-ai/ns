@@ -6,20 +6,20 @@ import {
 	type PendingWorktreeSnapshot,
 } from "./pending-worktree.ts";
 import {
-	prepareNewBranchPlan,
+	prepareAutobranchPlan,
 	type FileStat,
-	type NewBranchPreparationResult,
-	type NewBranchPreparationWarning,
-	type ParsedNewBranchArgs,
-} from "./newbr-preparation.ts";
-import { runNewBranchTransaction, type NewBranchTransactionResult } from "./newbr-transaction.ts";
+	type AutobranchPreparationResult,
+	type AutobranchPreparationWarning,
+	type ParsedAutobranchArgs,
+} from "./autobranch-preparation.ts";
+import { runAutobranchTransaction, type AutobranchTransactionResult } from "./autobranch-transaction.ts";
 
-export const NEWBR_COMMAND_NAME = "dev:autobranch";
+export const AUTOBRANCH_COMMAND_NAME = "dev:autobranch";
 const GIT_TIMEOUT_MS = 30_000;
 
-export interface NewBranchFlowInput {
+export interface AutobranchFlowInput {
 	cwd: string;
-	args: ParsedNewBranchArgs;
+	args: ParsedAutobranchArgs;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
 	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
@@ -30,9 +30,9 @@ export interface NewBranchFlowInput {
 	now?: () => number;
 }
 
-export function parseNewBranchArgs(argsText: string): ParsedNewBranchArgs {
+export function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
-	const parsed: ParsedNewBranchArgs = {};
+	const parsed: ParsedAutobranchArgs = {};
 	for (let index = 0; index < parts.length; index += 1) {
 		const part = parts[index];
 		const next = parts[index + 1];
@@ -49,13 +49,13 @@ export function parseNewBranchArgs(argsText: string): ParsedNewBranchArgs {
 	return parsed;
 }
 
-export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): Promise<void> {
+export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput): Promise<void> {
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,
 		execGit: (args, timeout) => input.exec("git", args, input.cwd, timeout),
 	});
 	if (!loaded.ok) {
-		input.notify(formatNewBranchSnapshotError(loaded.error), "error");
+		input.notify(formatAutobranchSnapshotError(loaded.error), "error");
 		return;
 	}
 
@@ -65,7 +65,7 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 		return;
 	}
 
-	const prepared = await prepareNewBranchPlan({
+	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
 		args: input.args,
 		snapshot,
@@ -76,15 +76,15 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 		...(input.stat ? { stat: input.stat } : {}),
 	});
 	if (!prepared.ok) {
-		input.notify(formatNewBranchPreparationFailure(prepared), "error");
+		input.notify(formatAutobranchPreparationFailure(prepared), "error");
 		return;
 	}
 
 	for (const warning of prepared.warnings) {
-		input.notify(formatNewBranchPreparationWarning(warning), "warning");
+		input.notify(formatAutobranchPreparationWarning(warning), "warning");
 	}
 
-	const transaction = await runNewBranchTransaction({
+	const transaction = await runAutobranchTransaction({
 		cwd: input.cwd,
 		branchName: prepared.plan.branchName,
 		checkpointMessage: prepared.plan.checkpointMessage,
@@ -94,7 +94,7 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 		...(input.now ? { now: input.now } : {}),
 	});
 	if (!transaction.ok) {
-		input.notify(formatNewBranchTransactionFailure(transaction, prepared.plan.branchName), "error");
+		input.notify(formatAutobranchTransactionFailure(transaction, prepared.plan.branchName), "error");
 		return;
 	}
 
@@ -113,13 +113,13 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 	);
 }
 
-function formatNewBranchSnapshotError(error: PendingWorktreeError): string {
+function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
 	const details = formatPendingWorktreeCommandDetails(error.result);
 	if (error.kind === "not_git_repo") {
 		return `Not inside a git repository.\n${details}`;
 	}
 	if (error.kind === "detached_head") {
-		return `Detached HEAD; check out a branch before running /${NEWBR_COMMAND_NAME}.\n${details}`;
+		return `Detached HEAD; check out a branch before running /${AUTOBRANCH_COMMAND_NAME}.\n${details}`;
 	}
 	if (error.kind === "status_failed") {
 		return `Could not read git status.\n${details}`;
@@ -127,9 +127,9 @@ function formatNewBranchSnapshotError(error: PendingWorktreeError): string {
 	return `Could not read git diff.\n${details}`;
 }
 
-type NewBranchPreparationFailure = Extract<NewBranchPreparationResult, { ok: false }>;
+type AutobranchPreparationFailure = Extract<AutobranchPreparationResult, { ok: false }>;
 
-function formatNewBranchPreparationFailure(result: NewBranchPreparationFailure): string {
+function formatAutobranchPreparationFailure(result: AutobranchPreparationFailure): string {
 	if (result.kind === "invalid_requested_slug") {
 		return `Invalid branch slug: ${result.requestedSlug}`;
 	}
@@ -142,13 +142,13 @@ function formatNewBranchPreparationFailure(result: NewBranchPreparationFailure):
 	return result.error;
 }
 
-function formatNewBranchPreparationWarning(warning: NewBranchPreparationWarning): string {
+function formatAutobranchPreparationWarning(warning: AutobranchPreparationWarning): string {
 	return `Slug model failed; using fallback branch name ${warning.fallbackSlug}.`;
 }
 
-type NewBranchTransactionFailure = Extract<NewBranchTransactionResult, { ok: false }>;
+type AutobranchTransactionFailure = Extract<AutobranchTransactionResult, { ok: false }>;
 
-function formatNewBranchTransactionFailure(result: NewBranchTransactionFailure, branchName: string): string {
+function formatAutobranchTransactionFailure(result: AutobranchTransactionFailure, branchName: string): string {
 	if (result.kind === "stash_failed") {
 		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
 	}

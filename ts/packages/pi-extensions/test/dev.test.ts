@@ -32,7 +32,7 @@ describe("dev extension registration", () => {
 
 		expect([...pi.commands.keys()]).toEqual(["dev:cp", "dev:changes", "dev:autobranch", "dev:submit", "dev:land", "dev:land-stack"]);
 		expect(pi.commands.has("cp")).toBe(false);
-		expect(pi.commands.has("newbr")).toBe(false);
+		expect(pi.commands.has("autobranch")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
 		expect(pi.commands.has("summary")).toBe(false);
 		expect(pi.commands.has("submit")).toBe(false);

@@ -1,23 +1,23 @@
 import type { CommandResult } from "./checkpoint-flow.ts";
 import { commitPreparedCheckpointMessage, prepareCheckpointMessageForPi, type ExtensionAPI, type ExtensionCommandContext } from "./checkpoint-pi.ts";
-import { createNewBranchCheckpointFlow, parseNewBranchArgs } from "./newbr-flow.ts";
-import type { ParsedNewBranchArgs } from "./newbr-preparation.ts";
+import { createAutobranchCheckpointFlow, parseAutobranchArgs } from "./autobranch-flow.ts";
+import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
 
 const COMMAND_NAME = "dev:autobranch";
 const STATUS_KEY = "autobranch";
 
-export default function newBranchExtension(pi: ExtensionAPI): void {
+export default function autobranchExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Create a Graphite branch from current uncommitted changes, generating the branch name and checkpoint commit message",
 		handler: async (args, ctx) => {
-			await createNewBranchCheckpoint(pi, ctx, parseNewBranchArgs(args));
+			await createAutobranchCheckpoint(pi, ctx, parseAutobranchArgs(args));
 		},
 	});
 }
 
-async function createNewBranchCheckpoint(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: ParsedNewBranchArgs): Promise<void> {
+async function createAutobranchCheckpoint(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: ParsedAutobranchArgs): Promise<void> {
 	await ctx.waitForIdle();
-	await createNewBranchCheckpointFlow({
+	await createAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => exec(pi, command, commandArgs, cwd, timeout),
