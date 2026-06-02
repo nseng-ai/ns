@@ -1,10 +1,25 @@
+import { appendFileSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import process from "node:process";
 
-import { customMessageText, truncateDisplayLine } from "./terminal-presentation.ts";
-
-export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "cli-command-output";
+const CLI_COMMAND_BRIDGE_VERSION = "live-progress-trace-v2";
+const TRACE_ENV = "ASDL_PI_CLI_TRACE";
+const TRACE_OUTPUT_ENV = "ASDL_PI_CLI_TRACE_OUTPUT";
+const TRACE_PATH_ENV = "ASDL_PI_CLI_TRACE_PATH";
+const DEFAULT_TRACE_FILENAME = "asdl-pi-cli-command-extension.jsonl";
+const TRACE_OUTPUT_PREVIEW_CHARS = 500;
+const LIVE_PROGRESS_STATUS_ID = "asdl-cli-command";
+const LIVE_PROGRESS_WIDGET_ID = "asdl-cli-command-output";
+const LIVE_PROGRESS_INTERVAL_MS = 1_000;
+const LIVE_PROGRESS_MAX_LINES = 8;
+const LIVE_PROGRESS_MAX_LINE_CHARS = 160;
 
 type NotifyLevel = "info" | "warning" | "error";
+type TraceFields = Record<string, unknown>;
+type OutputStreamName = "stdout" | "stderr";
+type LiveProgressTarget = "none" | "status" | "widget" | "status_widget";
+type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
 export interface CliCommandInfo {
 	name: string;
@@ -27,31 +42,14 @@ export interface CliCommandExtensionSpec {
 	env?: Record<string, string | undefined>;
 }
 
-export interface CustomMessage {
-	customType: string;
-	content: string;
-	display: boolean;
-	details?: unknown;
-}
-
-type RenderTheme = {
-	fg(color: string, text: string): string;
-	bold?(text: string): string;
-};
-
-type RenderComponent = {
-	render(width: number): string[];
-	invalidate(): void;
-};
-
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
-
 export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(text: string): void;
+		setStatus?(key: string, value: string | undefined): void;
+		setWidget?(key: string, value: string[] | undefined, options?: { placement?: CommandWidgetPlacement }): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -64,8 +62,6 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 }
 
 export type ParsedCliCommandArgs =
@@ -94,7 +90,13 @@ export interface CliCommandOutputDetails {
 
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
 	assertValidCommandSpec(spec);
-	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
+	traceCliCommand("register", {
+		bridgeMode: "notify-with-live-progress-no-custom-message",
+		cliName: spec.cliName,
+		commands: spec.commands.map((command) => command.name),
+		piNamespace: spec.piNamespace,
+		sendMessageAvailable: hasSendMessage(pi),
+	});
 
 	for (const command of spec.commands) {
 		const piCommandName = `${spec.piNamespace}:${command.name}`;
@@ -214,9 +216,26 @@ interface RunRegisteredCliCommandOptions {
 
 async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions): Promise<void> {
 	const { pi, spec, command, piCommandName, rawArgs, ctx } = options;
+	const commandStartedAt = Date.now();
+	traceCliCommand("command_start", {
+		cliName: spec.cliName,
+		commandName: command.name,
+		cwd: ctx.cwd,
+		hasUI: ctx.hasUI,
+		piCommandName,
+		rawArgs,
+		sendMessageAvailable: hasSendMessage(pi),
+	});
+
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) {
-		restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Could not parse /${piCommandName}: ${parsed.error}` });
+		const restored = restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Could not parse /${piCommandName}: ${parsed.error}` });
+		traceCliCommand("parse_error", {
+			commandName: command.name,
+			error: parsed.error,
+			piCommandName,
+			restored,
+		});
 		emitCliCommandOutput(
 			pi,
 			ctx,
@@ -244,6 +263,12 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			rawArgs,
 			reason: `Not running /${piCommandName}: text after the command looks like prose, not options.`,
 		});
+		traceCliCommand("positional_args_rejected", {
+			args: parsed.args,
+			commandName: command.name,
+			piCommandName,
+			restored,
+		});
 		if (!restored) {
 			emitCliCommandOutput(
 				pi,
@@ -266,25 +291,61 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		return;
 	}
 
-	await ctx.waitForIdle();
-
 	let stdout = "";
 	let stderr = "";
 	let exitCode = 1;
 	const argv = [command.name, ...parsed.args];
+	const progress = new LiveCommandProgress(ctx, {
+		argv,
+		cliName: spec.cliName,
+		commandName: command.name,
+		piCommandName,
+	});
 	try {
-		exitCode = await spec.runCli(argv, {
-			cwd: ctx.cwd,
-			stdout: (text) => {
-				stdout += text;
-			},
-			stderr: (text) => {
-				stderr += text;
-			},
-			env: { ...(spec.env ?? process.env) },
+		progress.setPhase("waiting for Pi idle");
+		const waitStartedAt = Date.now();
+		traceCliCommand("wait_for_idle_start", { commandName: command.name, piCommandName });
+		await ctx.waitForIdle();
+		traceCliCommand("wait_for_idle_done", {
+			commandName: command.name,
+			elapsedMs: Date.now() - waitStartedAt,
+			piCommandName,
 		});
-	} catch (error) {
-		stderr += `Unhandled ${spec.cliName} command error: ${errorMessage(error)}\n`;
+
+		progress.setPhase("running CLI command");
+		const runnerStartedAt = Date.now();
+		traceCliCommand("runner_start", { argv, commandName: command.name, piCommandName });
+		try {
+			exitCode = await spec.runCli(argv, {
+				cwd: ctx.cwd,
+				stdout: (text) => {
+					stdout += text;
+					progress.appendOutput("stdout", text);
+				},
+				stderr: (text) => {
+					stderr += text;
+					progress.appendOutput("stderr", text);
+				},
+				env: { ...(spec.env ?? process.env) },
+			});
+		} catch (error) {
+			const message = errorMessage(error);
+			const exceptionOutput = `Unhandled ${spec.cliName} command error: ${message}\n`;
+			traceCliCommand("runner_exception", { commandName: command.name, error: message, piCommandName });
+			stderr += exceptionOutput;
+			progress.appendOutput("stderr", exceptionOutput);
+		}
+
+		traceCliCommand("runner_done", {
+			...outputTraceFields(stdout, stderr),
+			commandName: command.name,
+			elapsedMs: Date.now() - runnerStartedAt,
+			exitCode,
+			piCommandName,
+			totalElapsedMs: Date.now() - commandStartedAt,
+		});
+	} finally {
+		progress.close();
 	}
 
 	const details = buildOutputDetails({
@@ -302,7 +363,8 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	});
 	emitCliCommandOutput(pi, ctx, details);
 	if (isCliUsageError(details)) {
-		restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Restored /${piCommandName} after a CLI usage error.` });
+		const restored = restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Restored /${piCommandName} after a CLI usage error.` });
+		traceCliCommand("usage_error_restored", { commandName: command.name, piCommandName, restored });
 	}
 }
 
@@ -364,94 +426,212 @@ function isCliUsageError(details: CliCommandOutputDetails): boolean {
 	return details.exitCode === 2 && details.stderr.startsWith("Error:");
 }
 
-function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {
-	const displayText = formatCliCommandOutput(details);
-	const message: CustomMessage = {
-		customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-		content: formatCliCommandContextSummary(details),
-		display: false,
-		details,
-	};
+type LiveCommandProgressOptions = {
+	cliName: string;
+	commandName: string;
+	piCommandName: string;
+	argv: readonly string[];
+};
 
-	if (ctx.hasUI) {
-		ctx.ui.notify(displayText, details.level);
+type LiveOutputLine = {
+	stream: OutputStreamName;
+	text: string;
+};
+
+class LiveCommandProgress {
+	private readonly ctx: CommandContext;
+	private readonly options: LiveCommandProgressOptions;
+	private readonly startedAt = Date.now();
+	private readonly target: LiveProgressTarget;
+	private phase = "starting";
+	private stdoutChars = 0;
+	private stderrChars = 0;
+	private stdoutPending = "";
+	private stderrPending = "";
+	private outputLines: LiveOutputLine[] = [];
+	private timer: ReturnType<typeof setInterval> | undefined;
+	private closed = false;
+
+	constructor(ctx: CommandContext, options: LiveCommandProgressOptions) {
+		this.ctx = ctx;
+		this.options = options;
+		this.target = liveProgressTarget(ctx);
+		traceCliCommand("live_progress_start", {
+			commandName: options.commandName,
+			piCommandName: options.piCommandName,
+			sendMessageCalled: false,
+			target: this.target,
+		});
+
+		if (this.target === "none") return;
+
+		this.render();
+		this.timer = setInterval(() => {
+			this.render();
+		}, LIVE_PROGRESS_INTERVAL_MS);
 	}
 
-	if (pi.sendMessage !== undefined) {
-		pi.sendMessage(message, { triggerTurn: false });
+	setPhase(phase: string): void {
+		this.phase = phase;
+		this.render();
+	}
+
+	appendOutput(stream: OutputStreamName, text: string): void {
+		if (text === "") return;
+
+		if (stream === "stdout") {
+			this.stdoutChars += text.length;
+		} else {
+			this.stderrChars += text.length;
+		}
+		this.recordOutput(stream, text);
+		traceCliCommand("live_progress_output", {
+			chunkChars: text.length,
+			commandName: this.options.commandName,
+			piCommandName: this.options.piCommandName,
+			sendMessageCalled: false,
+			stderrChars: this.stderrChars,
+			stdoutChars: this.stdoutChars,
+			stream,
+			target: this.target,
+		});
+		this.render();
+	}
+
+	close(): void {
+		if (this.closed) return;
+		this.closed = true;
+		if (this.timer !== undefined) {
+			clearInterval(this.timer);
+			this.timer = undefined;
+		}
+		if (this.target !== "none") {
+			this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, undefined);
+			this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, undefined);
+		}
+		traceCliCommand("live_progress_stop", {
+			commandName: this.options.commandName,
+			elapsedMs: Date.now() - this.startedAt,
+			piCommandName: this.options.piCommandName,
+			sendMessageCalled: false,
+			stderrChars: this.stderrChars,
+			stdoutChars: this.stdoutChars,
+			target: this.target,
+		});
+	}
+
+	private render(): void {
+		if (this.target === "none" || this.closed) return;
+
+		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
+		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, `/${this.options.piCommandName} ${this.phase} (${elapsed})`);
+		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), { placement: "belowEditor" });
+	}
+
+	private widgetLines(elapsed: string): string[] {
+		const lines = [
+			`Running /${this.options.piCommandName} — ${this.phase} — ${elapsed} elapsed`,
+			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)}`,
+			`stdout ${this.stdoutChars} chars, stderr ${this.stderrChars} chars`,
+		];
+		const recentLines = this.recentOutputLines();
+		if (recentLines.length === 0) {
+			lines.push("No CLI output yet; still running.");
+			return lines;
+		}
+
+		lines.push("Recent CLI output:");
+		for (const line of recentLines) {
+			lines.push(formatLiveOutputLine(line));
+		}
+		return lines;
+	}
+
+	private recordOutput(stream: OutputStreamName, text: string): void {
+		const pending = stream === "stdout" ? this.stdoutPending : this.stderrPending;
+		const parts = `${pending}${text.replace(/\r/g, "\n")}`.split("\n");
+		const nextPending = parts.pop() ?? "";
+		for (const line of parts) {
+			this.outputLines.push({ stream, text: line });
+		}
+		if (stream === "stdout") {
+			this.stdoutPending = nextPending;
+		} else {
+			this.stderrPending = nextPending;
+		}
+		this.outputLines = this.outputLines.slice(-LIVE_PROGRESS_MAX_LINES);
+	}
+
+	private recentOutputLines(): LiveOutputLine[] {
+		const lines = [...this.outputLines];
+		if (this.stdoutPending !== "") {
+			lines.push({ stream: "stdout", text: this.stdoutPending });
+		}
+		if (this.stderrPending !== "") {
+			lines.push({ stream: "stderr", text: this.stderrPending });
+		}
+		return lines.slice(-LIVE_PROGRESS_MAX_LINES);
+	}
+}
+
+function liveProgressTarget(ctx: CommandContext): LiveProgressTarget {
+	if (!ctx.hasUI) return "none";
+
+	const hasStatus = ctx.ui.setStatus !== undefined;
+	const hasWidget = ctx.ui.setWidget !== undefined;
+	if (hasStatus && hasWidget) return "status_widget";
+	if (hasStatus) return "status";
+	if (hasWidget) return "widget";
+	return "none";
+}
+
+function formatCommandForDisplay(cliName: string, argv: readonly string[]): string {
+	return [cliName, ...argv].map(formatDisplayArg).join(" ");
+}
+
+function formatDisplayArg(arg: string): string {
+	if (/^[A-Za-z0-9_./:=@+-]+$/.test(arg)) return arg;
+	return JSON.stringify(arg);
+}
+
+function formatLiveOutputLine(line: LiveOutputLine): string {
+	return `${line.stream}: ${truncateLiveProgressLine(line.text)}`;
+}
+
+function truncateLiveProgressLine(text: string): string {
+	if (text.length <= LIVE_PROGRESS_MAX_LINE_CHARS) return text;
+	return `${text.slice(0, LIVE_PROGRESS_MAX_LINE_CHARS - 1)}…`;
+}
+
+function formatElapsedMs(elapsedMs: number): string {
+	const seconds = Math.max(0, Math.floor(elapsedMs / 1000));
+	if (seconds < 60) return `${seconds}s`;
+
+	const minutes = Math.floor(seconds / 60);
+	const remainingSeconds = seconds % 60;
+	return `${minutes}m ${remainingSeconds}s`;
+}
+
+function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {
+	const displayText = formatCliCommandOutput(details);
+	const target = ctx.hasUI ? "notify" : details.level === "info" ? "stdout" : "stderr";
+	traceCliCommand("emit_output", {
+		commandName: details.commandName,
+		displayChars: displayText.length,
+		hasUI: ctx.hasUI,
+		level: details.level,
+		piCommandName: details.piCommandName,
+		sendMessageAvailable: hasSendMessage(pi),
+		sendMessageCalled: false,
+		target,
+	});
+	if (ctx.hasUI) {
+		ctx.ui.notify(displayText, details.level);
 		return;
 	}
 
-	if (!ctx.hasUI) {
-		const stream = details.level === "info" ? process.stdout : process.stderr;
-		stream.write(displayText.endsWith("\n") ? displayText : `${displayText}\n`);
-	}
-}
-
-export function renderCliCommandOutputMessage(message: CustomMessage, _options: { expanded: boolean }, theme: RenderTheme): RenderComponent {
-	const details = parseCliCommandOutputDetails(message.details);
-	const displayText = details === undefined ? customMessageText(message.content) : formatCliCommandOutput(details);
-	return {
-		render(width: number): string[] {
-			return displayText.split("\n").map((line, index) => styleCliOutputLine(truncateDisplayLine(line, width), index, details?.level, theme));
-		},
-		invalidate(): void {},
-	};
-}
-
-function formatCliCommandContextSummary(details: CliCommandOutputDetails): string {
-	const sourceCommand = `/${details.piCommandName}`;
-	if (details.exitCode === 0) {
-		return `The ${sourceCommand} command completed successfully.`;
-	}
-	return `The ${sourceCommand} command exited with code ${details.exitCode}.`;
-}
-
-function styleCliOutputLine(line: string, index: number, level: "info" | "error" | undefined, theme: RenderTheme): string {
-	if (line.length === 0) return line;
-	if (index === 0) {
-		const text = theme.bold !== undefined ? theme.bold(line) : line;
-		return theme.fg(level === "error" ? "error" : "accent", text);
-	}
-	if (/^(stdout|stderr):$/.test(line) || /^----- (stdout|stderr) -----$/.test(line)) {
-		return theme.fg("muted", line);
-	}
-	return line;
-}
-
-function parseCliCommandOutputDetails(value: unknown): CliCommandOutputDetails | undefined {
-	if (!isRecord(value)) return undefined;
-	if (
-		typeof value.cliName !== "string" ||
-		typeof value.commandName !== "string" ||
-		typeof value.piCommandName !== "string" ||
-		typeof value.rawArgs !== "string" ||
-		!Array.isArray(value.args) ||
-		!value.args.every((item) => typeof item === "string") ||
-		!Array.isArray(value.argv) ||
-		!value.argv.every((item) => typeof item === "string") ||
-		typeof value.cwd !== "string" ||
-		typeof value.exitCode !== "number" ||
-		typeof value.stdout !== "string" ||
-		typeof value.stderr !== "string" ||
-		(value.level !== "info" && value.level !== "error")
-	) {
-		return undefined;
-	}
-
-	return {
-		cliName: value.cliName,
-		commandName: value.commandName,
-		piCommandName: value.piCommandName,
-		rawArgs: value.rawArgs,
-		args: [...value.args],
-		argv: [...value.argv],
-		cwd: value.cwd,
-		exitCode: value.exitCode,
-		stdout: value.stdout,
-		stderr: value.stderr,
-		level: value.level,
-	};
+	const stream = details.level === "info" ? process.stdout : process.stderr;
+	stream.write(displayText.endsWith("\n") ? displayText : `${displayText}\n`);
 }
 
 function formatSuccessfulOutput(sourceCommand: string, stdout: string, stderr: string): string {
@@ -491,6 +671,56 @@ function formatFailedOutput(options: FailedOutputOptions): string {
 	return sections.join("\n\n");
 }
 
+export function cliCommandTracePath(env: Record<string, string | undefined> = process.env): string {
+	return env[TRACE_PATH_ENV] ?? join(tmpdir(), DEFAULT_TRACE_FILENAME);
+}
+
+function traceCliCommand(event: string, fields: TraceFields = {}): void {
+	if (!isTraceEnabled(process.env)) return;
+
+	const path = cliCommandTracePath(process.env);
+	const record = {
+		timestamp: new Date().toISOString(),
+		pid: process.pid,
+		version: CLI_COMMAND_BRIDGE_VERSION,
+		event,
+		...fields,
+	};
+
+	try {
+		mkdirSync(dirname(path), { recursive: true });
+		appendFileSync(path, `${JSON.stringify(record)}\n`, "utf8");
+	} catch {
+		// Trace logging is diagnostic only and must never affect command execution.
+	}
+}
+
+function isTraceEnabled(env: Record<string, string | undefined>): boolean {
+	const value = env[TRACE_ENV]?.toLowerCase();
+	return value !== "0" && value !== "false" && value !== "off";
+}
+
+function outputTraceFields(stdout: string, stderr: string): TraceFields {
+	const fields: TraceFields = {
+		stderrChars: stderr.length,
+		stdoutChars: stdout.length,
+	};
+	if (process.env[TRACE_OUTPUT_ENV] === "1") {
+		fields.stdoutPreview = tracePreview(stdout);
+		fields.stderrPreview = tracePreview(stderr);
+	}
+	return fields;
+}
+
+function tracePreview(text: string): string {
+	if (text.length <= TRACE_OUTPUT_PREVIEW_CHARS) return text;
+	return `${text.slice(0, TRACE_OUTPUT_PREVIEW_CHARS)}…`;
+}
+
+function hasSendMessage(pi: ExtensionAPI): boolean {
+	return typeof (pi as ExtensionAPI & { sendMessage?: unknown }).sendMessage === "function";
+}
+
 function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 	if (spec.cliName.trim() === "") {
 		throw new Error("CLI command extension requires a non-empty cliName.");
@@ -509,10 +739,6 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		}
 		seenNames.add(command.name);
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }
 
 function errorMessage(error: unknown): string {

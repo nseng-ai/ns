@@ -1,33 +1,28 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+
 import { describe, expect, test } from "bun:test";
 
-import {
-	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-	parseCliCommandArgs,
-	registerCliCommandExtension,
-	renderCliCommandOutputMessage,
-	type CliCommandInfo,
-	type CliCommandRunDeps,
-	type CommandContext,
-	type ExtensionAPI,
-} from "../src/cli-command-extension.ts";
+import { cliCommandTracePath, parseCliCommandArgs, registerCliCommandExtension, type CliCommandInfo, type CliCommandRunDeps, type CommandContext, type ExtensionAPI } from "../src/cli-command-extension.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type NotifyLevel = "info" | "warning" | "error";
-type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
-
-const TEST_THEME = {
-	fg(_color: string, text: string): string {
-		return text;
-	},
-	bold(text: string): string {
-		return text;
-	},
-};
-
 interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
+}
+
+interface StatusUpdate {
+	key: string;
+	value: string | undefined;
+}
+
+interface WidgetUpdate {
+	key: string;
+	lines: string[] | undefined;
+	placement: string | undefined;
 }
 
 interface RunCall {
@@ -38,33 +33,27 @@ interface RunCall {
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
-	readonly messageRenderers = new Map<string, MessageRenderer>();
-	readonly sentMessages: Array<{ message: CustomMessage; options?: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[1] }> = [];
-	readonly sendMessage?: NonNullable<ExtensionAPI["sendMessage"]>;
-
-	constructor(options: { sendMessage?: boolean } = {}) {
-		if (options.sendMessage ?? true) {
-			this.sendMessage = (message, options): void => {
-				this.sentMessages.push({ message, options });
-			};
-		}
-	}
+	readonly sentMessages: unknown[] = [];
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
 	}
 
-	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
-		this.messageRenderers.set(customType, renderer);
+	sendMessage(message: unknown): void {
+		this.sentMessages.push(message);
 	}
 }
 
-function createContext(order: string[] = []): { ctx: CommandContext; notifications: Notification[]; editorTexts: string[] } {
+function createContext(order: string[] = []): { ctx: CommandContext; notifications: Notification[]; editorTexts: string[]; statuses: StatusUpdate[]; widgets: WidgetUpdate[] } {
 	const notifications: Notification[] = [];
 	const editorTexts: string[] = [];
+	const statuses: StatusUpdate[] = [];
+	const widgets: WidgetUpdate[] = [];
 	return {
 		notifications,
 		editorTexts,
+		statuses,
+		widgets,
 		ctx: {
 			cwd: "/repo",
 			hasUI: true,
@@ -74,6 +63,12 @@ function createContext(order: string[] = []): { ctx: CommandContext; notificatio
 				},
 				setEditorText(text) {
 					editorTexts.push(text);
+				},
+				setStatus(key, value) {
+					statuses.push({ key, value });
+				},
+				setWidget(key, lines, options) {
+					widgets.push({ key, lines: lines === undefined ? undefined : [...lines], placement: options?.placement });
 				},
 			},
 			async waitForIdle(): Promise<void> {
@@ -106,6 +101,20 @@ function registerFakeCli(
 		runCli: options.runCli ?? (() => 0),
 		...(options.env === undefined ? {} : { env: options.env }),
 	});
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+	if (value === undefined) {
+		delete process.env[name];
+		return;
+	}
+	process.env[name] = value;
+}
+
+function readTraceEvents(path: string): Array<Record<string, unknown>> {
+	const text = readFileSync(path, "utf8").trim();
+	if (text === "") return [];
+	return text.split("\n").map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
 describe("cli command extension helper", () => {
@@ -150,32 +159,67 @@ describe("cli command extension helper", () => {
 				env: { VERCEL_PROJECT: "env-project" },
 			},
 		]);
-		expect(pi.messageRenderers.get(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(renderCliCommandOutputMessage);
-		expect(pi.sentMessages).toHaveLength(1);
 		expect(notifications).toEqual([{ message: "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n", level: "info" }]);
-		expect(pi.sentMessages[0]).toEqual({
-			message: {
-				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-				content: "The /dev:preview-url command completed successfully.",
-				display: false,
-				details: {
-					cliName: "fake-dev",
-					commandName: "preview-url",
-					piCommandName: "dev:preview-url",
-					rawArgs: "--branch feature/x --json",
-					args: ["--branch", "feature/x", "--json"],
-					argv: ["preview-url", "--branch", "feature/x", "--json"],
-					cwd: "/repo",
-					exitCode: 0,
-					stdout: "https://preview.example\n",
-					stderr: "warning from cli\n",
-					level: "info",
+		expect(pi.sentMessages).toEqual([]);
+	});
+
+	test("writes metadata trace events without sending transcript messages", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "pi-cli-trace-test-"));
+		const tracePath = join(directory, "trace.jsonl");
+		const oldTrace = process.env.ASDL_PI_CLI_TRACE;
+		const oldTracePath = process.env.ASDL_PI_CLI_TRACE_PATH;
+		process.env.ASDL_PI_CLI_TRACE = "1";
+		process.env.ASDL_PI_CLI_TRACE_PATH = tracePath;
+		try {
+			const pi = new FakePi();
+			registerFakeCli(pi, {
+				runCli: (_args, deps) => {
+					deps.stdout("ok\n");
+					return 0;
 				},
-			},
-			options: { triggerTurn: false },
-		});
-		const rendered = renderCliCommandOutputMessage(pi.sentMessages[0]!.message, { expanded: false }, TEST_THEME).render(120).join("\n");
-		expect(rendered).toBe("stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n");
+			});
+			const { ctx } = createContext();
+
+			await commandFor(pi, "dev:preview-url").handler("--json", ctx);
+
+			const events = readTraceEvents(cliCommandTracePath(process.env));
+			expect(events.map((event) => event.event)).toEqual([
+				"register",
+				"command_start",
+				"live_progress_start",
+				"wait_for_idle_start",
+				"wait_for_idle_done",
+				"runner_start",
+				"live_progress_output",
+				"runner_done",
+				"live_progress_stop",
+				"emit_output",
+			]);
+			expect(events.find((event) => event.event === "register")).toMatchObject({
+				bridgeMode: "notify-with-live-progress-no-custom-message",
+				piNamespace: "dev",
+				sendMessageAvailable: true,
+				version: "live-progress-trace-v2",
+			});
+			expect(events.find((event) => event.event === "live_progress_start")).toMatchObject({
+				sendMessageCalled: false,
+				target: "status_widget",
+			});
+			expect(events.find((event) => event.event === "runner_done")).toMatchObject({
+				exitCode: 0,
+				stderrChars: 0,
+				stdoutChars: 3,
+			});
+			expect(events.find((event) => event.event === "emit_output")).toMatchObject({
+				sendMessageCalled: false,
+				target: "notify",
+			});
+			expect(pi.sentMessages).toEqual([]);
+		} finally {
+			restoreEnv("ASDL_PI_CLI_TRACE", oldTrace);
+			restoreEnv("ASDL_PI_CLI_TRACE_PATH", oldTracePath);
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	test("presents nonzero exit codes as error output", async () => {
@@ -191,11 +235,7 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:preview-url").handler("--json", ctx);
 
 		expect(notifications).toEqual([{ message: "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n", level: "error" }]);
-		expect(pi.sentMessages[0]?.message.content).toBe("The /dev:preview-url command exited with code 17.");
-		expect(pi.sentMessages[0]?.message.details).toMatchObject({ exitCode: 17, level: "error", stderr: "not found\n" });
-		expect(renderCliCommandOutputMessage(pi.sentMessages[0]!.message, { expanded: false }, TEST_THEME).render(120).join("\n")).toBe(
-			"fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n",
-		);
+		expect(pi.sentMessages).toEqual([]);
 	});
 
 	test("reports argument tokenization errors without invoking the runner", async () => {
@@ -212,11 +252,7 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:preview-url").handler('--branch "unterminated', ctx);
 
 		expect(runnerCalled).toBe(false);
-		expect(pi.sentMessages[0]?.message.details).toMatchObject({
-			exitCode: 2,
-			stderr: "Error: Unterminated double quote.\n",
-			level: "error",
-		});
+		expect(pi.sentMessages).toEqual([]);
 	});
 
 	test("restores prose-looking command tails without waiting or invoking the CLI", async () => {
@@ -258,11 +294,7 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
 
-		expect(pi.sentMessages[0]?.message.details).toMatchObject({
-			exitCode: 2,
-			stderr: "Error: Unexpected argument: words\n",
-			level: "error",
-		});
+		expect(pi.sentMessages).toEqual([]);
 		expect(editorTexts).toEqual(["/dev:preview-url --json words"]);
 	});
 
@@ -284,12 +316,11 @@ describe("cli command extension helper", () => {
 
 		expect(calls).toEqual([{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } }]);
 		expect(editorTexts).toEqual([]);
-		expect(pi.sentMessages[0]?.message.content).toBe("The /dev:echo command completed successfully.");
-		expect(renderCliCommandOutputMessage(pi.sentMessages[0]!.message, { expanded: false }, TEST_THEME).render(120).join("\n")).toBe("ok\n");
+		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("falls back to notifications when custom messages are unavailable", async () => {
-		const pi = new FakePi({ sendMessage: false });
+	test("notifies the UI with command output", async () => {
+		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
 				deps.stdout("ok\n");
@@ -302,6 +333,46 @@ describe("cli command extension helper", () => {
 
 		expect(pi.sentMessages).toEqual([]);
 		expect(notifications).toEqual([{ message: "ok\n", level: "info" }]);
+	});
+
+	test("updates live status and widget while the CLI command is running", async () => {
+		let markRunStarted: (() => void) | undefined;
+		const runStarted = new Promise<void>((resolve) => {
+			markRunStarted = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.stdout("started\n");
+				markRunStarted?.();
+				await runFinished;
+				deps.stderr("finished\n");
+				return 0;
+			},
+		});
+		const { ctx, notifications, statuses, widgets } = createContext();
+
+		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		await runStarted;
+
+		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
+		expect(statuses.at(-1)?.key).toBe("asdl-cli-command");
+		expect(statuses.at(-1)?.value).toContain("/dev:preview-url running CLI command");
+		expect(liveWidgetText).toContain("Running /dev:preview-url");
+		expect(liveWidgetText).toContain("stdout: started");
+		expect(pi.sentMessages).toEqual([]);
+
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+
+		expect(statuses.at(-1)).toEqual({ key: "asdl-cli-command", value: undefined });
+		expect(widgets.at(-1)).toEqual({ key: "asdl-cli-command-output", lines: undefined, placement: undefined });
+		expect(notifications).toEqual([{ message: "stdout:\nstarted\n\nstderr:\nfinished\n", level: "info" }]);
 	});
 
 	test("parses shell-like whitespace quotes and escapes", () => {
