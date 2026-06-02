@@ -19,7 +19,7 @@ In scope:
 - CLI command groups and `exec` helpers that are invoked by skills or Pi wrappers, especially when they can replace long procedural prompt bodies or clarify public-vs-internal boundaries.
 - Repo instruction and catalog docs such as `AGENTS.md`, `CLAUDE.md`, `docs/pi/README.md`, `docs/agent-resource-catalog.md`, and skill-related standards or workflow docs when they route agents to skills, commands, or harness-specific entrypoints.
 - Naming and lifecycle policy for categories such as public portable workflow skills, command skills, internal/dev skills, prototypes, Pi-only adapters, CLI primitives, remote/vendored skills, and user-local personal resources.
-- Fresh inventory of the current checkout's skill and command surface. Current evidence is recorded in `docs/agent-resource-catalog.md`: `skills/` has 21 first-party skills; `.agents/skills/` and `.claude/skills/` each expose 45 entries; Pi RPC reports 81 visible commands total, including 20 project extension commands and 45 project skill commands; `.pi/extensions/` has 9 project-local adapter files; `.pi/prompts/` and `.pi/skills/` are absent.
+- Fresh inventory of the current checkout's skill and command surface. Current evidence is recorded in `docs/agent-resource-catalog.md` and `docs/pi/README.md`: `skills/` has 42 first-party `SKILL.md` files; `.agents/skills/` and `.claude/skills/` each expose 50 entries; `skills-lock.json` has 50 entries; `.pi/extensions/` has 10 project-local adapter files; `.pi/prompts/` and `.pi/skills/` are absent. The catalog's current public command inventory distinguishes 20 project Pi extension commands, 38 first-party skill commands, and 8 ignored vendored/external skill commands; Pi RPC inventory remains the canonical visible-command source when rerun.
 - Low-risk cleanup that follows directly from the audit, such as stale `Original description` headings in command skills, over-broad trigger descriptions, missing H1s, excessive SKILL.md bodies, or internal/prototype skills that should not read as durable public workflows.
 
 Confirmed boundaries:
@@ -64,9 +64,10 @@ Assumptions:
 - First-party `skills/<name>` documents are the right place for portable semantic workflow guidance when a workflow should be usable by Codex, Claude, and Pi.
 - Pi slash commands are best treated as concise harness adapters or pickers over portable skills and CLI primitives, except when a workflow is intentionally Pi-only.
 - Command skills should stay terse and mechanical; long procedural logic, repeated shell parsing, or deterministic evidence collection should move toward tested CLI operations when the push-down win is large enough.
+- `code-` skills and `/code:*` Pi commands are now the canonical surface for codebase/source-control management such as worktree snapshots, branch/stack maintenance, and Graphite/GitHub workflows that manage code state. `dev-` and `/dev:*` no longer mean generic code work; they are reserved for `asdl-dev` CLI mirrors or explicitly parked dev-prefixed workflows.
 - Internal and prototype skills can be valuable, but their names, descriptions, frontmatter, and docs should make their lifecycle obvious so they do not crowd the durable public workflow surface.
 - Remote/vendored skills may remain useful developer aids, but their trigger descriptions and installation count affect the same agent routing surface as first-party skills.
-- The existing `docs/agent-resource-catalog.md` and `docs/pi/README.md` are likely still useful homes for the consolidated policy, but the catalog now carries the fresh inventory while Pi docs still need a follow-up stale-current-inventory pass.
+- The existing `docs/agent-resource-catalog.md` and `docs/pi/README.md` are the active homes for the consolidated policy and current inventory. They now distinguish the `/code:*` local code/source-control family from `/dev:*` `asdl-dev` mirrors, while future material changes still need fresh inventory evidence before closure.
 
 Risks:
 
@@ -77,11 +78,12 @@ Risks:
 - The Objective/standing-objective/prototype runner area is likely to churn; decisions there should distinguish current cleanup from deeper product design that belongs in separate Objectives.
 - Removing or renaming installed skills without skill-management discipline can leave broken symlinks, stale lock entries, or mismatched `.agents` / `.claude` surfaces.
 - Documentation-only policy can drift unless paired with actual inventory commands, tests, and post-change evidence.
+- The `code-`/`dev-` boundary can drift if future source-control workflows are added under `dev-` or future `asdl-dev` mirrors are added under `code-`; current policy and docs reduce this risk but do not eliminate the need for review.
 
 ## Open Questions
 
 - Which first-party skills are part of the durable public workflow surface, and which should be internal, prototype-only, merged, renamed, or removed?
 - Should `proto-objective-impl` remain a separate prototype skill/command, merge into `objective-stack-impl`, or retire after its experiment informs the Objective runner design?
-- Should existing `dev-` prefixed skills remain installed and visible as dev-only skills, be renamed, be internalized further, or move behind Pi/CLI command surfaces?
-- How aggressively should this repo prune remote/vendored skills from `.agents/skills/` and `.claude/skills/` versus keeping them as explicit developer aids?
+- Which remaining dev-prefixed internal skills that are not code/source-control surfaces (`dev-gh`, `dev-gh-ci-debug`, `dev-just-fix`, `dev-stacker-agent`) should stay as explicit exclusions, be renamed, or move behind future `asdl-dev` surfaces?
+- Which specific remote/vendored skills, if any, should be removed despite the default keep-live policy for explicit developer aids?
 - What target should guide closure: a lower visible count, fewer ambiguous entrypoints, clearer categories, or a combination of all three?
