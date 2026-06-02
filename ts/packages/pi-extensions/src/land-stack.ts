@@ -78,7 +78,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 					plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
 					if (plan.prSubmitRequirements.length > 0) {
 						fail(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-							suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.current))} manually, inspect PR heads, and rerun /dev:land-stack.`,
+							suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.current))} manually, inspect PR heads, and rerun /code:land-stack.`,
 						});
 					}
 				}

@@ -1,6 +1,6 @@
 ---
-name: dev-checkpoint
-description: "Command: dev-checkpoint"
+name: code-checkpoint
+description: "Command: code-checkpoint"
 model: claude-haiku-4-5
 allowed-tools:
   - "Bash(git status:*)"
@@ -16,7 +16,7 @@ metadata:
 
 <!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
 
-# dev-checkpoint
+# code-checkpoint
 
 Stage everything on the current branch and create a single new commit. The whole skill runs on Haiku via the `model:` frontmatter override — no subagent indirection. Replaces ad-hoc `git commit -a -m cp` checkpoints with something a later agent can scan in `git log` without reopening the diff.
 

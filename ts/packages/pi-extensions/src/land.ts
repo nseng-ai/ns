@@ -26,7 +26,7 @@ export interface ExtensionAPI {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
 
-const COMMAND_NAME = "dev:land";
+const COMMAND_NAME = "code:land";
 const REQUIRED_BASE_BRANCH = "master";
 const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
 const PR_VIEW_TIMEOUT_MS = 30_000;

@@ -31,9 +31,13 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 - Do not apply first-party Python standards or refactoring skills such as `dignified-python`, `python-fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files inside vendored (real-directory) entries under `.agents/skills/` unless the user explicitly asks to modify the vendored dependency itself.
 - When reviewing or editing the repo, exclude vendored entries — real directories under `.agents/skills/**/*.py` — from normal linting, typechecking, code review, and cleanup expectations; assume those files should remain as-shipped unless the task is specifically about updating vendored skill code.
 
-### Dev Skill Naming Convention
+### Code and Dev Skill Prefixes
 
-Skills prefixed with `dev-` are developer-only tooling — pure contributor helpers (`dev-gh`, `dev-just-fix`) and prototype features being dogfooded before graduation. Dev skills additionally carry `metadata.internal: true` in their `SKILL.md` frontmatter to hide them from external `npx skills add` discovery. A prototype graduates to a published feature by (1) dropping the `dev-` prefix in all three directory locations and every reference, and (2) removing the `internal: true` frontmatter flag.
+Use `code-` for skills whose primary domain is codebase/source-control management: worktree snapshots, checkpoints, branch/stack maintenance, and Graphite/GitHub workflows that manage code state. The matching Pi slash-command namespace is `/code:*`.
+
+`dev-` no longer means "codebase-related." Reserve `dev-` for skills or commands affiliated with the future `asdl-dev` namespace, or for existing explicitly excluded dev-prefixed workflows whose fate will be decided separately.
+
+Skill visibility is controlled by frontmatter, not the prefix. Internal/prototype skills should carry `metadata.internal: true` regardless of whether their name starts with `code-` or `dev-`.
 
 ### GitHub Backend Interactions
 

@@ -217,14 +217,15 @@ function taggedTheme(): { fg(color: string, text: string): string; bold(text: st
 }
 
 describe("changes extension registration", () => {
-	test("registers the read-only dev changes command and renderer", () => {
+	test("registers the read-only code changes command and renderer", () => {
 		const pi = new FakePi();
 
 		changesExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["dev:changes"]);
-		expect(pi.commands.get("dev:changes")?.description).toContain("without committing");
+		expect([...pi.commands.keys()]).toEqual(["code:changes"]);
+		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
 		expect(pi.messageRenderers.has(CHANGES_SUMMARY_MESSAGE_TYPE)).toBe(true);
+		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
 	});
 });
 

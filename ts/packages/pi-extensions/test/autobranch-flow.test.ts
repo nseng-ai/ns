@@ -137,7 +137,7 @@ describe("createAutobranchCheckpointFlow", () => {
 		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
-		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /dev:autobranch."))).toBe(true);
+		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /code:autobranch."))).toBe(true);
 	});
 
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {

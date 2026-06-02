@@ -14,7 +14,7 @@ import {
 } from "./autobranch-preparation.ts";
 import { runAutobranchTransaction, type AutobranchTransactionResult } from "./autobranch-transaction.ts";
 
-export const AUTOBRANCH_COMMAND_NAME = "dev:autobranch";
+export const AUTOBRANCH_COMMAND_NAME = "code:autobranch";
 const GIT_TIMEOUT_MS = 30_000;
 
 export interface AutobranchFlowInput {

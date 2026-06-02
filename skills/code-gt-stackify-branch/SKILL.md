@@ -1,6 +1,6 @@
 ---
-name: dev-gt-stackify-branch
-description: "Command: dev-gt-stackify-branch"
+name: code-gt-stackify-branch
+description: "Command: code-gt-stackify-branch"
 # Original description (preserved for reference):
 # Split a single mixed branch into a Graphite stack by preserving the source branch, planning ordered PR slices, rebuilding each slice from trunk, validating the stack, and submitting PRs when requested.
 metadata:
@@ -20,7 +20,7 @@ allowed-tools:
   - "Bash(make *)"
 ---
 
-# dev-gt-stackify-branch
+# code-gt-stackify-branch
 
 Use this skill when the user wants to turn one branch into a clean Graphite stack.
 

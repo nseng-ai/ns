@@ -1,4 +1,4 @@
-import { completeSimple, type Api, type Model } from "@earendil-works/pi-ai";
+import type * as PiAi from "@earendil-works/pi-ai";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +18,8 @@ const CLAUDE_CLI_MODEL = "claude-haiku-4-5";
 const CLAUDE_CLI_LABEL = "Claude CLI";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const DEFAULT_MAX_TOKENS = 512;
+
+type CompleteSimpleFunction = typeof PiAi.completeSimple;
 
 export type DraftHarness = "gpt-nano-pi" | "codex-pi" | "claude-cli";
 export type NotifyLevel = "info" | "warning" | "error";
@@ -152,9 +154,10 @@ async function draftWithPiModel(
 			reasoning: config.reasoning,
 			timeoutMs: 120_000,
 		};
+		const completeSimple = await loadCompleteSimple();
 		const response = await withSpinner(ctx, input.spinnerKey, input.progressMessage(config.label), () =>
 			completeSimple(
-				model as Model<Api>,
+				model as PiAi.Model<PiAi.Api>,
 				{
 					systemPrompt: input.systemPrompt,
 					messages: [
@@ -186,6 +189,11 @@ async function draftWithPiModel(
 		const message = error instanceof Error ? error.message : String(error);
 		return { error: `${config.label} failed to draft a ${input.taskNoun}: ${message}` };
 	}
+}
+
+async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
+	const piAi = await import("@earendil-works/pi-ai");
+	return piAi.completeSimple;
 }
 
 async function draftWithClaudeCli(
