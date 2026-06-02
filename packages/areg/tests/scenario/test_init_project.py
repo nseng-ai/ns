@@ -80,6 +80,21 @@ def _read_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
+def _assert_init_error_before_install(
+    tmp_path: Path,
+    *,
+    fake_npx: FakeNpxSkills,
+    expected_output: str,
+) -> None:
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert expected_output in result.output
+    assert fake_npx.invocations == []
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
 def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
     _git_init(tmp_path)
 
@@ -307,6 +322,67 @@ def test_init_revalidates_settings_parent_after_npx_install(tmp_path: Path) -> N
     assert "refusing" in result.output.lower()
     assert len(fake_npx.invocations) == 1
     assert not (outside / "settings.local.json").exists()
+
+
+def test_init_asdl_toml_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "asdl.toml").mkdir()
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
+
+
+def test_init_agents_md_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "AGENTS.md").mkdir()
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
+
+
+def test_init_claude_md_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "CLAUDE.md").mkdir()
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
+
+
+def test_init_claude_path_file_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / ".claude").write_text("not a directory\n", encoding="utf-8")
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a directory",
+    )
+
+
+def test_init_claude_settings_directory_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    settings = tmp_path / ".claude" / "settings.local.json"
+    settings.mkdir(parents=True)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="exists but is not a file",
+    )
 
 
 def test_init_rejects_nonexistent_target(tmp_path: Path) -> None:
@@ -537,6 +613,45 @@ def test_init_malformed_claude_marker_errors_before_install(tmp_path: Path) -> N
     assert not (tmp_path / "skills-lock.json").exists()
 
 
+@pytest.mark.parametrize(
+    ("path_name", "content"),
+    [
+        (
+            "AGENTS.md",
+            "<!-- areg:skills:start -->\nold\n<!-- areg:skills:start -->\n"
+            "<!-- areg:skills:end -->\n",
+        ),
+        (
+            "CLAUDE.md",
+            "<!-- areg:claude-skills:start -->\nold\n"
+            "<!-- areg:claude-skills:end -->\n<!-- areg:claude-skills:end -->\n",
+        ),
+        (
+            "AGENTS.md",
+            "<!-- areg:skills:end -->\nold\n<!-- areg:skills:start -->\n",
+        ),
+    ],
+)
+def test_init_malformed_marker_variants_error_before_install(
+    tmp_path: Path,
+    path_name: str,
+    content: str,
+) -> None:
+    _git_init(tmp_path)
+    path = tmp_path / path_name
+    path.write_text(content, encoding="utf-8")
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="malformed areg-managed block",
+    )
+    assert path.read_text(encoding="utf-8") == content
+    assert not (tmp_path / "asdl.toml").exists()
+    assert not (tmp_path / "areg.json").exists()
+
+
 def test_init_invalid_areg_json_errors_before_install(tmp_path: Path) -> None:
     _git_init(tmp_path)
     areg_json = tmp_path / "areg.json"
@@ -651,6 +766,43 @@ def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
     assert not (tmp_path / "AGENTS.md").exists()
     assert not (tmp_path / "CLAUDE.md").exists()
     assert not (tmp_path / ".claude" / "settings.local.json").exists()
+
+
+def test_init_npx_failure_preserves_existing_planned_files(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    asdl_toml = tmp_path / "asdl.toml"
+    agents = tmp_path / "AGENTS.md"
+    claude = tmp_path / "CLAUDE.md"
+    settings = tmp_path / ".claude" / "settings.local.json"
+    settings.parent.mkdir()
+
+    original_asdl_toml = (
+        '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n\n[areg]\nagents = ["old"]\n'
+    )
+    original_agents = "# Existing agent instructions\n"
+    original_claude = "# Existing Claude instructions\n"
+    original_settings = '{"custom": true}\n'
+    asdl_toml.write_text(original_asdl_toml, encoding="utf-8")
+    agents.write_text(original_agents, encoding="utf-8")
+    claude.write_text(original_claude, encoding="utf-8")
+    settings.write_text(original_settings, encoding="utf-8")
+    fake_npx = FakeNpxSkills(raise_on_add=NpxSkillsError("boom"))
+
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), "--yes"],
+        obj=_ctx(npx=fake_npx),
+    )
+
+    assert result.exit_code != 0
+    assert "npx skills add failed: boom" in result.output
+    assert len(fake_npx.invocations) == 1
+    assert asdl_toml.read_text(encoding="utf-8") == original_asdl_toml
+    assert agents.read_text(encoding="utf-8") == original_agents
+    assert claude.read_text(encoding="utf-8") == original_claude
+    assert settings.read_text(encoding="utf-8") == original_settings
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
 
 
 def test_create_project_command_is_removed() -> None:
