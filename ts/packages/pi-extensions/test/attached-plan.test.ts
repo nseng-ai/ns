@@ -316,6 +316,20 @@ describe("loadAttachedPlan", () => {
 		pi.assertDone();
 	});
 
+	test("reports unavailable brmem list without attempting get", async () => {
+		const pi = new FakePi([
+			gitRootStep(),
+			gitCurrentBranchStep(),
+			gitDefaultBranchStep(),
+			brmemListStep(PLAN_BRANCH, { code: 127, stderr: "brmem: command not found" }),
+		]);
+
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow("No brmem command available");
+
+		pi.assertDone();
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "get")).toBe(false);
+	});
+
 	test("formats brmem get process failures", async () => {
 		const pi = new FakePi([
 			gitRootStep(),

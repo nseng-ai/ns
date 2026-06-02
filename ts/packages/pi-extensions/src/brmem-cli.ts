@@ -45,6 +45,13 @@ export interface UnavailableBrmemRun {
 
 export type BrmemCandidateRun = CompletedBrmemRun | UnavailableBrmemRun;
 
+export interface NoAvailableBrmemCommandRun {
+	type: "unavailable";
+	failures: readonly UnavailableBrmemRun[];
+}
+
+export type FirstAvailableBrmemCommandRun = CompletedBrmemRun | NoAvailableBrmemCommandRun;
+
 export function resolveBrmemCommandCandidates(
 	cwd: string,
 	options: { exists?: (path: string) => boolean } = {},
@@ -127,7 +134,7 @@ export async function runFirstAvailableBrmemCommand(
 	cwd: string,
 	brmemArgs: readonly string[],
 	options: { timeoutMs: number; signal?: AbortSignal | undefined },
-): Promise<CompletedBrmemRun> {
+): Promise<FirstAvailableBrmemCommandRun> {
 	const failures: UnavailableBrmemRun[] = [];
 	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
 		const run = await runBrmemCandidate(gateway, cwd, candidate, brmemArgs, options);
@@ -135,16 +142,18 @@ export async function runFirstAvailableBrmemCommand(
 		failures.push(run);
 	}
 
-	throw formatBrmemUnavailableError(failures);
+	return { type: "unavailable", failures };
+}
+
+export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
+	return [
+		"No brmem command available. Tried all configured brmem command candidates.",
+		...failures.map((failure) => `\n${failure.failure}`),
+	].join("\n");
 }
 
 export function formatBrmemUnavailableError(failures: readonly UnavailableBrmemRun[]): Error {
-	return new Error(
-		[
-			"No brmem command available. Tried all configured brmem command candidates.",
-			...failures.map((failure) => `\n${failure.failure}`),
-		].join("\n"),
-	);
+	return new Error(formatBrmemUnavailableMessage(failures));
 }
 
 function findAncestorContaining(

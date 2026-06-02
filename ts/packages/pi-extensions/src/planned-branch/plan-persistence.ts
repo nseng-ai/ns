@@ -2,7 +2,11 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import { runFirstAvailableBrmemCommand } from "../brmem-cli.ts";
+import {
+	formatBrmemUnavailableMessage,
+	runFirstAvailableBrmemCommand,
+	type UnavailableBrmemRun,
+} from "../brmem-cli.ts";
 import { formatOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
 import { parseMachineEnvelopeData } from "../machine-envelope.ts";
 
@@ -33,10 +37,19 @@ export interface PlanCommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
-interface BrmemRun {
+interface CompletedBrmemRunForPlan {
+	type: "completed";
 	result: ExecResult;
 	displayCommand: string;
 }
+
+interface BrmemUnavailableRun {
+	type: "unavailable";
+	message: string;
+	failures: readonly UnavailableBrmemRun[];
+}
+
+export type BrmemRun = CompletedBrmemRunForPlan | BrmemUnavailableRun;
 
 export interface BrmemPutData {
 	namespace: string;
@@ -164,7 +177,14 @@ export async function runBrmem(
 		timeoutMs: BRMEM_TIMEOUT_MS,
 		signal,
 	});
-	return { result: run.result, displayCommand: run.displayCommand };
+	if (run.type === "unavailable") {
+		return {
+			type: "unavailable",
+			message: formatBrmemUnavailableMessage(run.failures),
+			failures: run.failures,
+		};
+	}
+	return { type: "completed", result: run.result, displayCommand: run.displayCommand };
 }
 
 export function parseBrmemPutData(stdout: string): BrmemPutData {

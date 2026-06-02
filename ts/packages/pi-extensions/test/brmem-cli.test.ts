@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+	formatBrmemUnavailableMessage,
 	resolveBrmemCommandCandidates,
 	runBrmemCandidate,
 	runFirstAvailableBrmemCommand,
@@ -238,6 +239,10 @@ describe("runFirstAvailableBrmemCommand", () => {
 		const run = await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
 
 		gateway.assertDone();
+		expect(run.type).toBe("completed");
+		if (run.type !== "completed") {
+			throw new Error(`expected completed run, got ${run.type}`);
+		}
 		expect(run.command).toBe("uv");
 		expect(run.result.code).toBe(0);
 	});
@@ -252,6 +257,10 @@ describe("runFirstAvailableBrmemCommand", () => {
 		const run = await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
 
 		gateway.assertDone();
+		expect(run.type).toBe("completed");
+		if (run.type !== "completed") {
+			throw new Error(`expected completed run, got ${run.type}`);
+		}
 		expect(run.command).toBe("uv");
 		expect(run.displayCommand).toBe(`uv run --directory ${root} brmem list --format json`);
 	});
@@ -266,17 +275,17 @@ describe("runFirstAvailableBrmemCommand", () => {
 			}),
 		]);
 
-		let error: unknown;
-		try {
-			await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
-		} catch (caught) {
-			error = caught;
-		}
+		const run = await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
 
 		gateway.assertDone();
-		expect(error).toBeInstanceOf(Error);
-		expect((error as Error).message).toContain("No brmem command available");
-		expect((error as Error).message).toContain("Command: brmem list --format json");
-		expect((error as Error).message).toContain(`Command: uv run --directory ${root} brmem list --format json`);
+		expect(run.type).toBe("unavailable");
+		if (run.type !== "unavailable") {
+			throw new Error(`expected unavailable run, got ${run.type}`);
+		}
+		expect(run.failures).toHaveLength(2);
+		const message = formatBrmemUnavailableMessage(run.failures);
+		expect(message).toContain("No brmem command available");
+		expect(message).toContain("Command: brmem list --format json");
+		expect(message).toContain(`Command: uv run --directory ${root} brmem list --format json`);
 	});
 });
