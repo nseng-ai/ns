@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
-import { runCommand } from "../../src/command-runner.ts";
+import { runCommand } from "asdl-dev/src/command-runner.ts";
 
 const tempDirs: string[] = [];
 

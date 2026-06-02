@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { CommandResult } from "../../asdl-dev/src/checkpoint-flow.ts";
-import type { PendingWorktreeSnapshot } from "../../asdl-dev/src/pending-worktree.ts";
+import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch-flow.ts";
 
 function ok(stdout = "", stderr = ""): CommandResult {

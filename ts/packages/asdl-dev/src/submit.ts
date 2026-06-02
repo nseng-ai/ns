@@ -13,18 +13,18 @@ const GIT_CHECK_TIMEOUT_MS = 30_000;
 const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
 const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
 
-export type SubmitCommandOutput = {
+export interface SubmitCommandOutput {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
 	startupError?: string;
 	killed?: boolean;
-};
+}
 
-export type SubmitPrLink = {
+export interface SubmitPrLink {
 	label: string;
 	url: string;
-};
+}
 
 export type SubmitSemanticFailureCause = "empty_branch_skipped";
 
@@ -88,24 +88,24 @@ export type CurrentPrVerificationResult =
 			cause: CurrentPrVerificationFailureCause;
 	  };
 
-export type SubmitGateway = {
+export interface SubmitGateway {
 	checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult>;
 	restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult>;
 	submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult>;
 	verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult>;
-};
+}
 
-export type SubmitCommandResult = {
+export interface SubmitCommandResult {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
-};
+}
 
-export type RunSubmitCommandOptions = {
+export interface RunSubmitCommandOptions {
 	cwd: string;
 	gateway: SubmitGateway;
 	restack: boolean;
-};
+}
 
 export class RealSubmitGateway implements SubmitGateway {
 	private readonly runner: CommandRunner;

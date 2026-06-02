@@ -8,23 +8,23 @@ import {
 } from "../command-runner.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
 
-const STDERR_DETAIL_LIMIT = 1_200;
+const STDERR_DETAIL_LIMIT_CHARS = 1_200;
 
-export type DeploymentCandidate = {
+export interface DeploymentCandidate {
 	url: string;
 	state: string;
 	createdAt: number;
 	readyAt?: number;
 	meta: Record<string, string>;
-};
+}
 
-export type InspectedDeployment = {
+export interface InspectedDeployment {
 	id: string;
 	url: string;
 	aliases: string[];
-};
+}
 
-export type VercelDeploymentGateway = {
+export interface VercelDeploymentGateway {
 	listReadyPreviewDeployments(params: {
 		project: string;
 		scope: string;
@@ -37,7 +37,7 @@ export type VercelDeploymentGateway = {
 		scope: string;
 		cwd: string;
 	}): Promise<GatewayResult<InspectedDeployment>>;
-};
+}
 
 export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 	private readonly runner: CommandRunner;
@@ -245,7 +245,7 @@ function commandFailure(result: CommandResult, code: string, message: string): E
 	if (result.startupError !== undefined) {
 		details.startup_error = result.startupError;
 	}
-	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT);
+	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT_CHARS);
 	if (stderr !== "") {
 		details.stderr = stderr;
 	}

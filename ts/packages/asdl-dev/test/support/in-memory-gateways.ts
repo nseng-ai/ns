@@ -1,10 +1,10 @@
-import type { CheckpointGateway } from "../../src/checkpoint.ts";
-import type { AsdlDevContext } from "../../src/context.ts";
-import type { GitGateway } from "../../src/gateways/git.ts";
-import type { ProjectConfigReadResult, VercelProjectConfigStore } from "../../src/gateways/project-config.ts";
-import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "../../src/gateways/vercel.ts";
-import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "../../src/pending-worktree.ts";
-import { err, ok, type ErrorInfo, type GatewayResult } from "../../src/result.ts";
+import type { CheckpointGateway } from "asdl-dev/src/checkpoint.ts";
+import type { AsdlDevContext } from "asdl-dev/src/context.ts";
+import type { GitGateway } from "asdl-dev/src/gateways/git.ts";
+import type { ProjectConfigReadResult, VercelProjectConfigStore } from "asdl-dev/src/gateways/project-config.ts";
+import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
+import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/src/pending-worktree.ts";
+import { err, ok, type ErrorInfo, type GatewayResult } from "asdl-dev/src/result.ts";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -12,20 +12,20 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "../../src/submit.ts";
-import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "../../src/text-generation.ts";
+} from "asdl-dev/src/submit.ts";
+import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/src/text-generation.ts";
 
 export type FakeCurrentBranchState = string | { kind: "detached" } | { kind: "failure"; error?: ErrorInfo };
 export type FakeRepoRootState = string | { kind: "failure"; error?: ErrorInfo };
 
-export type InMemoryGitGatewayState = {
+export interface InMemoryGitGatewayState {
 	currentBranch?: FakeCurrentBranchState;
 	repoRoot?: FakeRepoRootState;
-};
+}
 
-export type GitCall = {
+export interface GitCall {
 	cwd: string;
-};
+}
 
 export class InMemoryGitGateway implements GitGateway {
 	private readonly currentBranchState: FakeCurrentBranchState;
@@ -85,19 +85,19 @@ export type FakePendingWorktreeSnapshotState =
 			result?: WorktreeCommandResult;
 	  };
 
-export type InMemoryCheckpointGatewayState = {
+export interface InMemoryCheckpointGatewayState {
 	snapshot?: FakePendingWorktreeSnapshotState;
 	commit?: { summary: string } | { error: string };
-};
+}
 
-export type CheckpointLoadCall = {
+export interface CheckpointLoadCall {
 	cwd: string;
-};
+}
 
-export type CheckpointCommitCall = {
+export interface CheckpointCommitCall {
 	cwd: string;
 	message: string;
-};
+}
 
 export class InMemoryCheckpointGateway implements CheckpointGateway {
 	private readonly snapshotState: FakePendingWorktreeSnapshotState;
@@ -141,16 +141,16 @@ export class InMemoryCheckpointGateway implements CheckpointGateway {
 	}
 }
 
-export type InMemorySubmitGatewayState = {
+export interface InMemorySubmitGatewayState {
 	preflight?: SubmitPreflightResult;
 	restack?: SubmitRestackResult;
 	submit?: SubmitRunResult;
 	currentPr?: CurrentPrVerificationResult;
-};
+}
 
-export type SubmitGatewayCall = {
+export interface SubmitGatewayCall {
 	cwd: string;
-};
+}
 
 export class InMemorySubmitGateway implements SubmitGateway {
 	private readonly preflightResult: SubmitPreflightResult;
@@ -218,9 +218,9 @@ export class InMemorySubmitGateway implements SubmitGateway {
 	}
 }
 
-export type InMemoryTextGenerationGatewayState = {
+export interface InMemoryTextGenerationGatewayState {
 	results?: readonly TextGenerationResult[];
-};
+}
 
 export class InMemoryTextGenerationGateway implements TextGenerationGateway {
 	private readonly results: TextGenerationResult[];
@@ -240,7 +240,7 @@ export class InMemoryTextGenerationGateway implements TextGenerationGateway {
 	}
 }
 
-export type FakeVercelDeploymentRecord = {
+export interface FakeVercelDeploymentRecord {
 	project: string;
 	scope: string;
 	environment: "preview" | "production";
@@ -250,31 +250,31 @@ export type FakeVercelDeploymentRecord = {
 	readyAt?: number;
 	meta: Record<string, string>;
 	inspection: InspectedDeployment;
-};
+}
 
-export type InMemoryVercelDeploymentGatewayState = {
+export interface InMemoryVercelDeploymentGatewayState {
 	deployments?: readonly FakeVercelDeploymentRecord[];
-	available?: boolean;
+	isAvailable?: boolean;
 	listFailure?: ErrorInfo;
 	inspectFailure?: ErrorInfo;
-};
+}
 
-export type VercelListCall = {
+export interface VercelListCall {
 	project: string;
 	scope: string;
 	branch: string;
 	cwd: string;
-};
+}
 
-export type VercelInspectCall = {
+export interface VercelInspectCall {
 	url: string;
 	scope: string;
 	cwd: string;
-};
+}
 
 export class InMemoryVercelDeploymentGateway implements VercelDeploymentGateway {
 	private readonly deployments: FakeVercelDeploymentRecord[];
-	private readonly available: boolean;
+	private readonly isAvailable: boolean;
 	private readonly listFailure: ErrorInfo | undefined;
 	private readonly inspectFailure: ErrorInfo | undefined;
 	private readonly listLog: VercelListCall[] = [];
@@ -282,7 +282,7 @@ export class InMemoryVercelDeploymentGateway implements VercelDeploymentGateway 
 
 	constructor(state: InMemoryVercelDeploymentGatewayState = {}) {
 		this.deployments = [...(state.deployments ?? [])].map(copyRecord);
-		this.available = state.available ?? true;
+		this.isAvailable = state.isAvailable ?? true;
 		this.listFailure = state.listFailure;
 		this.inspectFailure = state.inspectFailure;
 	}
@@ -302,7 +302,7 @@ export class InMemoryVercelDeploymentGateway implements VercelDeploymentGateway 
 		cwd: string;
 	}): Promise<GatewayResult<DeploymentCandidate[]>> {
 		this.listLog.push({ project: params.project, scope: params.scope, branch: params.branch, cwd: params.cwd });
-		if (!this.available) {
+		if (!this.isAvailable) {
 			return err(vercelUnavailableError());
 		}
 		if (this.listFailure !== undefined) {
@@ -321,7 +321,7 @@ export class InMemoryVercelDeploymentGateway implements VercelDeploymentGateway 
 
 	async inspectDeployment(params: { url: string; scope: string; cwd: string }): Promise<GatewayResult<InspectedDeployment>> {
 		this.inspectLog.push({ url: params.url, scope: params.scope, cwd: params.cwd });
-		if (!this.available) {
+		if (!this.isAvailable) {
 			return err(vercelUnavailableError());
 		}
 		if (this.inspectFailure !== undefined) {
@@ -360,14 +360,14 @@ export class InMemoryVercelProjectConfigStore implements VercelProjectConfigStor
 	}
 }
 
-export type InMemoryContextState = {
+export interface InMemoryContextState {
 	git?: InMemoryGitGatewayState;
 	vercel?: InMemoryVercelDeploymentGatewayState;
 	projectConfig?: ProjectConfigReadResult;
 	checkpoint?: InMemoryCheckpointGatewayState;
 	submit?: InMemorySubmitGatewayState;
 	textGeneration?: InMemoryTextGenerationGatewayState;
-};
+}
 
 export function inMemoryContext(state: InMemoryContextState = {}): {
 	context: AsdlDevContext;

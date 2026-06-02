@@ -7,23 +7,23 @@ export const DEFAULT_PROJECT = "asdl-tools";
 export const DEFAULT_SCOPE = "schrockns-projects";
 export const GITHUB_COMMIT_REF_METADATA_KEY = "githubCommitRef";
 
-export type PreviewUrlOptions = {
+export interface PreviewUrlOptions {
 	branch?: string;
 	project?: string;
 	scope?: string;
 	cwd: string;
 	env: Record<string, string | undefined>;
-};
+}
 
-export type PreviewUrlDeploymentPayload = {
+export interface PreviewUrlDeploymentPayload {
 	id: string;
 	created_at_ms: number;
 	ready_at_ms?: number;
 	commit_sha?: string;
 	pr_number?: number;
-};
+}
 
-export type PreviewUrlSuccessPayload = {
+export interface PreviewUrlSuccessPayload {
 	success: true;
 	branch: string;
 	preview_url: string;
@@ -37,16 +37,16 @@ export type PreviewUrlSuccessPayload = {
 		metadata_keys: [typeof GITHUB_COMMIT_REF_METADATA_KEY];
 	};
 	warnings: string[];
-};
+}
 
-export type PreviewUrlFailurePayload = {
+export interface PreviewUrlFailurePayload {
 	success: false;
 	error: ErrorInfo;
 	branch?: string;
 	project?: string;
 	scope?: string;
 	warnings?: string[];
-};
+}
 
 export type PreviewUrlPayload = PreviewUrlSuccessPayload | PreviewUrlFailurePayload;
 
@@ -60,11 +60,11 @@ export type PreviewUrlResult =
 			payload: PreviewUrlFailurePayload;
 	  };
 
-export type ProjectScopeResolution = {
+export interface ProjectScopeResolution {
 	project: string;
 	scope: string;
 	warnings: string[];
-};
+}
 
 export async function lookupPreviewUrl(options: PreviewUrlOptions, context: AsdlDevContext): Promise<PreviewUrlResult> {
 	const explicitBranch = nonBlank(options.branch);

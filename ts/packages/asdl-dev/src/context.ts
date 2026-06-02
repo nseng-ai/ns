@@ -6,14 +6,14 @@ import { PiTextGenerationGateway } from "./pi-text-generation.ts";
 import { RealSubmitGateway, type SubmitGateway } from "./submit.ts";
 import { DEFAULT_TEXT_BACKEND, type TextGenerationBackend, type TextGenerationGateway } from "./text-generation.ts";
 
-export type AsdlDevContext = {
+export interface AsdlDevContext {
 	git: GitGateway;
 	vercel: VercelDeploymentGateway;
 	projectConfig: VercelProjectConfigStore;
 	checkpoint: CheckpointGateway;
 	submit: SubmitGateway;
 	textGeneration: TextGenerationGateway;
-};
+}
 
 export function createTextGenerationGateway(backend: TextGenerationBackend = DEFAULT_TEXT_BACKEND): TextGenerationGateway {
 	if (backend === "pi") {

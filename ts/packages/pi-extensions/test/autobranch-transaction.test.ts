@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CommandResult } from "../../asdl-dev/src/checkpoint-flow.ts";
+import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch-transaction.ts";
 
 function ok(stdout = "", stderr = ""): CommandResult {

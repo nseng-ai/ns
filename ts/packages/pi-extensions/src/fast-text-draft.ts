@@ -2,7 +2,7 @@ import type * as PiAi from "@earendil-works/pi-ai";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandResult } from "../../asdl-dev/src/checkpoint-flow.ts";
+import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { listAsdlDevCommands, runCli } from "../../src/cli.ts";
-import { DEFAULT_PROJECT, DEFAULT_SCOPE } from "../../src/preview-url.ts";
+import { listAsdlDevCommands, runCli } from "asdl-dev/src/cli.ts";
+import { DEFAULT_PROJECT, DEFAULT_SCOPE } from "asdl-dev/src/preview-url.ts";
 import { deploymentRecord } from "../support/builders.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
@@ -369,7 +369,7 @@ describe("asdl-dev preview-url failure behavior", () => {
 	});
 
 	test("Vercel unavailable exits 2 with structured JSON failure", async () => {
-		const run = runWithFakes(["preview-url", "--json"], { vercel: { available: false } });
+		const run = runWithFakes(["preview-url", "--json"], { vercel: { isAvailable: false } });
 
 		expect(await run.exit).toBe(2);
 		const payload = parseJsonOutput(run) as { success: false; error: { code: string } };

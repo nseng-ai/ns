@@ -23,6 +23,9 @@
     },
     "packages/pi-extensions": {
       "name": "@asdl/pi-extensions",
+      "dependencies": {
+        "asdl-dev": "workspace:*",
+      },
       "devDependencies": {
         "@earendil-works/pi-ai": "0.78.0",
         "@earendil-works/pi-coding-agent": "0.78.0",

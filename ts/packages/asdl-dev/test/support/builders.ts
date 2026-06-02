@@ -1,4 +1,4 @@
-import type { DeploymentCandidate, InspectedDeployment } from "../../src/gateways/vercel.ts";
+import type { DeploymentCandidate, InspectedDeployment } from "asdl-dev/src/gateways/vercel.ts";
 import type { FakeVercelDeploymentRecord } from "./in-memory-gateways.ts";
 
 export function deploymentCandidate(overrides: Partial<DeploymentCandidate> = {}): DeploymentCandidate {

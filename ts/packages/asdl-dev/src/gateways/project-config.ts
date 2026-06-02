@@ -17,9 +17,9 @@ export type ProjectConfigReadResult =
 			message?: string;
 	  };
 
-export type VercelProjectConfigStore = {
+export interface VercelProjectConfigStore {
 	readProjectConfig(params: { repoRoot: string }): Promise<ProjectConfigReadResult>;
-};
+}
 
 type ReadTextFile = (path: string) => Promise<string>;
 
