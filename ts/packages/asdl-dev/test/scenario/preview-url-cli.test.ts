@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { runCli } from "../../src/cli.ts";
+import { listAsdlDevCommands, runCli } from "../../src/cli.ts";
 import { DEFAULT_PROJECT, DEFAULT_SCOPE } from "../../src/preview-url.ts";
 import { deploymentRecord } from "../support/builders.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
@@ -32,6 +32,12 @@ function parseJsonOutput(run: { stdout: string[] }): Record<string, unknown> {
 }
 
 describe("asdl-dev preview-url CLI help and parsing", () => {
+	test("command metadata comes from the flat command table", () => {
+		expect(listAsdlDevCommands()).toEqual([
+			{ name: "preview-url", description: "Print the Vercel preview URL for a branch." },
+		]);
+	});
+
 	test("top-level help lists preview-url and not the removed command", async () => {
 		const run = runWithFakes(["--help"]);
 
