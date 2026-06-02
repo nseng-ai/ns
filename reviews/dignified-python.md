@@ -14,6 +14,14 @@ touch. Each finding must point to a specific line (or small range) in the
 diff and tie to one of the rules below. Do not invent findings about
 unchanged code.
 
+Exclude vendored skill Python before applying any rule. Do not report findings
+for `.py` files under `.agents/skills/<name>/` or `.claude/skills/<name>/`
+when the skill entry is a real directory rather than a symlink to
+`skills/<name>`. `.claude/skills/<name>` symlinks inherit the corresponding
+`.agents/skills/<name>` classification. Those installed skill directories are
+vendored. Continue reviewing first-party skill files under the canonical
+`skills/<name>/` path.
+
 Before evaluating version-sensitive rules, read `pyproject.toml` from the
 repo root once to find the `requires-python` value. If the project's
 minimum Python is 3.10+, the modern-typing rule applies. If
