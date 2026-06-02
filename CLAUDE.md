@@ -39,6 +39,7 @@ asdl/
 - Prefer LBYL (look before you leap) over EAFP (easier to ask forgiveness).
 - Use frozen dataclasses or Pydantic models for data. Avoid mutable state where possible.
 - Use modern Python type syntax (`str | None`, not `Optional[str]`).
+- When writing, reviewing, or refactoring TypeScript, strictly follow `@.agents/skills/typescript-style/SKILL.md`: read `core-rules.md` first, load relevant references for the design area, and use `checklist.md` before declaring TypeScript work complete.
 - Keep features decoupled. A feature should declare its dependencies explicitly, not reach into other subsystems.
 
 ## Design Principles
