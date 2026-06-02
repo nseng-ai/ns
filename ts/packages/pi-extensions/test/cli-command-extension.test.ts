@@ -4,6 +4,7 @@ import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
 	parseCliCommandArgs,
 	registerCliCommandExtension,
+	renderCliCommandOutputMessage,
 	type CliCommandInfo,
 	type CliCommandRunDeps,
 	type CommandContext,
@@ -13,6 +14,16 @@ import {
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type NotifyLevel = "info" | "warning" | "error";
+type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
+
+const TEST_THEME = {
+	fg(_color: string, text: string): string {
+		return text;
+	},
+	bold(text: string): string {
+		return text;
+	},
+};
 
 interface Notification {
 	message: string;
@@ -27,19 +38,24 @@ interface RunCall {
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
-	readonly sentMessages: CustomMessage[] = [];
-	readonly sendMessage?: (message: CustomMessage) => void;
+	readonly messageRenderers = new Map<string, MessageRenderer>();
+	readonly sentMessages: Array<{ message: CustomMessage; options?: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[1] }> = [];
+	readonly sendMessage?: NonNullable<ExtensionAPI["sendMessage"]>;
 
 	constructor(options: { sendMessage?: boolean } = {}) {
 		if (options.sendMessage ?? true) {
-			this.sendMessage = (message: CustomMessage): void => {
-				this.sentMessages.push(message);
+			this.sendMessage = (message, options): void => {
+				this.sentMessages.push({ message, options });
 			};
 		}
 	}
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
+	}
+
+	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
+		this.messageRenderers.set(customType, renderer);
 	}
 }
 
@@ -122,7 +138,7 @@ describe("cli command extension helper", () => {
 				return 0;
 			},
 		});
-		const { ctx } = createContext(order);
+		const { ctx, notifications } = createContext(order);
 
 		await commandFor(pi, "dev:preview-url").handler("--branch feature/x --json", ctx);
 
@@ -134,25 +150,32 @@ describe("cli command extension helper", () => {
 				env: { VERCEL_PROJECT: "env-project" },
 			},
 		]);
+		expect(pi.messageRenderers.get(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(renderCliCommandOutputMessage);
 		expect(pi.sentMessages).toHaveLength(1);
+		expect(notifications).toEqual([{ message: "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n", level: "info" }]);
 		expect(pi.sentMessages[0]).toEqual({
-			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-			content: "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n",
-			display: true,
-			details: {
-				cliName: "fake-dev",
-				commandName: "preview-url",
-				piCommandName: "dev:preview-url",
-				rawArgs: "--branch feature/x --json",
-				args: ["--branch", "feature/x", "--json"],
-				argv: ["preview-url", "--branch", "feature/x", "--json"],
-				cwd: "/repo",
-				exitCode: 0,
-				stdout: "https://preview.example\n",
-				stderr: "warning from cli\n",
-				level: "info",
+			message: {
+				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+				content: "The /dev:preview-url command completed successfully.",
+				display: false,
+				details: {
+					cliName: "fake-dev",
+					commandName: "preview-url",
+					piCommandName: "dev:preview-url",
+					rawArgs: "--branch feature/x --json",
+					args: ["--branch", "feature/x", "--json"],
+					argv: ["preview-url", "--branch", "feature/x", "--json"],
+					cwd: "/repo",
+					exitCode: 0,
+					stdout: "https://preview.example\n",
+					stderr: "warning from cli\n",
+					level: "info",
+				},
 			},
+			options: { triggerTurn: false },
 		});
+		const rendered = renderCliCommandOutputMessage(pi.sentMessages[0]!.message, { expanded: false }, TEST_THEME).render(120).join("\n");
+		expect(rendered).toBe("stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n");
 	});
 
 	test("presents nonzero exit codes as error output", async () => {
@@ -163,12 +186,16 @@ describe("cli command extension helper", () => {
 				return 17;
 			},
 		});
-		const { ctx } = createContext();
+		const { ctx, notifications } = createContext();
 
 		await commandFor(pi, "dev:preview-url").handler("--json", ctx);
 
-		expect(pi.sentMessages[0]?.content).toBe("fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n");
-		expect(pi.sentMessages[0]?.details).toMatchObject({ exitCode: 17, level: "error", stderr: "not found\n" });
+		expect(notifications).toEqual([{ message: "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n", level: "error" }]);
+		expect(pi.sentMessages[0]?.message.content).toBe("The /dev:preview-url command exited with code 17.");
+		expect(pi.sentMessages[0]?.message.details).toMatchObject({ exitCode: 17, level: "error", stderr: "not found\n" });
+		expect(renderCliCommandOutputMessage(pi.sentMessages[0]!.message, { expanded: false }, TEST_THEME).render(120).join("\n")).toBe(
+			"fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n",
+		);
 	});
 
 	test("reports argument tokenization errors without invoking the runner", async () => {
@@ -185,7 +212,7 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:preview-url").handler('--branch "unterminated', ctx);
 
 		expect(runnerCalled).toBe(false);
-		expect(pi.sentMessages[0]?.details).toMatchObject({
+		expect(pi.sentMessages[0]?.message.details).toMatchObject({
 			exitCode: 2,
 			stderr: "Error: Unterminated double quote.\n",
 			level: "error",
@@ -231,7 +258,7 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
 
-		expect(pi.sentMessages[0]?.details).toMatchObject({
+		expect(pi.sentMessages[0]?.message.details).toMatchObject({
 			exitCode: 2,
 			stderr: "Error: Unexpected argument: words\n",
 			level: "error",
@@ -257,7 +284,8 @@ describe("cli command extension helper", () => {
 
 		expect(calls).toEqual([{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } }]);
 		expect(editorTexts).toEqual([]);
-		expect(pi.sentMessages[0]?.content).toBe("ok\n");
+		expect(pi.sentMessages[0]?.message.content).toBe("The /dev:echo command completed successfully.");
+		expect(renderCliCommandOutputMessage(pi.sentMessages[0]!.message, { expanded: false }, TEST_THEME).render(120).join("\n")).toBe("ok\n");
 	});
 
 	test("falls back to notifications when custom messages are unavailable", async () => {

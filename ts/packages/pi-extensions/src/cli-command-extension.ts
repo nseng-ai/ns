@@ -1,5 +1,7 @@
 import process from "node:process";
 
+import { customMessageText, truncateDisplayLine } from "./terminal-presentation.ts";
+
 export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "cli-command-output";
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -32,6 +34,18 @@ export interface CustomMessage {
 	details?: unknown;
 }
 
+type RenderTheme = {
+	fg(color: string, text: string): string;
+	bold?(text: string): string;
+};
+
+type RenderComponent = {
+	render(width: number): string[];
+	invalidate(): void;
+};
+
+type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+
 export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
@@ -50,6 +64,7 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 }
 
@@ -79,6 +94,7 @@ export interface CliCommandOutputDetails {
 
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
 	assertValidCommandSpec(spec);
+	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
 
 	for (const command of spec.commands) {
 		const piCommandName = `${spec.piNamespace}:${command.name}`;
@@ -349,26 +365,93 @@ function isCliUsageError(details: CliCommandOutputDetails): boolean {
 }
 
 function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {
-	const content = formatCliCommandOutput(details);
+	const displayText = formatCliCommandOutput(details);
 	const message: CustomMessage = {
 		customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-		content,
-		display: true,
+		content: formatCliCommandContextSummary(details),
+		display: false,
 		details,
 	};
 
-	if (pi.sendMessage !== undefined) {
-		pi.sendMessage(message);
-		return;
-	}
-
 	if (ctx.hasUI) {
-		ctx.ui.notify(content, details.level);
+		ctx.ui.notify(displayText, details.level);
+	}
+
+	if (pi.sendMessage !== undefined) {
+		pi.sendMessage(message, { triggerTurn: false });
 		return;
 	}
 
-	const stream = details.level === "info" ? process.stdout : process.stderr;
-	stream.write(content.endsWith("\n") ? content : `${content}\n`);
+	if (!ctx.hasUI) {
+		const stream = details.level === "info" ? process.stdout : process.stderr;
+		stream.write(displayText.endsWith("\n") ? displayText : `${displayText}\n`);
+	}
+}
+
+export function renderCliCommandOutputMessage(message: CustomMessage, _options: { expanded: boolean }, theme: RenderTheme): RenderComponent {
+	const details = parseCliCommandOutputDetails(message.details);
+	const displayText = details === undefined ? customMessageText(message.content) : formatCliCommandOutput(details);
+	return {
+		render(width: number): string[] {
+			return displayText.split("\n").map((line, index) => styleCliOutputLine(truncateDisplayLine(line, width), index, details?.level, theme));
+		},
+		invalidate(): void {},
+	};
+}
+
+function formatCliCommandContextSummary(details: CliCommandOutputDetails): string {
+	const sourceCommand = `/${details.piCommandName}`;
+	if (details.exitCode === 0) {
+		return `The ${sourceCommand} command completed successfully.`;
+	}
+	return `The ${sourceCommand} command exited with code ${details.exitCode}.`;
+}
+
+function styleCliOutputLine(line: string, index: number, level: "info" | "error" | undefined, theme: RenderTheme): string {
+	if (line.length === 0) return line;
+	if (index === 0) {
+		const text = theme.bold !== undefined ? theme.bold(line) : line;
+		return theme.fg(level === "error" ? "error" : "accent", text);
+	}
+	if (/^(stdout|stderr):$/.test(line) || /^----- (stdout|stderr) -----$/.test(line)) {
+		return theme.fg("muted", line);
+	}
+	return line;
+}
+
+function parseCliCommandOutputDetails(value: unknown): CliCommandOutputDetails | undefined {
+	if (!isRecord(value)) return undefined;
+	if (
+		typeof value.cliName !== "string" ||
+		typeof value.commandName !== "string" ||
+		typeof value.piCommandName !== "string" ||
+		typeof value.rawArgs !== "string" ||
+		!Array.isArray(value.args) ||
+		!value.args.every((item) => typeof item === "string") ||
+		!Array.isArray(value.argv) ||
+		!value.argv.every((item) => typeof item === "string") ||
+		typeof value.cwd !== "string" ||
+		typeof value.exitCode !== "number" ||
+		typeof value.stdout !== "string" ||
+		typeof value.stderr !== "string" ||
+		(value.level !== "info" && value.level !== "error")
+	) {
+		return undefined;
+	}
+
+	return {
+		cliName: value.cliName,
+		commandName: value.commandName,
+		piCommandName: value.piCommandName,
+		rawArgs: value.rawArgs,
+		args: [...value.args],
+		argv: [...value.argv],
+		cwd: value.cwd,
+		exitCode: value.exitCode,
+		stdout: value.stdout,
+		stderr: value.stderr,
+		level: value.level,
+	};
 }
 
 function formatSuccessfulOutput(sourceCommand: string, stdout: string, stderr: string): string {
@@ -426,6 +509,10 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		}
 		seenNames.add(command.name);
 	}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function errorMessage(error: unknown): string {

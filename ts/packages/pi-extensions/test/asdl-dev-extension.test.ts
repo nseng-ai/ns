@@ -1,15 +1,21 @@
 import { describe, expect, test } from "bun:test";
 
 import asdlDevExtension from "../src/asdl-dev-extension.ts";
-import type { ExtensionAPI } from "../src/cli-command-extension.ts";
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage, type ExtensionAPI } from "../src/cli-command-extension.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
+	readonly messageRenderers = new Map<string, MessageRenderer>();
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
+	}
+
+	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
+		this.messageRenderers.set(customType, renderer);
 	}
 }
 
@@ -32,5 +38,6 @@ describe("asdl-dev Pi extension", () => {
 		expect(pi.commands.get("dev:submit")?.description).toBe(
 			"asdl-dev submit: Submit the current Graphite stack with gt submit -nps --ai.",
 		);
+		expect(pi.messageRenderers.get(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(renderCliCommandOutputMessage);
 	});
 });
