@@ -73,8 +73,9 @@ def _install_plugin_context(group: click.Group, *, context_factory: Callable[[],
 
     @click.pass_context
     def callback(ctx: click.Context, *args: object, **kwargs: object) -> object:
-        if not isinstance(ctx.obj, ClinkrContextObject):
-            ctx.obj = build_clinkr_context_object(context_factory)
+        root = ctx.find_root()
+        if not isinstance(root.obj, ClinkrContextObject):
+            root.obj = build_clinkr_context_object(context_factory)
         if original_callback is None:
             return None
         return ctx.invoke(original_callback, *args, **kwargs)

@@ -3,6 +3,7 @@ name: handoff-load
 description: "Pick up, choose, or list saved handoff artifacts and resume focused work. Use when the user says pick up handoff, load handoff, resume handoff, continue from handoff, choose a handoff, or list saved handoffs; use brmem only as storage/recovery machinery."
 allowed-tools:
   - "Bash(git branch *)"
+  - "Bash(handoff *)"
   - "Bash(brmem *)"
 ---
 
@@ -34,19 +35,25 @@ Stop if the repo is in detached HEAD and the user did not provide a branch. If t
 
 ## List handoffs
 
-Current branch or explicit branch:
+Current branch:
 
 ```bash
-brmem list --namespace handoffs --branch <branch> --format json
+handoff list --format json
+```
+
+Explicit branch:
+
+```bash
+handoff list --branch <branch> --format json
 ```
 
 All branches:
 
 ```bash
-brmem list --namespace handoffs --all-branches --format json
+handoff list --all-branches --format json
 ```
 
-Show normal results as handoff choices grouped by branch when listing across branches. For each choice, show the slug, a short continuation focus or preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+The JSON payload's `data.handoffs` list contains handoff records with `branch`, `slug`, `key`, and `entry_locator`. Show normal results as handoff choices grouped by branch when listing across branches. For each choice, show the slug, a short continuation focus or preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 

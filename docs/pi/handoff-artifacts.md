@@ -173,8 +173,9 @@ Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi ha
 Useful recovery commands:
 
 ```text
-brmem list --namespace handoffs --branch <branch> --format json
-brmem list --namespace handoffs --all-branches --format json
+handoff list --branch <branch>
+handoff list --all-branches
+handoff list --all-branches --format json
 brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
 ```
 
