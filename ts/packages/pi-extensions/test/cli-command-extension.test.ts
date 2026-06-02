@@ -14,16 +14,16 @@ type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type NotifyLevel = "info" | "warning" | "error";
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
-};
+}
 
-type RunCall = {
+interface RunCall {
 	args: string[];
 	cwd: string;
 	env: Record<string, string | undefined>;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -244,7 +244,7 @@ describe("cli command extension helper", () => {
 		const calls: RunCall[] = [];
 		registerFakeCli(pi, {
 			env: { SAMPLE: "1" },
-			commands: [{ name: "echo", description: "Echo text.", allowsPositionalArgs: true }],
+			commands: [{ name: "echo", description: "Echo text.", canAcceptPositionalArgs: true }],
 			runCli: (args, deps) => {
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
 				deps.stdout("ok\n");

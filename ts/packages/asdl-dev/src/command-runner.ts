@@ -3,7 +3,7 @@ import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
-export type CommandResult = {
+export interface CommandResult {
 	command: string;
 	args: string[];
 	exitCode: number;
@@ -11,13 +11,13 @@ export type CommandResult = {
 	stderr: string;
 	startupError?: string;
 	killed?: boolean;
-};
+}
 
-export type CommandRunnerOptions = {
+export interface CommandRunnerOptions {
 	cwd?: string;
 	timeoutMs?: number;
 	timeoutKillGraceMs?: number;
-};
+}
 
 export type CommandRunner = (
 	command: string,
@@ -30,10 +30,10 @@ export type CommandResolver = (name: string) => string | undefined;
 const TIMEOUT_EXIT_CODE = 124;
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 
-export type CommandPrefix = {
+export interface CommandPrefix {
 	command: string;
 	args: string[];
-};
+}
 
 export async function runCommand(
 	command: string,
@@ -44,7 +44,7 @@ export async function runCommand(
 		let stdout = "";
 		let stderr = "";
 		let settled = false;
-		let timedOut = false;
+		let hasTimedOut = false;
 		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 		let killTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -70,7 +70,7 @@ export async function runCommand(
 			settled = true;
 			clearTimers();
 
-			const exitCode = timedOut && result.startupError === undefined ? TIMEOUT_EXIT_CODE : result.exitCode;
+			const exitCode = hasTimedOut && result.startupError === undefined ? TIMEOUT_EXIT_CODE : result.exitCode;
 			resolve({
 				command,
 				args: [...args],
@@ -78,14 +78,14 @@ export async function runCommand(
 				stderr,
 				...result,
 				exitCode,
-				...(timedOut ? { killed: true } : {}),
+				...(hasTimedOut ? { killed: true } : {}),
 			});
 		};
 
 		const child = spawn(command, [...args], spawnOptions);
 		if (options.timeoutMs !== undefined && options.timeoutMs > 0) {
 			timeoutTimer = setTimeout(() => {
-				timedOut = true;
+				hasTimedOut = true;
 				child.kill("SIGTERM");
 
 				const graceMs = options.timeoutKillGraceMs ?? DEFAULT_TIMEOUT_KILL_GRACE_MS;

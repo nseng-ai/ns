@@ -10,21 +10,21 @@ import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
 
 const STDERR_DETAIL_LIMIT = 1_200;
 
-export type DeploymentCandidate = {
+export interface DeploymentCandidate {
 	url: string;
 	state: string;
 	createdAt: number;
 	readyAt?: number;
 	meta: Record<string, string>;
-};
+}
 
-export type InspectedDeployment = {
+export interface InspectedDeployment {
 	id: string;
 	url: string;
 	aliases: string[];
-};
+}
 
-export type VercelDeploymentGateway = {
+export interface VercelDeploymentGateway {
 	listReadyPreviewDeployments(params: {
 		project: string;
 		scope: string;
@@ -37,7 +37,7 @@ export type VercelDeploymentGateway = {
 		scope: string;
 		cwd: string;
 	}): Promise<GatewayResult<InspectedDeployment>>;
-};
+}
 
 export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 	private readonly runner: CommandRunner;

@@ -8,7 +8,7 @@ import {
 } from "./pending-worktree.ts";
 import { selectCheckpointTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
 
-export type CheckpointGateway = {
+export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<
 		| {
 				ok: true;
@@ -20,20 +20,20 @@ export type CheckpointGateway = {
 			}
 	>;
 	createCommitWithPreparedMessage(params: { cwd: string; message: string }): Promise<{ summary: string } | { error: string }>;
-};
+}
 
-export type CheckpointCommandResult = {
+export interface CheckpointCommandResult {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
-};
+}
 
-export type RunCheckpointCommandOptions = {
+export interface RunCheckpointCommandOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	gateway: CheckpointGateway;
 	textGeneration: TextGenerationGateway;
-};
+}
 
 export class RealCheckpointGateway implements CheckpointGateway {
 	private readonly runner: CommandRunner;

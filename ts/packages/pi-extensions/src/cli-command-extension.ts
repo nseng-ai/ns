@@ -4,35 +4,35 @@ export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "cli-command-output";
 
 type NotifyLevel = "info" | "warning" | "error";
 
-export type CliCommandInfo = {
+export interface CliCommandInfo {
 	name: string;
 	description: string;
-	allowsPositionalArgs?: boolean;
-};
+	canAcceptPositionalArgs?: boolean;
+}
 
-export type CliCommandRunDeps = {
+export interface CliCommandRunDeps {
 	cwd: string;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
-};
+}
 
-export type CliCommandExtensionSpec = {
+export interface CliCommandExtensionSpec {
 	cliName: string;
 	piNamespace: string;
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
 	env?: Record<string, string | undefined>;
-};
+}
 
-export type CustomMessage = {
+export interface CustomMessage {
 	customType: string;
 	content: string;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-export type CommandContext = {
+export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -40,9 +40,9 @@ export type CommandContext = {
 		setEditorText?(text: string): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -51,7 +51,7 @@ export type ExtensionAPI = {
 		},
 	): void;
 	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
-};
+}
 
 export type ParsedCliCommandArgs =
 	| {
@@ -63,7 +63,7 @@ export type ParsedCliCommandArgs =
 			error: string;
 	  };
 
-export type CliCommandOutputDetails = {
+export interface CliCommandOutputDetails {
 	cliName: string;
 	commandName: string;
 	piCommandName: string;
@@ -75,7 +75,7 @@ export type CliCommandOutputDetails = {
 	stdout: string;
 	stderr: string;
 	level: "info" | "error";
-};
+}
 
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
 	assertValidCommandSpec(spec);
@@ -210,7 +210,7 @@ async function runRegisteredCliCommand(
 		return;
 	}
 
-	if (startsWithPositionalArgs(parsed.args) && command.allowsPositionalArgs !== true) {
+	if (startsWithPositionalArgs(parsed.args) && command.canAcceptPositionalArgs !== true) {
 		const restored = restoreCommandInvocationToEditor(
 			ctx,
 			piCommandName,

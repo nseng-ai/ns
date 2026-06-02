@@ -9,25 +9,25 @@ import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
 import { runSubmitCommand } from "./submit.ts";
 
-export type CliDeps = {
+export interface CliDeps {
 	context?: AsdlDevContext | undefined;
 	cwd?: string | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
-};
+}
 
-export type AsdlDevCommandInfo = {
+export interface AsdlDevCommandInfo {
 	name: string;
 	description: string;
-};
+}
 
-type ParsedPreviewUrlArgs = {
-	jsonOutput: boolean;
+interface ParsedPreviewUrlArgs {
+	shouldOutputJson: boolean;
 	branch?: string;
 	project?: string;
 	scope?: string;
-};
+}
 
 type PreviewUrlParseResult =
 	| {
@@ -54,9 +54,9 @@ type CheckpointParseResult =
 			message: string;
 	  };
 
-type ParsedSubmitArgs = {
+interface ParsedSubmitArgs {
 	restack: boolean;
-};
+}
 
 type SubmitParseResult =
 	| {
@@ -71,20 +71,20 @@ type SubmitParseResult =
 			message: string;
 	  };
 
-type CommandSpec = {
+interface CommandSpec {
 	name: string;
 	description: string;
 	help: () => string;
 	run: (args: readonly string[], deps: RequiredCliDeps) => Promise<number>;
-};
+}
 
-type RequiredCliDeps = {
+interface RequiredCliDeps {
 	context: AsdlDevContext;
 	cwd: string;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
-};
+}
 
 const COMMANDS: CommandSpec[] = [
 	{
@@ -217,7 +217,7 @@ async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDe
 	}
 
 	const result = await lookupPreviewUrl(lookupOptions, deps.context);
-	if (parsed.options.jsonOutput) {
+	if (parsed.options.shouldOutputJson) {
 		deps.stdout(formatJson(result.payload));
 		return result.exitCode;
 	}
@@ -231,7 +231,7 @@ async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDe
 }
 
 function parsePreviewUrlArgs(args: readonly string[]): PreviewUrlParseResult {
-	const options: ParsedPreviewUrlArgs = { jsonOutput: false };
+	const options: ParsedPreviewUrlArgs = { shouldOutputJson: false };
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -241,7 +241,7 @@ function parsePreviewUrlArgs(args: readonly string[]): PreviewUrlParseResult {
 			return { kind: "help" };
 		}
 		if (arg === "--json") {
-			options.jsonOutput = true;
+			options.shouldOutputJson = true;
 			continue;
 		}
 

@@ -17,19 +17,19 @@ Given git status and diff, output exactly one git commit message:
 - Mention untracked files by filename when they matter.
 - Optimize for later agents scanning git log, not for a polished PR description.`;
 
-export type CommandResult = {
+export interface CommandResult {
 	code: number;
 	stdout: string;
 	stderr: string;
 	killed?: boolean;
-};
+}
 
-export type CheckpointPromptInput = {
+export interface CheckpointPromptInput {
 	status: string;
 	diff: string;
 	previousDraft?: string;
 	validationFeedback?: string;
-};
+}
 
 export type PreparedCheckpointMessage =
 	| { ok: true; message: string; source: "model" | "repaired_model"; feedback?: string }

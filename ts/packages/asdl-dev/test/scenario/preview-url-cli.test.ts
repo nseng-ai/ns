@@ -369,7 +369,7 @@ describe("asdl-dev preview-url failure behavior", () => {
 	});
 
 	test("Vercel unavailable exits 2 with structured JSON failure", async () => {
-		const run = runWithFakes(["preview-url", "--json"], { vercel: { available: false } });
+		const run = runWithFakes(["preview-url", "--json"], { vercel: { isAvailable: false } });
 
 		expect(await run.exit).toBe(2);
 		const payload = parseJsonOutput(run) as { success: false; error: { code: string } };

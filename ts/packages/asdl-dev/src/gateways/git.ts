@@ -3,10 +3,10 @@ import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
 
 const STDERR_DETAIL_LIMIT = 1_200;
 
-export type GitGateway = {
+export interface GitGateway {
 	currentBranch(params: { cwd: string }): Promise<GatewayResult<string>>;
 	repoRoot(params: { cwd: string }): Promise<GatewayResult<string>>;
-};
+}
 
 export class RealGitGateway implements GitGateway {
 	private readonly runner: CommandRunner;

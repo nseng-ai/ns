@@ -88,7 +88,7 @@ describe("in-memory Vercel deployment gateway", () => {
 	});
 
 	test("models unavailable, list failure, and inspect failure states", async () => {
-		const unavailable = new InMemoryVercelDeploymentGateway({ available: false });
+		const unavailable = new InMemoryVercelDeploymentGateway({ isAvailable: false });
 		const unavailableList = await unavailable.listReadyPreviewDeployments({ project: "asdl-tools", scope: "schrockns-projects", branch: "feature/demo", cwd: "/repo" });
 		expect(unavailableList.ok).toBe(false);
 		if (unavailableList.ok) throw new Error("expected unavailable failure");

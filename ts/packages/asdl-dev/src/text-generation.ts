@@ -1,24 +1,24 @@
-export type TextGenerationRequest = {
+export interface TextGenerationRequest {
 	modelRef: string;
 	system: string;
 	prompt: string;
 	maxTokens?: number;
 	reasoning?: "minimal" | "low";
 	operation?: "checkpoint-message";
-};
+}
 
 export type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
 
-export type TextGenerationGateway = {
+export interface TextGenerationGateway {
 	generateText(request: TextGenerationRequest): Promise<TextGenerationResult>;
-};
+}
 
 export type TextGenerationBackend = "pi";
 
-export type TextGenerationConfig = {
+export interface TextGenerationConfig {
 	backend: TextGenerationBackend;
 	modelRef: string;
-};
+}
 
 export const DEFAULT_TEXT_BACKEND: TextGenerationBackend = "pi";
 export const DEFAULT_CHECKPOINT_MODEL_REF = "openai/gpt-5.4-nano";

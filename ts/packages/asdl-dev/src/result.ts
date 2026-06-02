@@ -1,8 +1,8 @@
-export type ErrorInfo = {
+export interface ErrorInfo {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
-};
+}
 
 export type GatewayResult<T> =
 	| {

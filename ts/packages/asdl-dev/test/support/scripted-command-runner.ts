@@ -2,24 +2,24 @@ import { expect } from "bun:test";
 
 import type { CommandResult, CommandRunner } from "../../src/command-runner.ts";
 
-export type RunnerCall = {
+export interface RunnerCall {
 	command: string;
 	args: string[];
 	cwd?: string | undefined;
-};
+}
 
-export type ResultFields = {
+export interface ResultFields {
 	stdout?: string;
 	stderr?: string;
 	exitCode?: number;
 	startupError?: string;
 	killed?: boolean;
-};
+}
 
-export type ScriptStep = ResultFields & {
+export interface ScriptStep extends ResultFields {
 	command: string;
 	args: string[];
-};
+}
 
 export class ScriptedCommandRunner {
 	readonly calls: RunnerCall[] = [];
