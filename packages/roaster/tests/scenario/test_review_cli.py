@@ -38,12 +38,20 @@ class _InvalidConfigDiffGateway(LocalDiffGateway):
         raise AsdlProjectConfigError("bad asdl.toml")
 
 
-def _sample_source(*, include_default_model: bool = True) -> str:
+def _sample_source(
+    *,
+    include_default_model: bool = True,
+    when_changed: tuple[str, ...] = (),
+    description: str = "Review Python diffs for style violations.",
+) -> str:
     default_model_line = "default_model: sonnet\n" if include_default_model else ""
+    when_changed_lines = "".join(f"  - '{pattern}'\n" for pattern in when_changed)
+    when_changed_block = f"when_changed:\n{when_changed_lines}" if when_changed else ""
     return (
         "---\n"
-        "description: Review Python diffs for style violations.\n"
+        f"description: {description}\n"
         f"{default_model_line}"
+        f"{when_changed_block}"
         "---\n"
         "\n"
         "Flag concrete issues in the diff.\n"
@@ -56,20 +64,24 @@ def _build_context(
     harness_detected: bool = True,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
+    review_sources_by_key: dict[str, str] | None = None,
+    changed_paths: tuple[str, ...] = ("app.py",),
+    diff_text: str = "diff --git a/app.py b/app.py\n+print('hello')\n",
 ) -> RoasterCliContext:
     paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     if payload is None:
         payload = FindingsReview(findings=())
     return RoasterCliContext(
         catalog=FakeReviewCatalogGateway(
-            review_sources_by_key={REVIEW_KEY: _sample_source()},
+            review_sources_by_key=review_sources_by_key or {REVIEW_KEY: _sample_source()},
             review_keys=keys,
             reviews_dir=REVIEWS_DIR,
         ),
         diff=FakeLocalDiffGateway(
             default_diff=LocalDiff(
                 base_ref="master",
-                diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+                diff_text=diff_text,
+                changed_paths=changed_paths,
             ),
         ),
         harness_runtime=FakeHarnessRuntime(
@@ -263,6 +275,99 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
     assert data["format"] == "text"
     assert data["prose"] == "**ok**"
     assert "findings" not in data
+
+
+def test_review_run_matching_human_output_filters_by_changed_paths(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        review_sources_by_key={
+            "dignified-python": _sample_source(when_changed=("**/*.py",)),
+            "typescript-style": _sample_source(
+                when_changed=("**/*.ts", "**/*.tsx"),
+                description="Review TypeScript diffs for style violations.",
+            ),
+        },
+        changed_paths=("ts/packages/pi-extensions/src/roast.ts",),
+        diff_text=(
+            "diff --git a/ts/packages/pi-extensions/src/roast.ts "
+            "b/ts/packages/pi-extensions/src/roast.ts\n+const x = 1;\n"
+        ),
+    )
+
+    result = runner.invoke(
+        cli_group,
+        ["review", "run-matching", "--review-format", "findings"],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Changed paths: 1" in result.output
+    assert "- ts/packages/pi-extensions/src/roast.ts" in result.output
+    assert "Selected reviews: 1" in result.output
+    assert "- typescript-style (matched: ts/packages/pi-extensions/src/roast.ts)" in result.output
+    assert "Skipped reviews: 1" in result.output
+    assert "- dignified-python (no_changed_path_match)" in result.output
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    assert len(ctx.harness_runtime.executed_requests) == 1
+    assert ctx.harness_runtime.executed_requests[0].review_definition.name == "typescript-style"
+
+
+def test_review_run_matching_json_output_includes_selection(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        review_sources_by_key={
+            "dignified-python": _sample_source(when_changed=("**/*.py",)),
+            "typescript-style": _sample_source(
+                when_changed=("**/*.ts",),
+                description="Review TypeScript diffs for style violations.",
+            ),
+        },
+        changed_paths=("src/app.py",),
+    )
+
+    result = runner.invoke(
+        cli_group,
+        ["review", "run-matching", "--review-format", "findings", "--format", "json"],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.stdout)
+    data = output["data"]
+    assert data["changed_paths"] == ["src/app.py"]
+    assert data["selected_reviews"][0]["key"] == "dignified-python"
+    assert data["selected_reviews"][0]["matched_paths"] == ["src/app.py"]
+    assert data["skipped_reviews"][0]["key"] == "typescript-style"
+    assert data["results"][0]["review_name"] == "dignified-python"
+
+
+def test_review_run_matching_no_matching_reviews_is_success(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        review_sources_by_key={
+            "dignified-python": _sample_source(when_changed=("**/*.py",)),
+        },
+        changed_paths=("README.md",),
+        diff_text="diff --git a/README.md b/README.md\n+docs\n",
+    )
+
+    result = runner.invoke(
+        cli_group,
+        ["review", "run-matching", "--review-format", "findings"],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Selected reviews: 0" in result.output
+    assert "No matching reviews." in result.output
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    assert ctx.harness_runtime.executed_requests == ()
 
 
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:

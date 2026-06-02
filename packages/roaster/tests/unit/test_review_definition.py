@@ -18,6 +18,7 @@ def test_parse_real_dignified_python_review() -> None:
     assert definition.name == "dignified-python"
     assert definition.description.strip()
     assert definition.default_model == "haiku"
+    assert definition.when_changed == ("**/*.py",)
     assert definition.instructions.strip()
 
 
@@ -28,6 +29,7 @@ def test_parse_real_typescript_style_review() -> None:
     assert definition.name == "typescript-style"
     assert definition.description.strip()
     assert definition.default_model == "haiku"
+    assert definition.when_changed == ("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts")
     assert definition.instructions.strip()
 
 
@@ -36,6 +38,9 @@ def test_parse_review_definition_success() -> None:
         "---\n"
         "description: Review Python diffs for style violations.\n"
         "default_model: sonnet\n"
+        "when_changed:\n"
+        "  - '**/*.py'\n"
+        "  - 'pyproject.toml'\n"
         "---\n"
         "\n"
         "Flag concrete issues in the diff.\n",
@@ -46,6 +51,7 @@ def test_parse_review_definition_success() -> None:
     assert definition.description == "Review Python diffs for style violations."
     assert definition.instructions == "Flag concrete issues in the diff."
     assert definition.default_model == "sonnet"
+    assert definition.when_changed == ("**/*.py", "pyproject.toml")
 
 
 def test_parse_review_definition_without_default_model() -> None:
@@ -59,6 +65,45 @@ def test_parse_review_definition_without_default_model() -> None:
     )
 
     assert definition.default_model is None
+    assert definition.when_changed == ()
+
+
+def test_parse_review_definition_rejects_when_changed_string() -> None:
+    with pytest.raises(ValueError, match="`when_changed`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "when_changed: '**/*.py'\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_empty_when_changed_list() -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "when_changed: []\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_empty_when_changed_item() -> None:
+    with pytest.raises(ValueError, match="item 1"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "when_changed:\n"
+            "  - '**/*.py'\n"
+            "  - ''\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
 
 
 def test_parse_review_definition_requires_instructions() -> None:

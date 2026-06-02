@@ -29,6 +29,7 @@ roaster harness show        # print which harness would be used
 
 roaster review list         # enumerate reviews/**/*.md as keys
 roaster review run <key>    # resolve reviews/<key>.md, run it, print findings
+roaster review run-matching # run reviews whose when_changed globs match the current diff
 ```
 
 Every operation also has a JSON form for machine consumers:
@@ -86,6 +87,8 @@ after the closing `---` fence becomes the reviewer's instructions.
 ---
 description: Review Python diffs for violations of the team's dignified Python standards.
 default_model: sonnet
+when_changed:
+  - "**/*.py"
 ---
 
 Concrete rules for the model. The adapter wraps these with a prompt that
@@ -99,6 +102,10 @@ Required frontmatter fields:
 Optional frontmatter fields:
 
 - `default_model` — used when the `--model` flag is not passed.
+- `when_changed` — a list of repo-relative glob patterns. `roaster review
+  run-matching` runs the review only when at least one changed path in the
+  current branch diff matches one of these patterns. Omit this field for
+  reviewers that should always run.
 
 The markdown body (after the closing fence) is required and becomes the
 reviewer's `instructions`.
