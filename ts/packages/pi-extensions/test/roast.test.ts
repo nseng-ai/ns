@@ -7,16 +7,17 @@ const ROOT = "/repo";
 const ROASTER_TIMEOUT_MS = 30 * 60 * 1000;
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type RoastMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: "info" | "warning" | "error" | undefined;
-};
+}
 
-type StatusUpdate = {
+interface StatusUpdate {
 	key: string;
 	value: string | undefined;
-};
+}
 
 interface ExecCall {
 	command: string;
@@ -27,7 +28,7 @@ interface ExecCall {
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
-	readonly messages: Array<{ customType: string; content: string; display: boolean; details?: unknown }> = [];
+	readonly messages: RoastMessage[] = [];
 	private readonly execResult: ExecResult;
 
 	constructor(execResult: ExecResult = { stdout: "", stderr: "", code: 0 }) {
@@ -43,7 +44,7 @@ class FakePi implements ExtensionAPI {
 		return this.execResult;
 	}
 
-	sendMessage(message: { customType: string; content: string; display: boolean; details?: unknown }): void {
+	sendMessage(message: RoastMessage): void {
 		this.messages.push(message);
 	}
 }

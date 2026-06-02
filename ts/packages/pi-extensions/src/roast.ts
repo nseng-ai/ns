@@ -17,12 +17,12 @@ export interface ExecResult {
 
 type NotifyLevel = "info" | "warning" | "error";
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: string;
 	display: boolean;
 	details?: unknown;
-};
+}
 
 export interface ExtensionCommandContext {
 	cwd: string;
