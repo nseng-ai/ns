@@ -294,7 +294,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 
 	let stdout = "";
 	let stderr = "";
-	let liveOutputSeen = false;
+	let hasLiveOutput = false;
 	let exitCode = 1;
 	const argv = [command.name, ...parsed.args];
 	const progress = new LiveCommandProgress(ctx, {
@@ -322,19 +322,19 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 				cwd: ctx.cwd,
 				stdout: (text) => {
 					stdout += text;
-					if (!liveOutputSeen) {
+					if (!hasLiveOutput) {
 						progress.appendOutput("stdout", text);
 					}
 				},
 				stderr: (text) => {
 					stderr += text;
-					if (!liveOutputSeen) {
+					if (!hasLiveOutput) {
 						progress.appendOutput("stderr", text);
 					}
 				},
 				env: { ...(spec.env ?? process.env) },
 				onOutput: (stream, text) => {
-					liveOutputSeen = true;
+					hasLiveOutput = true;
 					progress.appendOutput(stream, text);
 				},
 			});
