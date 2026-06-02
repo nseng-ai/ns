@@ -173,7 +173,14 @@ function savedPlanSlugArgs(content: string): string[] {
 	return buildSlugModelArgs(buildSavedPlanContentSlugPrompt(content));
 }
 
-function savedPlanSlugStep(content: string, slug: string = PLAN_SLUG, result: Partial<ExecResult> = { stdout: `${slug}\n` }): ScriptedExec {
+interface SavedPlanSlugStepOptions {
+	slug?: string;
+	result?: Partial<ExecResult>;
+}
+
+function savedPlanSlugStep(content: string, options: SavedPlanSlugStepOptions = {}): ScriptedExec {
+	const slug = options.slug ?? PLAN_SLUG;
+	const result = options.result ?? { stdout: `${slug}\n` };
 	return step("pi", savedPlanSlugArgs(content), result);
 }
 
