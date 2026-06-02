@@ -21,6 +21,14 @@ export interface SubmitCommandOutput {
 	killed?: boolean;
 }
 
+export type SubmitOutputStream = "stdout" | "stderr";
+export type SubmitOutputListener = (stream: SubmitOutputStream, text: string) => void;
+
+export interface SubmitCommandParams {
+	cwd: string;
+	onOutput?: SubmitOutputListener;
+}
+
 export interface SubmitPrLink {
 	label: string;
 	url: string;
@@ -89,10 +97,10 @@ export type CurrentPrVerificationResult =
 	  };
 
 export interface SubmitGateway {
-	checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult>;
-	restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult>;
-	submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult>;
-	verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult>;
+	checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult>;
+	restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult>;
+	submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult>;
+	verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult>;
 }
 
 export interface SubmitCommandResult {
@@ -105,6 +113,7 @@ export interface RunSubmitCommandOptions {
 	cwd: string;
 	gateway: SubmitGateway;
 	restack: boolean;
+	onOutput?: SubmitOutputListener;
 }
 
 export class RealSubmitGateway implements SubmitGateway {
@@ -114,8 +123,8 @@ export class RealSubmitGateway implements SubmitGateway {
 		this.runner = runner;
 	}
 
-	async checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult> {
-		const output = await this.runGt([...SUBMIT_DRY_RUN_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS);
+	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
+		const output = await this.runGt([...SUBMIT_DRY_RUN_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS, params.onOutput);
 		if (isSuccessfulOutput(output)) {
 			return { kind: "ready", output };
 		}
@@ -125,8 +134,8 @@ export class RealSubmitGateway implements SubmitGateway {
 		return { kind: "failed", output };
 	}
 
-	async restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult> {
-		const output = await this.runGt([...RESTACK_ARGS], params.cwd, RESTACK_TIMEOUT_MS);
+	async restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult> {
+		const output = await this.runGt([...RESTACK_ARGS], params.cwd, RESTACK_TIMEOUT_MS, params.onOutput);
 		if (isSuccessfulOutput(output)) {
 			return { kind: "success", output };
 		}
@@ -139,8 +148,8 @@ export class RealSubmitGateway implements SubmitGateway {
 		return { kind: "failed", output };
 	}
 
-	async submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult> {
-		const output = await this.runGt([...SUBMIT_ARGS], params.cwd, SUBMIT_TIMEOUT_MS);
+	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
+		const output = await this.runGt([...SUBMIT_ARGS], params.cwd, SUBMIT_TIMEOUT_MS, params.onOutput);
 		if (!isSuccessfulOutput(output)) {
 			return { kind: "failed", output };
 		}
@@ -157,8 +166,8 @@ export class RealSubmitGateway implements SubmitGateway {
 		return result;
 	}
 
-	async verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult> {
-		const output = await this.runGt([...CURRENT_PR_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS);
+	async verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult> {
+		const output = await this.runGt([...CURRENT_PR_ARGS], params.cwd, CURRENT_PR_TIMEOUT_MS, params.onOutput);
 		if (output.startupError !== undefined) {
 			return { kind: "failed", output, cause: "startup_error" };
 		}
@@ -182,8 +191,19 @@ export class RealSubmitGateway implements SubmitGateway {
 		return uniqueNonEmpty([...parseConflictedFiles(unmerged.stdout), ...parsePorcelainConflictedFiles(status.stdout)]);
 	}
 
-	private async runGt(args: string[], cwd: string, timeoutMs: number): Promise<SubmitCommandOutput> {
-		return toSubmitCommandOutput(await this.runner("gt", args, { cwd, timeoutMs }));
+	private async runGt(args: string[], cwd: string, timeoutMs: number, onOutput?: SubmitOutputListener): Promise<SubmitCommandOutput> {
+		return toSubmitCommandOutput(
+			await this.runner("gt", args, {
+				cwd,
+				timeoutMs,
+				...(onOutput === undefined
+					? {}
+					: {
+							onStdout: (text: string) => onOutput("stdout", text),
+							onStderr: (text: string) => onOutput("stderr", text),
+						}),
+			}),
+		);
 	}
 
 	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<SubmitCommandOutput> {
@@ -192,7 +212,8 @@ export class RealSubmitGateway implements SubmitGateway {
 }
 
 export async function runSubmitCommand(options: RunSubmitCommandOptions): Promise<SubmitCommandResult> {
-	const readiness = await options.gateway.checkSubmitReadiness({ cwd: options.cwd });
+	const commandParams = submitCommandParams(options);
+	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
 		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output));
 	}
@@ -201,7 +222,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 			return failure(1, formatRestackRequiredOutput(readiness.output));
 		}
 
-		const restack = await options.gateway.restackCurrentStack({ cwd: options.cwd });
+		const restack = await options.gateway.restackCurrentStack(commandParams);
 		if (restack.kind === "conflict") {
 			return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
 		}
@@ -210,12 +231,12 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		}
 	}
 
-	const submitted = await options.gateway.submitCurrentStack({ cwd: options.cwd });
+	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
 		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output));
 	}
 
-	const currentPr = await options.gateway.verifyCurrentPr({ cwd: options.cwd });
+	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
 	if (submitted.semanticFailureCause !== undefined || currentPr.kind !== "present") {
 		return failure(
 			1,
@@ -229,6 +250,13 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	const prLinks = mergePrLinks(submitted.prLinks, currentPr.prLinks);
 	const successText = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
+}
+
+function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">): SubmitCommandParams {
+	return {
+		cwd: options.cwd,
+		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
+	};
 }
 
 function toSubmitCommandOutput(result: RunnerCommandResult): SubmitCommandOutput {

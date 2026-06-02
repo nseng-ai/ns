@@ -13,6 +13,25 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("Graphite command output is streamed to the optional listener", async () => {
+		const runner = new ScriptedCommandRunner([step("gt", ["submit", "-nps", "--ai", "--dry-run"], "dry-run stdout\n", 0, "dry-run stderr\n")]);
+		const gateway = new RealSubmitGateway(runner.runner);
+		const outputEvents: Array<{ stream: string; text: string }> = [];
+
+		await gateway.checkSubmitReadiness({
+			cwd: "/repo",
+			onOutput: (stream, text) => {
+				outputEvents.push({ stream, text });
+			},
+		});
+
+		expect(outputEvents).toEqual([
+			{ stream: "stdout", text: "dry-run stdout\n" },
+			{ stream: "stderr", text: "dry-run stderr\n" },
+		]);
+		runner.assertDone();
+	});
+
 	test("checkSubmitReadiness maps restack-required dry-run output", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gt", ["submit", "-nps", "--ai", "--dry-run"], "", 1, "This stack must be restacked before submitting.\n"),

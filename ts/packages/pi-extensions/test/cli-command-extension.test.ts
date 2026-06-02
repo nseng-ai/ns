@@ -196,10 +196,10 @@ describe("cli command extension helper", () => {
 				"emit_output",
 			]);
 			expect(events.find((event) => event.event === "register")).toMatchObject({
-				bridgeMode: "notify-with-live-progress-no-custom-message",
+				bridgeMode: "notify-with-above-editor-live-stream-no-custom-message",
 				piNamespace: "dev",
 				sendMessageAvailable: true,
-				version: "live-progress-trace-v2",
+				version: "above-editor-live-stream-trace-v3",
 			});
 			expect(events.find((event) => event.event === "live_progress_start")).toMatchObject({
 				sendMessageCalled: false,
@@ -360,6 +360,7 @@ describe("cli command extension helper", () => {
 		await runStarted;
 
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
+		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
 		expect(statuses.at(-1)?.key).toBe("asdl-cli-command");
 		expect(statuses.at(-1)?.value).toContain("/dev:preview-url running CLI command");
 		expect(liveWidgetText).toContain("Running /dev:preview-url");
@@ -373,6 +374,44 @@ describe("cli command extension helper", () => {
 		expect(statuses.at(-1)).toEqual({ key: "asdl-cli-command", value: undefined });
 		expect(widgets.at(-1)).toEqual({ key: "asdl-cli-command-output", lines: undefined, placement: undefined });
 		expect(notifications).toEqual([{ message: "stdout:\nstarted\n\nstderr:\nfinished\n", level: "info" }]);
+	});
+
+	test("streams live CLI output separately from final captured output", async () => {
+		let markLiveOutputObserved: (() => void) | undefined;
+		const liveOutputObserved = new Promise<void>((resolve) => {
+			markLiveOutputObserved = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.onOutput?.("stdout", "live stdout\n");
+				deps.onOutput?.("stderr", "live stderr");
+				markLiveOutputObserved?.();
+				await runFinished;
+				deps.stdout("final stdout\n");
+				return 0;
+			},
+		});
+		const { ctx, notifications, widgets } = createContext();
+
+		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		await liveOutputObserved;
+
+		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
+		expect(liveWidgetText).toContain("stdout: live stdout");
+		expect(liveWidgetText).toContain("stderr: live stderr");
+		expect(liveWidgetText).not.toContain("final stdout");
+
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+
+		expect(notifications).toEqual([{ message: "final stdout\n", level: "info" }]);
+		expect(pi.sentMessages).toEqual([]);
 	});
 
 	test("parses shell-like whitespace quotes and escapes", () => {

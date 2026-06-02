@@ -7,7 +7,7 @@ import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, DEFAULT_TEXT_BACKEND, TEXT_BACKEND_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
-import { runSubmitCommand } from "./submit.ts";
+import { runSubmitCommand, type SubmitOutputListener } from "./submit.ts";
 
 export interface CliDeps {
 	context?: AsdlDevContext | undefined;
@@ -15,6 +15,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
+	onOutput?: SubmitOutputListener | undefined;
 }
 
 export interface AsdlDevCommandInfo {
@@ -84,6 +85,7 @@ interface RequiredCliDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
+	onOutput?: SubmitOutputListener;
 }
 
 const COMMANDS: CommandSpec[] = [
@@ -131,13 +133,17 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		return 2;
 	}
 
-	return command.run(args.slice(1), {
+	const commandDeps: RequiredCliDeps = {
 		context: deps.context ?? createRealAsdlDevContext(),
 		cwd: deps.cwd ?? process.cwd(),
 		stdout,
 		stderr,
 		env: deps.env ?? process.env,
-	});
+	};
+	if (deps.onOutput !== undefined) {
+		commandDeps.onOutput = deps.onOutput;
+	}
+	return command.run(args.slice(1), commandDeps);
 }
 
 async function runCheckpointCliCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
@@ -195,6 +201,7 @@ async function runSubmitCliCommand(args: readonly string[], deps: RequiredCliDep
 		cwd: deps.cwd,
 		gateway: deps.context.submit,
 		restack: parsed.options.restack,
+		...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
 	});
 	writeCommandResultOutput(result, deps);
 	return result.exitCode;

@@ -17,6 +17,8 @@ export interface CommandRunnerOptions {
 	cwd?: string;
 	timeoutMs?: number;
 	timeoutKillGraceMs?: number;
+	onStdout?: (text: string) => void;
+	onStderr?: (text: string) => void;
 }
 
 export type CommandRunner = (
@@ -105,9 +107,11 @@ export async function runCommand(
 		child.stderr?.setEncoding("utf8");
 		child.stdout?.on("data", (chunk: string) => {
 			stdout += chunk;
+			options.onStdout?.(chunk);
 		});
 		child.stderr?.on("data", (chunk: string) => {
 			stderr += chunk;
+			options.onStderr?.(chunk);
 		});
 
 		child.on("error", (error) => {

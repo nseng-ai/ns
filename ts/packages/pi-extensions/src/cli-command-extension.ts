@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
 
-const CLI_COMMAND_BRIDGE_VERSION = "live-progress-trace-v2";
+const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "ASDL_PI_CLI_TRACE";
 const TRACE_OUTPUT_ENV = "ASDL_PI_CLI_TRACE_OUTPUT";
 const TRACE_PATH_ENV = "ASDL_PI_CLI_TRACE_PATH";
@@ -32,6 +32,7 @@ export interface CliCommandRunDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
+	onOutput?: (stream: OutputStreamName, text: string) => void;
 }
 
 export interface CliCommandExtensionSpec {
@@ -91,7 +92,7 @@ export interface CliCommandOutputDetails {
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
 	assertValidCommandSpec(spec);
 	traceCliCommand("register", {
-		bridgeMode: "notify-with-live-progress-no-custom-message",
+		bridgeMode: "notify-with-above-editor-live-stream-no-custom-message",
 		cliName: spec.cliName,
 		commands: spec.commands.map((command) => command.name),
 		piNamespace: spec.piNamespace,
@@ -293,6 +294,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 
 	let stdout = "";
 	let stderr = "";
+	let liveOutputSeen = false;
 	let exitCode = 1;
 	const argv = [command.name, ...parsed.args];
 	const progress = new LiveCommandProgress(ctx, {
@@ -320,13 +322,21 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 				cwd: ctx.cwd,
 				stdout: (text) => {
 					stdout += text;
-					progress.appendOutput("stdout", text);
+					if (!liveOutputSeen) {
+						progress.appendOutput("stdout", text);
+					}
 				},
 				stderr: (text) => {
 					stderr += text;
-					progress.appendOutput("stderr", text);
+					if (!liveOutputSeen) {
+						progress.appendOutput("stderr", text);
+					}
 				},
 				env: { ...(spec.env ?? process.env) },
+				onOutput: (stream, text) => {
+					liveOutputSeen = true;
+					progress.appendOutput(stream, text);
+				},
 			});
 		} catch (error) {
 			const message = errorMessage(error);
@@ -525,7 +535,7 @@ class LiveCommandProgress {
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
 		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, `/${this.options.piCommandName} ${this.phase} (${elapsed})`);
-		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), { placement: "belowEditor" });
+		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), { placement: "aboveEditor" });
 	}
 
 	private widgetLines(elapsed: string): string[] {

@@ -2,12 +2,18 @@ import { describe, expect, test } from "bun:test";
 
 import { runCli } from "asdl-dev/src/cli.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
-import type { SubmitCommandOutput, SubmitPrLink } from "asdl-dev/src/submit.ts";
+import type { SubmitCommandOutput, SubmitOutputStream, SubmitPrLink } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
-function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: { cwd?: string } = {}) {
+type OutputEvent = {
+	stream: SubmitOutputStream;
+	text: string;
+};
+
+function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: { cwd?: string; captureOutput?: boolean } = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
+	const outputEvents: OutputEvent[] = [];
 	const fakes = inMemoryContext({
 		...state,
 		checkpoint: state.checkpoint ?? { snapshot: cleanPendingWorktreeSnapshot() },
@@ -16,6 +22,7 @@ function runWithFakes(args: readonly string[], state: InMemoryContextState = {},
 		...fakes,
 		stdout,
 		stderr,
+		outputEvents,
 		exit: runCli(args, {
 			context: fakes.context,
 			cwd: options.cwd ?? "/work",
@@ -26,6 +33,13 @@ function runWithFakes(args: readonly string[], state: InMemoryContextState = {},
 			stderr: (text) => {
 				stderr.push(text);
 			},
+			...(options.captureOutput === true
+				? {
+						onOutput(stream: SubmitOutputStream, text: string) {
+							outputEvents.push({ stream, text });
+						},
+					}
+				: {}),
 		}),
 	};
 }
@@ -73,6 +87,36 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
 		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
 		expect(run.textGeneration.generateTextCalls).toEqual([]);
+	});
+
+	test("streams Graphite stdout and stderr through the live output callback", async () => {
+		const run = runWithFakes(
+			["submit"],
+			{
+				submit: {
+					preflight: { kind: "ready", output: output("dry-run ok\n") },
+					submit: {
+						kind: "success",
+						output: output("Created https://github.com/acme/project/pull/456\n", "submit warning\n"),
+						prLinks: [prLink(456)],
+					},
+					currentPr: {
+						kind: "present",
+						output: output("https://github.com/acme/project/pull/456\n"),
+						prLinks: [prLink(456)],
+					},
+				},
+			},
+			{ captureOutput: true },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.outputEvents).toEqual([
+			{ stream: "stdout", text: "dry-run ok\n" },
+			{ stream: "stdout", text: "Created https://github.com/acme/project/pull/456\n" },
+			{ stream: "stderr", text: "submit warning\n" },
+			{ stream: "stdout", text: "https://github.com/acme/project/pull/456\n" },
+		]);
 	});
 
 	test("checkpoints outstanding worktree changes before Graphite submit", async () => {
