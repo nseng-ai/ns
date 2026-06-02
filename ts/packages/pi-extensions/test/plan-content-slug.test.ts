@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 import { buildPlanContentSlugPrompt, derivePlanContentSlug } from "../src/planned-branch/plan-content-slug.ts";
+import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
 import type { ExecResult } from "../src/command-runtime.ts";
 import type { ExecOptions, PlanCommandExecApi } from "../src/planned-branch/plan-persistence.ts";
 
@@ -70,28 +71,12 @@ describe("derivePlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
 			rawOutput: "add-docs-portal-site\n",
-			provider: "openai",
-			model: "gpt-5.4-nano",
+			provider: SLUG_MODEL_PROVIDER,
+			model: SLUG_MODEL_MODEL,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual([
-			"--provider",
-			"openai",
-			"--model",
-			"gpt-5.4-nano",
-			"--thinking",
-			"low",
-			"--no-session",
-			"--no-extensions",
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			"--no-tools",
-			"--mode",
-			"text",
-			"--print",
-		]);
+		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(buildSlugModelArgs("").slice(0, -1));
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
