@@ -24,7 +24,7 @@ import sys
 import time
 import webbrowser
 from functools import partial
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 # Files to exclude from output listings
@@ -32,32 +32,9 @@ METADATA_FILES = {"transcript.md", "user_notes.md", "metrics.json"}
 
 # Extensions we render as inline text
 TEXT_EXTENSIONS = {
-    ".txt",
-    ".md",
-    ".json",
-    ".csv",
-    ".py",
-    ".js",
-    ".ts",
-    ".tsx",
-    ".jsx",
-    ".yaml",
-    ".yml",
-    ".xml",
-    ".html",
-    ".css",
-    ".sh",
-    ".rb",
-    ".go",
-    ".rs",
-    ".java",
-    ".c",
-    ".cpp",
-    ".h",
-    ".hpp",
-    ".sql",
-    ".r",
-    ".toml",
+    ".txt", ".md", ".json", ".csv", ".py", ".js", ".ts", ".tsx", ".jsx",
+    ".yaml", ".yml", ".xml", ".html", ".css", ".sh", ".rb", ".go", ".rs",
+    ".java", ".c", ".cpp", ".h", ".hpp", ".sql", ".r", ".toml",
 }
 
 # Extensions we render as inline images
@@ -114,11 +91,11 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
     for candidate in [run_dir / "eval_metadata.json", run_dir.parent / "eval_metadata.json"]:
         if candidate.exists():
             try:
-                metadata = json.loads(candidate.read_text(encoding="utf-8"))
+                metadata = json.loads(candidate.read_text())
                 prompt = metadata.get("prompt", "")
                 eval_id = metadata.get("eval_id")
-            except (json.JSONDecodeError, OSError) as error:
-                print(f"Warning: failed to read {candidate}: {error}", file=sys.stderr)
+            except (json.JSONDecodeError, OSError):
+                pass
             if prompt:
                 break
 
@@ -127,12 +104,12 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
         for candidate in [run_dir / "transcript.md", run_dir / "outputs" / "transcript.md"]:
             if candidate.exists():
                 try:
-                    text = candidate.read_text(encoding="utf-8")
+                    text = candidate.read_text()
                     match = re.search(r"## Eval Prompt\n\n([\s\S]*?)(?=\n##|$)", text)
                     if match:
                         prompt = match.group(1).strip()
-                except OSError as error:
-                    print(f"Warning: failed to read {candidate}: {error}", file=sys.stderr)
+                except OSError:
+                    pass
                 if prompt:
                     break
 
@@ -154,9 +131,9 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
     for candidate in [run_dir / "grading.json", run_dir.parent / "grading.json"]:
         if candidate.exists():
             try:
-                grading = json.loads(candidate.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as error:
-                print(f"Warning: failed to read {candidate}: {error}", file=sys.stderr)
+                grading = json.loads(candidate.read_text())
+            except (json.JSONDecodeError, OSError):
+                pass
             if grading:
                 break
 
@@ -176,9 +153,8 @@ def embed_file(path: Path) -> dict:
 
     if ext in TEXT_EXTENSIONS:
         try:
-            content = path.read_text(encoding="utf-8", errors="replace")
-        except OSError as error:
-            print(f"Warning: failed to read {path}: {error}", file=sys.stderr)
+            content = path.read_text(errors="replace")
+        except OSError:
             content = "(Error reading file)"
         return {
             "name": path.name,
@@ -246,23 +222,14 @@ def load_previous_iteration(workspace: Path) -> dict[str, dict]:
     feedback_path = workspace / "feedback.json"
     if feedback_path.exists():
         try:
-            data = json.loads(feedback_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as error:
-            print(f"Warning: failed to read {feedback_path}: {error}", file=sys.stderr)
-        else:
-            reviews = data.get("reviews", []) if isinstance(data, dict) else []
-            for review in reviews:
-                if not isinstance(review, dict):
-                    print(
-                        f"Warning: malformed feedback entry in {feedback_path}: {review!r}",
-                        file=sys.stderr,
-                    )
-                    continue
-
-                run_id = review.get("run_id")
-                feedback = review.get("feedback", "")
-                if isinstance(run_id, str) and isinstance(feedback, str) and feedback.strip():
-                    feedback_map[run_id] = feedback
+            data = json.loads(feedback_path.read_text())
+            feedback_map = {
+                r["run_id"]: r["feedback"]
+                for r in data.get("reviews", [])
+                if r.get("feedback", "").strip()
+            }
+        except (json.JSONDecodeError, OSError, KeyError):
+            pass
 
     # Load runs (to get outputs)
     prev_runs = find_runs(workspace)
@@ -288,7 +255,7 @@ def generate_html(
 ) -> str:
     """Generate the complete standalone HTML page with embedded data."""
     template_path = Path(__file__).parent / "viewer.html"
-    template = template_path.read_text(encoding="utf-8")
+    template = template_path.read_text()
 
     # Build previous_feedback and previous_outputs maps for the template
     previous_feedback: dict[str, str] = {}
@@ -318,37 +285,25 @@ def generate_html(
 # HTTP server (stdlib only, zero dependencies)
 # ---------------------------------------------------------------------------
 
-
 def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
         result = subprocess.run(
             ["lsof", "-ti", f":{port}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
+            capture_output=True, text=True, timeout=5,
         )
         for pid_str in result.stdout.strip().split("\n"):
-            cleaned_pid = pid_str.strip()
-            if not cleaned_pid:
-                continue
-            if not cleaned_pid.isdigit():
-                print(f"Note: skipping unexpected pid value {cleaned_pid!r}", file=sys.stderr)
-                continue
-            try:
-                os.kill(int(cleaned_pid), signal.SIGTERM)
-            except ProcessLookupError:
-                print(
-                    f"Note: process {cleaned_pid} exited before it could be terminated",
-                    file=sys.stderr,
-                )
+            if pid_str.strip():
+                try:
+                    os.kill(int(pid_str.strip()), signal.SIGTERM)
+                except (ProcessLookupError, ValueError):
+                    pass
         if result.stdout.strip():
             time.sleep(0.5)
     except subprocess.TimeoutExpired:
-        print(f"Note: timed out while checking port {port}", file=sys.stderr)
+        pass
     except FileNotFoundError:
         print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
-
 
 class ReviewHandler(BaseHTTPRequestHandler):
     """Serves the review HTML and handles feedback saves.
@@ -381,12 +336,9 @@ class ReviewHandler(BaseHTTPRequestHandler):
             benchmark = None
             if self.benchmark_path and self.benchmark_path.exists():
                 try:
-                    benchmark = json.loads(self.benchmark_path.read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError) as error:
-                    print(
-                        f"Warning: failed to read {self.benchmark_path}: {error}",
-                        file=sys.stderr,
-                    )
+                    benchmark = json.loads(self.benchmark_path.read_text())
+                except (json.JSONDecodeError, OSError):
+                    pass
             html = generate_html(runs, self.skill_name, self.previous, benchmark)
             content = html.encode("utf-8")
             self.send_response(200)
@@ -414,14 +366,11 @@ class ReviewHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 if not isinstance(data, dict) or "reviews" not in data:
                     raise ValueError("Expected JSON object with 'reviews' key")
-                self.feedback_path.write_text(
-                    json.dumps(data, indent=2) + "\n",
-                    encoding="utf-8",
-                )
+                self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
                 resp = b'{"ok":true}'
                 self.send_response(200)
             except (json.JSONDecodeError, OSError, ValueError) as e:
-                resp = json.dumps({"error": str(e)}).encode("utf-8")
+                resp = json.dumps({"error": str(e)}).encode()
                 self.send_response(500)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp)))
@@ -441,31 +390,23 @@ def main() -> None:
     parser.add_argument("--port", "-p", type=int, default=3117, help="Server port (default: 3117)")
     parser.add_argument("--skill-name", "-n", type=str, default=None, help="Skill name for header")
     parser.add_argument(
-        "--previous-workspace",
-        type=Path,
-        default=None,
+        "--previous-workspace", type=Path, default=None,
         help="Path to previous iteration's workspace (shows old outputs and feedback as context)",
     )
     parser.add_argument(
-        "--benchmark",
-        type=Path,
-        default=None,
+        "--benchmark", type=Path, default=None,
         help="Path to benchmark.json to show in the Benchmark tab",
     )
     parser.add_argument(
-        "--static",
-        "-s",
-        type=Path,
-        default=None,
+        "--static", "-s", type=Path, default=None,
         help="Write standalone HTML to this path instead of starting a server",
     )
     args = parser.parse_args()
 
-    workspace = args.workspace
+    workspace = args.workspace.resolve()
     if not workspace.is_dir():
         print(f"Error: {workspace} is not a directory", file=sys.stderr)
         sys.exit(1)
-    workspace = workspace.resolve()
 
     runs = find_runs(workspace)
     if not runs:
@@ -477,25 +418,20 @@ def main() -> None:
 
     previous: dict[str, dict] = {}
     if args.previous_workspace:
-        previous_workspace = args.previous_workspace
-        if previous_workspace.exists():
-            previous_workspace = previous_workspace.resolve()
-        previous = load_previous_iteration(previous_workspace)
+        previous = load_previous_iteration(args.previous_workspace.resolve())
 
-    benchmark_path = args.benchmark
-    if benchmark_path and benchmark_path.exists():
-        benchmark_path = benchmark_path.resolve()
+    benchmark_path = args.benchmark.resolve() if args.benchmark else None
     benchmark = None
     if benchmark_path and benchmark_path.exists():
         try:
-            benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as error:
-            print(f"Warning: failed to read {benchmark_path}: {error}", file=sys.stderr)
+            benchmark = json.loads(benchmark_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
 
     if args.static:
         html = generate_html(runs, skill_name, previous, benchmark)
         args.static.parent.mkdir(parents=True, exist_ok=True)
-        args.static.write_text(html, encoding="utf-8")
+        args.static.write_text(html)
         print(f"\n  Static viewer written to: {args.static}\n")
         sys.exit(0)
 
@@ -511,8 +447,8 @@ def main() -> None:
         port = server.server_address[1]
 
     url = f"http://localhost:{port}"
-    print("\n  Eval Viewer")
-    print("  ─────────────────────────────────")
+    print(f"\n  Eval Viewer")
+    print(f"  ─────────────────────────────────")
     print(f"  URL:       {url}")
     print(f"  Workspace: {workspace}")
     print(f"  Feedback:  {feedback_path}")
@@ -520,7 +456,7 @@ def main() -> None:
         print(f"  Previous:  {args.previous_workspace} ({len(previous)} runs)")
     if benchmark_path:
         print(f"  Benchmark: {benchmark_path}")
-    print("\n  Press Ctrl+C to stop.\n")
+    print(f"\n  Press Ctrl+C to stop.\n")
 
     webbrowser.open(url)
 
