@@ -1,22 +1,15 @@
 import { readFile } from "node:fs/promises";
 
-import { formatCommand, formatOutputSection } from "../command-runtime.ts";
+import { formatOutputSection } from "../command-runtime.ts";
+import { deriveSlugWithModel, type SlugModelEvidence } from "../model-slug.ts";
 import { validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
 
-const PLAN_SLUG_PROVIDER = "openai";
-const PLAN_SLUG_MODEL = "gpt-5.4-nano";
-const SLUG_TIMEOUT_MS = 60_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_PLAN_SLUG_WORDS = 7;
 
 export const MAX_PLAN_CONTENT_CHARS = 32_000;
 
-export interface PlanContentSlugEvidence {
-	slug: string;
-	rawOutput: string;
-	provider: string;
-	model: string;
-}
+export type PlanContentSlugEvidence = SlugModelEvidence;
 
 export function normalizePlanContentSlugOutput(value: string): string | undefined {
 	const firstLine = firstNonEmptyModelOutputLine(value);
@@ -46,60 +39,19 @@ export async function derivePlanContentSlug(
 ): Promise<PlanContentSlugEvidence> {
 	const content = await readFile(input.filePath, "utf8");
 	const prompt = buildPlanContentSlugPrompt(content);
-	const args = [
-		"--provider",
-		PLAN_SLUG_PROVIDER,
-		"--model",
-		PLAN_SLUG_MODEL,
-		"--thinking",
-		"low",
-		"--no-session",
-		"--no-extensions",
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
-		"--no-tools",
-		"--mode",
-		"text",
-		"--print",
+	const result = await deriveSlugWithModel({
+		cwd: input.cwd,
 		prompt,
-	];
-	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<slug-prompt>"]);
-
-	let result: Awaited<ReturnType<PlanCommandExecApi["exec"]>>;
-	try {
-		result = await pi.exec("pi", args, execOptions(input.cwd, SLUG_TIMEOUT_MS, input.signal));
-	} catch (error) {
-		throw slugDerivationFailed([
-			"Pi slug model command failed before completion.",
-			`Command: ${displayCommand}`,
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
-		]);
+		...(input.signal === undefined ? {} : { signal: input.signal }),
+		slugKind: "planned-branch slug",
+		normalizeOutput: normalizePlanContentSlugOutput,
+		exec: (command, args, options) => pi.exec(command, args, options),
+	});
+	if (!result.ok) {
+		throw slugDerivationFailed(result.failure.lines);
 	}
 
-	if (result.code !== 0 || result.killed) {
-		const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-		throw slugDerivationFailed([
-			`Pi slug model command failed (${status}).`,
-			`Command: ${displayCommand}`,
-			formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-			formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-		]);
-	}
-
-	const rawOutput = result.stdout;
-	if (rawOutput.trim().length === 0) {
-		throw slugDerivationFailed(["Pi slug model returned empty output."]);
-	}
-
-	const slug = normalizePlanContentSlugOutput(rawOutput);
-	if (slug === undefined) {
-		throw slugDerivationFailed([
-			"Pi slug model output could not be normalized into a planned-branch slug.",
-			formatOutputSection("stdout", rawOutput, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-		]);
-	}
-
+	const { slug, rawOutput } = result.evidence;
 	const slugError = validatePlanSlug(slug);
 	if (slugError !== undefined) {
 		throw slugDerivationFailed([
@@ -110,7 +62,7 @@ export async function derivePlanContentSlug(
 		]);
 	}
 
-	return { slug, rawOutput, provider: PLAN_SLUG_PROVIDER, model: PLAN_SLUG_MODEL };
+	return result.evidence;
 }
 
 export function buildPlanContentSlugPrompt(content: string): string {
@@ -155,9 +107,3 @@ function slugDerivationFailed(lines: string[]): Error {
 	);
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): { cwd: string; timeout: number; signal?: AbortSignal } {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
-}

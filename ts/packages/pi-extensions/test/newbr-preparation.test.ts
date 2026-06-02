@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "../src/checkpoint-flow.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "../src/branch-slug.ts";
+import { buildSlugModelArgs } from "../src/model-slug.ts";
 import { prepareNewBranchPlan, type NewBranchPreparationInput } from "../src/newbr-preparation.ts";
 import type { PendingWorktreeSnapshot } from "../src/pending-worktree.ts";
 
@@ -108,11 +109,16 @@ function eventIndex(events: string[], prefix: string): number {
 	return events.findIndex((event) => event.startsWith(prefix));
 }
 
-function piPrompt(calls: ExecCall[]): string {
+function piCall(calls: ExecCall[]): ExecCall {
 	const call = calls.find((candidate) => candidate.command === "pi");
 	expect(call).toBeDefined();
-	expect(call?.args).toContain("--print");
-	return call?.args.at(-1) ?? "";
+	return call as ExecCall;
+}
+
+function piPrompt(calls: ExecCall[]): string {
+	const call = piCall(calls);
+	expect(call.args).toContain("--print");
+	return call.args.at(-1) ?? "";
 }
 
 describe("prepareNewBranchPlan", () => {
@@ -170,6 +176,7 @@ describe("prepareNewBranchPlan", () => {
 		expect(harness.readPaths).toEqual(["/repo/notes.txt"]);
 		expect(harness.statPaths).toEqual(["/repo/notes.txt"]);
 		const prompt = piPrompt(harness.calls);
+		expect(piCall(harness.calls).args).toEqual(buildSlugModelArgs(prompt));
 		expect(prompt).toContain("## git status --porcelain\nM src/app.ts\n?? notes.txt");
 		expect(prompt).toContain("## git diff HEAD\ndiff --git a/src/app.ts b/src/app.ts\n+updated app");
 		expect(prompt).toContain("## untracked file contents\n## notes.txt\nnew idea from untracked file");

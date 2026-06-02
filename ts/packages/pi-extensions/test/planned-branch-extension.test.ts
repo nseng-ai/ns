@@ -26,6 +26,7 @@ import registerPlannedBranchExtension, {
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
 import { buildPlanContentSlugPrompt } from "../src/planned-branch/plan-content-slug.ts";
+import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
 import type { ExecOptions } from "../src/planned-branch/plan-persistence.ts";
 
 const ROOT = "/repo";
@@ -156,24 +157,7 @@ function step(command: string, args: string[], result: Partial<ExecResult> = {})
 }
 
 function planSlugArgs(content: string): string[] {
-	return [
-		"--provider",
-		"openai",
-		"--model",
-		"gpt-5.4-nano",
-		"--thinking",
-		"low",
-		"--no-session",
-		"--no-extensions",
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
-		"--no-tools",
-		"--mode",
-		"text",
-		"--print",
-		buildPlanContentSlugPrompt(content),
-	];
+	return buildSlugModelArgs(buildPlanContentSlugPrompt(content));
 }
 
 function planSlugStep(content: string, slug: string = PLAN_SLUG, result: Partial<ExecResult> = { stdout: `${slug}\n` }): ScriptedExec {
@@ -185,7 +169,7 @@ function planSlugExecCall(content: string): { command: string; args: string[] } 
 }
 
 function contentSlugEvidence(slug: string = PLAN_SLUG): { slug: string; rawOutput: string; provider: string; model: string } {
-	return { slug, rawOutput: `${slug}\n`, provider: "openai", model: "gpt-5.4-nano" };
+	return { slug, rawOutput: `${slug}\n`, provider: SLUG_MODEL_PROVIDER, model: SLUG_MODEL_MODEL };
 }
 
 function savedPlanFileContent(fileName: string): string {
@@ -700,7 +684,7 @@ describe("formatCreatePlannedBranchPreview", () => {
 		expect(text).toContain("Path: /plans/gh--owner--repo/main/local-filename-plan.md");
 		expect(text).toContain("Saved-plan file stem: local-filename-plan");
 		expect(text).toContain(`Content-derived slug: ${PLAN_SLUG}`);
-		expect(text).toContain("Slug model: openai/gpt-5.4-nano");
+		expect(text).toContain(`Slug model: ${SLUG_MODEL_PROVIDER}/${SLUG_MODEL_MODEL}`);
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);

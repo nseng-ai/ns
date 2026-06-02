@@ -3,11 +3,8 @@ import { readFile as nodeReadFile, stat as nodeStat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength } from "./branch-slug.ts";
 import type { CommandResult } from "./checkpoint-flow.ts";
-import { formatPendingWorktreeCommandDetails, type PendingWorktreeSnapshot } from "./pending-worktree.ts";
-
-const GPT_NANO_PROVIDER = "openai";
-const GPT_NANO_MODEL = "gpt-5.4-nano";
-const SLUG_TIMEOUT_MS = 60_000;
+import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";
+import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
 const GIT_TIMEOUT_MS = 30_000;
 const MAX_DIFF_CHARS = 24_000;
 const MAX_UNTRACKED_FILES = 12;
@@ -149,43 +146,25 @@ async function generateSlugFromChanges(input: NewBranchPreparationInput, snapsho
 	input.setStatus("generating branch slug…");
 	try {
 		const prompt = buildSlugPrompt(snapshot);
-		const result = await input.exec(
-			"pi",
-			[
-				"--provider",
-				GPT_NANO_PROVIDER,
-				"--model",
-				GPT_NANO_MODEL,
-				"--thinking",
-				"low",
-				"--no-session",
-				"--no-extensions",
-				"--no-skills",
-				"--no-prompt-templates",
-				"--no-context-files",
-				"--no-tools",
-				"--mode",
-				"text",
-				"--print",
-				prompt,
-			],
-			input.cwd,
-			SLUG_TIMEOUT_MS,
-		);
+		const result = await deriveSlugWithModel({
+			cwd: input.cwd,
+			prompt,
+			slugKind: "branch slug",
+			normalizeOutput: sanitizeBranchName,
+			exec: (command, args, options) =>
+				input.exec(command, args, options.cwd ?? input.cwd, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
+		});
 
-		const modelSlug = result.code === 0 ? sanitizeBranchName(result.stdout) : undefined;
-		if (modelSlug) {
-			return { ok: true, baseSlug: modelSlug, source: "model" };
+		if (result.ok) {
+			return { ok: true, baseSlug: result.evidence.slug, source: "model" };
 		}
 
 		const fallbackSlug = fallbackSlugFromSnapshot(snapshot);
 		if (fallbackSlug) {
-			return result.code === 0
-				? { ok: true, baseSlug: fallbackSlug, source: "fallback" }
-				: { ok: true, baseSlug: fallbackSlug, source: "fallback", warning: { kind: "slug_model_failed", fallbackSlug } };
+			return { ok: true, baseSlug: fallbackSlug, source: "fallback", warning: { kind: "slug_model_failed", fallbackSlug } };
 		}
 
-		return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${formatCommandDetails(result)}` };
+		return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${formatSlugModelFailure(result.failure)}` };
 	} finally {
 		input.setStatus(undefined);
 	}
@@ -250,10 +229,6 @@ function truncate(text: string, maxChars: number): string {
 		return text;
 	}
 	return `${text.slice(0, maxChars)}\n...[truncated]`;
-}
-
-function formatCommandDetails(result: CommandResult): string {
-	return formatPendingWorktreeCommandDetails(result);
 }
 
 function errorMessage(error: unknown): string {
