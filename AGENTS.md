@@ -80,6 +80,15 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 - **Naming:** prefer noun-or-verb-phrase command names (`resolve-prompt`, `get-reviews`) — the `exec` namespace already implies the actor, so the verb does not need to.
 - **Canonical examples:** `packages/asdl-pr-address/src/asdl_pr_address/cli/pr_address/group.py`, `packages/roaster/src/roaster/cli/roaster/exec/group.py`, `packages/asdl-core/src/asdl_core/brmem/group.py`.
 
+### TypeScript Style
+
+When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`).
+
+- Load the skill before TypeScript work and read `.agents/skills/typescript-style/core-rules.md` before implementation.
+- Use `.agents/skills/typescript-style/idioms.md` for coding idioms and `.agents/skills/typescript-style/checklist.md` before declaring TypeScript work complete.
+- Load the relevant `.agents/skills/typescript-style/references/` document before designing TypeScript abstractions covered by the skill, including backend/provider boundaries, error handling, plugin/extension APIs, stateful workflow/context code, or TUI code.
+- Treat the skill as the default TypeScript authority while still honoring the skill's precedence rules for explicit project tooling, public API compatibility, and established local conventions.
+
 ### How to use skills
 
 - Discovery: Rely on installed skills and their `SKILL.md` frontmatter. Do not maintain a duplicate list in this file.
