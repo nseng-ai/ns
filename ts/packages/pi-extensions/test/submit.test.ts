@@ -26,6 +26,7 @@ const SUBMIT_ARGS = ["submit", "-nps", "--ai"];
 const DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"];
 const RESTACK_ARGS = ["restack", "--no-interactive"];
 const CURRENT_PR_ARGS = ["pr"];
+const GIT_WORKTREE_STATUS_ARGS = ["status", "--porcelain=v1"];
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"];
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"];
 
@@ -244,7 +245,7 @@ async function runSubmit(
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi();
-	const runner = new ScriptedSubmitRunner(script);
+	const runner = new ScriptedSubmitRunner(withDefaultCleanWorktreeChecks(script));
 	const dependencies = contextOptions.checkpoint ? { runner, checkpoint: contextOptions.checkpoint } : { runner };
 	submitExtensionWithDependencies(pi, dependencies);
 	const command = pi.commands.get("dev:submit");
@@ -329,6 +330,28 @@ function streaming(
 	};
 }
 
+function withDefaultCleanWorktreeChecks(script: ScriptedStep[]): ScriptedStep[] {
+	const expanded: ScriptedStep[] = [];
+	for (const step of script) {
+		if (step.kind === "buffered" && step.command === "gt" && sameArgs(step.args, DRY_RUN_ARGS)) {
+			expanded.push(buffered("git", GIT_WORKTREE_STATUS_ARGS));
+		}
+		expanded.push(step);
+	}
+	return expanded;
+}
+
+function withCleanWorktreeCheckCalls(calls: string[]): string[] {
+	const expanded: string[] = [];
+	for (const call of calls) {
+		if (call === "buffered gt submit -nps --ai --dry-run") {
+			expanded.push("buffered git status --porcelain=v1");
+		}
+		expanded.push(call);
+	}
+	return expanded;
+}
+
 function chunks(value: string | string[] | undefined): string[] {
 	if (value === undefined) return [];
 	return Array.isArray(value) ? value : [value];
@@ -401,15 +424,17 @@ describe("submit extension registration", () => {
 		runner.assertDone();
 		expect([...pi.commands.keys()]).toEqual(["dev:submit"]);
 		expect(pi.commands.has("submit")).toBe(false);
-		expect(pi.commands.get("dev:submit")?.description).toBe("Submit the current Graphite stack with gt submit -nps --ai");
+		expect(pi.commands.get("dev:submit")?.description).toBe(
+			"Submit the current Graphite stack with gt submit -nps --ai after a clean-worktree check",
+		);
 		expect(waitForIdleCalls()).toBe(1);
 		expect(widgets[0]).toEqual({ key: "submit-output", value: undefined, options: undefined });
 		expect(widgets.some((widget) => typeof widget.value === "function" && widget.options?.placement === "aboveEditor")).toBe(true);
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 	});
 });
 
@@ -424,14 +449,57 @@ describe("submit command scenarios", () => {
 		]);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(notifications).toHaveLength(1);
 		expect(notifications[0]?.level).toBe("info");
 		expect(stripTerminalEscapes(notifications[0]?.message ?? "")).toBe("gt submit succeeded: #123, #124");
+	});
+
+	test("dirty worktree stops before Graphite dry-run with checkpoint guidance", async () => {
+		const checkpoint = createCheckpointOperations();
+		const { runner, notifications, confirmations, widgets } = await runSubmit(
+			[
+				buffered("git", GIT_WORKTREE_STATUS_ARGS, {
+					stdout: " M ts/packages/pi-extensions/src/submit.ts\n?? notes.md\n",
+				}),
+			],
+			{ checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(callDisplays(runner.calls)).toEqual(["buffered git status --porcelain=v1"]);
+		expect(confirmations).toEqual([]);
+		expect(checkpoint.calls.load).toEqual([]);
+		expect(checkpoint.calls.commit).toEqual([]);
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("uncommitted changes");
+		expect(notifications[0]?.message).toContain("Run /dev:cp");
+		expect(notifications[0]?.message).toContain("Submission was not attempted");
+		const widgetText = arrayWidgetText(widgets);
+		expect(widgetText).toContain("$ git status --porcelain=v1");
+		expect(widgetText).toContain(" M ts/packages/pi-extensions/src/submit.ts");
+		expect(widgetText).toContain("?? notes.md");
+		expect(widgetText).not.toContain("$ gt submit");
+	});
+
+	test("git status failure stops before Graphite dry-run", async () => {
+		const { runner, notifications, widgets } = await runSubmit([
+			buffered("git", GIT_WORKTREE_STATUS_ARGS, { code: 128, stderr: "fatal: not a git repository\n" }),
+		]);
+
+		runner.assertDone();
+		expect(callDisplays(runner.calls)).toEqual(["buffered git status --porcelain=v1"]);
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("git status --porcelain=v1 failed with exit code 128");
+		expect(notifications[0]?.message).toContain("Submission was not attempted");
+		const widgetText = arrayWidgetText(widgets);
+		expect(widgetText).toContain("$ git status --porcelain=v1");
+		expect(widgetText).toContain("fatal: not a git repository");
+		expect(widgetText).not.toContain("$ gt submit");
 	});
 
 	test("dry-run failure without restack requirement stops before submit", async () => {
@@ -440,7 +508,7 @@ describe("submit command scenarios", () => {
 		]);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual(["buffered gt submit -nps --ai --dry-run"]);
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls(["buffered gt submit -nps --ai --dry-run"]));
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain("gt submit -nps --ai --dry-run failed with exit code 1");
 		const widgetText = arrayWidgetText(widgets);
@@ -456,7 +524,7 @@ describe("submit command scenarios", () => {
 		);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual(["buffered gt submit -nps --ai --dry-run"]);
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls(["buffered gt submit -nps --ai --dry-run"]));
 		expect(confirmations).toEqual([
 			{
 				title: "Restack required",
@@ -483,12 +551,12 @@ describe("submit command scenarios", () => {
 		);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"buffered gt restack --no-interactive",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(notifications.map((notification) => notification.message)).toContain("Restack succeeded; continuing submit…");
 		expect(stripTerminalEscapes(notifications.at(-1)?.message ?? "")).toBe("gt submit succeeded: #125");
 	});
@@ -505,12 +573,12 @@ describe("submit command scenarios", () => {
 		);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"buffered gt restack --no-interactive",
 			"buffered git diff --name-only --diff-filter=U",
 			"buffered git status --porcelain",
-		]);
+		]));
 		expect(notifications[0]?.level).toBe("error");
 		const widgetText = arrayWidgetText(widgets);
 		expect(widgetText).toContain("`gt restack` hit merge conflicts. Submission was not attempted.");
@@ -529,17 +597,17 @@ describe("submit command scenarios", () => {
 		]);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain("Graphite skipped submitting part of the stack because a branch is empty");
 		expect(arrayWidgetText(widgets)).toContain("$ gt pr (exit code 0)");
 	});
 
-	test("no PR with dirty worktree previews checkpoint, commits on confirmation, and retries once", async () => {
+	test("post-submit no-PR recovery previews checkpoint when recovery snapshot is dirty, commits on confirmation, and retries once", async () => {
 		const checkpoint = createCheckpointOperations();
 		const { runner, notifications, confirmations } = await runSubmit(
 			[
@@ -554,14 +622,14 @@ describe("submit command scenarios", () => {
 		);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(checkpoint.calls.load).toHaveLength(1);
 		expect(checkpoint.calls.prepare).toEqual([{ status: " M src/submit.ts\n", diff: "diff --git a/src/submit.ts b/src/submit.ts\n" }]);
 		expect(checkpoint.calls.commit).toEqual([CHECKPOINT_MESSAGE]);
@@ -576,7 +644,7 @@ describe("submit command scenarios", () => {
 		]);
 	});
 
-	test("no PR with dirty worktree does not commit or retry when user declines", async () => {
+	test("post-submit no-PR recovery does not commit or retry when user declines checkpoint", async () => {
 		const checkpoint = createCheckpointOperations();
 		const { runner, notifications, confirmations, widgets } = await runSubmit(
 			[
@@ -588,11 +656,11 @@ describe("submit command scenarios", () => {
 		);
 
 		runner.assertDone();
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(confirmations[0]?.message).toContain(CHECKPOINT_MESSAGE);
 		expect(checkpoint.calls.commit).toEqual([]);
 		expect(notifications).toEqual([
@@ -680,11 +748,11 @@ describe("submit command scenarios", () => {
 		runner.assertDone();
 		expect(checkpoint.calls.prepare).toHaveLength(1);
 		expect(checkpoint.calls.commit).toEqual([]);
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain("model unavailable");
 		expect(notifications[0]?.message).toContain("current branch still has no PR");
@@ -704,11 +772,11 @@ describe("submit command scenarios", () => {
 
 		runner.assertDone();
 		expect(checkpoint.calls.commit).toEqual([CHECKPOINT_MESSAGE]);
-		expect(callDisplays(runner.calls)).toEqual([
+		expect(callDisplays(runner.calls)).toEqual(withCleanWorktreeCheckCalls([
 			"buffered gt submit -nps --ai --dry-run",
 			"streaming gt submit -nps --ai",
 			"buffered gt pr",
-		]);
+		]));
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain("hook failed");
 		expect(notifications[0]?.message).toContain("current branch still has no PR");
