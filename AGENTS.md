@@ -33,15 +33,15 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 
 ### Code and Dev Skill Prefixes
 
-Use `code-` for skills whose primary domain is codebase/source-control management: worktree snapshots, checkpoints, branch/stack maintenance, and Graphite/GitHub workflows that manage code state. The matching Pi slash-command namespace is `/code:*`.
+Use `/code:*` as the Pi slash-command namespace for codebase/source-control management workflows: worktree snapshots, checkpoints, branch/stack maintenance, and Graphite/GitHub workflows that manage code state.
 
-`dev-` no longer means "codebase-related." Reserve `dev-` for skills or commands affiliated with the future `asdl-dev` namespace, or for existing explicitly excluded dev-prefixed workflows whose fate will be decided separately.
+Use `internal-code-*` for repo-private, unpublished code/source-control workflow skills. Skill visibility is controlled by frontmatter, not the prefix; internal/prototype skills must carry `metadata.internal: true`.
 
-Skill visibility is controlled by frontmatter, not the prefix. Internal/prototype skills should carry `metadata.internal: true` regardless of whether their name starts with `code-` or `dev-`.
+`dev-` no longer means "codebase-related." Do not introduce new `dev-*` skills for codebase/source-control work. Reserve `dev-` for skills or commands affiliated with the future `asdl-dev` namespace, or for existing explicitly excluded dev-prefixed workflows whose fate will be decided separately.
 
 ### GitHub Backend Interactions
 
-When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `dev-gh` skill (`.claude/skills/dev-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `asdl-core`.
+When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `internal-code-gh` skill (`.claude/skills/internal-code-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `asdl-core`.
 
 ### Branch Creation and PR Submission (Graphite)
 

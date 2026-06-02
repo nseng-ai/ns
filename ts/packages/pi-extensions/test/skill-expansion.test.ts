@@ -92,26 +92,34 @@ Do next work.
 	});
 
 	test("uses sourceInfo.baseDir when present", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("dev-just-fix", "/resolved/SKILL.md", "/source/base")]), "dev-just-fix", {
-			readTextFile: async () => "# Just Fix",
-		});
+		const expanded = await expandSkillBlock(
+			host([skillCommand("internal-code-just-fix", "/resolved/SKILL.md", "/source/base")]),
+			"internal-code-just-fix",
+			{
+				readTextFile: async () => "# Internal Code Just Fix",
+			},
+		);
 
 		expect(expanded?.baseDir).toBe("/source/base");
 		expect(expanded?.block).toContain("References are relative to /source/base.");
 	});
 
 	test("falls back to dirname(sourceInfo.path) when baseDir is absent", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("dev-just-fix", "/resolved/dev-just-fix/SKILL.md")]), "dev-just-fix", {
-			readTextFile: async () => "# Just Fix",
-		});
+		const expanded = await expandSkillBlock(
+			host([skillCommand("internal-code-just-fix", "/resolved/internal-code-just-fix/SKILL.md")]),
+			"internal-code-just-fix",
+			{
+				readTextFile: async () => "# Internal Code Just Fix",
+			},
+		);
 
-		expect(expanded?.baseDir).toBe("/resolved/dev-just-fix");
-		expect(expanded?.block).toContain("References are relative to /resolved/dev-just-fix.");
+		expect(expanded?.baseDir).toBe("/resolved/internal-code-just-fix");
+		expect(expanded?.block).toContain("References are relative to /resolved/internal-code-just-fix.");
 	});
 
 	test("propagates read errors", async () => {
 		await expect(
-			expandSkillBlock(host([skillCommand("dev-just-fix", "/missing/SKILL.md")]), "dev-just-fix", {
+			expandSkillBlock(host([skillCommand("internal-code-just-fix", "/missing/SKILL.md")]), "internal-code-just-fix", {
 				readTextFile: async () => {
 					throw new Error("cannot read skill");
 				},
@@ -120,11 +128,15 @@ Do next work.
 	});
 
 	test("trims Markdown without frontmatter", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("dev-just-fix", "/skills/dev-just-fix/SKILL.md")]), "dev-just-fix", {
-			readTextFile: async () => "\n\n# Dev Just Fix\n\nFix it.\n\n",
-		});
+		const expanded = await expandSkillBlock(
+			host([skillCommand("internal-code-just-fix", "/skills/internal-code-just-fix/SKILL.md")]),
+			"internal-code-just-fix",
+			{
+				readTextFile: async () => "\n\n# Internal Code Just Fix\n\nFix it.\n\n",
+			},
+		);
 
-		expect(expanded?.body).toBe("# Dev Just Fix\n\nFix it.");
+		expect(expanded?.body).toBe("# Internal Code Just Fix\n\nFix it.");
 	});
 
 	test("strips CRLF frontmatter", async () => {

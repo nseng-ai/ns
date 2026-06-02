@@ -14,23 +14,23 @@ class FakePi implements ExtensionAPI {
 }
 
 describe("asdl-dev Pi extension", () => {
-	test("exposes asdl-dev command metadata under the dev namespace", () => {
+	test("exposes only non-code asdl-dev command metadata under the dev namespace", () => {
 		const pi = new FakePi();
 
 		asdlDevExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["dev:preview-url", "dev:cp", "dev:submit"]);
+		expect([...pi.commands.keys()]).toEqual(["dev:preview-url"]);
 		expect(pi.commands.has("asdl-dev:preview-url")).toBe(false);
 		expect(pi.commands.has("asdl-dev:cp")).toBe(false);
 		expect(pi.commands.has("asdl-dev:submit")).toBe(false);
+		expect(pi.commands.has("dev:cp")).toBe(false);
+		expect(pi.commands.has("dev:submit")).toBe(false);
+		expect(pi.commands.has("code:cp")).toBe(false);
+		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.has("dev:latest-branch-deployment")).toBe(false);
 		expect(pi.commands.has("asdl-dev:latest-branch-deployment")).toBe(false);
 		expect(pi.commands.get("dev:preview-url")?.description).toBe(
 			"asdl-dev preview-url: Print the Vercel preview URL for a branch.",
-		);
-		expect(pi.commands.get("dev:cp")?.description).toBe("asdl-dev cp: Create a checkpoint commit for the current diff.");
-		expect(pi.commands.get("dev:submit")?.description).toBe(
-			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		);
 	});
 });

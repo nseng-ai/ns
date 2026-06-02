@@ -119,7 +119,7 @@ function createContext(): {
 
 function skillCommandInfo(skillPath: string, baseDir: string): SkillCommandInfo {
 	return {
-		name: "skill:dev-just-fix",
+		name: "skill:internal-code-just-fix",
 		source: "skill",
 		sourceInfo: { path: skillPath, baseDir },
 	};
@@ -133,17 +133,17 @@ async function loadJustFixExtension(): Promise<JustFixExtension> {
 }
 
 describe("just-fix extension", () => {
-	test("runs just and invokes dev-just-fix with the expanded skill block on failure", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "dev-just-fix-skill-"));
+	test("runs just and invokes internal-code-just-fix with the expanded skill block on failure", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "internal-code-just-fix-skill-"));
 		const skillPath = join(dir, "SKILL.md");
 		await writeFile(
 			skillPath,
 			`---
-name: dev-just-fix
+name: internal-code-just-fix
 hidden-frontmatter-token: do-not-include
 ---
 
-# Dev Just Fix
+# Internal Code Just Fix
 
 Repair the failed just run.
 `,
@@ -173,14 +173,14 @@ Repair the failed just run.
 			]);
 			expect(context.notifications).toContainEqual({ message: "Running `just`…", level: "info" });
 			expect(context.notifications).toContainEqual({
-				message: "`just` failed; invoking dev-just-fix.",
+				message: "`just` failed; invoking internal-code-just-fix.",
 				level: "warning",
 			});
 
 			const prompt = pi.sentUserMessages[0] ?? "";
-			expect(prompt).toContain(`<skill name="dev-just-fix" location="${skillPath}">`);
+			expect(prompt).toContain(`<skill name="internal-code-just-fix" location="${skillPath}">`);
 			expect(prompt).toContain(`References are relative to ${dir}.`);
-			expect(prompt).toContain("# Dev Just Fix\n\nRepair the failed just run.");
+			expect(prompt).toContain("# Internal Code Just Fix\n\nRepair the failed just run.");
 			expect(prompt).not.toContain("hidden-frontmatter-token");
 			expect(prompt).toContain("`just` has already been run in /repo and failed (exit code 1).");
 			expect(prompt).toContain("stdout:\nunit failed");

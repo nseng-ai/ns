@@ -2,7 +2,7 @@ import { expandSkillBlock, type SkillCommandInfo } from "../../ts/packages/pi-ex
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_OUTPUT_CHARS = 24_000;
-const SKILL_NAME = "dev-just-fix";
+const SKILL_NAME = "internal-code-just-fix";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -64,7 +64,7 @@ function buildFailurePrompt(skillBlock: string | undefined, result: ExecResult, 
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const justOutput = formatJustOutput(result);
 	const fallback =
-		"The dev-just-fix skill was not found among loaded Pi skills. Follow the repository's dev-just-fix workflow anyway.";
+		"The internal-code-just-fix skill was not found among loaded Pi skills. Follow the repository's internal-code-just-fix workflow anyway.";
 
 	return `${skillBlock ?? fallback}
 
@@ -104,7 +104,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 	const skill = await expandSkillBlock(pi, SKILL_NAME);
 	if (ctx.hasUI) {
 		ctx.ui.notify(
-			skill ? `\`just\` failed; invoking ${skill.name}.` : "`just` failed; dev-just-fix was not found.",
+			skill ? `\`just\` failed; invoking ${skill.name}.` : "`just` failed; internal-code-just-fix was not found.",
 			skill ? "warning" : "error",
 		);
 	}
@@ -114,7 +114,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 
 export default function justFixExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("just", {
-		description: "Run `just`; if it fails, invoke dev-just-fix.",
+		description: "Run `just`; if it fails, invoke internal-code-just-fix.",
 		handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx),
 	});
 }
