@@ -238,12 +238,55 @@ describe("grill_ask inline runtime boundary helpers", () => {
 		const bold = (text: string) => `**${text}**`;
 
 		const theme = grillAskRenderThemeFromValue({ fg, bg: "not callable", bold });
-		expect(theme.fg).toBe(fg);
+		expect(theme.fg?.("accent", "text")).toBe("accent:text");
 		expect(theme.bg).toBeUndefined();
-		expect(theme.bold).toBe(bold);
-		expect(grillAskRenderThemeFromValue({ fg, bg, bold }).bg).toBe(bg);
+		expect(theme.bold?.("text")).toBe("**text**");
+		expect(grillAskRenderThemeFromValue({ fg, bg, bold }).bg?.("selectedBg", "text")).toBe("selectedBg:text");
 		expect(grillAskRenderThemeFromValue(null)).toEqual({});
 		expect(grillAskRenderThemeFromValue([])).toEqual({});
+	});
+
+	test("preserves the receiver for Pi Theme-like methods", () => {
+		interface PiThemeLike {
+			fgColors: Map<string, string>;
+			bgColors: Map<string, string>;
+			emphasis: string;
+			fg(this: PiThemeLike, color: string, text: string): string;
+			bg(this: PiThemeLike, color: string, text: string): string;
+			bold(this: PiThemeLike, text: string): string;
+		}
+
+		const piTheme: PiThemeLike = {
+			fgColors: new Map([
+				["accent", "fg-accent"],
+				["dim", "fg-dim"],
+				["muted", "fg-muted"],
+				["text", "fg-text"],
+				["warning", "fg-warning"],
+			]),
+			bgColors: new Map([["selectedBg", "bg-selected"]]),
+			emphasis: "bold",
+			fg(color, text) {
+				return `${this.fgColors.get(color) ?? "fg-missing"}:${text}`;
+			},
+			bg(color, text) {
+				return `${this.bgColors.get(color) ?? "bg-missing"}:${text}`;
+			},
+			bold(text) {
+				return `${this.emphasis}:${text}`;
+			},
+		};
+
+		const theme = grillAskRenderThemeFromValue(piTheme);
+		expect(theme.fg?.("accent", "grill")).toBe("fg-accent:grill");
+		expect(theme.bg?.("selectedBg", "selected")).toBe("bg-selected:selected");
+		expect(theme.bold?.("question")).toBe("bold:question");
+
+		const input = normalizedInput();
+		const controller = new GrillAskController(input);
+		expect(() =>
+			renderGrillAskInlineUi(input, { mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex }, 72, theme),
+		).not.toThrow();
 	});
 });
 

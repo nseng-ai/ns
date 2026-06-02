@@ -58,9 +58,12 @@ export function grillAskRenderThemeFromValue(value: unknown): GrillAskRenderThem
 	if (!isRecord(value)) return {};
 
 	const theme: GrillAskRenderTheme = {};
-	if (isThemeColorFunction(value.fg)) theme.fg = value.fg;
-	if (isThemeColorFunction(value.bg)) theme.bg = value.bg;
-	if (isThemeTextFunction(value.bold)) theme.bold = value.bold;
+	const fg = value.fg;
+	const bg = value.bg;
+	const bold = value.bold;
+	if (isThemeColorFunction(fg)) theme.fg = fg.bind(value);
+	if (isThemeColorFunction(bg)) theme.bg = bg.bind(value);
+	if (isThemeTextFunction(bold)) theme.bold = bold.bind(value);
 	return theme;
 }
 
