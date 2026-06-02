@@ -4,11 +4,16 @@ import json
 from pathlib import Path
 
 import click
+import pytest
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
+from asdl_core.plugin import AsdlPluginSpec
+from asdl_handoff.cli import plugin as handoff_plugin
+from asdl_handoff.cli.handoff.context import HandoffCliContext
+from asdl_handoff.cli.handoff.group import build_handoff_group
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_slots.context import SlotsCliContext
@@ -16,6 +21,7 @@ from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
 from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
+from brmem.fake import FakeBranchMemoryGateway
 from roaster.context import RoasterCliContext
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
@@ -130,6 +136,77 @@ def test_aretro_is_not_mounted_as_parent_asdl_plugin() -> None:
     discover_plugins(parent, source=_entry_point_source(stale_ep))
 
     assert "aretro" not in parent.commands
+
+
+def test_handoff_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="handoff",
+        value="asdl_handoff.cli.plugin:build_handoff_plugin",
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "resume-tests.md", "feat/handoff", "resume tests")
+    ctx = HandoffCliContext(
+        brmem_gateway=gateway,
+        git_gateway=FakeGitGateway(),
+    )
+    obj = build_clinkr_context_object(lambda: ctx)
+
+    result = CliRunner().invoke(
+        parent,
+        ["handoff", "list", "--all-branches", "--format", "json"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["handoffs"] == [
+        {
+            "branch": "feat/handoff",
+            "slug": "resume-tests",
+            "key": "resume-tests.md",
+            "entry_locator": "refs/brmem/ns/handoffs/feat---handoff:resume-tests.md",
+        }
+    ]
+
+
+def test_discover_plugins_installs_context_on_root_for_json_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="handoff",
+        value="asdl_handoff.cli.plugin:build_handoff_plugin",
+    )
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "root-json.md", "feat/handoff", "root json")
+    ctx = HandoffCliContext(
+        brmem_gateway=gateway,
+        git_gateway=FakeGitGateway(),
+    )
+
+    monkeypatch.setattr(
+        handoff_plugin,
+        "build_handoff_plugin",
+        lambda: AsdlPluginSpec(
+            build_group=build_handoff_group,
+            context_factory=lambda: ctx,
+        ),
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    result = CliRunner().invoke(
+        parent,
+        ["handoff", "list", "--all-branches", "--format", "json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["handoffs"][0]["slug"] == "root-json"
 
 
 def test_pr_address_plugin_integration() -> None:

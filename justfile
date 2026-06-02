@@ -68,13 +68,14 @@ areg-check:
 refresh-skills:
     uv run areg update-skills
 
-# Install slot, brmem, and asdl-objectives as editable uv tools.
+# Install slot, brmem, handoff, and asdl-objectives as editable uv tools.
 # Note: slot ships from asdl-slots; brmem ships from packages/brmem.
 install-tools:
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
     uv tool install --force --editable {{justfile_directory()}}/packages/brmem
+    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-handoff
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
-    @echo "installed: slot, brmem"
+    @echo "installed: slot, brmem, handoff, objective"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
@@ -85,5 +86,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package brmem --package asdl-core --package asdl-dispatcher --package asdl-objectives --package asdl-pr-address --package aretro --package roaster --package asdl-slots --package vibechk
+    uv build --package asdl-tools --package brmem --package asdl-core --package asdl-dispatcher --package asdl-handoff --package asdl-objectives --package asdl-pr-address --package aretro --package roaster --package asdl-slots --package vibechk
     uv publish
