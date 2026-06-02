@@ -13,13 +13,22 @@ export type CommandResult = {
 	killed?: boolean;
 };
 
+export type CommandRunnerOptions = {
+	cwd?: string;
+	timeoutMs?: number;
+	timeoutKillGraceMs?: number;
+};
+
 export type CommandRunner = (
 	command: string,
 	args: readonly string[],
-	options?: { cwd?: string; timeoutMs?: number },
+	options?: CommandRunnerOptions,
 ) => Promise<CommandResult>;
 
 export type CommandResolver = (name: string) => string | undefined;
+
+const TIMEOUT_EXIT_CODE = 124;
+const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 
 export type CommandPrefix = {
 	command: string;
@@ -29,14 +38,15 @@ export type CommandPrefix = {
 export async function runCommand(
 	command: string,
 	args: readonly string[],
-	options: { cwd?: string; timeoutMs?: number } = {},
+	options: CommandRunnerOptions = {},
 ): Promise<CommandResult> {
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
 		let settled = false;
-		let killed = false;
-		let timeout: ReturnType<typeof setTimeout> | undefined;
+		let timedOut = false;
+		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+		let killTimer: ReturnType<typeof setTimeout> | undefined;
 
 		const spawnOptions: SpawnOptions = {
 			shell: false,
@@ -46,27 +56,49 @@ export async function runCommand(
 			spawnOptions.cwd = options.cwd;
 		}
 
+		const clearTimers = (): void => {
+			if (timeoutTimer !== undefined) {
+				clearTimeout(timeoutTimer);
+			}
+			if (killTimer !== undefined) {
+				clearTimeout(killTimer);
+			}
+		};
+
 		const finish = (result: Omit<CommandResult, "command" | "args" | "stdout" | "stderr">): void => {
 			if (settled) return;
 			settled = true;
-			if (timeout !== undefined) {
-				clearTimeout(timeout);
-			}
+			clearTimers();
+
+			const exitCode = timedOut && result.startupError === undefined ? TIMEOUT_EXIT_CODE : result.exitCode;
 			resolve({
 				command,
 				args: [...args],
 				stdout,
 				stderr,
 				...result,
-				...(killed ? { killed: true } : {}),
+				exitCode,
+				...(timedOut ? { killed: true } : {}),
 			});
 		};
 
 		const child = spawn(command, [...args], spawnOptions);
 		if (options.timeoutMs !== undefined && options.timeoutMs > 0) {
-			timeout = setTimeout(() => {
-				killed = true;
+			timeoutTimer = setTimeout(() => {
+				timedOut = true;
 				child.kill("SIGTERM");
+
+				const graceMs = options.timeoutKillGraceMs ?? DEFAULT_TIMEOUT_KILL_GRACE_MS;
+				if (graceMs <= 0) {
+					child.kill("SIGKILL");
+					return;
+				}
+
+				killTimer = setTimeout(() => {
+					if (!settled) {
+						child.kill("SIGKILL");
+					}
+				}, graceMs);
 			}, options.timeoutMs);
 		}
 		child.stdout?.setEncoding("utf8");
