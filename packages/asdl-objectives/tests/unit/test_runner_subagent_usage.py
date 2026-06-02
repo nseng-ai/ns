@@ -96,15 +96,15 @@ def test_deduplicates_models_preserving_first_seen_order_runner_subagent(tmp_pat
     session_file = tmp_path / "slice.jsonl"
     _write_jsonl(
         session_file,
-        _assistant_record(provider="openai", api="responses", model="gpt-5.5"),
-        _assistant_record(provider="openai", api="responses", model="gpt-5.5"),
+        _assistant_record(provider="provider-a", api="responses", model="model-a"),
+        _assistant_record(provider="provider-a", api="responses", model="model-a"),
         _assistant_record(provider="anthropic", api="messages", model="claude-sonnet"),
     )
 
     summary = summarize_runner_subagent_session_file(session_file)
 
     assert [(model.provider, model.api, model.model) for model in summary.models] == [
-        ("openai", "responses", "gpt-5.5"),
+        ("provider-a", "responses", "model-a"),
         ("anthropic", "messages", "claude-sonnet"),
     ]
 

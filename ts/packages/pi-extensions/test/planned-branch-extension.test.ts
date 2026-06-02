@@ -26,6 +26,7 @@ import registerPlannedBranchExtension, {
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
 import { buildPlanContentSlugPrompt } from "../src/planned-branch/plan-content-slug.ts";
+import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
 import type { ExecOptions } from "../src/planned-branch/plan-persistence.ts";
 
@@ -166,6 +167,14 @@ function planSlugStep(content: string, slug: string = PLAN_SLUG, result: Partial
 
 function planSlugExecCall(content: string): { command: string; args: string[] } {
 	return { command: "pi", args: planSlugArgs(content) };
+}
+
+function savedPlanSlugArgs(content: string): string[] {
+	return buildSlugModelArgs(buildSavedPlanContentSlugPrompt(content));
+}
+
+function savedPlanSlugStep(content: string, slug: string = PLAN_SLUG, result: Partial<ExecResult> = { stdout: `${slug}\n` }): ScriptedExec {
+	return step("pi", savedPlanSlugArgs(content), result);
 }
 
 function contentSlugEvidence(slug: string = PLAN_SLUG): { slug: string; rawOutput: string; provider: string; model: string } {
@@ -650,6 +659,10 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("Recommended saved plan sections");
 		expect(prompt).toContain("External/off-repo research context");
 		expect(prompt).toContain("Validation commands and expected results");
+		expect(prompt).toContain("do not generate or pass a slug");
+		expect(prompt).toContain("Codex-backed slug model");
+		expect(prompt).toContain('"content": "# Plan');
+		expect(prompt).not.toContain('"slug": "semantic-kebab-case-slug"');
 		expect(prompt).not.toContain("create_brmem_plan_branch_from_file");
 		expect(prompt).not.toContain("branchCreation");
 	});
@@ -1443,18 +1456,71 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");
+		expect(tool.description).toContain("Codex-backed slug model");
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
 		expect(tool.promptGuidelines?.join("\n")).toContain("/write-plan");
+		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
 		expect(tool.promptGuidelines?.join("\n")).not.toContain("create-brmem-plan-branch");
 		const contentParameter = parameters.properties?.content as { description?: string } | undefined;
 		expect(contentParameter?.description).toContain("self-contained");
 		expect(contentParameter?.description).toContain("external research");
-		expect(parameters.required).toEqual(["slug", "content"]);
+		expect(parameters.required).toEqual(["content"]);
 		expect(parameters.additionalProperties).toBe(false);
-		expect(Object.keys(parameters.properties ?? {})).toEqual(["slug", "content", "summary"]);
+		expect(Object.keys(parameters.properties ?? {})).toEqual(["content", "summary"]);
+	});
+
+	test("derives the saved-plan filename slug with the Codex slug model before writing", async () => {
+		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const sourceBranch = "planned-branches/add-widget";
+		const origin = "git@github.com:owner/repo.git";
+		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
+		const pi = new FakePi([
+			savedPlanSlugStep(content),
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep({ stdout: `${origin}\n` }),
+		]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const tool = registeredTool(pi, "write_source_branch_plan_file");
+
+		const result = await tool.execute(
+			"tool-call",
+			{ content, summary: "Plan the local plan store file." },
+			undefined,
+			undefined,
+			{ cwd: ROOT },
+		);
+
+		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const expectedPath = join(planStoreRoot, repoKey, branchKey, PLAN_KEY);
+
+		pi.assertDone();
+		expect(pi.execCalls[0]?.command).toBe("pi");
+		expect(pi.execCalls[0]?.args).toEqual(savedPlanSlugArgs(content));
+		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: ROOT, timeout: 60_000 });
+		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
+		expect(result.content[0]?.text).toContain(`Slug model: ${SLUG_MODEL_PROVIDER}/${SLUG_MODEL_MODEL}`);
+		expect(result.details).toMatchObject({
+			slug: PLAN_SLUG,
+			filePath: expectedPath,
+			slugEvidence: contentSlugEvidence(),
+		});
+		expect(await readFile(expectedPath, "utf8")).toBe(content);
+	});
+
+	test("rejects assistant-provided saved-plan slugs so /write-plan cannot bypass Codex slugging", async () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const tool = registeredTool(pi, "write_source_branch_plan_file");
+
+		await expect(
+			tool.execute("tool-call", { slug: PLAN_SLUG, content: DEFAULT_PLAN_CONTENT }, undefined, undefined, { cwd: ROOT }),
+		).rejects.toThrow("derives `slug` from content through Codex");
+		expect(pi.execCalls).toEqual([]);
 	});
 });
 

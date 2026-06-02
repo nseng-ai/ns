@@ -78,11 +78,11 @@ export function buildPlanContentSlugPrompt(content: string): string {
 		"- Do not use dates, random IDs, generic-only slugs, or the saved-plan filename.",
 		"",
 		"## Plan content",
-		truncatePlanContent(content.trim() || "(empty plan content)"),
+		truncatePlanContentForSlug(content.trim() || "(empty plan content)"),
 	].join("\n");
 }
 
-function truncatePlanContent(content: string): string {
+export function truncatePlanContentForSlug(content: string): string {
 	if (content.length <= MAX_PLAN_CONTENT_CHARS) {
 		return content;
 	}

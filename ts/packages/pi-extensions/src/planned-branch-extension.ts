@@ -8,6 +8,7 @@ import {
 	type LoadedAttachedPlan,
 } from "./planned-branch/attached-plan.ts";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
+import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
@@ -83,6 +84,15 @@ interface CustomMessage {
 interface ToolResult {
 	content: TextContent[];
 	details?: unknown;
+}
+
+interface WriteSourceBranchPlanFileToolParams {
+	content: string;
+	summary?: string;
+}
+
+interface WriteSourceBranchPlanFileToolDetails extends SourceBranchPlanFileEvidence {
+	slugEvidence: SavedPlanContentSlugEvidence;
 }
 
 type SessionHistoryEntry = unknown;
@@ -221,9 +231,9 @@ Recommended saved plan sections:
 Workflow:
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
 2. Produce a detailed Markdown implementation plan.
-3. Review the final Markdown plan content and choose a semantic kebab-case saved-plan filename slug from that final content.
-4. Call write_source_branch_plan_file with the saved-plan filename slug, full Markdown content, and optional one-sentence summary.
-5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, and summary when present.
+3. Review the final Markdown plan content for completeness.
+4. Call write_source_branch_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
+5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any plan-branch tool.
 
 Local plan store contract:
@@ -231,26 +241,21 @@ Local plan store contract:
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
-- Existing saved plan file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
+- Existing saved plan file: write_source_branch_plan_file refuses to overwrite it; do not manually choose a replacement slug.
 - Working-tree behavior: no checked-in plan file is created.
 
 Saved-plan filename slug rules:
-- The command did not provide a slug; you must generate the final saved-plan filename slug.
-- Use kebab-case.
-- Use 3–7 words.
-- Make it specific to the work described by the final plan.
-- Do not use dates or random IDs.
-- Do not use generic-only slugs such as plan, task, implementation-plan, or work-plan.
+- write_source_branch_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
+- Do not generate, guess, or pass a slug yourself.
+- The derived slug is kebab-case, 3–7 words, specific to the work described by the final plan, and rejects dates, random IDs, and generic-only slugs.
 
 When the plan is ready, call write_source_branch_plan_file with:
-- slug: the semantic saved-plan filename slug, without .md
 - content: the complete reviewed Markdown plan content
 - summary: optional one-sentence summary of the plan
 
 Exact tool call shape:
 \`\`\`json
 {
-  "slug": "semantic-kebab-case-slug",
   "content": "# Plan\\n...",
   "summary": "One-sentence summary of the plan."
 }
@@ -536,24 +541,21 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 		name: WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
 			"Use write_source_branch_plan_file for `/write-plan` after producing a reviewed final Markdown plan.",
+			"Do not generate or pass a saved-plan filename slug; write_source_branch_plan_file derives it from content through the Codex-backed slug model.",
 			"write_source_branch_plan_file writes the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
 			"write_source_branch_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_source_branch_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
-			"If write_source_branch_plan_file reports that the saved plan file already exists, choose a different semantic slug that still reflects the final plan content; never overwrite the existing file.",
+			"If write_source_branch_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",
 		],
 		parameters: {
 			type: "object",
 			additionalProperties: false,
 			properties: {
-				slug: {
-					type: "string",
-					description: "Semantic kebab-case slug without the .md suffix.",
-				},
 				content: {
 					type: "string",
 					description:
@@ -564,20 +566,67 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 					description: "Optional one-sentence summary of the plan.",
 				},
 			},
-			required: ["slug", "content"],
+			required: ["content"],
 		},
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const evidence = await writeSourceBranchPlanFilePrimitive(pi, params, {
+			const toolParams = parseWriteSourceBranchPlanFileToolParams(params);
+			const slugEvidence = await deriveSavedPlanContentSlug(pi, {
+				content: toolParams.content,
+				cwd: ctx.cwd,
+				...(signal === undefined ? {} : { signal }),
+			});
+			const evidence = await writeSourceBranchPlanFilePrimitive(pi, buildSourceBranchPlanFileParams(toolParams, slugEvidence.slug), {
 				cwd: ctx.cwd,
 				signal,
 				planStoreRoot: resolvePlanStoreRootOption(options),
 			});
+			const details: WriteSourceBranchPlanFileToolDetails = { ...evidence, slugEvidence };
 			return {
-				content: [{ type: "text", text: formatSourceBranchPlanFileEvidence(evidence) }],
-				details: evidence,
+				content: [{ type: "text", text: formatSourceBranchPlanFileEvidenceWithSlugModel(evidence, slugEvidence) }],
+				details,
 			};
 		},
 	};
+}
+
+function parseWriteSourceBranchPlanFileToolParams(params: unknown): WriteSourceBranchPlanFileToolParams {
+	if (!isRecord(params)) {
+		throw new Error("write_source_branch_plan_file parameters must be an object.");
+	}
+	if ("slug" in params) {
+		throw new Error("write_source_branch_plan_file derives `slug` from content through Codex; do not pass `slug`.");
+	}
+
+	const content = params.content;
+	const summary = params.summary;
+	if (typeof content !== "string") {
+		throw new Error("write_source_branch_plan_file requires string parameter `content`.");
+	}
+	if (summary !== undefined && typeof summary !== "string") {
+		throw new Error("write_source_branch_plan_file parameter `summary` must be a string when provided.");
+	}
+
+	if (summary === undefined) {
+		return { content };
+	}
+	return { content, summary };
+}
+
+function buildSourceBranchPlanFileParams(
+	params: WriteSourceBranchPlanFileToolParams,
+	slug: string,
+): { slug: string; content: string; summary?: string } {
+	if (params.summary === undefined) {
+		return { slug, content: params.content };
+	}
+	return { slug, content: params.content, summary: params.summary };
+}
+
+function formatSourceBranchPlanFileEvidenceWithSlugModel(
+	evidence: SourceBranchPlanFileEvidence,
+	slugEvidence: SavedPlanContentSlugEvidence,
+): string {
+	return `${formatSourceBranchPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
 
 type SelectedSavedPlanFile =

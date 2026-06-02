@@ -42,14 +42,14 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
-			modelRef: "openai/gpt-5.4-nano",
+			modelRef: "openai-codex/gpt-5.4-mini",
 			textGeneration,
 		});
 
 		expect(result).toEqual({ ok: true, message: validMessage, source: "model" });
 		expect(textGeneration.calls).toHaveLength(1);
 		expect(textGeneration.calls[0]).toMatchObject({
-			modelRef: "openai/gpt-5.4-nano",
+			modelRef: "openai-codex/gpt-5.4-mini",
 			operation: "checkpoint-message",
 			maxTokens: 512,
 			reasoning: "low",
@@ -66,7 +66,7 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
-			modelRef: "openai/gpt-5.4-nano",
+			modelRef: "openai-codex/gpt-5.4-mini",
 			textGeneration,
 		});
 
@@ -92,7 +92,7 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
-			modelRef: "openai/gpt-5.4-nano",
+			modelRef: "openai-codex/gpt-5.4-mini",
 			textGeneration,
 		});
 
@@ -110,7 +110,7 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
-			modelRef: "openai/gpt-5.4-nano",
+			modelRef: "openai-codex/gpt-5.4-mini",
 			textGeneration,
 		});
 
@@ -127,7 +127,7 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
-			modelRef: "openai/gpt-5.4-nano",
+			modelRef: "openai-codex/gpt-5.4-mini",
 			textGeneration,
 		});
 

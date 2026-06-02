@@ -133,7 +133,7 @@ describe("asdl-dev cp CLI behavior", () => {
 		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
 		expect(run.textGeneration.generateTextCalls).toEqual([
 			expect.objectContaining({
-				modelRef: "openai/gpt-5.4-nano",
+				modelRef: "openai-codex/gpt-5.4-mini",
 				operation: "checkpoint-message",
 				maxTokens: 512,
 				reasoning: "low",
@@ -154,11 +154,11 @@ describe("asdl-dev cp CLI behavior", () => {
 				textGeneration: { results: [{ ok: true, text: message }] },
 				checkpoint: { commit: { summary: "abc123 [cp] Update env model" } },
 			},
-			{ env: { ASDL_DEV_CHECKPOINT_MODEL: "openai/custom-nano" } },
+			{ env: { ASDL_DEV_CHECKPOINT_MODEL: "openai-codex/custom-mini" } },
 		);
 
 		expect(await run.exit).toBe(0);
-		expect(run.textGeneration.generateTextCalls[0]?.modelRef).toBe("openai/custom-nano");
+		expect(run.textGeneration.generateTextCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
 	});
 
