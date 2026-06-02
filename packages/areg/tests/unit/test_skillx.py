@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -27,6 +26,13 @@ def _two_skill_files(*names: str) -> dict[str, SkillFiles]:
         )
         for name in names
     }
+
+
+def _use_temp_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    tmp_root = tmp_path / "tmp-root"
+    tmp_root.mkdir()
+    monkeypatch.setattr("areg.skillx.tempfile.gettempdir", lambda: str(tmp_root))
+    return tmp_root
 
 
 # ---------------------------------------------------------------------------
@@ -278,35 +284,140 @@ def test_fetch_skill_skill_not_in_installed() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_cleanup_skill_dir_removes_valid() -> None:
-    tmp_dir = tempfile.mkdtemp(prefix="skillx.")
-    (Path(tmp_dir) / "test.txt").write_text("hello")
+def test_cleanup_skill_dir_removes_valid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_dir = _use_temp_root(tmp_path, monkeypatch) / "skillx.valid"
+    tmp_dir.mkdir()
+    (tmp_dir / "test.txt").write_text("hello", encoding="utf-8")
 
-    result = cleanup_skill_dir(tmp_dir)
+    result = cleanup_skill_dir(str(tmp_dir))
 
     assert result.success is True
-    assert result.removed == tmp_dir
-    assert not Path(tmp_dir).exists()
+    assert result.removed == str(tmp_dir)
+    assert not tmp_dir.exists()
 
 
-def test_cleanup_skill_dir_refuses_non_tmp_path() -> None:
-    result = cleanup_skill_dir("/usr/local/bin")
+def test_cleanup_skill_dir_refuses_non_tmp_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = _use_temp_root(tmp_path, monkeypatch)
+    outside = tmp_path / "skillx.outside"
+    outside.mkdir()
+
+    result = cleanup_skill_dir(str(outside))
+
     assert result.success is False
-    assert "Refusing to remove" in result.error
+    assert "outside" in result.error
+    assert outside.exists()
+    assert tmp_root.exists()
 
 
-def test_cleanup_skill_dir_refuses_wrong_prefix() -> None:
-    tmp_dir = tempfile.mkdtemp(prefix="notskillx.")
-    try:
-        result = cleanup_skill_dir(tmp_dir)
-        assert result.success is False
-        assert "skillx." in result.error
-    finally:
-        Path(tmp_dir).exists() and __import__("shutil").rmtree(tmp_dir)
+def test_cleanup_skill_dir_refuses_traversal_escape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = _use_temp_root(tmp_path, monkeypatch)
+    outside = tmp_path / "skillx.traversal"
+    outside.mkdir()
+    traversal_path = tmp_root / ".." / outside.name
+
+    result = cleanup_skill_dir(str(traversal_path))
+
+    assert result.success is False
+    assert "outside" in result.error
+    assert outside.exists()
 
 
-def test_cleanup_skill_dir_handles_nonexistent() -> None:
-    tmp_root = tempfile.gettempdir()
-    result = cleanup_skill_dir(f"{tmp_root}/skillx.nonexistent")
+def test_cleanup_skill_dir_refuses_wrong_prefix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_dir = _use_temp_root(tmp_path, monkeypatch) / "notskillx.valid"
+    tmp_dir.mkdir()
+
+    result = cleanup_skill_dir(str(tmp_dir))
+
+    assert result.success is False
+    assert "skillx." in result.error
+    assert tmp_dir.exists()
+
+
+def test_cleanup_skill_dir_handles_nonexistent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = _use_temp_root(tmp_path, monkeypatch)
+
+    result = cleanup_skill_dir(str(tmp_root / "skillx.nonexistent"))
+
     assert result.success is False
     assert "does not exist" in result.error
+
+
+def test_cleanup_skill_dir_refuses_non_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = _use_temp_root(tmp_path, monkeypatch) / "skillx.file"
+    path.write_text("not a directory\n", encoding="utf-8")
+
+    result = cleanup_skill_dir(str(path))
+
+    assert result.success is False
+    assert "not a directory" in result.error
+    assert path.is_file()
+
+
+def test_cleanup_skill_dir_refuses_symlink_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = _use_temp_root(tmp_path, monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = tmp_root / "skillx.link"
+    link.symlink_to(outside, target_is_directory=True)
+
+    result = cleanup_skill_dir(str(link))
+
+    assert result.success is False
+    assert "symlink" in result.error
+    assert link.is_symlink()
+    assert outside.exists()
+
+
+def test_cleanup_skill_dir_refuses_parent_symlink_escape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = _use_temp_root(tmp_path, monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "skillx.escape"
+    target.mkdir()
+    link = tmp_root / "link-out"
+    link.symlink_to(outside, target_is_directory=True)
+
+    result = cleanup_skill_dir(str(link / "skillx.escape"))
+
+    assert result.success is False
+    assert "outside" in result.error
+    assert target.exists()
+
+
+def test_cleanup_skill_dir_refuses_broken_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = _use_temp_root(tmp_path, monkeypatch)
+    link = tmp_root / "skillx.broken"
+    link.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+
+    result = cleanup_skill_dir(str(link))
+
+    assert result.success is False
+    assert "symlink" in result.error
+    assert link.is_symlink()

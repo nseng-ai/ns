@@ -4,8 +4,8 @@
 
 - [x] Rework `areg init` into a safer preflight/planning/apply flow, including explicit behavior for existing `areg.json`, malformed managed blocks, prompts, and partial-failure prevention.
       Evidence: scenario tests cover successful initialization, prompts and `--yes`/`--no-append`, malformed managed marker variants before install, invalid/non-object and existing `areg.json` semantics, path-shape preflight failures before install, and `npx skills add` failure preserving planned local files. Targeted areg tests and full `just` passed locally.
-- [ ] Harden destructive and path-sensitive filesystem operations with canonical path validation and symlink policy for managed writes, `.claude` settings, and `skillx cleanup`.
-      Evidence: tests cover traversal, symlink escape, non-directory, missing, and happy-path cleanup/write cases.
+- [x] Harden destructive and path-sensitive filesystem operations with canonical path validation and symlink policy for managed writes, `.claude` settings, and `skillx cleanup`.
+      Evidence: `skillx cleanup` tests cover valid removal plus traversal/canonical escape, parent-symlink escape, target symlink, broken symlink, non-directory, missing, wrong-prefix, and outside-temp-root refusals; CLI scenario coverage verifies JSON failure output. `areg init` scenario tests cover symlink rejection before install for `areg.json`, `AGENTS.md`, `CLAUDE.md`, `.claude`, `.claude/settings.local.json`, and a broken managed symlink. Targeted areg tests, all areg tests, and full `just` passed locally.
 - [ ] Clean up areg's external boundary model so host-tool checks, Git root discovery, `gh`, `npx skills`, and project skill state have coherent injectable ownership.
       Evidence: scenario tests avoid patching unrelated global process state except at real-gateway sanity boundaries.
 - [ ] Make lockfile handling explicitly typed and user-facing, including malformed JSON shape errors and stricter skill lock consistency validation.

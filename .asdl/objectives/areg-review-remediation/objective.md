@@ -40,12 +40,13 @@ Assumptions:
 - The intended remediation bar is structural/code-judo cleanup, not a checklist of narrow local patches.
 - The current branch can absorb these fixes without reopening the entire nonslop-to-areg migration strategy.
 - For `areg init` first-row safety, predictable local validation failures and `npx skills add` failures are sufficient evidence; rollback for arbitrary post-install OS write failures remains outside this row unless a later storage abstraction targets it.
+- For the path-sensitive filesystem hardening row, predictable symlink/canonical preflight checks are sufficient evidence; race-free file-descriptor-based deletion or transactional filesystem mutation remains outside this row unless a later storage abstraction targets it.
 
 Risks:
 
 - The gateway/fake cleanup may reveal a missing domain abstraction, especially around installed skill trees versus project filesystem state, and could grow beyond a small patch.
 - The `areg init` config-semantics risk is de-risked for the first row: unknown `areg.json` keys are preserved and the `agents` value is replaced with the requested agents; prompt/force variants remain out of scope unless fresh review evidence requires them.
-- Symlink/path hardening can become either too permissive to be safe or too strict for real repos with legitimate symlinked config directories.
+- The symlink/path hardening risk is de-risked for this row with a conservative policy: managed `areg init` prose/config paths reject symlinks before install, and `skillx cleanup` validates the resolved target under the resolved temp root before deletion. The accepted tradeoff is that intentionally symlinked managed config paths such as `.claude` are rejected rather than followed.
 - Tightening lockfile validation may expose existing repository lockfile debt, including `PENDING_REGEN` placeholders, that must be resolved before CI can enforce the stronger rule.
 
 ## Open Questions

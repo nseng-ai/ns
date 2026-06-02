@@ -4,6 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from areg.cli import main
@@ -118,6 +119,32 @@ def test_skillx_cleanup_failure_exit_code() -> None:
         obj=_ctx(),
     )
     assert result.exit_code != 0
+
+
+def test_skillx_cleanup_symlink_failure_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_root = tmp_path / "tmp-root"
+    outside = tmp_path / "outside"
+    tmp_root.mkdir()
+    outside.mkdir()
+    link = tmp_root / "skillx.link"
+    link.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr("areg.skillx.tempfile.gettempdir", lambda: str(tmp_root))
+
+    result = CliRunner().invoke(
+        main,
+        ["exec", "skillx", "cleanup", "--dir", str(link)],
+        obj=_ctx(),
+    )
+
+    assert result.exit_code != 0
+    data = json.loads(result.output)
+    assert data["success"] is False
+    assert "symlink" in data["error"]
+    assert link.is_symlink()
+    assert outside.exists()
 
 
 # ---------------------------------------------------------------------------

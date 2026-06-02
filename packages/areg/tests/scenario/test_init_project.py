@@ -51,13 +51,22 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _outside_path(tmp_path: Path, name: str) -> Path:
+    return tmp_path.parent / f"{tmp_path.name}-{name}"
+
+
 def _assert_init_error_before_install(
     tmp_path: Path,
     *,
     fake_npx: FakeNpxSkills,
     expected_output: str,
+    extra_args: tuple[str, ...] = (),
 ) -> None:
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), *extra_args],
+        obj=_ctx(npx=fake_npx),
+    )
 
     assert result.exit_code != 0
     assert expected_output in result.output
@@ -242,6 +251,120 @@ def test_init_claude_settings_directory_errors_before_install(tmp_path: Path) ->
         fake_npx=fake_npx,
         expected_output="exists but is not a file",
     )
+
+
+def test_init_areg_json_symlink_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = _outside_path(tmp_path, "outside-areg.json")
+    original = '{"agents": ["outside"], "kept": true}\n'
+    outside.write_text(original, encoding="utf-8")
+    (tmp_path / "areg.json").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="is a symlink",
+        extra_args=("--yes",),
+    )
+
+    assert outside.read_text(encoding="utf-8") == original
+    assert (tmp_path / "areg.json").is_symlink()
+
+
+def test_init_agents_md_symlink_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = _outside_path(tmp_path, "outside-agents.md")
+    original = "outside agents\n"
+    outside.write_text(original, encoding="utf-8")
+    (tmp_path / "AGENTS.md").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="is a symlink",
+        extra_args=("--yes",),
+    )
+
+    assert outside.read_text(encoding="utf-8") == original
+    assert (tmp_path / "AGENTS.md").is_symlink()
+
+
+def test_init_claude_md_symlink_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = _outside_path(tmp_path, "outside-claude.md")
+    original = "outside claude\n"
+    outside.write_text(original, encoding="utf-8")
+    (tmp_path / "CLAUDE.md").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="is a symlink",
+        extra_args=("--yes",),
+    )
+
+    assert outside.read_text(encoding="utf-8") == original
+    assert (tmp_path / "CLAUDE.md").is_symlink()
+
+
+def test_init_claude_dir_symlink_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = _outside_path(tmp_path, "outside-claude-dir")
+    outside.mkdir()
+    (tmp_path / ".claude").symlink_to(outside, target_is_directory=True)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="is a symlink",
+        extra_args=("--yes",),
+    )
+
+    assert outside.exists()
+    assert (tmp_path / ".claude").is_symlink()
+    assert not (outside / "settings.local.json").exists()
+
+
+def test_init_claude_settings_symlink_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    settings = tmp_path / ".claude" / "settings.local.json"
+    settings.parent.mkdir()
+    outside = _outside_path(tmp_path, "outside-settings.json")
+    original = '{"outside": true}\n'
+    outside.write_text(original, encoding="utf-8")
+    settings.symlink_to(outside)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="is a symlink",
+        extra_args=("--yes",),
+    )
+
+    assert outside.read_text(encoding="utf-8") == original
+    assert settings.is_symlink()
+
+
+def test_init_broken_managed_symlink_errors_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    missing = _outside_path(tmp_path, "missing-agents.md")
+    (tmp_path / "AGENTS.md").symlink_to(missing)
+    fake_npx = _default_npx()
+
+    _assert_init_error_before_install(
+        tmp_path,
+        fake_npx=fake_npx,
+        expected_output="is a symlink",
+        extra_args=("--yes",),
+    )
+
+    assert (tmp_path / "AGENTS.md").is_symlink()
+    assert not missing.exists()
 
 
 def test_init_existing_agents_md_prompt_no_leaves_file_unchanged(tmp_path: Path) -> None:

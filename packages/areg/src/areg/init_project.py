@@ -119,6 +119,14 @@ def _require_git_root(target_dir: Path) -> None:
         )
 
 
+def _raise_if_symlink(path: Path, *, description: str) -> None:
+    if path.is_symlink():
+        raise click.ClickException(
+            f"{description} at {path} is a symlink. Replace it with a real file or directory "
+            "before running areg init."
+        )
+
+
 def _write_text(path: Path, content: str, description: str) -> None:
     try:
         path.write_text(content, encoding="utf-8")
@@ -192,6 +200,7 @@ def _plan_managed_block(
     append_prompt: str,
     update_prompt: str,
 ) -> TextFilePlan:
+    _raise_if_symlink(path, description=path.name)
     if not path.exists():
         return TextWritePlan(path=path, content=new_file_content, description=path.name)
 
@@ -294,6 +303,7 @@ def _plan_claude_md(
     no_append: bool,
 ) -> TextFilePlan:
     path = project_dir / "CLAUDE.md"
+    _raise_if_symlink(path, description="CLAUDE.md")
     include_agents_ref = True
     if path.exists():
         if not path.is_file():
@@ -323,6 +333,7 @@ def _plan_claude_md(
 
 def _plan_areg_json(project_dir: Path, *, agents: tuple[str, ...]) -> TextWritePlan:
     path = project_dir / "areg.json"
+    _raise_if_symlink(path, description="areg.json")
     data: dict[str, object] = {}
 
     if path.exists():
@@ -349,10 +360,12 @@ def _plan_areg_json(project_dir: Path, *, agents: tuple[str, ...]) -> TextWriteP
 
 def _plan_settings(project_dir: Path) -> TextFilePlan:
     claude_dir = project_dir / ".claude"
+    _raise_if_symlink(claude_dir, description=".claude")
     if claude_dir.exists() and not claude_dir.is_dir():
         raise click.ClickException(f"{claude_dir} exists but is not a directory.")
 
     settings_path = claude_dir / "settings.local.json"
+    _raise_if_symlink(settings_path, description=".claude/settings.local.json")
     if settings_path.exists():
         if not settings_path.is_file():
             raise click.ClickException(f"{settings_path} exists but is not a file.")
