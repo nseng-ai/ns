@@ -17,11 +17,11 @@ export interface PiModelRegistry {
 	getApiKeyAndHeaders(model: PiAi.Model<PiAi.Api>): Promise<ModelAuth>;
 }
 
-export type PiTextGenerationGatewayOptions = {
+export interface PiTextGenerationGatewayOptions {
 	modelRegistry?: PiModelRegistry;
 	completeSimple?: CompleteSimpleFunction;
 	loadDefaultModelRegistry?: () => Promise<PiModelRegistry>;
-};
+}
 
 export class PiTextGenerationGateway implements TextGenerationGateway {
 	private readonly modelRegistry: PiModelRegistry | undefined;
