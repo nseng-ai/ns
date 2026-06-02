@@ -261,6 +261,33 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             return None
         return result.stdout
 
+    def get_entry_updated_at(self, namespace: str, key: str, branch: str) -> str | None:
+        validate_namespace(namespace)
+        validate_key(key)
+        self._check_branch_ref_format(branch)
+        snapshot_ref = snapshot_ref_name(namespace, branch)
+
+        existence = _run(
+            ["git", "cat-file", "-e", f"{snapshot_ref}:{key}"],
+            cwd=self._cwd,
+            check=False,
+        )
+        if existence.returncode != 0:
+            return None
+
+        result = _run(
+            ["git", "log", "-1", "--format=%cI", snapshot_ref, "--", key],
+            cwd=self._cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+
+        updated_at = result.stdout.strip()
+        if updated_at == "":
+            return None
+        return updated_at
+
     def delete(
         self,
         namespace: str,

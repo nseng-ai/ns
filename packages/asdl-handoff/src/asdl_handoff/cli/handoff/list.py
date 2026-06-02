@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from itertools import groupby
-from typing import Literal
+from typing import Annotated, Literal
 
 import click
 
@@ -12,25 +11,29 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.console import get_console, make_table
+from asdl_core.format import format_relative_time
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_handoff.cli.handoff.context import HandoffCliContext
-from brmem.key_validation import check_key
-from brmem.ref_layout import EntryRef, check_branch_name
-
-HANDOFF_NAMESPACE = "handoffs"
-_HANDOFF_KEY_SUFFIX = ".md"
+from asdl_handoff.cli.handoff.inventory import (
+    HANDOFF_NAMESPACE,
+    HandoffSummary,
+    collect_handoff_summaries,
+)
+from brmem.ref_layout import check_branch_name
 
 
 class ListHandoffsRequest(ClinkrModel):
     branch: str | None = None
-    all_branches: bool = False
-
-
-class HandoffSummary(ClinkrModel):
-    branch: str
-    slug: str
-    key: str
-    entry_locator: str
+    all_branches: Annotated[
+        bool,
+        click.Option(
+            ["--all"],
+            is_flag=True,
+            default=False,
+            help="List handoffs across every branch.",
+        ),
+    ] = False
 
 
 class ListHandoffsResult(ClinkrModel):
@@ -50,29 +53,54 @@ def render_list_handoffs(result: ListHandoffsResult) -> None:
     if result.scope == "all-branches":
         click.echo("Handoffs across branches")
         click.echo()
-        for group_index, (branch, handoffs) in enumerate(
-            groupby(result.handoffs, key=lambda handoff: handoff.branch)
-        ):
-            if group_index > 0:
-                click.echo()
-            click.echo(branch)
-            for handoff in handoffs:
-                click.echo(f"  - {handoff.slug}")
+        _render_all_branches_human_table(result.handoffs)
         return
 
     click.echo(f"Handoffs on {result.branch}")
     click.echo()
+    _render_branch_human_table(result.handoffs)
+
+
+def render_list_handoffs_markdown(result: ListHandoffsResult) -> None:
+    if not result.handoffs:
+        if result.scope == "all-branches":
+            click.echo("No saved handoffs found across branches.")
+            return
+        click.echo(f"No saved handoffs found on branch {result.branch}.")
+        return
+
+    if result.scope == "all-branches":
+        click.echo("Handoffs across branches")
+        click.echo()
+        click.echo("| branch | state | handoff | updated |")
+        click.echo("| --- | --- | --- | --- |")
+        for handoff in result.handoffs:
+            click.echo(
+                f"| {_markdown_table_cell(handoff.branch)} "
+                f"| {_markdown_table_cell(handoff.branch_state)} "
+                f"| {_markdown_table_cell(handoff.slug)} "
+                f"| {_markdown_table_cell(handoff.updated_at)} |"
+            )
+        return
+
+    click.echo(f"Handoffs on {result.branch}")
+    click.echo()
+    click.echo("| handoff | updated |")
+    click.echo("| --- | --- |")
     for handoff in result.handoffs:
-        click.echo(f"  - {handoff.slug}")
+        click.echo(
+            f"| {_markdown_table_cell(handoff.slug)} | {_markdown_table_cell(handoff.updated_at)} |"
+        )
 
 
 @clinkr_operation(
     name="list",
     help=(
         "List saved handoffs. Defaults to the current branch; pass --branch to override "
-        "or --all-branches to include every branch."
+        "or --all to include every branch."
     ),
     human_renderer=render_list_handoffs,
+    markdown_renderer=render_list_handoffs_markdown,
 )
 def run_list_handoffs(
     ctx: click.Context,
@@ -82,8 +110,8 @@ def run_list_handoffs(
 
     Ensure.true(
         not (request.branch is not None and request.all_branches),
-        error_type="branch_and_all_branches_conflict",
-        message="--branch and --all-branches are mutually exclusive.",
+        error_type="branch_and_all_conflict",
+        message="--branch and --all are mutually exclusive.",
     )
 
     validation_failure = None if request.branch is None else check_branch_name(request.branch)
@@ -102,9 +130,61 @@ def run_list_handoffs(
         ListHandoffsResult(
             scope="all-branches" if request.all_branches else "branch",
             branch=branch,
-            handoffs=_handoffs_from_entries(entries),
+            handoffs=collect_handoff_summaries(
+                entries,
+                handoff_context.brmem_gateway,
+                handoff_context.git_gateway,
+            ),
         )
     )
+
+
+def _render_branch_human_table(handoffs: list[HandoffSummary]) -> None:
+    table = make_table()
+    table.add_column(
+        "Handoff",
+        style="bold cyan",
+        no_wrap=True,
+        overflow="ellipsis",
+        ratio=1,
+    )
+    table.add_column("Updated", no_wrap=True)
+    for handoff in handoffs:
+        table.add_row(handoff.slug, _format_updated_age(handoff.updated_at))
+    get_console().print(table)
+
+
+def _render_all_branches_human_table(handoffs: list[HandoffSummary]) -> None:
+    table = make_table()
+    table.add_column("Branch", no_wrap=True, overflow="ellipsis", ratio=1)
+    table.add_column("State", no_wrap=True)
+    table.add_column(
+        "Handoff",
+        style="bold cyan",
+        no_wrap=True,
+        overflow="ellipsis",
+        ratio=1,
+    )
+    table.add_column("Updated", no_wrap=True)
+    for handoff in handoffs:
+        table.add_row(
+            handoff.branch,
+            handoff.branch_state,
+            handoff.slug,
+            _format_updated_age(handoff.updated_at),
+        )
+    get_console().print(table)
+
+
+def _format_updated_age(updated_at: str) -> str:
+    formatted = format_relative_time(updated_at)
+    if formatted == "":
+        return updated_at
+    return formatted
+
+
+def _markdown_table_cell(value: str) -> str:
+    return value.replace("|", r"\|")
 
 
 def _resolve_branch(context: HandoffCliContext, requested_branch: str | None) -> str:
@@ -115,44 +195,8 @@ def _resolve_branch(context: HandoffCliContext, requested_branch: str | None) ->
     if isinstance(current, DetachedHead):
         Ensure.fail(
             error_type="detached_head",
-            message=(
-                "Cannot list handoffs in detached HEAD; pass --branch <branch> or --all-branches."
-            ),
+            message="Cannot list handoffs in detached HEAD; pass --branch <branch> or --all.",
         )
     if isinstance(current, GitCommandFailure):
         Ensure.fail(error_type=current.error_type, message=current.message)
     return current
-
-
-def _handoffs_from_entries(entries: list[EntryRef]) -> list[HandoffSummary]:
-    handoffs: list[HandoffSummary] = []
-    seen: set[tuple[str, str]] = set()
-    for entry in entries:
-        if entry.namespace != HANDOFF_NAMESPACE or not _is_handoff_key(entry.key):
-            continue
-        identity = (entry.branch, entry.key)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        handoffs.append(
-            HandoffSummary(
-                branch=entry.branch,
-                slug=_handoff_slug(entry.key),
-                key=entry.key,
-                entry_locator=entry.entry_locator,
-            )
-        )
-    return sorted(handoffs, key=lambda handoff: (handoff.branch, handoff.slug))
-
-
-def _is_handoff_key(key: str) -> bool:
-    return (
-        key.endswith(_HANDOFF_KEY_SUFFIX)
-        and "/" not in key
-        and len(key) > len(_HANDOFF_KEY_SUFFIX)
-        and check_key(key) is None
-    )
-
-
-def _handoff_slug(key: str) -> str:
-    return key[: -len(_HANDOFF_KEY_SUFFIX)]

@@ -141,6 +141,29 @@ def test_fake_brmem_check_at_unknown_sha_returns_none() -> None:
     assert gateway.check("scratch", "plan", "feat/x", at="does-not-exist") is None
 
 
+def test_fake_brmem_entry_updated_at_tracks_specific_key_change() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    gateway.put("scratch", "alpha.md", "feat/x", "alpha v1\n")
+    gateway.put("scratch", "bravo.md", "feat/x", "bravo v1\n")
+    gateway.put("scratch", "alpha.md", "feat/x", "alpha v2\n")
+
+    assert (
+        gateway.get_entry_updated_at("scratch", "alpha.md", "feat/x") == "2026-01-01T00:00:03+00:00"
+    )
+    assert (
+        gateway.get_entry_updated_at("scratch", "bravo.md", "feat/x") == "2026-01-01T00:00:02+00:00"
+    )
+
+
+def test_fake_brmem_entry_updated_at_returns_none_for_missing_entry() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "alpha.md", "feat/x", "alpha\n")
+
+    assert gateway.get_entry_updated_at("scratch", "missing.md", "feat/x") is None
+    assert gateway.get_entry_updated_at("scratch", "alpha.md", "feat/none") is None
+
+
 def test_fake_brmem_list_entries_no_filters_returns_all_sorted() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("scratch", "plan", "feat/x", "a\n")

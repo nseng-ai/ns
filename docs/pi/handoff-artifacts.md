@@ -98,33 +98,26 @@ Good pickup copy:
 Picked up handoff `address-review-feedback` from branch `feature/review`.
 ```
 
-Current-branch listing should show card-style handoff choices with slug, short continuation focus or preview, and a copyable pickup command:
+The Python CLI's normal list output should show compact handoff inventory tables with slug and recency:
 
 ```text
 Handoffs on feature/review
 
-  1. address-review-feedback
-     Address review feedback after test cleanup…
-     → /handoff:pickup address-review-feedback
+Handoff                  Updated
+address-review-feedback  2h ago
 ```
 
-All-branch listing should group by branch so stale or branch-specific artifacts are understandable, and each pickup command should include the branch qualifier:
+All-branch listing should keep branch context and local branch state visible while avoiding storage details:
 
 ```text
 Handoffs across branches
 
-feature/review
-  1. address-review-feedback
-     Address review feedback after test cleanup…
-     → /handoff:pickup --branch feature/review address-review-feedback
-
-feature/docs
-  2. document-handoff-surface
-     Document the directed handoff artifact workflow…
-     → /handoff:pickup --branch feature/docs document-handoff-surface
+Branch          State    Handoff                    Updated
+feature/review  active   address-review-feedback    2h ago
+feature/docs    deleted  document-handoff-surface   5d ago
 ```
 
-Normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output or recovery documentation.
+Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `handoff list --format markdown` emits a pipe table; `handoff list --format json` includes exact `updated_at` timestamps and `branch_state` values for agents and scripts.
 
 ## Current commands and skills
 
@@ -133,7 +126,7 @@ Project-local Pi commands:
 ```text
 /handoff:create <continuation focus>
 /handoff:pickup [--branch <branch>] [semantic-slug|search words]
-/handoff:list [--branch <branch> | --all-branches]
+/handoff:list [--branch <branch> | --all]
 ```
 
 Examples:
@@ -142,7 +135,7 @@ Examples:
 /handoff:create address review feedback after test cleanup
 /handoff:pickup address-review-feedback
 /handoff:list
-/handoff:list --all-branches
+/handoff:list --all
 ```
 
 Portable first-party skills:
@@ -174,9 +167,12 @@ Useful recovery commands:
 
 ```text
 handoff list --branch <branch>
-handoff list --all-branches
-handoff list --all-branches --format json
+handoff list --all
+handoff list --all --format json
+handoff gc --dry-run
 brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
 ```
+
+`handoff gc` deletes saved handoffs whose local branch no longer exists. Use `handoff gc --dry-run` to preview candidates and `handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
 
 There is no backwards compatibility shim, alias, or migration for earlier handoff storage names because there are no users to preserve. Older design notes may mention previous names only as historical context.

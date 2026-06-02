@@ -109,6 +109,15 @@ class BranchMemoryGateway(ABC):
         """Return diagnostics for the entry at ``at`` (or head), or ``None``."""
 
     @abstractmethod
+    def get_entry_updated_at(self, namespace: str, key: str, branch: str) -> str | None:
+        """Return the ISO timestamp for the latest Snapshot commit that changed one Entry.
+
+        Returns ``None`` when the current Entry is absent or the timestamp cannot be
+        resolved. This is per-Entry history, not the current Snapshot head date
+        exposed by :meth:`check`.
+        """
+
+    @abstractmethod
     def delete(
         self,
         namespace: str,

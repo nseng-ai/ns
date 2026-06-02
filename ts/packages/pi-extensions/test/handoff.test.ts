@@ -533,7 +533,7 @@ describe("handoff extension", () => {
 	});
 
 	test("list all branches sends grouped pickup commands", async () => {
-		const result = await runCommand("handoff:list", "--all-branches", [
+		const result = await runCommand("handoff:list", "--all", [
 			listAllStep([
 				{ key: "alpha.md", branch: "feat/a" },
 				{ key: "bravo.md", branch: "feat/b" },
@@ -594,17 +594,17 @@ describe("handoff extension", () => {
 	});
 
 	test("list parser rejects branch plus all branches", async () => {
-		const result = await runCommand("handoff:list", "--branch feat/x --all-branches");
+		const result = await runCommand("handoff:list", "--branch feat/x --all");
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls).toEqual([]);
-		expect(result.notifications[0]?.message).toContain("--branch and --all-branches are mutually exclusive.");
+		expect(result.notifications[0]?.message).toContain("--branch and --all are mutually exclusive.");
 		expect(result.notifications[0]?.level).toBe("error");
 	});
 
 	test("list empty messages distinguish current branch and all branches", async () => {
 		const current = await runCommand("handoff:list", "", [branchStep(), listStep(BRANCH, [])]);
-		const all = await runCommand("handoff:list", "--all-branches", [listAllStep([])]);
+		const all = await runCommand("handoff:list", "--all", [listAllStep([])]);
 
 		current.pi.assertDone();
 		all.pi.assertDone();
@@ -630,8 +630,8 @@ describe("handoff pure helpers", () => {
 			branch: "feature/x",
 			allBranches: false,
 		});
-		expect(parseListHandoffArgs("--all-branches")).toEqual({ help: false, allBranches: true });
-		expect(() => parseListHandoffArgs("--branch feature/x --all-branches")).toThrow("mutually exclusive");
+		expect(parseListHandoffArgs("--all")).toEqual({ help: false, allBranches: true });
+		expect(() => parseListHandoffArgs("--branch feature/x --all")).toThrow("mutually exclusive");
 	});
 
 	test("filters brmem list output to flat handoff markdown keys", () => {
