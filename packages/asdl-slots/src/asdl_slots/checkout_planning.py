@@ -69,6 +69,16 @@ class PoolFull:
 CheckoutPlan = ReuseAssignment | BranchInMainWorktree | BranchInUse | AssignToSlot | PoolFull
 
 
+def _operation_occupancy(record: SlotRecord) -> WorktreeOccupancy | None:
+    if record.branch is None or record.operation is None:
+        return None
+    return WorktreeOccupancy(
+        path=record.path,
+        branch=record.branch,
+        operation=record.operation,
+    )
+
+
 def plan_checkout(
     inventory: SlotInventory,
     git: GitGateway,
@@ -76,14 +86,14 @@ def plan_checkout(
 ) -> CheckoutPlan:
     match = inventory.find_by_branch(branch_name)
     if isinstance(match, SlotMatch):
+        occupancy = _operation_occupancy(match.record)
+        if occupancy is not None:
+            return BranchInUse(occupancy=occupancy)
         return ReuseAssignment(record=match.record)
     if isinstance(match, MainWorktreeMatch):
         return BranchInMainWorktree(main_path=match.worktree.path)
 
-    occupancy = next(
-        (occ for occ in git.list_branch_occupancies() if occ.branch == branch_name),
-        None,
-    )
+    occupancy = inventory.find_occupancy_by_branch(branch_name)
     if occupancy is not None:
         return BranchInUse(occupancy=occupancy)
 

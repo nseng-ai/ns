@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Sequence
+from pathlib import Path
 
 from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss
 from asdl_slots.context import SlotsCliContext
@@ -22,6 +23,28 @@ _CLEANUP_ACTION_ORDER: tuple[SlotFreeCleanupAction, ...] = (
     "pr",
     "local_branch",
 )
+
+
+def _operation_recovery_instruction(operation: str) -> str:
+    if operation == "rebase":
+        return "run `git rebase --continue`/`--abort` there"
+    if operation == "bisect":
+        return "run `git bisect reset` there"
+    return "finish or abort it there"
+
+
+def _operation_in_progress_message(
+    *,
+    slot_name: str,
+    branch_name: str,
+    worktree_path: Path,
+    operation: str,
+    action: str,
+) -> str:
+    return (
+        f"{slot_name} has a {operation} in progress for '{branch_name}' at {worktree_path}; "
+        f"{_operation_recovery_instruction(operation)} before {action}."
+    )
 
 
 def expand_cleanup_actions(cleanup_values: Sequence[str]) -> tuple[SlotFreeCleanupAction, ...]:
@@ -69,6 +92,17 @@ def plan_free_slots(
                 error_type="slot_not_assigned",
                 message=f"{slot_name} is not currently assigned (state changed during planning).",
             )
+        if record.operation is not None:
+            return SlotLifecycleFailure(
+                error_type="operation_in_progress",
+                message=_operation_in_progress_message(
+                    slot_name=record.slot_name,
+                    branch_name=record.branch,
+                    worktree_path=record.path,
+                    operation=record.operation,
+                    action="freeing",
+                ),
+            )
         targets.append(
             FreedSlot(
                 slot_name=record.slot_name,
@@ -101,6 +135,20 @@ def execute_free_plan(
                 error_type="slot_not_assigned",
                 message=_partial_failure_message(
                     f"{target.slot_name} is not currently assigned (state changed during free).",
+                    freed,
+                ),
+            )
+        if record.operation is not None:
+            return SlotLifecycleFailure(
+                error_type="operation_in_progress",
+                message=_partial_failure_message(
+                    _operation_in_progress_message(
+                        slot_name=record.slot_name,
+                        branch_name=record.branch,
+                        worktree_path=record.path,
+                        operation=record.operation,
+                        action="freeing",
+                    ),
                     freed,
                 ),
             )
@@ -341,6 +389,17 @@ def _validate_assigned_and_clean(
         if record is None or record.branch is None:
             errors.append(
                 f"{slot_name} is not currently assigned. Run `slot list` to see the pool."
+            )
+            continue
+        if record.operation is not None:
+            errors.append(
+                _operation_in_progress_message(
+                    slot_name=record.slot_name,
+                    branch_name=record.branch,
+                    worktree_path=record.path,
+                    operation=record.operation,
+                    action="freeing",
+                )
             )
             continue
         if slots_ctx.git.has_uncommitted_changes(record.path):

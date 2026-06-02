@@ -22,6 +22,7 @@ class SlotListRequest(ClinkrModel):
 class SlotRow(ClinkrModel):
     slot_name: str
     branch: str | None
+    operation: str | None
     worktree_path: str
     status: SlotStatus
 
@@ -37,13 +38,16 @@ def render_slot_list(result: SlotListResult) -> None:
     table.add_column("Slot", style="bold cyan", no_wrap=True)
     table.add_column("Status", no_wrap=True)
     table.add_column("Branch", no_wrap=True, overflow="ellipsis", ratio=1)
+    table.add_column("Operation", no_wrap=True)
     table.add_column("Worktree", no_wrap=True, style="dim", overflow="ellipsis", ratio=1)
 
     for row in result.rows:
+        operation = "" if row.operation is None else f"{row.operation} in progress"
         table.add_row(
             row.slot_name,
             row.status,
             row.branch or "",
+            operation,
             row.worktree_path,
         )
 
@@ -55,6 +59,7 @@ def _compose_rows(inventory: SlotInventory) -> tuple[SlotRow, ...]:
         SlotRow(
             slot_name=record.slot_name,
             branch=record.branch,
+            operation=record.operation,
             worktree_path=str(record.path),
             status=record.status,
         )

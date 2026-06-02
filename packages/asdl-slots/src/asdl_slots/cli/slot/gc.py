@@ -52,6 +52,7 @@ _ACTION_LABELS: dict[SlotGcAction, tuple[str, str]] = {
     "kept_open_pr": ("[blue]• kept (open PR)[/blue]", "blue"),
     "kept_no_pr": ("[dim]• kept (no PR)[/dim]", "dim"),
     "skipped_dirty": ("[yellow]! skipped (dirty)[/yellow]", "yellow"),
+    "skipped_operation": ("[yellow]! skipped (operation)[/yellow]", "yellow"),
     "error": ("[red]✗ error[/red]", "red"),
 }
 

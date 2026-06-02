@@ -79,6 +79,7 @@ SlotGcAction = Literal[
     "kept_open_pr",
     "kept_no_pr",
     "skipped_dirty",
+    "skipped_operation",
     "error",
 ]
 

@@ -52,12 +52,18 @@ from asdl_slots.lifecycle.pool import (
 from asdl_slots.repo_context import RepoContext
 
 
-def _record(n: int, branch: str | None = None) -> SlotRecord:
+def _record(
+    n: int,
+    branch: str | None = None,
+    *,
+    operation: str | None = None,
+) -> SlotRecord:
     return SlotRecord(
         slot_name=f"slot-{n:02d}",
         slot_number=n,
         path=Path(f"/wt/slot-{n:02d}"),
         branch=branch,
+        operation=operation,
     )
 
 
@@ -496,6 +502,37 @@ def test_resize_pool_shrink_blocks_when_slot_assigned(tmp_path: Path) -> None:
     assert git.list_worktrees() == worktrees_before
 
 
+def test_resize_pool_shrink_blocks_when_operation_in_progress(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, 2)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/rebase"),
+        worktrees=(
+            _slot_worktree(slots_root, 1, None),
+            _slot_worktree(slots_root, 2, None),
+        ),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+    worktrees_before = git.list_worktrees()
+
+    outcome = resize_pool(ctx, 1)
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "resize_unsafe"
+    assert "slot-02" in outcome.message
+    assert "feat/rebase" in outcome.message
+    assert "rebase" in outcome.message
+    assert "git rebase" in outcome.message
+    assert git.list_worktrees() == worktrees_before
+
+
 def test_resize_pool_shrink_blocks_when_slot_dirty(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     dirty_path = _slot_path(slots_root, 2)
@@ -641,6 +678,33 @@ def test_free_slots_unassigned_target_returns_invalid_slot_args(tmp_path: Path) 
     assert isinstance(outcome, SlotLifecycleFailure)
     assert outcome.error_type == "invalid_slot_args"
     assert "slot-01 is not currently assigned" in outcome.message
+    assert git._detach_head_calls == []
+
+
+def test_free_slots_operation_target_returns_invalid_slot_args(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/rebase"),
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+
+    outcome = free_slots(ctx, ("slot-01",))
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "invalid_slot_args"
+    assert "slot-01" in outcome.message
+    assert "feat/rebase" in outcome.message
+    assert "rebase" in outcome.message
+    assert "git rebase" in outcome.message
     assert git._detach_head_calls == []
 
 
@@ -1279,6 +1343,33 @@ def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Pat
     assert git._detach_head_calls == []
 
 
+def test_garbage_collect_slots_operation_worktree_is_skipped(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+        prs_by_branch={"feat/rebase": _make_pr(12, "MERGED", "feat/rebase")},
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert [entry.action for entry in outcome.entries] == ["skipped_operation"]
+    assert outcome.entries[0].branch_name == "feat/rebase"
+    assert "rebase" in (outcome.entries[0].message or "")
+    assert outcome.skipped_count == 1
+    assert outcome.freed_count == 0
+    assert git._detach_head_calls == []
+
+
 def test_garbage_collect_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     worktree_path = _slot_path(slots_root, 1)
@@ -1480,6 +1571,32 @@ def test_execute_gc_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
 
     assert [entry.action for entry in outcome.entries] == ["skipped_dirty"]
     assert outcome.skipped_count == 1
+    assert git._detach_head_calls == []
+
+
+def test_execute_gc_plan_translates_new_operation_to_skipped(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+    git._worktrees = [WorktreeInfo(path=slot_path, branch=None, is_bare=False)]
+    git._operations_by_path[slot_path] = WorktreeOccupancy(
+        path=slot_path,
+        branch="feat/done",
+        operation="bisect",
+    )
+
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [entry.action for entry in outcome.entries] == ["skipped_operation"]
+    assert outcome.skipped_count == 1
+    assert "bisect" in (outcome.entries[0].message or "")
     assert git._detach_head_calls == []
 
 

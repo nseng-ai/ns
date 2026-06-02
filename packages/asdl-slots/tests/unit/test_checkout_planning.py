@@ -21,22 +21,30 @@ from asdl_slots.errors import (
 from asdl_slots.inventory import SlotInventory, SlotRecord
 
 
-def _record(n: int, branch: str | None = None) -> SlotRecord:
+def _record(
+    n: int,
+    branch: str | None = None,
+    *,
+    operation: str | None = None,
+) -> SlotRecord:
     return SlotRecord(
         slot_name=f"slot-{n:02d}",
         slot_number=n,
         path=Path(f"/wt/slot-{n:02d}"),
         branch=branch,
+        operation=operation,
     )
 
 
 def _inventory(
     *records: SlotRecord,
     main_worktree: WorktreeInfo | None = None,
+    branch_occupancies: tuple[WorktreeOccupancy, ...] = (),
 ) -> SlotInventory:
     return SlotInventory(
         records=tuple(sorted(records, key=lambda r: r.slot_number)),
         main_worktree=main_worktree,
+        branch_occupancies=branch_occupancies,
     )
 
 
@@ -107,17 +115,11 @@ def test_plan_checkout_skips_dirty_with_untracked_only() -> None:
 
 
 def test_plan_checkout_branch_in_use_by_rebasing_detached_slot() -> None:
-    """A branch held by a slot mid-rebase has ``WorktreeInfo.branch is None``,
-    so it misses ``find_by_branch`` — the occupancy probe must catch it as
-    ``BranchInUse`` rather than routing to ``AssignToSlot`` and crashing in git."""
+    """Inventory records operation-held branches as assigned, but checkout must
+    surface them as in-progress operations rather than normal reusable slots."""
     slot_path = Path("/wt/slot-06")
-    inv = _inventory(_record(6))
-    git = FakeGitGateway(
-        worktrees=(WorktreeInfo(path=slot_path, branch=None, is_bare=False),),
-        operations_by_path={
-            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/x", operation="rebase"),
-        },
-    )
+    inv = _inventory(_record(6, branch="feat/x", operation="rebase"))
+    git = FakeGitGateway()
 
     plan = plan_checkout(inv, git, "feat/x")
 
@@ -127,6 +129,39 @@ def test_plan_checkout_branch_in_use_by_rebasing_detached_slot() -> None:
         branch="feat/x",
         operation="rebase",
     )
+
+
+def test_plan_checkout_branch_in_use_by_non_managed_operation() -> None:
+    external_path = Path("/repo/external")
+    inv = _inventory(
+        _record(1),
+        branch_occupancies=(
+            WorktreeOccupancy(path=external_path, branch="feat/x", operation="bisect"),
+        ),
+    )
+    git = FakeGitGateway()
+
+    plan = plan_checkout(inv, git, "feat/x")
+
+    assert isinstance(plan, BranchInUse)
+    assert plan.occupancy == WorktreeOccupancy(
+        path=external_path,
+        branch="feat/x",
+        operation="bisect",
+    )
+
+
+def test_plan_checkout_new_branch_skips_operation_occupied_slot() -> None:
+    inv = _inventory(
+        _record(1, branch="feat/rebase", operation="rebase"),
+        _record(2),
+    )
+    git = FakeGitGateway()
+
+    plan = plan_checkout(inv, git, "feat/new")
+
+    assert isinstance(plan, AssignToSlot)
+    assert plan.record.slot_name == "slot-02"
 
 
 def test_plan_checkout_pool_full_lists_assigned_records() -> None:

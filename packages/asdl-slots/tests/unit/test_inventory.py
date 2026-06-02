@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import WorktreeInfo
+from asdl_core.git.types import WorktreeInfo, WorktreeOccupancy
 from asdl_slots.inventory import build_slot_inventory
 
 
@@ -35,7 +35,9 @@ def test_assigned_slot_records_branch() -> None:
     assert record.slot_name == "slot-01"
     assert record.slot_number == 1
     assert record.branch == "feat/x"
+    assert record.operation is None
     assert record.status == "assigned"
+    assert record.is_available is False
 
 
 def test_available_slot_when_detached() -> None:
@@ -46,7 +48,9 @@ def test_available_slot_when_detached() -> None:
     assert inventory.pool_size == 1
     record = inventory.records[0]
     assert record.branch is None
+    assert record.operation is None
     assert record.status == "available"
+    assert record.is_available is True
 
 
 def test_mixed_assigned_and_available() -> None:
@@ -128,3 +132,45 @@ def test_main_repo_plus_managed_filters_main() -> None:
     inventory = build_slot_inventory(git)
     assert inventory.pool_size == 2
     assert tuple(r.slot_name for r in inventory.records) == ("slot-01", "slot-02")
+
+
+def test_detached_rebase_slot_records_held_branch_and_operation() -> None:
+    slot_path = Path("/slots/repo/worktrees/slot-07")
+    git = FakeGitGateway(
+        worktrees=(_wt(slot_path, None),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/rebase", operation="rebase"),
+        },
+    )
+
+    inventory = build_slot_inventory(git)
+
+    record = inventory.records[0]
+    assert record.branch == "feat/rebase"
+    assert record.operation == "rebase"
+    assert record.status == "assigned"
+    assert record.is_available is False
+
+
+def test_find_occupancy_by_branch_searches_raw_occupancies() -> None:
+    external_path = Path("/repo/external")
+    git = FakeGitGateway(
+        worktrees=(_wt(external_path, None),),
+        operations_by_path={
+            external_path: WorktreeOccupancy(
+                path=external_path,
+                branch="feat/external",
+                operation="bisect",
+            ),
+        },
+    )
+
+    inventory = build_slot_inventory(git)
+
+    assert inventory.records == ()
+    assert inventory.find_occupancy_by_branch("feat/external") == WorktreeOccupancy(
+        path=external_path,
+        branch="feat/external",
+        operation="bisect",
+    )
+    assert inventory.find_occupancy_by_branch("missing") is None
