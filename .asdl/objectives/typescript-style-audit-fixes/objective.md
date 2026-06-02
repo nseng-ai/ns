@@ -43,7 +43,7 @@ Assumptions:
 
 - The user's selected scope is full compliance across existing TypeScript, not only minimal hard-violation cleanup.
 - Simplicity is measured by the number of human-legible decisions, not by diff size or file count. A rename or type-shape conversion that touches many files can still be simple if it expresses one clear decision.
-- Broad conversion from object-literal `type` aliases to `interface` is acceptable despite churn, provided behavior and public exports remain compatible.
+- Broad conversion from object-literal `type` aliases to `interface` is acceptable despite churn, provided behavior and public exports remain compatible. Re-confirmed on a second package (`ts/packages/asdl-dev`, branch `asdl-dev-stack-omnibus-roaster-fixes`): behavior and public exports preserved with gates green.
 - Most JSON/runtime casts can be replaced with small local guards without needing a large schema library. Confirmed for the CLI/process and runner/grill boundary slices: `land`, `land-stack/pr-facts`, `worktree-status`, `runner-subagent/json-events`, `runner-subagent/subagent-runtime`, and `grill-ui/inline-ui` were hardened with small local guards and normalizers, with no schema dependency added.
 - Some modules, such as process runners or filesystem watchers, may legitimately remain Node adapters; the compliance bar is explicit ownership and containment, not removing all Node API usage.
 
