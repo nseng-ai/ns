@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { runCli } from "../../src/cli.ts";
-import type { SubmitCommandOutput, SubmitPrLink } from "../../src/submit.ts";
+import { runCli } from "asdl-dev/src/cli.ts";
+import type { SubmitCommandOutput, SubmitPrLink } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
 function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: { cwd?: string } = {}) {

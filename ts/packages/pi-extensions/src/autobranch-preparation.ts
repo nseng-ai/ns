@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
 import { readFile as nodeReadFile, stat as nodeStat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import type { CommandResult } from "../../asdl-dev/src/checkpoint-flow.ts";
-import type { PendingWorktreeSnapshot } from "../../asdl-dev/src/pending-worktree.ts";
+import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength } from "./branch-slug.ts";
 import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";

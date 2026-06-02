@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { RealGitGateway } from "../../src/gateways/git.ts";
+import { RealGitGateway } from "asdl-dev/src/gateways/git.ts";
 import { ScriptedCommandRunner, startupErrorStep, step } from "../support/scripted-command-runner.ts";
 
 describe("RealGitGateway", () => {

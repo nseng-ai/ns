@@ -85,7 +85,7 @@ export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandEx
 		pi.registerCommand(piCommandName, {
 			description: `${spec.cliName} ${command.name}: ${command.description}`,
 			handler: async (rawArgs, ctx) => {
-				await runRegisteredCliCommand(pi, spec, command, piCommandName, rawArgs, ctx);
+				await runRegisteredCliCommand({ pi, spec, command, piCommandName, rawArgs, ctx });
 			},
 		});
 	}
@@ -184,47 +184,66 @@ export function formatCliCommandOutput(details: CliCommandOutputDetails): string
 		return formatSuccessfulOutput(sourceCommand, details.stdout, details.stderr);
 	}
 
-	return formatFailedOutput(sourceCommand, details.exitCode, details.stdout, details.stderr);
+	return formatFailedOutput({ sourceCommand, exitCode: details.exitCode, stdout: details.stdout, stderr: details.stderr });
 }
 
-async function runRegisteredCliCommand(
-	pi: ExtensionAPI,
-	spec: CliCommandExtensionSpec,
-	command: CliCommandInfo,
-	piCommandName: string,
-	rawArgs: string,
-	ctx: CommandContext,
-): Promise<void> {
+interface RunRegisteredCliCommandOptions {
+	pi: ExtensionAPI;
+	spec: CliCommandExtensionSpec;
+	command: CliCommandInfo;
+	piCommandName: string;
+	rawArgs: string;
+	ctx: CommandContext;
+}
+
+async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions): Promise<void> {
+	const { pi, spec, command, piCommandName, rawArgs, ctx } = options;
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) {
-		restoreCommandInvocationToEditor(ctx, piCommandName, rawArgs, `Could not parse /${piCommandName}: ${parsed.error}`);
+		restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Could not parse /${piCommandName}: ${parsed.error}` });
 		emitCliCommandOutput(
 			pi,
 			ctx,
-			buildOutputDetails(spec, command, piCommandName, rawArgs, [], ctx.cwd, {
-				exitCode: 2,
-				stdout: "",
-				stderr: `Error: ${parsed.error}\n`,
+			buildOutputDetails({
+				spec,
+				command,
+				piCommandName,
+				rawArgs,
+				args: [],
+				cwd: ctx.cwd,
+				result: {
+					exitCode: 2,
+					stdout: "",
+					stderr: `Error: ${parsed.error}\n`,
+				},
 			}),
 		);
 		return;
 	}
 
 	if (startsWithPositionalArgs(parsed.args) && command.canAcceptPositionalArgs !== true) {
-		const restored = restoreCommandInvocationToEditor(
+		const restored = restoreCommandInvocationToEditor({
 			ctx,
 			piCommandName,
 			rawArgs,
-			`Not running /${piCommandName}: text after the command looks like prose, not options.`,
-		);
+			reason: `Not running /${piCommandName}: text after the command looks like prose, not options.`,
+		});
 		if (!restored) {
 			emitCliCommandOutput(
 				pi,
 				ctx,
-				buildOutputDetails(spec, command, piCommandName, rawArgs, parsed.args, ctx.cwd, {
-					exitCode: 2,
-					stdout: "",
-					stderr: `Error: /${piCommandName} only accepts option-style arguments here. Use --help for usage.\n`,
+				buildOutputDetails({
+					spec,
+					command,
+					piCommandName,
+					rawArgs,
+					args: parsed.args,
+					cwd: ctx.cwd,
+					result: {
+						exitCode: 2,
+						stdout: "",
+						stderr: `Error: /${piCommandName} only accepts option-style arguments here. Use --help for usage.\n`,
+					},
 				}),
 			);
 		}
@@ -252,26 +271,37 @@ async function runRegisteredCliCommand(
 		stderr += `Unhandled ${spec.cliName} command error: ${errorMessage(error)}\n`;
 	}
 
-	const details = buildOutputDetails(spec, command, piCommandName, rawArgs, parsed.args, ctx.cwd, {
-		exitCode,
-		stdout,
-		stderr,
+	const details = buildOutputDetails({
+		spec,
+		command,
+		piCommandName,
+		rawArgs,
+		args: parsed.args,
+		cwd: ctx.cwd,
+		result: {
+			exitCode,
+			stdout,
+			stderr,
+		},
 	});
 	emitCliCommandOutput(pi, ctx, details);
 	if (isCliUsageError(details)) {
-		restoreCommandInvocationToEditor(ctx, piCommandName, rawArgs, `Restored /${piCommandName} after a CLI usage error.`);
+		restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Restored /${piCommandName} after a CLI usage error.` });
 	}
 }
 
-function buildOutputDetails(
-	spec: Pick<CliCommandExtensionSpec, "cliName">,
-	command: CliCommandInfo,
-	piCommandName: string,
-	rawArgs: string,
-	args: readonly string[],
-	cwd: string,
-	result: { exitCode: number; stdout: string; stderr: string },
-): CliCommandOutputDetails {
+interface BuildOutputDetailsOptions {
+	spec: Pick<CliCommandExtensionSpec, "cliName">;
+	command: CliCommandInfo;
+	piCommandName: string;
+	rawArgs: string;
+	args: readonly string[];
+	cwd: string;
+	result: { exitCode: number; stdout: string; stderr: string };
+}
+
+function buildOutputDetails(options: BuildOutputDetailsOptions): CliCommandOutputDetails {
+	const { spec, command, piCommandName, rawArgs, args, cwd, result } = options;
 	return {
 		cliName: spec.cliName,
 		commandName: command.name,
@@ -292,7 +322,15 @@ function startsWithPositionalArgs(args: readonly string[]): boolean {
 	return first !== undefined && (first === "--" || !first.startsWith("-"));
 }
 
-function restoreCommandInvocationToEditor(ctx: CommandContext, piCommandName: string, rawArgs: string, reason: string): boolean {
+interface RestoreCommandInvocationOptions {
+	ctx: CommandContext;
+	piCommandName: string;
+	rawArgs: string;
+	reason: string;
+}
+
+function restoreCommandInvocationToEditor(options: RestoreCommandInvocationOptions): boolean {
+	const { ctx, piCommandName, rawArgs, reason } = options;
 	if (!ctx.hasUI || ctx.ui.setEditorText === undefined) {
 		return false;
 	}
@@ -347,7 +385,15 @@ function formatSuccessfulOutput(sourceCommand: string, stdout: string, stderr: s
 	return `${sourceCommand} completed successfully with no output.`;
 }
 
-function formatFailedOutput(sourceCommand: string, exitCode: number, stdout: string, stderr: string): string {
+interface FailedOutputOptions {
+	sourceCommand: string;
+	exitCode: number;
+	stdout: string;
+	stderr: string;
+}
+
+function formatFailedOutput(options: FailedOutputOptions): string {
+	const { sourceCommand, exitCode, stdout, stderr } = options;
 	if (stdout === "" && stderr === "") {
 		return `${sourceCommand} exited with code ${exitCode} with no output.`;
 	}

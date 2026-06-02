@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import type { CommandResult, CommandRunner } from "../../src/command-runner.ts";
+import type { CommandResult, CommandRunner } from "asdl-dev/src/command-runner.ts";
 
 export interface RunnerCall {
 	command: string;

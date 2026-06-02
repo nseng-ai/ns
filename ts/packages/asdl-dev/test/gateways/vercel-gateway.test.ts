@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { RealVercelDeploymentGateway } from "../../src/gateways/vercel.ts";
+import { RealVercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
 function resolverWith(commands: readonly string[]): (name: string) => string | undefined {

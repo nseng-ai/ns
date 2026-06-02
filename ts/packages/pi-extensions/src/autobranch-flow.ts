@@ -1,10 +1,10 @@
-import type { CommandResult } from "../../asdl-dev/src/checkpoint-flow.ts";
+import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "../../asdl-dev/src/pending-worktree.ts";
+} from "asdl-dev/src/pending-worktree.ts";
 import {
 	prepareAutobranchPlan,
 	type FileStat,

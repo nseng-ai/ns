@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { RealVercelProjectConfigStore } from "../../src/gateways/project-config.ts";
+import { RealVercelProjectConfigStore } from "asdl-dev/src/gateways/project-config.ts";
 
 const tempDirs: string[] = [];
 

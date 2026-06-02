@@ -1,10 +1,10 @@
-import type { CheckpointGateway } from "../../src/checkpoint.ts";
-import type { AsdlDevContext } from "../../src/context.ts";
-import type { GitGateway } from "../../src/gateways/git.ts";
-import type { ProjectConfigReadResult, VercelProjectConfigStore } from "../../src/gateways/project-config.ts";
-import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "../../src/gateways/vercel.ts";
-import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "../../src/pending-worktree.ts";
-import { err, ok, type ErrorInfo, type GatewayResult } from "../../src/result.ts";
+import type { CheckpointGateway } from "asdl-dev/src/checkpoint.ts";
+import type { AsdlDevContext } from "asdl-dev/src/context.ts";
+import type { GitGateway } from "asdl-dev/src/gateways/git.ts";
+import type { ProjectConfigReadResult, VercelProjectConfigStore } from "asdl-dev/src/gateways/project-config.ts";
+import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
+import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/src/pending-worktree.ts";
+import { err, ok, type ErrorInfo, type GatewayResult } from "asdl-dev/src/result.ts";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -12,8 +12,8 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "../../src/submit.ts";
-import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "../../src/text-generation.ts";
+} from "asdl-dev/src/submit.ts";
+import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/src/text-generation.ts";
 
 export type FakeCurrentBranchState = string | { kind: "detached" } | { kind: "failure"; error?: ErrorInfo };
 export type FakeRepoRootState = string | { kind: "failure"; error?: ErrorInfo };

@@ -1,7 +1,7 @@
 import { runCommand, type CommandResult, type CommandRunner } from "../command-runner.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
 
-const STDERR_DETAIL_LIMIT = 1_200;
+const STDERR_DETAIL_LIMIT_CHARS = 1_200;
 
 export interface GitGateway {
 	currentBranch(params: { cwd: string }): Promise<GatewayResult<string>>;
@@ -62,7 +62,7 @@ function commandFailure(result: CommandResult, code: string, message: string): E
 	if (result.startupError !== undefined) {
 		details.startup_error = result.startupError;
 	}
-	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT);
+	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT_CHARS);
 	if (stderr !== "") {
 		details.stderr = stderr;
 	}

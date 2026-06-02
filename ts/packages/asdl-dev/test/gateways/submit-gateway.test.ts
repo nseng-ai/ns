@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { RealSubmitGateway } from "../../src/submit.ts";
+import { RealSubmitGateway } from "asdl-dev/src/submit.ts";
 import { ScriptedCommandRunner, startupErrorStep, step } from "../support/scripted-command-runner.ts";
 
 describe("RealSubmitGateway", () => {

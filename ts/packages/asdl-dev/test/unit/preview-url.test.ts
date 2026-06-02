@@ -7,10 +7,10 @@ import {
 	dashboardUrl,
 	resolvePreviewUrl,
 	selectNewestDeployment,
-} from "../../src/preview-url.ts";
+} from "asdl-dev/src/preview-url.ts";
 import { deploymentCandidate, inspectedDeployment } from "../support/builders.ts";
 import { InMemoryVercelProjectConfigStore } from "../support/in-memory-gateways.ts";
-import { resolveProjectScope } from "../../src/preview-url.ts";
+import { resolveProjectScope } from "asdl-dev/src/preview-url.ts";
 
 describe("preview URL policy", () => {
 	test("prefers branchAlias when it is present in inspected aliases", () => {

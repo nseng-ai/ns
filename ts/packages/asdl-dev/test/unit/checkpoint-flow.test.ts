@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "../../src/checkpoint-flow.ts";
-import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "../../src/text-generation.ts";
+import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/src/text-generation.ts";
 
 const validMessage = `[cp] Update checkpoint tests
 
