@@ -88,6 +88,18 @@ export async function createPlannedBranchFromFile(
 		["put", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--file", sourceFile, "--format", "json"],
 		options.signal,
 	);
+	if (put.type === "unavailable") {
+		throw partialFailureError({
+			title: "Created branch but no brmem command was available to attach the plan.",
+			branch: targetBranch,
+			branchCreation,
+			startPoint,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			key,
+			sourceFile,
+			cause: put.message,
+		});
+	}
 	if (put.result.code !== 0 || put.result.killed) {
 		throw partialFailureError({
 			title: "Created branch but failed to attach the plan in Branch Memory.",
@@ -278,6 +290,9 @@ async function assertBrmemEntryAbsent(
 		["check", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--format", "json"],
 		signal,
 	);
+	if (check.type === "unavailable") {
+		throw new Error(check.message);
+	}
 	if (check.result.killed) {
 		throw new Error(formatCommandFailure("brmem check timed out or was killed", check.displayCommand, check.result));
 	}

@@ -511,6 +511,25 @@ describe("createPlannedBranchFromFile", () => {
 		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
 	});
 
+	test("aborts before branch creation when no brmem command is available for preflight", async () => {
+		const filePath = await makePlanFile();
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(PLAN_SLUG),
+			headStep(),
+			localBranchCheckStep(PLAN_SLUG, { code: 1, stderr: "absent" }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 127, stderr: "brmem: command not found" }),
+		]);
+
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+			"No brmem command available",
+		);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+	});
+
 	test("surfaces branch creation failure", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakePi([
@@ -543,6 +562,27 @@ describe("createPlannedBranchFromFile", () => {
 
 		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
 			new RegExp(`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}`),
+		);
+
+		pi.assertDone();
+	});
+
+	test("reports partial state when no brmem command is available after branch creation", async () => {
+		const filePath = await makePlanFile();
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(PLAN_SLUG),
+			headStep(),
+			localBranchCheckStep(PLAN_SLUG, { code: 1 }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 1 }),
+			gitBranchStep(PLAN_SLUG),
+			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 127, stderr: "brmem: command not found" }),
+		]);
+
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+			new RegExp(
+				`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Namespace: ${PLAN_BRANCH_NAMESPACE}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}[\\s\\S]*No cleanup was attempted[\\s\\S]*No brmem command available`,
+			),
 		);
 
 		pi.assertDone();

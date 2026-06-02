@@ -57,6 +57,9 @@ export async function loadAttachedPlan(
 		["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
 		options.signal,
 	);
+	if (list.type === "unavailable") {
+		throw new Error(list.message);
+	}
 	if (list.result.code !== 0 || list.result.killed) {
 		throw new Error(formatCommandFailure("brmem list failed", list.displayCommand, list.result));
 	}
@@ -81,6 +84,9 @@ export async function loadAttachedPlan(
 		["get", selectedKey, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
 		options.signal,
 	);
+	if (get.type === "unavailable") {
+		throw new Error(get.message);
+	}
 	if (get.result.code !== 0 || get.result.killed) {
 		throw new Error(formatCommandFailure("brmem get failed", get.displayCommand, get.result));
 	}
