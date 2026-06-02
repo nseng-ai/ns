@@ -66,6 +66,11 @@
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
+    "dev-pr-preview-url": {
+      "source": "skills/dev-pr-preview-url",
+      "sourceType": "local",
+      "computedHash": "2258909d22f4ffcd0e5654ad9f0a15cabd94dddf46f6cfc9b029dee6be19c9dc"
+    },
     "dev-stacker-agent": {
       "source": "skills/dev-stacker-agent",
       "sourceType": "local",
