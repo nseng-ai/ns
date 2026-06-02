@@ -2,6 +2,8 @@
 
 `asdl-dev` is a repo-local developer CLI for `asdl-tools` TypeScript workflows.
 
+Pi mirrors this CLI's command table into `/dev:*` slash commands through `.pi/extensions/asdl-dev.ts`. For the promotion pattern, see [Exposing Pi Commands Through `asdl-dev`](../../../docs/pi/exposing-pi-commands-through-asdl-dev.md).
+
 ## Command shape
 
 `*-dev` CLIs in this repo use a flat list of task commands. Prefer commands like `preview-url` over nested command groups such as `preview url`.
