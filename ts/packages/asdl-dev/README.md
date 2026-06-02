@@ -11,10 +11,12 @@
 Print the Vercel preview URL for a branch.
 
 ```bash
-bun run --cwd ts asdl-dev preview-url
-bun run --cwd ts asdl-dev preview-url --branch feature/demo
-bun run --cwd ts asdl-dev preview-url --json
+asdl-dev preview-url
+asdl-dev preview-url --branch feature/demo
+asdl-dev preview-url --json
 ```
+
+If the repo environment has not been loaded, run the same CLI with `bun run --cwd ts asdl-dev ...`.
 
 Default output is only the resolved preview URL plus a newline, suitable for shells and agents.
 
