@@ -45,7 +45,14 @@ export class ScriptedCommandRunner {
 			return result(command, args, { exitCode: 99, stderr: message });
 		}
 
-		return result(command, args, expected);
+		const commandResult = result(command, args, expected);
+		if (commandResult.stdout !== "") {
+			options.onStdout?.(commandResult.stdout);
+		}
+		if (commandResult.stderr !== "") {
+			options.onStderr?.(commandResult.stderr);
+		}
+		return commandResult;
 	};
 
 	assertDone(): void {

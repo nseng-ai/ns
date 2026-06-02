@@ -8,6 +8,7 @@ import { err, ok, type ErrorInfo, type GatewayResult } from "asdl-dev/src/result
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
+	SubmitCommandParams,
 	SubmitGateway,
 	SubmitPreflightResult,
 	SubmitRestackResult,
@@ -197,23 +198,27 @@ export class InMemorySubmitGateway implements SubmitGateway {
 		return this.currentPrLog.map((call) => ({ ...call }));
 	}
 
-	async checkSubmitReadiness(params: { cwd: string }): Promise<SubmitPreflightResult> {
+	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
 		this.preflightLog.push({ cwd: params.cwd });
+		emitSubmitOutput(params, this.preflightResult.output);
 		return copySubmitPreflightResult(this.preflightResult);
 	}
 
-	async restackCurrentStack(params: { cwd: string }): Promise<SubmitRestackResult> {
+	async restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult> {
 		this.restackLog.push({ cwd: params.cwd });
+		emitSubmitOutput(params, this.restackResult.output);
 		return copySubmitRestackResult(this.restackResult);
 	}
 
-	async submitCurrentStack(params: { cwd: string }): Promise<SubmitRunResult> {
+	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
 		this.submitLog.push({ cwd: params.cwd });
+		emitSubmitOutput(params, this.submitResult.output);
 		return copySubmitRunResult(this.submitResult);
 	}
 
-	async verifyCurrentPr(params: { cwd: string }): Promise<CurrentPrVerificationResult> {
+	async verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult> {
 		this.currentPrLog.push({ cwd: params.cwd });
+		emitSubmitOutput(params, this.currentPrResult.output);
 		return copyCurrentPrVerificationResult(this.currentPrResult);
 	}
 }
@@ -397,6 +402,15 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 
 function defaultSubmitOutput(stdout = "", stderr = "", exitCode = 0): SubmitCommandOutput {
 	return { stdout, stderr, exitCode };
+}
+
+function emitSubmitOutput(params: SubmitCommandParams, output: SubmitCommandOutput): void {
+	if (output.stdout !== "") {
+		params.onOutput?.("stdout", output.stdout);
+	}
+	if (output.stderr !== "") {
+		params.onOutput?.("stderr", output.stderr);
+	}
 }
 
 function copySubmitOutput(output: SubmitCommandOutput): SubmitCommandOutput {

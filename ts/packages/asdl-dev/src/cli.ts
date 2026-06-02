@@ -2,12 +2,12 @@
 
 import process from "node:process";
 
-import { runCheckpointCommand } from "./checkpoint.ts";
+import { runCheckpointCommand, runCheckpointIfPending } from "./checkpoint.ts";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, DEFAULT_TEXT_BACKEND, TEXT_BACKEND_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
-import { runSubmitCommand } from "./submit.ts";
+import { runSubmitCommand, type SubmitOutputListener } from "./submit.ts";
 
 export interface CliDeps {
 	context?: AsdlDevContext | undefined;
@@ -15,6 +15,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
+	onOutput?: SubmitOutputListener | undefined;
 }
 
 export interface AsdlDevCommandInfo {
@@ -84,6 +85,7 @@ interface RequiredCliDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
+	onOutput?: SubmitOutputListener;
 }
 
 const COMMANDS: CommandSpec[] = [
@@ -101,7 +103,7 @@ const COMMANDS: CommandSpec[] = [
 	},
 	{
 		name: "submit",
-		description: "Submit the current Graphite stack with gt submit -nps --ai.",
+		description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		help: submitHelp,
 		run: runSubmitCliCommand,
 	},
@@ -131,13 +133,17 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		return 2;
 	}
 
-	return command.run(args.slice(1), {
+	const commandDeps: RequiredCliDeps = {
 		context: deps.context ?? createRealAsdlDevContext(),
 		cwd: deps.cwd ?? process.cwd(),
 		stdout,
 		stderr,
 		env: deps.env ?? process.env,
-	});
+	};
+	if (deps.onOutput !== undefined) {
+		commandDeps.onOutput = deps.onOutput;
+	}
+	return command.run(args.slice(1), commandDeps);
 }
 
 async function runCheckpointCliCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
@@ -177,18 +183,43 @@ async function runSubmitCliCommand(args: readonly string[], deps: RequiredCliDep
 		return 2;
 	}
 
+	const checkpoint = await runCheckpointIfPending({
+		cwd: deps.cwd,
+		env: deps.env,
+		gateway: deps.context.checkpoint,
+		textGeneration: deps.context.textGeneration,
+	});
+	if (checkpoint.kind === "failed") {
+		deps.stderr(formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr));
+		return checkpoint.output.exitCode;
+	}
+	if (checkpoint.kind === "checkpointed") {
+		writeCommandResultOutput(checkpoint.output, deps);
+	}
+
 	const result = await runSubmitCommand({
 		cwd: deps.cwd,
 		gateway: deps.context.submit,
 		restack: parsed.options.restack,
+		...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
 	});
+	writeCommandResultOutput(result, deps);
+	return result.exitCode;
+}
+
+function writeCommandResultOutput(result: { stdout: string; stderr: string }, deps: Pick<RequiredCliDeps, "stdout" | "stderr">): void {
 	if (result.stdout !== "") {
 		deps.stdout(result.stdout);
 	}
 	if (result.stderr !== "") {
 		deps.stderr(result.stderr);
 	}
-	return result.exitCode;
+}
+
+function formatCheckpointBeforeSubmitFailure(stderr: string): string {
+	const trimmed = stderr.trimEnd();
+	const message = trimmed === "" ? "Checkpoint before submit failed. Submission was not attempted." : `Checkpoint before submit failed. Submission was not attempted.\n\n${trimmed}`;
+	return `${message}\n`;
 }
 
 async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
@@ -373,7 +404,9 @@ Options:
 function submitHelp(): string {
 	return `Usage: asdl-dev submit [options]
 
-Submit the current Graphite stack with \`gt submit -nps --ai\`, then verify that the current branch has a PR.
+Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current Graphite stack with \`gt submit -nps --ai\`, then verify that the current branch has a PR.
+
+Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
 
 Options:
   --restack   If the dry-run says restack is required, run \`gt restack --no-interactive\` before submitting.
