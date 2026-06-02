@@ -99,7 +99,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/dev:cp`                | `.pi/extensions/asdl-dev.ts`       | Creates a checkpoint commit for the current diff.                                                   |
 | `/dev:changes`           | `.pi/extensions/dev.ts`            | Summarizes outstanding worktree changes without committing.                                         |
 | `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
-| `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
+| `/dev:submit`            | `.pi/extensions/asdl-dev.ts`       | Mirrors `asdl-dev submit` to submit or update the current Graphite stack with headless guards.      |
 | `/dev:land`              | `.pi/extensions/dev.ts`            | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
 | `/dev:land-stack`        | `.pi/extensions/dev.ts`            | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `dev-just-fix` workflow prompt when the suite fails.                    |

@@ -7,6 +7,7 @@ import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, DEFAULT_TEXT_BACKEND, TEXT_BACKEND_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
+import { runSubmitCommand } from "./submit.ts";
 
 export type CliDeps = {
 	context?: AsdlDevContext | undefined;
@@ -53,6 +54,23 @@ type CheckpointParseResult =
 			message: string;
 	  };
 
+type ParsedSubmitArgs = {
+	restack: boolean;
+};
+
+type SubmitParseResult =
+	| {
+			kind: "ok";
+			options: ParsedSubmitArgs;
+	  }
+	| {
+			kind: "help";
+	  }
+	| {
+			kind: "error";
+			message: string;
+	  };
+
 type CommandSpec = {
 	name: string;
 	description: string;
@@ -80,6 +98,12 @@ const COMMANDS: CommandSpec[] = [
 		description: "Create a checkpoint commit for the current diff.",
 		help: checkpointHelp,
 		run: runCheckpointCliCommand,
+	},
+	{
+		name: "submit",
+		description: "Submit the current Graphite stack with gt submit -nps --ai.",
+		help: submitHelp,
+		run: runSubmitCliCommand,
 	},
 ];
 
@@ -132,6 +156,31 @@ async function runCheckpointCliCommand(args: readonly string[], deps: RequiredCl
 		env: deps.env,
 		gateway: deps.context.checkpoint,
 		textGeneration: deps.context.textGeneration,
+	});
+	if (result.stdout !== "") {
+		deps.stdout(result.stdout);
+	}
+	if (result.stderr !== "") {
+		deps.stderr(result.stderr);
+	}
+	return result.exitCode;
+}
+
+async function runSubmitCliCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
+	const parsed = parseSubmitArgs(args);
+	if (parsed.kind === "help") {
+		deps.stdout(submitHelp());
+		return 0;
+	}
+	if (parsed.kind === "error") {
+		deps.stderr(`Error: ${parsed.message}\n\n${submitHelp()}`);
+		return 2;
+	}
+
+	const result = await runSubmitCommand({
+		cwd: deps.cwd,
+		gateway: deps.context.submit,
+		restack: parsed.options.restack,
 	});
 	if (result.stdout !== "") {
 		deps.stdout(result.stdout);
@@ -241,6 +290,23 @@ function parsePreviewUrlArgs(args: readonly string[]): PreviewUrlParseResult {
 	return { kind: "ok", options };
 }
 
+function parseSubmitArgs(args: readonly string[]): SubmitParseResult {
+	const options: ParsedSubmitArgs = { restack: false };
+
+	for (const arg of args) {
+		if (arg === "--help" || arg === "-h") {
+			return { kind: "help" };
+		}
+		if (arg === "--restack") {
+			options.restack = true;
+			continue;
+		}
+		return { kind: "error", message: arg.startsWith("-") ? `Unknown option: ${arg}` : `Unexpected argument: ${arg}` };
+	}
+
+	return { kind: "ok", options };
+}
+
 function parseCheckpointArgs(args: readonly string[]): CheckpointParseResult {
 	for (const arg of args) {
 		if (arg === "--help" || arg === "-h") {
@@ -300,6 +366,17 @@ Environment:
   ${CHECKPOINT_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}.
 
 Options:
+  -h, --help  Show this help message.
+`;
+}
+
+function submitHelp(): string {
+	return `Usage: asdl-dev submit [options]
+
+Submit the current Graphite stack with \`gt submit -nps --ai\`, then verify that the current branch has a PR.
+
+Options:
+  --restack   If the dry-run says restack is required, run \`gt restack --no-interactive\` before submitting.
   -h, --help  Show this help message.
 `;
 }

@@ -36,6 +36,7 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(listAsdlDevCommands()).toEqual([
 			{ name: "preview-url", description: "Print the Vercel preview URL for a branch." },
 			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
+			{ name: "submit", description: "Submit the current Graphite stack with gt submit -nps --ai." },
 		]);
 	});
 
@@ -46,6 +47,7 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		const help = run.stdout.join("");
 		expect(help).toContain("preview-url");
 		expect(help).toContain("cp");
+		expect(help).toContain("submit");
 		expect(help).toContain("flat list of task commands");
 		expect(help).not.toContain("latest-branch-deployment");
 		expect(run.stderr.join("")).toBe("");
@@ -76,6 +78,17 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(help).not.toContain("draft harness");
 	});
 
+	test("command help documents submit behavior", async () => {
+		const run = runWithFakes(["submit", "--help"]);
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: asdl-dev submit");
+		expect(help).toContain("gt submit -nps --ai");
+		expect(help).toContain("--restack");
+		expect(help).toContain("-h, --help");
+	});
+
 	test("unknown command exits 2 and shows top-level help", async () => {
 		const run = runWithFakes(["latest-branch-deployment"]);
 
@@ -83,6 +96,7 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(run.stderr.join("")).toContain("Unknown command: latest-branch-deployment");
 		expect(run.stderr.join("")).toContain("preview-url");
 		expect(run.stderr.join("")).toContain("cp");
+		expect(run.stderr.join("")).toContain("submit");
 		expect(run.stdout.join("")).toBe("");
 	});
 

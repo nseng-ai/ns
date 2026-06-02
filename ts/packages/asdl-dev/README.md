@@ -59,6 +59,17 @@ It selects the newest READY preview deployment returned by that query, inspects 
 2. Otherwise use the first inspected alias.
 3. Otherwise use the immutable deployment URL.
 
+## `submit`
+
+Submit the current Graphite stack with `gt submit -nps --ai`, then verify that `gt pr` reports a PR for the current branch.
+
+```bash
+bun run --cwd ts asdl-dev submit
+bun run --cwd ts asdl-dev submit --restack
+```
+
+By default, `submit` runs a dry-run first and stops with guidance if Graphite says the stack needs a restack. Pass `--restack` to let the command run `gt restack --no-interactive` before submitting.
+
 ### Testing architecture
 
-CLI scenario tests call `runCli(...)` with semantic in-memory gateways. Real gateway tests own exact `git` and `vercel` command construction, parsing, and failure mapping.
+CLI scenario tests call `runCli(...)` with semantic in-memory gateways. Real gateway tests own exact `git`, `gt`, and `vercel` command construction, parsing, and failure mapping.
