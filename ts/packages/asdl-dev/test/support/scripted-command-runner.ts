@@ -13,6 +13,7 @@ export type ResultFields = {
 	stderr?: string;
 	exitCode?: number;
 	startupError?: string;
+	killed?: boolean;
 };
 
 export type ScriptStep = ResultFields & {
@@ -75,6 +76,9 @@ function result(command: string, args: readonly string[], fields: ResultFields):
 	};
 	if (fields.startupError !== undefined) {
 		commandResult.startupError = fields.startupError;
+	}
+	if (fields.killed === true) {
+		commandResult.killed = true;
 	}
 	return commandResult;
 }

@@ -42,7 +42,7 @@ Assumptions:
 - A single Objective is the right tracking unit because the migration, deletion of duplicate Pi behavior, docs, tests, and review hardening all serve one thesis: make submit a durable `asdl-dev` workflow with Pi as a surface.
 - `asdl-dev` is the correct canonical layer for durable submit behavior because the command's contract can be expressed through arguments, stdout, stderr, and exit codes.
 - Any Pi-specific submit work can remain a thin UX composition layer without owning Graphite policy or shell-output interpretation.
-- The existing submit behavior can be preserved while replacing presentation-string gateway fields with typed semantic causes.
+- Validated: the existing submit behavior can be preserved while replacing presentation-string gateway fields with typed semantic causes; scenario tests continue to assert the user-facing no-current-PR and empty-branch guidance while fakes provide only semantic causes.
 - Shared command timeout behavior can be hardened centrally without surprising other `asdl-dev` gateway users.
 
 Risks:
@@ -50,7 +50,7 @@ Risks:
 - Pi duplication drift is a major risk: a thin wrapper could gradually recreate a parallel submit implementation with its own Graphite orchestration and failure policy.
 - Shared runner hardening could affect other `runCommand` callers; substantially de-risked — the SIGKILL fallback and exit-code-124 timeout semantics are additive behind an optional `timeoutKillGraceMs` (default 5s), so existing callers that pass no new options keep working while gaining bounded timeout escalation, and command-runner tests guard the behavior (PR #787).
 - Submit UX may regress if the headless command permanently loses useful old Pi affordances such as progress feedback or checkpoint-recovery prompts.
-- Graphite output parsing remains inherently brittle; semantic detection should stay narrow, tested, and isolated from formatting.
+- Graphite output parsing remains inherently brittle, but the typed-cause boundary narrows that risk: real-gateway tests cover the known empty-branch/no-current-PR/startup/timeout/generic-failure mappings, and future Graphite success-with-failure states should be added as explicit cause variants rather than raw prose.
 
 ## Open Questions
 

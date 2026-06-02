@@ -120,7 +120,7 @@ describe("asdl-dev submit CLI behavior", () => {
 				currentPr: {
 					kind: "no_current_pr",
 					output: output("", "No PR found for current branch.\n", 1),
-					message: "gt submit exited 0, but the current branch still has no PR.",
+					cause: "no_current_pr",
 				},
 			},
 		});
@@ -129,6 +129,31 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("current branch still has no PR");
 		expect(run.stderr.join("")).toContain("Run `asdl-dev cp` to checkpoint outstanding changes");
+	});
+
+	test("post-submit empty-branch semantic failure reports formatter-owned guidance", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: {
+					kind: "success",
+					output: output(
+						"This branch does not introduce any changes:\nGraphite will not be submitted because GitHub does not allow empty PRs.\n",
+					),
+					prLinks: [],
+					semanticFailureCause: "empty_branch_skipped",
+				},
+				currentPr: {
+					kind: "present",
+					output: output("https://github.com/acme/project/pull/123\n"),
+					prLinks: [prLink(123)],
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Graphite skipped submitting part of the stack because a branch is empty");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --ai");
 	});
 
 	test("unsupported arguments fail before touching Graphite", async () => {

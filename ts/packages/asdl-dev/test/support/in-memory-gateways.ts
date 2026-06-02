@@ -437,7 +437,7 @@ function copySubmitRunResult(result: SubmitRunResult): SubmitRunResult {
 		kind: "success",
 		output: copySubmitOutput(result.output),
 		prLinks: result.prLinks.map((link) => ({ ...link })),
-		...(result.semanticFailure !== undefined ? { semanticFailure: result.semanticFailure } : {}),
+		...(result.semanticFailureCause !== undefined ? { semanticFailureCause: result.semanticFailureCause } : {}),
 	};
 }
 
@@ -446,9 +446,9 @@ function copyCurrentPrVerificationResult(result: CurrentPrVerificationResult): C
 		return { kind: "present", output: copySubmitOutput(result.output), prLinks: result.prLinks.map((link) => ({ ...link })) };
 	}
 	if (result.kind === "no_current_pr") {
-		return { kind: "no_current_pr", output: copySubmitOutput(result.output), message: result.message };
+		return { kind: "no_current_pr", output: copySubmitOutput(result.output), cause: result.cause };
 	}
-	return { kind: "failed", output: copySubmitOutput(result.output), message: result.message };
+	return { kind: "failed", output: copySubmitOutput(result.output), cause: result.cause };
 }
 
 function defaultPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
