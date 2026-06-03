@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 import click
 from pydantic import model_serializer
@@ -30,6 +30,13 @@ DiscussionSourceKind = Literal["automation_like", "human_like"]
 _MAX_BODY_CHARS = 4000
 _DEFAULT_BODY_CHARS = 320
 _FIRST_LINE_CHARS = 160
+_BODY_MARKERS: Final[tuple[tuple[str, str], ...]] = (
+    ("<!-- roaster:", "roaster_marker"),
+    ("<!-- asdl-reviewer:", "asdl_reviewer_marker"),
+    ("[vc]:", "vercel_marker"),
+    ("app.graphite.com/github/pr/", "graphite_link"),
+    ("static.graphite.dev", "graphite_static_asset"),
+)
 
 
 class SummarizeFeedbackRequest(ClinkrModel):
@@ -107,26 +114,18 @@ class SummarizeFeedbackResult(ClinkrModel):
     error: str | None = None
     returncode: int | None = None
 
-    @model_serializer
-    def serialize_model(self) -> dict[str, Any]:
-        if not self.found:
-            payload: dict[str, Any] = {"found": False, "pr_number": self.pr_number}
-            if self.error is not None:
-                payload["error"] = self.error
-            if self.returncode is not None:
-                payload["returncode"] = self.returncode
-            return payload
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler: Any) -> dict[str, Any]:
+        data = handler(self)
+        if self.found:
+            return {key: value for key, value in data.items() if key not in ("error", "returncode")}
 
-        return {
-            "found": True,
-            "pr": self.pr.model_dump(mode="json") if self.pr is not None else None,
-            "counts": self.counts.model_dump(mode="json") if self.counts is not None else None,
-            "reviews": [review.model_dump(mode="json") for review in self.reviews],
-            "review_threads": [thread.model_dump(mode="json") for thread in self.review_threads],
-            "discussion_comments": [
-                comment.model_dump(mode="json") for comment in self.discussion_comments
-            ],
-        }
+        payload: dict[str, Any] = {"found": False, "pr_number": self.pr_number}
+        if self.error is not None:
+            payload["error"] = self.error
+        if self.returncode is not None:
+            payload["returncode"] = self.returncode
+        return payload
 
 
 @clinkr_operation(
@@ -308,19 +307,8 @@ def _truncate(text: str, max_chars: int) -> str:
 
 
 def _source_evidence(*, author: str, body: str) -> tuple[str, ...]:
-    evidence: list[str] = []
-    if author.endswith("[bot]"):
-        evidence.append("bot_author")
-    if "<!-- roaster:" in body:
-        evidence.append("roaster_marker")
-    if "<!-- asdl-reviewer:" in body:
-        evidence.append("asdl_reviewer_marker")
-    if "[vc]:" in body:
-        evidence.append("vercel_marker")
-    if "app.graphite.com/github/pr/" in body:
-        evidence.append("graphite_link")
-    if "static.graphite.dev" in body:
-        evidence.append("graphite_static_asset")
+    evidence: list[str] = ["bot_author"] if author.endswith("[bot]") else []
+    evidence.extend(label for marker, label in _BODY_MARKERS if marker in body)
     return tuple(evidence)
 
 

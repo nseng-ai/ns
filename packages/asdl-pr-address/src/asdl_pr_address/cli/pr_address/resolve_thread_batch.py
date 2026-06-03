@@ -18,7 +18,8 @@ from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
 from asdl_pr_address.cli.pr_address.resolve_thread_with_reply import (
     ResolveThreadWithReplyRequest,
-    resolve_thread_with_reply,
+    apply_resolution,
+    normalize_resolution_request,
 )
 
 ResolveThreadBatchItemStatus = Literal["resolved", "failed", "skipped"]
@@ -77,7 +78,7 @@ def run_resolve_thread_batch(
     results: list[ResolveThreadBatchItemResult] = []
     for index, item in enumerate(normalized_requests):
         try:
-            resolved = resolve_thread_with_reply(pr_address_context.pr_gateway, item)
+            resolved = apply_resolution(pr_address_context.pr_gateway, item)
         except Exception as exc:
             results.append(
                 ResolveThreadBatchItemResult(
@@ -161,32 +162,14 @@ def _normalize_payload(
         )
         seen_thread_ids.add(thread_id)
 
-        message = _trim_optional(item.message)
-        commit_sha = _trim_optional(item.commit_sha) or batch_commit_sha
-        if item.mode == "fixed":
-            Ensure.truthy(
-                message,
-                error_type="invalid_request",
-                message=f"items[{index}] mode='fixed' requires a non-empty message",
-            )
-            Ensure.truthy(
-                commit_sha,
-                error_type="invalid_request",
-                message=f"items[{index}] mode='fixed' requires a non-empty commit_sha",
-            )
-        elif item.mode == "explained":
-            Ensure.truthy(
-                message,
-                error_type="invalid_request",
-                message=f"items[{index}] mode='explained' requires a non-empty message",
-            )
-
         normalized.append(
-            ResolveThreadWithReplyRequest(
-                thread_id=thread_id,
-                mode=item.mode,
-                message=message,
-                commit_sha=commit_sha,
+            normalize_resolution_request(
+                ResolveThreadWithReplyRequest(
+                    thread_id=thread_id,
+                    mode=item.mode,
+                    message=item.message,
+                    commit_sha=_trim_optional(item.commit_sha) or batch_commit_sha,
+                )
             )
         )
     return tuple(normalized)
