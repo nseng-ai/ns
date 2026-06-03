@@ -5,7 +5,6 @@ allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git status *)"
   - "Bash(brmem *)"
-  - "Write"
 ---
 
 # handoff-save
@@ -32,10 +31,13 @@ Do not write an undirected session summary.
 
 - Namespace: `handoffs`
 - Entry key shape: `<semantic-slug>.md`
-- Store from a file:
+- Store final Markdown directly from stdin through a file descriptor; do not create
+  a hidden temp or draft file:
 
 ```bash
-brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file <artifact.md>
+brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+<final Markdown handoff content>
+HANDOFF_EOF
 ```
 
 Use Branch Memory only for UTF-8 text that is safe to keep with branch-local project context. Do not store secrets, credentials, binary data, generated build output, or large logs.
@@ -84,7 +86,7 @@ Only overwrite when replacement intent is explicit, then use the same `brmem put
 
 ## Handoff artifact template
 
-Create a temporary Markdown file with concise, future-continuation-oriented content:
+Compose concise, future-continuation-oriented Markdown content directly in the command input or a visible review response:
 
 ```markdown
 # Handoff: <title>
@@ -114,12 +116,38 @@ Continuation focus: <What the future session should continue, decide, verify, or
 
 Keep the artifact brief and factual. Avoid owners, due dates, task databases, hidden metadata, or workflow-state machinery.
 
+Do not create hidden temp/draft files for handoff-save. If the user needs review or editing before saving, present the proposed Markdown in chat or a structured UI and iterate there; then save the final content through `brmem put ... --file /dev/stdin`. If the user explicitly asks for a real file or path, treat that as a separate explicit file-writing request, not the default handoff-save path. If durable review state is needed, use a clearly named Branch Memory draft only with explicit user intent.
+
 ## Store and report
 
-Store the artifact:
+Store the final artifact directly without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
-brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file <artifact.md>
+brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+# Handoff: <title>
+
+Continuation focus: <What the future session should continue, decide, verify, or implement.>
+
+## Context
+
+<Why this handoff exists and what branch/work it concerns.>
+
+## Current State
+
+<What is already done, what changed, and what is not yet done.>
+
+## Decisions / Findings
+
+<Key decisions, constraints, useful discoveries, or gotchas.>
+
+## Next Steps
+
+<Concrete next actions for a future session.>
+
+## Useful Commands / Files
+
+<Commands, files, PRs, issues, docs, or technical locators that help resume.>
+HANDOFF_EOF
 ```
 
 Report the result in handoff vocabulary first:
