@@ -21,8 +21,8 @@ export interface CmuxWorkspaceSummaryController {
 
 interface QueueSidebarOptions {
 	request: SidebarPromptRequest;
-	waitForIdle: boolean;
-	warnWhenMissingWorkspace: boolean;
+	shouldWaitForIdle: boolean;
+	shouldWarnWhenMissingWorkspace: boolean;
 }
 
 interface ParsedModelRef {
@@ -57,8 +57,8 @@ export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWork
 				pendingRestore = state;
 			}, {
 				request: { type: "pr" },
-				waitForIdle: true,
-				warnWhenMissingWorkspace: true,
+				shouldWaitForIdle: true,
+				shouldWarnWhenMissingWorkspace: true,
 			});
 		},
 
@@ -67,8 +67,8 @@ export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWork
 				pendingRestore = state;
 			}, {
 				request: buildObjectiveRequest(args),
-				waitForIdle: true,
-				warnWhenMissingWorkspace: true,
+				shouldWaitForIdle: true,
+				shouldWarnWhenMissingWorkspace: true,
 			});
 		},
 
@@ -77,8 +77,8 @@ export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWork
 				pendingRestore = state;
 			}, {
 				request: { type: "pr" },
-				waitForIdle: false,
-				warnWhenMissingWorkspace: true,
+				shouldWaitForIdle: false,
+				shouldWarnWhenMissingWorkspace: true,
 			});
 		},
 	};
@@ -174,13 +174,13 @@ async function queueSidebar(
 	setPendingRestore: (state: RestoreState) => void,
 	options: QueueSidebarOptions,
 ): Promise<void> {
-	if (options.waitForIdle) {
+	if (options.shouldWaitForIdle) {
 		await ctx.waitForIdle();
 	}
 
 	const workspaceId = getCallerWorkspaceId();
 	if (!workspaceId) {
-		if (options.warnWhenMissingWorkspace) {
+		if (options.shouldWarnWhenMissingWorkspace) {
 			notify(ctx, "Not running inside a cmux caller workspace.", "warning");
 		}
 		return;

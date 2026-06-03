@@ -9,33 +9,40 @@ import type {
 	ExtensionAPI,
 } from "./types.ts";
 
-type BranchCandidate = {
+interface BranchCandidate {
 	name: string;
 	scope: "local" | "remote";
-};
+}
 
-type PlannedBranchSelection = {
+interface PlannedBranchSelection {
 	branchName: string;
 	key?: string;
 	commit?: string;
 	sourceFile?: string;
 	branchCreation?: string;
 	startPoint?: string;
-};
+}
 
-type LoosePlannedBranchSelection = {
+interface LoosePlannedBranchSelection {
 	branchName: string;
 	key?: string | undefined;
 	commit?: string | undefined;
 	sourceFile?: string | undefined;
 	branchCreation?: string | undefined;
 	startPoint?: string | undefined;
-};
+}
 
 type ResolvedBranch =
 	| { inferred: false; branchName: string }
 	| { inferred: true; branchName: string; selection: PlannedBranchSelection }
 	| { error: string };
+
+export interface HandleCmuxSlotOpenBranchOptions {
+	pi: Pick<ExtensionAPI, "exec">;
+	summaryController: CmuxWorkspaceSummaryController;
+	args: string;
+	ctx: CommandContext;
+}
 
 const COMMAND_NAME = "cmux-slot:open-branch";
 const MAX_COMPLETIONS = 30;
@@ -60,17 +67,13 @@ export function registerCmuxSlotOpenBranchCommand(
 			return completions.length > 0 ? completions : null;
 		},
 		handler: async (args, ctx) => {
-			await handleCmuxSlotOpenBranch(pi, summaryController, args, ctx);
+			await handleCmuxSlotOpenBranch({ pi, summaryController, args, ctx });
 		},
 	});
 }
 
-export async function handleCmuxSlotOpenBranch(
-	pi: Pick<ExtensionAPI, "exec">,
-	summaryController: CmuxWorkspaceSummaryController,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
+export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranchOptions): Promise<void> {
+	const { pi, summaryController, args, ctx } = options;
 	await ctx.waitForIdle();
 
 	const explicitBranch = args.trim();

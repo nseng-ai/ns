@@ -157,7 +157,7 @@ class FakeCommandContext implements CommandContext {
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
 	model?: ModelInfo;
 	waitCount = 0;
-	confirmResult = true;
+	shouldConfirm = true;
 
 	constructor(options: { cwd?: string; model?: ModelInfo; fastModel?: ModelInfo; branchEntries?: unknown[] } = {}) {
 		this.cwd = options.cwd ?? ROOT;
@@ -185,7 +185,7 @@ class FakeCommandContext implements CommandContext {
 			setStatus: (key, value) => {
 				this.statuses.push({ key, value });
 			},
-			confirm: async () => this.confirmResult,
+			confirm: async () => this.shouldConfirm,
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
 			},
@@ -325,7 +325,7 @@ describe("cmux extension", () => {
 		const controller = createCmuxWorkspaceSummaryController(pi);
 		registerCmuxSlotOpenBranchCommand(pi, controller);
 		const ctx = new FakeCommandContext({ branchEntries: [plannedBranchOutputEntry("feature/latest")] });
-		ctx.confirmResult = false;
+		ctx.shouldConfirm = false;
 
 		await pi.commands.get("cmux-slot:open-branch")?.handler("", ctx);
 
