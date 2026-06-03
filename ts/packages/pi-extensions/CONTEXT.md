@@ -24,6 +24,18 @@ _Avoid_: published npm API, stable library boundary, global Pi extension.
 The package helper layer for invoking external commands from Pi extensions with cwd, timeout, signal, and captured stdout/stderr evidence.
 _Avoid_: shell script, subprocess wrapper unqualified, test fake.
 
+**cmux command suite**:
+The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:pr-sidebar`, `/cmux:objective-sidebar`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, and `/cmux-dispatch`.
+_Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone.
+
+**cmux workspace-opening command**:
+A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch or slot: `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, or `/cmux-dispatch`.
+_Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
+
+**Caller-workspace PR-sidebar hook**:
+The non-fatal post-success hook that queues the `/cmux:pr-sidebar` skill flow for the workspace running the command, using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, after a cmux workspace-opening command succeeds.
+_Avoid_: target workspace update, focused workspace fallback, raw cmux mutation.
+
 **Saved plan**:
 A reviewed Markdown implementation plan written before an implementation branch exists.
 _Avoid_: attached plan, Branch Memory entry, checked-in plan.

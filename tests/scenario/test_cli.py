@@ -74,14 +74,8 @@ def test_cmux_workspace_summary_exec_applies_generated_fields() -> None:
             "workspace:16",
             "--title",
             "Ship cmux summary command",
-            "--goal",
-            "Add a project-local Pi command that labels this cmux workspace.",
-            "--current-state",
-            "Extension and skill are in place.",
-            "--next-action",
-            "Reload Pi and smoke-test the slash command.",
-            "--status",
-            "cmd ready",
+            "--description",
+            "Goal: Add a project-local Pi command that labels this cmux workspace.",
             "--format",
             "json",
         ],
@@ -96,12 +90,7 @@ def test_cmux_workspace_summary_exec_applies_generated_fields() -> None:
         "success": True,
         "workspace": "workspace:16",
         "title": "Ship cmux summary command",
-        "status": "cmd ready",
-        "description": (
-            "Goal: Add a project-local Pi command that labels this cmux workspace.\n"
-            "State: Extension and skill are in place.\n"
-            "Next: Reload Pi and smoke-test the slash command."
-        ),
+        "description": "Goal: Add a project-local Pi command that labels this cmux workspace.",
         "status_key": "pi-summary",
         "error": None,
     }
@@ -109,23 +98,17 @@ def test_cmux_workspace_summary_exec_applies_generated_fields() -> None:
     assert fake_cmux.workspace_descriptions == [
         (
             "workspace:16",
-            "Goal: Add a project-local Pi command that labels this cmux workspace.\n"
-            "State: Extension and skill are in place.\n"
-            "Next: Reload Pi and smoke-test the slash command.",
+            "Goal: Add a project-local Pi command that labels this cmux workspace.",
         )
     ]
-    status_records = [
-        (status.workspace, status.key, status.value, status.icon, status.color, status.priority)
-        for status in fake_cmux.statuses
-    ]
-    assert status_records == [("workspace:16", "pi-summary", "cmd ready", "sparkle", "#7c3aed", 80)]
+    assert fake_cmux.cleared_statuses == [("workspace:16", "pi-summary")]
 
 
 def test_cmux_workspace_summary_exec_accepts_description() -> None:
     runner = CliRunner()
     fake_cmux = FakeCmuxGateway()
     ctx = AsdlExecContext(cmux=fake_cmux)
-    description = "Goal: Use one command.\nState: CLI accepts description.\nNext: Update skill."
+    description = "Goal: Use one command."
 
     result = runner.invoke(
         build_cli(source=_entry_point_source()),
@@ -138,8 +121,6 @@ def test_cmux_workspace_summary_exec_accepts_description() -> None:
             "Single command summary",
             "--description",
             description,
-            "--status",
-            "ready",
             "--format",
             "json",
         ],
@@ -166,14 +147,8 @@ def test_cmux_workspace_summary_exec_falls_back_to_cmux_env() -> None:
             "cmux-workspace-summary",
             "--title",
             "Env workspace",
-            "--goal",
-            "Use env workspace.",
-            "--current-state",
-            "Fields generated.",
-            "--next-action",
-            "Apply command.",
-            "--status",
-            "ready",
+            "--description",
+            "Goal: Use env workspace.",
             "--format",
             "json",
         ],
@@ -200,14 +175,8 @@ def test_cmux_workspace_summary_exec_reports_missing_workspace() -> None:
             "cmux-workspace-summary",
             "--title",
             "No workspace",
-            "--goal",
-            "Need workspace.",
-            "--current-state",
-            "Env missing.",
-            "--next-action",
-            "Report error.",
-            "--status",
-            "blocked",
+            "--description",
+            "Goal: Need workspace.",
             "--format",
             "json",
         ],
@@ -224,7 +193,7 @@ def test_cmux_workspace_summary_exec_reports_missing_workspace() -> None:
     assert fake_cmux.renamed_workspaces == []
 
 
-def test_cmux_workspace_summary_exec_requires_description_or_legacy_fields() -> None:
+def test_cmux_workspace_summary_exec_requires_description() -> None:
     runner = CliRunner()
     fake_cmux = FakeCmuxGateway()
     ctx = AsdlExecContext(cmux=fake_cmux)
@@ -238,8 +207,6 @@ def test_cmux_workspace_summary_exec_requires_description_or_legacy_fields() -> 
             "workspace:16",
             "--title",
             "Missing description",
-            "--status",
-            "blocked",
             "--format",
             "json",
         ],
@@ -253,7 +220,7 @@ def test_cmux_workspace_summary_exec_requires_description_or_legacy_fields() -> 
     assert payload["data"]["error"]["code"] == "missing_description"
     assert fake_cmux.renamed_workspaces == []
     assert fake_cmux.workspace_descriptions == []
-    assert fake_cmux.statuses == []
+    assert fake_cmux.cleared_statuses == []
 
 
 def test_cmux_workspace_summary_exec_reports_cmux_command_failure() -> None:
@@ -277,14 +244,8 @@ def test_cmux_workspace_summary_exec_reports_cmux_command_failure() -> None:
             "workspace:16",
             "--title",
             "fail",
-            "--goal",
-            "Test failure.",
-            "--current-state",
-            "Fake fails.",
-            "--next-action",
-            "Report failure.",
-            "--status",
-            "blocked",
+            "--description",
+            "Goal: Test failure.",
             "--format",
             "json",
         ],

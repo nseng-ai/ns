@@ -5,4 +5,4 @@ out of prompts while preserving a machine-readable JSON contract.
 
 Current docs:
 
-- [`cmux-workspace-summary`](cmux-workspace-summary.md): apply generated cmux workspace title, description, and status fields.
+- [`cmux-workspace-summary`](cmux-workspace-summary.md): apply generated cmux workspace title and description fields.
