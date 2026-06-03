@@ -1,6 +1,6 @@
 # Agent Resource Catalog
 
-Generated from the repo checkout on 2026-06-01.
+Generated from the repo checkout on 2026-06-03.
 
 This catalog covers repo-defined agent and harness resources with command-level rows where a resource exposes commands or tools.
 
@@ -10,9 +10,9 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
-| First-party skill commands               |    38 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    20 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
-| Project Pi custom tools                  |     2 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
+| First-party skill commands               |    42 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
+| Project Pi extension commands            |    22 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| Project Pi custom tools                  |     3 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
 | Harness instruction files                |     6 | `AGENTS.md` and `CLAUDE.md` files that define repo or package-level agent instructions.                                |
@@ -34,7 +34,9 @@ The promoted first-party catalog uses flat semantic names instead of an organiza
 | Explicit | Maintenance                    | `changelog-update`                                                                                 |
 | Ambient  | Skill authoring                | `skill-management`, `skill-audit`, `cli-push-down`                                                 |
 | Ambient  | Python standards and testing   | `dignified-python`, `python-fake-driven-testing`, `python-fake-driven-test-layout`, `pytest`       |
+| Ambient  | TypeScript standards/testing   | `typescript-style`, `typescript-fake-driven-testing`                                               |
 | Ambient  | Workflow operations            | `refactor-swarm`, `code-resolve-merge-conflicts`                                                   |
+| Internal | Pi UI and Objective prototypes | `pi-grill-ui`, `proto-objective-impl`                                                              |
 
 Projects initialized with `areg init` install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
 
@@ -61,6 +63,8 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:python-fake-driven-test-layout`   | `skills/python-fake-driven-test-layout/SKILL.md`   | Defines per-package test directory layout for fake-driven Python projects.                                          |
 | `/skill:python-fake-driven-testing`       | `skills/python-fake-driven-testing/SKILL.md`       | Guides Python gateway and fake-driven testing architecture.                                                         |
 | `/skill:pytest`                           | `skills/pytest/SKILL.md`                           | Provides pytest style guidance for fixtures, helpers, parametrization, and test cleanup.                            |
+| `/skill:typescript-fake-driven-testing`   | `skills/typescript-fake-driven-testing/SKILL.md`   | Guides TypeScript gateway and fake-driven testing architecture.                                                     |
+| `/skill:typescript-style`                 | `skills/typescript-style/SKILL.md`                 | Guides strict TypeScript style, type design, boundary validation, and review defaults.                              |
 | `/skill:cli-push-down`                    | `skills/cli-push-down/SKILL.md`                    | Identifies deterministic prompt work that should move into tested CLI commands.                                     |
 | `/skill:refactor-swarm`                   | `skills/refactor-swarm/SKILL.md`                   | Coordinates parallel file-local refactors across many independent files.                                            |
 | `/skill:code-resolve-merge-conflicts`     | `skills/code-resolve-merge-conflicts/SKILL.md`     | Resolves merge conflicts from an in-progress rebase.                                                                |
@@ -79,6 +83,8 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:objective-next`                   | `skills/objective-next/SKILL.md`                   | Recommends the next useful work for one active Objective after checking for stale tracking.                         |
 | `/skill:objective-stack-impl`             | `skills/objective-stack-impl/SKILL.md`             | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
 | `/skill:objective-update`                 | `skills/objective-update/SKILL.md`                 | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
+| `/skill:pi-grill-ui`                      | `skills/pi-grill-ui/SKILL.md`                      | Internal backend skill for the Pi `/grill-ui` structured-question extension.                                        |
+| `/skill:proto-objective-impl`             | `skills/proto-objective-impl/SKILL.md`             | Internal prototype Objective runner invoked by explicit user request or `/proto:objective-impl`.                    |
 | `/skill:pr-address`                       | `skills/pr-address/SKILL.md`                       | Addresses current-branch PR review feedback end-to-end without pushing.                                             |
 
 ## Skill installation surfaces
@@ -102,6 +108,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/code:land`             | `.pi/extensions/code.ts`           | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
 | `/code:land-stack`       | `.pi/extensions/code.ts`           | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/dev:preview-url`       | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
+| `/grill-ui`              | `.pi/extensions/grill-ui.ts`       | Starts a grill-me session using the structured `grill_ask` question UI.                             |
 | `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
 | `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
@@ -109,6 +116,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/objective:current`     | `.pi/extensions/objective.ts`      | Picks an Objective and invokes `objective-current` for the selected slug.                           |
 | `/objective:update`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-update` for the selected slug.                     |
 | `/objective:stack-impl`  | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes the portable Objective stack implementation skill.            |
+| `/proto:objective-impl`  | `.pi/extensions/proto.ts`          | Picks an active Objective and invokes the parked prototype Objective implementation runner.         |
 | `/write-plan`            | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
 | `/create-planned-branch` | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
 | `/impl-planned-branch`   | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
@@ -118,6 +126,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | Tool                            | Source                                       | Description                                                                                      |
 | ------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `dispatch_runner_subagent`      | `.pi/extensions/dispatch-runner-subagent.ts` | Launches a focused Pi runner subagent in the current cwd and returns final-text/status evidence. |
+| `grill_ask`                     | `.pi/extensions/grill-ui.ts`                 | Asks one grill-me question through structured choices, freeform input, or an end-session path.   |
 | `write_source_branch_plan_file` | `.pi/extensions/planned-branch.ts`           | Writes a reviewed Markdown implementation plan into the local source-branch plan store.          |
 
 ## Repo-owned workflow family dispositions
@@ -127,6 +136,8 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | Planned branches      | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.                  |
 | Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained. |
 | Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                |
+| Structured grill UI   | Retain `/grill-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills.                                               |
+| Prototype runner      | Keep `/proto:objective-impl` and `/skill:proto-objective-impl` as parked prototype/internal surfaces. They are not canonical `/objective:*` behavior, and lifecycle disposition is deferred until explicitly unparked.                               |
 
 ## Engineered Pi extension package
 
