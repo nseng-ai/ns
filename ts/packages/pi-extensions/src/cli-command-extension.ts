@@ -25,22 +25,22 @@ type OutputStreamName = "stdout" | "stderr";
 type LiveProgressTarget = "none" | "status" | "widget" | "status_widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-type RenderTheme = {
+interface RenderTheme {
 	fg(color: string, text: string): string;
 	bold?(text: string): string;
-};
+}
 
-type RenderComponent = {
+interface RenderComponent {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
@@ -242,7 +242,14 @@ export function renderCliCommandOutputMessage(
 	const level = cliCommandMessageLevel(message.details);
 	return {
 		render(width: number): string[] {
-			return content.split("\n").map((line, index) => styleCliCommandOutputLine(truncateDisplayLine(line, width), index, level, theme));
+			return content.split("\n").map((line, index) =>
+				styleCliCommandOutputLine({
+					line: truncateDisplayLine(line, width),
+					index,
+					level,
+					theme,
+				}),
+			);
 		},
 		invalidate(): void {},
 	};
@@ -794,7 +801,15 @@ function cliCommandMessageLevel(details: unknown): "info" | "error" {
 	return "info";
 }
 
-function styleCliCommandOutputLine(line: string, index: number, level: "info" | "error", theme: RenderTheme): string {
+interface StyleCliCommandOutputLineOptions {
+	line: string;
+	index: number;
+	level: "info" | "error";
+	theme: RenderTheme;
+}
+
+function styleCliCommandOutputLine(options: StyleCliCommandOutputLineOptions): string {
+	const { line, index, level, theme } = options;
 	if (line === "") return line;
 	if (level === "error" && index === 0) return theme.fg("error", line);
 	if (level === "error" && isOutputSectionLabel(line)) return theme.fg("warning", line);
