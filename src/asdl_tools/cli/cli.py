@@ -7,6 +7,7 @@ from asdl_tools.cli.plugins import (
     PluginEntryPointSource,
     discover_plugins,
 )
+from asdl_tools.exec.group import build_exec_group
 
 
 def build_cli(
@@ -20,6 +21,7 @@ def build_cli(
         """asdl CLI."""
         del ctx
 
+    cli.add_command(build_exec_group())
     discover_plugins(cli, source=source)
     return cli
 
