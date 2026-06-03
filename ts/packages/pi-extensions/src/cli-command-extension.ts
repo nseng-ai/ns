@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
 
+import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
+
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "ASDL_PI_CLI_TRACE";
 const TRACE_OUTPUT_ENV = "ASDL_PI_CLI_TRACE_OUTPUT";
@@ -15,11 +17,32 @@ const LIVE_PROGRESS_INTERVAL_MS = 1_000;
 const LIVE_PROGRESS_MAX_LINES = 8;
 const LIVE_PROGRESS_MAX_LINE_CHARS = 160;
 
+export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "asdl-cli-command-output";
+
 type NotifyLevel = "info" | "warning" | "error";
 type TraceFields = Record<string, unknown>;
 type OutputStreamName = "stdout" | "stderr";
 type LiveProgressTarget = "none" | "status" | "widget" | "status_widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
+
+interface CustomMessage {
+	customType: string;
+	content: CustomMessageContent;
+	display: boolean;
+	details?: unknown;
+}
+
+interface RenderTheme {
+	fg(color: string, text: string): string;
+	bold?(text: string): string;
+}
+
+interface RenderComponent {
+	render(width: number): string[];
+	invalidate(): void;
+}
+
+type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
 export interface CliCommandInfo {
 	name: string;
@@ -63,6 +86,8 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	sendMessage?(message: CustomMessage): void;
 }
 
 export type ParsedCliCommandArgs =
@@ -91,10 +116,12 @@ export interface CliCommandOutputDetails {
 
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
 	assertValidCommandSpec(spec);
+	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
 	traceCliCommand("register", {
-		bridgeMode: "notify-with-above-editor-live-stream-no-custom-message",
+		bridgeMode: "custom-rendered-message-with-above-editor-live-stream",
 		cliName: spec.cliName,
 		commands: spec.commands.map((command) => command.name),
+		messageRendererAvailable: hasMessageRenderer(pi),
 		piNamespace: spec.piNamespace,
 		sendMessageAvailable: hasSendMessage(pi),
 	});
@@ -204,6 +231,28 @@ export function formatCliCommandOutput(details: CliCommandOutputDetails): string
 	}
 
 	return formatFailedOutput({ sourceCommand, exitCode: details.exitCode, stdout: details.stdout, stderr: details.stderr });
+}
+
+export function renderCliCommandOutputMessage(
+	message: CustomMessage,
+	_options: { expanded: boolean },
+	theme: RenderTheme,
+): RenderComponent {
+	const content = customMessageText(message.content);
+	const level = cliCommandMessageLevel(message.details);
+	return {
+		render(width: number): string[] {
+			return content.split("\n").map((line, index) =>
+				styleCliCommandOutputLine({
+					line: truncateDisplayLine(line, width),
+					index,
+					level,
+					theme,
+				}),
+			);
+		},
+		invalidate(): void {},
+	};
 }
 
 interface RunRegisteredCliCommandOptions {
@@ -624,17 +673,29 @@ function formatElapsedMs(elapsedMs: number): string {
 
 function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {
 	const displayText = formatCliCommandOutput(details);
-	const target = ctx.hasUI ? "notify" : details.level === "info" ? "stdout" : "stderr";
+	const sendMessage = pi.sendMessage;
+	const canSendRenderedMessage = ctx.hasUI && sendMessage !== undefined && pi.registerMessageRenderer !== undefined;
+	const target = canSendRenderedMessage ? "custom_message" : ctx.hasUI ? "notify" : details.level === "info" ? "stdout" : "stderr";
 	traceCliCommand("emit_output", {
 		commandName: details.commandName,
 		displayChars: displayText.length,
 		hasUI: ctx.hasUI,
 		level: details.level,
+		messageRendererAvailable: hasMessageRenderer(pi),
 		piCommandName: details.piCommandName,
 		sendMessageAvailable: hasSendMessage(pi),
-		sendMessageCalled: false,
+		sendMessageCalled: canSendRenderedMessage,
 		target,
 	});
+	if (canSendRenderedMessage) {
+		sendMessage({
+			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+			content: displayText,
+			display: true,
+			details,
+		});
+		return;
+	}
 	if (ctx.hasUI) {
 		ctx.ui.notify(displayText, details.level);
 		return;
@@ -728,7 +789,39 @@ function tracePreview(text: string): string {
 }
 
 function hasSendMessage(pi: ExtensionAPI): boolean {
-	return typeof (pi as ExtensionAPI & { sendMessage?: unknown }).sendMessage === "function";
+	return typeof pi.sendMessage === "function";
+}
+
+function hasMessageRenderer(pi: ExtensionAPI): boolean {
+	return typeof pi.registerMessageRenderer === "function";
+}
+
+function cliCommandMessageLevel(details: unknown): "info" | "error" {
+	if (isRecord(details) && details.level === "error") return "error";
+	return "info";
+}
+
+interface StyleCliCommandOutputLineOptions {
+	line: string;
+	index: number;
+	level: "info" | "error";
+	theme: RenderTheme;
+}
+
+function styleCliCommandOutputLine(options: StyleCliCommandOutputLineOptions): string {
+	const { line, index, level, theme } = options;
+	if (line === "") return line;
+	if (level === "error" && index === 0) return theme.fg("error", line);
+	if (level === "error" && isOutputSectionLabel(line)) return theme.fg("warning", line);
+	return theme.fg("text", line);
+}
+
+function isOutputSectionLabel(line: string): boolean {
+	return line === "stdout:" || line === "stderr:";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
