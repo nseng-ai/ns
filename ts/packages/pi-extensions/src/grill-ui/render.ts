@@ -173,8 +173,26 @@ function renderChoiceRowText(row: Extract<GrillAskRow, { kind: "choice" }>, sele
 }
 
 function renderExceptionalRowText(row: Exclude<GrillAskRow, { kind: "choice" }>, selected: boolean, width: number, primitives: GrillAskRenderPrimitives): string {
-	const glyph = row.kind === "freeform" ? "✎" : "⏹";
-	const label = row.kind === "freeform" ? "Other / freeform answer" : "End grilling session";
+	let glyph: string;
+	let label: string;
+	switch (row.kind) {
+		case "freeform":
+			glyph = "✎";
+			label = "Other / freeform answer";
+			break;
+		case "status":
+			glyph = "ℹ";
+			label = "Show current grill status";
+			break;
+		case "end_grill":
+			glyph = "⏹";
+			label = "End grilling session";
+			break;
+		default: {
+			const exhaustive: never = row;
+			return exhaustive;
+		}
+	}
 	const line = truncate(`${selected ? "❯" : " "} ${row.index}  ${glyph} ${label}`, width, primitives);
 	return selected ? padToWidth(line, width, primitives) : line;
 }

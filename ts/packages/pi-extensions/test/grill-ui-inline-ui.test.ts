@@ -53,16 +53,19 @@ describe("grill_ask view helpers", () => {
 		const input = normalizedInput();
 		const rows = buildGrillAskRows(input);
 
-		expect(rows.map((row) => row.kind)).toEqual(["choice", "choice", "freeform", "end_grill"]);
+		expect(rows.map((row) => row.kind)).toEqual(["choice", "choice", "freeform", "status", "end_grill"]);
 		expect(rowValue(rows[2]!)).toBe("__freeform__");
-		expect(rowValue(rows[3]!)).toBe("__end_grill__");
+		expect(rowValue(rows[3]!)).toBe("__status__");
+		expect(rowValue(rows[4]!)).toBe("__end_grill__");
 		expect(rowLabel(rows[1]!)).toBe("2. Ship the focused inline UI");
 		expect(rowLabel(rows[2]!)).toBe("3. Other / freeform answer");
-		expect(rowLabel(rows[3]!)).toBe("4. End grilling session");
+		expect(rowLabel(rows[3]!)).toBe("4. Show current grill status");
+		expect(rowLabel(rows[4]!)).toBe("5. End grilling session");
 		expect(rowLabel(rows[1]!)).not.toContain("(recommended)");
 		expect(rowSelectDisplay(rows[1]!)).toBe("2. ★ Ship the focused inline UI — Use one custom inline UI with visible exceptional rows.");
 		expect(rowSelectDisplay(rows[2]!)).toBe("3. ✎ Other / freeform answer");
-		expect(rowSelectDisplay(rows[3]!)).toBe("4. ⏹ End grilling session");
+		expect(rowSelectDisplay(rows[3]!)).toBe("4. ℹ Show current grill status");
+		expect(rowSelectDisplay(rows[4]!)).toBe("5. ⏹ End grilling session");
 		expect(rowRecommendationTag(rows[1]!)).toBe("★ recommended");
 		expect(rowRecommendationTag(rows[0]!)).toBeUndefined();
 		expect(choiceDetailLines(input, rows[1]!)).toEqual([
@@ -70,6 +73,13 @@ describe("grill_ask view helpers", () => {
 			"Why: It improves the user interaction while preserving the tool result shape.",
 		]);
 		expect(defaultGrillAskRowIndex(input, rows)).toBe(1);
+	});
+
+	test("always includes status when freeform and end are disabled", () => {
+		const rows = buildGrillAskRows(normalizedInput({ allowFreeform: false, allowEnd: false }));
+
+		expect(rows.map((row) => row.kind)).toEqual(["choice", "choice", "status"]);
+		expect(rowLabel(rows[2]!)).toBe("3. Show current grill status");
 	});
 });
 
@@ -80,8 +90,10 @@ describe("GrillAskController", () => {
 		expect(controller.focusIndex).toBe(1);
 		controller.moveFocus(-10);
 		expect(controller.focusIndex).toBe(0);
+		controller.setFocus(3);
+		expect(controller.submitFocused()).toEqual({ action: "status_request" });
 		controller.moveFocus(99);
-		expect(controller.focusIndex).toBe(3);
+		expect(controller.focusIndex).toBe(4);
 		expect(controller.submitFocused()).toEqual({ action: "end_grill" });
 	});
 
@@ -111,7 +123,8 @@ describe("grill_ask render helpers", () => {
 		expect(output).toContain("Use one custom inline UI with visible exceptional rows.");
 		expect(output).toContain("Why: It improves the user interaction while preserving the tool");
 		expect(output).toContain("3  ✎ Other / freeform answer");
-		expect(output).toContain("4  ⏹ End grilling session");
+		expect(output).toContain("4  ℹ Show current grill status");
+		expect(output).toContain("5  ⏹ End grilling session");
 		expect(output).not.toContain("Question");
 		expect(output).not.toContain("Context");
 		expect(output).not.toContain("Recommendation");
@@ -383,7 +396,7 @@ describe("grill_ask inline UI component", () => {
 		]);
 	});
 
-	test("numbered exceptional rows open freeform and end grilling", () => {
+	test("numbered exceptional rows open freeform, status, and end grilling", () => {
 		const freeformDoneValues: unknown[] = [];
 		const freeformComponent = createGrillAskInlineComponent(
 			normalizedInput(),
@@ -400,6 +413,18 @@ describe("grill_ask inline UI component", () => {
 
 		expect(freeformDoneValues).toEqual([{ action: "freeform", answer: "Ok" }]);
 
+		const statusDoneValues: unknown[] = [];
+		const statusComponent = createGrillAskInlineComponent(
+			normalizedInput(),
+			fakeRuntime(),
+			fakeTui(),
+			{},
+			(outcome) => statusDoneValues.push(outcome),
+		);
+		statusComponent.handleInput?.("4");
+
+		expect(statusDoneValues).toEqual([{ action: "status_request" }]);
+
 		const endDoneValues: unknown[] = [];
 		const endComponent = createGrillAskInlineComponent(
 			normalizedInput(),
@@ -408,7 +433,7 @@ describe("grill_ask inline UI component", () => {
 			{},
 			(outcome) => endDoneValues.push(outcome),
 		);
-		endComponent.handleInput?.("4");
+		endComponent.handleInput?.("5");
 
 		expect(endDoneValues).toEqual([{ action: "end_grill" }]);
 	});

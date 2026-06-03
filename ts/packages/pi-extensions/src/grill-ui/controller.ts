@@ -10,6 +10,7 @@ import {
 export type GrillAskOutcome =
 	| { action: "choice"; entry: GrillAskChoiceRow }
 	| { action: "freeform"; answer: string }
+	| { action: "status_request" }
 	| { action: "end_grill" }
 	| { action: "cancelled" };
 
@@ -72,6 +73,8 @@ export class GrillAskController {
 			case "freeform":
 				this.currentMode = "freeform";
 				return undefined;
+			case "status":
+				return { action: "status_request" };
 			case "end_grill":
 				return { action: "end_grill" };
 			default: {

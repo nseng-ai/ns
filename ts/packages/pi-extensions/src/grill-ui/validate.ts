@@ -1,6 +1,6 @@
 import type { GrillAskOption, NormalizedGrillAskInput } from "../grill-ui.ts";
 
-export const RESERVED_GRILL_ASK_VALUES = new Set(["__freeform__", "__end_grill__", "__cancelled__"]);
+export const RESERVED_GRILL_ASK_VALUES = new Set(["__freeform__", "__status__", "__end_grill__", "__cancelled__"]);
 
 export type GrillAskValidationResult =
 	| { ok: true; input: NormalizedGrillAskInput }
