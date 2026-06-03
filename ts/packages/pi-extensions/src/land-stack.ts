@@ -94,7 +94,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				const completionLevel = hasWarnings ? "warning" : "success";
 				const commandStreamDetails = commandStreamDetailsForLanded(landed);
 				commandStream.finishSuccess(successSummary, commandStreamDetails);
-				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, commandStreamDetails));
+				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, commandStreamDetails, warnings));
 			} catch (error) {
 				const formatted = formatFailure(error, landed);
 				const level = error instanceof LandStackError ? error.level : "error";
