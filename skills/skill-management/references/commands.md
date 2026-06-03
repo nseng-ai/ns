@@ -40,6 +40,13 @@ npx skills add ./skills/skill-management --agent codex claude-code -y
 rm -rf .agents/skills/skill-management
 ln -s ../../skills/skill-management .agents/skills/skill-management
 
+# Internal local skill bootstrap
+INSTALL_INTERNAL_SKILLS=1 npx skills add ./skills/internal-pr-stack-address --agent codex claude-code -y
+rm -rf .agents/skills/internal-pr-stack-address
+ln -s ../../skills/internal-pr-stack-address .agents/skills/internal-pr-stack-address
+rm -rf .claude/skills/internal-pr-stack-address
+ln -s ../../.agents/skills/internal-pr-stack-address .claude/skills/internal-pr-stack-address
+
 # Single GitHub skill
 npx skills add withgraphite/agent-skills --skill graphite --agent codex claude-code -y
 
@@ -75,6 +82,12 @@ List installed skills.
 | `-g`, `--global`         | List global skills instead of project skills.    |
 | `-a`, `--agent <agents>` | Filter by specific agents.                       |
 | `--json`                 | Machine-readable JSON output with no ANSI codes. |
+
+For a simple presence check, prefer plain output plus `rg`:
+
+```bash
+INSTALL_INTERNAL_SKILLS=1 npx skills list | rg '<name>'
+```
 
 ```bash
 npx skills list
@@ -207,6 +220,14 @@ fetched content and is refreshed by remote updates.
    `rm -rf .agents/skills/<name> && ln -s ../../skills/<name> .agents/skills/<name>`.
 4. **`remove` cleans up symlinks but not source content.** For a local skill,
    also remove `skills/<name>/` and the lockfile entry.
+5. **Internal skills are hidden unless `INSTALL_INTERNAL_SKILLS=1` is set.** If
+   `npx skills add` reports `No skills found` for a valid local internal skill,
+   rerun the install with `INSTALL_INTERNAL_SKILLS=1`.
+6. **Local installs may capture absolute paths in `skills-lock.json`.** Normalize
+   committed local entries to `source: "skills/<name>"`.
+7. **Review `skills-lock.json` churn before committing.** If the CLI rewrites or
+   reorders unrelated entries while adding one skill, minimize the diff unless
+   those changes are intentional.
 
 ## Skill visibility (internal skills)
 

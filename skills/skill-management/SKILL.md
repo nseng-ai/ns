@@ -93,6 +93,8 @@ GitHub-sourced skills do NOT get a `skills/<name>` entry.
 
 ### 1. Add a new local skill
 
+For a public local skill, use the standard bootstrap flow:
+
 ```bash
 # 1. Create the skill in its permanent home
 mkdir -p skills/<name>/references
@@ -111,6 +113,31 @@ npx skills list
 # 7. Stage and commit
 git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json
 ```
+
+For an internal local skill, add `metadata.internal: true` to `SKILL.md` and enable internal discovery during install and verification. Without it, `npx skills add` can misleadingly report `No skills found`.
+
+```bash
+# 1. Create the skill in its permanent home
+mkdir -p skills/<name>/references
+# 2. Author skills/<name>/SKILL.md with metadata.internal: true
+# 3. Bootstrap the install with internal discovery enabled
+INSTALL_INTERNAL_SKILLS=1 npx skills add ./skills/<name> --agent codex claude-code -y
+# 4. Replace the CLI's copy with symlinks back to the canonical source
+rm -rf .agents/skills/<name>
+ln -s ../../skills/<name> .agents/skills/<name>
+rm -rf .claude/skills/<name>
+ln -s ../../.agents/skills/<name> .claude/skills/<name>
+# 5. Normalize skills-lock.json if needed: source -> "skills/<name>"
+# 6. Verify
+readlink .agents/skills/<name>    # expect: ../../skills/<name>
+readlink .claude/skills/<name>    # expect: ../../.agents/skills/<name>
+INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<name>"
+cat .claude/skills/<name>/SKILL.md
+# 7. Stage and commit
+git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json
+```
+
+After `npx skills add`, inspect `git diff -- skills-lock.json` and minimize unrelated churn before committing. If the CLI wrote an absolute local path, rewrite the entry to `"source": "skills/<name>"`.
 
 ### 2. Add a new skill from GitHub
 
@@ -180,14 +207,21 @@ git add -u skills/<old> .agents/skills/<old> .claude/skills/<old>
 
 ```bash
 npx skills list
-npx skills list --json
-npx skills list -g
+INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<internal-skill-name>"
+readlink .agents/skills/<name>
+readlink .claude/skills/<name>
 cat skills-lock.json
 ls -la .agents/skills/
 ls -la skills/
 ```
 
 See `references/commands.md` for command details and known CLI quirks.
+
+- `No skills found` for a valid `SKILL.md` with `metadata.internal: true`: rerun with `INSTALL_INTERNAL_SKILLS=1 npx skills add ...`.
+- `skills-lock.json` contains `/Users/.../skills/<name>`: normalize the entry to `source: "skills/<name>"` before committing.
+- Large unrelated `skills-lock.json` diff: minimize the diff to the intended skill entry unless those changes are deliberate.
+- `.agents/skills/<name>` is a real directory after bootstrap: replace it with `ln -s ../../skills/<name> .agents/skills/<name>`.
+- Internal skill does not appear in a plain list check: verify with `INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<name>"`.
 
 ## Skill visibility
 
