@@ -1,9 +1,10 @@
 import { expandSkillBlock } from "../skill-expansion.ts";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
-const COMMAND_NAME = "cmux:set-workspace-summary";
-const SKILL_NAME = "cmux-set-workspace-summary";
-const STATUS_KEY = COMMAND_NAME;
+const PR_SIDEBAR_COMMAND_NAME = "cmux:pr-sidebar";
+const OBJECTIVE_SIDEBAR_COMMAND_NAME = "cmux:objective-sidebar";
+const SKILL_NAME = "cmux-sidebar";
+const STATUS_KEY = "cmux:sidebar";
 const SUMMARY_MODEL_ENV = "ASDL_CMUX_SUMMARY_MODEL";
 const DEFAULT_SUMMARY_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
@@ -13,11 +14,13 @@ interface RestoreState {
 }
 
 export interface CmuxWorkspaceSummaryController {
-	handleCommand(ctx: CommandContext): Promise<void>;
-	queueFromHook(ctx: CommandContext): Promise<void>;
+	handlePrCommand(ctx: CommandContext): Promise<void>;
+	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
+	queuePrFromHook(ctx: CommandContext): Promise<void>;
 }
 
-interface QueueSummaryOptions {
+interface QueueSidebarOptions {
+	request: SidebarPromptRequest;
 	waitForIdle: boolean;
 	warnWhenMissingWorkspace: boolean;
 }
@@ -26,6 +29,15 @@ interface ParsedModelRef {
 	provider: string;
 	modelId: string;
 }
+
+type SidebarPromptRequest =
+	| {
+			type: "pr";
+	  }
+	| {
+			type: "objective";
+			objectiveSelector?: string;
+	  };
 
 export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWorkspaceSummaryController {
 	let pendingRestore: RestoreState | undefined;
@@ -40,27 +52,51 @@ export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWork
 	});
 
 	return {
-		async handleCommand(ctx): Promise<void> {
-			await queueSummary(pi, ctx, (state) => {
+		async handlePrCommand(ctx): Promise<void> {
+			await queueSidebar(pi, ctx, (state) => {
 				pendingRestore = state;
-			}, { waitForIdle: true, warnWhenMissingWorkspace: true });
+			}, {
+				request: { type: "pr" },
+				waitForIdle: true,
+				warnWhenMissingWorkspace: true,
+			});
 		},
 
-		async queueFromHook(ctx): Promise<void> {
-			await queueSummary(pi, ctx, (state) => {
+		async handleObjectiveCommand(args, ctx): Promise<void> {
+			await queueSidebar(pi, ctx, (state) => {
 				pendingRestore = state;
-			}, { waitForIdle: false, warnWhenMissingWorkspace: true });
+			}, {
+				request: buildObjectiveRequest(args),
+				waitForIdle: true,
+				warnWhenMissingWorkspace: true,
+			});
+		},
+
+		async queuePrFromHook(ctx): Promise<void> {
+			await queueSidebar(pi, ctx, (state) => {
+				pendingRestore = state;
+			}, {
+				request: { type: "pr" },
+				waitForIdle: false,
+				warnWhenMissingWorkspace: true,
+			});
 		},
 	};
 }
 
-export function registerCmuxWorkspaceSummaryCommand(
+export function registerCmuxSidebarCommands(
 	pi: ExtensionAPI,
 	controller: CmuxWorkspaceSummaryController,
 ): void {
-	pi.registerCommand(COMMAND_NAME, {
-		description: "Summarize this Pi session into the caller cmux workspace title, description, and status.",
-		handler: async (_args, ctx) => controller.handleCommand(ctx),
+	pi.registerCommand(PR_SIDEBAR_COMMAND_NAME, {
+		description: "Summarize the current PR work into the caller cmux sidebar.",
+		handler: async (_args, ctx) => controller.handlePrCommand(ctx),
+	});
+
+	pi.registerCommand(OBJECTIVE_SIDEBAR_COMMAND_NAME, {
+		description: "Summarize an asdl Objective into the caller cmux sidebar.",
+		argumentHint: "[objective-slug-or-path]",
+		handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
 	});
 }
 
@@ -70,37 +106,73 @@ export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): stri
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function buildWorkspaceSummaryPrompt(skillBlock: string | undefined, workspaceId: string): string {
+export function buildCmuxSidebarPrompt(
+	skillBlock: string | undefined,
+	workspaceId: string,
+	request: SidebarPromptRequest,
+): string {
 	return `${skillBlock ?? buildFallbackSkillPrompt()}
 
-Run the cmux workspace-summary workflow now for the caller workspace.
+Run the cmux sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the summary. Generate compact fields, apply the update immediately with the asdl exec command, then report the applied title and status briefly.`;
+${formatVariantInstructions(request)}
+
+Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the summary. Generate compact title and description fields, apply the update with the asdl exec command when the requested source is resolved, then report the applied title briefly.`;
+}
+
+function buildObjectiveRequest(args: string): SidebarPromptRequest {
+	const objectiveSelector = args.trim();
+	if (objectiveSelector.length === 0) {
+		return { type: "objective" };
+	}
+	return { type: "objective", objectiveSelector };
+}
+
+function formatVariantInstructions(request: SidebarPromptRequest): string {
+	if (request.type === "pr") {
+		return [
+			"Requested variant: PR sidebar.",
+			"Summarize the current PR, branch, or active implementation work.",
+			"The Goal line should describe the PR outcome, not the cmux update itself.",
+		].join("\n");
+	}
+
+	if (request.objectiveSelector === undefined) {
+		return [
+			"Requested variant: Objective sidebar.",
+			"No Objective slug or path was supplied in the command arguments.",
+			"Do not infer an Objective from branch, PR, or hidden context.",
+			"Ask the user to provide or choose an Objective slug/path, then stop without running asdl exec.",
+		].join("\n");
+	}
+
+	return [
+		"Requested variant: Objective sidebar.",
+		`Objective selector from command args: ${request.objectiveSelector}`,
+		"Summarize that asdl Objective, not the current PR.",
+	].join("\n");
 }
 
 function buildFallbackSkillPrompt(): string {
-	return `The cmux-set-workspace-summary skill was not found. Update the caller cmux workspace title, direct multiline description, and status from the current Pi context using exactly one deterministic command:
+	return `The cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for the requested variant using exactly one deterministic command:
 
 \`\`\`bash
 asdl exec cmux-workspace-summary \\
   --title '...' \\
-  --description 'Goal: ...
-State: ...
-Next: ...' \\
-  --status '...' \\
+  --description 'Goal: ...' \\
   --format json
 \`\`\`
 
-Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
+The command clears the old cmux status pill. For Objective sidebar without an Objective slug or path, ask the user to choose one and do not run the command. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
 }
 
-async function queueSummary(
+async function queueSidebar(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	setPendingRestore: (state: RestoreState) => void,
-	options: QueueSummaryOptions,
+	options: QueueSidebarOptions,
 ): Promise<void> {
 	if (options.waitForIdle) {
 		await ctx.waitForIdle();
@@ -114,37 +186,41 @@ async function queueSummary(
 		return;
 	}
 
-	setStatus(ctx, "preparing fast cmux summary…");
+	setStatus(ctx, "preparing cmux sidebar…");
 	let restoreState: RestoreState | undefined;
 	try {
-		const skillBlock = await expandSummarySkillBlock(pi, ctx);
+		const skillBlock = await expandSidebarSkillBlock(pi, ctx);
 		restoreState = await switchToFastSummaryModel(pi, ctx);
 		if (restoreState !== undefined) {
 			setPendingRestore(restoreState);
 		}
 		notify(
 			ctx,
-			skillBlock ? "Invoking cmux workspace summary." : "cmux summary skill not found; using fallback prompt.",
+			skillBlock ? formatInvokingMessage(options.request) : "cmux sidebar skill not found; using fallback prompt.",
 			skillBlock ? "info" : "warning",
 		);
-		pi.sendUserMessage(buildWorkspaceSummaryPrompt(skillBlock, workspaceId));
+		pi.sendUserMessage(buildCmuxSidebarPrompt(skillBlock, workspaceId, options.request));
 	} catch (error) {
 		if (restoreState !== undefined) {
 			await restoreModelState(pi, ctx, restoreState);
 		}
-		notify(ctx, `Could not queue cmux workspace summary: ${formatErrorMessage(error)}`, "warning");
+		notify(ctx, `Could not queue cmux sidebar summary: ${formatErrorMessage(error)}`, "warning");
 	} finally {
 		setStatus(ctx, undefined);
 	}
 }
 
-async function expandSummarySkillBlock(pi: ExtensionAPI, ctx: CommandContext): Promise<string | undefined> {
+async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): Promise<string | undefined> {
 	try {
 		return (await expandSkillBlock(pi, SKILL_NAME))?.block;
 	} catch (error) {
-		notify(ctx, `Could not read cmux summary skill; using fallback prompt: ${formatErrorMessage(error)}`, "warning");
+		notify(ctx, `Could not read cmux sidebar skill; using fallback prompt: ${formatErrorMessage(error)}`, "warning");
 		return undefined;
 	}
+}
+
+function formatInvokingMessage(request: SidebarPromptRequest): string {
+	return request.type === "pr" ? "Invoking cmux PR sidebar summary." : "Invoking cmux Objective sidebar summary.";
 }
 
 function configuredSummaryModelRef(): string {
@@ -202,7 +278,11 @@ async function restoreModelState(pi: ExtensionAPI, ctx: AgentEndContext, restore
 	pi.setThinkingLevel(restoreState.thinkingLevel);
 }
 
-function notify(ctx: { hasUI?: boolean; ui: { notify(message: string, level?: NotifyLevel): void } }, message: string, level: NotifyLevel = "info"): void {
+function notify(
+	ctx: { hasUI?: boolean; ui: { notify(message: string, level?: NotifyLevel): void } },
+	message: string,
+	level: NotifyLevel = "info",
+): void {
 	if (ctx.hasUI !== false) {
 		ctx.ui.notify(message, level);
 	}

@@ -112,7 +112,7 @@ export async function handleCmuxDispatch(
 		].join("\n"),
 		"info",
 	);
-	await summaryController.queueFromHook(ctx);
+	await summaryController.queuePrFromHook(ctx);
 }
 
 export async function createTrackedBranchForPrompt(

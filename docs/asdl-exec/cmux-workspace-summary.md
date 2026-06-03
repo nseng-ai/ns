@@ -1,18 +1,15 @@
 # `asdl exec cmux-workspace-summary`
 
-`asdl exec cmux-workspace-summary` is the deterministic command boundary for applying a compact cmux workspace summary. It exists so Pi skills and agents do not hand-write the cmux mutation sequence.
+`asdl exec cmux-workspace-summary` is the deterministic command boundary for applying compact cmux sidebar/workspace-card metadata. It exists so Pi skills and agents do not hand-write the cmux mutation sequence.
 
-## Preferred command
+## Command
 
-Use a direct multiline description:
+Use a direct one-line `Goal:` description:
 
 ```bash
 asdl exec cmux-workspace-summary \
   --title "$title" \
-  --description "Goal: ...
-State: ...
-Next: ..." \
-  --status "$status" \
+  --description "Goal: ..." \
   --format json
 ```
 
@@ -22,45 +19,22 @@ Next: ..." \
 
 The current Pi skill enforces these limits by prompt instruction before calling the command:
 
-| Field           | Limit         | Meaning                                     |
-| --------------- | ------------- | ------------------------------------------- |
-| `--title`       | 45 characters | Short action/object workspace title         |
-| `--description` | 3 short lines | Tooltip text, usually Goal/State/Next lines |
-| `--status`      | 20 characters | Compact sidebar status pill text            |
+| Field           | Limit         | Meaning                             |
+| --------------- | ------------- | ----------------------------------- |
+| `--title`       | 45 characters | Short action/object workspace title |
+| `--description` | 1 short line  | Tooltip text: `Goal: ...`           |
 
-The command currently trusts those fields and applies them. It does not perform deterministic length validation.
+The command trusts those fields and applies them. It does not perform deterministic length validation.
 
-## Legacy compatibility fields
-
-For compatibility with older prompts, the command still accepts the legacy triplet:
-
-```bash
-asdl exec cmux-workspace-summary \
-  --title "$title" \
-  --goal "$goal" \
-  --current-state "$current_state" \
-  --next-action "$next_action" \
-  --status "$status" \
-  --format json
-```
-
-When `--description` is omitted, all three legacy fields are required and are converted to:
-
-```text
-Goal: <goal>
-State: <current-state>
-Next: <next-action>
-```
-
-If neither direct `--description` nor the complete legacy triplet is supplied, the command exits with expected failure `missing_description`.
+If direct `--description` is omitted or blank, the command exits with expected failure `missing_description`.
 
 ## cmux effects
 
 On success, the command applies three cmux mutations to the caller workspace:
 
 1. Rename workspace title with `cmux workspace rename <workspace> --title <title>`.
-2. Set the multiline description through `cmux workspace-action --action set-description`.
-3. Set/update the `pi-summary` sidebar status pill with icon `sparkle`, color `#7c3aed`, and priority `80`.
+2. Set the description through `cmux workspace-action --action set-description`.
+3. Clear the legacy `pi-summary` sidebar status pill with `cmux clear-status pi-summary`.
 
 ## JSON contract
 
@@ -73,8 +47,7 @@ Use `--format json` for skills and agents. Successful output has `exit_code: 0` 
     "success": true,
     "workspace": "workspace-or-uuid",
     "title": "Ship exec-based cmux summary",
-    "status": "fast path",
-    "description": "Goal: ...\nState: ...\nNext: ...",
+    "description": "Goal: ...",
     "status_key": "pi-summary",
     "error": null
   }
@@ -91,8 +64,7 @@ Expected non-ideal states exit `1` and include `data.success: false`:
     "success": false,
     "workspace": null,
     "title": "No workspace",
-    "status": "blocked",
-    "description": "Goal: ...\nState: ...\nNext: ...",
+    "description": null,
     "status_key": "pi-summary",
     "error": {
       "code": "missing_workspace",
@@ -112,7 +84,6 @@ The command is covered through root CLI scenario tests in `tests/scenario/test_c
 When extending this command, preserve tests for:
 
 - success with direct `--description`;
-- legacy triplet compatibility;
 - environment fallback to `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID`;
 - missing workspace;
 - missing description;
@@ -128,4 +99,4 @@ The current skill still asks the model to call this one command. If the goal is 
 3. Invoke `asdl exec cmux-workspace-summary` via `pi.exec("asdl", [...])` with argv, not shell.
 4. Render the resulting JSON envelope in the extension.
 
-That keeps semantic summarization in a model while making all cmux mutation and quoting deterministic.
+That keeps semantic summarization in a model while making quoting, cmux targeting, and command execution fully deterministic.

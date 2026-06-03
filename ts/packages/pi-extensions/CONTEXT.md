@@ -25,15 +25,15 @@ The package helper layer for invoking external commands from Pi extensions with 
 _Avoid_: shell script, subprocess wrapper unqualified, test fake.
 
 **cmux command suite**:
-The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:set-workspace-summary`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, and `/cmux-dispatch`.
-_Avoid_: user-local cmux commands, cmux CLI, workspace summary skill alone.
+The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:pr-sidebar`, `/cmux:objective-sidebar`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, and `/cmux-dispatch`.
+_Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone.
 
 **cmux workspace-opening command**:
 A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch or slot: `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, or `/cmux-dispatch`.
 _Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
 
-**Caller-workspace summary hook**:
-The non-fatal post-success hook that queues the existing `/cmux:set-workspace-summary` skill flow for the workspace running the command, using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, after a cmux workspace-opening command succeeds.
+**Caller-workspace PR-sidebar hook**:
+The non-fatal post-success hook that queues the `/cmux:pr-sidebar` skill flow for the workspace running the command, using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, after a cmux workspace-opening command succeeds.
 _Avoid_: target workspace update, focused workspace fallback, raw cmux mutation.
 
 **Saved plan**:

@@ -36,17 +36,8 @@ class CmuxGateway(ABC):
         """Set the target workspace description."""
 
     @abstractmethod
-    def set_status(
-        self,
-        *,
-        workspace: str,
-        key: str,
-        value: str,
-        icon: str,
-        color: str,
-        priority: int,
-    ) -> CmuxCommandFailure | None:
-        """Set a cmux sidebar status pill for the target workspace."""
+    def clear_status(self, *, workspace: str, key: str) -> CmuxCommandFailure | None:
+        """Clear a cmux sidebar status pill for the target workspace."""
 
 
 class RealCmuxGateway(CmuxGateway):
@@ -73,31 +64,8 @@ class RealCmuxGateway(CmuxGateway):
             )
         )
 
-    def set_status(
-        self,
-        *,
-        workspace: str,
-        key: str,
-        value: str,
-        icon: str,
-        color: str,
-        priority: int,
-    ) -> CmuxCommandFailure | None:
-        return self._run_cmux(
-            (
-                "set-status",
-                key,
-                value,
-                "--workspace",
-                workspace,
-                "--icon",
-                icon,
-                "--color",
-                color,
-                "--priority",
-                str(priority),
-            )
-        )
+    def clear_status(self, *, workspace: str, key: str) -> CmuxCommandFailure | None:
+        return self._run_cmux(("clear-status", key, "--workspace", workspace))
 
     def _run_cmux(self, args: tuple[str, ...]) -> CmuxCommandFailure | None:
         command = ("cmux", *args)

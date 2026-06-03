@@ -113,7 +113,7 @@ export async function handleCmuxSlotOpenBranch(
 	}
 
 	ctx.ui.notify(`Opened branch in CMUX slot: ${target.branchName}`, "info");
-	await summaryController.queueFromHook(ctx);
+	await summaryController.queuePrFromHook(ctx);
 }
 
 async function resolveInferredPlannedBranch(ctx: {

@@ -523,7 +523,7 @@ async function createAttachSlotAndLaunch(
 	}
 
 	present(ctx, formatFinalSuccess(targetBranch, key, slot.target), "success");
-	await summaryController.queueFromHook(ctx);
+	await summaryController.queuePrFromHook(ctx);
 }
 
 async function createGraphiteBranch(

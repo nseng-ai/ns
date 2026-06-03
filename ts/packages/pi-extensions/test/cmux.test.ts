@@ -7,10 +7,7 @@ import { registerCmuxDispatchCommand } from "../src/cmux/dispatch.ts";
 import registerCmuxExtension from "../src/cmux.ts";
 import { registerCmuxSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCmuxSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
-import {
-	createCmuxWorkspaceSummaryController,
-	registerCmuxWorkspaceSummaryCommand,
-} from "../src/cmux/workspace-summary.ts";
+import { createCmuxWorkspaceSummaryController, registerCmuxSidebarCommands } from "../src/cmux/workspace-summary.ts";
 import type {
 	AgentEndContext,
 	AutocompleteProvider,
@@ -223,23 +220,25 @@ describe("cmux extension", () => {
 			"cmux-dispatch",
 			"cmux-slot:dispatch-plan",
 			"cmux-slot:open-branch",
-			"cmux:set-workspace-summary",
+			"cmux:objective-sidebar",
+			"cmux:pr-sidebar",
 		]);
 	});
 
-	test("cmux:set-workspace-summary queues expanded skill prompt and restores the previous model", async () => {
+	test("cmux:pr-sidebar queues expanded skill prompt and restores the previous model", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const skillPath = await writeTempSkill("Use direct `--description` command shape.");
-		const pi = new FakePi({ skillCommands: [skillCommand("cmux-set-workspace-summary", skillPath)] });
+		const pi = new FakePi({ skillCommands: [skillCommand("cmux-sidebar", skillPath)] });
 		const controller = createCmuxWorkspaceSummaryController(pi);
-		registerCmuxWorkspaceSummaryCommand(pi, controller);
+		registerCmuxSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
 
-		await pi.commands.get("cmux:set-workspace-summary")?.handler("", ctx);
+		await pi.commands.get("cmux:pr-sidebar")?.handler("", ctx);
 
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("<skill name=\"cmux-set-workspace-summary\"");
+		expect(pi.sentUserMessages[0]).toContain("<skill name=\"cmux-sidebar\"");
+		expect(pi.sentUserMessages[0]).toContain("Requested variant: PR sidebar.");
 		expect(pi.sentUserMessages[0]).toContain("--description");
 		expect(pi.setModels).toEqual([FAST_MODEL]);
 		expect(pi.thinkingLevels).toEqual(["minimal"]);
@@ -250,23 +249,42 @@ describe("cmux extension", () => {
 		expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
 	});
 
-	test("workspace summary fallback uses direct description and missing workspace skips send", async () => {
+	test("cmux:objective-sidebar includes supplied Objective selector", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const skillPath = await writeTempSkill("Use Objective sidebar variant.");
+		const pi = new FakePi({ skillCommands: [skillCommand("cmux-sidebar", skillPath)] });
+		const controller = createCmuxWorkspaceSummaryController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext();
+
+		await pi.commands.get("cmux:objective-sidebar")?.handler("cmux-objective", ctx);
+
+		expect(ctx.waitCount).toBe(1);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("Requested variant: Objective sidebar.");
+		expect(pi.sentUserMessages[0]).toContain("Objective selector from command args: cmux-objective");
+		expect(pi.sentUserMessages[0]).toContain("Summarize that asdl Objective, not the current PR.");
+	});
+
+	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const pi = new FakePi();
 		const controller = createCmuxWorkspaceSummaryController(pi);
-		registerCmuxWorkspaceSummaryCommand(pi, controller);
+		registerCmuxSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("cmux:set-workspace-summary")?.handler("", ctx);
+		await pi.commands.get("cmux:pr-sidebar")?.handler("", ctx);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("--description 'Goal: ...");
+		expect(pi.sentUserMessages[0]).toContain("--description 'Goal: ...'");
+		expect(pi.sentUserMessages[0]).not.toContain("State: ...");
 		expect(pi.sentUserMessages[0]).not.toContain("--goal");
+		expect(pi.sentUserMessages[0]).not.toContain("--status");
 
 		delete process.env.CMUX_WORKSPACE_ID;
 		delete process.env.CMUX_TAB_ID;
 		const noWorkspace = new FakeCommandContext();
-		await pi.commands.get("cmux:set-workspace-summary")?.handler("", noWorkspace);
+		await pi.commands.get("cmux:pr-sidebar")?.handler("", noWorkspace);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(noWorkspace.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
@@ -501,7 +519,7 @@ async function makeTempDir(): Promise<string> {
 async function writeTempSkill(body: string): Promise<string> {
 	const dir = await makeTempDir();
 	const path = join(dir, "SKILL.md");
-	await writeFile(path, `---\nname: cmux-set-workspace-summary\n---\n${body}\n`, "utf8");
+	await writeFile(path, `---\nname: cmux-sidebar\n---\n${body}\n`, "utf8");
 	return path;
 }
 

@@ -2,19 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from asdl_tools.cmux.gateway import CmuxCommandFailure, CmuxGateway
-
-
-@dataclass(frozen=True)
-class RecordedCmuxStatus:
-    workspace: str
-    key: str
-    value: str
-    icon: str
-    color: str
-    priority: int
 
 
 class FakeCmuxGateway(CmuxGateway):
@@ -24,7 +12,7 @@ class FakeCmuxGateway(CmuxGateway):
         self.fail_next = fail_next
         self.renamed_workspaces: list[tuple[str, str]] = []
         self.workspace_descriptions: list[tuple[str, str]] = []
-        self.statuses: list[RecordedCmuxStatus] = []
+        self.cleared_statuses: list[tuple[str, str]] = []
 
     def rename_workspace(self, *, workspace: str, title: str) -> CmuxCommandFailure | None:
         failure = self._pop_failure()
@@ -45,29 +33,11 @@ class FakeCmuxGateway(CmuxGateway):
         self.workspace_descriptions.append((workspace, description))
         return None
 
-    def set_status(
-        self,
-        *,
-        workspace: str,
-        key: str,
-        value: str,
-        icon: str,
-        color: str,
-        priority: int,
-    ) -> CmuxCommandFailure | None:
+    def clear_status(self, *, workspace: str, key: str) -> CmuxCommandFailure | None:
         failure = self._pop_failure()
         if failure is not None:
             return failure
-        self.statuses.append(
-            RecordedCmuxStatus(
-                workspace=workspace,
-                key=key,
-                value=value,
-                icon=icon,
-                color=color,
-                priority=priority,
-            )
-        )
+        self.cleared_statuses.append((workspace, key))
         return None
 
     def _pop_failure(self) -> CmuxCommandFailure | None:

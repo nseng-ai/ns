@@ -7,9 +7,6 @@ from dataclasses import dataclass
 from asdl_tools.cmux.gateway import CmuxCommandFailure, CmuxGateway
 
 DEFAULT_STATUS_KEY = "pi-summary"
-DEFAULT_STATUS_ICON = "sparkle"
-DEFAULT_STATUS_COLOR = "#7c3aed"
-DEFAULT_STATUS_PRIORITY = 80
 
 
 @dataclass(frozen=True)
@@ -17,18 +14,13 @@ class CmuxWorkspaceSummary:
     workspace: str
     title: str
     description: str
-    status: str
     status_key: str = DEFAULT_STATUS_KEY
-    status_icon: str = DEFAULT_STATUS_ICON
-    status_color: str = DEFAULT_STATUS_COLOR
-    status_priority: int = DEFAULT_STATUS_PRIORITY
 
 
 @dataclass(frozen=True)
 class AppliedCmuxWorkspaceSummary:
     workspace: str
     title: str
-    status: str
     description: str
     status_key: str
 
@@ -38,10 +30,6 @@ class CmuxWorkspaceSummaryFailure:
     code: str
     message: str
     command_failure: CmuxCommandFailure | None = None
-
-
-def build_workspace_description(*, goal: str, current_state: str, next_action: str) -> str:
-    return f"Goal: {goal}\nState: {current_state}\nNext: {next_action}"
 
 
 def apply_cmux_workspace_summary(
@@ -67,25 +55,17 @@ def apply_cmux_workspace_summary(
             failure,
         )
 
-    failure = gateway.set_status(
-        workspace=summary.workspace,
-        key=summary.status_key,
-        value=summary.status,
-        icon=summary.status_icon,
-        color=summary.status_color,
-        priority=summary.status_priority,
-    )
+    failure = gateway.clear_status(workspace=summary.workspace, key=summary.status_key)
     if failure is not None:
         return _command_failure(
-            "set_status_failed",
-            "Failed to set cmux workspace status.",
+            "clear_status_failed",
+            "Failed to clear cmux workspace status.",
             failure,
         )
 
     return AppliedCmuxWorkspaceSummary(
         workspace=summary.workspace,
         title=summary.title,
-        status=summary.status,
         description=summary.description,
         status_key=summary.status_key,
     )
