@@ -44,7 +44,9 @@ Storage contract:
 - Namespace: \`${HANDOFF_NAMESPACE}\`
 - Entry key shape: \`<semantic-slug>${HANDOFF_KEY_SUFFIX}\`
 - Check for an existing artifact with \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\`.
-- Store with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file <artifact.md>\`.
+- Store final Markdown directly with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
+
+If review or editing is needed before saving, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
 
 Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the saved handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
 
@@ -371,12 +373,14 @@ ${fencedBlock("text", focusText)}
 
 Treat this as an explicit request to run the handoff save workflow. The handoff must be directed toward the supplied continuation focus. Derive a semantic slug from that focus unless the user explicitly supplied one, avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on saving/picking up a handoff.
 
-Before writing, confirm the branch unless the user explicitly named one and check for an existing key:
+Before writing, confirm the branch unless the user explicitly named one and check for an existing key. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin:
 
 ${fencedBlock(
 		"bash",
 		`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>
-brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file <artifact.md>`,
+brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+<final Markdown handoff content>
+HANDOFF_EOF`,
 	)}
 
 Report the saved handoff first. Include Branch Memory details only as technical storage evidence.`;

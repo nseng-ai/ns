@@ -361,8 +361,12 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
 		expect(result.pi.sentUserMessages[0]).toContain("Namespace: `handoffs`");
 		expect(result.pi.sentUserMessages[0]).toContain("brmem check <semantic-slug>.md --namespace handoffs --branch <branch>");
-		expect(result.pi.sentUserMessages[0]).toContain("brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file <artifact.md>");
+		expect(result.pi.sentUserMessages[0]).toContain("brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file /dev/stdin");
+		expect(result.pi.sentUserMessages[0]).toContain("do not create a temporary artifact file");
+		expect(result.pi.sentUserMessages[0]).toContain("HANDOFF_EOF");
 		expect(result.pi.sentUserMessages[0]).toContain("handoff focus");
+		expect(result.pi.sentUserMessages[0]).not.toContain("--file <artifact.md>");
+		expect(result.pi.sentUserMessages[0]).not.toContain("Create a temporary Markdown file");
 		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
 		expect(result.pi.sentUserMessages[0]).not.toContain("handoffs/<semantic-slug>");
 		expect(result.notifications).toEqual([
@@ -673,6 +677,10 @@ describe("handoff pure helpers", () => {
 		expect(prompt).toContain("Storage contract:");
 		expect(prompt).toContain("ship the frontend command");
 		expect(prompt).toContain("brmem check <semantic-slug>.md --namespace handoffs --branch <branch>");
+		expect(prompt).toContain("brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file /dev/stdin");
+		expect(prompt).toContain("HANDOFF_EOF");
+		expect(prompt).not.toContain("--file <artifact.md>");
+		expect(prompt).not.toContain("Create a temporary Markdown file");
 	});
 
 	test("preview prefers continuation focus and otherwise headings", () => {
