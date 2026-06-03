@@ -33,8 +33,10 @@ def test_build_review_selection_selects_matching_reviews_and_skips_non_matches()
     )
 
     assert [review.key for review in selection.selected] == ["typescript-style"]
+    assert selection.selected[0].default_model == "haiku"
     assert selection.selected[0].matched_paths == ("ts/packages/pi-extensions/src/roast.ts",)
     assert [review.key for review in selection.skipped] == ["dignified-python"]
+    assert selection.skipped[0].default_model == "haiku"
     assert selection.skipped[0].reason == "no_changed_path_match"
 
 

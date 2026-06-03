@@ -115,7 +115,7 @@ export interface CliCommandOutputDetails {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
-	level: "info" | "error";
+	level: "info" | "warning" | "error";
 }
 
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
@@ -812,15 +812,16 @@ function hasMessageRenderer(pi: ExtensionAPI): boolean {
 	return typeof pi.registerMessageRenderer === "function";
 }
 
-function cliCommandMessageLevel(details: unknown): "info" | "error" {
+function cliCommandMessageLevel(details: unknown): "info" | "warning" | "error" {
 	if (isRecord(details) && details.level === "error") return "error";
+	if (isRecord(details) && details.level === "warning") return "warning";
 	return "info";
 }
 
 interface StyleCliCommandOutputLineOptions {
 	line: string;
 	index: number;
-	level: "info" | "error";
+	level: "info" | "warning" | "error";
 	theme: RenderTheme;
 }
 
@@ -828,6 +829,7 @@ function styleCliCommandOutputLine(options: StyleCliCommandOutputLineOptions): s
 	const { line, index, level, theme } = options;
 	if (line === "") return line;
 	if (level === "error" && index === 0) return theme.fg("error", line);
+	if (level === "warning" && index === 0) return theme.fg("warning", line);
 	if (level === "error" && isOutputSectionLabel(line)) return theme.fg("warning", line);
 	return theme.fg("text", line);
 }

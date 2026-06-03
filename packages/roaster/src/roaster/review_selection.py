@@ -40,6 +40,7 @@ def build_review_selection(
                 MatchedReview(
                     key=review_definition.name,
                     description=review_definition.description,
+                    default_model=review_definition.default_model,
                     when_changed=review_definition.when_changed,
                     matched_paths=matched_paths,
                 )
@@ -50,6 +51,7 @@ def build_review_selection(
             SkippedReview(
                 key=review_definition.name,
                 description=review_definition.description,
+                default_model=review_definition.default_model,
                 when_changed=review_definition.when_changed,
                 reason=_SKIPPED_NO_CHANGED_PATH_MATCH,
             )

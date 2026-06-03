@@ -435,10 +435,11 @@ class LocalReviewResult(ClinkrModel):
 
 @dataclass(frozen=True)
 class MatchedReview:
-    """A review whose changed-path condition selected it for a batch run."""
+    """A review whose changed-path condition selected it for execution."""
 
     key: str
     description: str
+    default_model: str | None
     when_changed: tuple[str, ...]
     matched_paths: tuple[str, ...]
 
@@ -449,22 +450,33 @@ class SkippedReview:
 
     key: str
     description: str
+    default_model: str | None
     when_changed: tuple[str, ...]
     reason: str
 
 
-class MatchingReviewBatchResult(ClinkrModel):
-    """Structured result for a changed-path-selected batch review run."""
+@dataclass(frozen=True)
+class ResolvedReviewRunPlan:
+    """Execution facts resolved before invoking a review harness."""
+
+    review_name: str
+    model: str
+    harness: str
+    base_ref: str
+    changed_path_count: int
+
+
+class MatchingReviewSelectionResult(ClinkrModel):
+    """Structured result for changed-path review selection."""
 
     base_ref: str
     changed_paths: tuple[str, ...]
     selected_reviews: tuple[MatchedReview, ...]
     skipped_reviews: tuple[SkippedReview, ...]
-    results: tuple[LocalReviewResult, ...]
 
     @model_serializer
     def serialize_model(self) -> dict[str, Any]:
-        """Serialize a batch-review result for JSON output."""
+        """Serialize a changed-path review selection for JSON output."""
         return {
             "base_ref": self.base_ref,
             "changed_paths": list(self.changed_paths),
@@ -473,6 +485,4 @@ class MatchingReviewBatchResult(ClinkrModel):
             "selected_count": len(self.selected_reviews),
             "skipped_reviews": [dataclasses.asdict(review) for review in self.skipped_reviews],
             "skipped_count": len(self.skipped_reviews),
-            "results": [serialize_to_json_dict(result) for result in self.results],
-            "result_count": len(self.results),
         }

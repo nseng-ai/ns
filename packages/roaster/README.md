@@ -27,9 +27,9 @@ roaster review run demo
 roaster harness list        # detect known harnesses on PATH
 roaster harness show        # print which harness would be used
 
-roaster review list         # enumerate reviews/**/*.md as keys
-roaster review run <key>    # resolve reviews/<key>.md, run it, print findings
-roaster review run-matching # run reviews whose when_changed globs match the current diff
+roaster review list          # enumerate reviews/**/*.md as keys
+roaster review list-matching # list reviews whose when_changed globs match the current diff
+roaster review run <key>     # resolve reviews/<key>.md, run it, print findings
 ```
 
 Every operation also has a JSON form for machine consumers:
@@ -103,9 +103,10 @@ Optional frontmatter fields:
 
 - `default_model` — used when the `--model` flag is not passed.
 - `when_changed` — a list of repo-relative glob patterns. `roaster review
-  run-matching` runs the review only when at least one changed path in the
+  list-matching` selects the review only when at least one changed path in the
   current branch diff matches one of these patterns. Omit this field for
-  reviewers that should always run.
+  reviewers that should always be selected. Callers can then run selected keys
+  with `roaster review run <key>`.
 
 The markdown body (after the closing fence) is required and becomes the
 reviewer's `instructions`.
