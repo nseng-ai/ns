@@ -15,7 +15,6 @@ export interface ExecResult {
 	stdout?: string;
 	stderr?: string;
 	code: number;
-	killed?: boolean;
 }
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -190,32 +189,50 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) {
 		restoreInvocationToEditor(ctx, rawArgs, `Could not parse /${COMMAND_NAME}: ${parsed.error}`);
-		emitRoastText(pi, ctx, rawArgs, [], {
-			exitCode: 2,
-			level: "error",
-			stdout: "",
-			stderr: `Error: ${parsed.error}\n`,
+		emitRoastText({
+			pi,
+			ctx,
+			rawArgs,
+			args: [],
+			result: {
+				exitCode: 2,
+				level: "error",
+				stdout: "",
+				stderr: `Error: ${parsed.error}\n`,
+			},
 		});
 		return;
 	}
 
 	const argsResult = parseRoastArgs(parsed.args);
 	if (argsResult.type === "help") {
-		emitRoastText(pi, ctx, rawArgs, parsed.args, {
-			exitCode: 0,
-			level: "info",
-			stdout: roastHelpText(),
-			stderr: "",
+		emitRoastText({
+			pi,
+			ctx,
+			rawArgs,
+			args: parsed.args,
+			result: {
+				exitCode: 0,
+				level: "info",
+				stdout: roastHelpText(),
+				stderr: "",
+			},
 		});
 		return;
 	}
 	if (argsResult.type === "error") {
 		restoreInvocationToEditor(ctx, rawArgs, `Could not parse /${COMMAND_NAME}: ${argsResult.message}`);
-		emitRoastText(pi, ctx, rawArgs, parsed.args, {
-			exitCode: 2,
-			level: "error",
-			stdout: "",
-			stderr: `Error: ${argsResult.message}\n`,
+		emitRoastText({
+			pi,
+			ctx,
+			rawArgs,
+			args: parsed.args,
+			result: {
+				exitCode: 2,
+				level: "error",
+				stdout: "",
+				stderr: `Error: ${argsResult.message}\n`,
+			},
 		});
 		return;
 	}
@@ -233,24 +250,36 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 
 	try {
 		setRoastStatus(ctx, "selecting matching roaster reviews…");
-		const selectionResult = await runRoasterJson(pi, ctx, "review list-matching", buildSelectionArgs(options), parseMatchingSelectionData);
+		const selectionResult = await runRoasterJson({
+			pi,
+			ctx,
+			commandName: "review list-matching",
+			argv: buildSelectionArgs(options),
+			parseData: parseMatchingSelectionData,
+		});
 		if (selectionResult.type === "failure") {
 			aggregate.setupFailures.push(selectionResult);
-			emitAggregate(pi, ctx, rawArgs, parsed.args, aggregate);
+			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
 		aggregate.selection = selectionResult.data;
 
 		if (selectionResult.data.selectedReviews.length === 0) {
-			emitAggregate(pi, ctx, rawArgs, parsed.args, aggregate);
+			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
 
 		setRoastStatus(ctx, "resolving roaster harness…");
-		const harnessResult = await runRoasterJson(pi, ctx, "harness show", buildHarnessShowArgs(options), parseHarnessShowData);
+		const harnessResult = await runRoasterJson({
+			pi,
+			ctx,
+			commandName: "harness show",
+			argv: buildHarnessShowArgs(options),
+			parseData: parseHarnessShowData,
+		});
 		if (harnessResult.type === "failure") {
 			aggregate.setupFailures.push(harnessResult);
-			emitAggregate(pi, ctx, rawArgs, parsed.args, aggregate);
+			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
 		aggregate.harnessName = harnessResult.data.harnessName;
@@ -258,19 +287,19 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 		const missingModelReviews = findMissingModelReviews(selectionResult.data.selectedReviews, options);
 		if (missingModelReviews.length > 0) {
 			aggregate.missingModelReviews = missingModelReviews;
-			emitAggregate(pi, ctx, rawArgs, parsed.args, aggregate);
+			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
 
 		for (const [index, review] of selectionResult.data.selectedReviews.entries()) {
 			setRoastStatus(ctx, `running ${index + 1}/${selectionResult.data.selectedReviews.length} ${review.key}…`);
-			const runResult = await runRoasterJson(
+			const runResult = await runRoasterJson({
 				pi,
 				ctx,
-				`review run ${review.key}`,
-				buildReviewRunArgs({ options, review, harnessName: harnessResult.data.harnessName }),
-				parseReviewRunData,
-			);
+				commandName: `review run ${review.key}`,
+				argv: buildReviewRunArgs({ options, review, harnessName: harnessResult.data.harnessName }),
+				parseData: parseReviewRunData,
+			});
 			if (runResult.type === "failure") {
 				aggregate.failedRuns.push({ review, failure: runResult });
 				continue;
@@ -278,7 +307,7 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 			aggregate.successfulRuns.push({ review, data: runResult.data });
 		}
 
-		emitAggregate(pi, ctx, rawArgs, parsed.args, aggregate);
+		emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 	} finally {
 		setRoastStatus(ctx, undefined);
 	}
@@ -371,13 +400,16 @@ function buildReviewRunArgs(options: { options: RoastOptions; review: MatchingRe
 	return args;
 }
 
-async function runRoasterJson<T>(
-	pi: Pick<ExtensionAPI, "exec">,
-	ctx: ExtensionCommandContext,
-	commandName: string,
-	argv: string[],
-	parseData: (value: unknown) => JsonParseResult<T>,
-): Promise<SubcommandResult<T>> {
+interface RunRoasterJsonOptions<T> {
+	pi: Pick<ExtensionAPI, "exec">;
+	ctx: ExtensionCommandContext;
+	commandName: string;
+	argv: string[];
+	parseData: (value: unknown) => JsonParseResult<T>;
+}
+
+async function runRoasterJson<T>(options: RunRoasterJsonOptions<T>): Promise<SubcommandResult<T>> {
+	const { pi, ctx, commandName, argv, parseData } = options;
 	const result = await pi.exec("uv", ["run", "roaster", ...argv], {
 		cwd: ctx.cwd,
 		timeout: ROASTER_TIMEOUT_MS,
@@ -642,23 +674,32 @@ function findMissingModelReviews(reviews: readonly MatchingReview[], options: Ro
 	return reviews.filter((review) => review.defaultModel === null || review.defaultModel.trim() === "");
 }
 
-function emitAggregate(
-	pi: Pick<ExtensionAPI, "sendMessage">,
-	ctx: ExtensionCommandContext,
-	rawArgs: string,
-	args: readonly string[],
-	aggregate: RoastAggregate,
-): void {
+interface EmitAggregateOptions {
+	pi: Pick<ExtensionAPI, "sendMessage">;
+	ctx: ExtensionCommandContext;
+	rawArgs: string;
+	args: readonly string[];
+	aggregate: RoastAggregate;
+}
+
+function emitAggregate(options: EmitAggregateOptions): void {
+	const { pi, ctx, rawArgs, args, aggregate } = options;
 	const hardErrorCount = aggregate.setupFailures.length + aggregate.failedRuns.length + aggregate.missingModelReviews.length;
 	const findingsCount = countFindings(aggregate.successfulRuns);
 	const level: NotifyLevel = hardErrorCount > 0 ? "error" : findingsCount > 0 ? "warning" : "info";
 	const exitCode = hardErrorCount > 0 ? 2 : 0;
 	const text = formatRoastAggregate(aggregate);
-	emitRoastText(pi, ctx, rawArgs, args, {
-		exitCode,
-		level,
-		stdout: exitCode === 0 ? text : "",
-		stderr: exitCode === 0 ? "" : text,
+	emitRoastText({
+		pi,
+		ctx,
+		rawArgs,
+		args,
+		result: {
+			exitCode,
+			level,
+			stdout: exitCode === 0 ? text : "",
+			stderr: exitCode === 0 ? "" : text,
+		},
 	});
 }
 
@@ -825,13 +866,16 @@ function roastHelpText(): string {
 	].join("\n");
 }
 
-function emitRoastText(
-	pi: Pick<ExtensionAPI, "sendMessage">,
-	ctx: ExtensionCommandContext,
-	rawArgs: string,
-	args: readonly string[],
-	result: { exitCode: number; level: NotifyLevel; stdout: string; stderr: string },
-): void {
+interface EmitRoastTextOptions {
+	pi: Pick<ExtensionAPI, "sendMessage">;
+	ctx: ExtensionCommandContext;
+	rawArgs: string;
+	args: readonly string[];
+	result: { exitCode: number; level: NotifyLevel; stdout: string; stderr: string };
+}
+
+function emitRoastText(options: EmitRoastTextOptions): void {
+	const { pi, ctx, rawArgs, args, result } = options;
 	emitRoastOutput(
 		pi,
 		ctx,

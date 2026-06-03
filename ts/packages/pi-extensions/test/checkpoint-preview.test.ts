@@ -11,16 +11,16 @@ import checkpointPreviewExtension, {
 } from "../src/checkpoint-preview.ts";
 import type { ExecResult } from "../src/command-runtime.ts";
 
-type RegisteredCommand = {
+interface RegisteredCommand {
 	description?: string;
 	handler(args: string, ctx: CommandContext): Promise<void> | void;
-};
+}
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options?: { cwd?: string; timeout?: number };
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -58,7 +58,7 @@ class FakeContext implements CommandContext {
 	readonly hasUI = true;
 	readonly statuses: Array<string | undefined> = [];
 	readonly notifications: Array<{ message: string; level?: string }> = [];
-	waited = false;
+	hasWaited = false;
 	readonly ui = {
 		notify: (message: string, level?: string): void => {
 			this.notifications.push({ message, ...(level === undefined ? {} : { level }) });
@@ -69,7 +69,7 @@ class FakeContext implements CommandContext {
 	};
 
 	async waitForIdle(): Promise<void> {
-		this.waited = true;
+		this.hasWaited = true;
 	}
 }
 
@@ -94,7 +94,7 @@ describe("checkpoint preview extension", () => {
 
 		await pi.commands.get(CHECKPOINT_PREVIEW_COMMAND_NAME)?.handler("", ctx);
 
-		expect(ctx.waited).toBe(true);
+		expect(ctx.hasWaited).toBe(true);
 		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
 			["git", ["symbolic-ref", "--short", "HEAD"]],
 			["git", ["status", "--porcelain"]],
