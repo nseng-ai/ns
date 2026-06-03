@@ -5,9 +5,21 @@ import process from "node:process";
 
 import { describe, expect, test } from "bun:test";
 
-import { cliCommandTracePath, parseCliCommandArgs, registerCliCommandExtension, type CliCommandInfo, type CliCommandRunDeps, type CommandContext, type ExtensionAPI } from "../src/cli-command-extension.ts";
+import {
+	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+	cliCommandTracePath,
+	parseCliCommandArgs,
+	registerCliCommandExtension,
+	renderCliCommandOutputMessage,
+	type CliCommandInfo,
+	type CliCommandRunDeps,
+	type CommandContext,
+	type ExtensionAPI,
+} from "../src/cli-command-extension.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
+type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type NotifyLevel = "info" | "warning" | "error";
 interface Notification {
 	message: string;
@@ -33,14 +45,26 @@ interface RunCall {
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
-	readonly sentMessages: unknown[] = [];
+	readonly sentMessages: CustomMessage[] = [];
+	readonly messageRenderers = new Map<string, MessageRenderer>();
+	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
+	readonly sendMessage?: (message: CustomMessage) => void;
+
+	constructor(options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {}) {
+		if (options.registerMessageRenderer ?? true) {
+			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
+				this.messageRenderers.set(customType, renderer);
+			};
+		}
+		if (options.sendMessage ?? true) {
+			this.sendMessage = (message: CustomMessage): void => {
+				this.sentMessages.push(message);
+			};
+		}
+	}
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
-	}
-
-	sendMessage(message: unknown): void {
-		this.sentMessages.push(message);
 	}
 }
 
@@ -78,7 +102,7 @@ function createContext(order: string[] = []): { ctx: CommandContext; notificatio
 	};
 }
 
-function commandFor(pi: FakePi, name: string): RegisteredCommand {
+function commandFor(pi: { commands: ReadonlyMap<string, RegisteredCommand> }, name: string): RegisteredCommand {
 	const command = pi.commands.get(name);
 	if (command === undefined) {
 		throw new Error(`Expected command to be registered: ${name}`);
@@ -117,6 +141,32 @@ function readTraceEvents(path: string): Array<Record<string, unknown>> {
 	return text.split("\n").map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
+function expectSingleCliOutputMessage(pi: FakePi, content: string, level: "info" | "error" = "info"): CustomMessage {
+	expect(pi.sentMessages).toHaveLength(1);
+	const message = pi.sentMessages[0];
+	if (message === undefined) {
+		throw new Error("Expected one CLI output message.");
+	}
+	expect(message).toMatchObject({
+		customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+		content,
+		display: true,
+		details: { level },
+	});
+	return message;
+}
+
+function taggedTheme(): { fg(color: string, text: string): string; bold(text: string): string } {
+	return {
+		fg(color, text) {
+			return `<${color}>${text}</${color}>`;
+		},
+		bold(text) {
+			return `<bold>${text}</bold>`;
+		},
+	};
+}
+
 describe("cli command extension helper", () => {
 	test("registers each command under the configured Pi namespace only", () => {
 		const pi = new FakePi();
@@ -131,6 +181,7 @@ describe("cli command extension helper", () => {
 		expect([...pi.commands.keys()]).toEqual(["dev:one", "dev:two"]);
 		expect(pi.commands.has("fake-dev:one")).toBe(false);
 		expect(pi.commands.get("dev:one")?.description).toBe("fake-dev one: First command.");
+		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 
 	test("invokes the CLI runner after idle with parsed args, cwd, env, and captured output", async () => {
@@ -159,11 +210,11 @@ describe("cli command extension helper", () => {
 				env: { VERCEL_PROJECT: "env-project" },
 			},
 		]);
-		expect(notifications).toEqual([{ message: "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n", level: "info" }]);
-		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(pi, "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n");
 	});
 
-	test("writes metadata trace events without sending transcript messages", async () => {
+	test("writes metadata trace events and sends final output as a custom message", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "pi-cli-trace-test-"));
 		const tracePath = join(directory, "trace.jsonl");
 		const oldTrace = process.env.ASDL_PI_CLI_TRACE;
@@ -196,7 +247,8 @@ describe("cli command extension helper", () => {
 				"emit_output",
 			]);
 			expect(events.find((event) => event.event === "register")).toMatchObject({
-				bridgeMode: "notify-with-above-editor-live-stream-no-custom-message",
+				bridgeMode: "custom-rendered-message-with-above-editor-live-stream",
+				messageRendererAvailable: true,
 				piNamespace: "dev",
 				sendMessageAvailable: true,
 				version: "above-editor-live-stream-trace-v3",
@@ -211,10 +263,10 @@ describe("cli command extension helper", () => {
 				stdoutChars: 3,
 			});
 			expect(events.find((event) => event.event === "emit_output")).toMatchObject({
-				sendMessageCalled: false,
-				target: "notify",
+				sendMessageCalled: true,
+				target: "custom_message",
 			});
-			expect(pi.sentMessages).toEqual([]);
+			expectSingleCliOutputMessage(pi, "ok\n");
 		} finally {
 			restoreEnv("ASDL_PI_CLI_TRACE", oldTrace);
 			restoreEnv("ASDL_PI_CLI_TRACE_PATH", oldTracePath);
@@ -234,8 +286,8 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-url").handler("--json", ctx);
 
-		expect(notifications).toEqual([{ message: "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n", level: "error" }]);
-		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n", "error");
 	});
 
 	test("reports argument tokenization errors without invoking the runner", async () => {
@@ -252,7 +304,7 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:preview-url").handler('--branch "unterminated', ctx);
 
 		expect(runnerCalled).toBe(false);
-		expect(pi.sentMessages).toEqual([]);
+		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 2.\n\nstderr:\nError: Unterminated double quote.\n", "error");
 	});
 
 	test("restores prose-looking command tails without waiting or invoking the CLI", async () => {
@@ -294,7 +346,7 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
 
-		expect(pi.sentMessages).toEqual([]);
+		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n", "error");
 		expect(editorTexts).toEqual(["/dev:preview-url --json words"]);
 	});
 
@@ -316,10 +368,10 @@ describe("cli command extension helper", () => {
 
 		expect(calls).toEqual([{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } }]);
 		expect(editorTexts).toEqual([]);
-		expect(pi.sentMessages).toEqual([]);
+		expectSingleCliOutputMessage(pi, "ok\n");
 	});
 
-	test("notifies the UI with command output", async () => {
+	test("sends UI command output as a custom message", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
@@ -331,8 +383,47 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-url").handler("", ctx);
 
-		expect(pi.sentMessages).toEqual([]);
-		expect(notifications).toEqual([{ message: "ok\n", level: "info" }]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(pi, "ok\n");
+	});
+
+	test("falls back to UI notifications when custom rendering is unavailable", async () => {
+		const cases = [new FakePi({ registerMessageRenderer: false }), new FakePi({ sendMessage: false })];
+		for (const pi of cases) {
+			registerFakeCli(pi, {
+				runCli: (_args, deps) => {
+					deps.stdout("ok\n");
+					return 0;
+				},
+			});
+			const { ctx, notifications } = createContext();
+
+			await commandFor(pi, "dev:preview-url").handler("", ctx);
+
+			expect(pi.sentMessages).toEqual([]);
+			expect(notifications).toEqual([{ message: "ok\n", level: "info" }]);
+		}
+	});
+
+	test("renders successful checkpoint output as normal text rather than dim status styling", () => {
+		const component = renderCliCommandOutputMessage(
+			{
+				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+				content:
+					"15bd4fc4 [cp] Update submit command description\n[cp] Update submit command description\n\n- Adjust code extension test for new submit wording\n- Describe checkpointing outstanding changes before submit\n",
+				display: true,
+				details: { level: "info" },
+			},
+			{ expanded: false },
+			taggedTheme(),
+		);
+
+		const rendered = component.render(120).join("\n");
+		expect(rendered).toContain("<text>15bd4fc4 [cp] Update submit command description</text>");
+		expect(rendered).toContain("<text>- Adjust code extension test for new submit wording</text>");
+		expect(rendered).toContain("<text>- Describe checkpointing outstanding changes before submit</text>");
+		expect(rendered).not.toContain("<dim>");
+		expect(rendered).not.toContain("<muted>");
 	});
 
 	test("updates live status and widget while the CLI command is running", async () => {
@@ -373,7 +464,8 @@ describe("cli command extension helper", () => {
 
 		expect(statuses.at(-1)).toEqual({ key: "asdl-cli-command", value: undefined });
 		expect(widgets.at(-1)).toEqual({ key: "asdl-cli-command-output", lines: undefined, placement: undefined });
-		expect(notifications).toEqual([{ message: "stdout:\nstarted\n\nstderr:\nfinished\n", level: "info" }]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(pi, "stdout:\nstarted\n\nstderr:\nfinished\n");
 	});
 
 	test("streams live CLI output separately from final captured output", async () => {
@@ -410,8 +502,8 @@ describe("cli command extension helper", () => {
 		finishRun();
 		await commandPromise;
 
-		expect(notifications).toEqual([{ message: "final stdout\n", level: "info" }]);
-		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(pi, "final stdout\n");
 	});
 
 	test("parses shell-like whitespace quotes and escapes", () => {

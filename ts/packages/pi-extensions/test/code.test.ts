@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import asdlDevExtension from "../src/asdl-dev-extension.ts";
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/cli-command-extension.ts";
 import codeExtension from "../src/code.ts";
 
 interface RegisteredCommand {
@@ -65,6 +66,7 @@ describe("code extension registration", () => {
 		expect(pi.commands.get("code:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
 		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
+		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(pi.messageRenderers.has("land-stack-command-stream")).toBe(true);
 	});
 
