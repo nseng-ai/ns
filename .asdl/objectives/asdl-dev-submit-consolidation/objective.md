@@ -2,7 +2,9 @@
 
 ## Thesis
 
-`/dev:submit` should become a durable repo-local developer command instead of a Pi-only workflow. The canonical behavior belongs in `asdl-dev submit`, where humans, agents, scripts, and tests can exercise the same headless contract. Pi may expose or lightly compose that command, but it must not grow a second Graphite submit implementation.
+`/code:submit` should be a durable repo-local developer command instead of a Pi-only workflow. The canonical behavior belongs in `asdl-dev submit`, where humans, agents, scripts, and tests can exercise the same headless contract. Pi may expose or lightly compose that command, but it must not grow a second Graphite submit implementation.
+
+The Pi surface lives under the `/code:*` namespace: `submit` (and `cp`) are routed there through `asdlDevCodeExtension()` (`piNamespace: "code"`), while `preview-url` stays under `/dev:*`. The submit command moved from `/dev:submit` to `/code:submit` as a domain-namespacing decision; the headless `asdl-dev submit` contract is unchanged.
 
 This Objective tracks the end-to-end consolidation plus the review hardening needed before the branch is structurally review-ready.
 
@@ -11,7 +13,7 @@ This Objective tracks the end-to-end consolidation plus the review hardening nee
 This Objective covers:
 
 - Moving submit behavior into `ts/packages/asdl-dev/` as a headless command with explicit arguments, stdout/stderr, exit codes, gateway-backed workflow decisions, and CLI scenario/gateway tests.
-- Removing the legacy Pi-only submit command surface and tests once `/dev:submit` is backed by the `asdl-dev` command table.
+- Removing the legacy Pi-only submit command surface and tests once `/code:submit` is backed by the `asdl-dev` command table.
 - Keeping Pi submit composition thin: Pi may add UX wrapper behavior such as display, progress, or confirmation, but Graphite orchestration, output interpretation, retries, and failure policy remain canonical in `asdl-dev`.
 - Hardening process timeout behavior so long-running submit/restack commands cannot hang indefinitely after a timeout.
 - Cleaning the submit boundary so real gateways return semantic result causes rather than user-facing English strings that leak presentation into adapter/fake contracts.
@@ -22,12 +24,12 @@ This Objective covers:
 - Do not restore a standalone Pi-owned submit implementation with duplicate Graphite decision logic.
 - Do not redesign Graphite, `gt submit`, or this repository's broader Graphite workflow.
 - Do not turn `asdl-dev` into a nested command framework; it continues to use a flat task-command table.
-- Do not perform a broad Pi extension architecture rewrite except where needed to keep `/dev:submit` correctly surfaced.
+- Do not perform a broad Pi extension architecture rewrite except where needed to keep `/code:submit` correctly surfaced.
 - Do not create routine validation-only work items; targeted tests and repo checks are completion evidence for semantic work.
 
 ## Completion Criteria
 
-- `asdl-dev submit` is the canonical submit workflow and `/dev:submit` reaches it through the shared asdl-dev Pi adapter.
+- `asdl-dev submit` is the canonical submit workflow and `/code:submit` reaches it through the shared asdl-dev Pi adapter.
 - The old Pi-only submit registration, implementation, and behavior tests are removed or reduced only to genuinely Pi-specific thin composition.
 - Submit preflight, optional restack, submit, current-PR verification, semantic empty-branch detection, conflict reporting, and no-current-PR guidance are covered by CLI scenario tests and real-gateway tests.
 - Shared command timeout handling robustly enforces timeout semantics, including escalation after SIGTERM when appropriate, with tests that protect against indefinite hangs.
@@ -54,5 +56,5 @@ Risks:
 
 ## Open Questions
 
-- After the headless CLI path is hardened, is a thin Pi UX wrapper actually needed? If so, what concrete evidence or user pain justifies adding it?
+- After the headless CLI path is hardened, does `/code:submit` actually need a thin Pi UX wrapper beyond the generic command-surface adapter? If so, what concrete evidence or user pain justifies adding it?
 - Resolved: the blast radius of the SIGTERM→SIGKILL fallback is contained. `timeoutKillGraceMs` is optional with a 5s default and the new behavior only adds a bounded SIGKILL escalation plus a normalized exit code 124 for timed-out runs; callers that pass no new options are otherwise unchanged, so no existing caller depended on the prior weaker timeout behavior (PR #787).

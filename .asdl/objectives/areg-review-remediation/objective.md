@@ -43,7 +43,7 @@ Assumptions:
 Risks:
 
 - The gateway/fake cleanup may reveal a missing domain abstraction, especially around installed skill trees versus project filesystem state, and could grow beyond a small patch.
-- Making `areg init` more atomic may require deciding whether to preserve, merge, prompt for, or overwrite existing `areg.json`; the wrong default could surprise users.
+- Making `areg init` more atomic may require deciding whether to preserve, merge, prompt for, or overwrite existing `areg.json`; the wrong default could surprise users. Resolved: `init` now preserves unknown keys from an existing `areg.json` by default rather than overwriting the file, covered by scenario tests (landed commit `a2086b45`).
 - Symlink/path hardening can become either too permissive to be safe or too strict for real repos with legitimate symlinked config directories.
 - Tightening lockfile validation may expose existing repository lockfile debt, including `PENDING_REGEN` placeholders, that must be resolved before CI can enforce the stronger rule.
 
@@ -51,4 +51,4 @@ Risks:
 
 - Should tool availability and Git-root discovery be separate gateways, methods on an existing context, or part of a broader project environment boundary?
 - Should `NpxSkills.add` continue to model side-effectful installation, or should it return an installed skill tree while a separate store owns filesystem application?
-- Should existing `areg.json` unknown keys be preserved by default, or should replacement require an explicit force/yes path?
+- ~~Should existing `areg.json` unknown keys be preserved by default, or should replacement require an explicit force/yes path?~~ Resolved: unknown keys are preserved by default; `init` merges the managed `agents` field into the existing object instead of overwriting it (landed commit `a2086b45`).
