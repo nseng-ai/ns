@@ -160,6 +160,12 @@ Durable headless developer commands should live in the `asdl-dev` CLI first, the
 
 See [Exposing Pi Commands Through `asdl-dev`](./exposing-pi-commands-through-asdl-dev.md).
 
+## cmux extension pattern
+
+cmux-related Pi commands should target the caller workspace, keep cmux mutations behind deterministic `asdl exec` commands, and avoid relying on stale local cmux source checkouts.
+
+See [cmux Extension Pattern for Pi](./cmux-extension-pattern.md) and [cmux CLI Reference](../cmux/cli-reference.md).
+
 ## Planned branch workflow
 
 The planned-branch workflow uses `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` to save reviewed plans, create implementation branches, attach plans through Branch Memory, and load them for implementation.
