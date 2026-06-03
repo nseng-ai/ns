@@ -21,6 +21,11 @@
       "sourceType": "local",
       "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
     },
+    "cmux-set-workspace-summary": {
+      "source": "skills/cmux-set-workspace-summary",
+      "sourceType": "local",
+      "computedHash": "11adfaa48f329deab966d9770ac798a092a8ad99f6bef0e56544b0aad42d35e1"
+    },
     "create-bun-typescript-project": {
       "source": "skills/create-bun-typescript-project",
       "sourceType": "local",
