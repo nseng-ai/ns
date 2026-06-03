@@ -34,7 +34,7 @@ The promoted first-party catalog uses flat semantic names instead of an organiza
 | Explicit | Maintenance                    | `changelog-update`                                                                                 |
 | Ambient  | Skill authoring                | `skill-management`, `skill-audit`, `cli-push-down`                                                 |
 | Ambient  | Python standards and testing   | `dignified-python`, `python-fake-driven-testing`, `python-fake-driven-test-layout`, `pytest`       |
-| Ambient  | Workflow operations            | `refactor-swarm`, `resolve-merge-conflicts`                                                        |
+| Ambient  | Workflow operations            | `refactor-swarm`, `code-resolve-merge-conflicts`                                                   |
 
 Projects initialized with `areg init` install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
 
@@ -49,7 +49,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:internal-code-checkpoint`         | `skills/internal-code-checkpoint/SKILL.md`         | Creates a terse checkpoint commit for the current non-main branch diff.                                             |
 | `/skill:internal-code-gh`                 | `skills/internal-code-gh/SKILL.md`                 | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                                      |
 | `/skill:internal-code-gh-ci-debug`        | `skills/internal-code-gh-ci-debug/SKILL.md`        | Diagnoses GitHub Actions failures from a run URL or run ID.                                                         |
-| `/skill:internal-code-gt-restack-resolve` | `skills/internal-code-gt-restack-resolve/SKILL.md` | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
+| `/skill:code-gt-restack-resolve`          | `skills/code-gt-restack-resolve/SKILL.md`          | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
 | `/skill:internal-code-gt-stackify-branch` | `skills/internal-code-gt-stackify-branch/SKILL.md` | Splits a mixed branch into an ordered Graphite stack while preserving the source branch.                            |
 | `/skill:internal-code-just-fix`           | `skills/internal-code-just-fix/SKILL.md`           | Runs `just`, categorizes failures, fixes root causes, and reruns the suite until green or blocked.                  |
 | `/skill:internal-code-stacker-agent`      | `skills/internal-code-stacker-agent/SKILL.md`      | Executes a multi-slice implementation plan as a serial local branch stack or commit series.                         |
@@ -63,7 +63,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:pytest`                           | `skills/pytest/SKILL.md`                           | Provides pytest style guidance for fixtures, helpers, parametrization, and test cleanup.                            |
 | `/skill:cli-push-down`                    | `skills/cli-push-down/SKILL.md`                    | Identifies deterministic prompt work that should move into tested CLI commands.                                     |
 | `/skill:refactor-swarm`                   | `skills/refactor-swarm/SKILL.md`                   | Coordinates parallel file-local refactors across many independent files.                                            |
-| `/skill:resolve-merge-conflicts`          | `skills/resolve-merge-conflicts/SKILL.md`          | Resolves merge conflicts from an in-progress rebase.                                                                |
+| `/skill:code-resolve-merge-conflicts`     | `skills/code-resolve-merge-conflicts/SKILL.md`     | Resolves merge conflicts from an in-progress rebase.                                                                |
 | `/skill:setup-dprint`                     | `skills/setup-dprint/SKILL.md`                     | Sets up dprint formatting.                                                                                          |
 | `/skill:setup-dprint-gh-ci`               | `skills/setup-dprint-gh-ci/SKILL.md`               | Adds GitHub Actions CI for dprint checks.                                                                           |
 | `/skill:setup-pypi-publish`               | `skills/setup-pypi-publish/SKILL.md`               | Sets up PyPI publishing.                                                                                            |
