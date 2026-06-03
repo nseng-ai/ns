@@ -36,38 +36,38 @@
       "sourceType": "local",
       "computedHash": "a05f76714e88cdd41eb506c006783a77a0fa8cbbbbf7d2b3ce26e988ffa9a9d8"
     },
-    "code-checkpoint": {
-      "source": "skills/code-checkpoint",
+    "internal-code-checkpoint": {
+      "source": "skills/internal-code-checkpoint",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-gh": {
-      "source": "skills/dev-gh",
+    "internal-code-gh": {
+      "source": "skills/internal-code-gh",
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
-    "dev-gh-ci-debug": {
-      "source": "skills/dev-gh-ci-debug",
+    "internal-code-gh-ci-debug": {
+      "source": "skills/internal-code-gh-ci-debug",
       "sourceType": "local",
       "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
     },
-    "code-gt-restack-resolve": {
-      "source": "skills/code-gt-restack-resolve",
+    "internal-code-gt-restack-resolve": {
+      "source": "skills/internal-code-gt-restack-resolve",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "code-gt-stackify-branch": {
-      "source": "skills/code-gt-stackify-branch",
+    "internal-code-gt-stackify-branch": {
+      "source": "skills/internal-code-gt-stackify-branch",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-just-fix": {
-      "source": "skills/dev-just-fix",
+    "internal-code-just-fix": {
+      "source": "skills/internal-code-just-fix",
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
-    "dev-stacker-agent": {
-      "source": "skills/dev-stacker-agent",
+    "internal-code-stacker-agent": {
+      "source": "skills/internal-code-stacker-agent",
       "sourceType": "local",
       "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
     },

@@ -40,46 +40,46 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## First-party skill commands
 
-| Command                                 | Source                                           | Description                                                                                                         |
-| --------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `/skill:branch-retro`                   | `skills/branch-retro/SKILL.md`                   | Collects deterministic branch/session evidence and turns it into retrospective recommendations.                     |
-| `/skill:brmem`                          | `skills/brmem/SKILL.md`                          | Guides use of the `brmem` CLI for branch-scoped durable memory.                                                     |
-| `/skill:handoff-save`                   | `skills/handoff-save/SKILL.md`                   | Saves a directed handoff artifact for a specific future continuation.                                               |
-| `/skill:handoff-load`                   | `skills/handoff-load/SKILL.md`                   | Picks up, chooses, or lists saved handoff artifacts so another session can resume focused work.                     |
-| `/skill:code-checkpoint`                | `skills/code-checkpoint/SKILL.md`                | Creates a terse checkpoint commit for the current non-main branch diff.                                             |
-| `/skill:dev-gh`                         | `skills/dev-gh/SKILL.md`                         | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                                      |
-| `/skill:dev-gh-ci-debug`                | `skills/dev-gh-ci-debug/SKILL.md`                | Diagnoses GitHub Actions failures from a run URL or run ID.                                                         |
-| `/skill:code-gt-restack-resolve`        | `skills/code-gt-restack-resolve/SKILL.md`        | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
-| `/skill:code-gt-stackify-branch`        | `skills/code-gt-stackify-branch/SKILL.md`        | Splits a mixed branch into an ordered Graphite stack while preserving the source branch.                            |
-| `/skill:dev-just-fix`                   | `skills/dev-just-fix/SKILL.md`                   | Runs `just`, categorizes failures, fixes root causes, and reruns the suite until green or blocked.                  |
-| `/skill:dev-stacker-agent`              | `skills/dev-stacker-agent/SKILL.md`              | Executes a multi-slice implementation plan as a serial local branch stack or commit series.                         |
-| `/skill:changelog-update`               | `skills/changelog-update/SKILL.md`               | Runs the changelog update command workflow.                                                                         |
-| `/skill:create-bun-typescript-project`  | `skills/create-bun-typescript-project/SKILL.md`  | Creates a Bun TypeScript project with strict linting, formatting, and test setup.                                   |
-| `/skill:create-python-dev-cli`          | `skills/create-python-dev-cli/SKILL.md`          | Creates a Python developer CLI project.                                                                             |
-| `/skill:create-python-package`          | `skills/create-python-package/SKILL.md`          | Creates a Python package project scaffold.                                                                          |
-| `/skill:dignified-python`               | `skills/dignified-python/SKILL.md`               | Applies modern production Python coding standards and version-specific guidance.                                    |
-| `/skill:python-fake-driven-test-layout` | `skills/python-fake-driven-test-layout/SKILL.md` | Defines per-package test directory layout for fake-driven Python projects.                                          |
-| `/skill:python-fake-driven-testing`     | `skills/python-fake-driven-testing/SKILL.md`     | Guides Python gateway and fake-driven testing architecture.                                                         |
-| `/skill:pytest`                         | `skills/pytest/SKILL.md`                         | Provides pytest style guidance for fixtures, helpers, parametrization, and test cleanup.                            |
-| `/skill:cli-push-down`                  | `skills/cli-push-down/SKILL.md`                  | Identifies deterministic prompt work that should move into tested CLI commands.                                     |
-| `/skill:refactor-swarm`                 | `skills/refactor-swarm/SKILL.md`                 | Coordinates parallel file-local refactors across many independent files.                                            |
-| `/skill:resolve-merge-conflicts`        | `skills/resolve-merge-conflicts/SKILL.md`        | Resolves merge conflicts from an in-progress rebase.                                                                |
-| `/skill:setup-dprint`                   | `skills/setup-dprint/SKILL.md`                   | Sets up dprint formatting.                                                                                          |
-| `/skill:setup-dprint-gh-ci`             | `skills/setup-dprint-gh-ci/SKILL.md`             | Adds GitHub Actions CI for dprint checks.                                                                           |
-| `/skill:setup-pypi-publish`             | `skills/setup-pypi-publish/SKILL.md`             | Sets up PyPI publishing.                                                                                            |
-| `/skill:setup-python-gh-ci`             | `skills/setup-python-gh-ci/SKILL.md`             | Sets up Python GitHub Actions CI.                                                                                   |
-| `/skill:setup-graphite`                 | `skills/setup-graphite/SKILL.md`                 | Configures a repo to use Graphite (`gt`).                                                                           |
-| `/skill:skill-audit`                    | `skills/skill-audit/SKILL.md`                    | Audits and improves skills for trigger quality, concision, progressive disclosure, and CLI push-down opportunities. |
-| `/skill:skill-management`               | `skills/skill-management/SKILL.md`               | Manages skills with `npx skills` across local and installed skill surfaces.                                         |
-| `/skill:skillx`                         | `skills/skillx/SKILL.md`                         | Runs a GitHub-hosted skill transiently with `areg exec skillx`.                                                     |
-| `/skill:objective`                      | `skills/objective/SKILL.md`                      | Provides read-only shared vocabulary and rules for asdl Objectives.                                                 |
-| `/skill:objective-close`                | `skills/objective-close/SKILL.md`                | Closes one Objective by adding closure narrative and a `closed.md` marker.                                          |
-| `/skill:objective-create`               | `skills/objective-create/SKILL.md`               | Creates a new Objective record under `.asdl/objectives/<slug>/`.                                                    |
-| `/skill:objective-current`              | `skills/objective-current/SKILL.md`              | Reads and summarizes the current state of one Objective without mutation.                                           |
-| `/skill:objective-next`                 | `skills/objective-next/SKILL.md`                 | Recommends the next useful work for one active Objective after checking for stale tracking.                         |
-| `/skill:objective-stack-impl`           | `skills/objective-stack-impl/SKILL.md`           | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
-| `/skill:objective-update`               | `skills/objective-update/SKILL.md`               | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
-| `/skill:pr-address`                     | `skills/pr-address/SKILL.md`                     | Addresses current-branch PR review feedback end-to-end without pushing.                                             |
+| Command                                   | Source                                             | Description                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `/skill:branch-retro`                     | `skills/branch-retro/SKILL.md`                     | Collects deterministic branch/session evidence and turns it into retrospective recommendations.                     |
+| `/skill:brmem`                            | `skills/brmem/SKILL.md`                            | Guides use of the `brmem` CLI for branch-scoped durable memory.                                                     |
+| `/skill:handoff-save`                     | `skills/handoff-save/SKILL.md`                     | Saves a directed handoff artifact for a specific future continuation.                                               |
+| `/skill:handoff-load`                     | `skills/handoff-load/SKILL.md`                     | Picks up, chooses, or lists saved handoff artifacts so another session can resume focused work.                     |
+| `/skill:internal-code-checkpoint`         | `skills/internal-code-checkpoint/SKILL.md`         | Creates a terse checkpoint commit for the current non-main branch diff.                                             |
+| `/skill:internal-code-gh`                 | `skills/internal-code-gh/SKILL.md`                 | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                                      |
+| `/skill:internal-code-gh-ci-debug`        | `skills/internal-code-gh-ci-debug/SKILL.md`        | Diagnoses GitHub Actions failures from a run URL or run ID.                                                         |
+| `/skill:internal-code-gt-restack-resolve` | `skills/internal-code-gt-restack-resolve/SKILL.md` | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
+| `/skill:internal-code-gt-stackify-branch` | `skills/internal-code-gt-stackify-branch/SKILL.md` | Splits a mixed branch into an ordered Graphite stack while preserving the source branch.                            |
+| `/skill:internal-code-just-fix`           | `skills/internal-code-just-fix/SKILL.md`           | Runs `just`, categorizes failures, fixes root causes, and reruns the suite until green or blocked.                  |
+| `/skill:internal-code-stacker-agent`      | `skills/internal-code-stacker-agent/SKILL.md`      | Executes a multi-slice implementation plan as a serial local branch stack or commit series.                         |
+| `/skill:changelog-update`                 | `skills/changelog-update/SKILL.md`                 | Runs the changelog update command workflow.                                                                         |
+| `/skill:create-bun-typescript-project`    | `skills/create-bun-typescript-project/SKILL.md`    | Creates a Bun TypeScript project with strict linting, formatting, and test setup.                                   |
+| `/skill:create-python-dev-cli`            | `skills/create-python-dev-cli/SKILL.md`            | Creates a Python developer CLI project.                                                                             |
+| `/skill:create-python-package`            | `skills/create-python-package/SKILL.md`            | Creates a Python package project scaffold.                                                                          |
+| `/skill:dignified-python`                 | `skills/dignified-python/SKILL.md`                 | Applies modern production Python coding standards and version-specific guidance.                                    |
+| `/skill:python-fake-driven-test-layout`   | `skills/python-fake-driven-test-layout/SKILL.md`   | Defines per-package test directory layout for fake-driven Python projects.                                          |
+| `/skill:python-fake-driven-testing`       | `skills/python-fake-driven-testing/SKILL.md`       | Guides Python gateway and fake-driven testing architecture.                                                         |
+| `/skill:pytest`                           | `skills/pytest/SKILL.md`                           | Provides pytest style guidance for fixtures, helpers, parametrization, and test cleanup.                            |
+| `/skill:cli-push-down`                    | `skills/cli-push-down/SKILL.md`                    | Identifies deterministic prompt work that should move into tested CLI commands.                                     |
+| `/skill:refactor-swarm`                   | `skills/refactor-swarm/SKILL.md`                   | Coordinates parallel file-local refactors across many independent files.                                            |
+| `/skill:resolve-merge-conflicts`          | `skills/resolve-merge-conflicts/SKILL.md`          | Resolves merge conflicts from an in-progress rebase.                                                                |
+| `/skill:setup-dprint`                     | `skills/setup-dprint/SKILL.md`                     | Sets up dprint formatting.                                                                                          |
+| `/skill:setup-dprint-gh-ci`               | `skills/setup-dprint-gh-ci/SKILL.md`               | Adds GitHub Actions CI for dprint checks.                                                                           |
+| `/skill:setup-pypi-publish`               | `skills/setup-pypi-publish/SKILL.md`               | Sets up PyPI publishing.                                                                                            |
+| `/skill:setup-python-gh-ci`               | `skills/setup-python-gh-ci/SKILL.md`               | Sets up Python GitHub Actions CI.                                                                                   |
+| `/skill:setup-graphite`                   | `skills/setup-graphite/SKILL.md`                   | Configures a repo to use Graphite (`gt`).                                                                           |
+| `/skill:skill-audit`                      | `skills/skill-audit/SKILL.md`                      | Audits and improves skills for trigger quality, concision, progressive disclosure, and CLI push-down opportunities. |
+| `/skill:skill-management`                 | `skills/skill-management/SKILL.md`                 | Manages skills with `npx skills` across local and installed skill surfaces.                                         |
+| `/skill:skillx`                           | `skills/skillx/SKILL.md`                           | Runs a GitHub-hosted skill transiently with `areg exec skillx`.                                                     |
+| `/skill:objective`                        | `skills/objective/SKILL.md`                        | Provides read-only shared vocabulary and rules for asdl Objectives.                                                 |
+| `/skill:objective-close`                  | `skills/objective-close/SKILL.md`                  | Closes one Objective by adding closure narrative and a `closed.md` marker.                                          |
+| `/skill:objective-create`                 | `skills/objective-create/SKILL.md`                 | Creates a new Objective record under `.asdl/objectives/<slug>/`.                                                    |
+| `/skill:objective-current`                | `skills/objective-current/SKILL.md`                | Reads and summarizes the current state of one Objective without mutation.                                           |
+| `/skill:objective-next`                   | `skills/objective-next/SKILL.md`                   | Recommends the next useful work for one active Objective after checking for stale tracking.                         |
+| `/skill:objective-stack-impl`             | `skills/objective-stack-impl/SKILL.md`             | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
+| `/skill:objective-update`                 | `skills/objective-update/SKILL.md`                 | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
+| `/skill:pr-address`                       | `skills/pr-address/SKILL.md`                       | Addresses current-branch PR review feedback end-to-end without pushing.                                             |
 
 ## Skill installation surfaces
 
@@ -96,13 +96,13 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
 | `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
 | `/code:changes`          | `.pi/extensions/code.ts`           | Summarizes outstanding worktree changes without committing.                                         |
+| `/code:cp`               | `.pi/extensions/code.ts`           | Mirrors `asdl-dev cp` to create a checkpoint commit for the current diff.                           |
+| `/code:submit`           | `.pi/extensions/code.ts`           | Mirrors `asdl-dev submit` to submit or update the current Graphite stack with headless guards.      |
 | `/code:autobranch`       | `.pi/extensions/code.ts`           | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
 | `/code:land`             | `.pi/extensions/code.ts`           | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
 | `/code:land-stack`       | `.pi/extensions/code.ts`           | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/dev:preview-url`       | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
-| `/dev:cp`                | `.pi/extensions/asdl-dev.ts`       | Creates a checkpoint commit for the current diff.                                                   |
-| `/dev:submit`            | `.pi/extensions/asdl-dev.ts`       | Mirrors `asdl-dev submit` to submit or update the current Graphite stack with headless guards.      |
-| `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `dev-just-fix` workflow prompt when the suite fails.                    |
+| `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
 | `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
 | `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` for the selected slug.                       |
@@ -176,7 +176,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                    |
 | `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                        |
 | `docs/specs/objective-gt-stacks.md`                     | Specifies `objective gt stacks` and the companion `/objective:gt-stacks` Pi display command.                              |
-| `docs/dev-gh-skill-trim-plan.md`                        | Records a plan for trimming and restructuring the `dev-gh` skill and its references.                                      |
+| `docs/internal-code-gh-skill-trim-plan.md`              | Historical plan for trimming the GitHub CLI skill; current skill name is `internal-code-gh`.                              |
 | `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                            |
 | `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                    |
 

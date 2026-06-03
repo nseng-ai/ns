@@ -36,9 +36,14 @@ describe("code extension registration", () => {
 		const pi = new FakePi();
 		codeExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["code:changes", "code:autobranch", "code:land", "code:land-stack"]);
-		expect(pi.commands.has("code:cp")).toBe(false);
-		expect(pi.commands.has("code:submit")).toBe(false);
+		expect([...pi.commands.keys()]).toEqual([
+			"code:changes",
+			"code:cp",
+			"code:submit",
+			"code:autobranch",
+			"code:land",
+			"code:land-stack",
+		]);
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("autobranch")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
@@ -53,20 +58,34 @@ describe("code extension registration", () => {
 			expect(pi.commands.has(`${oldCommandPrefix}:${command}`)).toBe(false);
 		}
 		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
+		expect(pi.commands.get("code:cp")?.description).toBe("asdl-dev cp: Create a checkpoint commit for the current diff.");
+		expect(pi.commands.get("code:submit")?.description).toBe(
+			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
+		);
 		expect(pi.commands.get("code:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
 		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
 		expect(pi.messageRenderers.has("land-stack-command-stream")).toBe(true);
 	});
 
-	test("asdl-dev owns mirrored CLI commands when project-local code extensions are loaded together", () => {
+	test("asdl-dev mirrors are split between code and dev namespaces when project-local extensions are loaded together", () => {
 		const pi = new FakePi();
 
 		codeExtension(pi);
 		asdlDevExtension(pi);
 
-		expect(pi.commandNames.filter((name) => name === "dev:cp")).toEqual(["dev:cp"]);
-		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual(["dev:submit"]);
-		expect(pi.commandNames).toEqual(["code:changes", "code:autobranch", "code:land", "code:land-stack", "dev:preview-url", "dev:cp", "dev:submit"]);
+		expect(pi.commandNames.filter((name) => name === "code:cp")).toEqual(["code:cp"]);
+		expect(pi.commandNames.filter((name) => name === "code:submit")).toEqual(["code:submit"]);
+		expect(pi.commandNames.filter((name) => name === "dev:cp")).toEqual([]);
+		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual([]);
+		expect(pi.commandNames).toEqual([
+			"code:changes",
+			"code:cp",
+			"code:submit",
+			"code:autobranch",
+			"code:land",
+			"code:land-stack",
+			"dev:preview-url",
+		]);
 	});
 });
