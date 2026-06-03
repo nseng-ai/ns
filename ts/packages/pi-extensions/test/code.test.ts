@@ -60,7 +60,7 @@ describe("code extension registration", () => {
 		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
 		expect(pi.commands.get("code:cp")?.description).toBe("asdl-dev cp: Create a checkpoint commit for the current diff.");
 		expect(pi.commands.get("code:submit")?.description).toBe(
-			"asdl-dev submit: Submit the current Graphite stack with gt submit -nps --ai.",
+			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		);
 		expect(pi.commands.get("code:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
