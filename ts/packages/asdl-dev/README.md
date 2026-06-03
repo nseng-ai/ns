@@ -68,7 +68,7 @@ bun run --cwd ts asdl-dev submit
 bun run --cwd ts asdl-dev submit --restack
 ```
 
-Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same model environment variables as `cp`. After that, it runs a dry-run first and stops with guidance if Graphite says the stack needs a restack. Pass `--restack` to let the command run `gt restack --no-interactive` before submitting.
+Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same model environment variables as `cp`. After that, it runs a dry-run first. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
 
 ### Testing architecture
 

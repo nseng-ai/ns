@@ -24,6 +24,13 @@ export interface SubmitCommandOutput {
 export type SubmitOutputStream = "stdout" | "stderr";
 export type SubmitOutputListener = (stream: SubmitOutputStream, text: string) => void;
 
+export interface SubmitRestackConfirmationPrompt {
+	title: string;
+	message: string;
+}
+
+export type SubmitRestackConfirmation = (prompt: SubmitRestackConfirmationPrompt) => Promise<boolean> | boolean;
+
 export interface SubmitCommandParams {
 	cwd: string;
 	onOutput?: SubmitOutputListener;
@@ -121,6 +128,7 @@ export interface RunSubmitCommandOptions {
 	gateway: SubmitGateway;
 	restack: boolean;
 	onOutput?: SubmitOutputListener;
+	confirmRestack?: SubmitRestackConfirmation;
 }
 
 export class RealSubmitGateway implements SubmitGateway {
@@ -246,16 +254,17 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output));
 	}
 	if (readiness.kind === "restack_required") {
-		if (!options.restack) {
+		const restackDecision = await shouldRunRestack(options, readiness.output);
+		if (restackDecision === "unavailable") {
 			return failure(1, formatRestackRequiredOutput(readiness.output));
 		}
-
-		const restack = await options.gateway.restackCurrentStack(commandParams);
-		if (restack.kind === "conflict") {
-			return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
+		if (restackDecision === "declined") {
+			return failure(1, formatRestackDeclinedOutput(readiness.output));
 		}
-		if (restack.kind === "failed") {
-			return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output));
+
+		const restackFailure = await runRestackBeforeSubmit(options.gateway, commandParams);
+		if (restackFailure !== undefined) {
+			return restackFailure;
 		}
 	}
 
@@ -278,6 +287,30 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	const prLinks = mergePrLinks(submitted.prLinks, currentPr.prLinks);
 	const successText = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
+}
+
+type RestackDecision = "run" | "declined" | "unavailable";
+
+async function shouldRunRestack(
+	options: Pick<RunSubmitCommandOptions, "restack" | "confirmRestack">,
+	output: SubmitCommandOutput,
+): Promise<RestackDecision> {
+	if (options.restack) return "run";
+	if (options.confirmRestack === undefined) return "unavailable";
+
+	const confirmed = await options.confirmRestack(formatRestackConfirmationPrompt(output));
+	return confirmed ? "run" : "declined";
+}
+
+async function runRestackBeforeSubmit(gateway: SubmitGateway, commandParams: SubmitCommandParams): Promise<SubmitCommandResult | undefined> {
+	const restack = await gateway.restackCurrentStack(commandParams);
+	if (restack.kind === "conflict") {
+		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
+	}
+	if (restack.kind === "failed") {
+		return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output));
+	}
+	return undefined;
 }
 
 function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">): SubmitCommandParams {
@@ -385,6 +418,43 @@ function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
 		"Graphite requires a restack before submission.",
 		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to let asdl-dev run `gt restack --no-interactive`.",
 		"Submission was not attempted.",
+		"",
+		"$ gt submit -nps --ai --dry-run",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackConfirmationPrompt(output: SubmitCommandOutput): SubmitRestackConfirmationPrompt {
+	return {
+		title: "Run gt restack before submit?",
+		message: [
+			"Graphite dry-run says restack is required before submission.",
+			"Run `gt restack --no-interactive` now, then continue with submit?",
+			"",
+			"If confirmed, asdl-dev will run:",
+			"$ gt restack --no-interactive",
+			"$ gt submit -nps --ai",
+			"",
+			"If restack hits conflicts or fails, submission will stop before `gt submit`.",
+			"",
+			"$ gt submit -nps --ai --dry-run",
+			"",
+			formatOutputSection("stdout", output.stdout),
+			formatOutputSection("stderr", output.stderr),
+		]
+			.filter(Boolean)
+			.join("\n"),
+	};
+}
+
+function formatRestackDeclinedOutput(output: SubmitCommandOutput): string {
+	return [
+		"Restack was not run. Submission was not attempted.",
+		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to skip the prompt.",
 		"",
 		"$ gt submit -nps --ai --dry-run",
 		"",

@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 
 import process from "node:process";
+import { createInterface } from "node:readline/promises";
 
 import { runCheckpointCommand, runCheckpointIfPending } from "./checkpoint.ts";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, DEFAULT_TEXT_BACKEND, TEXT_BACKEND_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
-import { runSubmitCommand, type SubmitOutputListener } from "./submit.ts";
+import { runSubmitCommand, type SubmitOutputListener, type SubmitRestackConfirmationPrompt } from "./submit.ts";
+
+export type ConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
 export interface CliDeps {
 	context?: AsdlDevContext | undefined;
@@ -16,6 +19,7 @@ export interface CliDeps {
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
 	onOutput?: SubmitOutputListener | undefined;
+	confirm?: ConfirmPrompt | undefined;
 }
 
 export interface AsdlDevCommandInfo {
@@ -86,6 +90,7 @@ interface RequiredCliDeps {
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
 	onOutput?: SubmitOutputListener;
+	confirm?: ConfirmPrompt;
 }
 
 const COMMANDS: CommandSpec[] = [
@@ -143,6 +148,9 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	if (deps.onOutput !== undefined) {
 		commandDeps.onOutput = deps.onOutput;
 	}
+	if (deps.confirm !== undefined) {
+		commandDeps.confirm = deps.confirm;
+	}
 	return command.run(args.slice(1), commandDeps);
 }
 
@@ -197,11 +205,17 @@ async function runSubmitCliCommand(args: readonly string[], deps: RequiredCliDep
 		writeCommandResultOutput(checkpoint.output, deps);
 	}
 
+	const confirm = deps.confirm;
 	const result = await runSubmitCommand({
 		cwd: deps.cwd,
 		gateway: deps.context.submit,
 		restack: parsed.options.restack,
 		...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
+		...(confirm === undefined
+			? {}
+			: {
+					confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => confirm(prompt.title, prompt.message),
+				}),
 	});
 	writeCommandResultOutput(result, deps);
 	return result.exitCode;
@@ -408,12 +422,38 @@ Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current
 
 Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
 
+If the dry-run says restack is required, interactive invocations ask before running \`gt restack --no-interactive\`; non-interactive invocations exit with guidance unless \`--restack\` is supplied.
+
 Options:
-  --restack   If the dry-run says restack is required, run \`gt restack --no-interactive\` before submitting.
+  --restack   If restack is required, run \`gt restack --no-interactive\` without prompting before submitting.
   -h, --help  Show this help message.
 `;
 }
 
+function createTerminalConfirmPrompt(): ConfirmPrompt | undefined {
+	if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) {
+		return undefined;
+	}
+
+	return async (title: string, message: string): Promise<boolean> => {
+		const readline = createInterface({ input: process.stdin, output: process.stderr, terminal: true });
+		try {
+			const answer = await readline.question(`${title}\n\n${message}\n\nContinue? [y/N] `);
+			return isYesAnswer(answer);
+		} catch {
+			return false;
+		} finally {
+			readline.close();
+		}
+	};
+}
+
+function isYesAnswer(answer: string): boolean {
+	const normalized = answer.trim().toLowerCase();
+	return normalized === "y" || normalized === "yes";
+}
+
 if (import.meta.main) {
-	process.exitCode = await runCli(process.argv.slice(2));
+	const confirm = createTerminalConfirmPrompt();
+	process.exitCode = await runCli(process.argv.slice(2), confirm === undefined ? {} : { confirm });
 }

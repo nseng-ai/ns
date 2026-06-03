@@ -37,6 +37,15 @@ interface WidgetUpdate {
 	placement: string | undefined;
 }
 
+interface ConfirmationPrompt {
+	title: string;
+	message: string;
+}
+
+interface CreateContextOptions {
+	confirm?: (title: string, message: string) => Promise<boolean> | boolean;
+}
+
 interface RunCall {
 	args: string[];
 	cwd: string;
@@ -68,33 +77,53 @@ class FakePi implements ExtensionAPI {
 	}
 }
 
-function createContext(order: string[] = []): { ctx: CommandContext; notifications: Notification[]; editorTexts: string[]; statuses: StatusUpdate[]; widgets: WidgetUpdate[] } {
+function createContext(
+	order: string[] = [],
+	options: CreateContextOptions = {},
+): {
+	ctx: CommandContext;
+	notifications: Notification[];
+	editorTexts: string[];
+	statuses: StatusUpdate[];
+	widgets: WidgetUpdate[];
+	confirmations: ConfirmationPrompt[];
+} {
 	const notifications: Notification[] = [];
 	const editorTexts: string[] = [];
 	const statuses: StatusUpdate[] = [];
 	const widgets: WidgetUpdate[] = [];
+	const confirmations: ConfirmationPrompt[] = [];
+	const ui: CommandContext["ui"] = {
+		notify(message, level) {
+			notifications.push({ message, level });
+		},
+		setEditorText(text) {
+			editorTexts.push(text);
+		},
+		setStatus(key, value) {
+			statuses.push({ key, value });
+		},
+		setWidget(key, lines, widgetOptions) {
+			widgets.push({ key, lines: lines === undefined ? undefined : [...lines], placement: widgetOptions?.placement });
+		},
+	};
+	if (options.confirm !== undefined) {
+		const confirm = options.confirm;
+		ui.confirm = async (title: string, message: string): Promise<boolean> => {
+			confirmations.push({ title, message });
+			return confirm(title, message);
+		};
+	}
 	return {
 		notifications,
 		editorTexts,
 		statuses,
 		widgets,
+		confirmations,
 		ctx: {
 			cwd: "/repo",
 			hasUI: true,
-			ui: {
-				notify(message, level) {
-					notifications.push({ message, level });
-				},
-				setEditorText(text) {
-					editorTexts.push(text);
-				},
-				setStatus(key, value) {
-					statuses.push({ key, value });
-				},
-				setWidget(key, lines, options) {
-					widgets.push({ key, lines: lines === undefined ? undefined : [...lines], placement: options?.placement });
-				},
-			},
+			ui,
 			async waitForIdle(): Promise<void> {
 				order.push("wait");
 			},
@@ -212,6 +241,61 @@ describe("cli command extension helper", () => {
 		]);
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n");
+	});
+
+	test("passes UI confirmation capability to the CLI runner", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const confirmed = await deps.confirm?.("Confirm title", "Confirm body");
+				deps.stdout(`confirmed=${String(confirmed)}\n`);
+				return 0;
+			},
+		});
+		const { ctx, confirmations } = createContext([], { confirm: () => true });
+
+		await commandFor(pi, "dev:preview-url").handler("", ctx);
+
+		expect(confirmations).toEqual([{ title: "Confirm title", message: "Confirm body" }]);
+		expectSingleCliOutputMessage(pi, "confirmed=true\n");
+	});
+
+	test("shows waiting-for-confirmation live progress while the CLI runner awaits UI confirmation", async () => {
+		let finishConfirm: (() => void) | undefined;
+		const confirmFinished = new Promise<void>((resolve) => {
+			finishConfirm = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const confirmed = await deps.confirm?.("Confirm title", "Confirm body");
+				deps.stdout(`confirmed=${String(confirmed)}\n`);
+				return 0;
+			},
+		});
+		let markConfirmStarted: (() => void) | undefined;
+		const confirmStarted = new Promise<void>((resolve) => {
+			markConfirmStarted = resolve;
+		});
+		const { ctx, statuses, widgets } = createContext([], {
+			confirm: async () => {
+				markConfirmStarted?.();
+				await confirmFinished;
+				return true;
+			},
+		});
+
+		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		await confirmStarted;
+
+		expect(statuses.at(-1)?.value).toContain("waiting for confirmation");
+		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for confirmation");
+
+		if (finishConfirm === undefined) throw new Error("Expected confirm resolver to be initialized.");
+		finishConfirm();
+		await commandPromise;
+
+		expectSingleCliOutputMessage(pi, "confirmed=true\n");
 	});
 
 	test("writes metadata trace events and sends final output as a custom message", async () => {
