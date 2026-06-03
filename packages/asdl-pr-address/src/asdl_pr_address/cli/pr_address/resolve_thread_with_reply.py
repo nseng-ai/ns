@@ -41,7 +41,8 @@ def run_resolve_thread_with_reply(
     request: ResolveThreadWithReplyRequest,
 ) -> ClinkrExit[ResolveThreadWithReplyResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    return ClinkrExit.ok(resolve_thread_with_reply(pr_address_context.pr_gateway, request))
+    normalized = normalize_resolution_request(request)
+    return ClinkrExit.ok(apply_resolution(pr_address_context.pr_gateway, normalized))
 
 
 def normalize_resolution_request(
@@ -73,11 +74,10 @@ def normalize_resolution_request(
     )
 
 
-def resolve_thread_with_reply(
+def apply_resolution(
     pr_gateway: PRGateway,
-    request: ResolveThreadWithReplyRequest,
+    normalized: ResolveThreadWithReplyRequest,
 ) -> ResolveThreadWithReplyResult:
-    normalized = normalize_resolution_request(request)
     body = format_resolution_reply(
         mode=normalized.mode,
         message=normalized.message,
