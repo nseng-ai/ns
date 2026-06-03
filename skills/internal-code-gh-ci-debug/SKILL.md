@@ -14,8 +14,6 @@ metadata:
   internal: true
 ---
 
-<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
-
 # internal-code-gh-ci-debug
 
 A focused playbook for diagnosing GitHub Actions CI failures from a run URL, run ID, PR URL/number, Graphite PR URL, or the current branch. Narrower than `internal-code-gh` (which is the broad `gh` CLI reference); this skill is a diagnostic recipe, not a command catalog.

@@ -14,8 +14,6 @@ metadata:
   internal: true
 ---
 
-<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
-
 # internal-code-checkpoint
 
 Stage everything on the current branch and create a single new commit. The whole skill runs on Haiku via the `model:` frontmatter override — no subagent indirection. Replaces ad-hoc `git commit -a -m cp` checkpoints with something a later agent can scan in `git log` without reopening the diff.

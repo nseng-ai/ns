@@ -1,8 +1,6 @@
 ---
 name: internal-code-stacker-agent
 description: "Command: internal-code-stacker-agent"
-# Original description (preserved for reference):
-# Execute a multi-slice implementation plan as a serial local branch stack or commit series by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping without pushing.
 metadata:
   internal: true
 ---
