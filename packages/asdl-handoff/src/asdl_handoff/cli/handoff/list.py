@@ -31,7 +31,16 @@ class ListHandoffsRequest(ClinkrModel):
             ["--all"],
             is_flag=True,
             default=False,
-            help="List handoffs across every branch.",
+            help="List handoffs across every active branch.",
+        ),
+    ] = False
+    include_deleted: Annotated[
+        bool,
+        click.Option(
+            ["--include-deleted"],
+            is_flag=True,
+            default=False,
+            help="Include handoffs whose local branch no longer exists.",
         ),
     ] = False
 
@@ -39,19 +48,20 @@ class ListHandoffsRequest(ClinkrModel):
 class ListHandoffsResult(ClinkrModel):
     scope: Literal["branch", "all-branches"]
     branch: str | None
+    include_deleted: bool
     handoffs: list[HandoffSummary]
 
 
 def render_list_handoffs(result: ListHandoffsResult) -> None:
     if not result.handoffs:
         if result.scope == "all-branches":
-            click.echo("No saved handoffs found across branches.")
+            click.echo(_all_branches_empty_message(result))
             return
         click.echo(f"No saved handoffs found on branch {result.branch}.")
         return
 
     if result.scope == "all-branches":
-        click.echo("Handoffs across branches")
+        click.echo(_all_branches_title(result))
         click.echo()
         _render_all_branches_human_table(result.handoffs)
         return
@@ -64,13 +74,13 @@ def render_list_handoffs(result: ListHandoffsResult) -> None:
 def render_list_handoffs_markdown(result: ListHandoffsResult) -> None:
     if not result.handoffs:
         if result.scope == "all-branches":
-            click.echo("No saved handoffs found across branches.")
+            click.echo(_all_branches_empty_message(result))
             return
         click.echo(f"No saved handoffs found on branch {result.branch}.")
         return
 
     if result.scope == "all-branches":
-        click.echo("Handoffs across branches")
+        click.echo(_all_branches_title(result))
         click.echo()
         click.echo("| branch | state | handoff | updated |")
         click.echo("| --- | --- | --- | --- |")
@@ -93,11 +103,23 @@ def render_list_handoffs_markdown(result: ListHandoffsResult) -> None:
         )
 
 
+def _all_branches_title(result: ListHandoffsResult) -> str:
+    if result.include_deleted:
+        return "Handoffs across branches"
+    return "Handoffs across active branches"
+
+
+def _all_branches_empty_message(result: ListHandoffsResult) -> str:
+    if result.include_deleted:
+        return "No saved handoffs found across branches."
+    return "No saved handoffs found across active branches."
+
+
 @clinkr_operation(
     name="list",
     help=(
-        "List saved handoffs. Defaults to the current branch; pass --branch to override "
-        "or --all to include every branch."
+        "List saved handoffs. Defaults to the current branch. Pass --all to list "
+        "across active branches or --include-deleted to include deleted local branches."
     ),
     human_renderer=render_list_handoffs,
     markdown_renderer=render_list_handoffs_markdown,
@@ -130,10 +152,12 @@ def run_list_handoffs(
         ListHandoffsResult(
             scope="all-branches" if request.all_branches else "branch",
             branch=branch,
+            include_deleted=request.include_deleted,
             handoffs=collect_handoff_summaries(
                 entries,
                 handoff_context.brmem_gateway,
                 handoff_context.git_gateway,
+                include_deleted=request.include_deleted,
             ),
         )
     )

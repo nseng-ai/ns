@@ -47,13 +47,21 @@ Explicit branch:
 handoff list --branch <branch> --format json
 ```
 
-All branches:
+All active local branches:
 
 ```bash
 handoff list --all --format json
 ```
 
-The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branch_state`, `slug`, `key`, `entry_locator`, and `updated_at`. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+All branch states, including deleted local branches:
+
+```bash
+handoff list --all --include-deleted --format json
+```
+
+Use `--include-deleted` for recovery, cleanup, or when the user explicitly asks for deleted or stale branch handoffs.
+
+The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branch_state`, `slug`, `key`, `entry_locator`, and `updated_at`; `data.include_deleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 
@@ -62,6 +70,12 @@ No saved handoffs found on branch `<branch>`.
 ```
 
 or:
+
+```text
+No saved handoffs found across active branches.
+```
+
+or, when using `--include-deleted`:
 
 ```text
 No saved handoffs found across branches.
