@@ -71,6 +71,11 @@
       "sourceType": "local",
       "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
     },
+    "internal-pr-stack-address": {
+      "source": "skills/internal-pr-stack-address",
+      "sourceType": "local",
+      "computedHash": "94adde3f6e37c5aaa3b4d5d15d34f05f96e434b8060f3392d83b402d29f116a3"
+    },
     "dignified-python": {
       "source": "skills/dignified-python",
       "sourceType": "local",
