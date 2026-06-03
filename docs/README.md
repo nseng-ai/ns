@@ -16,6 +16,8 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Branch retrospective evidence](aretro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
+- [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
+- [asdl exec commands](asdl-exec/README.md): deterministic command boundaries for skills and agents.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [Slot co-autocomplete plan](slot-co-autocomplete-plan.md): slot autocomplete design notes.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
