@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Rework `areg init` into a safer preflight/planning/apply flow, including explicit behavior for existing `areg.json`, malformed managed blocks, prompts, and partial-failure prevention.
-      Evidence: scenario tests cover malformed blocks before install, config preservation/replacement semantics, and successful initialization.
+- [x] Rework `areg init` into a safer preflight/planning/apply flow, including explicit behavior for existing `areg.json`, malformed managed blocks, prompts, and partial-failure prevention.
+      Evidence: `init_project` now builds a full `InitPlan`/`TextWritePlan` before any side effects, so local validation aborts before touching the filesystem or `npx`. `test_init_project.py` scenario tests cover malformed agents/claude managed blocks erroring before install (`fake_npx.invocations == []`), invalid and non-object `areg.json` erroring before install, unknown-key preservation, non-destructive `npx` failure, and successful initialization (landed commit `a2086b45`).
 - [ ] Harden destructive and path-sensitive filesystem operations with canonical path validation and symlink policy for managed writes, `.claude` settings, and `skillx cleanup`.
       Evidence: tests cover traversal, symlink escape, non-directory, missing, and happy-path cleanup/write cases.
 - [ ] Clean up areg's external boundary model so host-tool checks, Git root discovery, `gh`, `npx skills`, and project skill state have coherent injectable ownership.
