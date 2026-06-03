@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "asdl.pi-agent.v1";
 
-export type PiAgentDefinition = {
+export interface PiAgentDefinition {
 	schema: typeof PI_AGENT_DEFINITION_SCHEMA;
 	name: string;
 	toolName: string;
@@ -13,7 +13,7 @@ export type PiAgentDefinition = {
 	promptGuidelines: string[];
 	body: string;
 	filePath: string;
-};
+}
 
 type SupportedFrontmatterField =
 	| "schema"
@@ -265,6 +265,7 @@ function isDirectory(path: string): boolean {
 	try {
 		return statSync(path).isDirectory();
 	} catch {
+		// Any filesystem failure means the path is not a usable agents directory.
 		return false;
 	}
 }

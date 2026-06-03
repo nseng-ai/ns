@@ -118,7 +118,7 @@ describe("Pi agent definitions", () => {
 	});
 });
 
-type DefinitionMarkdownOptions = {
+interface DefinitionMarkdownOptions {
 	schema?: string;
 	name?: string;
 	toolName?: string;
@@ -127,7 +127,7 @@ type DefinitionMarkdownOptions = {
 	promptSnippet?: string;
 	promptGuidelinesBlock?: string;
 	body?: string;
-};
+}
 
 function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 	const promptGuidelinesBlock =
