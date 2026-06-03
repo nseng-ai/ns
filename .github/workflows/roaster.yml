@@ -26,12 +26,14 @@ jobs:
       count: ${{ steps.list.outputs.count }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup-python-uv
       - id: list
         run: |
-          output=$(uv run roaster review list --format json)
-          reviews=$(printf '%s' "$output" | jq -c '.data.keys')
-          count=$(printf '%s' "$output" | jq '.data.count')
+          output=$(uv run roaster review list-matching --target ci --format json)
+          reviews=$(printf '%s' "$output" | jq -c '[.data.selected_reviews[].key]')
+          count=$(printf '%s' "$output" | jq '.data.selected_count')
           {
             echo "reviews=$reviews"
             echo "count=$count"

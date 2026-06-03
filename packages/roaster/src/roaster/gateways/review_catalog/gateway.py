@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from roaster.models import ReviewCatalog, ReviewSource, RoasterFailure
+from roaster.models import ReviewKeyCatalog, ReviewSource, RoasterFailure
 
 
 class ReviewCatalogGateway(ABC):
@@ -15,5 +15,5 @@ class ReviewCatalogGateway(ABC):
         """Return the markdown source for ``key`` or a typed failure."""
 
     @abstractmethod
-    def list_review_keys(self) -> ReviewCatalog | RoasterFailure:
+    def list_review_keys(self) -> ReviewKeyCatalog | RoasterFailure:
         """Return all markdown review keys available in the environment."""

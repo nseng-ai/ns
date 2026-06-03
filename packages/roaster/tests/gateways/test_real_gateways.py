@@ -46,13 +46,15 @@ def test_real_local_diff_runs_git_diff(
     def fake_run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
         captured_cmds.append(cmd)
         assert cwd == Path("/repo")
-        if cmd[:3] == ["git", "diff", "--no-ext-diff"]:
+        if cmd == ["git", "diff", "--no-ext-diff", "origin/master...HEAD"]:
             return subprocess.CompletedProcess(
                 cmd,
                 0,
                 stdout="diff --git a/app.py b/app.py\n+print('hello')\n",
                 stderr="",
             )
+        if cmd == ["git", "diff", "--no-ext-diff", "--name-only", "origin/master...HEAD"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="app.py\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd!r}")
 
     monkeypatch.setattr(local_diff_real, "git_toplevel", fake_git_toplevel)
@@ -63,7 +65,11 @@ def test_real_local_diff_runs_git_diff(
     assert isinstance(result, LocalDiff)
     assert result.base_ref == "master"
     assert "diff --git a/app.py b/app.py" in result.diff_text
-    assert captured_cmds == [["git", "diff", "--no-ext-diff", "origin/master...HEAD"]]
+    assert result.changed_paths == ("app.py",)
+    assert captured_cmds == [
+        ["git", "diff", "--no-ext-diff", "origin/master...HEAD"],
+        ["git", "diff", "--no-ext-diff", "--name-only", "origin/master...HEAD"],
+    ]
 
 
 def test_real_local_diff_excludes_vendored_skill_python_paths(
@@ -95,6 +101,8 @@ def test_real_local_diff_excludes_vendored_skill_python_paths(
     def fake_run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
         captured_cmds.append(cmd)
         assert cwd == tmp_path
+        if "--name-only" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="app.py\n", stderr="")
         return subprocess.CompletedProcess(
             cmd,
             0,
@@ -108,6 +116,7 @@ def test_real_local_diff_excludes_vendored_skill_python_paths(
     result = RealLocalDiffGateway(cwd=tmp_path).load_diff(base_ref="main")
 
     assert isinstance(result, LocalDiff)
+    assert result.changed_paths == ("app.py",)
     assert captured_cmds == [
         [
             "git",
@@ -118,5 +127,16 @@ def test_real_local_diff_excludes_vendored_skill_python_paths(
             ".",
             ":(exclude,glob).agents/skills/vendored-skill/**/*.py",
             ":(exclude,glob).claude/skills/vendored-skill/**/*.py",
-        ]
+        ],
+        [
+            "git",
+            "diff",
+            "--no-ext-diff",
+            "--name-only",
+            "origin/main...HEAD",
+            "--",
+            ".",
+            ":(exclude,glob).agents/skills/vendored-skill/**/*.py",
+            ":(exclude,glob).claude/skills/vendored-skill/**/*.py",
+        ],
     ]

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
 from roaster.models import (
-    ReviewCatalog,
     ReviewDefinitionNotFound,
+    ReviewKeyCatalog,
     ReviewSource,
     RoasterFailure,
 )
@@ -48,14 +48,14 @@ class FakeReviewCatalogGateway(ReviewCatalogGateway):
             message=f"No fake review definition configured for key {key!r} at {path}.",
         )
 
-    def list_review_keys(self) -> ReviewCatalog | RoasterFailure:
+    def list_review_keys(self) -> ReviewKeyCatalog | RoasterFailure:
         if self._list_review_keys_failure is not None:
             return self._list_review_keys_failure
         if self._review_keys is not None:
             keys = self._review_keys
         else:
             keys = tuple(sorted(self._review_sources_by_key))
-        return ReviewCatalog(reviews_dir=self._reviews_dir, keys=keys)
+        return ReviewKeyCatalog(reviews_dir=self._reviews_dir, keys=keys)
 
     @property
     def requested_review_keys(self) -> tuple[str, ...]:

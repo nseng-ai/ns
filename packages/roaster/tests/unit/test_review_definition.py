@@ -4,11 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from roaster.review_definition import parse_review_definition
+from roaster.review_definition import parse_review_definition, parse_review_metadata
 
 _REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
 _TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
+_THERMO_NUCLEAR_REVIEW = _REPO_ROOT / "reviews" / "thermo-nuclear-code-quality-review.md"
+_ARCHITECTURE_REVIEW = _REPO_ROOT / "reviews" / "improve-codebase-architecture.md"
 
 
 def test_parse_real_dignified_python_review() -> None:
@@ -18,6 +20,8 @@ def test_parse_real_dignified_python_review() -> None:
     assert definition.name == "dignified-python"
     assert definition.description.strip()
     assert definition.default_model == "haiku"
+    assert definition.scope == "all"
+    assert definition.when_changed == ("**/*.py",)
     assert definition.instructions.strip()
 
 
@@ -28,6 +32,26 @@ def test_parse_real_typescript_style_review() -> None:
     assert definition.name == "typescript-style"
     assert definition.description.strip()
     assert definition.default_model == "haiku"
+    assert definition.scope == "all"
+    assert definition.when_changed == ("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts")
+    assert definition.instructions.strip()
+
+
+def test_parse_real_thermo_nuclear_review() -> None:
+    source = _THERMO_NUCLEAR_REVIEW.read_text(encoding="utf-8")
+    definition = parse_review_definition(source, name="thermo-nuclear-code-quality-review")
+
+    assert definition.scope == "local"
+    assert definition.default_model == "opus"
+    assert definition.instructions.strip()
+
+
+def test_parse_real_architecture_review() -> None:
+    source = _ARCHITECTURE_REVIEW.read_text(encoding="utf-8")
+    definition = parse_review_definition(source, name="improve-codebase-architecture")
+
+    assert definition.scope == "local"
+    assert definition.default_model == "opus"
     assert definition.instructions.strip()
 
 
@@ -36,6 +60,9 @@ def test_parse_review_definition_success() -> None:
         "---\n"
         "description: Review Python diffs for style violations.\n"
         "default_model: sonnet\n"
+        "scope: ci\n"
+        "when_changed:\n"
+        "  - '**/*.py'\n"
         "---\n"
         "\n"
         "Flag concrete issues in the diff.\n",
@@ -46,6 +73,8 @@ def test_parse_review_definition_success() -> None:
     assert definition.description == "Review Python diffs for style violations."
     assert definition.instructions == "Flag concrete issues in the diff."
     assert definition.default_model == "sonnet"
+    assert definition.scope == "ci"
+    assert definition.when_changed == ("**/*.py",)
 
 
 def test_parse_review_definition_without_default_model() -> None:
@@ -59,6 +88,93 @@ def test_parse_review_definition_without_default_model() -> None:
     )
 
     assert definition.default_model is None
+
+
+def test_parse_review_definition_defaults_scope_to_all() -> None:
+    definition = parse_review_definition(
+        "---\n"
+        "description: Review Python diffs for style violations.\n"
+        "---\n"
+        "\n"
+        "Flag concrete issues in the diff.\n",
+        name="dignified-python",
+    )
+
+    assert definition.scope == "all"
+
+
+@pytest.mark.parametrize("scope", ["all", "ci", "local"])
+def test_parse_review_definition_accepts_valid_scopes(scope: str) -> None:
+    definition = parse_review_definition(
+        "---\n"
+        "description: Review Python diffs for style violations.\n"
+        f"scope: {scope}\n"
+        "---\n"
+        "\n"
+        "Flag concrete issues in the diff.\n",
+        name="dignified-python",
+    )
+
+    assert definition.scope == scope
+
+
+@pytest.mark.parametrize("scope", ["", "prod", "5"])
+def test_parse_review_definition_rejects_invalid_scope(scope: str) -> None:
+    with pytest.raises(ValueError, match="`scope`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            f"scope: {scope}\n"
+            "---\n"
+            "\n"
+            "Flag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_empty_when_changed() -> None:
+    with pytest.raises(ValueError, match="`when_changed`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "when_changed: []\n"
+            "---\n"
+            "\n"
+            "Flag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_non_string_when_changed_item() -> None:
+    with pytest.raises(ValueError, match="`when_changed`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "when_changed:\n"
+            "  - 5\n"
+            "---\n"
+            "\n"
+            "Flag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_metadata_allows_empty_body() -> None:
+    metadata = parse_review_metadata(
+        "---\n"
+        "description: Review Python diffs for style violations.\n"
+        "default_model: sonnet\n"
+        "scope: local\n"
+        "when_changed:\n"
+        "  - '**/*.py'\n"
+        "---\n",
+        name="dignified-python",
+    )
+
+    assert metadata.key == "dignified-python"
+    assert metadata.default_model == "sonnet"
+    assert metadata.scope == "local"
+    assert metadata.when_changed == ("**/*.py",)
 
 
 def test_parse_review_definition_requires_instructions() -> None:

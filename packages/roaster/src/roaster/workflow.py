@@ -13,15 +13,22 @@ from roaster.models import (
     HarnessNotConfigured,
     HarnessUnknown,
     InvalidReviewDefinition,
+    LocalDiff,
     LocalReviewResult,
+    MatchingReviewSelectionResult,
     ModelNotProvided,
+    ReviewCatalog,
     ReviewDefinition,
     ReviewExecutionResponse,
     ReviewFormat,
+    ReviewKeyCatalog,
+    ReviewMetadata,
     ReviewSource,
+    ReviewTarget,
     RoasterFailure,
 )
-from roaster.review_definition import parse_review_definition
+from roaster.review_definition import parse_review_definition, parse_review_metadata
+from roaster.review_selection import build_review_selection, filter_reviews_for_target
 
 ENV_HARNESS = "ASDL_ROASTER_HARNESS"
 
@@ -80,11 +87,81 @@ def run_review_by_key(
     return LocalReviewResult(
         review_name=review_definition.name,
         review_path=str(review_source.path),
+        review_scope=review_definition.scope,
         model=resolved_model,
         base_ref=local_diff.base_ref,
         payload=execution_response.payload,
         usage=execution_response.usage,
     )
+
+
+def list_reviews(
+    *,
+    requested_target: ReviewTarget | None,
+    catalog: ReviewCatalogGateway,
+) -> ReviewCatalog | RoasterFailure:
+    """List review metadata, optionally filtered for a CI or local target."""
+    loaded_catalog = _load_review_metadata_catalog(catalog=catalog)
+    if not isinstance(loaded_catalog, ReviewCatalog):
+        return loaded_catalog
+
+    return ReviewCatalog(
+        reviews_dir=loaded_catalog.reviews_dir,
+        reviews=filter_reviews_for_target(loaded_catalog.reviews, target=requested_target),
+    )
+
+
+def list_matching_reviews(
+    *,
+    requested_base_ref: str | None,
+    requested_target: ReviewTarget | None,
+    catalog: ReviewCatalogGateway,
+    diff: LocalDiffGateway,
+) -> MatchingReviewSelectionResult | RoasterFailure:
+    """List target-eligible reviews whose ``when_changed`` rules match the diff."""
+    local_diff = diff.load_diff(base_ref=requested_base_ref)
+    if not isinstance(local_diff, LocalDiff):
+        return local_diff
+
+    loaded_catalog = _load_review_metadata_catalog(catalog=catalog)
+    if not isinstance(loaded_catalog, ReviewCatalog):
+        return loaded_catalog
+
+    eligible_reviews = filter_reviews_for_target(loaded_catalog.reviews, target=requested_target)
+    selected_reviews, skipped_reviews = build_review_selection(
+        reviews=eligible_reviews,
+        changed_paths=local_diff.changed_paths,
+    )
+
+    return MatchingReviewSelectionResult(
+        target=requested_target,
+        base_ref=local_diff.base_ref,
+        changed_paths=local_diff.changed_paths,
+        selected_reviews=selected_reviews,
+        skipped_reviews=skipped_reviews,
+    )
+
+
+def _load_review_metadata_catalog(
+    *,
+    catalog: ReviewCatalogGateway,
+) -> ReviewCatalog | RoasterFailure:
+    key_catalog = catalog.list_review_keys()
+    if not isinstance(key_catalog, ReviewKeyCatalog):
+        return key_catalog
+
+    reviews: list[ReviewMetadata] = []
+    for key in key_catalog.keys:
+        review_source = catalog.load_review_source(key=key)
+        if not isinstance(review_source, ReviewSource):
+            return review_source
+        try:
+            metadata = parse_review_metadata(review_source.source, name=review_source.key)
+        except ValueError as exc:
+            return InvalidReviewDefinition(message=f"{key}: {exc}")
+        reviews.append(metadata)
+
+    return ReviewCatalog(reviews_dir=key_catalog.reviews_dir, reviews=tuple(reviews))
 
 
 def _resolve_model(

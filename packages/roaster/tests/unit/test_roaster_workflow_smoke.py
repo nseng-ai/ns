@@ -11,6 +11,14 @@ def _roaster_workflow_text() -> str:
     return (_repo_root() / ".github" / "workflows" / "roaster.yml").read_text(encoding="utf-8")
 
 
+def test_roaster_workflow_discovers_ci_matching_reviews() -> None:
+    workflow = _roaster_workflow_text()
+
+    assert "uv run roaster review list-matching --target ci --format json" in workflow
+    assert "jq -c '[.data.selected_reviews[].key]'" in workflow
+    assert "jq '.data.selected_count'" in workflow
+
+
 def test_roaster_workflow_posts_inline_findings_before_summary_comment() -> None:
     workflow = _roaster_workflow_text()
 
