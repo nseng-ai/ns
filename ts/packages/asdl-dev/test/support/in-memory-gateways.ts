@@ -153,6 +153,12 @@ export interface SubmitGatewayCall {
 	cwd: string;
 }
 
+export type SubmitGatewayOperation = "checkSubmitReadiness" | "restackCurrentStack" | "submitCurrentStack" | "verifyCurrentPr";
+
+export interface SubmitGatewayOperationCall extends SubmitGatewayCall {
+	operation: SubmitGatewayOperation;
+}
+
 export class InMemorySubmitGateway implements SubmitGateway {
 	private readonly preflightResult: SubmitPreflightResult;
 	private readonly restackResult: SubmitRestackResult;
@@ -162,6 +168,7 @@ export class InMemorySubmitGateway implements SubmitGateway {
 	private readonly restackLog: SubmitGatewayCall[] = [];
 	private readonly submitLog: SubmitGatewayCall[] = [];
 	private readonly currentPrLog: SubmitGatewayCall[] = [];
+	private readonly operationLog: SubmitGatewayOperationCall[] = [];
 
 	constructor(state: InMemorySubmitGatewayState = {}) {
 		this.preflightResult = copySubmitPreflightResult(state.preflight ?? { kind: "ready", output: defaultSubmitOutput() });
@@ -198,26 +205,34 @@ export class InMemorySubmitGateway implements SubmitGateway {
 		return this.currentPrLog.map((call) => ({ ...call }));
 	}
 
+	get operationCalls(): readonly SubmitGatewayOperationCall[] {
+		return this.operationLog.map((call) => ({ ...call }));
+	}
+
 	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
 		this.preflightLog.push({ cwd: params.cwd });
+		this.operationLog.push({ operation: "checkSubmitReadiness", cwd: params.cwd });
 		emitSubmitOutput(params, this.preflightResult.output);
 		return copySubmitPreflightResult(this.preflightResult);
 	}
 
 	async restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult> {
 		this.restackLog.push({ cwd: params.cwd });
+		this.operationLog.push({ operation: "restackCurrentStack", cwd: params.cwd });
 		emitSubmitOutput(params, this.restackResult.output);
 		return copySubmitRestackResult(this.restackResult);
 	}
 
 	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
 		this.submitLog.push({ cwd: params.cwd });
+		this.operationLog.push({ operation: "submitCurrentStack", cwd: params.cwd });
 		emitSubmitOutput(params, this.submitResult.output);
 		return copySubmitRunResult(this.submitResult);
 	}
 
 	async verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult> {
 		this.currentPrLog.push({ cwd: params.cwd });
+		this.operationLog.push({ operation: "verifyCurrentPr", cwd: params.cwd });
 		emitSubmitOutput(params, this.currentPrResult.output);
 		return copyCurrentPrVerificationResult(this.currentPrResult);
 	}

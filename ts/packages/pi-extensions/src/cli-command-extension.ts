@@ -50,12 +50,15 @@ export interface CliCommandInfo {
 	canAcceptPositionalArgs?: boolean;
 }
 
+export type CliCommandConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+
 export interface CliCommandRunDeps {
 	cwd: string;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
 	onOutput?: (stream: OutputStreamName, text: string) => void;
+	confirm?: CliCommandConfirmPrompt;
 }
 
 export interface CliCommandExtensionSpec {
@@ -71,6 +74,7 @@ export interface CommandContext {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
+		confirm?(title: string, message: string): Promise<boolean> | boolean;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?(key: string, value: string[] | undefined, options?: { placement?: CommandWidgetPlacement }): void;
@@ -366,27 +370,39 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		progress.setPhase("running CLI command");
 		const runnerStartedAt = Date.now();
 		traceCliCommand("runner_start", { argv, commandName: command.name, piCommandName });
+		const runDeps: CliCommandRunDeps = {
+			cwd: ctx.cwd,
+			stdout: (text) => {
+				stdout += text;
+				if (!hasLiveOutput) {
+					progress.appendOutput("stdout", text);
+				}
+			},
+			stderr: (text) => {
+				stderr += text;
+				if (!hasLiveOutput) {
+					progress.appendOutput("stderr", text);
+				}
+			},
+			env: { ...(spec.env ?? process.env) },
+			onOutput: (stream, text) => {
+				hasLiveOutput = true;
+				progress.appendOutput(stream, text);
+			},
+		};
+		if (ctx.hasUI && ctx.ui.confirm !== undefined) {
+			const confirm = ctx.ui.confirm;
+			runDeps.confirm = async (title, message) => {
+				progress.setPhase("waiting for confirmation");
+				try {
+					return await confirm(title, message);
+				} finally {
+					progress.setPhase("running CLI command");
+				}
+			};
+		}
 		try {
-			exitCode = await spec.runCli(argv, {
-				cwd: ctx.cwd,
-				stdout: (text) => {
-					stdout += text;
-					if (!hasLiveOutput) {
-						progress.appendOutput("stdout", text);
-					}
-				},
-				stderr: (text) => {
-					stderr += text;
-					if (!hasLiveOutput) {
-						progress.appendOutput("stderr", text);
-					}
-				},
-				env: { ...(spec.env ?? process.env) },
-				onOutput: (stream, text) => {
-					hasLiveOutput = true;
-					progress.appendOutput(stream, text);
-				},
-			});
+			exitCode = await spec.runCli(argv, runDeps);
 		} catch (error) {
 			const message = errorMessage(error);
 			const exceptionOutput = `Unhandled ${spec.cliName} command error: ${message}\n`;

@@ -17,7 +17,7 @@ headless workflow logic -> asdl-dev CLI -> domain-specific Pi command surface
 Consolidation has three rules:
 
 1. **The CLI owns durable behavior.** `asdl-dev` owns argument parsing, help text, gateway-backed workflow decisions, stdout/stderr, exit codes, and CLI scenario tests.
-2. **Pi owns only the runtime surface.** The Pi adapter waits for idle, tokenizes slash-command args, calls `runCli()`, captures stdout/stderr, and displays the result. It should not reimplement workflow decisions.
+2. **Pi owns only the runtime surface.** The Pi adapter waits for idle, tokenizes slash-command args, calls `runCli()`, captures stdout/stderr, passes generic runtime UI capabilities such as confirmation prompts when available, and displays the result. It should not reimplement workflow decisions.
 3. **Duplicate public surfaces are temporary migration scaffolding.** Once the CLI path covers the behavior, remove the old `pi.registerCommand()` call, legacy aliases, and tests for the former Pi-only implementation.
 
 Do not add a new Pi command first and later make the CLI shell out to Pi. Pi should be a runtime surface over the CLI, not the canonical implementation for headless developer tasks.
@@ -29,7 +29,7 @@ The stack around `asdl-dev preview-url`, `asdl-dev cp`, and `asdl-dev submit` cr
 - `ts/packages/asdl-dev/` owns CLI parsing, help text, gateway-backed workflow logic, stdout/stderr output, exit codes, and CLI scenario tests.
 - `ts/packages/asdl-dev/src/cli.ts` owns a flat command table and exports `listAsdlDevCommands()`.
 - `ts/packages/pi-extensions/src/asdl-dev-extension.ts` reads that command table and registers each CLI command under the Pi namespace chosen for its domain: `/dev:preview-url` for preview URL lookup and `/code:cp` / `/code:submit` for code/source-control workflows.
-- `ts/packages/pi-extensions/src/cli-command-extension.ts` is the generic Pi adapter: it waits for Pi to become idle, tokenizes slash-command args, invokes `runCli()`, captures stdout/stderr, and emits a displayed custom message.
+- `ts/packages/pi-extensions/src/cli-command-extension.ts` is the generic Pi adapter: it waits for Pi to become idle, tokenizes slash-command args, invokes `runCli()`, passes generic UI capabilities such as confirmations when available, captures stdout/stderr, and emits a displayed custom message.
 - `.pi/extensions/asdl-dev.ts` is only the project-local discovery adapter that lets Pi load the engineered package code.
 
 `code:submit` is the clearest consolidation example: the former Pi-specific submit implementation was deleted after the headless `asdl-dev submit` path owned the workflow. `/code:submit` is now only the Pi command surface for `asdl-dev submit`.

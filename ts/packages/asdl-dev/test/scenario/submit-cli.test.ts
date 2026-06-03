@@ -10,10 +10,23 @@ type OutputEvent = {
 	text: string;
 };
 
-function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: { cwd?: string; captureOutput?: boolean } = {}) {
+interface ConfirmationPrompt {
+	title: string;
+	message: string;
+}
+
+interface RunWithFakesOptions {
+	cwd?: string;
+	captureOutput?: boolean;
+	confirmResponses?: readonly boolean[];
+}
+
+function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: RunWithFakesOptions = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const outputEvents: OutputEvent[] = [];
+	const confirmations: ConfirmationPrompt[] = [];
+	const confirmResponses = [...(options.confirmResponses ?? [])];
 	const fakes = inMemoryContext({
 		...state,
 		checkpoint: state.checkpoint ?? { snapshot: cleanPendingWorktreeSnapshot() },
@@ -23,6 +36,7 @@ function runWithFakes(args: readonly string[], state: InMemoryContextState = {},
 		stdout,
 		stderr,
 		outputEvents,
+		confirmations,
 		exit: runCli(args, {
 			context: fakes.context,
 			cwd: options.cwd ?? "/work",
@@ -40,6 +54,14 @@ function runWithFakes(args: readonly string[], state: InMemoryContextState = {},
 						},
 					}
 				: {}),
+			...(options.confirmResponses === undefined
+				? {}
+				: {
+						confirm(title: string, message: string): boolean {
+							confirmations.push({ title, message });
+							return confirmResponses.shift() ?? false;
+						},
+					}),
 		}),
 	};
 }
@@ -158,7 +180,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
 	});
 
-	test("restack-required dry-run stops before submit without --restack", async () => {
+	test("restack-required dry-run stops before submit when no prompt is available", async () => {
 		const run = runWithFakes(["submit"], {
 			submit: {
 				preflight: {
@@ -173,35 +195,106 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
 		expect(run.stderr.join("")).toContain("--restack");
 		expect(run.stderr.join("")).toContain("$ gt submit -nps --ai --dry-run");
+		expect(run.confirmations).toEqual([]);
+		expect(run.submit.restackCurrentStackCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([]);
+	});
+
+	test("confirmed restack prompt runs restack before submitting", async () => {
+		const link = prLink(125);
+		const run = runWithFakes(
+			["submit"],
+			{
+				submit: {
+					preflight: {
+						kind: "restack_required",
+						output: output("", "Restack is required before submit.\n", 1),
+					},
+					restack: { kind: "success", output: output("restacked\n") },
+					submit: {
+						kind: "success",
+						output: output(`${link.url}\n`),
+						prLinks: [link],
+					},
+					currentPr: {
+						kind: "present",
+						output: output(`${link.url}\n`),
+						prLinks: [link],
+					},
+				},
+			},
+			{ confirmResponses: [true] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("#125 https://github.com/acme/project/pull/125");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.confirmations).toHaveLength(1);
+		expect(run.confirmations[0]?.title).toBe("Run gt restack before submit?");
+		expect(run.confirmations[0]?.message).toContain("gt restack --no-interactive");
+		expect(run.confirmations[0]?.message).toContain("gt submit -nps --ai");
+		expect(run.submit.operationCalls.map((call) => call.operation)).toEqual([
+			"checkSubmitReadiness",
+			"restackCurrentStack",
+			"submitCurrentStack",
+			"verifyCurrentPr",
+		]);
+	});
+
+	test("declined restack prompt stops before restack and submit", async () => {
+		const run = runWithFakes(
+			["submit"],
+			{
+				submit: {
+					preflight: {
+						kind: "restack_required",
+						output: output("", "Restack is required before submit.\n", 1),
+					},
+				},
+			},
+			{ confirmResponses: [false] },
+		);
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Restack was not run.");
+		expect(run.stderr.join("")).toContain("Submission was not attempted.");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --ai --dry-run");
+		expect(run.confirmations).toHaveLength(1);
 		expect(run.submit.restackCurrentStackCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
 	});
 
 	test("--restack runs restack before submitting", async () => {
 		const link = prLink(124);
-		const run = runWithFakes(["submit", "--restack"], {
-			submit: {
-				preflight: {
-					kind: "restack_required",
-					output: output("", "Restack is required before submit.\n", 1),
-				},
-				restack: { kind: "success", output: output("restacked\n") },
+		const run = runWithFakes(
+			["submit", "--restack"],
+			{
 				submit: {
-					kind: "success",
-					output: output(`${link.url}\n`),
-					prLinks: [link],
-				},
-				currentPr: {
-					kind: "present",
-					output: output(`${link.url}\n`),
-					prLinks: [link],
+					preflight: {
+						kind: "restack_required",
+						output: output("", "Restack is required before submit.\n", 1),
+					},
+					restack: { kind: "success", output: output("restacked\n") },
+					submit: {
+						kind: "success",
+						output: output(`${link.url}\n`),
+						prLinks: [link],
+					},
+					currentPr: {
+						kind: "present",
+						output: output(`${link.url}\n`),
+						prLinks: [link],
+					},
 				},
 			},
-		});
+			{ confirmResponses: [false] },
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("#124 https://github.com/acme/project/pull/124");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.confirmations).toEqual([]);
 		expect(run.submit.restackCurrentStackCalls).toEqual([{ cwd: "/work" }]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
 	});
