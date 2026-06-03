@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -18,6 +22,7 @@ import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subag
 
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";
+const DEFAULT_RUNNER_BODY = "You are a fixture runner.\n\n## Delegated task\n\n{{prompt}}";
 
 interface JsonSchemaObject {
 	type: string;
@@ -44,8 +49,15 @@ function jsonLine(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
 }
 
-function registerTool(pi = new FakePi()): ToolDefinition {
-	dispatchRunnerSubagentExtension(pi);
+interface RegisterToolOptions {
+	pi?: FakePi;
+	definitionRoot?: string;
+}
+
+function registerTool(options: RegisterToolOptions = {}): ToolDefinition {
+	const pi = options.pi ?? new FakePi();
+	const definitionRoot = options.definitionRoot ?? createRunnerDefinitionRoot();
+	dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
 	const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
 	expect(tool).toBeDefined();
 	return tool!;
@@ -77,27 +89,89 @@ function updateTexts(updates: readonly ToolResult[]): string {
 	return updates.map((update) => update.content[0]?.text ?? "").join("\n---\n");
 }
 
+interface RunnerDefinitionOverrides {
+	toolName?: string;
+	label?: string;
+	description?: string;
+	promptSnippet?: string;
+	promptGuidelines?: string[];
+	body?: string;
+}
+
+function createRunnerDefinitionRoot(overrides: RunnerDefinitionOverrides = {}): string {
+	const root = mkdtempSync(join(tmpdir(), "dispatch-runner-definition-"));
+	writeRunnerDefinition(root, overrides);
+	return root;
+}
+
+function writeRunnerDefinition(root: string, overrides: RunnerDefinitionOverrides = {}): void {
+	const agentsDir = join(root, ".asdl", "pi", "agents");
+	mkdirSync(agentsDir, { recursive: true });
+	writeFileSync(join(agentsDir, "runner.md"), runnerDefinitionMarkdown(overrides), "utf8");
+}
+
+function runnerDefinitionMarkdown(overrides: RunnerDefinitionOverrides = {}): string {
+	const promptGuidelines = overrides.promptGuidelines ?? [
+		"Use dispatch_runner_subagent only for a focused delegated task where the subagent prompt includes all necessary context.",
+		"Use dispatch_runner_subagent sequentially in a shared worktree; inspect the returned status and sessionFile before deciding that work is complete.",
+		"Do not treat non-final-text statuses from dispatch_runner_subagent as completion; inspect diagnostics and the subagent session file first.",
+	];
+	return [
+		"---",
+		"schema: asdl.pi-agent.v1",
+		"name: runner",
+		`toolName: ${overrides.toolName ?? DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}`,
+		`label: ${overrides.label ?? "Dispatch Runner Subagent"}`,
+		`description: ${overrides.description ?? "Launch a focused subagent Pi session in the current cwd and return its final assistant text/status evidence."}`,
+		`promptSnippet: ${overrides.promptSnippet ?? "Launch a focused subagent Pi session in the current cwd and return final assistant text"}`,
+		"promptGuidelines:",
+		...promptGuidelines.map((guideline) => `  - ${guideline}`),
+		"---",
+		"",
+		overrides.body ?? DEFAULT_RUNNER_BODY,
+		"",
+	].join("\n");
+}
+
+function composedFixturePrompt(prompt: string): string {
+	return DEFAULT_RUNNER_BODY.replace("{{prompt}}", prompt);
+}
+
 describe("dispatch_runner_subagent extension", () => {
-	test("registers the custom tool with a strict title/prompt schema", () => {
+	test("registers metadata from the Markdown definition with a strict title/prompt schema", () => {
 		const pi = new FakePi();
-		const tool = registerTool(pi);
+		const definitionRoot = createRunnerDefinitionRoot({
+			label: "Markdown Runner",
+			description: "Markdown definition description with final assistant text.",
+			promptSnippet: "Markdown definition snippet",
+			promptGuidelines: ["Use dispatch_runner_subagent according to the Markdown definition."],
+		});
+		const tool = registerTool({ pi, definitionRoot });
 		const schema = tool.parameters as JsonSchemaObject;
 
 		expect(pi.tools.has(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME)).toBe(true);
-		expect(tool.label).toBe("Dispatch Runner Subagent");
-		expect(tool.description).toContain("final assistant text");
+		expect(tool.label).toBe("Markdown Runner");
+		expect(tool.description).toBe("Markdown definition description with final assistant text.");
+		expect(tool.promptSnippet).toBe("Markdown definition snippet");
 		expect(schema.type).toBe("object");
 		expect(Object.keys(schema.properties ?? {}).sort()).toEqual(["prompt", "title"]);
 		expect(schema.required).toEqual(["title", "prompt"]);
 		expect(schema.additionalProperties).toBe(false);
-		expect(tool.promptGuidelines).toHaveLength(3);
-		expect(tool.promptGuidelines?.every((guideline) => guideline.includes(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME))).toBe(true);
+		expect(tool.promptGuidelines).toEqual(["Use dispatch_runner_subagent according to the Markdown definition."]);
 	});
 
-	test("passes explicit title, prompt, and current cwd to dispatchRunnerSubagent without a runtime extension", async () => {
+	test("fails fast when runner.md declares a different toolName", () => {
+		const pi = new FakePi();
+		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
+
+		expect(() => dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot })).toThrow(/declares toolName.*expected/);
+		expect(pi.tools.size).toBe(0);
+	});
+
+	test("passes explicit title, composed prompt, and current cwd to dispatchRunnerSubagent without a runtime extension", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 		const updates: ToolResult[] = [];
 
 		const running = tool.execute(
@@ -118,7 +192,7 @@ describe("dispatch_runner_subagent extension", () => {
 			"--no-extensions",
 			"--session",
 			SESSION_FILE,
-			"Do focused work.",
+			composedFixturePrompt("Do focused work."),
 		]);
 		expect(call.args).not.toContain("--extension");
 
@@ -131,7 +205,7 @@ describe("dispatch_runner_subagent extension", () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, now: () => now });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 		const updates: ToolResult[] = [];
 		const statuses: UiRecord[] = [];
 		const widgets: WidgetRecord[] = [];
@@ -223,7 +297,7 @@ describe("dispatch_runner_subagent extension", () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, now: () => now });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 
 		const running = tool.execute(
 			"tool-1",
@@ -260,7 +334,7 @@ describe("dispatch_runner_subagent extension", () => {
 	test("preserves no-useful-text as a non-complete diagnostic without throwing", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 
 		const running = tool.execute("tool-1", { title: "Blank subagent", prompt: "Report back." }, undefined, undefined, { cwd: ROOT });
 		const call = await waitForSpawn(runner.calls);
@@ -331,7 +405,7 @@ describe("dispatch_runner_subagent extension", () => {
 	test("preserves subagent error statuses as ordinary diagnostic tool results", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 
 		const running = tool.execute("tool-1", { title: "Error subagent", prompt: "Report back." }, undefined, undefined, { cwd: ROOT });
 		const call = await waitForSpawn(runner.calls);
@@ -353,7 +427,7 @@ describe("dispatch_runner_subagent extension", () => {
 	test("does not require UI", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 
 		const running = tool.execute(
 			"tool-1",
@@ -374,7 +448,7 @@ describe("dispatch_runner_subagent extension", () => {
 	test("clears UI after error result", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 		const statuses: UiRecord[] = [];
 		const widgets: WidgetRecord[] = [];
 
@@ -414,7 +488,7 @@ describe("dispatch_runner_subagent extension", () => {
 	test("rejects blank title or prompt before spawning a subagent", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 
 		await expect(
 			tool.execute("tool-1", { title: "   ", prompt: "Do focused work." }, undefined, undefined, { cwd: ROOT }),
@@ -428,7 +502,7 @@ describe("dispatch_runner_subagent extension", () => {
 	test("truncates long final text in model-visible content while preserving machine-readable evidence", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
-		const tool = registerTool(pi);
+		const tool = registerTool({ pi });
 		const longText = `${"x".repeat(MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS + 5)}END_UNIQUE`;
 
 		const running = tool.execute("tool-1", { title: "Long subagent", prompt: "Return a long answer." }, undefined, undefined, { cwd: ROOT });
