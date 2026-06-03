@@ -23,7 +23,6 @@ to point back at ``npx skills update``.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import click
@@ -32,23 +31,7 @@ from areg.check.context import read_lockfile
 from areg.context import AregContext
 from areg.gateways.npx_skills.gateway import NpxSkillsError
 from areg.preconditions import requires_npx
-
-_DEFAULT_AGENTS = ("codex", "claude-code")
-
-
-def _resolve_agents(project_dir: Path, explicit: tuple[str, ...]) -> list[str]:
-    if explicit:
-        return list(explicit)
-    areg_json = project_dir / "areg.json"
-    if areg_json.is_file():
-        try:
-            data = json.loads(areg_json.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid JSON in areg.json: {e}") from e
-        agents = data.get("agents")
-        if isinstance(agents, list) and agents and all(isinstance(a, str) for a in agents):
-            return [str(a) for a in agents]
-    return list(_DEFAULT_AGENTS)
+from areg.project_agents import resolve_project_agents
 
 
 @click.command("update-skills")
@@ -74,8 +57,8 @@ def _resolve_agents(project_dir: Path, explicit: tuple[str, ...]) -> list[str]:
     "--agent",
     "agents",
     multiple=True,
-    help="Agent directory to populate (repeatable). Default: read areg.json, "
-    "else 'codex claude-code'.",
+    help="Agent directory to populate (repeatable). Default: read asdl.toml [areg].agents, "
+    "else legacy areg.json, else 'codex claude-code'.",
 )
 @click.option(
     "--dry-run",
@@ -122,7 +105,7 @@ def update_skills_cmd(
         click.echo("No github-sourced skills match. Nothing to update.")
         return
 
-    resolved_agents = _resolve_agents(project_dir, agents)
+    resolved_agents = resolve_project_agents(project_dir, agents)
 
     click.echo(
         f"Updating {len(github_entries)} skill(s) with agents "
@@ -142,7 +125,7 @@ def update_skills_cmd(
             ctx.npx_skills.add(
                 source,
                 skills=[name],
-                agents=resolved_agents,
+                agents=list(resolved_agents),
                 cwd=project_dir,
             )
         except NpxSkillsError as e:

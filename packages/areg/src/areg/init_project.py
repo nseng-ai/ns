@@ -11,8 +11,13 @@ import click
 from areg.context import AregContext
 from areg.gateways.npx_skills.gateway import NpxSkillsError
 from areg.preconditions import requires_npx
+from areg.project_agents import resolve_project_agents
+from asdl_core.project_config import (
+    ASDL_CONFIG_FILENAME,
+    AsdlProjectConfigError,
+    parse_asdl_project_config,
+)
 
-_DEFAULT_AGENTS = ("codex", "claude-code")
 _BOOTSTRAP_REPO = "dagster-io/asdl-tools"
 _BOOTSTRAP_SKILLS = ("skill-management", "skillx")
 _TEMPLATES = importlib.resources.files("areg") / "_templates"
@@ -321,30 +326,86 @@ def _plan_claude_md(
     )
 
 
-def _plan_areg_json(project_dir: Path, *, agents: tuple[str, ...]) -> TextWritePlan:
-    path = project_dir / "areg.json"
-    data: dict[str, object] = {}
+def _plan_asdl_toml(project_dir: Path, *, agents: tuple[str, ...]) -> TextWritePlan:
+    path = project_dir / ASDL_CONFIG_FILENAME
+    if not path.exists():
+        return TextWritePlan(
+            path=path,
+            content=_render_areg_section(agents),
+            description=ASDL_CONFIG_FILENAME,
+        )
 
-    if path.exists():
-        if not path.is_file():
-            raise click.ClickException(f"{path} exists but is not a file.")
-        content = _read_existing_text(path)
-        try:
-            existing_data = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid JSON in areg.json: {e}") from e
-        if not isinstance(existing_data, dict):
-            raise click.ClickException("areg.json must contain a JSON object.")
-        for key, value in existing_data.items():
-            if isinstance(key, str):
-                data[key] = value
+    if not path.is_file():
+        raise click.ClickException(f"{path} exists but is not a file.")
 
-    data["agents"] = list(agents)
+    content = _read_existing_text(path)
+    try:
+        parse_asdl_project_config(content, path=path)
+    except AsdlProjectConfigError as exc:
+        raise click.ClickException(str(exc)) from exc
+
     return TextWritePlan(
         path=path,
-        content=json.dumps(data, indent=2) + "\n",
-        description="areg.json",
+        content=_replace_or_append_areg_section(content, agents=agents),
+        description=ASDL_CONFIG_FILENAME,
     )
+
+
+def _render_areg_section(agents: tuple[str, ...]) -> str:
+    return "[areg]\n" + f"agents = {json.dumps(list(agents))}\n"
+
+
+def _replace_or_append_areg_section(content: str, *, agents: tuple[str, ...]) -> str:
+    lines = content.splitlines(keepends=True)
+    start = _areg_section_start(lines)
+    if start is None:
+        return _append_toml_section(content, _render_areg_section(agents))
+
+    end = _toml_section_end(lines, start=start)
+    replacement = _render_areg_section(agents)
+    if end < len(lines):
+        replacement += "\n"
+    lines[start:end] = replacement.splitlines(keepends=True)
+    return "".join(lines)
+
+
+def _append_toml_section(content: str, section: str) -> str:
+    if not content:
+        return section
+    if content.endswith("\n\n"):
+        return content + section
+    if content.endswith("\n"):
+        return content + "\n" + section
+    return content + "\n\n" + section
+
+
+def _areg_section_start(lines: list[str]) -> int | None:
+    for index, line in enumerate(lines):
+        if _toml_table_name(line) == "areg":
+            return index
+    return None
+
+
+def _toml_section_end(lines: list[str], *, start: int) -> int:
+    for index in range(start + 1, len(lines)):
+        if _toml_table_name(lines[index]) is not None:
+            return index
+    return len(lines)
+
+
+def _toml_table_name(line: str) -> str | None:
+    stripped = line.strip()
+    if stripped.startswith("[["):
+        closing_index = stripped.find("]]", 2)
+        if closing_index < 0:
+            return None
+        return stripped[2:closing_index].strip()
+    if not stripped.startswith("["):
+        return None
+    closing_index = stripped.find("]")
+    if closing_index < 0:
+        return None
+    return stripped[1:closing_index].strip()
 
 
 def _plan_settings(project_dir: Path) -> TextFilePlan:
@@ -374,7 +435,7 @@ def _build_init_plan(
     no_append: bool,
 ) -> InitPlan:
     text_files: list[TextFilePlan] = [
-        _plan_areg_json(project_dir, agents=agents),
+        _plan_asdl_toml(project_dir, agents=agents),
         _plan_agents_md(project_dir, assume_yes=assume_yes, no_append=no_append),
         _plan_claude_md(project_dir, assume_yes=assume_yes, no_append=no_append),
         _plan_settings(project_dir),
@@ -388,8 +449,11 @@ def _build_init_plan(
     "--agent",
     "agents",
     multiple=True,
-    default=_DEFAULT_AGENTS,
-    help="Agents to install skills for (repeatable).",
+    default=(),
+    help=(
+        "Agents to install skills for (repeatable). Default: read asdl.toml [areg].agents, "
+        "else legacy areg.json, else 'codex claude-code'."
+    ),
 )
 @click.option(
     "--yes",
@@ -418,9 +482,10 @@ def init_project_cmd(
     requires_npx()
     project_dir = _resolve_target_dir(target)
     _require_git_root(project_dir)
+    resolved_agents = resolve_project_agents(project_dir, agents)
     init_plan = _build_init_plan(
         project_dir,
-        agents=agents,
+        agents=resolved_agents,
         assume_yes=assume_yes,
         no_append=no_append,
     )
@@ -430,7 +495,7 @@ def init_project_cmd(
         ctx.npx_skills.add(
             _BOOTSTRAP_REPO,
             skills=list(_BOOTSTRAP_SKILLS),
-            agents=list(agents),
+            agents=list(resolved_agents),
             cwd=project_dir,
         )
     except NpxSkillsError as e:

@@ -9,6 +9,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+  "asdl-core",
   "click>=8.1.7",
 ]
 

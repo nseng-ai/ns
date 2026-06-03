@@ -37,7 +37,7 @@ uv run areg init path/to/repo
 - **skill-management** -- manage persistent skills with `npx skills`
 - **skillx** -- invoke any skill ephemerally from a GitHub repo, like `npx` for skills
 
-It also records the target agents in `areg.json`. By default, skills are installed for `codex` and `claude-code`; use repeatable `--agent` flags to select different targets.
+It also records the target agents in `asdl.toml` under `[areg].agents`. By default, skills are installed for `codex` and `claude-code`; use repeatable `--agent` flags to select different targets.
 
 ## Installing more persistent skills
 
@@ -48,6 +48,7 @@ npx skills add dagster-io/asdl-tools --skill pytest --agent codex claude-code -y
 ```
 
 Use the installed `skill-management` skill for add, update, remove, list, and publish workflows.
+`areg update-skills` reads agents from `asdl.toml` first, then falls back to legacy `areg.json` when `[areg].agents` is not configured.
 
 ## Running transient skills
 
@@ -71,7 +72,7 @@ my-project/
 ├── .claude/                # Claude Code config + skill symlinks
 ├── AGENTS.md               # project instructions for agents
 ├── CLAUDE.md               # Claude-specific project instructions
-├── areg.json               # agents this project targets
+├── asdl.toml               # asdl project config, including target agents
 └── skills-lock.json        # installed skill metadata
 ```
 

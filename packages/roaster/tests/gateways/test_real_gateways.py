@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from asdl_core.project_config import AsdlProjectConfigError
 from roaster.gateways.local_diff import real as local_diff_real
 from roaster.gateways.local_diff.real import RealLocalDiffGateway
 from roaster.gateways.review_catalog import real as review_catalog_real
@@ -66,26 +67,17 @@ def test_real_local_diff_runs_git_diff(
     assert captured_cmds == [["git", "diff", "--no-ext-diff", "origin/master...HEAD"]]
 
 
-def test_real_local_diff_excludes_vendored_skill_python_paths(
+def test_real_local_diff_applies_configured_diff_excludes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    agents_skills_dir = tmp_path / ".agents" / "skills"
-    agents_skills_dir.mkdir(parents=True)
-    (agents_skills_dir / "vendored-skill").mkdir()
-
-    first_party_skill_dir = tmp_path / "skills" / "first-party"
-    first_party_skill_dir.mkdir(parents=True)
-    (agents_skills_dir / "first-party").symlink_to(
-        Path("../../skills/first-party"),
-        target_is_directory=True,
-    )
-
-    claude_skills_dir = tmp_path / ".claude" / "skills"
-    claude_skills_dir.mkdir(parents=True)
-    (claude_skills_dir / "vendored-skill").symlink_to(
-        Path("../../.agents/skills/vendored-skill"),
-        target_is_directory=True,
+    (tmp_path / "asdl.toml").write_text(
+        "[roaster.diff]\n"
+        "exclude = [\n"
+        '  ".agents/skills/**/*.py",\n'
+        '  ".claude/skills/**/*.py",\n'
+        "]\n",
+        encoding="utf-8",
     )
     captured_cmds: list[list[str]] = []
 
@@ -116,7 +108,25 @@ def test_real_local_diff_excludes_vendored_skill_python_paths(
             "origin/main...HEAD",
             "--",
             ".",
-            ":(exclude,glob).agents/skills/vendored-skill/**/*.py",
-            ":(exclude,glob).claude/skills/vendored-skill/**/*.py",
+            ":(exclude,glob).agents/skills/**/*.py",
+            ":(exclude,glob).claude/skills/**/*.py",
         ]
     ]
+
+
+def test_real_local_diff_invalid_asdl_toml_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "asdl.toml").write_text(
+        '[roaster.diff]\nexclude = "/tmp/*.py"\n',
+        encoding="utf-8",
+    )
+
+    def fake_git_toplevel(*, cwd: Path) -> Path:
+        return cwd
+
+    monkeypatch.setattr(local_diff_real, "git_toplevel", fake_git_toplevel)
+
+    with pytest.raises(AsdlProjectConfigError, match="array"):
+        RealLocalDiffGateway(cwd=tmp_path).load_diff(base_ref="main")

@@ -34,6 +34,7 @@ def test_init_requires_npx(tmp_path) -> None:
     assert result.exit_code != 0
     assert "npx is required" in result.output
     # Fail-fast: no initialization files were created.
+    assert not (tmp_path / "asdl.toml").exists()
     assert not (tmp_path / "areg.json").exists()
 
 

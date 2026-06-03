@@ -199,7 +199,19 @@ def test_update_skills_dry_run_makes_no_calls(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_update_skills_reads_agents_from_areg_json(tmp_path) -> None:
+def test_update_skills_reads_agents_from_asdl_toml(tmp_path) -> None:
+    project = tmp_path / "proj"
+    _write_lockfile(project, {"pytest": _github_entry()})
+    (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
+    fake = FakeNpxSkills(catalog=_catalog_all_default())
+
+    result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
+
+    assert result.exit_code == 0, result.output
+    assert fake.invocations[0].agents == ("codex", "cursor")
+
+
+def test_update_skills_reads_agents_from_legacy_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
     (project / "areg.json").write_text(
@@ -213,12 +225,25 @@ def test_update_skills_reads_agents_from_areg_json(tmp_path) -> None:
     assert fake.invocations[0].agents == ("codex", "cursor")
 
 
-def test_update_skills_explicit_agent_overrides_areg_json(tmp_path) -> None:
+def test_update_skills_asdl_toml_overrides_legacy_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
+    (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
     (project / "areg.json").write_text(
-        json.dumps({"agents": ["codex", "cursor"]}), encoding="utf-8"
+        json.dumps({"agents": ["codex", "windsurf"]}), encoding="utf-8"
     )
+    fake = FakeNpxSkills(catalog=_catalog_all_default())
+
+    result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
+
+    assert result.exit_code == 0, result.output
+    assert fake.invocations[0].agents == ("codex", "cursor")
+
+
+def test_update_skills_explicit_agent_overrides_asdl_toml(tmp_path) -> None:
+    project = tmp_path / "proj"
+    _write_lockfile(project, {"pytest": _github_entry()})
+    (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
     fake = FakeNpxSkills(catalog=_catalog_all_default())
 
     result = CliRunner().invoke(
@@ -231,7 +256,49 @@ def test_update_skills_explicit_agent_overrides_areg_json(tmp_path) -> None:
     assert fake.invocations[0].agents == ("claude-code",)
 
 
-def test_update_skills_default_agents_when_no_areg_json(tmp_path) -> None:
+def test_update_skills_explicit_agent_ignores_invalid_legacy_areg_json(tmp_path) -> None:
+    project = tmp_path / "proj"
+    _write_lockfile(project, {"pytest": _github_entry()})
+    (project / "areg.json").write_text("{not json\n", encoding="utf-8")
+    fake = FakeNpxSkills(catalog=_catalog_all_default())
+
+    result = CliRunner().invoke(
+        main,
+        ["update-skills", "--path", str(project), "--agent", "claude-code"],
+        obj=_ctx(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fake.invocations[0].agents == ("claude-code",)
+
+
+def test_update_skills_asdl_toml_ignores_invalid_legacy_areg_json(tmp_path) -> None:
+    project = tmp_path / "proj"
+    _write_lockfile(project, {"pytest": _github_entry()})
+    (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
+    (project / "areg.json").write_text("{not json\n", encoding="utf-8")
+    fake = FakeNpxSkills(catalog=_catalog_all_default())
+
+    result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
+
+    assert result.exit_code == 0, result.output
+    assert fake.invocations[0].agents == ("codex", "cursor")
+
+
+def test_update_skills_invalid_asdl_toml_errors(tmp_path) -> None:
+    project = tmp_path / "proj"
+    _write_lockfile(project, {"pytest": _github_entry()})
+    (project / "asdl.toml").write_text("[areg\n", encoding="utf-8")
+    fake = FakeNpxSkills(catalog=_catalog_all_default())
+
+    result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
+
+    assert result.exit_code != 0
+    assert "Invalid TOML" in result.output
+    assert fake.invocations == []
+
+
+def test_update_skills_default_agents_when_no_project_config(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
     fake = FakeNpxSkills(catalog=_catalog_all_default())

@@ -10,6 +10,7 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.project_config import AsdlProjectConfigError
 from roaster.context import RoasterCliContext
 from roaster.models import (
     FindingsReview,
@@ -125,6 +126,8 @@ def run_review_command(
         ) from exc
     except RepoRootUnavailableError as exc:
         raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
+    except AsdlProjectConfigError as exc:
+        raise ClinkrFailure(error_type="asdl_config_invalid", message=str(exc)) from exc
     except GitInvocationFailedError as exc:
         raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
     except GitDiffFailedError as exc:

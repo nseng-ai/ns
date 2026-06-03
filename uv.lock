@@ -33,11 +33,15 @@ name = "areg"
 version = "0.1.0"
 source = { editable = "packages/areg" }
 dependencies = [
+    { name = "asdl-core" },
     { name = "click" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
+requires-dist = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "click", specifier = ">=8.1.7" },
+]
 
 [[package]]
 name = "aretro"
