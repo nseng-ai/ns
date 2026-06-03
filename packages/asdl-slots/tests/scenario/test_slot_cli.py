@@ -16,6 +16,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 from asdl_slots.cli.main import build_cli
 from asdl_slots.context import SlotsCliContext
@@ -43,6 +44,7 @@ def _fake_for_repo(
     previous_branch_by_path: dict[Path, str | None] | None = None,
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
+    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
     extra_existing: Iterable[Path] = (),
     repository_root_by_cwd: dict[Path, Path] | None = None,
 ) -> SlotsCliContext:
@@ -66,6 +68,7 @@ def _fake_for_repo(
         previous_branch_by_path=previous_branch_by_path,
         trunk_branch=trunk_branch,
         file_status_by_path=file_status_by_path,
+        operations_by_path=operations_by_path,
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd=root_map,
         on_add_worktree=storage.ensure_dir,
@@ -196,6 +199,45 @@ def test_slot_list_with_assigned_slot(cli_group: ClinkrGroup, tmp_path: Path) ->
     payload = _machine_data(json_res.output)
     assert payload["rows"][0]["status"] == "assigned"
     assert payload["rows"][0]["branch"] == "feat/x"
+    assert payload["rows"][0]["operation"] is None
+
+
+def test_slot_list_operation_occupied_slot(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    wt_dir = _worktrees_dir(tmp_path)
+    slot_path = wt_dir / "slot-07"
+    ctx = _fake_for_repo(
+        tmp_path,
+        branches=("feat/rebase",),
+        worktrees=(_managed_wt(wt_dir, 7, None),),
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+
+    human_res = CliRunner().invoke(
+        cli_group,
+        ["list"],
+        obj=_obj(ctx),
+        env={"COLUMNS": "200"},
+    )
+
+    assert human_res.exit_code == 0, human_res.output
+    assert "slot-07" in human_res.output
+    assert "assigned" in human_res.output
+    assert "feat/rebase" in human_res.output
+    assert "rebase in progress" in human_res.output
+
+    json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(json_res.output)
+    row = payload["rows"][0]
+    assert row["slot_name"] == "slot-07"
+    assert row["status"] == "assigned"
+    assert row["branch"] == "feat/rebase"
+    assert row["operation"] == "rebase"
 
 
 def test_slot_list_available_when_detached(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -216,6 +258,7 @@ def test_slot_list_available_when_detached(cli_group: ClinkrGroup, tmp_path: Pat
     assert slot_01["slot_name"] == "slot-01"
     assert slot_01["status"] == "available"
     assert slot_01["branch"] is None
+    assert slot_01["operation"] is None
     assert slot_01["worktree_path"].endswith("slot-01")
 
 

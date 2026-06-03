@@ -19,11 +19,18 @@ from asdl_slots.errors import (
     DirtyCurrentWorktreeError,
     SlotAllocationError,
 )
-from asdl_slots.inventory import build_slot_inventory
+from asdl_slots.inventory import SlotRecord, build_slot_inventory
 from asdl_slots.lifecycle.outcomes import SlotCheckoutOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
 ExecutableCheckoutPlan = ReuseAssignment | BranchInMainWorktree | AssignToSlot
+
+
+def _assigned_detail(record: SlotRecord) -> str:
+    suffix = ""
+    if record.operation is not None:
+        suffix = f" ({record.operation} in progress)"
+    return f"  {record.slot_name} -> {record.branch}{suffix}"
 
 
 def checkout_branch(
@@ -131,9 +138,7 @@ def checkout_current(slots_ctx: SlotsCliContext) -> SlotCheckoutOutcome | SlotLi
 
 def _pool_full_failure(outcome: PoolFull) -> SlotLifecycleFailure:
     if outcome.assigned:
-        details = "\n".join(
-            f"  {record.slot_name} -> {record.branch}" for record in outcome.assigned
-        )
+        details = "\n".join(_assigned_detail(record) for record in outcome.assigned)
         message = (
             f"Pool is full. Currently assigned:\n{details}\n"
             "Free a slot before checking out a new branch."

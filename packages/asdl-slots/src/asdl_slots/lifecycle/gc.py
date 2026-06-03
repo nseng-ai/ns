@@ -34,6 +34,23 @@ def _gc_pool_empty_failure() -> SlotLifecycleFailure:
     )
 
 
+def _operation_recovery_instruction(operation: str) -> str:
+    if operation == "rebase":
+        return "run `git rebase --continue`/`--abort` there"
+    if operation == "bisect":
+        return "run `git bisect reset` there"
+    return "finish or abort it there"
+
+
+def _operation_in_progress_message(record: SlotRecord, *, action: str) -> str:
+    branch = record.branch or "unknown branch"
+    assert record.operation is not None
+    return (
+        f"{record.operation} in progress for '{branch}' at {record.path}; "
+        f"{_operation_recovery_instruction(record.operation)} before {action}."
+    )
+
+
 def _entry_from_record(
     record: SlotRecord,
     action: SlotGcAction,
@@ -73,7 +90,7 @@ def _count_gc_actions(entries: Sequence[SlotGcEntry]) -> _GcCounts:
             freed += 1
         elif entry.action in ("kept_open_pr", "kept_no_pr"):
             kept += 1
-        elif entry.action == "skipped_dirty":
+        elif entry.action in ("skipped_dirty", "skipped_operation"):
             skipped += 1
         elif entry.action == "error":
             error += 1
@@ -99,6 +116,15 @@ def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
 
     for record in inventory.records:
         if record.branch is None:
+            continue
+        if record.operation is not None:
+            entries.append(
+                _entry_from_record(
+                    record,
+                    "skipped_operation",
+                    message=_operation_in_progress_message(record, action="running slot gc"),
+                )
+            )
             continue
         pr_result = slots_ctx.pr.get_pr_for_branch(record.branch)
 
@@ -154,6 +180,16 @@ def execute_gc_plan(slots_ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutco
                         f"slot {entry.slot_name} was not assigned during free "
                         f"(state changed between plan and execute)."
                     ),
+                )
+            )
+            continue
+
+        if record.operation is not None:
+            entries.append(
+                _with_action(
+                    entry,
+                    "skipped_operation",
+                    message=_operation_in_progress_message(record, action="freeing this slot"),
                 )
             )
             continue

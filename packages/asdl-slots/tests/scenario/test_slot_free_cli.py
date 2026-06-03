@@ -19,6 +19,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 from asdl_slots.cli.main import build_cli
 from asdl_slots.context import SlotsCliContext
@@ -62,6 +63,7 @@ def _fake_for_repo(
     worktrees: tuple[WorktreeInfo, ...] = (),
     current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
     file_status_by_path: dict[Path, FileStatus] | None = None,
+    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
     extra_existing: Iterable[Path] = (),
     trunk_branch: str = "main",
     pr_gateway: FakePRGateway | None = None,
@@ -78,6 +80,7 @@ def _fake_for_repo(
         worktrees=worktrees,
         current_branch_by_path=current_branch_by_path,
         file_status_by_path=file_status_by_path,
+        operations_by_path=operations_by_path,
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
@@ -306,6 +309,69 @@ def test_slot_free_by_branch(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert "feat/y" in result.output
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
     assert _assigned_worktrees(fakes) == {}
+
+
+def test_slot_free_refuses_operation_slot_by_wt(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-01")
+    fakes = _fake_for_repo(
+        tmp_path,
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+    _seed_pool(fakes, slots_root, assignments=(), pool_size=1)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 2
+    assert "slot-01" in result.output
+    assert "feat/rebase" in result.output
+    assert "rebase" in result.output
+    assert "git rebase" in result.output
+    assert fakes.git._detach_head_calls == []
+
+
+def test_slot_free_refuses_operation_slot_by_branch(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-01")
+    fakes = _fake_for_repo(
+        tmp_path,
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+    _seed_pool(fakes, slots_root, assignments=(), pool_size=1)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--branch", "feat/rebase"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 2
+    assert "slot-01" in result.output
+    assert "feat/rebase" in result.output
+    assert "rebase" in result.output
+    assert fakes.git._detach_head_calls == []
 
 
 def test_slot_free_short_flag_b(cli_group: ClinkrGroup, tmp_path: Path) -> None:

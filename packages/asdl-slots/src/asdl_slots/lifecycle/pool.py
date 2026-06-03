@@ -147,11 +147,27 @@ def resize_pool(
     )
 
 
+def _operation_recovery_instruction(operation: str) -> str:
+    if operation == "rebase":
+        return "run `git rebase --continue`/`--abort` there"
+    if operation == "bisect":
+        return "run `git bisect reset` there"
+    return "finish or abort it there"
+
+
 def _validate_removals(
     slots_ctx: SlotsCliContext, to_remove: tuple[SlotRecord, ...]
 ) -> tuple[str, ...]:
     errors: list[str] = []
     for record in to_remove:
+        if record.operation is not None:
+            branch = record.branch or "unknown branch"
+            errors.append(
+                f"{record.slot_name} has a {record.operation} in progress for "
+                f"'{branch}' at {record.path}; "
+                f"{_operation_recovery_instruction(record.operation)} before shrinking the pool."
+            )
+            continue
         if record.branch is not None:
             errors.append(
                 f"{record.slot_name} is assigned to '{record.branch}'; "

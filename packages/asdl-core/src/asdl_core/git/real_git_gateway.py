@@ -195,6 +195,29 @@ def _worktree_operation(worktree_path: Path) -> tuple[str, str] | None:
     ``BISECT_START`` for a bisect. Returns ``None`` when no such operation is
     underway (the merge mid-state keeps HEAD on the branch, so it needs no
     special handling).
+
+    These state files are git internals, not specified in any man page. The
+    references below are the authoritative documentation:
+
+    - *Location.* Each linked worktree has a private admin dir under
+      ``$GIT_COMMON_DIR/worktrees/<id>/`` where its per-worktree state lives;
+      this is why we resolve and read each worktree's own admin dir rather than
+      a shared ``.git``. See git-worktree(1) "DETAILS"
+      (https://git-scm.com/docs/git-worktree) and the per-worktree vs shared
+      split in gitrepository-layout(5)
+      (https://git-scm.com/docs/gitrepository-layout).
+    - *Meaning of the files.* This is a narrow reimplementation of git's own
+      status-state probe: ``wt_status_get_state`` in wt-status.c reads the
+      identical files -- ``read_and_strip_branch("rebase-{merge,apply}/head-name")``
+      for the rebased branch and ``read_and_strip_branch("BISECT_START")`` for
+      the bisected-from branch (https://github.com/git/git/blob/master/wt-status.c).
+      So we read the same files, the same way, that ``git status`` does. (One
+      nuance: ``git status`` gates bisect detection on ``BISECT_LOG`` and then
+      reads ``BISECT_START`` for the name; we key directly on ``BISECT_START``.)
+    - *Producers.* git-rebase(1) writes ``rebase-apply/`` (apply backend) or
+      ``rebase-merge/`` (merge/interactive backend)
+      (https://git-scm.com/docs/git-rebase); git-bisect(1) writes the
+      ``BISECT_*`` state (https://git-scm.com/docs/git-bisect).
     """
 
     admin_dir = _resolve_worktree_admin_dir(worktree_path)

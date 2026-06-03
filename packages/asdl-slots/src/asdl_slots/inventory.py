@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from asdl_core.git.git_gateway import GitGateway
-from asdl_core.git.types import WorktreeInfo
+from asdl_core.git.types import WorktreeInfo, WorktreeOccupancy
 from asdl_slots.naming import extract_slot_number
 
 InventoryStatus = Literal["assigned", "available"]
@@ -19,10 +19,15 @@ class SlotRecord:
     slot_number: int
     path: Path
     branch: str | None
+    operation: str | None = None
 
     @property
     def status(self) -> InventoryStatus:
         return "assigned" if self.branch is not None else "available"
+
+    @property
+    def is_available(self) -> bool:
+        return self.branch is None and self.operation is None
 
 
 @dataclass(frozen=True)
@@ -43,6 +48,7 @@ class MainWorktreeMatch:
 class SlotInventory:
     records: tuple[SlotRecord, ...]
     main_worktree: WorktreeInfo | None = None
+    branch_occupancies: tuple[WorktreeOccupancy, ...] = ()
 
     @property
     def pool_size(self) -> int:
@@ -56,6 +62,12 @@ class SlotInventory:
             return MainWorktreeMatch(worktree=self.main_worktree)
         return None
 
+    def find_occupancy_by_branch(self, branch_name: str) -> WorktreeOccupancy | None:
+        for occupancy in self.branch_occupancies:
+            if occupancy.branch == branch_name:
+                return occupancy
+        return None
+
     def find_by_slot(self, slot_name: str) -> SlotRecord | None:
         for record in self.records:
             if record.slot_name == slot_name:
@@ -64,7 +76,7 @@ class SlotInventory:
 
     def lowest_available(self, git: GitGateway) -> SlotRecord | None:
         for record in self.records:
-            if record.branch is not None:
+            if not record.is_available:
                 continue
             if git.has_uncommitted_changes(record.path):
                 continue
@@ -79,6 +91,8 @@ def build_slot_inventory(
 ) -> SlotInventory:
     records: list[SlotRecord] = []
     main_worktree: WorktreeInfo | None = None
+    branch_occupancies = git.list_branch_occupancies()
+    occupancy_by_path = {occupancy.path: occupancy for occupancy in branch_occupancies}
     for wt in git.list_worktrees():
         if main_repo_root is not None and wt.path == main_repo_root:
             main_worktree = wt
@@ -86,13 +100,24 @@ def build_slot_inventory(
         suffix = extract_slot_number(wt.path.name)
         if suffix is None:
             continue
+        branch = wt.branch
+        operation: str | None = None
+        occupancy = occupancy_by_path.get(wt.path)
+        if occupancy is not None and occupancy.operation != "checked-out":
+            branch = occupancy.branch
+            operation = occupancy.operation
         records.append(
             SlotRecord(
                 slot_name=wt.path.name,
                 slot_number=int(suffix),
                 path=wt.path,
-                branch=wt.branch,
+                branch=branch,
+                operation=operation,
             )
         )
     records.sort(key=lambda r: r.slot_number)
-    return SlotInventory(records=tuple(records), main_worktree=main_worktree)
+    return SlotInventory(
+        records=tuple(records),
+        main_worktree=main_worktree,
+        branch_occupancies=branch_occupancies,
+    )

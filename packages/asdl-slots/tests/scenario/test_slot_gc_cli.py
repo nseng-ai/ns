@@ -14,7 +14,7 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import FileStatus, WorktreeInfo
+from asdl_core.git.types import FileStatus, WorktreeInfo, WorktreeOccupancy
 from asdl_slots.cli.main import build_cli
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
@@ -58,7 +58,11 @@ def _obj(context: object) -> ClinkrContextObject:
     return build_clinkr_context_object(lambda: context)
 
 
-def _fake_for_repo(tmp_path: Path) -> _SlotFakes:
+def _fake_for_repo(
+    tmp_path: Path,
+    *,
+    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
+) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
     storage = FakeSlotsStorageGateway(
@@ -67,6 +71,7 @@ def _fake_for_repo(tmp_path: Path) -> _SlotFakes:
     git = FakeGitGateway(
         repo_root=repo_root,
         git_common_dir=repo_root / ".git",
+        operations_by_path=operations_by_path,
         existing_paths={repo_root, Path.cwd()},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
@@ -315,6 +320,74 @@ def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Pa
 
     assert result.exit_code == 2
     assert "mutually exclusive" in result.output.lower()
+
+
+def test_slot_gc_skips_operation_slot(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-01")
+    fakes = _fake_for_repo(
+        tmp_path,
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+    _seed_pool(fakes, slots_root, assignments=(), pool_size=1)
+    pr = FakePRGateway(prs_by_branch={"feat/rebase": _make_pr(7, "MERGED", "feat/rebase")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    data = payload["data"]
+    assert data["freed_count"] == 0
+    assert data["skipped_count"] == 1
+    entry = data["entries"][0]
+    assert entry["slot_name"] == "slot-01"
+    assert entry["branch_name"] == "feat/rebase"
+    assert entry["action"] == "skipped_operation"
+    assert "rebase" in entry["message"]
+    assert fakes.git._detach_head_calls == []
+
+
+def test_slot_gc_skips_operation_slot_in_human_output(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-01")
+    fakes = _fake_for_repo(
+        tmp_path,
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch="feat/rebase",
+                operation="rebase",
+            ),
+        },
+    )
+    _seed_pool(fakes, slots_root, assignments=(), pool_size=1)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--dry-run"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "skipped" in result.output.lower()
+    assert "operation" in result.output.lower()
+    assert "slot-01" in result.output
+    assert "feat/rebase" in result.output
+    assert "rebase" in result.output
+    assert fakes.git._detach_head_calls == []
 
 
 def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path) -> None:
