@@ -73,7 +73,7 @@ Risks:
 
 - Over-consolidation could hide useful expert workflows behind too few generic names. Consolidation should preserve affordances that materially improve agent performance.
 - Under-consolidation could leave the repo with many near-duplicate ways to start the same workflow, causing future agents to choose stale or unsafe paths.
-- Prototype workflows such as `proto-objective-impl` can become permanent by accident if no lifecycle decision is made.
+- Prototype workflows such as `proto-objective-impl` can become permanent by accident if no lifecycle decision is made. The current decision parks the merge/promote/retire question rather than making it the next slice; low-risk hygiene may clarify prototype/internal labeling, but lifecycle consolidation should be explicitly unparked before renaming or removing that surface.
 - Internal backend skills such as `pi-grill-ui` can confuse non-Pi agents if they look like public workflows.
 - The Objective/standing-objective/prototype runner area is likely to churn; decisions there should distinguish current cleanup from deeper product design that belongs in separate Objectives.
 - Removing or renaming installed skills without skill-management discipline can leave broken symlinks, stale lock entries, or mismatched `.agents` / `.claude` surfaces.
@@ -83,7 +83,7 @@ Risks:
 ## Open Questions
 
 - Which first-party skills are part of the durable public workflow surface, and which should be internal, prototype-only, merged, renamed, or removed?
-- Should `proto-objective-impl` remain a separate prototype skill/command, merge into `objective-stack-impl`, or retire after its experiment informs the Objective runner design?
+- Parked for now: whether `proto-objective-impl` should remain a separate prototype skill/command, merge into `objective-stack-impl`, promote into a durable public runner, or retire after its experiment informs the Objective runner design. Do not make this the next slice unless explicitly unparked; only low-risk prototype/internal labeling or docs hygiene remains in scope during the cleanup pass.
 - The prior dev-prefixed naming question is resolved: no `dev-*` first-party skills remain. The former `dev-gh`, `dev-gh-ci-debug`, `dev-just-fix`, and `dev-stacker-agent` are now `internal-code-gh`, `internal-code-gh-ci-debug`, `internal-code-just-fix`, and `internal-code-stacker-agent`, with visibility carried by `metadata.internal: true` rather than the prefix. `dev-` is now reserved for the future `asdl-dev` namespace only. The remaining open question is narrower: which of these `internal-code-*` skills should stay internal, be promoted to public `code-*`, merged, or removed during the broader first-party audit.
 - Which specific remote/vendored skills, if any, should be removed despite the default keep-live policy for explicit developer aids?
 - What target should guide closure: a lower visible count, fewer ambiguous entrypoints, clearer categories, or a combination of all three?

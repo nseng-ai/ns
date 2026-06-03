@@ -5,8 +5,6 @@ metadata:
   internal: true
 ---
 
-<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
-
 # GitHub CLI (gh)
 
 Router for `gh` work (PRs, issues, repos, releases, API). Load the reference
