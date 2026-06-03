@@ -19,7 +19,7 @@ In scope:
 - CLI command groups and `exec` helpers that are invoked by skills or Pi wrappers, especially when they can replace long procedural prompt bodies or clarify public-vs-internal boundaries.
 - Repo instruction and catalog docs such as `AGENTS.md`, `CLAUDE.md`, `docs/pi/README.md`, `docs/agent-resource-catalog.md`, and skill-related standards or workflow docs when they route agents to skills, commands, or harness-specific entrypoints.
 - Naming and lifecycle policy for categories such as public portable workflow skills, command skills, internal/dev skills, prototypes, Pi-only adapters, CLI primitives, remote/vendored skills, and user-local personal resources.
-- Fresh inventory of the current checkout's skill and command surface. Current evidence is recorded in `docs/agent-resource-catalog.md` and `docs/pi/README.md`: `skills/` has 42 first-party `SKILL.md` files; `.agents/skills/` and `.claude/skills/` each expose 50 entries; `skills-lock.json` has 50 entries; `.pi/extensions/` has 10 project-local adapter files; `.pi/prompts/` and `.pi/skills/` are absent. The catalog's current public command inventory distinguishes 20 project Pi extension commands, 38 first-party skill commands, and 8 ignored vendored/external skill commands; Pi RPC inventory remains the canonical visible-command source when rerun.
+- Fresh inventory of the current checkout's skill and command surface. Current evidence is recorded in `docs/agent-resource-catalog.md` and `docs/pi/README.md`: `skills/` has 42 first-party `SKILL.md` files; `.agents/skills/` and `.claude/skills/` each expose 50 entries; `skills-lock.json` has 50 entries; `.pi/extensions/` has 10 project-local adapter files; `.pi/prompts/` and `.pi/skills/` are absent. The catalog's current public command inventory distinguishes 22 project Pi extension commands, 42 first-party skill commands, 3 project Pi custom tools, and 8 ignored vendored/external skill commands; Pi RPC inventory remains the canonical visible-command source when rerun.
 - Low-risk cleanup that follows directly from the audit, such as stale `Original description` headings in command skills, over-broad trigger descriptions, missing H1s, excessive SKILL.md bodies, or internal/prototype skills that should not read as durable public workflows.
 
 Confirmed boundaries:
@@ -82,8 +82,28 @@ Risks:
 
 ## Open Questions
 
-- Which first-party skills are part of the durable public workflow surface, and which should be internal, prototype-only, merged, renamed, or removed?
-- Parked for now: whether `proto-objective-impl` should remain a separate prototype skill/command, merge into `objective-stack-impl`, promote into a durable public runner, or retire after its experiment informs the Objective runner design. Do not make this the next slice unless explicitly unparked; only low-risk prototype/internal labeling or docs hygiene remains in scope during the cleanup pass.
-- The prior dev-prefixed naming question is resolved: no `dev-*` first-party skills remain. The former `dev-gh`, `dev-gh-ci-debug`, `dev-just-fix`, and `dev-stacker-agent` are now `internal-code-gh`, `internal-code-gh-ci-debug`, `internal-code-just-fix`, and `internal-code-stacker-agent`, with visibility carried by `metadata.internal: true` rather than the prefix. `dev-` is now reserved for the future `asdl-dev` namespace only. The remaining open question is narrower: which of these `internal-code-*` skills should stay internal, be promoted to public `code-*`, merged, or removed during the broader first-party audit.
-- Which specific remote/vendored skills, if any, should be removed despite the default keep-live policy for explicit developer aids?
-- What target should guide closure: a lower visible count, fewer ambiguous entrypoints, clearer categories, or a combination of all three?
+No active non-parked questions remain for this Objective.
+
+Accepted or parked follow-ups:
+
+- `proto-objective-impl` and `/proto:objective-impl` remain a parked prototype Objective runner surface. Merge, promote, or retire it only through an explicit unparked decision.
+- PR-address/review automation helper or CLI push-down work is parked because the user is already working that slice separately; record landed evidence later only if it changes this Objective's durable disposition.
+- Deep rewrites or removals of vendored/GitHub-sourced skills remain parked unless a separate explicit skill-management decision treats one as first-party work.
+- Future promotion, merge, or removal decisions for individual `internal-code-*` skills should be handled as explicit new work. The current Objective resolves their routing by documenting them as repo-private `metadata.internal: true` skills.
+- Future resource-surface cleanup should optimize for clearer categories and safer routing rather than raw command or skill count alone.
+
+## Closure
+
+Outcome: completed.
+
+The Objective closed after the final routing-docs and inventory pass on 2026-06-03. The checked-in agent-resource story is now coherent across `AGENTS.md`, `CLAUDE.md`, `docs/agent-resource-catalog.md`, `docs/pi/README.md`, first-party skills, installed skill mirrors, and project-local Pi extensions:
+
+- Public code/source-control workflows use `code-*` skills and `/code:*` Pi commands; repo-private code/source-control workflows use `internal-code-*` skills with `metadata.internal: true`; `dev-` and `/dev:*` are no longer generic code-management names and are reserved for `asdl-dev`-affiliated surfaces such as `/dev:preview-url`.
+- The final catalog inventory records 42 first-party skill commands, 50 installed `.agents/skills/` entries, 50 `.claude/skills/` mirrors, 50 `skills-lock.json` entries, 22 project Pi extension commands, 3 project Pi custom tools, 10 `.pi/extensions/*.ts` files, and no `.pi/prompts/` or `.pi/skills/` project surfaces.
+- Pi RPC `get_commands` evidence reported 88 visible commands total, 22 repo-owned project extension commands, 50 project skill commands, no project prompt commands, and no legacy `/dev:cp`, `/dev:submit`, `/cp`, `/newbr`, `/submit`, `/gh:land`, `/gt:land-stack`, `/land`, or `/land-stack` aliases.
+- The final stale-name/routing search found no active `Original description` scaffolding and no stale current-routing `dev-*` names. Remaining `dev-objective-impl` references are preserved historical design notes; `proto-objective-impl` references are explicitly parked prototype-runner routing; `pr-address` references remain the public review-addressing workflow.
+- The stale landing-history row in `docs/pi/README.md` was corrected to route current landing behavior through `/code:land` and `/code:land-stack`, and the catalog now includes the live `/grill-ui`, `grill_ask`, `/proto:objective-impl`, `pi-grill-ui`, `proto-objective-impl`, `typescript-style`, and `typescript-fake-driven-testing` surfaces instead of undercounting them.
+
+Accepted caveats: the 11 local-only `PENDING_REGEN` hashes in `skills-lock.json` remain accepted install-time metadata; prototype-runner lifecycle, PR-address/review automation push-down, deep vendored-skill rewrites/removals, and user-local personal resources remain parked follow-ups rather than active closure blockers.
+
+Validation for the closing docs/tracking pass: `git diff --check` passed; `just dprint-check` passed after `just dprint-fix`; TypeScript and Python checks were not rerun because only Markdown documentation and Objective tracking files changed.
