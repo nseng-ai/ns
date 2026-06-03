@@ -16,9 +16,7 @@ DEFAULT_STATUS_PRIORITY = 80
 class CmuxWorkspaceSummary:
     workspace: str
     title: str
-    goal: str
-    current_state: str
-    next_action: str
+    description: str
     status: str
     status_key: str = DEFAULT_STATUS_KEY
     status_icon: str = DEFAULT_STATUS_ICON
@@ -42,16 +40,14 @@ class CmuxWorkspaceSummaryFailure:
     command_failure: CmuxCommandFailure | None = None
 
 
-def build_workspace_description(summary: CmuxWorkspaceSummary) -> str:
-    return f"Goal: {summary.goal}\nState: {summary.current_state}\nNext: {summary.next_action}"
+def build_workspace_description(*, goal: str, current_state: str, next_action: str) -> str:
+    return f"Goal: {goal}\nState: {current_state}\nNext: {next_action}"
 
 
 def apply_cmux_workspace_summary(
     gateway: CmuxGateway,
     summary: CmuxWorkspaceSummary,
 ) -> AppliedCmuxWorkspaceSummary | CmuxWorkspaceSummaryFailure:
-    description = build_workspace_description(summary)
-
     failure = gateway.rename_workspace(workspace=summary.workspace, title=summary.title)
     if failure is not None:
         return _command_failure(
@@ -62,7 +58,7 @@ def apply_cmux_workspace_summary(
 
     failure = gateway.set_workspace_description(
         workspace=summary.workspace,
-        description=description,
+        description=summary.description,
     )
     if failure is not None:
         return _command_failure(
@@ -90,7 +86,7 @@ def apply_cmux_workspace_summary(
         workspace=summary.workspace,
         title=summary.title,
         status=summary.status,
-        description=description,
+        description=summary.description,
         status_key=summary.status_key,
     )
 

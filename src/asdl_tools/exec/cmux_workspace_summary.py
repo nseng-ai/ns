@@ -20,6 +20,7 @@ from asdl_tools.cmux.workspace_summary import (
     CmuxWorkspaceSummary,
     CmuxWorkspaceSummaryFailure,
     apply_cmux_workspace_summary,
+    build_workspace_description,
 )
 from asdl_tools.exec.context import load_asdl_exec_context
 
@@ -38,23 +39,40 @@ class CmuxWorkspaceSummaryRequest(ClinkrModel):
         str,
         click.Option(["--title"], type=click.STRING, required=True, help="Workspace title."),
     ]
+    description: Annotated[
+        str | None,
+        click.Option(
+            ["--description"],
+            type=click.STRING,
+            default=None,
+            help=(
+                "Workspace description. If omitted, built from --goal, "
+                "--current-state, and --next-action."
+            ),
+        ),
+    ] = None
     goal: Annotated[
-        str,
-        click.Option(["--goal"], type=click.STRING, required=True, help="Goal line."),
-    ]
+        str | None,
+        click.Option(["--goal"], type=click.STRING, default=None, help="Legacy goal line."),
+    ] = None
     current_state: Annotated[
-        str,
+        str | None,
         click.Option(
             ["--current-state"],
             type=click.STRING,
-            required=True,
-            help="Current state line.",
+            default=None,
+            help="Legacy current state line.",
         ),
-    ]
+    ] = None
     next_action: Annotated[
-        str,
-        click.Option(["--next-action"], type=click.STRING, required=True, help="Next action line."),
-    ]
+        str | None,
+        click.Option(
+            ["--next-action"],
+            type=click.STRING,
+            default=None,
+            help="Legacy next action line.",
+        ),
+    ] = None
     status: Annotated[
         str,
         click.Option(["--status"], type=click.STRING, required=True, help="Sidebar status text."),
@@ -153,12 +171,16 @@ def run_cmux_workspace_summary(
         assert result.error is not None
         return ClinkrExit.negative(result, message=result.error.message)
 
+    description = _resolve_description(request)
+    if isinstance(description, CmuxWorkspaceSummaryFailure):
+        result = _failed_result(request=request, workspace=workspace, failure=description)
+        assert result.error is not None
+        return ClinkrExit.negative(result, message=result.error.message)
+
     summary = CmuxWorkspaceSummary(
         workspace=workspace,
         title=request.title,
-        goal=request.goal,
-        current_state=request.current_state,
-        next_action=request.next_action,
+        description=description,
         status=request.status,
         status_key=request.status_key,
         status_icon=request.status_icon,
@@ -179,6 +201,27 @@ def _resolve_workspace(explicit_workspace: str | None) -> str | None:
         _non_blank(explicit_workspace)
         or _non_blank(os.environ.get("CMUX_WORKSPACE_ID"))
         or _non_blank(os.environ.get("CMUX_TAB_ID"))
+    )
+
+
+def _resolve_description(request: CmuxWorkspaceSummaryRequest) -> str | CmuxWorkspaceSummaryFailure:
+    description = _non_blank(request.description)
+    if description is not None:
+        return description
+
+    goal = _non_blank(request.goal)
+    current_state = _non_blank(request.current_state)
+    next_action = _non_blank(request.next_action)
+    if goal is not None and current_state is not None and next_action is not None:
+        return build_workspace_description(
+            goal=goal,
+            current_state=current_state,
+            next_action=next_action,
+        )
+
+    return CmuxWorkspaceSummaryFailure(
+        code="missing_description",
+        message="Provide --description or all of --goal, --current-state, and --next-action.",
     )
 
 

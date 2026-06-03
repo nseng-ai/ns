@@ -1,6 +1,6 @@
 ---
 name: cmux-set-workspace-summary
-description: Use when a Pi session should update the caller cmux workspace title, description, and sidebar status from the current session context. Triggered by /cmux:set-workspace-summary; generate compact fields and run cmux commands directly.
+description: Use when a Pi session should update the caller cmux workspace title, description, and sidebar status from the current session context. Triggered by /cmux:set-workspace-summary; generate compact fields and run one asdl exec command.
 metadata:
   internal: true
 ---
@@ -21,42 +21,27 @@ Do not summarize this control prompt as the subject of the session. Summarize th
 
 ## Required fields
 
-Produce these five fields and self-check the character limits before running commands:
+Produce these three fields and self-check the character limits before running commands:
 
 - `title`: max 45 chars; short action/object phrase.
-- `goal`: max 100 chars.
-- `currentState`: max 100 chars.
-- `nextAction`: max 100 chars.
+- `description`: compact multiline description, preferably exactly three lines with `Goal:`, `State:`, and `Next:` prefixes. Keep each semantic line short enough for cmux sidebar/description display.
 - `status`: max 20 chars; compact sidebar pill text.
 
-If any field is too long, rewrite it shorter before running `cmux`.
+If any field is too long, rewrite it shorter before running `asdl exec`. If possible, avoid apostrophes in generated fields so single-quote shell quoting stays simple; rewrite contractions rather than escaping them.
 
 ## Apply immediately
 
-Run one deterministic exec command with careful quoting. Use the caller workspace from `$CMUX_WORKSPACE_ID` or `$CMUX_TAB_ID` and fail if neither is set. Do not run raw `cmux` commands directly unless the exec command itself is unavailable. If command execution fails, report the exact failure and stop rather than trying unrelated workarounds.
+Run exactly one deterministic `asdl exec cmux-workspace-summary` command with careful quoting. Do not assign shell variables. Do not write an env prelude. Do not pass `--workspace`; the CLI resolves `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID` itself. Do not run raw `cmux` commands. If command execution fails, report the exact failure and stop rather than trying unrelated workarounds.
 
 Use this command shape:
 
 ```bash
-workspace="${CMUX_WORKSPACE_ID:-${CMUX_TAB_ID:-}}"
-if [ -z "$workspace" ]; then
-  echo "Not running inside a cmux caller workspace (CMUX_WORKSPACE_ID/CMUX_TAB_ID missing)." >&2
-  exit 1
-fi
-
-TITLE='...'
-GOAL='...'
-CURRENT_STATE='...'
-NEXT_ACTION='...'
-STATUS='...'
-
 asdl exec cmux-workspace-summary \
-  --workspace "$workspace" \
-  --title "$TITLE" \
-  --goal "$GOAL" \
-  --current-state "$CURRENT_STATE" \
-  --next-action "$NEXT_ACTION" \
-  --status "$STATUS" \
+  --title '...' \
+  --description 'Goal: ...
+State: ...
+Next: ...' \
+  --status '...' \
   --format json
 ```
 
