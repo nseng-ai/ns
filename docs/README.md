@@ -16,7 +16,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Branch retrospective evidence](aretro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
-- [cmux CLI reference](cmux/cli-reference.md): installed cmux CLI facts for repo-local integrations.
+- [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
 - [asdl exec commands](asdl-exec/README.md): deterministic command boundaries for skills and agents.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [Slot co-autocomplete plan](slot-co-autocomplete-plan.md): slot autocomplete design notes.

@@ -164,7 +164,7 @@ See [Exposing Pi Commands Through `asdl-dev`](./exposing-pi-commands-through-asd
 
 cmux-related Pi commands should target the caller workspace, keep cmux mutations behind deterministic `asdl exec` commands, and avoid relying on stale local cmux source checkouts.
 
-See [cmux Extension Pattern for Pi](./cmux-extension-pattern.md) and [cmux CLI Reference](../cmux/cli-reference.md).
+See [cmux Extension Pattern for Pi](./cmux-extension-pattern.md) and [Querying cmux Help](../cmux/help-querying.md).
 
 ## Planned branch workflow
 

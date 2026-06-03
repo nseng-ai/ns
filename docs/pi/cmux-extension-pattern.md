@@ -88,7 +88,7 @@ The JSON envelope must have `exit_code: 0` and `data.success: true`. The assista
 applied title and status.
 
 See [`../asdl-exec/cmux-workspace-summary.md`](../asdl-exec/cmux-workspace-summary.md) for the exec contract and
-[`../cmux/cli-reference.md`](../cmux/cli-reference.md) for cmux CLI facts.
+[`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
 
 ## Avoid stale cmux source
 
