@@ -78,10 +78,10 @@ export interface ExtensionAPI extends RunnerSubagentPi {
 	registerTool(tool: ToolDefinition): void;
 }
 
-export type DispatchRunnerSubagentExtensionOptions = {
+export interface DispatchRunnerSubagentExtensionOptions {
 	cwd?: string;
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
-};
+}
 
 export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	type: "object",
