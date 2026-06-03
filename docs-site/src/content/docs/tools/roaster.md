@@ -28,12 +28,12 @@ asdl roaster --help
 
 ## Common commands
 
-| Goal                           | Command                                | Boundary                          |
-| ------------------------------ | -------------------------------------- | --------------------------------- |
-| Format review findings         | `roaster exec format-findings-comment` | Read-only                         |
-| Run one review                 | `roaster review run <key>`             | Depends on reviewer configuration |
-| Run changed-path-matched roast | `roaster review run-matching`          | Depends on reviewer configuration |
-| Run review workflow            | `roaster exec ...`                     | Depends on reviewer configuration |
+| Goal                                   | Command                                | Boundary                          |
+| -------------------------------------- | -------------------------------------- | --------------------------------- |
+| Format review findings                 | `roaster exec format-findings-comment` | Read-only                         |
+| List changed-path-matching review keys | `roaster review list-matching`         | Read-only                         |
+| Run one review                         | `roaster review run <key>`             | Depends on reviewer configuration |
+| Run review workflow                    | `roaster exec ...`                     | Depends on reviewer configuration |
 
 ## Agent interface
 

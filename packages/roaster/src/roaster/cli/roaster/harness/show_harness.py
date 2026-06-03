@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 import click
 
 from asdl_core.clinkr.context import load_typed_context
@@ -12,7 +14,10 @@ from roaster.workflow import resolve_harness
 
 
 class HarnessShowRequest(ClinkrModel):
-    pass
+    name: Annotated[
+        str | None,
+        click.Argument(["name"], required=False, type=str),
+    ] = None
 
 
 class HarnessShowResult(ClinkrModel):
@@ -35,7 +40,7 @@ def run_harness_show_command(
     roaster_context = load_typed_context(ctx, RoasterCliContext)
 
     resolved = resolve_harness(
-        requested_harness=None,
+        requested_harness=request.name,
         harness_runtime=roaster_context.harness_runtime,
     )
     harness_name = Ensure.ideal_state(resolved)

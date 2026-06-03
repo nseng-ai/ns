@@ -97,8 +97,8 @@ A read-only presentation of the current pending worktree state, including summar
 _Avoid_: checkpoint message, diffstat only, worktree status footer.
 
 **Roast command**:
-The Pi slash command `/roast`, which waits for idle and invokes the local `roaster review run-matching` CLI so reviewer selection remains owned by the headless roaster package.
-_Avoid_: review prompt, roaster CLI command, code-review skill.
+The Pi slash command `/roast`, which waits for idle, asks `roaster review list-matching` for the deterministic changed-path reviewer selection, then orchestrates selected `roaster review run <key>` calls and presents one aggregate review result.
+_Avoid_: review prompt, single reviewer, code-review skill.
 
 **Checkpoint message**:
 The validated commit message generated, repaired, or fallback-created from a pending worktree snapshot.

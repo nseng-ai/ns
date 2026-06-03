@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,13 +14,14 @@ from roaster.models import (
     FindingsReview,
     LocalDiff,
     LocalReviewResult,
-    MatchingReviewBatchResult,
+    MatchingReviewSelectionResult,
     ModelNotSupportedByHarness,
+    ResolvedReviewRunPlan,
     ReviewExecutionResponse,
     ReviewFormat,
     RoasterFailure,
 )
-from roaster.workflow import ENV_HARNESS, run_matching_reviews, run_review_by_key
+from roaster.workflow import ENV_HARNESS, list_matching_reviews, run_review_by_key
 
 REVIEW_KEY = "dignified-python"
 SAMPLE_SOURCE = (
@@ -73,6 +75,7 @@ def _run(
     requested_harness: str | None = None,
     requested_format: ReviewFormat = "findings",
     fakes: _Fakes | None = None,
+    progress: Callable[[ResolvedReviewRunPlan], None] | None = None,
 ) -> LocalReviewResult | RoasterFailure:
     if fakes is None:
         fakes = _fakes()
@@ -85,27 +88,21 @@ def _run(
         catalog=fakes.catalog,
         diff=fakes.diff,
         harness_runtime=fakes.harness_runtime,
+        progress=progress,
     )
 
 
-def _run_matching(
+def _list_matching(
     *,
-    requested_model: str | None = None,
     requested_base_ref: str | None = None,
-    requested_harness: str | None = None,
-    requested_format: ReviewFormat = "findings",
     fakes: _Fakes | None = None,
-) -> MatchingReviewBatchResult | RoasterFailure:
+) -> MatchingReviewSelectionResult | RoasterFailure:
     if fakes is None:
         fakes = _fakes()
-    return run_matching_reviews(
-        requested_model=requested_model,
+    return list_matching_reviews(
         requested_base_ref=requested_base_ref,
-        requested_harness=requested_harness,
-        requested_format=requested_format,
         catalog=fakes.catalog,
         diff=fakes.diff,
-        harness_runtime=fakes.harness_runtime,
     )
 
 
@@ -199,7 +196,24 @@ def test_format_is_threaded_onto_semantic_harness_request() -> None:
     assert executed.review_format == "text"
 
 
-def test_run_matching_reviews_selects_only_reviews_matching_changed_paths() -> None:
+def test_run_review_by_key_reports_resolved_run_plan_before_execution() -> None:
+    plans: list[ResolvedReviewRunPlan] = []
+    fakes = _fakes()
+
+    _run(fakes=fakes, progress=plans.append)
+
+    assert plans == [
+        ResolvedReviewRunPlan(
+            review_name=REVIEW_KEY,
+            model="sonnet",
+            harness="claude-code",
+            base_ref="master",
+            changed_path_count=1,
+        )
+    ]
+
+
+def test_list_matching_reviews_selects_only_reviews_matching_changed_paths() -> None:
     python_source = (
         "---\n"
         "description: Review Python diffs.\n"
@@ -229,18 +243,17 @@ def test_run_matching_reviews_selects_only_reviews_matching_changed_paths() -> N
         ),
     )
 
-    result = _run_matching(fakes=fakes)
+    result = _list_matching(fakes=fakes)
 
-    assert isinstance(result, MatchingReviewBatchResult)
+    assert isinstance(result, MatchingReviewSelectionResult)
     assert [review.key for review in result.selected_reviews] == ["typescript-style"]
+    assert result.selected_reviews[0].default_model == "haiku"
     assert [review.key for review in result.skipped_reviews] == ["dignified-python"]
-    assert [review.review_name for review in result.results] == ["typescript-style"]
-    assert len(fakes.harness_runtime.executed_requests) == 1
-    assert fakes.harness_runtime.executed_requests[0].review_definition.name == "typescript-style"
-    assert fakes.harness_runtime.executed_requests[0].model == "haiku"
+    assert result.skipped_reviews[0].default_model == "sonnet"
+    assert fakes.harness_runtime.executed_requests == ()
 
 
-def test_run_matching_reviews_returns_noop_result_when_no_reviews_match() -> None:
+def test_list_matching_reviews_returns_noop_result_when_no_reviews_match() -> None:
     source = (
         "---\n"
         "description: Review Python diffs.\n"
@@ -260,12 +273,11 @@ def test_run_matching_reviews_returns_noop_result_when_no_reviews_match() -> Non
         ),
     )
 
-    result = _run_matching(fakes=fakes)
+    result = _list_matching(fakes=fakes)
 
-    assert isinstance(result, MatchingReviewBatchResult)
+    assert isinstance(result, MatchingReviewSelectionResult)
     assert result.selected_reviews == ()
     assert [review.key for review in result.skipped_reviews] == [REVIEW_KEY]
-    assert result.results == ()
     assert fakes.harness_runtime.executed_requests == ()
 
 

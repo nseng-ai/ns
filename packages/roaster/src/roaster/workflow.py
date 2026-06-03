@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
@@ -16,8 +17,9 @@ from roaster.models import (
     InvalidReviewDefinition,
     LocalDiff,
     LocalReviewResult,
-    MatchingReviewBatchResult,
+    MatchingReviewSelectionResult,
     ModelNotProvided,
+    ResolvedReviewRunPlan,
     ReviewCatalog,
     ReviewDefinition,
     ReviewExecutionResponse,
@@ -52,6 +54,7 @@ def run_review_by_key(
     catalog: ReviewCatalogGateway,
     diff: LocalDiffGateway,
     harness_runtime: HarnessRuntime,
+    progress: Callable[[ResolvedReviewRunPlan], None] | None = None,
 ) -> LocalReviewResult | RoasterFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
     review_source = catalog.load_review_source(key=key)
@@ -81,6 +84,17 @@ def run_review_by_key(
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
 
+    if progress is not None:
+        progress(
+            ResolvedReviewRunPlan(
+                review_name=review_definition.name,
+                model=resolved_model,
+                harness=resolved_harness,
+                base_ref=local_diff.base_ref,
+                changed_path_count=len(local_diff.changed_paths),
+            )
+        )
+
     return _execute_loaded_review(
         review_source=review_source,
         review_definition=review_definition,
@@ -92,17 +106,13 @@ def run_review_by_key(
     )
 
 
-def run_matching_reviews(
+def list_matching_reviews(
     *,
-    requested_model: str | None,
     requested_base_ref: str | None,
-    requested_harness: str | None,
-    requested_format: ReviewFormat,
     catalog: ReviewCatalogGateway,
     diff: LocalDiffGateway,
-    harness_runtime: HarnessRuntime,
-) -> MatchingReviewBatchResult | RoasterFailure:
-    """Run reviews whose changed-path conditions match the current branch diff."""
+) -> MatchingReviewSelectionResult | RoasterFailure:
+    """List reviews whose changed-path conditions match the current branch diff."""
     local_diff = diff.load_diff(base_ref=requested_base_ref)
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
@@ -110,58 +120,17 @@ def run_matching_reviews(
     loaded_reviews_result = _load_all_reviews(catalog=catalog)
     if not isinstance(loaded_reviews_result, _LoadedReviews):
         return loaded_reviews_result
-    loaded_reviews = loaded_reviews_result.reviews
 
     selection = build_review_selection(
-        review_definitions=tuple(review.definition for review in loaded_reviews),
+        review_definitions=tuple(review.definition for review in loaded_reviews_result.reviews),
         changed_paths=local_diff.changed_paths,
     )
-    if not selection.selected:
-        return MatchingReviewBatchResult(
-            base_ref=local_diff.base_ref,
-            changed_paths=local_diff.changed_paths,
-            selected_reviews=(),
-            skipped_reviews=selection.skipped,
-            results=(),
-        )
 
-    resolved_harness = resolve_harness(
-        requested_harness=requested_harness,
-        harness_runtime=harness_runtime,
-    )
-    if not isinstance(resolved_harness, str):
-        return resolved_harness
-
-    loaded_by_key = {review.definition.name: review for review in loaded_reviews}
-    results: list[LocalReviewResult] = []
-    for selected_review in selection.selected:
-        loaded_review = loaded_by_key[selected_review.key]
-        resolved_model = _resolve_model(
-            review_definition=loaded_review.definition,
-            requested_model=requested_model,
-        )
-        if isinstance(resolved_model, ModelNotProvided):
-            return resolved_model
-
-        result = _execute_loaded_review(
-            review_source=loaded_review.source,
-            review_definition=loaded_review.definition,
-            resolved_model=resolved_model,
-            resolved_harness=resolved_harness,
-            local_diff=local_diff,
-            requested_format=requested_format,
-            harness_runtime=harness_runtime,
-        )
-        if not isinstance(result, LocalReviewResult):
-            return result
-        results.append(result)
-
-    return MatchingReviewBatchResult(
+    return MatchingReviewSelectionResult(
         base_ref=local_diff.base_ref,
         changed_paths=local_diff.changed_paths,
         selected_reviews=selection.selected,
         skipped_reviews=selection.skipped,
-        results=tuple(results),
     )
 
 

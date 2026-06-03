@@ -98,6 +98,32 @@ def test_harness_show_reports_single_detected_harness(cli_group: ClinkrGroup) ->
     assert "Harness: claude-code" in result.output
 
 
+def test_harness_show_validates_explicit_harness_name(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli_group,
+        ["harness", "show", "claude-code"],
+        obj=_context(paths_by_binary={}),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Harness: claude-code" in result.output
+
+
+def test_harness_show_rejects_unknown_explicit_harness_name(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli_group,
+        ["harness", "show", "banana"],
+        obj=_context(paths_by_binary={}),
+    )
+
+    assert result.exit_code != 0
+    assert "Unknown harness 'banana'" in result.output
+
+
 def test_harness_show_surfaces_no_harness_detected(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
 

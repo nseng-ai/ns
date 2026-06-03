@@ -153,6 +153,9 @@ def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
+    assert (
+        "resolved model=sonnet harness=claude-code base_ref=master changed_paths=1" in result.output
+    )
     assert "Reviewer: dignified-python" in result.output
     assert "Model: sonnet" in result.output
     assert "Base ref: master" in result.output
@@ -277,7 +280,7 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
     assert "findings" not in data
 
 
-def test_review_run_matching_human_output_filters_by_changed_paths(
+def test_review_list_matching_human_output_filters_by_changed_paths(
     cli_group: ClinkrGroup,
 ) -> None:
     runner = CliRunner()
@@ -298,7 +301,7 @@ def test_review_run_matching_human_output_filters_by_changed_paths(
 
     result = runner.invoke(
         cli_group,
-        ["review", "run-matching", "--review-format", "findings"],
+        ["review", "list-matching"],
         obj=_obj(ctx),
     )
 
@@ -309,12 +312,15 @@ def test_review_run_matching_human_output_filters_by_changed_paths(
     assert "- typescript-style (matched: ts/packages/pi-extensions/src/roast.ts)" in result.output
     assert "Skipped reviews: 1" in result.output
     assert "- dignified-python (no_changed_path_match)" in result.output
+    assert (
+        "No reviews were run. Run a selected reviewer with: roaster review run <key>"
+        in result.output
+    )
     assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
-    assert len(ctx.harness_runtime.executed_requests) == 1
-    assert ctx.harness_runtime.executed_requests[0].review_definition.name == "typescript-style"
+    assert ctx.harness_runtime.executed_requests == ()
 
 
-def test_review_run_matching_json_output_includes_selection(
+def test_review_list_matching_json_output_includes_selection(
     cli_group: ClinkrGroup,
 ) -> None:
     runner = CliRunner()
@@ -331,7 +337,7 @@ def test_review_run_matching_json_output_includes_selection(
 
     result = runner.invoke(
         cli_group,
-        ["review", "run-matching", "--review-format", "findings", "--format", "json"],
+        ["review", "list-matching", "--format", "json"],
         obj=_obj(ctx),
     )
 
@@ -340,12 +346,16 @@ def test_review_run_matching_json_output_includes_selection(
     data = output["data"]
     assert data["changed_paths"] == ["src/app.py"]
     assert data["selected_reviews"][0]["key"] == "dignified-python"
+    assert data["selected_reviews"][0]["default_model"] == "sonnet"
     assert data["selected_reviews"][0]["matched_paths"] == ["src/app.py"]
     assert data["skipped_reviews"][0]["key"] == "typescript-style"
-    assert data["results"][0]["review_name"] == "dignified-python"
+    assert data["skipped_reviews"][0]["default_model"] == "sonnet"
+    assert "results" not in data
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    assert ctx.harness_runtime.executed_requests == ()
 
 
-def test_review_run_matching_no_matching_reviews_is_success(
+def test_review_list_matching_no_matching_reviews_is_success(
     cli_group: ClinkrGroup,
 ) -> None:
     runner = CliRunner()
@@ -359,13 +369,14 @@ def test_review_run_matching_no_matching_reviews_is_success(
 
     result = runner.invoke(
         cli_group,
-        ["review", "run-matching", "--review-format", "findings"],
+        ["review", "list-matching"],
         obj=_obj(ctx),
     )
 
     assert result.exit_code == 0, result.output
     assert "Selected reviews: 0" in result.output
     assert "No matching reviews." in result.output
+    assert "No reviews were run." in result.output
     assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
     assert ctx.harness_runtime.executed_requests == ()
 

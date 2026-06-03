@@ -19,10 +19,20 @@ from roaster.models import (
     LocalReviewResult,
     ProseReview,
     RepoRootUnavailableError,
+    ResolvedReviewRunPlan,
     ReviewDefinitionReadError,
     ReviewExecutorInvocationError,
 )
 from roaster.workflow import run_review_by_key
+
+
+def _stderr_run_plan(plan: ResolvedReviewRunPlan) -> None:
+    click.echo(
+        "  · "
+        f"resolved model={plan.model} harness={plan.harness} "
+        f"base_ref={plan.base_ref} changed_paths={plan.changed_path_count}",
+        err=True,
+    )
 
 
 class ReviewRunRequest(ClinkrModel):
@@ -117,6 +127,7 @@ def run_review_command(
             catalog=roaster_context.catalog,
             diff=roaster_context.diff,
             harness_runtime=roaster_context.harness_runtime,
+            progress=_stderr_run_plan,
         )
     except ReviewDefinitionReadError as exc:
         raise ClinkrFailure(error_type="review_definition_read_failed", message=str(exc)) from exc

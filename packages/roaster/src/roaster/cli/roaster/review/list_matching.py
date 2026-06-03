@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 import click
 
@@ -11,34 +11,18 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.project_config import AsdlProjectConfigError
-from roaster.cli.roaster.review.run import render_review_run
 from roaster.context import RoasterCliContext
 from roaster.models import (
     GitDiffFailedError,
     GitInvocationFailedError,
-    MatchingReviewBatchResult,
+    MatchingReviewSelectionResult,
     RepoRootUnavailableError,
     ReviewDefinitionReadError,
-    ReviewExecutorInvocationError,
 )
-from roaster.workflow import run_matching_reviews
+from roaster.workflow import list_matching_reviews
 
 
-class ReviewRunMatchingRequest(ClinkrModel):
-    harness: Annotated[
-        str | None,
-        click.Option(
-            ["--harness"],
-            help="Harness name to dispatch selected reviews through. Falls back to config.",
-        ),
-    ] = None
-    model: Annotated[
-        str | None,
-        click.Option(
-            ["--model"],
-            help="Model name to pass to each selected review. Defaults to each review definition.",
-        ),
-    ] = None
+class ReviewListMatchingRequest(ClinkrModel):
     base_ref: Annotated[
         str | None,
         click.Option(
@@ -46,23 +30,10 @@ class ReviewRunMatchingRequest(ClinkrModel):
             help="Base branch to diff against. Defaults to the repo trunk branch.",
         ),
     ] = None
-    review_format: Annotated[
-        Literal["findings", "text"],
-        click.Option(
-            ["--review-format"],
-            type=click.Choice(["findings", "text"]),
-            default="text",
-            show_default=True,
-            help=(
-                "Review content format. 'text' returns human-readable markdown. "
-                "'findings' returns structured JSON findings."
-            ),
-        ),
-    ] = "text"
 
 
-def render_review_run_matching(result: MatchingReviewBatchResult) -> None:
-    """Render a changed-path-selected batch review run for the human CLI."""
+def render_review_list_matching(result: MatchingReviewSelectionResult) -> None:
+    """Render changed-path review selection for the human CLI."""
     click.echo(f"Base ref: {result.base_ref}")
     click.echo(f"Changed paths: {len(result.changed_paths)}")
     for path in result.changed_paths:
@@ -80,40 +51,28 @@ def render_review_run_matching(result: MatchingReviewBatchResult) -> None:
 
     if not result.selected_reviews:
         click.echo("No matching reviews.")
-        return
 
-    for review_result in result.results:
-        click.echo("")
-        render_review_run(review_result)
+    click.echo("No reviews were run. Run a selected reviewer with: roaster review run <key>")
 
 
 @clinkr_operation(
-    name="run-matching",
-    help="Run reviewers whose when_changed globs match the current branch diff.",
-    human_renderer=render_review_run_matching,
+    name="list-matching",
+    help="List reviewers whose when_changed globs match the current branch diff.",
+    human_renderer=render_review_list_matching,
 )
-def run_review_matching_command(
+def run_review_list_matching_command(
     ctx: click.Context,
-    request: ReviewRunMatchingRequest,
-) -> ClinkrExit[MatchingReviewBatchResult]:
+    request: ReviewListMatchingRequest,
+) -> ClinkrExit[MatchingReviewSelectionResult]:
     roaster_context = load_typed_context(ctx, RoasterCliContext)
-    click.echo("▶ Running matching reviews", err=True)
     try:
-        result = run_matching_reviews(
-            requested_model=request.model,
+        result = list_matching_reviews(
             requested_base_ref=request.base_ref,
-            requested_harness=request.harness,
-            requested_format=request.review_format,
             catalog=roaster_context.catalog,
             diff=roaster_context.diff,
-            harness_runtime=roaster_context.harness_runtime,
         )
     except ReviewDefinitionReadError as exc:
         raise ClinkrFailure(error_type="review_definition_read_failed", message=str(exc)) from exc
-    except ReviewExecutorInvocationError as exc:
-        raise ClinkrFailure(
-            error_type="review_execution_invocation_failed", message=str(exc)
-        ) from exc
     except RepoRootUnavailableError as exc:
         raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except AsdlProjectConfigError as exc:
