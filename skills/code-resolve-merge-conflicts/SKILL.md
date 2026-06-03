@@ -1,11 +1,11 @@
 ---
-name: resolve-merge-conflicts
+name: code-resolve-merge-conflicts
 description: "Resolve merge conflicts from an in-progress rebase. Use when a rebase hits conflicts and the user wants Claude to resolve them intelligently."
 allowed-tools:
   - "Bash(git *)"
 ---
 
-# resolve-merge-conflicts
+# code-resolve-merge-conflicts
 
 Resolve merge conflicts from a rebase already in progress. This skill does NOT initiate a rebase. The rebase was started externally (via `git rebase`, `git merge`, etc.) and hit conflicts. Your job is to resolve those conflicts and continue to completion.
 
