@@ -86,6 +86,8 @@ interface ToolResult {
 	details?: unknown;
 }
 
+type ToolUpdateHandler = (update: Partial<ToolResult>) => void;
+
 interface WriteSourceBranchPlanFileToolParams {
 	content: string;
 	summary?: string;
@@ -93,6 +95,14 @@ interface WriteSourceBranchPlanFileToolParams {
 
 interface WriteSourceBranchPlanFileToolDetails extends SourceBranchPlanFileEvidence {
 	slugEvidence: SavedPlanContentSlugEvidence;
+}
+
+type WriteSourceBranchPlanFilePhase = "validating" | "deriving-slug" | "writing-file";
+
+interface WriteSourceBranchPlanFileProgressDetails {
+	phase: WriteSourceBranchPlanFilePhase;
+	slug?: string;
+	elapsedSeconds?: number;
 }
 
 type SessionHistoryEntry = unknown;
@@ -153,7 +163,7 @@ export interface ToolDefinition {
 		toolCallId: string,
 		params: unknown,
 		signal: AbortSignal | undefined,
-		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
+		onUpdate: ToolUpdateHandler | undefined,
 		ctx: ToolContext,
 	): Promise<ToolResult> | ToolResult;
 }
@@ -568,13 +578,43 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 			},
 			required: ["content"],
 		},
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			emitWriteSourcePlanProgress(onUpdate, "Validating saved plan input…", { phase: "validating" });
 			const toolParams = parseWriteSourceBranchPlanFileToolParams(params);
-			const slugEvidence = await deriveSavedPlanContentSlug(pi, {
-				content: toolParams.content,
-				cwd: ctx.cwd,
-				...(signal === undefined ? {} : { signal }),
-			});
+			emitWriteSourcePlanProgress(onUpdate, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
+			const slugStartedAt = Date.now();
+			const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
+				onUpdate === undefined
+					? undefined
+					: setInterval(() => {
+							const elapsedSeconds = Math.round((Date.now() - slugStartedAt) / 1_000);
+							emitWriteSourcePlanProgress(
+								onUpdate,
+								`Deriving saved-plan filename slug with Codex… ${elapsedSeconds}s elapsed`,
+								{
+									phase: "deriving-slug",
+									elapsedSeconds,
+								},
+							);
+						}, 5_000);
+			let slugEvidence: SavedPlanContentSlugEvidence;
+			try {
+				slugEvidence = await deriveSavedPlanContentSlug(pi, {
+					content: toolParams.content,
+					cwd: ctx.cwd,
+					...(signal === undefined ? {} : { signal }),
+				});
+			} finally {
+				if (slugProgressInterval !== undefined) {
+					clearInterval(slugProgressInterval);
+				}
+			}
+			emitWriteSourcePlanProgress(
+				onUpdate,
+				`Derived slug ${slugEvidence.slug}; resolving repo/branch and writing plan file…`,
+				{ phase: "writing-file", slug: slugEvidence.slug },
+			);
+			emitWriteSourcePlanProgress(onUpdate, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
 			const evidence = await writeSourceBranchPlanFilePrimitive(pi, buildSourceBranchPlanFileParams(toolParams, slugEvidence.slug), {
 				cwd: ctx.cwd,
 				signal,
@@ -587,6 +627,14 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 			};
 		},
 	};
+}
+
+function emitWriteSourcePlanProgress(
+	onUpdate: ToolUpdateHandler | undefined,
+	text: string,
+	details: WriteSourceBranchPlanFileProgressDetails,
+): void {
+	onUpdate?.({ content: [{ type: "text", text }], details });
 }
 
 function parseWriteSourceBranchPlanFileToolParams(params: unknown): WriteSourceBranchPlanFileToolParams {

@@ -44,6 +44,7 @@ const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Implement
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
 type SentMessage = Parameters<SendMessage>[0] & { options?: Parameters<SendMessage>[1] };
+type ToolUpdate = Parameters<NonNullable<Parameters<ToolDefinition["execute"]>[3]>>[0];
 
 interface ExecCall {
 	command: string;
@@ -1509,6 +1510,55 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(pi.execCalls[0]?.command).toBe("pi");
 		expect(pi.execCalls[0]?.args).toEqual(savedPlanSlugArgs(content));
 		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: ROOT, timeout: 60_000 });
+		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
+		expect(result.content[0]?.text).toContain(`Slug model: ${SLUG_MODEL_PROVIDER}/${SLUG_MODEL_MODEL}`);
+		expect(result.details).toMatchObject({
+			slug: PLAN_SLUG,
+			filePath: expectedPath,
+			slugEvidence: contentSlugEvidence(),
+		});
+		expect(await readFile(expectedPath, "utf8")).toBe(content);
+	});
+
+	test("streams progress while deriving the saved-plan slug and writing the plan file", async () => {
+		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const sourceBranch = "planned-branches/add-widget";
+		const origin = "git@github.com:owner/repo.git";
+		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
+		const pi = new FakePi([
+			savedPlanSlugStep(content),
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep({ stdout: `${origin}\n` }),
+		]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const updates: ToolUpdate[] = [];
+
+		const result = await tool.execute(
+			"tool-call",
+			{ content, summary: "Plan the local plan store file." },
+			undefined,
+			(update) => updates.push(update),
+			{ cwd: ROOT },
+		);
+
+		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const expectedPath = join(planStoreRoot, repoKey, branchKey, PLAN_KEY);
+		const updateTexts = updates.flatMap((update) => update.content ?? []).map((item) => item.text);
+		const validationIndex = updateTexts.findIndex((text) => text.includes("Validating saved plan input"));
+		const slugIndex = updateTexts.findIndex((text) => text.includes("Deriving saved-plan filename slug with Codex"));
+		const writingIndex = updateTexts.findIndex((text) => text.includes("Writing plan file"));
+
+		pi.assertDone();
+		expect(validationIndex).toBeGreaterThan(-1);
+		expect(slugIndex).toBeGreaterThan(validationIndex);
+		expect(writingIndex).toBeGreaterThan(slugIndex);
+		expect(updateTexts.join("\n")).toContain(PLAN_SLUG);
+		expect(updates.map((update) => update.details)).toContainEqual({ phase: "validating" });
+		expect(updates.map((update) => update.details)).toContainEqual({ phase: "deriving-slug" });
+		expect(updates.map((update) => update.details)).toContainEqual({ phase: "writing-file", slug: PLAN_SLUG });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(`Slug model: ${SLUG_MODEL_PROVIDER}/${SLUG_MODEL_MODEL}`);
 		expect(result.details).toMatchObject({
