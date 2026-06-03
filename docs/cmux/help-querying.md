@@ -8,8 +8,8 @@ This guide explains how to query the live cmux command surface before writing or
 
 ## What not to trust
 
-Do not rely on `/Users/schrockn/code/githubs/manaflow-ai/cmux` for behavior unless that checkout has first been
-updated and revalidated. It was explicitly called out as stale during the cmux workspace-summary work.
+Do not rely on a local cmux source checkout for behavior unless that checkout has first been updated and revalidated.
+A previously inspected checkout was stale during the cmux workspace-summary work.
 
 Do not copy old cmux command shapes from prior plans or transcripts without checking the installed CLI again. Legacy
 aliases may keep working while printing warnings, and canonical command forms may move.
