@@ -15,14 +15,14 @@ Generates a dev-checkpoint-style commit message preview for current changes with
 
 export type NotifyLevel = "info" | "warning" | "error";
 
-export type CustomMessage = {
+export interface CustomMessage {
 	customType: string;
 	content: string;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-export type CommandContext = {
+export interface CommandContext {
 	cwd: string;
 	hasUI?: boolean;
 	ui?: {
@@ -30,9 +30,9 @@ export type CommandContext = {
 		setStatus?(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
-};
+}
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -43,22 +43,22 @@ export type ExtensionAPI = {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 	sendUserMessage(content: string): void;
-};
+}
 
-export type CheckpointPreviewPromptInput = {
+export interface CheckpointPreviewPromptInput {
 	branch: string;
 	statusPorcelain: string;
 	diffHead: string;
 	untrackedFiles: string[];
-};
+}
 
-export type CheckpointPreviewDetails = {
+export interface CheckpointPreviewDetails {
 	status: "prompt-sent" | "rejected" | "failure" | "usage";
 	command: string;
 	cwd: string;
 	branch?: string;
 	reason?: string;
-};
+}
 
 class CheckpointPreviewUsageError extends Error {
 	constructor(message: string) {
@@ -111,7 +111,7 @@ export default function checkpointPreviewExtension(pi: ExtensionAPI): void {
 	const register = (name: string) => {
 		pi.registerCommand(name, {
 			description: "Preview the dev-checkpoint [cp] commit message without staging or committing.",
-			handler: async (args, ctx) => handleCheckpointPreviewCommand(pi, name, args, ctx),
+			handler: async (args, ctx) => handleCheckpointPreviewCommand({ pi, commandName: name, rawArgs: args, ctx }),
 		});
 	};
 
@@ -119,12 +119,15 @@ export default function checkpointPreviewExtension(pi: ExtensionAPI): void {
 	register(CHECKPOINT_PREVIEW_ALIAS_COMMAND_NAME);
 }
 
-async function handleCheckpointPreviewCommand(
-	pi: ExtensionAPI,
-	commandName: string,
-	rawArgs: string,
-	ctx: CommandContext,
-): Promise<void> {
+interface HandleCheckpointPreviewCommandOptions {
+	pi: ExtensionAPI;
+	commandName: string;
+	rawArgs: string;
+	ctx: CommandContext;
+}
+
+async function handleCheckpointPreviewCommand(options: HandleCheckpointPreviewCommandOptions): Promise<void> {
+	const { pi, commandName, rawArgs, ctx } = options;
 	await ctx.waitForIdle();
 
 	let parsedArgs: CheckpointPreviewArgs;
@@ -132,21 +135,33 @@ async function handleCheckpointPreviewCommand(
 		parsedArgs = parseArgs(commandName, rawArgs);
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
-		presentMessage(pi, ctx, `${reason}\n\n${USAGE}`, {
-			status: "usage",
-			command: commandName,
-			cwd: ctx.cwd,
-			reason,
-		}, "warning");
+		presentMessage({
+			pi,
+			ctx,
+			content: `${reason}\n\n${USAGE}`,
+			details: {
+				status: "usage",
+				command: commandName,
+				cwd: ctx.cwd,
+				reason,
+			},
+			level: "warning",
+		});
 		return;
 	}
-	if (parsedArgs.help) {
-		presentMessage(pi, ctx, USAGE, {
-			status: "usage",
-			command: commandName,
-			cwd: ctx.cwd,
-			reason: "help",
-		}, "info");
+	if (parsedArgs.shouldShowHelp) {
+		presentMessage({
+			pi,
+			ctx,
+			content: USAGE,
+			details: {
+				status: "usage",
+				command: commandName,
+				cwd: ctx.cwd,
+				reason: "help",
+			},
+			level: "info",
+		});
 		return;
 	}
 
@@ -157,26 +172,38 @@ async function handleCheckpointPreviewCommand(
 		setStatus(ctx, "checking current branch…");
 		branch = (await runGit(pi, ctx, ["symbolic-ref", "--short", "HEAD"])).stdout.trim();
 		if (branch === "main" || branch === "master") {
-			presentMessage(pi, ctx, `Refusing to preview a checkpoint message on ${branch}.`, {
-				status: "rejected",
-				command: commandName,
-				cwd: ctx.cwd,
-				branch,
-				reason: "protected-branch",
-			}, "warning");
+			presentMessage({
+				pi,
+				ctx,
+				content: `Refusing to preview a checkpoint message on ${branch}.`,
+				details: {
+					status: "rejected",
+					command: commandName,
+					cwd: ctx.cwd,
+					branch,
+					reason: "protected-branch",
+				},
+				level: "warning",
+			});
 			return;
 		}
 
 		setStatus(ctx, "checking working tree…");
 		statusPorcelain = (await runGit(pi, ctx, ["status", "--porcelain"])).stdout;
 		if (statusPorcelain.trim().length === 0) {
-			presentMessage(pi, ctx, "Nothing to preview: the working tree is clean.", {
-				status: "rejected",
-				command: commandName,
-				cwd: ctx.cwd,
-				branch,
-				reason: "clean-working-tree",
-			}, "info");
+			presentMessage({
+				pi,
+				ctx,
+				content: "Nothing to preview: the working tree is clean.",
+				details: {
+					status: "rejected",
+					command: commandName,
+					cwd: ctx.cwd,
+					branch,
+					reason: "clean-working-tree",
+				},
+				level: "info",
+			});
 			return;
 		}
 
@@ -184,12 +211,18 @@ async function handleCheckpointPreviewCommand(
 		diffHead = (await runGit(pi, ctx, ["diff", "HEAD"])).stdout;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		presentMessage(pi, ctx, message, {
-			status: "failure",
-			command: commandName,
-			cwd: ctx.cwd,
-			reason: "git-command-failed",
-		}, "error");
+		presentMessage({
+			pi,
+			ctx,
+			content: message,
+			details: {
+				status: "failure",
+				command: commandName,
+				cwd: ctx.cwd,
+				reason: "git-command-failed",
+			},
+			level: "error",
+		});
 		return;
 	} finally {
 		setStatus(ctx, undefined);
@@ -208,14 +241,14 @@ async function handleCheckpointPreviewCommand(
 	pi.sendUserMessage(prompt);
 }
 
-type CheckpointPreviewArgs = {
-	help: boolean;
-};
+interface CheckpointPreviewArgs {
+	shouldShowHelp: boolean;
+}
 
 function parseArgs(commandName: string, rawArgs: string): CheckpointPreviewArgs {
 	const tokens = rawArgs.trim().split(/\s+/).filter(Boolean);
-	if (tokens.length === 0) return { help: false };
-	if (tokens.length === 1 && (tokens[0] === "--help" || tokens[0] === "-h")) return { help: true };
+	if (tokens.length === 0) return { shouldShowHelp: false };
+	if (tokens.length === 1 && (tokens[0] === "--help" || tokens[0] === "-h")) return { shouldShowHelp: true };
 	throw new CheckpointPreviewUsageError(`Unsupported /${commandName} argument: ${tokens[0] ?? ""}.`);
 }
 
@@ -225,18 +258,21 @@ async function runGit(pi: ExtensionAPI, ctx: CommandContext, args: string[]): Pr
 
 	const command = formatCommand("git", args);
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	const stdout = result.stdout.trimEnd() || "(empty)";
+	const stderr = formatCapturedOutput(result.stderr);
+	const stdout = formatCapturedOutput(result.stdout);
 	throw new Error(`checkpoint preview failed while running ${command} (${status}).\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
 }
 
-function presentMessage(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	content: string,
-	details: CheckpointPreviewDetails,
-	level: NotifyLevel,
-): void {
+interface PresentMessageOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	content: string;
+	details: CheckpointPreviewDetails;
+	level: NotifyLevel;
+}
+
+function presentMessage(options: PresentMessageOptions): void {
+	const { pi, ctx, content, details, level } = options;
 	if (pi.sendMessage) {
 		pi.sendMessage({ customType: MESSAGE_TYPE, content, display: true, details });
 		return;
@@ -250,6 +286,12 @@ function presentMessage(
 		return;
 	}
 	console.log(content);
+}
+
+function formatCapturedOutput(text: string): string {
+	const trimmed = text.trimEnd();
+	if (trimmed === "") return "(empty)";
+	return trimmed;
 }
 
 function setStatus(ctx: CommandContext, value: string | undefined): void {
