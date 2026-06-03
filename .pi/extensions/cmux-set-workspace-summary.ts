@@ -130,8 +130,18 @@ async function restoreModelState(pi: ExtensionAPI, ctx: AgentEndContext, restore
 }
 
 function buildPrompt(skillBlock: string | undefined, workspaceId: string): string {
-	const fallback =
-		"The cmux-set-workspace-summary skill was not found. Update the caller cmux workspace title, description, and status from the current Pi context using `asdl exec cmux-workspace-summary`.";
+	const fallback = [
+		"The cmux-set-workspace-summary skill was not found.",
+		"Update the caller cmux workspace title, description, and status by running exactly one deterministic command:",
+		"asdl exec cmux-workspace-summary \\",
+		"  --title '...' \\",
+		"  --description 'Goal: ...",
+		"State: ...",
+		"Next: ...' \\",
+		"  --status '...' \\",
+		"  --format json",
+		"Do not assign shell variables, write an env prelude, pass `--workspace`, or run raw `cmux` commands.",
+	].join("\n");
 
 	return `${skillBlock ?? fallback}
 

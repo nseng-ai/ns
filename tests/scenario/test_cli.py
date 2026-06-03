@@ -121,6 +121,39 @@ def test_cmux_workspace_summary_exec_applies_generated_fields() -> None:
     assert status_records == [("workspace:16", "pi-summary", "cmd ready", "sparkle", "#7c3aed", 80)]
 
 
+def test_cmux_workspace_summary_exec_accepts_description() -> None:
+    runner = CliRunner()
+    fake_cmux = FakeCmuxGateway()
+    ctx = AsdlExecContext(cmux=fake_cmux)
+    description = "Goal: Use one command.\nState: CLI accepts description.\nNext: Update skill."
+
+    result = runner.invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "cmux-workspace-summary",
+            "--workspace",
+            "workspace:16",
+            "--title",
+            "Single command summary",
+            "--description",
+            description,
+            "--status",
+            "ready",
+            "--format",
+            "json",
+        ],
+        obj=build_clinkr_context_object(lambda: ctx),
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    assert payload["data"]["description"] == description
+    assert fake_cmux.workspace_descriptions == [("workspace:16", description)]
+
+
 def test_cmux_workspace_summary_exec_falls_back_to_cmux_env() -> None:
     runner = CliRunner()
     fake_cmux = FakeCmuxGateway()
@@ -189,6 +222,38 @@ def test_cmux_workspace_summary_exec_reports_missing_workspace() -> None:
     assert payload["data"]["success"] is False
     assert payload["data"]["error"]["code"] == "missing_workspace"
     assert fake_cmux.renamed_workspaces == []
+
+
+def test_cmux_workspace_summary_exec_requires_description_or_legacy_fields() -> None:
+    runner = CliRunner()
+    fake_cmux = FakeCmuxGateway()
+    ctx = AsdlExecContext(cmux=fake_cmux)
+
+    result = runner.invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "cmux-workspace-summary",
+            "--workspace",
+            "workspace:16",
+            "--title",
+            "Missing description",
+            "--status",
+            "blocked",
+            "--format",
+            "json",
+        ],
+        obj=build_clinkr_context_object(lambda: ctx),
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["data"]["success"] is False
+    assert payload["data"]["error"]["code"] == "missing_description"
+    assert fake_cmux.renamed_workspaces == []
+    assert fake_cmux.workspace_descriptions == []
+    assert fake_cmux.statuses == []
 
 
 def test_cmux_workspace_summary_exec_reports_cmux_command_failure() -> None:
