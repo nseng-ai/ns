@@ -51,6 +51,45 @@ def _invoke(
     return result.exit_code, output
 
 
+def _summary_pr(number: int = 42) -> PRSummary:
+    return PRSummary(
+        number=number,
+        title="Add compact feedback",
+        url=f"https://github.com/dagster-io/asdl/pull/{number}",
+        head_ref_name="feature",
+        base_ref_name="master",
+        state="OPEN",
+    )
+
+
+def _summary_thread(
+    thread_id: str,
+    *,
+    is_resolved: bool = False,
+    comment_id: int = 1,
+    body: str = "Please update this helper before merging.",
+) -> PRReviewThread:
+    return PRReviewThread(
+        id=thread_id,
+        path="src/app.py",
+        line=10,
+        start_line=8,
+        is_resolved=is_resolved,
+        is_outdated=False,
+        comments=(
+            PRReviewComment(
+                id=comment_id,
+                body=body,
+                author="reviewer",
+                path="src/app.py",
+                line=10,
+                start_line=8,
+                created_at="2026-05-23T00:00:00Z",
+            ),
+        ),
+    )
+
+
 # -- standalone CLI smoke tests --
 
 
@@ -305,6 +344,265 @@ def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
     output = json.loads(result.output)
     assert output["exit_code"] == 0
     assert output["data"]["pr_number"] == 99
+
+
+# -- summarize-feedback --
+
+
+def test_summarize_feedback_returns_compact_summary(cli_group: ClinkrGroup) -> None:
+    long_body = "Please update this helper before merging. " * 3
+    reviews = [
+        PRReview(
+            id="PRR_1",
+            author="reviewer",
+            body="Please update the helper.\n\nDetails follow here.",
+            state="CHANGES_REQUESTED",
+            submitted_at="2026-05-23T00:00:00Z",
+        )
+    ]
+    comments = [
+        PRDiscussionComment(
+            id=101,
+            body="Human discussion comment with several words.",
+            author="schrockn",
+            url="https://example.com/comment/101",
+        ),
+        PRDiscussionComment(
+            id=102,
+            body="Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42",
+            author="Graphite Automations",
+            url="https://example.com/comment/102",
+        ),
+    ]
+    fake = FakePRGateway(
+        prs=[_summary_pr(42)],
+        reviews={42: reviews},
+        review_threads={
+            42: [
+                _summary_thread("PRRT_open", body=long_body),
+                _summary_thread("PRRT_resolved", is_resolved=True, comment_id=2),
+            ]
+        },
+        discussion_comments={42: comments},
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["summarize-feedback", "42", "--body-chars", "40"],
+        fake,
+    )
+
+    assert exit_code == 0
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["found"] is True
+    assert data["pr"] == {
+        "number": 42,
+        "title": "Add compact feedback",
+        "url": "https://github.com/dagster-io/asdl/pull/42",
+        "head_ref_name": "feature",
+        "base_ref_name": "master",
+        "state": "OPEN",
+    }
+    assert data["counts"] == {
+        "reviews": 1,
+        "review_threads": 2,
+        "unresolved_review_threads": 1,
+        "resolved_review_threads": 1,
+        "discussion_comments": 2,
+    }
+    assert data["reviews"][0]["body_first_line_excerpt"] == "Please update the helper."
+    assert data["review_threads"] == [
+        {
+            "thread_id": "PRRT_open",
+            "path": "src/app.py",
+            "line": 10,
+            "start_line": 8,
+            "is_outdated": False,
+            "is_resolved": False,
+            "comment_count": 1,
+            "first_comment": {
+                "id": 1,
+                "author": "reviewer",
+                "line": 10,
+                "start_line": 8,
+                "created_at": "2026-05-23T00:00:00Z",
+                "body_first_line_excerpt": long_body.strip(),
+                "body_excerpt": "Please update this helper before mergin…",
+            },
+        }
+    ]
+    assert data["discussion_comments"][0]["source_kind"] == "human_like"
+    assert data["discussion_comments"][0]["source_evidence"] == []
+    assert data["discussion_comments"][1]["source_kind"] == "automation_like"
+    assert data["discussion_comments"][1]["source_evidence"] == ["graphite_link"]
+
+
+def test_summarize_feedback_include_resolved_threads(cli_group: ClinkrGroup) -> None:
+    fake = FakePRGateway(
+        prs=[_summary_pr(42)],
+        review_threads={
+            42: [
+                _summary_thread("PRRT_open"),
+                _summary_thread("PRRT_resolved", is_resolved=True, comment_id=2),
+            ]
+        },
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["summarize-feedback", "42", "--include-resolved"],
+        fake,
+    )
+
+    assert exit_code == 0
+    assert [thread["thread_id"] for thread in output["data"]["review_threads"]] == [
+        "PRRT_open",
+        "PRRT_resolved",
+    ]
+    assert output["data"]["review_threads"][1]["is_resolved"] is True
+
+
+def test_summarize_feedback_filters_empty_reviews_by_default(cli_group: ClinkrGroup) -> None:
+    reviews = [
+        PRReview(
+            id="PRR_noise_commented",
+            author="reviewer",
+            body="",
+            state="COMMENTED",
+            submitted_at="2026-05-23T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_noise_approved",
+            author="reviewer",
+            body="   ",
+            state="APPROVED",
+            submitted_at="2026-05-23T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_signal_state",
+            author="reviewer",
+            body="",
+            state="CHANGES_REQUESTED",
+            submitted_at="2026-05-23T00:00:00Z",
+        ),
+    ]
+
+    fake_default = FakePRGateway(prs=[_summary_pr(42)], reviews={42: reviews})
+    default_exit, default_output = _invoke_json(
+        cli_group, ["summarize-feedback", "42"], fake_default
+    )
+    assert default_exit == 0
+    assert [review["id"] for review in default_output["data"]["reviews"]] == ["PRR_signal_state"]
+    assert default_output["data"]["counts"]["reviews"] == 1
+
+    fake_all = FakePRGateway(prs=[_summary_pr(42)], reviews={42: reviews})
+    all_exit, all_output = _invoke_json(
+        cli_group, ["summarize-feedback", "42", "--include-empty-reviews"], fake_all
+    )
+    assert all_exit == 0
+    assert [review["id"] for review in all_output["data"]["reviews"]] == [
+        "PRR_noise_commented",
+        "PRR_noise_approved",
+        "PRR_signal_state",
+    ]
+    assert all_output["data"]["counts"]["reviews"] == 3
+
+
+class FailingGetPrGateway(FakePRGateway):
+    def get_pr(self, pr_number: int) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        return PRGatewayFailure(stderr="gh auth failed", returncode=4)
+
+
+def test_summarize_feedback_missing_pr_returns_negative_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(cli_group, ["summarize-feedback", "404"], fake)
+
+    assert exit_code == 1
+    assert output["exit_code"] == 1
+    assert "No PR found" in output["message"]
+    assert output["data"] == {
+        "found": False,
+        "pr_number": 404,
+        "error": "no PR found for PR 404",
+        "returncode": 1,
+    }
+
+
+def test_summarize_feedback_lookup_failure_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FailingGetPrGateway()
+
+    exit_code, output = _invoke_json(cli_group, ["summarize-feedback", "42"], fake)
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "pr_gateway_failure"
+    assert "PR 42" in output["message"]
+    assert "gh auth failed" in output["message"]
+
+
+@pytest.mark.parametrize(
+    ("author", "body", "expected_evidence"),
+    [
+        ("github-actions[bot]", "Ordinary bot comment", ["bot_author"]),
+        ("reviewer", "<!-- roaster: finding -->", ["roaster_marker"]),
+        ("reviewer", "<!-- asdl-reviewer: finding -->", ["asdl_reviewer_marker"]),
+        ("reviewer", "[vc]: deployment ready", ["vercel_marker"]),
+        ("reviewer", "asset https://static.graphite.dev/check.svg", ["graphite_static_asset"]),
+        ("reviewer", "Human feedback", []),
+    ],
+)
+def test_summarize_feedback_discussion_source_evidence_is_mechanical(
+    cli_group: ClinkrGroup,
+    author: str,
+    body: str,
+    expected_evidence: list[str],
+) -> None:
+    fake = FakePRGateway(
+        prs=[_summary_pr(42)],
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=101,
+                    body=body,
+                    author=author,
+                    url="https://example.com/comment/101",
+                )
+            ]
+        },
+    )
+
+    exit_code, output = _invoke_json(cli_group, ["summarize-feedback", "42"], fake)
+
+    assert exit_code == 0
+    comment = output["data"]["discussion_comments"][0]
+    assert comment["source_evidence"] == expected_evidence
+    expected_kind = "automation_like" if expected_evidence else "human_like"
+    assert comment["source_kind"] == expected_kind
+
+
+@pytest.mark.parametrize("body_chars", ["0", "-1", "4001"])
+def test_summarize_feedback_rejects_invalid_body_chars(
+    cli_group: ClinkrGroup,
+    body_chars: str,
+) -> None:
+    fake = FakePRGateway(prs=[_summary_pr(42)])
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["summarize-feedback", "42", "--body-chars", body_chars],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_request"
+    assert "body_chars" in output["message"]
 
 
 # -- resolve-thread --

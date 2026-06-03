@@ -87,6 +87,17 @@ class FakePRGateway(PRGateway):
             return PRLookupMiss()
         return pr
 
+    def get_pr(self, pr_number: int) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        if self._lookup_failure is not None:
+            return self._lookup_failure
+        for pr in self._prs_by_branch.values():
+            if pr.number == pr_number:
+                return pr
+        for pr in self._prs:
+            if pr.number == pr_number:
+                return pr
+        return PRLookupMiss(stderr=f"no PR found for PR {pr_number}", returncode=1)
+
     def search_prs(
         self, query: str, *, state: PRStateFilter
     ) -> tuple[PRSummary, ...] | PRGatewayFailure:

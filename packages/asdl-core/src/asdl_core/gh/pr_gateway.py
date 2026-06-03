@@ -11,6 +11,7 @@ from asdl_core.gh.real_gateway_helpers import (
     close_pr,
     create_pr_review,
     fetch_pr_summary_for_branch,
+    fetch_pr_summary_for_number,
     find_pr_discussion_comment_by_marker,
     get_pr_changed_files,
     get_pr_discussion_comments,
@@ -49,6 +50,10 @@ class PRGateway(ABC):
     @abstractmethod
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
         """Look up the PR for a branch."""
+
+    @abstractmethod
+    def get_pr(self, pr_number: int) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        """Look up a PR by number."""
 
     @abstractmethod
     def search_prs(
@@ -140,6 +145,9 @@ class RealPRGateway(PRGateway):
 
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
         return fetch_pr_summary_for_branch(branch, repo=self._repo)
+
+    def get_pr(self, pr_number: int) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        return fetch_pr_summary_for_number(pr_number, repo=self._repo)
 
     def search_prs(
         self, query: str, *, state: PRStateFilter

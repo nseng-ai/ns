@@ -44,6 +44,7 @@ def _invoke_json(
     fake: FakePRGateway,
     *,
     git_gateway: FakeGitGateway | None = None,
+    input_text: str | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = PrAddressCliContext(
@@ -58,6 +59,7 @@ def _invoke_json(
         cli_group,
         ["exec", op_name, "--format", "json", *rest],
         obj=_obj(ctx),
+        input=input_text,
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
@@ -476,6 +478,245 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
     assert data["is_resolved"] is True
     assert data["body"].startswith(PRE_EXISTING_REPLY)
     assert RESOLUTION_MARKER in data["body"]
+
+
+def test_resolve_thread_batch_resolves_mixed_payload_from_stdin(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    payload = {
+        "commit_sha": "abc1234",
+        "items": [
+            {
+                "thread_id": "PRRT_fixed",
+                "mode": "fixed",
+                "message": "Use the LBYL guard here.",
+            },
+            {
+                "thread_id": "PRRT_override",
+                "mode": "fixed",
+                "message": "Use the explicit override.",
+                "commit_sha": "def5678",
+            },
+            {
+                "thread_id": "PRRT_explained",
+                "mode": "explained",
+                "message": "This is part of the public contract.",
+            },
+            {"thread_id": "PRRT_old", "mode": "pre_existing"},
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch"],
+        fake,
+        input_text=json.dumps(payload),
+    )
+
+    assert exit_code == 0
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["total"] == 4
+    assert data["resolved"] == 4
+    assert data["failed"] == 0
+    assert data["skipped"] == 0
+    assert data["all_succeeded"] is True
+    assert [result["status"] for result in data["results"]] == [
+        "resolved",
+        "resolved",
+        "resolved",
+        "resolved",
+    ]
+    assert fake.resolved_thread_ids == (
+        "PRRT_fixed",
+        "PRRT_override",
+        "PRRT_explained",
+        "PRRT_old",
+    )
+    assert len(fake.thread_replies) == 4
+    assert "Fixed in commit abc1234: Use the LBYL guard here." in data["results"][0]["body"]
+    assert "Fixed in commit def5678: Use the explicit override." in data["results"][1]["body"]
+    assert "This is part of the public contract." in data["results"][2]["body"]
+    assert data["results"][3]["body"].startswith(PRE_EXISTING_REPLY)
+    assert all(RESOLUTION_MARKER in result["body"] for result in data["results"])
+
+
+def test_resolve_thread_batch_accepts_payload_json_option(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    payload = {
+        "commit_sha": "abc1234",
+        "items": [
+            {"thread_id": "PRRT_fixed", "mode": "fixed", "message": "Fixed it."},
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+    )
+
+    assert exit_code == 0
+    assert output["exit_code"] == 0
+    assert output["data"]["resolved"] == 1
+    assert fake.resolved_thread_ids == ("PRRT_fixed",)
+
+
+@pytest.mark.parametrize(
+    ("payload", "error_fragment"),
+    [
+        ({"items": []}, "at least one item"),
+        (
+            {
+                "items": [
+                    {"thread_id": "PRRT_dup", "mode": "pre_existing"},
+                    {"thread_id": "PRRT_dup", "mode": "pre_existing"},
+                ]
+            },
+            "Duplicate thread_id",
+        ),
+        (
+            {"items": [{"thread_id": "PRRT_fixed", "mode": "fixed", "commit_sha": "abc123"}]},
+            "message",
+        ),
+        (
+            {"items": [{"thread_id": "PRRT_fixed", "mode": "fixed", "message": "Fixed."}]},
+            "commit_sha",
+        ),
+        (
+            {"items": [{"thread_id": "PRRT_explained", "mode": "explained", "message": " "}]},
+            "message",
+        ),
+    ],
+)
+def test_resolve_thread_batch_rejects_invalid_payload_before_mutation(
+    cli_group: ClinkrGroup,
+    payload: dict[str, object],
+    error_fragment: str,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_request"
+    assert error_fragment in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+def test_resolve_thread_batch_rejects_empty_payload_before_mutation(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(cli_group, ["resolve-thread-batch"], fake, input_text="")
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_request"
+    assert "non-empty JSON payload" in output["message"]
+    assert fake.thread_replies == ()
+
+
+def test_resolve_thread_batch_rejects_malformed_json_before_mutation(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", "{"],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_json"
+    assert fake.thread_replies == ()
+
+
+class FailingThreadReplyGateway(FakePRGateway):
+    def add_review_thread_reply(self, thread_id: str, body: str) -> PRReviewComment:
+        if thread_id == "PRRT_fail":
+            raise RuntimeError("GitHub rejected the thread reply")
+        return super().add_review_thread_reply(thread_id, body)
+
+
+def test_resolve_thread_batch_gateway_failure_returns_partial_data_and_skips_by_default(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FailingThreadReplyGateway()
+    payload = {
+        "commit_sha": "abc1234",
+        "items": [
+            {"thread_id": "PRRT_ok", "mode": "fixed", "message": "Fixed."},
+            {"thread_id": "PRRT_fail", "mode": "fixed", "message": "Fails."},
+            {"thread_id": "PRRT_skip", "mode": "fixed", "message": "Skipped."},
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["exit_code"] == 1
+    assert "failed for 1 item" in output["message"]
+    data = output["data"]
+    assert data["resolved"] == 1
+    assert data["failed"] == 1
+    assert data["skipped"] == 1
+    assert [result["status"] for result in data["results"]] == ["resolved", "failed", "skipped"]
+    assert data["results"][1]["error_type"] == "gateway_error"
+    assert "GitHub rejected" in data["results"][1]["error_message"]
+    assert data["results"][2]["error_type"] == "skipped_after_failure"
+    assert fake.resolved_thread_ids == ("PRRT_ok",)
+    assert tuple(thread_id for thread_id, _body in fake.thread_replies) == ("PRRT_ok",)
+
+
+def test_resolve_thread_batch_continue_on_error_attempts_later_items(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FailingThreadReplyGateway()
+    payload = {
+        "commit_sha": "abc1234",
+        "continue_on_error": True,
+        "items": [
+            {"thread_id": "PRRT_ok", "mode": "fixed", "message": "Fixed."},
+            {"thread_id": "PRRT_fail", "mode": "fixed", "message": "Fails."},
+            {"thread_id": "PRRT_later", "mode": "fixed", "message": "Still attempted."},
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["exit_code"] == 1
+    data = output["data"]
+    assert data["resolved"] == 2
+    assert data["failed"] == 1
+    assert data["skipped"] == 0
+    assert [result["status"] for result in data["results"]] == ["resolved", "failed", "resolved"]
+    assert fake.resolved_thread_ids == ("PRRT_ok", "PRRT_later")
+    assert tuple(thread_id for thread_id, _body in fake.thread_replies) == (
+        "PRRT_ok",
+        "PRRT_later",
+    )
 
 
 def test_reply_to_review_posts_formatted_summary(

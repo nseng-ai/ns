@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 import click
 
 from asdl_core.clinkr.context import load_typed_context
@@ -11,14 +9,18 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRReviewComment
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_pr_address.cli.pr_address.reply_formatting import format_resolution_reply
+from asdl_pr_address.cli.pr_address.reply_formatting import (
+    ResolutionReplyMode,
+    format_resolution_reply,
+)
 
 
 class ResolveThreadWithReplyRequest(ClinkrModel):
     thread_id: str
-    mode: Literal["fixed", "pre_existing", "explained"]
+    mode: ResolutionReplyMode
     message: str | None
     commit_sha: str | None
 
@@ -39,6 +41,12 @@ def run_resolve_thread_with_reply(
     request: ResolveThreadWithReplyRequest,
 ) -> ClinkrExit[ResolveThreadWithReplyResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
+    return ClinkrExit.ok(resolve_thread_with_reply(pr_address_context.pr_gateway, request))
+
+
+def normalize_resolution_request(
+    request: ResolveThreadWithReplyRequest,
+) -> ResolveThreadWithReplyRequest:
     if request.mode == "fixed":
         Ensure.truthy(
             request.message and request.message.strip(),
@@ -57,22 +65,30 @@ def run_resolve_thread_with_reply(
             message="mode='explained' requires a non-empty message",
         )
 
-    normalized_message = request.message.strip() if request.message is not None else None
-    normalized_sha = request.commit_sha.strip() if request.commit_sha is not None else None
-
-    body = format_resolution_reply(
+    return ResolveThreadWithReplyRequest(
+        thread_id=request.thread_id,
         mode=request.mode,
-        message=normalized_message,
-        commit_sha=normalized_sha,
+        message=request.message.strip() if request.message is not None else None,
+        commit_sha=request.commit_sha.strip() if request.commit_sha is not None else None,
     )
 
-    comment = pr_address_context.pr_gateway.add_review_thread_reply(request.thread_id, body)
-    resolve_result = pr_address_context.pr_gateway.resolve_review_thread(request.thread_id)
-    return ClinkrExit.ok(
-        ResolveThreadWithReplyResult(
-            thread_id=resolve_result.thread_id,
-            body=body,
-            comment=comment,
-            is_resolved=resolve_result.is_resolved,
-        )
+
+def resolve_thread_with_reply(
+    pr_gateway: PRGateway,
+    request: ResolveThreadWithReplyRequest,
+) -> ResolveThreadWithReplyResult:
+    normalized = normalize_resolution_request(request)
+    body = format_resolution_reply(
+        mode=normalized.mode,
+        message=normalized.message,
+        commit_sha=normalized.commit_sha,
+    )
+
+    comment = pr_gateway.add_review_thread_reply(normalized.thread_id, body)
+    resolve_result = pr_gateway.resolve_review_thread(normalized.thread_id)
+    return ResolveThreadWithReplyResult(
+        thread_id=resolve_result.thread_id,
+        body=body,
+        comment=comment,
+        is_resolved=resolve_result.is_resolved,
     )

@@ -59,11 +59,11 @@ Or run the full suite from the repo root with `just`.
 
 The current operation set, by category:
 
-- **Feedback fetch / composite**: `get-feedback`, `prepare-run`,
-  `get-pr-for-branch`, `get-reviews`, `get-review-comments`,
-  `get-discussion-comments`
+- **Feedback fetch / composite**: `get-feedback`, `summarize-feedback`,
+  `prepare-run`, `get-pr-for-branch`, `get-reviews`,
+  `get-review-comments`, `get-discussion-comments`
 - **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
-  `unresolve-thread`, `add-review-thread-reply`
+  `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
 - **Replies / comments / reactions**: `reply-to-review`,
   `reply-to-discussion`, `add-issue-comment`, `add-reaction`
 
