@@ -195,11 +195,24 @@ def fetch_pr_summary_for_branch(
     branch: str, *, repo: str | None = None
 ) -> PRSummary | PRLookupMiss | PRGatewayFailure:
     """Shell out to ``gh pr view <branch>`` and return a ``PRSummary``."""
+    return _fetch_pr_summary(branch, repo=repo)
+
+
+def fetch_pr_summary_for_number(
+    pr_number: int, *, repo: str | None = None
+) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+    """Shell out to ``gh pr view <number>`` and return a ``PRSummary``."""
+    return _fetch_pr_summary(str(pr_number), repo=repo)
+
+
+def _fetch_pr_summary(
+    identifier: str, *, repo: str | None = None
+) -> PRSummary | PRLookupMiss | PRGatewayFailure:
     result = _run_gh(
         [
             "pr",
             "view",
-            branch,
+            identifier,
             "--json",
             _PR_SUMMARY_FIELDS,
         ],

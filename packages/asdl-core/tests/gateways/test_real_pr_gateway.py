@@ -219,6 +219,86 @@ def test_real_pr_gateway_returns_summary_with_head_ref_oid(
     ]
 
 
+def test_real_pr_gateway_get_pr_requests_pr_number_and_populates_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        _make_fake_run(pr_view_response=_summary_response(), calls=calls),
+    )
+
+    result = RealPRGateway().get_pr(47)
+
+    assert not isinstance(result, PRLookupMiss)
+    assert not isinstance(result, PRGatewayFailure)
+    assert result.number == 47
+    assert result.title == "Port pr-address skill"
+    assert result.head_ref_name == "feature"
+    assert calls == [["gh", "pr", "view", "47", "--json", _PR_SUMMARY_FIELDS]]
+
+
+def test_real_pr_gateway_get_pr_targets_explicit_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        _make_fake_run(pr_view_response=_summary_response(), calls=calls),
+    )
+
+    result = RealPRGateway(repo="octo/demo").get_pr(47)
+
+    assert not isinstance(result, PRLookupMiss)
+    assert calls == [
+        [
+            "gh",
+            "pr",
+            "view",
+            "47",
+            "--json",
+            _PR_SUMMARY_FIELDS,
+            "-R",
+            "octo/demo",
+        ]
+    ]
+
+
+def test_real_pr_gateway_get_pr_returns_lookup_miss_when_no_pr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        _make_fake_run(
+            pr_view_returncode=1,
+            pr_view_stderr="no pull request found for 404\n",
+        ),
+    )
+
+    result = RealPRGateway().get_pr(404)
+
+    assert isinstance(result, PRLookupMiss)
+    assert result.returncode == 1
+    assert "no pull request found" in result.stderr
+
+
+def test_real_pr_gateway_get_pr_returns_gateway_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        _make_fake_run(pr_view_returncode=4, pr_view_stderr="gh auth failed\n"),
+    )
+
+    result = RealPRGateway().get_pr(47)
+
+    assert isinstance(result, PRGatewayFailure)
+    assert result.returncode == 4
+    assert result.stderr == "gh auth failed"
+
+
 def test_real_pr_gateway_search_prs_requests_and_populates_head_ref_oid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

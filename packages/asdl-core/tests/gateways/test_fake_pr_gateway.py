@@ -74,6 +74,41 @@ def test_fake_pr_gateway_returns_lookup_miss_when_missing() -> None:
     assert result.returncode == 1
 
 
+def test_fake_pr_gateway_returns_seeded_pr_by_number_from_branch_index() -> None:
+    pr = _make_pr("OPEN")
+    fake = FakePRGateway(prs_by_branch={"feature": pr})
+
+    result = fake.get_pr(42)
+
+    assert result == pr
+
+
+def test_fake_pr_gateway_returns_seeded_pr_by_number_from_search_index() -> None:
+    pr = _make_pr("MERGED")
+    fake = FakePRGateway(prs=[pr])
+
+    result = fake.get_pr(42)
+
+    assert result == pr
+
+
+def test_fake_pr_gateway_get_pr_returns_lookup_miss_when_missing() -> None:
+    fake = FakePRGateway()
+
+    result = fake.get_pr(404)
+
+    assert isinstance(result, PRLookupMiss)
+    assert result.stderr == "no PR found for PR 404"
+    assert result.returncode == 1
+
+
+def test_fake_pr_gateway_lookup_failure_applies_to_get_pr() -> None:
+    failure = PRGatewayFailure(stderr="gh: command not found", returncode=4)
+    fake = FakePRGateway(lookup_failure=failure)
+
+    assert fake.get_pr(42) == failure
+
+
 def test_fake_pr_gateway_lookup_can_return_failure() -> None:
     failure = PRGatewayFailure(stderr="gh: command not found", returncode=4)
     fake = FakePRGateway(lookup_failure=failure)

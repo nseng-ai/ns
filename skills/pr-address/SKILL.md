@@ -126,6 +126,12 @@ out as noise by default).
 - returns `restructured_files` for moved/copied paths
 - returns any warnings that should be shown to the user before continuing
 
+For read-only stack triage where PR numbers are already known, use
+`<pr-address-runner> exec summarize-feedback <pr_number> --format json` to
+reduce token volume. Do not use it as a replacement for `prepare-run` in the
+current-branch workflow; it does not reopen contested threads or return
+restructured-file evidence.
+
 If the result has `found: false`, stop and report that there is no PR for the
 current branch.
 
@@ -310,15 +316,25 @@ Use the composite helpers for GitHub mutations. Read each helper's entry in
 `references/cli-reference.md` before calling it — do not guess the JSON
 shape:
 
-- `resolve-thread-with-reply` — reply to and resolve a thread
+- `resolve-thread-batch` — after a batch commit, reply to and resolve every
+  inline thread addressed by that commit in one JSON payload
+- `resolve-thread-with-reply` — one-off fallback for a single thread
 - `reply-to-review` — post a formatted reply to a PR-level review
 - `reply-to-discussion` — reply to a discussion comment with reaction
 
+For an approved batch that addresses multiple inline threads, commit first,
+then call `resolve-thread-batch` once with the batch commit SHA and one item
+per thread. Use `mode=fixed` for code changes, `mode=pre_existing` for
+moved/restructured pre-existing comments, and `mode=explained` for factual
+false-positive/already-fixed explanations.
+
 Common footguns (the reference is still the source of truth):
 
-- `resolve-thread-with-reply` takes `message` (not `reply_body` /
-  `comment` / `reply`), and `mode` must be one of `pre_existing`,
-  `fixed`, or `explained`. Anything else is rejected.
+- `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads
+  fail before mutation; gateway failures may return `exit_code: 1` with
+  partial result data.
+- `resolve-thread-with-reply` uses positional fields and `mode` must be one of
+  `pre_existing`, `fixed`, or `explained`. Anything else is rejected.
 
 Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
 and standard formatting.

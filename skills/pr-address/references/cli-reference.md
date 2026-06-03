@@ -12,15 +12,17 @@ All `pr-address exec <command> --format json` helpers:
 
 - Accept input as CLI options/arguments and produce the machine envelope
   `{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}`
-  on stdout. Successful runs set `exit_code: 0` and place the payload under
-  `data`. Failures set `exit_code: 2` with `error_type` and `message` (no
-  `data`).
+  on stdout.
+- Successful runs set `exit_code: 0` and place the payload under `data`.
+- Negative, non-fatal outcomes set `exit_code: 1`, include `message`, and may
+  include `data` with partial evidence.
+- Failures set `exit_code: 2` with `error_type` and `message` (no `data`).
 - Support `--json-schema` to print JSON schemas for input/output/error shapes and
   exit without running the operation.
 
 ```bash
 pr-address exec resolve-thread-with-reply \
-  --thread-id PRRT_kw... --mode fixed --format json
+  PRRT_kw... fixed "Updated the guard." abc1234 --format json
 ```
 
 ## ID scoping
@@ -97,20 +99,23 @@ When `data.found` is `false`, there is no PR for the current branch.
 
 Reply to and resolve a PR review thread with canonical pr-address formatting.
 
-**Input fields (all required):**
+**Positional input fields (all required):**
 
-| Field        | Description                                            |
-| ------------ | ------------------------------------------------------ |
-| `thread_id`  | GraphQL node ID (`PRRT_kw...`). No `pr_number` needed. |
-| `mode`       | `pre_existing`, `fixed`, or `explained` (see below)    |
-| `message`    | One-line description of what was done                  |
-| `commit_sha` | The commit SHA that addressed the feedback             |
+| Position | Field        | Description                                            |
+| -------- | ------------ | ------------------------------------------------------ |
+| 1        | `thread_id`  | GraphQL node ID (`PRRT_kw...`). No `pr_number` needed. |
+| 2        | `mode`       | `pre_existing`, `fixed`, or `explained` (see below)    |
+| 3        | `message`    | One-line description of what was done                  |
+| 4        | `commit_sha` | The commit SHA that addressed the feedback             |
 
 `mode` values:
 
-- `pre_existing` — moved/restructured bot comment, no code change
-- `fixed` — code change resolved by the current batch commit
-- `explained` — already-fixed case or false positive
+- `pre_existing` — moved/restructured bot comment, no code change. `message`
+  and `commit_sha` may be empty strings.
+- `fixed` — code change resolved by the current batch commit. Requires a
+  non-empty `message` and `commit_sha`.
+- `explained` — already-fixed case or false positive. Requires a non-empty
+  `message`; `commit_sha` may be an empty string.
 
 **Output fields (under `data`):**
 
@@ -126,9 +131,9 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 ```bash
 pr-address exec resolve-thread-with-reply \
   PRRT_kwDOR4YhMs57SeUg \
-  --mode fixed \
-  --message "Introduced DetachedHead frozen dataclass as a named sentinel." \
-  --commit-sha ac18f2b \
+  fixed \
+  "Introduced DetachedHead frozen dataclass as a named sentinel." \
+  ac18f2b \
   --format json
 ```
 
@@ -144,7 +149,102 @@ pr-address exec resolve-thread-with-reply \
 }
 ```
 
-On error: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
+On invalid input: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
+
+### `resolve-thread-batch`
+
+Reply to and resolve multiple PR review threads with canonical formatting.
+Use this after a batch commit instead of looping over
+`resolve-thread-with-reply` once per thread.
+
+**Invocation:** reads JSON from stdin by default. `--payload-json` is also
+available for direct/manual invocation.
+
+```bash
+printf '%s' '{"commit_sha":"abc1234","items":[{"thread_id":"PRRT_kw...","mode":"fixed","message":"Updated the guard."}]}' \
+  | pr-address exec resolve-thread-batch --format json
+```
+
+**Payload fields:**
+
+| Field               | Required | Description                                       |
+| ------------------- | -------- | ------------------------------------------------- |
+| `commit_sha`        | no       | Batch commit SHA used by `fixed` items            |
+| `continue_on_error` | no       | Attempt later items after a mutation failure      |
+| `items`             | yes      | Non-empty ordered array of thread resolution jobs |
+
+Each `items[]` entry:
+
+| Field        | Required | Description                                                     |
+| ------------ | -------- | --------------------------------------------------------------- |
+| `thread_id`  | yes      | GraphQL review-thread node ID                                   |
+| `mode`       | yes      | `fixed`, `pre_existing`, or `explained`                         |
+| `message`    | mode     | Required for `fixed` and `explained`; ignored by `pre_existing` |
+| `commit_sha` | no       | Item-level override for the top-level commit SHA                |
+
+Validation happens for the whole payload before any GitHub mutation. Duplicate
+`thread_id` values, empty `items`, malformed JSON, or missing required
+`message` / `commit_sha` produce `exit_code: 2` with no mutation.
+
+**Output fields (under `data`):**
+
+| Field           | Description                                      |
+| --------------- | ------------------------------------------------ |
+| `total`         | Number of input items                            |
+| `resolved`      | Number successfully replied-to and resolved      |
+| `failed`        | Number that hit a gateway/API mutation failure   |
+| `skipped`       | Number skipped after a failure                   |
+| `all_succeeded` | Whether every item succeeded                     |
+| `results`       | Ordered per-item results with status and details |
+
+Per-item `status` is `resolved`, `failed`, or `skipped`. Successful items carry
+`body`, `comment`, and `is_resolved`. Failed/skipped items carry
+`error_type`/`error_message`.
+
+Gateway/API mutation failures after validation return `exit_code: 1` with the
+partial result data. By default the command stops at the first failed item and
+marks later items skipped; with `continue_on_error: true`, it attempts later
+items and still returns `exit_code: 1` if any item failed.
+
+### `summarize-feedback`
+
+Fetch compact feedback evidence for a known PR number without dumping full raw
+review/discussion/comment JSON. This helper compresses source evidence only;
+it does not decide actionability, complexity, or batch membership.
+
+**Input fields:**
+
+| Field                   | Required | Description                                                                             |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `pr_number`             | yes      | PR number                                                                               |
+| `include_resolved`      | no       | Include resolved review threads in the returned `review_threads` array (default false)  |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
+| `body_chars`            | no       | Max characters per body excerpt, 1 through 4000 (default 320)                           |
+
+**Example:**
+
+```bash
+pr-address exec summarize-feedback 630 --format json
+```
+
+**Output fields (under `data`):**
+
+| Field                 | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `found`               | Whether the PR was found                                           |
+| `pr`                  | PR number/title/url/head/base/state metadata                       |
+| `counts`              | Review/thread/comment counts, including resolved/unresolved totals |
+| `reviews`             | Review ID, author, state, submitted time, compact body excerpts    |
+| `review_threads`      | Thread location/resolution state and first-comment excerpts        |
+| `discussion_comments` | Discussion comment excerpts plus mechanical source evidence        |
+
+Discussion comments include `source_kind` (`automation_like` or `human_like`)
+and `source_evidence` such as `bot_author`, `graphite_link`, `vercel_marker`,
+`roaster_marker`, or `asdl_reviewer_marker`. These are conservative mechanical
+signals only; when uncertain the helper reports `human_like`.
+
+If no PR is found, the JSON envelope uses `exit_code: 1` and `data.found=false`.
+Gateway/auth failures use `exit_code: 2`.
 
 ### `reply-to-review`
 
@@ -245,6 +345,7 @@ when the workflow requires it. Run `<command> --json-schema` for full schemas.
 | Command                   | Description                                                                                                                                                                                                                                           |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get-feedback`            | Fetch all PR feedback (reviews, threads, discussion comments) in a single batch. Empty-body `COMMENTED` / `APPROVED` reviews are filtered out by default; pass `--include-empty-reviews` (CLI) or `"include_empty_reviews": true` (JSON) to see them. |
+| `summarize-feedback`      | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                                                                                                |
 | `get-pr-for-branch`       | Look up the open PR for a branch                                                                                                                                                                                                                      |
 | `get-reviews`             | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                                                                                                 |
 | `get-review-comments`     | Fetch review threads for a PR                                                                                                                                                                                                                         |
@@ -253,4 +354,5 @@ when the workflow requires it. Run `<command> --json-schema` for full schemas.
 | `add-reaction`            | Add a reaction to a comment                                                                                                                                                                                                                           |
 | `add-review-thread-reply` | Post a reply comment on a PR review thread                                                                                                                                                                                                            |
 | `resolve-thread`          | Resolve a PR review thread by its GraphQL node ID                                                                                                                                                                                                     |
+| `resolve-thread-batch`    | Reply to and resolve multiple PR review threads from one JSON payload.                                                                                                                                                                                |
 | `unresolve-thread`        | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                                                                                                          |
