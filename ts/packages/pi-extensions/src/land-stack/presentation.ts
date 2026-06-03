@@ -246,11 +246,13 @@ export function formatFailedTarget(error: LandStackError): string {
 	return parts.join(" ") || "unknown";
 }
 
-export function formatSuccessNotification(
-	message: string,
-	details?: CommandStreamMessageDetails,
-	warnings: readonly LandingWarning[] = [],
-): string {
+export interface FormatSuccessNotificationOptions {
+	details?: CommandStreamMessageDetails | undefined;
+	warnings?: readonly LandingWarning[] | undefined;
+}
+
+export function formatSuccessNotification(message: string, options: FormatSuccessNotificationOptions = {}): string {
+	const { details, warnings = [] } = options;
 	const warningNotification = formatWarningSuccessNotification(warnings, details);
 	if (warningNotification !== undefined) return warningNotification;
 

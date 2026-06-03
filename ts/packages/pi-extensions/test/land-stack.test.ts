@@ -655,29 +655,31 @@ describe("land-stack pure helpers", () => {
 
 	test("formats success notifications with action-first warnings", () => {
 		const details = { prLinks: [{ number: 101, url: "https://github.example/pull/101" }] };
-		const successNotification = formatSuccessNotification("Landed 1 PR: #101 feature-a.\nRemote branches were not deleted.", details);
+		const successNotification = formatSuccessNotification("Landed 1 PR: #101 feature-a.\nRemote branches were not deleted.", { details });
 		expect(successNotification).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a");
 		expect(stripAnsi(successNotification)).toBe("Landed 1 PR: #101 feature-a.");
 
-		const linkedWarningAction = formatSuccessNotification("Landed 1 PR: #101 feature-a.", details, [
-			{ message: "Post-landing cleanup failed.", notificationAction: "Resolve PR #101 manually." },
-		]);
+		const linkedWarningAction = formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
+			details,
+			warnings: [{ message: "Post-landing cleanup failed.", notificationAction: "Resolve PR #101 manually." }],
+		});
 		expect(linkedWarningAction).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07");
 		expect(stripAnsi(linkedWarningAction)).toBe("Resolve PR #101 manually.");
 
 		expect(
-			formatSuccessNotification("Landed 1 PR: #101 feature-a.", undefined, [
-				{ message: "Post-landing cleanup failed.", suggestedAction: "Delete local branch feature-a manually." },
-			]),
+			formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
+				warnings: [{ message: "Post-landing cleanup failed.", suggestedAction: "Delete local branch feature-a manually." }],
+			}),
 		).toBe("Delete local branch feature-a manually.");
-		expect(formatSuccessNotification("Landed 1 PR: #101 feature-a.", undefined, [{ message: "Inspect the stack manually." }])).toBe(
+		expect(formatSuccessNotification("Landed 1 PR: #101 feature-a.", { warnings: [{ message: "Inspect the stack manually." }] })).toBe(
 			"Inspect the stack manually.",
 		);
 		expect(
 			stripAnsi(
-				formatSuccessNotification("Landed 1 PR: #101 feature-a.", details, [
-					{ level: "info", message: "Deferred optional maintenance.", suggestedAction: "Restack later." },
-				]),
+				formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
+					details,
+					warnings: [{ level: "info", message: "Deferred optional maintenance.", suggestedAction: "Restack later." }],
+				}),
 			),
 		).toBe("Landed 1 PR: #101 feature-a.");
 	});
