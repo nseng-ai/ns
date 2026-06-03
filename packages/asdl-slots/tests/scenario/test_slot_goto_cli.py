@@ -17,6 +17,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     WorktreeInfo,
+    WorktreeOccupancy,
 )
 from asdl_slots.cli.main import build_cli
 from asdl_slots.context import SlotsCliContext
@@ -60,6 +61,7 @@ def _fake_for_repo(
     worktrees: tuple[WorktreeInfo, ...] = (),
     current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
     file_status_by_path: dict[Path, FileStatus] | None = None,
+    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
     extra_existing: Iterable[Path] = (),
     clipboard_should_succeed: bool = True,
 ) -> _SlotFakes:
@@ -75,6 +77,7 @@ def _fake_for_repo(
         worktrees=worktrees,
         current_branch_by_path=current_branch_by_path,
         file_status_by_path=file_status_by_path,
+        operations_by_path=operations_by_path,
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
@@ -249,6 +252,38 @@ def test_slot_goto_no_clipboard_flag_skips_copy(cli_group: ClinkrGroup, tmp_path
     assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
+def test_slot_goto_detached_slot_with_rebase_occupancy_is_navigable(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-07")
+    branch_name = "mirror-asdl-dev-submit-into-pi"
+    fakes = _fake_for_repo(
+        tmp_path,
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch=branch_name,
+                operation="rebase",
+            ),
+        },
+    )
+    _seed_pool(fakes, slots_root, assignments=(), pool_size=7)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "-n", "7"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-07" in result.output
+    assert branch_name in result.output
+    assert "rebase in progress" in result.output
+    assert f"cd {slot_path}" in result.output
+    assert fakes.clipboard.last_copied == f"cd {slot_path}"
+
+
 def test_slot_goto_clipboard_failure_warns_but_succeeds(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
@@ -291,6 +326,7 @@ def test_slot_goto_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
     data = payload["data"]
     assert data["slot_name"] == "slot-01"
     assert data["branch_name"] == "feat/x"
+    assert data["operation"] is None
     assert data["worktree_path"] == str(worktree_path)
     assert data["cd_command"] == f"cd {worktree_path}"
     assert data["clipboard_copied"] is True
@@ -298,6 +334,40 @@ def test_slot_goto_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
     assert data["clipboard_failure_reason"] is None
     assert data["clipboard_failure_detail"] is None
     assert not directive_path.exists()
+
+
+def test_slot_goto_format_json_reports_rebase_occupancy(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_path = _slot_path(slots_root, "slot-07")
+    branch_name = "mirror-asdl-dev-submit-into-pi"
+    fakes = _fake_for_repo(
+        tmp_path,
+        operations_by_path={
+            slot_path: WorktreeOccupancy(
+                path=slot_path,
+                branch=branch_name,
+                operation="rebase",
+            ),
+        },
+    )
+    _seed_pool(fakes, slots_root, assignments=(), pool_size=7)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "--wt", "slot-07", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["slot_name"] == "slot-07"
+    assert data["branch_name"] == branch_name
+    assert data["operation"] == "rebase"
+    assert data["worktree_path"] == str(slot_path)
+    assert data["cd_command"] == f"cd {slot_path}"
 
 
 def test_slot_goto_schema(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -466,6 +536,7 @@ def test_slot_goto_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Pat
     data = payload["data"]
     assert data["slot_name"] == "slot-01"
     assert data["branch_name"] == "feat/x"
+    assert data["operation"] is None
     assert data["worktree_path"] == str(worktree_path)
     assert data["cd_command"] == f"cd {worktree_path}"
     assert data["clipboard_copied"] is True

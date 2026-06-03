@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Annotated
 
 import click
@@ -9,10 +10,11 @@ from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.git.git_gateway import GitGateway
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.cli.slot.selectors import SelectorOk, resolve_num, resolve_wt
 from asdl_slots.gateway.clipboard import ClipboardCopySuccess
-from asdl_slots.inventory import build_slot_inventory
+from asdl_slots.inventory import SlotRecord, build_slot_inventory
 from asdl_slots.repo_context import NoRepoSentinel
 from asdl_slots.shell_integration import write_cd_directive_if_active
 
@@ -29,6 +31,7 @@ class SlotGotoRequest(ClinkrModel):
 class SlotGotoResult(ClinkrModel):
     slot_name: str
     branch_name: str
+    operation: str | None = None
     worktree_path: str
     cd_command: str
     clipboard_copied: bool
@@ -39,8 +42,12 @@ class SlotGotoResult(ClinkrModel):
 
 def render_slot_goto(result: SlotGotoResult) -> None:
     console = get_console()
+    operation_suffix = ""
+    if result.operation is not None:
+        operation_suffix = f" [yellow]({result.operation} in progress)[/yellow]"
     console.print(
-        f"[bold cyan]{result.slot_name}[/bold cyan] -> [green]{result.branch_name}[/green]"
+        f"[bold cyan]{result.slot_name}[/bold cyan] -> "
+        f"[green]{result.branch_name}[/green]{operation_suffix}"
     )
     click.echo(result.cd_command)
     if result.clipboard_skipped:
@@ -50,6 +57,25 @@ def render_slot_goto(result: SlotGotoResult) -> None:
     else:
         detail = result.clipboard_failure_detail or "pbcopy failed"
         console.print(f"[dim]Clipboard unavailable ({detail})[/dim]")
+
+
+@dataclass(frozen=True)
+class _ResolvedSlotBranch:
+    branch_name: str
+    operation: str | None
+
+
+def _resolve_slot_branch(record: SlotRecord, git: GitGateway) -> _ResolvedSlotBranch | None:
+    if record.branch is not None:
+        return _ResolvedSlotBranch(branch_name=record.branch, operation=None)
+
+    occupancy = next(
+        (occ for occ in git.list_branch_occupancies() if occ.path == record.path),
+        None,
+    )
+    if occupancy is None:
+        return None
+    return _ResolvedSlotBranch(branch_name=occupancy.branch, operation=occupancy.operation)
 
 
 @clinkr_operation(
@@ -97,7 +123,13 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
         )
 
     record = inventory.find_by_slot(slot_name)
-    if record is None or record.branch is None:
+    if record is None:
+        raise ClinkrExit.negative(
+            message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
+        )
+
+    resolved_branch = _resolve_slot_branch(record, slots_ctx.git)
+    if resolved_branch is None:
         raise ClinkrExit.negative(
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
@@ -128,7 +160,8 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
     return ClinkrExit.ok(
         SlotGotoResult(
             slot_name=slot_name,
-            branch_name=record.branch,
+            branch_name=resolved_branch.branch_name,
+            operation=resolved_branch.operation,
             worktree_path=worktree_path,
             cd_command=cd_command,
             clipboard_copied=clipboard_copied,
