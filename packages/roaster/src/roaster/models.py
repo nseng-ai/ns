@@ -16,6 +16,8 @@ Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
 
 ReviewFormat = Literal["findings", "text"]
+ReviewScope = Literal["all", "ci", "local"]
+ReviewTarget = Literal["ci", "local"]
 
 
 @dataclass(frozen=True)
@@ -270,6 +272,17 @@ class HarnessDetection:
 
 
 @dataclass(frozen=True)
+class ReviewMetadata:
+    """Metadata parsed from a markdown review definition frontmatter."""
+
+    key: str
+    description: str
+    default_model: str | None
+    scope: ReviewScope
+    when_changed: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ReviewDefinition:
     """Parsed markdown definition of a reviewer."""
 
@@ -277,6 +290,8 @@ class ReviewDefinition:
     description: str
     instructions: str
     default_model: str | None
+    scope: ReviewScope = "all"
+    when_changed: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -289,11 +304,19 @@ class ReviewSource:
 
 
 @dataclass(frozen=True)
-class ReviewCatalog:
+class ReviewKeyCatalog:
     """Catalog of markdown review keys available in the environment."""
 
     reviews_dir: Path
     keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ReviewCatalog:
+    """Catalog of markdown review metadata available in the environment."""
+
+    reviews_dir: Path
+    reviews: tuple[ReviewMetadata, ...]
 
 
 @dataclass(frozen=True)
@@ -302,6 +325,95 @@ class LocalDiff:
 
     base_ref: str
     diff_text: str
+    changed_paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class MatchedReview:
+    """Review selected for a diff after target and changed-path filtering."""
+
+    key: str
+    description: str
+    default_model: str | None
+    scope: ReviewScope
+    when_changed: tuple[str, ...]
+    matched_paths: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SkippedReview:
+    """Review skipped for a diff after target filtering."""
+
+    key: str
+    description: str
+    default_model: str | None
+    scope: ReviewScope
+    when_changed: tuple[str, ...]
+    skip_reason: str
+
+
+class MatchingReviewSelectionResult(ClinkrModel):
+    """Result of selecting target-eligible reviews for a local diff."""
+
+    target: ReviewTarget | None
+    base_ref: str
+    changed_paths: tuple[str, ...]
+    selected_reviews: tuple[MatchedReview, ...]
+    skipped_reviews: tuple[SkippedReview, ...]
+
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
+        return {
+            "target": self.target,
+            "base_ref": self.base_ref,
+            "changed_paths": list(self.changed_paths),
+            "changed_path_count": len(self.changed_paths),
+            "selected_reviews": [
+                _matched_review_to_json(review) for review in self.selected_reviews
+            ],
+            "selected_count": len(self.selected_reviews),
+            "skipped_reviews": [_skipped_review_to_json(review) for review in self.skipped_reviews],
+            "skipped_count": len(self.skipped_reviews),
+        }
+
+
+def review_metadata_to_json(review: ReviewMetadata) -> dict[str, Any]:
+    """Serialize review metadata for public JSON output."""
+    return {
+        "key": review.key,
+        "scope": review.scope,
+        "description": review.description,
+        "default_model": review.default_model,
+        "when_changed": list(review.when_changed),
+    }
+
+
+def _matched_review_to_json(review: MatchedReview) -> dict[str, Any]:
+    payload = review_metadata_to_json(
+        ReviewMetadata(
+            key=review.key,
+            description=review.description,
+            default_model=review.default_model,
+            scope=review.scope,
+            when_changed=review.when_changed,
+        )
+    )
+    payload["matched_paths"] = list(review.matched_paths)
+    return payload
+
+
+def _skipped_review_to_json(review: SkippedReview) -> dict[str, Any]:
+    payload = review_metadata_to_json(
+        ReviewMetadata(
+            key=review.key,
+            description=review.description,
+            default_model=review.default_model,
+            scope=review.scope,
+            when_changed=review.when_changed,
+        )
+    )
+    payload["skip_reason"] = review.skip_reason
+    return payload
 
 
 @dataclass(frozen=True)
@@ -413,6 +525,7 @@ class LocalReviewResult(ClinkrModel):
 
     review_name: str
     review_path: str
+    review_scope: ReviewScope
     model: str
     base_ref: str
     payload: ReviewPayload
@@ -424,6 +537,7 @@ class LocalReviewResult(ClinkrModel):
         return {
             "review_name": self.review_name,
             "review_path": self.review_path,
+            "review_scope": self.review_scope,
             "model": self.model,
             "base_ref": self.base_ref,
             "usage": serialize_to_json_dict(self.usage) if self.usage else None,

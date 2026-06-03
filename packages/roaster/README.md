@@ -27,13 +27,18 @@ roaster review run demo
 roaster harness list        # detect known harnesses on PATH
 roaster harness show        # print which harness would be used
 
-roaster review list         # enumerate reviews/**/*.md as keys
-roaster review run <key>    # resolve reviews/<key>.md, run it, print findings
+roaster review list                  # list every reviews/**/*.md entry
+roaster review list --target ci      # list reviews eligible for CI discovery
+roaster review list-matching --target ci
+                                     # list CI reviews whose when_changed rules match
+roaster review run <key>             # resolve reviews/<key>.md, run it, print findings
 ```
 
 Every operation also has a JSON form for machine consumers:
 
 ```bash
+roaster review list --target ci --format json
+roaster review list-matching --target ci --format json
 roaster review run dignified-python --format json
 roaster harness list --format json
 ```
@@ -72,6 +77,9 @@ after the closing `---` fence becomes the reviewer's instructions.
 ---
 description: Review Python diffs for violations of the team's dignified Python standards.
 default_model: sonnet
+scope: all
+when_changed:
+  - "**/*.py"
 ---
 
 Concrete rules for the model. The adapter wraps these with a prompt that
@@ -85,9 +93,18 @@ Required frontmatter fields:
 Optional frontmatter fields:
 
 - `default_model` — used when the `--model` flag is not passed.
+- `scope` — discovery eligibility: `all` (default), `ci`, or `local`.
+  `--target ci` includes `all` + `ci`; `--target local` includes `all` +
+  `local`. Scope affects discovery only; `roaster review run <key>` still runs
+  any explicitly named review.
+- `when_changed` — non-empty list of git path globs. `review list-matching`
+  selects a target-eligible review only when at least one changed path matches.
+  Omit it for reviews that should match any diff.
 
-The markdown body (after the closing fence) is required and becomes the
-reviewer's `instructions`.
+The markdown body (after the closing fence) is required for `review run` and
+becomes the reviewer's `instructions`. Listing commands parse frontmatter only,
+so a local-only review body problem does not break CI discovery when its
+metadata excludes it from CI.
 
 ## Finding schema
 
@@ -112,6 +129,11 @@ In findings mode, the harness returns structured output of this shape:
 passed.
 
 ## PR comments in CI
+
+The roaster CI workflow discovers work with
+`roaster review list-matching --target ci --format json`, so local-only reviews
+are never added to the CI matrix and `when_changed` rules still avoid unrelated
+review runs.
 
 The roaster CI workflow keeps the summary comment as the complete aggregate
 record for every finding. When GitHub can place a finding on a concrete PR diff

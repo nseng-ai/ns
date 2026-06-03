@@ -13,16 +13,26 @@ from roaster.models import (
     FindingsReview,
     LocalDiff,
     LocalReviewResult,
+    MatchingReviewSelectionResult,
     ModelNotSupportedByHarness,
+    ReviewCatalog,
     ReviewExecutionResponse,
     ReviewFormat,
     RoasterFailure,
 )
-from roaster.workflow import ENV_HARNESS, run_review_by_key
+from roaster.workflow import ENV_HARNESS, list_matching_reviews, list_reviews, run_review_by_key
 
 REVIEW_KEY = "dignified-python"
 SAMPLE_SOURCE = (
-    "---\ndescription: Review Python diffs.\ndefault_model: sonnet\n---\n\nFlag concrete issues.\n"
+    "---\n"
+    "description: Review Python diffs.\n"
+    "default_model: sonnet\n"
+    "scope: all\n"
+    "when_changed:\n"
+    "  - '**/*.py'\n"
+    "---\n"
+    "\n"
+    "Flag concrete issues.\n"
 )
 
 
@@ -51,6 +61,7 @@ def _fakes(
         default_diff=LocalDiff(
             base_ref="master",
             diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            changed_paths=("app.py",),
         ),
     )
     harness_runtime = FakeHarnessRuntime(
@@ -92,11 +103,14 @@ def test_runs_end_to_end_auto_selecting_single_detected_harness() -> None:
     assert isinstance(result, LocalReviewResult)
     assert result.review_name == REVIEW_KEY
     assert result.model == "sonnet"
+    assert result.review_scope == "all"
     assert result.base_ref == "master"
     executed = fakes.harness_runtime.executed_requests[0]
     assert executed.harness_name == "claude-code"
     assert executed.review_definition.name == REVIEW_KEY
     assert executed.review_definition.description == "Review Python diffs."
+    assert executed.review_definition.scope == "all"
+    assert executed.review_definition.when_changed == ("**/*.py",)
     assert executed.review_definition.instructions == "Flag concrete issues."
     assert executed.local_diff.base_ref == "master"
     assert "diff --git a/app.py b/app.py" in executed.local_diff.diff_text
@@ -195,3 +209,146 @@ def test_unsupported_default_model_failure_propagates_after_harness_selection() 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "model_not_supported_by_harness"
     assert fakes.harness_runtime.executed_requests[0].model == "gpt-5-mini"
+
+
+def _source(
+    *,
+    description: str = "Review diffs.",
+    scope: str = "all",
+    when_changed: tuple[str, ...] = (),
+    instructions: str = "Flag concrete issues.",
+) -> str:
+    when_changed_lines = ""
+    if when_changed:
+        when_changed_lines = "when_changed:\n" + "".join(
+            f"  - '{pattern}'\n" for pattern in when_changed
+        )
+    return (
+        "---\n"
+        f"description: {description}\n"
+        "default_model: haiku\n"
+        f"scope: {scope}\n"
+        f"{when_changed_lines}"
+        "---\n"
+        "\n"
+        f"{instructions}\n"
+    )
+
+
+def test_list_reviews_filters_by_ci_target() -> None:
+    catalog = FakeReviewCatalogGateway(
+        review_sources_by_key={
+            "all-review": _source(scope="all"),
+            "ci-review": _source(scope="ci"),
+            "local-review": _source(scope="local"),
+        }
+    )
+
+    result = list_reviews(requested_target="ci", catalog=catalog)
+
+    assert isinstance(result, ReviewCatalog)
+    assert tuple(review.key for review in result.reviews) == ("all-review", "ci-review")
+
+
+def test_list_reviews_filters_by_local_target() -> None:
+    catalog = FakeReviewCatalogGateway(
+        review_sources_by_key={
+            "all-review": _source(scope="all"),
+            "ci-review": _source(scope="ci"),
+            "local-review": _source(scope="local"),
+        }
+    )
+
+    result = list_reviews(requested_target="local", catalog=catalog)
+
+    assert isinstance(result, ReviewCatalog)
+    assert tuple(review.key for review in result.reviews) == ("all-review", "local-review")
+
+
+def test_list_matching_reviews_filters_target_before_when_changed() -> None:
+    catalog = FakeReviewCatalogGateway(
+        review_sources_by_key={
+            "python-review": _source(scope="all", when_changed=("**/*.py",)),
+            "typescript-review": _source(scope="all", when_changed=("**/*.ts",)),
+            "local-deep-review": _source(scope="local"),
+        }
+    )
+    diff = FakeLocalDiffGateway(
+        default_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            changed_paths=("app.py",),
+        )
+    )
+
+    result = list_matching_reviews(
+        requested_base_ref=None,
+        requested_target="ci",
+        catalog=catalog,
+        diff=diff,
+    )
+
+    assert isinstance(result, MatchingReviewSelectionResult)
+    assert tuple(review.key for review in result.selected_reviews) == ("python-review",)
+    assert tuple(review.key for review in result.skipped_reviews) == ("typescript-review",)
+    assert result.selected_reviews[0].scope == "all"
+    assert result.selected_reviews[0].matched_paths == ("app.py",)
+
+
+def test_list_matching_reviews_local_target_includes_local_and_all_reviews() -> None:
+    catalog = FakeReviewCatalogGateway(
+        review_sources_by_key={
+            "python-review": _source(scope="all", when_changed=("**/*.py",)),
+            "ci-only-review": _source(scope="ci"),
+            "local-deep-review": _source(scope="local"),
+        }
+    )
+    diff = FakeLocalDiffGateway(
+        default_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            changed_paths=("app.py",),
+        )
+    )
+
+    result = list_matching_reviews(
+        requested_base_ref=None,
+        requested_target="local",
+        catalog=catalog,
+        diff=diff,
+    )
+
+    assert isinstance(result, MatchingReviewSelectionResult)
+    assert tuple(review.key for review in result.selected_reviews) == (
+        "local-deep-review",
+        "python-review",
+    )
+    assert result.skipped_reviews == ()
+
+
+def test_local_only_empty_body_does_not_break_ci_matching_discovery() -> None:
+    catalog = FakeReviewCatalogGateway(
+        review_sources_by_key={
+            "ci-review": _source(scope="ci", when_changed=("**/*.py",)),
+            "local-broken-body": (
+                "---\ndescription: Local review.\ndefault_model: opus\nscope: local\n---\n"
+            ),
+        }
+    )
+    diff = FakeLocalDiffGateway(
+        default_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            changed_paths=("app.py",),
+        )
+    )
+
+    result = list_matching_reviews(
+        requested_base_ref=None,
+        requested_target="ci",
+        catalog=catalog,
+        diff=diff,
+    )
+
+    assert isinstance(result, MatchingReviewSelectionResult)
+    assert tuple(review.key for review in result.selected_reviews) == ("ci-review",)

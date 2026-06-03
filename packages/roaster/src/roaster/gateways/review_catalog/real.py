@@ -8,10 +8,10 @@ from pathlib import Path
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
 from roaster.git_toplevel import git_toplevel
 from roaster.models import (
-    ReviewCatalog,
     ReviewDefinitionNotAFile,
     ReviewDefinitionNotFound,
     ReviewDefinitionReadError,
+    ReviewKeyCatalog,
     ReviewKeyInvalid,
     ReviewKeyResolutionFailed,
     ReviewsDirMissing,
@@ -57,7 +57,7 @@ class RealReviewCatalogGateway(ReviewCatalogGateway):
 
         return ReviewSource(key=review_path_result.key, path=path, source=source)
 
-    def list_review_keys(self) -> ReviewCatalog | RoasterFailure:
+    def list_review_keys(self) -> ReviewKeyCatalog | RoasterFailure:
         reviews_dir = self._reviews_dir()
         if not reviews_dir.exists():
             return ReviewsDirMissing(
@@ -76,7 +76,7 @@ class RealReviewCatalogGateway(ReviewCatalogGateway):
                 continue
             relative = md_path.relative_to(reviews_dir)
             keys.append(relative.with_suffix("").as_posix())
-        return ReviewCatalog(reviews_dir=reviews_dir, keys=tuple(keys))
+        return ReviewKeyCatalog(reviews_dir=reviews_dir, keys=tuple(keys))
 
     def _repo_root(self) -> Path:
         return git_toplevel(cwd=self._cwd)

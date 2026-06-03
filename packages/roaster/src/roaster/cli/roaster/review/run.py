@@ -65,6 +65,7 @@ class ReviewRunRequest(ClinkrModel):
 def render_review_run(result: LocalReviewResult) -> None:
     """Render review output for the human CLI."""
     click.echo(f"Reviewer: {result.review_name}")
+    click.echo(f"Scope: {result.review_scope}")
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
 
