@@ -22,6 +22,13 @@ class _TimestamplessBranchMemoryGateway(FakeBranchMemoryGateway):
         return None
 
 
+class _TimestamplessDeletedBranchMemoryGateway(FakeBranchMemoryGateway):
+    def get_entry_updated_at(self, namespace: str, key: str, branch: str) -> str | None:
+        if branch == "feat/deleted":
+            return None
+        return super().get_entry_updated_at(namespace, key, branch)
+
+
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
     return build_cli()
@@ -70,11 +77,12 @@ def test_handoff_version(cli_group: ClinkrGroup) -> None:
     assert "0.1.0" in result.output
 
 
-def test_handoff_list_help_uses_all_flag(cli_group: ClinkrGroup) -> None:
+def test_handoff_list_help_uses_all_and_include_deleted_flags(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["list", "-h"])
 
     assert result.exit_code == 0
     assert "--all" in result.output
+    assert "--include-deleted" in result.output
     assert "--all-branches" not in result.output
 
 
@@ -130,7 +138,33 @@ def test_handoff_list_explicit_branch_bypasses_current_branch(cli_group: ClinkrG
     assert "ago" in result.output or "just now" in result.output
 
 
-def test_handoff_list_all_branches(cli_group: ClinkrGroup) -> None:
+def test_handoff_list_explicit_deleted_branch_requires_include_deleted(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "stale.md", "feat/deleted", "stale")
+
+    hidden = CliRunner().invoke(
+        cli_group,
+        ["list", "--branch", "feat/deleted"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead()),
+        terminal_width=120,
+    )
+    shown = CliRunner().invoke(
+        cli_group,
+        ["list", "--branch", "feat/deleted", "--include-deleted"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead()),
+        terminal_width=120,
+    )
+
+    assert hidden.exit_code == 0, hidden.output
+    assert hidden.output == "No saved handoffs found on branch feat/deleted.\n"
+    assert shown.exit_code == 0, shown.output
+    assert "Handoffs on feat/deleted" in shown.output
+    assert "stale" in shown.output
+
+
+def test_handoff_list_all_branches_defaults_to_active_branches(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("handoffs", "bravo.md", "feat/b", "bravo")
     gateway.put("handoffs", "charlie.md", "feat/a", "charlie")
@@ -144,7 +178,37 @@ def test_handoff_list_all_branches(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
+    assert "Handoffs across active branches" in result.output
+    assert "Branch" in result.output
+    assert "State" in result.output
+    assert "Handoff" in result.output
+    assert "Updated" in result.output
+    assert "feat/a" in result.output
+    assert "feat/b" not in result.output
+    assert "active" in result.output
+    assert "deleted" not in result.output
+    assert "alpha" in result.output
+    assert "charlie" in result.output
+    assert "bravo" not in result.output
+    assert "ago" in result.output or "just now" in result.output
+
+
+def test_handoff_list_all_branches_can_include_deleted_branches(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "bravo.md", "feat/b", "bravo")
+    gateway.put("handoffs", "charlie.md", "feat/a", "charlie")
+    gateway.put("handoffs", "alpha.md", "feat/a", "alpha")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--all", "--include-deleted"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead(), branches=("feat/a",)),
+        terminal_width=120,
+    )
+
+    assert result.exit_code == 0, result.output
     assert "Handoffs across branches" in result.output
+    assert "Handoffs across active branches" not in result.output
     assert "Branch" in result.output
     assert "State" in result.output
     assert "Handoff" in result.output
@@ -194,7 +258,7 @@ def test_handoff_markdown_list_all_branches_sorts_by_branch_then_newest(
 
     result = CliRunner().invoke(
         cli_group,
-        ["list", "--all", "--format", "markdown"],
+        ["list", "--all", "--include-deleted", "--format", "markdown"],
         obj=_make_obj(gateway=gateway, branch=DetachedHead(), branches=("feat/a",)),
     )
 
@@ -210,7 +274,9 @@ def test_handoff_markdown_list_all_branches_sorts_by_branch_then_newest(
     ]
 
 
-def test_handoff_json_list_all_branches(cli_group: ClinkrGroup) -> None:
+def test_handoff_json_list_all_branches_defaults_to_active_branches(
+    cli_group: ClinkrGroup,
+) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("handoffs", "alpha.md", "feat/a", "alpha")
     gateway.put("handoffs", "bravo.md", "feat/b", "bravo")
@@ -227,6 +293,40 @@ def test_handoff_json_list_all_branches(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "scope": "all-branches",
         "branch": None,
+        "include_deleted": False,
+        "handoffs": [
+            {
+                "branch": "feat/a",
+                "branch_state": "active",
+                "slug": "alpha",
+                "key": "alpha.md",
+                "entry_locator": "refs/brmem/ns/handoffs/feat---a:alpha.md",
+                "updated_at": "2026-01-01T00:00:01+00:00",
+            },
+        ],
+    }
+
+
+def test_handoff_json_list_all_branches_can_include_deleted_branches(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "alpha.md", "feat/a", "alpha")
+    gateway.put("handoffs", "bravo.md", "feat/b", "bravo")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--all", "--include-deleted", "--format", "json"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead(), branches=("feat/a",)),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "scope": "all-branches",
+        "branch": None,
+        "include_deleted": True,
         "handoffs": [
             {
                 "branch": "feat/a",
@@ -279,16 +379,41 @@ def test_handoff_list_fails_when_updated_timestamp_is_unavailable(
     assert "alpha" in payload["message"]
 
 
+def test_handoff_list_all_skips_deleted_entries_before_loading_timestamps(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _TimestamplessDeletedBranchMemoryGateway()
+    gateway.put("handoffs", "live.md", "feat/live", "live")
+    gateway.put("handoffs", "stale.md", "feat/deleted", "stale")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--all", "--format", "json"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead(), branches=("feat/live",)),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert [handoff["slug"] for handoff in payload["data"]["handoffs"]] == ["live"]
+
+
 def test_handoff_list_empty_returns_message(cli_group: ClinkrGroup) -> None:
     current = CliRunner().invoke(cli_group, ["list"], obj=_make_obj())
-    all_branches = CliRunner().invoke(
+    all_active_branches = CliRunner().invoke(
         cli_group,
         ["list", "--all"],
+        obj=_make_obj(branch=DetachedHead()),
+    )
+    all_branches = CliRunner().invoke(
+        cli_group,
+        ["list", "--all", "--include-deleted"],
         obj=_make_obj(branch=DetachedHead()),
     )
 
     assert current.exit_code == 0, current.output
     assert current.output == "No saved handoffs found on branch feat/x.\n"
+    assert all_active_branches.exit_code == 0, all_active_branches.output
+    assert all_active_branches.output == "No saved handoffs found across active branches.\n"
     assert all_branches.exit_code == 0, all_branches.output
     assert all_branches.output == "No saved handoffs found across branches.\n"
 
@@ -298,7 +423,7 @@ def test_handoff_list_rejects_detached_head_when_branch_omitted(
 ) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["list"],
+        ["list", "--include-deleted"],
         obj=_make_obj(branch=DetachedHead()),
     )
 
@@ -329,7 +454,7 @@ def test_handoff_list_surfaces_git_failure_when_branch_omitted(
 def test_handoff_list_branch_and_all_conflict(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["list", "--branch", "feat/x", "--all", "--format", "json"],
+        ["list", "--branch", "feat/x", "--all", "--include-deleted", "--format", "json"],
         obj=_make_obj(),
     )
     payload = _json_output(result.output)

@@ -31,6 +31,8 @@ def collect_handoff_summaries(
     entries: list[EntryRef],
     brmem_gateway: BranchMemoryGateway,
     git_gateway: GitGateway,
+    *,
+    include_deleted: bool = True,
 ) -> list[HandoffSummary]:
     handoffs: list[tuple[HandoffSummary, datetime]] = []
     branch_states: dict[str, BranchState] = {}
@@ -44,6 +46,10 @@ def collect_handoff_summaries(
         if identity in seen:
             continue
         seen.add(identity)
+
+        branch_state = _branch_state(entry.branch, git_gateway, branch_states)
+        if branch_state == "deleted" and not include_deleted:
+            continue
 
         slug = _handoff_slug(entry.key)
         updated_at = brmem_gateway.get_entry_updated_at(entry.namespace, entry.key, entry.branch)
@@ -61,7 +67,7 @@ def collect_handoff_summaries(
             (
                 HandoffSummary(
                     branch=entry.branch,
-                    branch_state=_branch_state(entry.branch, git_gateway, branch_states),
+                    branch_state=branch_state,
                     slug=slug,
                     key=entry.key,
                     entry_locator=entry.entry_locator,

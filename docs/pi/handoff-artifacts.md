@@ -107,7 +107,16 @@ Handoff                  Updated
 address-review-feedback  2h ago
 ```
 
-All-branch listing should keep branch context and local branch state visible while avoiding storage details:
+All-branch listing defaults to active local branches and should keep branch context and local branch state visible while avoiding storage details:
+
+```text
+Handoffs across active branches
+
+Branch          State   Handoff                    Updated
+feature/review  active  address-review-feedback    2h ago
+```
+
+When the user opts into deleted-branch recovery with `handoff list --all --include-deleted`, include deleted local branches and keep their state visible:
 
 ```text
 Handoffs across branches
@@ -117,7 +126,7 @@ feature/review  active   address-review-feedback    2h ago
 feature/docs    deleted  document-handoff-surface   5d ago
 ```
 
-Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `handoff list --format markdown` emits a pipe table; `handoff list --format json` includes exact `updated_at` timestamps and `branch_state` values for agents and scripts.
+Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `handoff list --format markdown` emits a pipe table; `handoff list --format json` includes exact `updated_at` timestamps, the selected `include_deleted` filter, and `branch_state` values for agents and scripts.
 
 ## Current commands and skills
 
@@ -169,6 +178,8 @@ Useful recovery commands:
 handoff list --branch <branch>
 handoff list --all
 handoff list --all --format json
+handoff list --all --include-deleted
+handoff list --all --include-deleted --format json
 handoff gc --dry-run
 brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
 ```
