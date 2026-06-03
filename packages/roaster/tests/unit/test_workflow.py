@@ -13,12 +13,13 @@ from roaster.models import (
     FindingsReview,
     LocalDiff,
     LocalReviewResult,
+    MatchingReviewBatchResult,
     ModelNotSupportedByHarness,
     ReviewExecutionResponse,
     ReviewFormat,
     RoasterFailure,
 )
-from roaster.workflow import ENV_HARNESS, run_review_by_key
+from roaster.workflow import ENV_HARNESS, run_matching_reviews, run_review_by_key
 
 REVIEW_KEY = "dignified-python"
 SAMPLE_SOURCE = (
@@ -38,6 +39,7 @@ def _fakes(
     review_sources_by_key: dict[str, str] | None = None,
     paths_by_binary: dict[str, str] | None = None,
     default_response: ReviewExecutionResponse | RoasterFailure | None = None,
+    default_diff: LocalDiff | None = None,
 ) -> _Fakes:
     if review_sources_by_key is None:
         review_sources_by_key = {REVIEW_KEY: SAMPLE_SOURCE}
@@ -48,9 +50,11 @@ def _fakes(
         reviews_dir=Path("/repo/reviews"),
     )
     diff = FakeLocalDiffGateway(
-        default_diff=LocalDiff(
+        default_diff=default_diff
+        or LocalDiff(
             base_ref="master",
             diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            changed_paths=("app.py",),
         ),
     )
     harness_runtime = FakeHarnessRuntime(
@@ -74,6 +78,27 @@ def _run(
         fakes = _fakes()
     return run_review_by_key(
         key=key,
+        requested_model=requested_model,
+        requested_base_ref=requested_base_ref,
+        requested_harness=requested_harness,
+        requested_format=requested_format,
+        catalog=fakes.catalog,
+        diff=fakes.diff,
+        harness_runtime=fakes.harness_runtime,
+    )
+
+
+def _run_matching(
+    *,
+    requested_model: str | None = None,
+    requested_base_ref: str | None = None,
+    requested_harness: str | None = None,
+    requested_format: ReviewFormat = "findings",
+    fakes: _Fakes | None = None,
+) -> MatchingReviewBatchResult | RoasterFailure:
+    if fakes is None:
+        fakes = _fakes()
+    return run_matching_reviews(
         requested_model=requested_model,
         requested_base_ref=requested_base_ref,
         requested_harness=requested_harness,
@@ -172,6 +197,76 @@ def test_format_is_threaded_onto_semantic_harness_request() -> None:
 
     executed = fakes.harness_runtime.executed_requests[0]
     assert executed.review_format == "text"
+
+
+def test_run_matching_reviews_selects_only_reviews_matching_changed_paths() -> None:
+    python_source = (
+        "---\n"
+        "description: Review Python diffs.\n"
+        "default_model: sonnet\n"
+        "when_changed:\n"
+        "  - '**/*.py'\n"
+        "---\n"
+        "\n"
+        "Flag Python issues.\n"
+    )
+    ts_source = (
+        "---\n"
+        "description: Review TypeScript diffs.\n"
+        "default_model: haiku\n"
+        "when_changed:\n"
+        "  - '**/*.ts'\n"
+        "---\n"
+        "\n"
+        "Flag TypeScript issues.\n"
+    )
+    fakes = _fakes(
+        review_sources_by_key={"dignified-python": python_source, "typescript-style": ts_source},
+        default_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/src/app.ts b/src/app.ts\n+const x = 1;\n",
+            changed_paths=("src/app.ts",),
+        ),
+    )
+
+    result = _run_matching(fakes=fakes)
+
+    assert isinstance(result, MatchingReviewBatchResult)
+    assert [review.key for review in result.selected_reviews] == ["typescript-style"]
+    assert [review.key for review in result.skipped_reviews] == ["dignified-python"]
+    assert [review.review_name for review in result.results] == ["typescript-style"]
+    assert len(fakes.harness_runtime.executed_requests) == 1
+    assert fakes.harness_runtime.executed_requests[0].review_definition.name == "typescript-style"
+    assert fakes.harness_runtime.executed_requests[0].model == "haiku"
+
+
+def test_run_matching_reviews_returns_noop_result_when_no_reviews_match() -> None:
+    source = (
+        "---\n"
+        "description: Review Python diffs.\n"
+        "default_model: sonnet\n"
+        "when_changed:\n"
+        "  - '**/*.py'\n"
+        "---\n"
+        "\n"
+        "Flag Python issues.\n"
+    )
+    fakes = _fakes(
+        review_sources_by_key={REVIEW_KEY: source},
+        default_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/src/app.ts b/src/app.ts\n+const x = 1;\n",
+            changed_paths=("src/app.ts",),
+        ),
+    )
+
+    result = _run_matching(fakes=fakes)
+
+    assert isinstance(result, MatchingReviewBatchResult)
+    assert result.selected_reviews == ()
+    assert [review.key for review in result.skipped_reviews] == [REVIEW_KEY]
+    assert result.results == ()
+    assert fakes.harness_runtime.executed_requests == ()
 
 
 def test_unsupported_default_model_failure_propagates_after_harness_selection() -> None:

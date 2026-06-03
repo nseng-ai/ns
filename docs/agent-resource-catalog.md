@@ -11,7 +11,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
 | First-party skill commands               |    42 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    22 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| Project Pi extension commands            |    23 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     3 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -110,6 +110,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/dev:preview-url`       | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
 | `/grill-ui`              | `.pi/extensions/grill-ui.ts`       | Starts a grill-me session using the structured `grill_ask` question UI.                             |
 | `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
+| `/roast`                 | `.pi/extensions/roast.ts`          | Runs matching roaster reviewers for the current branch diff through the local `roaster` CLI.        |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
 | `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
 | `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` for the selected slug.                       |

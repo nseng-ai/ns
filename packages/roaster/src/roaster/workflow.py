@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
@@ -13,8 +14,11 @@ from roaster.models import (
     HarnessNotConfigured,
     HarnessUnknown,
     InvalidReviewDefinition,
+    LocalDiff,
     LocalReviewResult,
+    MatchingReviewBatchResult,
     ModelNotProvided,
+    ReviewCatalog,
     ReviewDefinition,
     ReviewExecutionResponse,
     ReviewFormat,
@@ -22,8 +26,20 @@ from roaster.models import (
     RoasterFailure,
 )
 from roaster.review_definition import parse_review_definition
+from roaster.review_selection import build_review_selection
 
 ENV_HARNESS = "ASDL_ROASTER_HARNESS"
+
+
+@dataclass(frozen=True)
+class _LoadedReview:
+    source: ReviewSource
+    definition: ReviewDefinition
+
+
+@dataclass(frozen=True)
+class _LoadedReviews:
+    reviews: tuple[_LoadedReview, ...]
 
 
 def run_review_by_key(
@@ -65,6 +81,127 @@ def run_review_by_key(
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
 
+    return _execute_loaded_review(
+        review_source=review_source,
+        review_definition=review_definition,
+        resolved_model=resolved_model,
+        resolved_harness=resolved_harness,
+        local_diff=local_diff,
+        requested_format=requested_format,
+        harness_runtime=harness_runtime,
+    )
+
+
+def run_matching_reviews(
+    *,
+    requested_model: str | None,
+    requested_base_ref: str | None,
+    requested_harness: str | None,
+    requested_format: ReviewFormat,
+    catalog: ReviewCatalogGateway,
+    diff: LocalDiffGateway,
+    harness_runtime: HarnessRuntime,
+) -> MatchingReviewBatchResult | RoasterFailure:
+    """Run reviews whose changed-path conditions match the current branch diff."""
+    local_diff = diff.load_diff(base_ref=requested_base_ref)
+    if isinstance(local_diff, BaseRefUnavailable):
+        return local_diff
+
+    loaded_reviews_result = _load_all_reviews(catalog=catalog)
+    if not isinstance(loaded_reviews_result, _LoadedReviews):
+        return loaded_reviews_result
+    loaded_reviews = loaded_reviews_result.reviews
+
+    selection = build_review_selection(
+        review_definitions=tuple(review.definition for review in loaded_reviews),
+        changed_paths=local_diff.changed_paths,
+    )
+    if not selection.selected:
+        return MatchingReviewBatchResult(
+            base_ref=local_diff.base_ref,
+            changed_paths=local_diff.changed_paths,
+            selected_reviews=(),
+            skipped_reviews=selection.skipped,
+            results=(),
+        )
+
+    resolved_harness = resolve_harness(
+        requested_harness=requested_harness,
+        harness_runtime=harness_runtime,
+    )
+    if not isinstance(resolved_harness, str):
+        return resolved_harness
+
+    loaded_by_key = {review.definition.name: review for review in loaded_reviews}
+    results: list[LocalReviewResult] = []
+    for selected_review in selection.selected:
+        loaded_review = loaded_by_key[selected_review.key]
+        resolved_model = _resolve_model(
+            review_definition=loaded_review.definition,
+            requested_model=requested_model,
+        )
+        if isinstance(resolved_model, ModelNotProvided):
+            return resolved_model
+
+        result = _execute_loaded_review(
+            review_source=loaded_review.source,
+            review_definition=loaded_review.definition,
+            resolved_model=resolved_model,
+            resolved_harness=resolved_harness,
+            local_diff=local_diff,
+            requested_format=requested_format,
+            harness_runtime=harness_runtime,
+        )
+        if not isinstance(result, LocalReviewResult):
+            return result
+        results.append(result)
+
+    return MatchingReviewBatchResult(
+        base_ref=local_diff.base_ref,
+        changed_paths=local_diff.changed_paths,
+        selected_reviews=selection.selected,
+        skipped_reviews=selection.skipped,
+        results=tuple(results),
+    )
+
+
+def _load_all_reviews(
+    *,
+    catalog: ReviewCatalogGateway,
+) -> _LoadedReviews | RoasterFailure:
+    review_catalog = catalog.list_review_keys()
+    if not isinstance(review_catalog, ReviewCatalog):
+        return review_catalog
+
+    loaded_reviews: list[_LoadedReview] = []
+    for key in review_catalog.keys:
+        review_source = catalog.load_review_source(key=key)
+        if not isinstance(review_source, ReviewSource):
+            return review_source
+
+        try:
+            review_definition = parse_review_definition(
+                review_source.source,
+                name=review_source.key,
+            )
+        except ValueError as exc:
+            return InvalidReviewDefinition(message=f"{review_source.key}: {exc}")
+
+        loaded_reviews.append(_LoadedReview(source=review_source, definition=review_definition))
+
+    return _LoadedReviews(reviews=tuple(loaded_reviews))
+
+
+def _execute_loaded_review(
+    *,
+    review_source: ReviewSource,
+    review_definition: ReviewDefinition,
+    resolved_model: str,
+    resolved_harness: str,
+    local_diff: LocalDiff,
+    requested_format: ReviewFormat,
+    harness_runtime: HarnessRuntime,
+) -> LocalReviewResult | RoasterFailure:
     execution_response = harness_runtime.run_review(
         HarnessReviewRequest(
             harness_name=resolved_harness,

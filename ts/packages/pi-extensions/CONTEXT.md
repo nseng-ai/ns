@@ -96,6 +96,10 @@ _Avoid_: stash, checkpoint, worktree status renderer.
 A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `/code:changes` before any checkpoint decision. The summary text is drafted by the shared fast-text model harness; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
 _Avoid_: checkpoint message, diffstat only, worktree status footer.
 
+**Roast command**:
+The Pi slash command `/roast`, which waits for idle and invokes the local `roaster review run-matching` CLI so reviewer selection remains owned by the headless roaster package.
+_Avoid_: review prompt, roaster CLI command, code-review skill.
+
 **Checkpoint message**:
 The validated commit message generated, repaired, or fallback-created from a pending worktree snapshot.
 _Avoid_: checkpoint commit, PR title, branch slug.

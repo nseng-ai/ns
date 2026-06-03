@@ -10,7 +10,9 @@ from roaster.models import ReviewDefinition
 
 _FRONTMATTER_FENCE = "---"
 
-_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset({"description", "default_model"})
+_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset(
+    {"description", "default_model", "when_changed"}
+)
 
 
 def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
@@ -46,6 +48,8 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
     else:
         raise ValueError("Review definition field `default_model` must be a non-empty string.")
 
+    when_changed = _optional_string_tuple(parsed_frontmatter, "when_changed")
+
     instructions = body.strip()
     if not instructions:
         raise ValueError("Review definition body (instructions) must not be empty.")
@@ -55,6 +59,7 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         description=description,
         instructions=instructions,
         default_model=default_model,
+        when_changed=when_changed,
     )
 
 
@@ -99,3 +104,24 @@ def _require_string(frontmatter: dict[str, Any], field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"Review definition field `{field}` must be a non-empty string.")
     return value.strip()
+
+
+def _optional_string_tuple(frontmatter: dict[str, Any], field: str) -> tuple[str, ...]:
+    if field not in frontmatter:
+        return ()
+
+    value = frontmatter[field]
+    if not isinstance(value, list):
+        raise ValueError(f"Review definition field `{field}` must be a list of non-empty strings.")
+    if not value:
+        raise ValueError(f"Review definition field `{field}` must contain at least one pattern.")
+
+    values: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(
+                f"Review definition field `{field}` item {index} must be a non-empty string."
+            )
+        values.append(item.strip())
+
+    return tuple(values)
