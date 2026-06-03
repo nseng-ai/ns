@@ -168,6 +168,7 @@ export interface LandingWarning {
 	commandDisplay?: string;
 	result?: ExecResult;
 	suggestedAction?: string;
+	notificationAction?: string;
 }
 
 export interface CommandStreamFinish {

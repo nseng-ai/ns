@@ -14,6 +14,7 @@ import { formatPrSubmitRequirement, loadPr, validateStrictMergeGate } from "./pr
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type {
 	CommandStreamFinish,
+	DescendantMaintenancePlan,
 	ExtensionAPI,
 	ExtensionCommandContext,
 	LandedPr,
@@ -509,7 +510,27 @@ function skippedDescendantMaintenanceWarning(plan: LandingPlan, branch: string):
 	return {
 		message: `Final local Graphite cleanup for ${branch} and descendant restack/update were skipped because ${maintenance.reason}: ${conflictText}.`,
 		suggestedAction: `Detach or free the descendant worktrees, then restack/update ${maintenance.branches.join(", ")} and delete local branch ${branch} manually if appropriate.`,
+		notificationAction: skippedDescendantNotificationAction(maintenance),
 	};
+}
+
+function skippedDescendantNotificationAction(maintenance: Extract<DescendantMaintenancePlan, { kind: "skipped" }>): string {
+	const branches = maintenance.branches.join(", ");
+	const conflict = maintenance.conflicts[0];
+	if (conflict === undefined) {
+		return `Restack/update ${branches}.`;
+	}
+
+	if (maintenance.conflicts.length > 1) {
+		return `Free/detach ${maintenance.conflicts.length} descendant worktrees; then restack/update ${branches}.`;
+	}
+
+	if (conflict.kind === "managed-slot") {
+		const slot = slotNameFromPath(conflict.path) ?? conflict.path;
+		return `Free ${slot} for ${conflict.branch}; then restack/update ${branches}.`;
+	}
+
+	return `Detach ${conflict.path} for ${conflict.branch}; then restack/update ${branches}.`;
 }
 
 async function deleteFinalLocalGraphiteBranch(

@@ -1,5 +1,5 @@
 import { formatCommand } from "../command-runtime.ts";
-import { linkifyPrReferences, prLinksFromDetails } from "../terminal-presentation.ts";
+import { linkifyPrReferences, prLinksFromDetails, truncateDisplayLine } from "../terminal-presentation.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, errorMessage, LandStackError } from "./errors.ts";
@@ -15,6 +15,8 @@ import type {
 	NotifyLevel,
 } from "./types.ts";
 import { formatConflict, formatSlotConflict } from "./worktrees.ts";
+
+const MAX_NOTIFICATION_CHARS = 160;
 
 export function formatPlan(plan: LandingPlan): string {
 	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
@@ -244,9 +246,47 @@ export function formatFailedTarget(error: LandStackError): string {
 	return parts.join(" ") || "unknown";
 }
 
-export function formatSuccessNotification(message: string, details?: CommandStreamMessageDetails): string {
+export interface FormatSuccessNotificationOptions {
+	details?: CommandStreamMessageDetails | undefined;
+	warnings?: readonly LandingWarning[] | undefined;
+}
+
+export function formatSuccessNotification(message: string, options: FormatSuccessNotificationOptions = {}): string {
+	const { details, warnings = [] } = options;
+	const warningNotification = formatWarningSuccessNotification(warnings, details);
+	if (warningNotification !== undefined) return warningNotification;
+
 	const firstLine = firstNonEmptyLine(message) ?? "land-stack completed.";
 	return details ? linkifyPrReferences(firstLine, prLinksFromDetails(details)) : firstLine;
+}
+
+function formatWarningSuccessNotification(
+	warnings: readonly LandingWarning[],
+	details?: CommandStreamMessageDetails,
+): string | undefined {
+	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
+	const action = firstWarningAction(warningEntries);
+	if (action === undefined) return undefined;
+
+	const compact = truncateDisplayLine(singleLine(action), MAX_NOTIFICATION_CHARS);
+	return details ? linkifyPrReferences(compact, prLinksFromDetails(details)) : compact;
+}
+
+function firstWarningAction(warnings: readonly LandingWarning[]): string | undefined {
+	for (const warning of warnings) {
+		const action = nonBlank(warning.notificationAction) ?? nonBlank(warning.suggestedAction);
+		if (action !== undefined) return action;
+	}
+	return nonBlank(warnings[0]?.message);
+}
+
+function singleLine(text: string): string {
+	return text.replace(/\s+/g, " ").trim();
+}
+
+function nonBlank(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
 export function formatFailureNotification(error: unknown): string {

@@ -12,7 +12,7 @@ import {
 import { LandStackError } from "../src/land-stack/errors.ts";
 import landStackExtension, { parseArgs } from "../src/land-stack.ts";
 import { loadPr, validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
-import { formatFailure, formatPlan } from "../src/land-stack/presentation.ts";
+import { formatFailure, formatPlan, formatSuccessNotification } from "../src/land-stack/presentation.ts";
 import { parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
 import type {
 	BranchPlan,
@@ -653,6 +653,37 @@ describe("land-stack pure helpers", () => {
 		expect(failure).toContain("Suggested next action: Run gt restack.");
 	});
 
+	test("formats success notifications with action-first warnings", () => {
+		const details = { prLinks: [{ number: 101, url: "https://github.example/pull/101" }] };
+		const successNotification = formatSuccessNotification("Landed 1 PR: #101 feature-a.\nRemote branches were not deleted.", { details });
+		expect(successNotification).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a");
+		expect(stripAnsi(successNotification)).toBe("Landed 1 PR: #101 feature-a.");
+
+		const linkedWarningAction = formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
+			details,
+			warnings: [{ message: "Post-landing cleanup failed.", notificationAction: "Resolve PR #101 manually." }],
+		});
+		expect(linkedWarningAction).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07");
+		expect(stripAnsi(linkedWarningAction)).toBe("Resolve PR #101 manually.");
+
+		expect(
+			formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
+				warnings: [{ message: "Post-landing cleanup failed.", suggestedAction: "Delete local branch feature-a manually." }],
+			}),
+		).toBe("Delete local branch feature-a manually.");
+		expect(formatSuccessNotification("Landed 1 PR: #101 feature-a.", { warnings: [{ message: "Inspect the stack manually." }] })).toBe(
+			"Inspect the stack manually.",
+		);
+		expect(
+			stripAnsi(
+				formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
+					details,
+					warnings: [{ level: "info", message: "Deferred optional maintenance.", suggestedAction: "Restack later." }],
+				}),
+			),
+		).toBe("Landed 1 PR: #101 feature-a.");
+	});
+
 	test("validates PR preflight invariants", () => {
 		const validBottom: BranchPlan = {
 			branch: "feature-a",
@@ -952,6 +983,9 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT)).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT)).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("warning");
+		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
+		expect(notificationText).toContain("Free slot-07 for feature-c; then restack/update feature-c.");
+		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Left open; restack/update skipped: feature-c.");
 		expect(streamText).toContain("Final local Graphite cleanup for feature-b and descendant restack/update were skipped");
@@ -981,6 +1015,9 @@ describe("land-stack command scenarios", () => {
 		).toEqual(["101", "102"]);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT)).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("warning");
+		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
+		expect(notificationText).toContain("Detach /tmp/manual-descendant for feature-c; then restack/update feature-c.");
+		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Left open; restack/update skipped: feature-c.");
 		expect(streamText).toContain("/tmp/manual-descendant");
@@ -1016,7 +1053,10 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations[0]?.message).not.toContain("slot-07 feature-c");
 		expect(pi.execCalls.some((call) => call.command === "slot" && sameArgs(call.args, ["free", "--wt", "slot-01"]))).toBe(true);
 		expect(pi.execCalls.some((call) => call.command === "slot" && sameArgs(call.args, ["gt", "free-stack"]))).toBe(false);
-		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
+		expect(notificationText).toContain("Free slot-07 for feature-c; then restack/update feature-c.");
+		expect(notificationText).not.toContain("Landed 2 PRs");
 	});
 
 	test("non-interactive descendant-only slot conflict proceeds with --yes", async () => {
@@ -1102,7 +1142,9 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("warning");
-		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
+		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
+		expect(notificationText).toContain("Resolve restack failures for feature-c, then update that PR manually.");
+		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Completed with 1 warning:");
 		expect(streamText).toContain("Restack failed after merging #102; descendant branch feature-c was left for manual restack/update.");
@@ -1267,7 +1309,9 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("warning");
-		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 1 PR: #101 feature-a.");
+		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
+		expect(notificationText).toContain("Delete or repair local Graphite branch feature-a manually, then inspect the stack.");
+		expect(notificationText).not.toContain("Landed 1 PR");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
