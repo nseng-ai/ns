@@ -94,6 +94,24 @@ function text(result: ToolResult): string {
 	return result.content[0]?.text ?? "";
 }
 
+function userMessage(content: unknown): unknown {
+	return {
+		type: "message",
+		message: { role: "user", content },
+	};
+}
+
+function grillAskToolResult(details: unknown): unknown {
+	return {
+		type: "message",
+		message: {
+			role: "toolResult",
+			toolName: GRILL_ASK_TOOL_NAME,
+			details,
+		},
+	};
+}
+
 function commandContext(options: { hasUI?: boolean; editorResult?: string; notifications?: Notification[] } = {}): GrillUiCommandContext {
 	return {
 		hasUI: options.hasUI ?? true,
@@ -114,6 +132,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Design target");
 		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
 		expect(prompt).toContain("Ask exactly one question per grill_ask call");
+		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
 	});
 
 	test("includes fallback grill instructions when no skill block is available", () => {
@@ -123,6 +142,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Interview the user relentlessly");
 		expect(prompt).toContain("Fallback target");
 		expect(prompt).toContain("If grill_ask returns action: \"end_grill\"");
+		expect(prompt).toContain("Show current grill status");
 	});
 });
 
@@ -213,7 +233,7 @@ describe("grill_ask validation", () => {
 				expected: "duplicates same",
 			},
 			{
-				name: "reserved values",
+				name: "reserved freeform value",
 				params: {
 					...baseInput(),
 					options: [
@@ -222,6 +242,17 @@ describe("grill_ask validation", () => {
 					],
 				},
 				expected: "reserved value __freeform__",
+			},
+			{
+				name: "reserved status value",
+				params: {
+					...baseInput(),
+					options: [
+						{ value: "__status__", label: "Reserved" },
+						{ value: "other", label: "Other" },
+					],
+				},
+				expected: "reserved value __status__",
 			},
 			{
 				name: "invalid recommended option value",
@@ -337,6 +368,30 @@ describe("grill_ask execution", () => {
 		});
 	});
 
+	test("custom inline UI status request returns status instructions", async () => {
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					custom: async <T>() => {
+						throw new Error("inline UI runner test should not invoke fake custom directly");
+					},
+				},
+			},
+			{ uiRunner: async () => ({ action: "status_request" }) },
+		);
+
+		expect(result.details).toEqual({
+			action: "status_request",
+			question: "How should we ship this UI improvement?",
+			progressSource: "unavailable",
+		});
+		expect(text(result)).toContain("This is not an answer");
+		expect(text(result)).toContain("call grill_ask again with the same pending question");
+		expect(result.terminate).toBeUndefined();
+	});
+
 	test("custom inline UI cancellation returns action cancelled", async () => {
 		const result = await executeGrillAsk(
 			baseInput(),
@@ -403,6 +458,80 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("User provided a freeform answer: Use an even smaller spike.");
 	});
 
+	test("status path returns action status_request and re-ask instruction", async () => {
+		const result = await executeGrillAsk(baseInput(), {
+			hasUI: true,
+			ui: {
+				select: async (_title, options) => options.find((option) => option.includes("Show current grill status")),
+				editor: async () => "unused",
+			},
+		});
+
+		expect(result.details).toEqual({
+			action: "status_request",
+			question: "How should we ship this UI improvement?",
+			progressSource: "unavailable",
+		});
+		expect(text(result)).toContain("This is not an answer");
+		expect(text(result)).toContain("Answered count: unavailable from session evidence");
+		expect(text(result)).toContain("call grill_ask again with the same pending question");
+	});
+
+	test("status path counts answers after the latest /grill-ui kickoff", async () => {
+		const result = await executeGrillAsk(baseInput(), {
+			hasUI: true,
+			ui: {
+				select: async (_title, options) => options.find((option) => option.includes("Show current grill status")),
+				editor: async () => "unused",
+			},
+			sessionManager: {
+				getBranch: () => [
+					grillAskToolResult({ action: "answer" }),
+					userMessage("<structured-grill-question-ui-contract>\nQuestion target"),
+					grillAskToolResult({ action: "answer" }),
+					grillAskToolResult({ action: "status_request" }),
+					grillAskToolResult({ action: "answer" }),
+					grillAskToolResult({ action: "cancelled" }),
+					grillAskToolResult({ action: "end_grill" }),
+				],
+			},
+		});
+
+		expect(result.details).toEqual({
+			action: "status_request",
+			question: "How should we ship this UI improvement?",
+			answeredQuestions: 2,
+			progressSource: "session_branch",
+		});
+		expect(text(result)).toContain("Answered count: 2 answered grill questions so far");
+		expect(text(result)).toContain("scoped to the latest /grill-ui kickoff");
+	});
+
+	test("status path falls back to unscoped branch progress when no kickoff marker exists", async () => {
+		const result = await executeGrillAsk(baseInput(), {
+			hasUI: true,
+			ui: {
+				select: async (_title, options) => options.find((option) => option.includes("Show current grill status")),
+				editor: async () => "unused",
+			},
+			sessionManager: {
+				getBranch: () => [
+					grillAskToolResult({ action: "answer" }),
+					grillAskToolResult({ action: "status_request" }),
+					grillAskToolResult({ action: "answer" }),
+				],
+			},
+		});
+
+		expect(result.details).toEqual({
+			action: "status_request",
+			question: "How should we ship this UI improvement?",
+			answeredQuestions: 2,
+			progressSource: "session_branch_unscoped",
+		});
+		expect(text(result)).toContain("best effort; no /grill-ui kickoff marker found");
+	});
+
 	test("end path returns action end_grill and stop/summarize instruction", async () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
@@ -443,5 +572,6 @@ describe("registerGrillUiExtension", () => {
 		expect(schema.required).toEqual(["question", "recommended", "options"]);
 		expect(schema.additionalProperties).toBe(false);
 		expect(tool.promptGuidelines?.every((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME))).toBe(true);
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status_request"))).toBe(true);
 	});
 });

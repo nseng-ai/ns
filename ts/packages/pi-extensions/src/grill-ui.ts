@@ -6,9 +6,11 @@ import {
 	freeformAnswerResult,
 	invalidToolInputResult,
 	selectedChoiceResult,
+	statusRequestResult,
 	textResult,
 	type GrillAskDetails,
 } from "./grill-ui/result.ts";
+import { readGrillAskProgress } from "./grill-ui/progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./grill-ui/validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./grill-ui/view.ts";
 import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
@@ -101,6 +103,9 @@ export interface GrillAskToolContext {
 			options?: unknown,
 		): Promise<T>;
 	};
+	sessionManager?: {
+		getBranch(): readonly unknown[];
+	};
 }
 
 export interface GrillUiCommandContext {
@@ -158,12 +163,13 @@ When you need user input during this grill session:
 - Explore the codebase instead of asking when the answer can be discovered.
 - Avoid double negatives and ambiguous option labels.
 - Prefer affirmative, mutually exclusive options.
-- Provide 2–5 substantive choices, not counting automatic freeform/end choices.
+- Provide 2–5 substantive choices, not counting automatic freeform/status/end choices.
 - Provide your recommended answer and rationale.
 - Always allow freeform unless there is a strong reason not to.
 - Always allow ending the grilling session.
 - If grill_ask returns action: "end_grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.
-- If grill_ask is unavailable or returns action: "ui_unavailable", ask the same one question normally with numbered choices.
+- If grill_ask returns action: "status_request", the user has not answered the current question. Produce a compact status report with answered count, estimated remaining questions, current pending question, resolved decisions, unresolved branches, and current recommendation. Then re-ask the exact same pending question with grill_ask; do not advance to a new question and do not count the status request as an answer.
+- If grill_ask is unavailable or returns action: "ui_unavailable", ask the same one question normally with numbered choices, including Other/freeform when allowed, Show current grill status, and End grilling session when allowed.
 </structured-grill-question-ui-contract>`;
 
 export function buildGrillUiPrompt(skillBlock: string | undefined, target: string): string {
@@ -211,7 +217,7 @@ export async function executeGrillAsk(
 			if (outcome === undefined) {
 				return cancelledResult(input.question);
 			}
-			return grillAskOutcomeResult(input.question, outcome);
+			return grillAskOutcomeResult(input.question, outcome, ctx);
 		} catch {
 			if (executionOptions.signal?.aborted) {
 				return cancelledResult(input.question);
@@ -233,14 +239,15 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		name: GRILL_ASK_TOOL_NAME,
 		label: "Grill Ask",
 		description:
-			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, a freeform path, and an end-session path.",
-		promptSnippet: "Ask one grill-me question through structured choices, freeform, or end-session UI",
+			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, a freeform path, a status checkpoint path, and an end-session path.",
+		promptSnippet: "Ask one grill-me question through structured choices, freeform, status, or end-session UI",
 		promptGuidelines: [
 			"Use grill_ask for each user-facing question in grill-me sessions; do not ask those questions in prose while grill_ask is available.",
 			"Ask exactly one question per grill_ask call and include 2–5 affirmative, mutually exclusive options plus your recommendation.",
 			"Use grill_ask with freeform and end-session paths enabled unless there is a strong reason not to.",
 			"If grill_ask returns action: \"end_grill\", stop asking questions and summarize decisions, unresolved branches, and final recommendation.",
-			"If grill_ask returns action: \"ui_unavailable\", ask the same one question normally with numbered choices.",
+			"If grill_ask returns action: \"status_request\", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.",
+			"If grill_ask returns action: \"ui_unavailable\", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.",
 		],
 		parameters: GRILL_ASK_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) => executeGrillAsk(params, ctx, { signal }),
@@ -281,7 +288,7 @@ async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext): Pro
 async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
 	if (!ctx.hasUI || ctx.ui.select === undefined) {
 		return textResult(
-			"Structured grill question UI is unavailable. Ask the same one question normally with numbered choices.",
+			"Structured grill question UI is unavailable. Ask the same one question normally with numbered choices, including the explicit choices, Other/freeform when allowed, Show current grill status, and End grilling session when allowed.",
 			{ action: "ui_unavailable", question: input.question },
 		);
 	}
@@ -304,6 +311,8 @@ async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillA
 			return selectedChoiceResult(input.question, selectedRow);
 		case "freeform":
 			return executeLegacyFreeformAnswer(input, ctx);
+		case "status":
+			return statusRequestResult(input.question, readGrillAskProgress(ctx));
 		case "end_grill":
 			return endGrillResult(input.question);
 		default: {
@@ -316,7 +325,7 @@ async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillA
 async function executeLegacyFreeformAnswer(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
 	if (ctx.ui.editor === undefined) {
 		return textResult(
-			"Structured grill freeform editor is unavailable. Ask the same one question normally with numbered choices and an Other/freeform option.",
+			"Structured grill freeform editor is unavailable. Ask the same one question normally with numbered choices, an Other/freeform option, Show current grill status, and End grilling session when allowed.",
 			{ action: "ui_unavailable", question: input.question },
 		);
 	}
@@ -327,12 +336,14 @@ async function executeLegacyFreeformAnswer(input: NormalizedGrillAskInput, ctx: 
 	return freeformAnswerResult(input.question, answer);
 }
 
-function grillAskOutcomeResult(question: string, outcome: GrillAskOutcome): ToolResult<GrillAskDetails> {
+function grillAskOutcomeResult(question: string, outcome: GrillAskOutcome, ctx: GrillAskToolContext): ToolResult<GrillAskDetails> {
 	switch (outcome.action) {
 		case "choice":
 			return selectedChoiceResult(question, outcome.entry);
 		case "freeform":
 			return freeformAnswerResult(question, outcome.answer);
+		case "status_request":
+			return statusRequestResult(question, readGrillAskProgress(ctx));
 		case "end_grill":
 			return endGrillResult(question);
 		case "cancelled":

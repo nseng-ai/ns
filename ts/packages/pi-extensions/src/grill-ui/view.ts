@@ -14,12 +14,17 @@ export interface GrillAskFreeformRow {
 	index: number;
 }
 
+export interface GrillAskStatusRow {
+	kind: "status";
+	index: number;
+}
+
 export interface GrillAskEndGrillRow {
 	kind: "end_grill";
 	index: number;
 }
 
-export type GrillAskRow = GrillAskChoiceRow | GrillAskFreeformRow | GrillAskEndGrillRow;
+export type GrillAskRow = GrillAskChoiceRow | GrillAskFreeformRow | GrillAskStatusRow | GrillAskEndGrillRow;
 
 export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[] {
 	const rows: GrillAskRow[] = input.options.map((option, optionIndex) => ({
@@ -32,6 +37,7 @@ export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[]
 	if (input.allowFreeform) {
 		rows.push({ kind: "freeform", index: rows.length + 1 });
 	}
+	rows.push({ kind: "status", index: rows.length + 1 });
 	if (input.allowEnd) {
 		rows.push({ kind: "end_grill", index: rows.length + 1 });
 	}
@@ -57,6 +63,8 @@ export function rowValue(row: GrillAskRow): string {
 			return row.option.value;
 		case "freeform":
 			return "__freeform__";
+		case "status":
+			return "__status__";
 		case "end_grill":
 			return "__end_grill__";
 		default: {
@@ -72,6 +80,8 @@ export function rowLabel(row: GrillAskRow): string {
 			return `${row.index}. ${singleLine(row.option.label)}`;
 		case "freeform":
 			return `${row.index}. Other / freeform answer`;
+		case "status":
+			return `${row.index}. Show current grill status`;
 		case "end_grill":
 			return `${row.index}. End grilling session`;
 		default: {
@@ -113,6 +123,8 @@ export function rowSelectDisplay(row: GrillAskRow): string {
 		}
 		case "freeform":
 			return `${row.index}. ✎ Other / freeform answer`;
+		case "status":
+			return `${row.index}. ℹ Show current grill status`;
 		case "end_grill":
 			return `${row.index}. ⏹ End grilling session`;
 		default: {

@@ -1,4 +1,5 @@
 import type { ToolResult } from "../grill-ui.ts";
+import type { GrillAskProgress, GrillAskProgressSource } from "./progress.ts";
 import type { GrillAskChoiceRow } from "./view.ts";
 
 export type GrillAskDetails =
@@ -20,6 +21,12 @@ export type GrillAskDetails =
 	| {
 			action: "end_grill";
 			question: string;
+	  }
+	| {
+			action: "status_request";
+			question: string;
+			answeredQuestions?: number;
+			progressSource: GrillAskProgressSource;
 	  }
 	| {
 			action: "cancelled";
@@ -73,6 +80,43 @@ export function selectedChoiceResult(question: string, selectedEntry: GrillAskCh
 	);
 }
 
+export function statusRequestResult(question: string, progress: GrillAskProgress): ToolResult<GrillAskDetails> {
+	return textResult(
+		[
+			"User requested a grill status checkpoint. This is not an answer to the pending question.",
+			"",
+			`Answered count: ${formatAnsweredCount(progress)}`,
+			"",
+			"Produce this compact report:",
+			"",
+			"## Grill status",
+			"",
+			"Answered: <use the exact count above when available; otherwise say unknown>",
+			"Estimated remaining: <number or range, with a short basis>",
+			"",
+			"Current pending question:",
+			`- ${question}`,
+			"",
+			"Decisions so far:",
+			"- <resolved decision, or none yet>",
+			"",
+			"Still open:",
+			"- <unresolved branch or decision, or none yet>",
+			"",
+			"Recommendation:",
+			"- <current best next step for the grilling session>",
+			"",
+			"After the report, call grill_ask again with the same pending question, context, recommendation, options, allowFreeform, and allowEnd. Do not advance to a new question and do not count this status request as an answer.",
+		].join("\n"),
+		{
+			action: "status_request",
+			question,
+			...(progress.answeredQuestions === undefined ? {} : { answeredQuestions: progress.answeredQuestions }),
+			progressSource: progress.source,
+		},
+	);
+}
+
 export function invalidToolInputResult(errors: string[]): ToolResult<GrillAskDetails> {
 	return textResult(
 		`Invalid grill_ask input:\n${errors.map((error) => `- ${error}`).join("\n")}\nRepair the tool call with one non-empty question, a recommendation, and 2–5 valid explicit choices.`,
@@ -85,6 +129,15 @@ export function invalidToolInputResult(errors: string[]): ToolResult<GrillAskDet
 
 export function cancelledResult(question: string, text: string = CANCELLED_GRILL_MESSAGE): ToolResult<GrillAskDetails> {
 	return textResult(text, { action: "cancelled", question });
+}
+
+function formatAnsweredCount(progress: GrillAskProgress): string {
+	if (progress.answeredQuestions === undefined) return "unavailable from session evidence.";
+	const noun = progress.answeredQuestions === 1 ? "question" : "questions";
+	if (progress.source === "session_branch") {
+		return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch, scoped to the latest /grill-ui kickoff.`;
+	}
+	return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch (best effort; no /grill-ui kickoff marker found).`;
 }
 
 export function textResult<Details extends GrillAskDetails>(text: string, details: Details): ToolResult<Details> {
