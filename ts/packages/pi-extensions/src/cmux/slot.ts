@@ -6,10 +6,10 @@ const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 
 export interface SlotCheckoutData {
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
-	already_assigned: boolean;
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
+	isAlreadyAssigned: boolean;
 }
 
 export interface SlotCheckoutSuccessEnvelope {
@@ -29,7 +29,7 @@ export interface SlotCheckoutTarget {
 	slotName: string;
 	branchName: string;
 	worktreePath: string;
-	alreadyAssigned: boolean;
+	isAlreadyAssigned: boolean;
 }
 
 export interface OpenCmuxWorkspaceOptions {
@@ -107,10 +107,10 @@ export function buildNewWorkspaceArgs(
 
 export function slotCheckoutTargetFromData(data: SlotCheckoutData): SlotCheckoutTarget {
 	return {
-		slotName: data.slot_name,
-		branchName: data.branch_name,
-		worktreePath: data.worktree_path,
-		alreadyAssigned: data.already_assigned,
+		slotName: data.slotName,
+		branchName: data.branchName,
+		worktreePath: data.worktreePath,
+		isAlreadyAssigned: data.isAlreadyAssigned,
 	};
 }
 
@@ -140,10 +140,10 @@ export function parseSlotCheckoutEnvelope(stdout: string): SlotCheckoutEnvelope 
 			return {
 				exit_code: 0,
 				data: {
-					slot_name: data.slot_name,
-					branch_name: data.branch_name,
-					worktree_path: data.worktree_path,
-					already_assigned: data.already_assigned,
+					slotName: data.slot_name,
+					branchName: data.branch_name,
+					worktreePath: data.worktree_path,
+					isAlreadyAssigned: data.already_assigned,
 				},
 			};
 		}
@@ -158,6 +158,7 @@ export function parseSlotCheckoutEnvelope(stdout: string): SlotCheckoutEnvelope 
 		}
 		return failure;
 	} catch {
+		// Unparseable slot CLI output is handled by callers as a non-matching envelope.
 		return undefined;
 	}
 }

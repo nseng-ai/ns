@@ -41,6 +41,14 @@ export interface ResolvedCmuxDispatchOptions {
 	now: () => number;
 }
 
+export interface HandleCmuxDispatchOptions {
+	pi: Pick<ExtensionAPI, "exec">;
+	summaryController: CmuxWorkspaceSummaryController;
+	dispatchOptions: ResolvedCmuxDispatchOptions;
+	args: string;
+	ctx: CommandContext;
+}
+
 export function registerCmuxDispatchCommand(
 	pi: ExtensionAPI,
 	summaryController: CmuxWorkspaceSummaryController,
@@ -51,18 +59,13 @@ export function registerCmuxDispatchCommand(
 		description: "Create a Graphite-tracked branch and run a prompt in a new cmux Pi slot",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {
-			await handleCmuxDispatch(pi, summaryController, resolvedOptions, args, ctx);
+			await handleCmuxDispatch({ pi, summaryController, dispatchOptions: resolvedOptions, args, ctx });
 		},
 	});
 }
 
-export async function handleCmuxDispatch(
-	pi: Pick<ExtensionAPI, "exec">,
-	summaryController: CmuxWorkspaceSummaryController,
-	options: ResolvedCmuxDispatchOptions,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
+export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Promise<void> {
+	const { pi, summaryController, dispatchOptions, args, ctx } = options;
 	const prompt = args.trim();
 	if (prompt.length === 0) {
 		ctx.ui.notify(`Usage: /${COMMAND_NAME} <prompt>`, "error");
@@ -87,7 +90,7 @@ export async function handleCmuxDispatch(
 
 	let promptFile: string;
 	try {
-		promptFile = await writePromptFile(options, branch.branchName, prompt);
+		promptFile = await writePromptFile(dispatchOptions, branch.branchName, prompt);
 	} catch (error) {
 		ctx.ui.notify(`Failed to write cmux dispatch prompt file: ${formatErrorMessage(error)}`, "error");
 		return;

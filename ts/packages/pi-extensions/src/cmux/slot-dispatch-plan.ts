@@ -6,9 +6,10 @@ import {
 	parseSlotCheckoutEnvelope as parseSharedSlotCheckoutEnvelope,
 	slotCheckoutTargetFromData,
 } from "./slot.ts";
+import type { SlotCheckoutTarget } from "./slot.ts";
 import type { CmuxWorkspaceSummaryController } from "./workspace-summary.ts";
 import { getWorktreeDescription as getSharedWorktreeDescription } from "./worktree-description.ts";
-import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
+import type { CommandContext, ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
 const STATUS_KEY = "cmux-slot:dispatch-plan";
@@ -34,49 +35,12 @@ Options:
 
 Run /write-plan first, then rerun /${COMMAND_NAME}.`;
 
-type CommandResult = {
-	code: number;
-	stdout: string;
-	stderr: string;
-	killed?: boolean;
-};
+interface CommandArgs {
+	isDryRun: boolean;
+	shouldShowHelp: boolean;
+}
 
-type ExecOptions = {
-	cwd?: string;
-	timeout?: number;
-};
-
-type PiRuntime = {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			argumentHint?: string;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<CommandResult>;
-	sendMessage?(message: CustomMessage): void;
-};
-
-type TextContent = {
-	type: "text";
-	text: string;
-};
-
-type CustomMessage = {
-	customType: string;
-	content: string | TextContent[];
-	display: boolean;
-	details?: unknown;
-};
-
-type CommandArgs = {
-	dryRun: boolean;
-	help: boolean;
-};
-
-type SavedPlanEvidence = {
+interface SavedPlanEvidence {
 	slug: string;
 	repoRoot: string;
 	repoKey: string;
@@ -85,15 +49,15 @@ type SavedPlanEvidence = {
 	branchKey: string;
 	filePath: string;
 	summary?: string;
-};
+}
 
-type CurrentCheckout = {
+interface CurrentCheckout {
 	repoRoot: string;
 	branch: string;
 	startPoint: string;
-};
+}
 
-type PlannedBranchEvidence = {
+interface PlannedBranchEvidence {
 	slug: string;
 	branch: string;
 	branchCreation: typeof BRANCH_CREATION;
@@ -104,41 +68,26 @@ type PlannedBranchEvidence = {
 	commit: string;
 	sourceFile: string;
 	summary?: string;
-};
+}
 
-type BrmemPutData = {
+interface BrmemPutData {
 	namespace: string;
 	key: string;
 	branch: string;
 	refName: string;
 	commit: string;
 	sourceFile: string;
-};
+}
 
-type SlotCheckoutData = {
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
-	already_assigned: boolean;
-};
-
-type SlotCheckoutEnvelope =
-	| {
-			exit_code: 0;
-			data: SlotCheckoutData;
-	  }
-	| {
-			exit_code: number;
-			error_type?: string;
-			message?: string;
-	  };
-
-type SlotCheckoutTarget = {
-	slotName: string;
-	branchName: string;
-	worktreePath: string;
-	alreadyAssigned: boolean;
-};
+interface AttachSlotAndLaunchOptions {
+	pi: ExtensionAPI;
+	summaryController: CmuxWorkspaceSummaryController;
+	ctx: CommandContext;
+	plan: SavedPlanEvidence;
+	checkout: CurrentCheckout;
+	targetBranch: string;
+	key: string;
+}
 
 type TextResult =
 	| {
@@ -154,19 +103,17 @@ export function registerCmuxSlotDispatchPlanCommand(
 	pi: ExtensionAPI,
 	summaryController: CmuxWorkspaceSummaryController,
 ): void {
-	const runtime = pi as unknown as PiRuntime;
-
-	runtime.registerCommand(COMMAND_NAME, {
+	pi.registerCommand(COMMAND_NAME, {
 		description: "Dispatch the latest saved plan into a CMUX slot for implementation.",
 		argumentHint: "[--dry-run]",
 		handler: async (args, ctx) => {
-			await handleCommand(runtime, summaryController, args, ctx);
+			await handleCommand(pi, summaryController, args, ctx);
 		},
 	});
 }
 
 async function handleCommand(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	summaryController: CmuxWorkspaceSummaryController,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -179,7 +126,7 @@ async function handleCommand(
 		return;
 	}
 
-	if (parsed.help) {
+	if (parsed.shouldShowHelp) {
 		present(ctx, USAGE, "info");
 		return;
 	}
@@ -213,7 +160,7 @@ async function handleCommand(
 			return;
 		}
 
-		if (parsed.dryRun) {
+		if (parsed.isDryRun) {
 			presentPlannedBranchMessage(
 				pi,
 				ctx,
@@ -224,7 +171,15 @@ async function handleCommand(
 			return;
 		}
 
-		await createAttachSlotAndLaunch(pi, summaryController, ctx, selectedPlan, checkout, targetBranch, key);
+		await createAttachSlotAndLaunch({
+			pi,
+			summaryController,
+			ctx,
+			plan: selectedPlan,
+			checkout,
+			targetBranch,
+			key,
+		});
 	} catch (error) {
 		present(ctx, formatUnexpectedError(error), "error");
 	} finally {
@@ -237,15 +192,15 @@ function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 		.trim()
 		.split(/\s+/)
 		.filter((token) => token.length > 0);
-	const parsed: CommandArgs = { dryRun: false, help: false };
+	const parsed: CommandArgs = { isDryRun: false, shouldShowHelp: false };
 
 	for (const token of tokens) {
 		if (token === "--dry-run") {
-			parsed.dryRun = true;
+			parsed.isDryRun = true;
 			continue;
 		}
 		if (token === "--help" || token === "-h") {
-			parsed.help = true;
+			parsed.shouldShowHelp = true;
 			continue;
 		}
 		if (token.startsWith("-")) {
@@ -351,7 +306,7 @@ function isValidPlanSlug(slug: string): boolean {
 	return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !slug.endsWith(".md") && !slug.includes("/") && !/\s/.test(slug);
 }
 
-async function resolveCurrentCheckout(pi: PiRuntime, cwd: string): Promise<CurrentCheckout | { error: string }> {
+async function resolveCurrentCheckout(pi: ExtensionAPI, cwd: string): Promise<CurrentCheckout | { error: string }> {
 	const repoRoot = await runText(pi, cwd, "git", ["rev-parse", "--show-toplevel"], GIT_TIMEOUT_MS);
 	if (!repoRoot.ok) {
 		return { error: `Current checkout is not inside a Git repository.\n${repoRoot.message}` };
@@ -426,7 +381,7 @@ async function validateSavedPlanForCurrentCheckout(
 }
 
 async function preflightTarget(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	cwd: string,
 	targetBranch: string,
 	key: string,
@@ -482,15 +437,8 @@ async function preflightTarget(
 	return { ok: true };
 }
 
-async function createAttachSlotAndLaunch(
-	pi: PiRuntime,
-	summaryController: CmuxWorkspaceSummaryController,
-	ctx: CommandContext,
-	plan: SavedPlanEvidence,
-	checkout: CurrentCheckout,
-	targetBranch: string,
-	key: string,
-): Promise<void> {
+async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
+	const { pi, summaryController, ctx, plan, checkout, targetBranch, key } = options;
 	present(ctx, `Creating Graphite-tracked planned branch ${targetBranch}…`, "info");
 	setStatus(ctx, "creating branch…");
 	const branch = await createGraphiteBranch(pi, checkout.repoRoot, targetBranch, checkout.branch);
@@ -527,7 +475,7 @@ async function createAttachSlotAndLaunch(
 }
 
 async function createGraphiteBranch(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	cwd: string,
 	targetBranch: string,
 	parentBranch: string,
@@ -563,7 +511,7 @@ async function createGraphiteBranch(
 }
 
 async function attachPlan(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	cwd: string,
 	plan: SavedPlanEvidence,
 	targetBranch: string,
@@ -689,7 +637,7 @@ function expectedBrmemPutMismatches(data: BrmemPutData, targetBranch: string, ke
 }
 
 async function checkoutSlot(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	cwd: string,
 	branch: string,
 ): Promise<{ target: SlotCheckoutTarget } | { error: string }> {
@@ -713,7 +661,7 @@ async function checkoutSlot(
 }
 
 async function openCmuxWorkspace(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	target: SlotCheckoutTarget,
 	key: string,
 ): Promise<{ ok: true } | { error: string }> {
@@ -763,12 +711,12 @@ async function openCmuxWorkspace(
 	};
 }
 
-async function getWorktreeDescription(pi: PiRuntime, worktreePath: string, branchName: string): Promise<string> {
+async function getWorktreeDescription(pi: ExtensionAPI, worktreePath: string, branchName: string): Promise<string> {
 	const repoName = await getGitRepositoryName(pi, worktreePath);
 	return repoName ? `${repoName}/${branchName}` : branchName;
 }
 
-async function getGitRepositoryName(pi: PiRuntime, cwd: string): Promise<string | undefined> {
+async function getGitRepositoryName(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
 	const remote = await runCommand(pi, cwd, "git", ["remote", "get-url", "origin"], GIT_TIMEOUT_MS);
 	if (remote.code === 0) {
 		const repoName = repositoryNameFromPath(remote.stdout.trim());
@@ -825,7 +773,7 @@ function dirname(path: string): string {
 }
 
 async function runText(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	cwd: string,
 	command: string,
 	args: string[],
@@ -839,12 +787,12 @@ async function runText(
 }
 
 async function runCommand(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	cwd: string,
 	command: string,
 	args: string[],
 	timeout: number,
-): Promise<CommandResult> {
+): Promise<ExecResult> {
 	try {
 		return await pi.exec(command, args, { cwd, timeout });
 	} catch (error) {
@@ -852,12 +800,13 @@ async function runCommand(
 			code: 127,
 			stdout: "",
 			stderr: formatErrorMessage(error),
+			killed: false,
 		};
 	}
 }
 
 function presentPlannedBranchMessage(
-	pi: PiRuntime,
+	pi: ExtensionAPI,
 	ctx: CommandContext,
 	content: string,
 	details: unknown,
@@ -993,7 +942,7 @@ function formatPiLaunchCommand(key: string): string {
 	return `pi ${shellQuote(`/impl-planned-branch ${key}`)}`;
 }
 
-function formatCommandFailure(title: string, command: string, args: string[], result: CommandResult): string {
+function formatCommandFailure(title: string, command: string, args: string[], result: ExecResult): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const sections = [
 		`${title} (${status})`,
@@ -1028,7 +977,7 @@ function tailText(value: string): string {
 	return `…${value.slice(-MAX_ERROR_CHARS)}`;
 }
 
-function isMissingRevisionResult(result: CommandResult): boolean {
+function isMissingRevisionResult(result: ExecResult): boolean {
 	if (result.code === 1) {
 		return true;
 	}
