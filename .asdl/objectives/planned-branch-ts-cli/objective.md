@@ -112,3 +112,11 @@ Risks:
 ## Open Questions
 
 - None blocking the implementation stack. Parked questions remain: what a future human `planned-branch list/show` surface should read, and what exact npm publication/release automation should look like when actual publication is requested.
+
+## Closure
+
+Closed 2026-06-04 as completed. The implementation stack delivered the planned `@asdl/planned-branch` TypeScript package and `planned-branch` bin, refactored Pi/cmux planned-branch surfaces onto the package contract and namespaced `/planned-branch:*` commands, added public Claude Code skills, and updated workflow documentation to the shared `planned-branch` Branch Memory namespace plus `~/.asdl/planned-branch/plans/...` local store.
+
+Evidence recorded in Semantic Updates: package and Pi extension targeted checks passed; `just ts-check` and `just ts-test` passed for implementation slices; final skills/docs validation reported `dprint check`, `just dprint-check`, `just ts-check`, and `just ts-test` passing; stale active references to old command/storage names were removed.
+
+Remaining work is intentionally parked, not blocking closure: a future thin human `planned-branch list/show` surface and actual npm publication/release automation for `@asdl/planned-branch`.
