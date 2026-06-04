@@ -93,7 +93,7 @@ export function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackC
 			} catch (error) {
 				const result: ExecResult = { stdout: "", stderr: errorMessage(error), code: 1, killed: false };
 				commandStream.finish(commandDisplay, { result });
-				throw error;
+				return result;
 			}
 		},
 	};
