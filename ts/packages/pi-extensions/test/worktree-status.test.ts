@@ -258,6 +258,50 @@ describe("worktree status extension registration", () => {
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
+
+	test("consolidates handoff footer scopes before rendering gt on the next line", async () => {
+		const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
+		try {
+			const pi = new LifecycleFakePi([
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: {
+							entries: [
+								{ namespace: "handoffs", key: "document-local-github-pull-guidance.md" },
+								{ namespace: "handoffs", key: "routing-docs-close-objective.md" },
+								{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
+							],
+						},
+					}),
+				}),
+				...basicGtScript(),
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[brmem] (handoffs: document-local-github-pull-guidance.md, routing-docs-close-objective.md, resume-resource-audit-session.md)\n[gt] (↓: main) (↑: -) (commits)",
+			);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("worktree status message rendering", () => {
@@ -407,6 +451,31 @@ describe("loadWorktreeStatus", () => {
 
 		pi.assertDone();
 		expect(status.brmem).toBe("(base: scratch) (plans: adapter)");
+	});
+
+	test("deduplicates normalized handoffs and preserves unrelated session artifacts", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({
+				stdout: JSON.stringify({
+					exit_code: 0,
+					data: {
+						entries: [
+							{ namespace: "handoffs", key: "resume-resource-audit-session.md" },
+							{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
+							{ namespace: "session-artifacts", key: "handoffs/" },
+							{ namespace: "session-artifacts", key: "logs/run-123.md" },
+							{ namespace: "objectives-archive", key: "closed/objective.md" },
+						],
+					},
+				}),
+			}),
+			...basicGtScript(),
+		]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBe("(handoffs: resume-resource-audit-session.md) (session-artifacts: logs)");
 	});
 
 	test("uses a later brmem candidate after an earlier candidate returns a nonzero envelope", async () => {
