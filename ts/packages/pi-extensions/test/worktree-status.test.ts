@@ -212,7 +212,7 @@ const TEST_THEME: StatusTheme = {
 describe("worktree status extension registration", () => {
 	test("registers automatic status hooks without visible slash commands", () => {
 		const pi = new RegistrationFakePi();
-		worktreeStatusExtension(pi as unknown as ExtensionAPI);
+		worktreeStatusExtension(pi as ExtensionAPI);
 
 		expect(pi.commands).toEqual([]);
 		expect(pi.renderers).toEqual(["worktree-status"]);
@@ -246,7 +246,7 @@ describe("worktree status extension registration", () => {
 				},
 			};
 
-			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			worktreeStatusExtension(pi as ExtensionAPI);
 			await pi.sessionStart?.({}, ctx);
 
 			pi.assertDone();
@@ -290,7 +290,7 @@ describe("worktree status extension registration", () => {
 				},
 			};
 
-			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			worktreeStatusExtension(pi as ExtensionAPI);
 			await pi.sessionStart?.({}, ctx);
 
 			pi.assertDone();
@@ -355,7 +355,7 @@ describe("worktree status extension registration", () => {
 				},
 			};
 
-			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			worktreeStatusExtension(pi as ExtensionAPI);
 			await pi.sessionStart?.({}, ctx);
 
 			pi.assertDone();

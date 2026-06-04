@@ -90,6 +90,13 @@ interface StatusFooterComponent {
 	dispose?(): void;
 }
 
+interface StatusFooterRenderOptions {
+	ctx: ExtensionContext;
+	footerData: StatusFooterData;
+	theme: StatusTheme;
+	width: number;
+}
+
 type StatusFooterFactory = (
 	tui: StatusFooterTui,
 	theme: StatusTheme,
@@ -351,7 +358,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 				dispose: unsubscribe,
 				invalidate() {},
 				render(width) {
-					return isActiveSession(session) ? renderStatusFooter(session.ctx, footerData, theme, width) : [];
+					return isActiveSession(session) ? renderStatusFooter({ ctx: session.ctx, footerData, theme, width }) : [];
 				},
 			};
 		});
@@ -922,12 +929,8 @@ function formatStatusSegment(text: string, theme: StatusTheme | undefined): stri
 	return theme ? theme.fg("dim", text) : text;
 }
 
-function renderStatusFooter(
-	ctx: ExtensionContext,
-	footerData: StatusFooterData,
-	theme: StatusTheme,
-	width: number,
-): string[] {
+function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
+	const { ctx, footerData, theme, width } = options;
 	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
 	const branch = footerData.getGitBranch();
 	const sessionName = ctx.sessionManager?.getSessionName();
@@ -935,7 +938,7 @@ function renderStatusFooter(
 	if (branch) pwd = `${pwd} (${branch})`;
 	if (sessionName) pwd = `${pwd} • ${sessionName}`;
 
-	const statsLine = formatFooterStats(ctx, footerData, theme, width);
+	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
 	const lines = [truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "...")), statsLine];
 	for (const statusLine of formatExtensionStatusLines(footerData.getExtensionStatuses())) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
@@ -957,12 +960,8 @@ function formatFooterCwd(cwd: string, home: string | undefined): string {
 	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
 }
 
-function formatFooterStats(
-	ctx: ExtensionContext,
-	footerData: StatusFooterData,
-	theme: StatusTheme,
-	width: number,
-): string {
+function formatFooterStats(options: StatusFooterRenderOptions): string {
+	const { ctx, footerData, theme, width } = options;
 	const totals = totalAssistantUsage(ctx.sessionManager?.getEntries() ?? []);
 	const statsParts: string[] = [];
 	if (totals.input) statsParts.push(`↑${formatFooterTokens(totals.input)}`);
