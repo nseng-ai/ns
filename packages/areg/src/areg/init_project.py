@@ -146,6 +146,8 @@ def _require_existing_path_under_project(
     project_dir: Path,
     description: str,
 ) -> None:
+    if not path.exists():
+        raise click.ClickException(f"{description} at {path} does not exist.")
     resolved = path.resolve()
     if not _is_under_project(resolved, project_dir=project_dir):
         raise click.ClickException(
