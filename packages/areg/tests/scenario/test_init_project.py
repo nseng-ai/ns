@@ -37,6 +37,34 @@ def _ctx(*, npx: FakeNpxSkills | None = None) -> AregContext:
     )
 
 
+class _SymlinkClaudeDirAfterAdd(FakeNpxSkills):
+    def __init__(self, *, outside: Path) -> None:
+        super().__init__(
+            catalog={
+                BOOTSTRAP_REPO: {
+                    "skill-management": SkillFiles(
+                        files={"SKILL.md": "---\nname: skill-management\n---\n"}
+                    ),
+                    "skillx": SkillFiles(files={"SKILL.md": "---\nname: skillx\n---\n"}),
+                }
+            },
+            write_claude_symlinks=False,
+        )
+        self._outside = outside
+
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        super().add(repo, skills=skills, agents=agents, cwd=cwd)
+        self._outside.mkdir()
+        (cwd / ".claude").symlink_to(self._outside, target_is_directory=True)
+
+
 def _git_init(project_dir: Path) -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run(
@@ -173,6 +201,112 @@ def test_init_leaves_existing_claude_settings_unchanged(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert settings.read_text(encoding="utf-8") == "custom settings\n"
+
+
+def test_init_rejects_agents_md_symlink_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = tmp_path / "outside-agents.md"
+    outside.write_text("external agents\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "symlink" in result.output
+    assert "refusing" in result.output.lower()
+    assert fake_npx.invocations == []
+    assert outside.read_text(encoding="utf-8") == "external agents\n"
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_rejects_claude_md_symlink_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = tmp_path / "outside-claude.md"
+    outside.write_text("external claude\n", encoding="utf-8")
+    (tmp_path / "CLAUDE.md").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "symlink" in result.output
+    assert "refusing" in result.output.lower()
+    assert fake_npx.invocations == []
+    assert outside.read_text(encoding="utf-8") == "external claude\n"
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_rejects_asdl_toml_symlink_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = tmp_path / "outside-asdl.toml"
+    outside.write_text("[areg]\nagents = ['external']\n", encoding="utf-8")
+    (tmp_path / "asdl.toml").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "symlink" in result.output
+    assert "refusing" in result.output.lower()
+    assert fake_npx.invocations == []
+    assert outside.read_text(encoding="utf-8") == "[areg]\nagents = ['external']\n"
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_rejects_claude_dir_symlink_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = tmp_path / "outside-claude-dir"
+    outside.mkdir()
+    (tmp_path / ".claude").symlink_to(outside, target_is_directory=True)
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "symlink" in result.output
+    assert "refusing" in result.output.lower()
+    assert fake_npx.invocations == []
+    assert not (outside / "settings.local.json").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_rejects_claude_settings_symlink_before_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    outside = tmp_path / "outside-settings.local.json"
+    outside.write_text("external settings\n", encoding="utf-8")
+    (claude_dir / "settings.local.json").symlink_to(outside)
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "symlink" in result.output
+    assert "refusing" in result.output.lower()
+    assert fake_npx.invocations == []
+    assert outside.read_text(encoding="utf-8") == "external settings\n"
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
+
+
+def test_init_revalidates_settings_parent_after_npx_install(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    outside = tmp_path / "outside-claude-after-install"
+    fake_npx = _SymlinkClaudeDirAfterAdd(outside=outside)
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+
+    assert result.exit_code != 0
+    assert "symlink" in result.output
+    assert "refusing" in result.output.lower()
+    assert len(fake_npx.invocations) == 1
+    assert not (outside / "settings.local.json").exists()
 
 
 def test_init_rejects_nonexistent_target(tmp_path: Path) -> None:
