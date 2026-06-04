@@ -1,6 +1,7 @@
-# Standing Objectives & Objective Impl Runners — Design Brief
+# Standing Objectives & Objective Runners — Design Brief
 
-**Status:** Consolidated design direction after grill on 2026-05-31.
+**Status:** Updated disposition on 2026-06-04. The separate prototype/general Objective implementation runner direction has been superseded by folding confirmed execution into `objective-next` as the user-facing front door.
+
 **Context:** Comparison of `aigorahub/elves`, Karpathy's `autoresearch`, Sakana AI Scientist, and Ralph against asdl's Objective system surfaced a missing capability: Objectives that can be advanced autonomously or continuously without turning the Objective record into a workflow controller.
 
 This document is a design brief, not the canonical Objective spec. The canonical checked-in Objective mechanics remain in [`docs/objective-system.md`](../objective-system.md).
@@ -19,9 +20,9 @@ There are two orthogonal axes:
 The Objective/Runner split is load-bearing:
 
 - The **Objective** is the durable narrative spec: goal, boundaries, assumptions, progress rubric, and reusable learnings.
-- The **Runner** is the harness that advances the Objective: it chooses moves, manages branches, validates, keeps or rejects work, and stops.
+- The **Runner** is the harness that advances the Objective: it chooses moves, manages branches when requested, validates, keeps or rejects work, and stops.
 
-Today's system mostly lives in the bounded/human quadrant, with `objective-stack-impl` occupying a bounded/autonomous-ish specialized runner role.
+Today's system mostly lives in the bounded/human quadrant, with `objective-stack-impl` occupying a bounded/autonomous-ish specialized stack runner role. General Objective advancement now enters through `objective-next`, which can recommend, steer, or offer confirmed execution when durable policy permits it.
 
 |                       | **Bounded**                                             | **Standing**                                            |
 | --------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
@@ -42,12 +43,7 @@ Avoid adding lifecycle states up front. The Objective system remains `active / c
 - A standing Objective can be human-driven and therefore not an autoobjective.
 - A standing autoobjective is the autoresearch/Ralph-like quadrant.
 
-### Standing flavors
-
-Standing Objectives can have different textures without adding a third axis:
-
-- **Optimize-forever**: no fixed ceiling; keep pushing when evidence shows improvement.
-- **Maintain-forever**: hold a system within a healthy band; act on drift; escalate when assumptions fail.
+Do not call every execution-friendly Objective autonomous. Human-assisted execution after preview is weaker than autonomous pursuit and can be enabled by narrower policy.
 
 ---
 
@@ -69,7 +65,7 @@ The useful transplant is not “make Objectives into programs.” It is:
 
 ## 3. Objective record convention
 
-Standing Objectives and autoobjectives remain normal Objective records:
+Standing Objectives and execution-friendly Objectives remain normal Objective records:
 
 ```text
 .asdl/objectives/<slug>/
@@ -102,20 +98,14 @@ This is a standing Objective. It has no goal-met finish line. Close it when the 
 
 `## Assumptions and Risks` is the durable home for load-bearing assumptions. When an assumption no longer holds, record that as an **assumption invalidated** event/finding, not as a new Objective status.
 
-### Optional autoobjective sections
+### Optional execution policy sections
 
-Autoobjectives may add optional top-level prose sections to make autonomous pursuit safe and legible:
+Execution-friendly Objectives may add optional top-level prose sections:
 
 ```md
-## North Star
-
-The stable goal the runner should optimize or maintain over time.
-
 ## Definition of Progress
 
-Light rubric for deciding whether a pass should be kept.
-
-Progress looks like:
+Progress is keepable when:
 
 - ...
 
@@ -129,34 +119,31 @@ Useful evidence includes:
 
 ## Runner Policy
 
-This Objective is designed for autonomous pursuit under the boundaries below.
+This Objective is execution-friendly for `objective-next` under the boundaries below.
 
-- Launch shape: ...
+- Direct execution is allowed when: ...
+- Steer or ask first when: ...
 - Materialization: ...
-- External access: ...
-- Ask or stop when: ...
+- Validation: ...
+- External side effects: ...
 ```
 
-The `## Runner Policy` signal is prose, not a key-value permission bit. Prefer wording like:
+The `## Runner Policy` signal is prose, not a key-value permission bit. If policy is absent or ambiguous, `objective-next` must not infer execution permission from a concrete roadmap row alone. It should recommend only and explain that durable policy enables future execution offers.
 
-> This Objective is designed for autonomous pursuit under the boundaries below.
+Minimum durable content before treating an Objective as autonomy-designed is stronger than ordinary execution-friendliness:
 
-If this signal is absent or ambiguous, a runner must not assume the Objective is autonomy-designed. It may still operate in human-assisted mode when a human confirms an explicit execution preview.
-
-Minimum durable content before treating an Objective as autonomy-designed:
-
-1. a North Star;
+1. a North Star or equivalent durable goal;
 2. a Definition of Progress;
 3. load-bearing assumptions in `## Assumptions and Risks`;
 4. runner boundaries / escalation guidance.
 
 Metrics are optional. When present, a metric is part of the Definition of Progress, not a replacement for the qualitative rubric and boundaries.
 
-### `roadmap.md` for standing Objectives
+### `roadmap.md` for standing Objectives and row policy
 
-`roadmap.md` remains required, but standing Objectives should use it as **standing operating guidance**, not as a durable queue of next moves.
+`roadmap.md` remains required. Standing Objectives should use it as **standing operating guidance**, not as a durable queue of next moves.
 
-Recommended shape:
+Recommended standing shape:
 
 ```md
 # Roadmap
@@ -173,6 +160,16 @@ Recommended shape:
 ```
 
 A standing row may remain `[~]` until the direction is retired, replaced, or the Objective is closed. Marking it `[x]` means the standing direction ended, not that one runner pass finished the whole Objective.
+
+Rows may carry slice-local policy:
+
+```md
+- [ ] Example semantic slice.
+  - Policy: direct execution after preview.
+  - Evidence: targeted tests and relevant repo checks pass.
+- [ ] Resolve the terminology boundary.
+  - Policy: steer first; ask the human to choose the canonical term before editing docs.
+```
 
 The runner may use `roadmap.md` case-by-case, based on the Objective's prose. For standing Objectives, it must not treat roadmap entries as a hidden pass queue. The next move is re-derived from:
 
@@ -196,78 +193,47 @@ Do not write ceremonial launch summaries, iteration counters, or rejected-attemp
 
 ---
 
-## 4. `dev-objective-impl`: first runner direction
+## 4. Current runner disposition: `objective-next`
 
-Prototype the general runner as a dogfood-only skill/command named **`dev-objective-impl`**.
+The general runner path is folded into **`objective-next`**, not a separate development/prototype command. The prior prototype surfaces' useful safety contract now belongs in the `objective-next` skill and canonical Objective docs.
 
-Here, **impl** is broad: making durable progress on an Objective. It can include code, docs, tests, research artifacts, maintenance work, or Objective-only semantic learnings when those are the correct output.
+`objective-next` is the single front door for one selected active Objective:
 
-### Relationship to `objective-stack-impl`
-
-Keep the existing `objective-stack-impl` runner as the specialized planned-stack runner for now.
-
-`dev-objective-impl` is the more general emergent runner:
-
-- explicit Objective selection;
-- derive the next move from Objective + repo + learnings;
-- proceed as far as the confirmed launch scope allows;
-- materialize kept progress as reviewable git changes.
-
-Later, `objective-stack-impl` may become a mode or wrapper of the broader runner if dogfooding proves the abstraction.
-
-### Launch contract
-
-A `dev-objective-impl` launch should:
-
-1. resolve exactly one explicit Objective;
+1. resolve exactly one explicit Objective or ask the user to choose;
 2. read `objective.md`, `roadmap.md`, and relevant `updates/`;
-3. determine whether the Objective is clearly designed for autonomous pursuit;
-4. present a concise execution preview;
-5. wait for human confirmation;
-6. run only within the confirmed scope;
-7. stop with a prose explanation.
+3. apply the read-only Tracking Gate before recommendation or execution;
+4. recommend the next semantic step by default;
+5. when policy says to steer first, ask or recommend planning instead of executing;
+6. when explicit durable policy permits direct execution, present an inline execution preview and wait for human confirmation;
+7. run only within the confirmed scope;
+8. keep only evidenced progress;
+9. stop with a prose explanation.
 
 The preview should include:
 
-- selected Objective;
-- whether the run is autonomous or human-assisted;
-- proposed bounded budget/scope;
+- selected Objective slug;
+- policy basis, including Runner Policy and row-level `Policy:` when relevant;
+- proposed bounded scope;
 - likely materialization shape;
 - expected validation;
-- external access expectations;
+- external access and side-effect expectations;
 - when the runner should stop or ask;
-- whether Objective updates are expected.
+- whether Objective updates are expected;
+- PR submission status.
+
+Default PR wording is: `PR submission is out of scope for this launch.`
 
 There is no fixed default pass count. The runner proposes a bounded scope in the preview, and the human confirms it.
 
-### Autonomy-designed vs. human-assisted mode
+### Relationship to `objective-stack-impl`
 
-If the Objective is clearly designed for autonomous pursuit, the runner may proceed inside the confirmed launch scope without asking after every pass.
-
-If the Objective is not clearly designed for autonomous pursuit, the runner may still help in **human-assisted mode**. Human-assisted mode uses an upfront confirmed plan/preview, similar to `objective-stack-impl`; the preview must carry more human-authored specificity because the Objective itself does not provide the autonomy-ready rubric.
-
-### Execution architecture
-
-Use a parent orchestrator with fresh serial runner subagents:
-
-- The parent owns Objective selection, preview, branch control, subagent prompts, keep/reject judgment, Objective updates, commits, and stop decisions.
-- Each candidate pass runs in a fresh focused subagent when delegation is useful.
-- Run one pass/subagent at a time in the current worktree.
-- Do not run parallel implementation passes in v1.
-
-Loop state such as counters, candidate notes, and rejected-attempt ledgers stays in-session and in ephemeral git state. Durable state is limited to kept repo changes and meaningful Objective updates.
-
-### External access
-
-Read-only external research is allowed by default for assumption checks and move derivation.
-
-External side effects are not allowed by default. Publishing, deploying, mutating GitHub issues/PRs, calling write APIs, or changing external systems requires explicit launch scope or Runner Policy guidance.
+Keep `objective-stack-impl` as the specialized planned-stack runner. It remains useful when the user explicitly wants one Objective implemented as a small Graphite stack. General recommend/steer/confirmed-execution behavior belongs to `objective-next`.
 
 ---
 
 ## 5. Keep, reject, and materialize
 
-A runner pass is kept only when it can cite concrete evidence against the Objective's Definition of Progress and pass evidence-appropriate validation.
+A runner pass is kept only when it can cite concrete evidence against the Objective's Definition of Progress or equivalent policy and pass evidence-appropriate validation.
 
 Validation is artifact-specific:
 
@@ -278,17 +244,15 @@ Validation is artifact-specific:
 
 Ambiguous changes are not kept.
 
-### Git materialization
-
-For v1, materialize each kept pass as one small local Graphite branch/commit. PR submission remains a separate explicit human request.
+For v1, materialization defaults to local edits unless the confirmed preview includes branch or commit work. If branch creation, commit amendment, restacking, or submission is in scope in this repo, consult the Graphite workflow first.
 
 Rejected candidates should be discarded: reset/delete the candidate branch or dirty state, and preserve only reusable semantic learnings when they matter.
 
 A launch can still be successful with no branch or Objective update when the runner credibly checks the Objective and finds no safe/useful progress to keep. That is especially important for maintain-forever standing Objectives, where healthy steady state should not create churn.
 
-### Objective updates in kept branches
+### Objective updates in kept work
 
-When a kept pass materially advances the Objective, include concise Objective tracking changes in the same branch:
+When a kept pass materially advances the Objective, include concise Objective tracking changes in the same materialized work:
 
 - edit `objective.md` or `roadmap.md` when durable narrative/guidance changes;
 - add a Semantic Update when there is meaningful Objective impact;
@@ -316,27 +280,18 @@ Do not formalize “autoobjective” as schema or a required type field. It is c
 
 Do not require metrics. Numeric metrics are powerful when available, but qualitative Definitions of Progress are valid.
 
+External side effects are not allowed by default. Publishing, deploying, mutating GitHub issues/PRs, calling write APIs, or changing external systems requires explicit Runner Policy or confirmed preview scope.
+
 ---
 
 ## 7. Deferred decisions
 
-These are intentionally left for prototype dogfooding:
+These remain intentionally deferred until real use clarifies them:
 
-- exact `dev-objective-impl` skill text and launch flags;
 - exact execution-preview format;
-- branch naming and candidate-branch cleanup mechanics;
-- how much `dev-objective-impl` should reuse `objective-stack-impl` internals;
-- whether `objective-stack-impl` eventually becomes a mode of `objective-impl`;
-- whether stable parts of this brief should be promoted into `docs/objective-system.md`;
+- branch naming and candidate-branch cleanup mechanics when branch materialization is confirmed;
+- how much `objective-next` and `objective-stack-impl` should share implementation guidance;
+- whether stable runner behavior should eventually move from skill prose into deterministic CLI fact helpers;
 - whether `## Runner Policy` should gain more standard example bullets after real use.
 
----
-
-## 8. Next concrete slice
-
-A credible first implementation slice is documentation and skill scaffolding only:
-
-1. keep this design brief as the dogfood reference;
-2. create a `dev-objective-impl` skill that implements the v1 launch contract;
-3. dogfood it on one bounded Objective and one standing Objective;
-4. only then decide which conventions belong in the canonical Objective system spec.
+The direction is no longer to create or keep a separate proto/general runner surface. The first slice is skill/docs/Pi-surface consolidation around `objective-next`.

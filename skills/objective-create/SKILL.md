@@ -36,7 +36,42 @@ Also check the archive root before creating a slug:
 - `## Assumptions and Risks`
 - `## Open Questions`
 
+Optional execution-friendly headings:
+
+- `## Definition of Progress`
+- `## Runner Policy`
+
+Ordinary planning-only Objectives may omit the optional execution-friendly headings. Do not make them mandatory.
+
 `## Assumptions and Risks` should distinguish assumptions from risks in prose or bullets, with enough context for future `objective-update` calls to mark an assumption incorrect, a risk de-risked/not de-risked, or add newly discovered assumptions and risks.
+
+When the user wants an execution-friendly Objective, place the optional sections after `## Completion Criteria` so completion, progress, and policy stay near each other:
+
+```md
+## Definition of Progress
+
+Progress is keepable when:
+
+- ...
+
+Do not keep changes that:
+
+- ...
+
+Useful evidence includes:
+
+- ...
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` under the boundaries below.
+
+- Direct execution is allowed when: ...
+- Steer or ask first when: ...
+- Materialization: ...
+- Validation: ...
+- External side effects: ...
+```
 
 `roadmap.md` required headings:
 
@@ -53,6 +88,20 @@ Roadmap item quality:
 - Do not add a final routine validation-only row by default, such as `run just`, `run tests`, `wait for CI`, or `full repo validation`.
 - During the creation interview, if validation appears as a possible branch point, steer it into completion evidence unless validation/test/CI behavior is itself in scope.
 - The initial roadmap may include expected evidence under a semantic row, such as `Evidence: targeted tests and relevant repo checks passed`; do not make that evidence a standalone final row.
+- Execution-friendly roadmap rows may include indented prose overrides:
+
+```md
+- [ ] Example semantic slice.
+  - Policy: direct execution after preview.
+  - Evidence: targeted tests and relevant repo checks pass.
+```
+
+or:
+
+```md
+- [ ] Resolve the terminology boundary.
+  - Policy: steer first; ask the human to choose the canonical term before editing docs.
+```
 
 ## Slug and path
 
@@ -68,30 +117,39 @@ Roadmap item quality:
 ## Workflow
 
 1. Gather enough context to write a useful title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and semantic initial roadmap.
-2. Conduct a user interview before writing, inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md):
+2. Once slug and purpose are sufficiently clear, ask an early branch question: should this Objective be executable by `objective-next` after preview, or planning-only unless policy is added later?
+   - If planning-only, create the normal Objective without `## Definition of Progress` or `## Runner Policy`; optionally mention that policy can be added later through `objective-update` or manual edit.
+   - If execution-friendly, gather these four minimum policy items during the interview:
+     1. direct execution is allowed when...;
+     2. steer or ask first when...;
+     3. keepable progress looks like...;
+     4. validation/materialization boundaries are....
+3. Conduct a user interview before writing, inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md):
    - Interview the user relentlessly about every aspect of the objective until shared understanding is reached.
    - Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
    - Explore the codebase or existing docs instead of asking questions whose answers can be discovered locally.
    - Ask only one unresolved question at a time.
    - For each question, include your recommended answer so the user can confirm or correct it, then present a compact numbered menu instead of an open-ended continuation prompt.
    - Numbered menus should include the recommended path first, the main alternative(s) next, and a final stop option only after the slug has been explicitly confirmed. The stop option must be exactly `Stop and create Objective <slug>`, including the confirmed slug verbatim. If the slug is not confirmed yet, omit the stop option and resolve slug confirmation first. Use domain-specific labels so the choices are concrete (for example: `1) Skill-only steelthread`, `2) Dedicated CLI commands`, `3) Stop and create Objective objective-create-stop-option-guidance`). Tell the user they can answer with a number or a custom correction.
-   - Focus especially on branch points that affect scope, completion criteria, assumptions, risks, sequencing, or closure evidence.
+   - Focus especially on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or execution policy.
    - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Objective.
-3. Create `.asdl/objectives/<slug>/`, `.asdl/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
-4. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section.
-5. Do not create an initial update file. Do not create `closed.md`.
+4. Create `.asdl/objectives/<slug>/`, `.asdl/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
+5. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section and optional execution-friendly sections only when selected.
+6. Do not create an initial update file. Do not create `closed.md`.
 
 ## Stop / ask
 
 - The slug is missing, unconfirmed, invalid-looking, or points outside `.asdl/objectives/`.
 - The target Objective directory already exists.
 - The requested Objective looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
-- The user has not provided enough durable context to avoid inventing thesis, scope, completion criteria, assumptions, or risks.
+- The user has not provided enough durable context to avoid inventing thesis, scope, completion criteria, assumptions, risks, or execution policy when requested.
 - The request appears to need multiple Objectives; create only one and ask the user to run the command again for others.
 
 ## Verify
 
 - Confirm the directory contains `objective.md`, `roadmap.md`, and `updates/`.
 - Confirm `objective.md` contains `## Assumptions and Risks`.
+- If the Objective is execution-friendly, confirm `objective.md` contains `## Definition of Progress` and `## Runner Policy` with the four minimum policy items.
+- If the Objective is planning-only, confirm execution policy sections are absent unless the user explicitly asked to include them.
 - Confirm there is no initial file under `updates/` and no `closed.md`.
-- Summarize the created slug, first planned roadmap item, and the most important assumption or risk captured.
+- Summarize the created slug, first planned roadmap item, most important assumption or risk captured, and whether the Objective is planning-only or execution-friendly.

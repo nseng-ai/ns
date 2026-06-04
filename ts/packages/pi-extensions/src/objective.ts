@@ -162,11 +162,12 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
 		commandName: "objective:next",
 		skillName: "objective-next",
-		description: "Pick an active Objective, then invoke objective-next for the selected slug.",
+		description:
+			"Pick an active Objective, then invoke objective-next to recommend, steer planning, or offer confirmed execution when Objective policy allows it.",
 		statusKey: "objective:next",
-		selectionTitle: "Select an active Objective for next-work recommendation",
+		selectionTitle: "Select an active Objective for next work or execution preview",
 		fallbackPrompt:
-			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below. If likely unrecorded progress blocks the recommendation, ask whether to run objective-update for the same Objective and only mutate through that explicit handoff.",
+			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway for the explicit Objective below: apply the Tracking Gate, recommend the next useful work, and only offer execution when the Objective contains explicit Runner Policy / Definition of Progress prose allowing it. If execution is offered, present an upfront preview and wait for explicit confirmation before material action. Do not use hidden ledgers, task files, private queues, Branch Memory run state, or alternate Objective stores. Do not submit PRs or perform external side effects unless included in the confirmed preview scope.",
 		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
 		compactDiffSuggestion: true,
 	},
