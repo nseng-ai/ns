@@ -61,7 +61,7 @@ Commands that successfully open a new cmux workspace should queue the shared PR-
 - `/cmux-slot:open-branch`
 - `/cmux-dispatch`
 
-The hook updates the workspace running the command, not the newly opened workspace. The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command.
+The hook updates the workspace running the command, not the newly opened workspace. The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
 
 Hook failures are non-fatal. If the caller workspace env is absent or the fast summary model is unavailable, the workspace-opening command remains successful.
 
