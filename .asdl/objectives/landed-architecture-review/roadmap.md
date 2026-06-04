@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Assess and decide the cmux command-suite architecture seam.
-      Review mode: run `improve-codebase-architecture` first, then `thermo-nuclear-code-quality-review` against the large TypeScript implementation and orchestration paths.
-      Evidence: identify whether `ts/packages/pi-extensions/src/cmux/`, `.pi/extensions/cmux.ts`, `src/asdl_tools/cmux/`, and `asdl exec cmux-workspace-summary` form one coherent deep module or several shallow workflow modules; execute the first worthwhile deepening slice or park with rationale.
+- [x] Assess and decide the cmux command-suite architecture seam.
+      Review mode: `improve-codebase-architecture` was used first; the named `thermo-nuclear-code-quality-review` skill was unavailable, so a local implementation-structure pressure-test was applied against the large TypeScript workflow path.
+      Evidence: the cmux suite is several workflow Modules rather than one coherent deep Module. The Python workspace-summary path already has a deep `CmuxGateway`/exec seam. The first worthwhile deepening slice consolidated `/cmux-slot:dispatch-plan` onto the shared `cmux/slot.ts` and `cmux/worktree-description.ts` slot-launch Module, deleting duplicate checkout/open/worktree-description implementation from `slot-dispatch-plan.ts`. Validation: `bun run --cwd ts/packages/pi-extensions check`; `bun test ts/packages/pi-extensions/test/cmux.test.ts`.
 
 - [ ] Assess and deepen the Pi CLI command lifecycle interface.
       Review mode: run `improve-codebase-architecture` first, then `thermo-nuclear-code-quality-review` for file-size, branching, confirmation, and rendering complexity.
