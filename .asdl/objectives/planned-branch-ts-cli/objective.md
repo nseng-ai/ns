@@ -2,54 +2,113 @@
 
 ## Thesis
 
-The planned-branch workflow — `write-plan` → `create` → `impl` — currently lives only inside the Pi extension layer (`pi-extensions/src/planned-branch/*`) and cannot be driven ergonomically from Claude Code. Extract its deterministic core into a new published, user-facing TypeScript package `@asdl/planned-branch` (bin `planned-branch`) so that a single tested core backs three surfaces: the `planned-branch` bin (hidden `exec` primitives), the Pi extension (which imports the core), and three public Claude Code skills (which shell out to the bin). The result makes the workflow first-class in Claude Code while keeping one source of truth and full Pi↔Claude storage interop. This is also the repo's first non-private TS package and the template for the eventual "all of asdl in TS" migration.
+The planned-branch workflow — `write-plan` → `create` → `impl` — should no longer live only inside the Pi extension layer. Extract its deterministic core into a publishable, user-facing TypeScript workspace package, `@asdl/planned-branch` (bin `planned-branch`), so one tested core backs three surfaces:
+
+1. hidden `planned-branch exec ...` primitives for agent/skill invocation;
+2. the Pi extension, which imports the core while retaining Pi-only UI/session/model behavior; and
+3. public Claude Code skills, which shell out to the bin.
+
+The implementation should make the workflow first-class in Claude Code while preserving Pi↔Claude storage interoperability. This package is the repo's first publishable TypeScript feature CLI and should become the pattern for future TS asdl packages, but actual npm registry publication/release automation is parked.
 
 ## Scope
 
-- Create a new published workspace package `@asdl/planned-branch` at `ts/packages/planned-branch`, exposing the bin `planned-branch` (the repo's first non-private TS package).
-- Extract the Pi-independent core out of `pi-extensions/src/planned-branch/*`, replacing the `pi.exec` coupling with an `Exec` gateway (real adapter + in-memory fake, per `typescript-fake-driven-testing`).
-- Keep the bin model-free: the harness always supplies `--slug`; no text-generation dependency lives in the package.
-- Implement the hidden `exec` operations: `write-plan-file`, `resolve-plan`, `create`, `load-plan`.
-- Have the bin own the local plan store and the attach/load/list policy, while deferring storage I/O to the `brmem` CLI (shell out) and branch operations to `git`/`gt`.
-- Refactor the Pi extension to import the core (keeping Pi-only behavior — session-history "latest plan" resolution and tiny-model slug derivation — in the extension layer), and namespace its commands as `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`.
-- Author three public Claude Code skills — `planned-branch-write-plan`, `planned-branch-create`, `planned-branch-impl` — that shell out to the bin and describe CLI operations only (no internal references), with `skills/<name>` symlinks for discoverability.
-- Rename storage to the single `planned-branch` token: brmem namespace `brmem-plans` → `planned-branch`, and the local plan store `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` → `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`.
-- Update workflow documentation (`docs/pi/planned-branch-workflow.md` and related) and migrate the extension tests to the new package, namespace, and command surface.
+- Create a new workspace package at `ts/packages/planned-branch` named `@asdl/planned-branch`, with a `planned-branch` bin and a package manifest that is publishable (`private` is absent/false). Actual npm publication and release automation are parked.
+- Extract the Pi-independent planned-branch core from `ts/packages/pi-extensions/src/planned-branch/*` into the new package, replacing `pi.exec`/`PlanCommandExecApi` coupling with an `Exec` gateway, real adapter, and in-memory/scripted fake per `typescript-fake-driven-testing`.
+- Keep the package model-free. Callers must supply saved-plan and planned-branch slugs; slug derivation stays in the harness layer (Claude skills derive inline; Pi keeps the tiny-model slug calls in the extension layer).
+- Have the core own deterministic workflow policy for:
+  - local saved-plan storage at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`;
+  - explicit-path and latest-source-branch plan resolution;
+  - planned branch creation through `git` or `gt`;
+  - Branch Memory attachment through the `brmem` CLI namespace `planned-branch`; and
+  - attached-plan selection/loading plus implementation-prompt rendering.
+- Implement the hidden CLI operations below. They are the stable contract the Claude skills call; output should support machine-readable JSON for skill use and human-readable errors for diagnostics.
+  - `planned-branch exec write-plan-file --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]`
+  - `planned-branch exec resolve-plan [absolute-or-home-plan-file.md] [--format json]`
+  - `planned-branch exec create --slug <planned-branch-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]`
+  - `planned-branch exec load-plan [key-or-slug] [--format json]`, returning selected attached-plan evidence and a ready-to-send implementation prompt.
+- Refactor the Pi extension to import the extracted package core instead of duplicating planned-branch logic. Pi-only responsibilities remain in `@asdl/pi-extensions`: command registration, wait-for-idle/send-message/UI behavior, session-history "latest plan" resolution, and tiny-model slug derivation.
+- Rename the Pi slash-command surface to `/planned-branch:write-plan`, `/planned-branch:create`, and `/planned-branch:impl`. Update `.pi/extensions/*` adapters and any cmux helpers that launch or inspect planned-branch outputs.
+- Rename storage to the single token `planned-branch`: Branch Memory namespace `brmem-plans` → `planned-branch`, and local store `~/.asdl/plans/...` → `~/.asdl/planned-branch/plans/...`, across code, tests, docs, prompts, and status renderers.
+- Author three public Claude Code skills — `planned-branch-write-plan`, `planned-branch-create`, and `planned-branch-impl` — with `skills/<name>` symlinks for discoverability. Skills shell out to the bin and describe CLI operations only; they must not reference internal TypeScript module paths or implementation classes.
+- Update workflow documentation (`docs/pi/planned-branch-workflow.md` and related references) to the new package, namespace, local store path, command names, CLI contracts, and cross-harness flow.
 
 ## Non-Goals
 
-- No generalized "branch artifacts" framework or unifying CLI above brmem; brmem stays the generic substrate and planned-branch is one workflow, sibling to handoff.
-- No model/text-generation dependency inside the bin; slug derivation stays in the harness (Claude derives inline; Pi keeps its tiny-model call in the extension layer).
-- No reimplementation of brmem's ref storage in TS; the package shells out to the `brmem` CLI and will swap to a TS-core import when brmem itself ports to TS.
-- No delivery of the thin human surface (`planned-branch list` / `show`); it is parked.
-- No `asdl` TS umbrella or TS plugin-discovery mechanism; this is a standalone feature CLI now, designed to mount into an umbrella later.
-- No backwards-compatibility shim or data migration for the renamed namespace/store path; the repo is unreleased/private and accepts the break.
+- No generalized branch-artifacts framework or umbrella CLI above Branch Memory. `brmem` remains the generic substrate; planned-branch is one workflow, sibling to handoff.
+- No model/text-generation dependency inside `@asdl/planned-branch`; no CLI-side slug generation.
+- No reimplementation of Branch Memory storage in TypeScript. The package shells out to the `brmem` CLI until/unless brmem itself ports to TS.
+- No backwards-compatibility shim or data migration for the renamed namespace/store path. This workflow is still unreleased/private enough to accept the break.
+- No thin human browsing surface (`planned-branch list` / `planned-branch show`) in this implementation stack.
+- No actual npm registry publication, release pipeline, or TS umbrella/plugin-discovery mechanism in this Objective.
+- No PR submission, npm publication, or external-system mutation unless explicitly requested after implementation.
 
 ## Completion Criteria
 
-- All three verbs work end-to-end from Claude Code (public skill → `planned-branch exec ...` → core) and from Pi (`/planned-branch:*` → imported core), against the same `planned-branch` brmem namespace and `~/.asdl/planned-branch/plans/...` store — a plan written from one harness can be branched and implemented from the other.
-- `@asdl/planned-branch` is the single source of truth: `pi-extensions` contains no duplicated planned-branch logic and instead imports the extracted core.
-- The bin's `exec` operations are model-free and shell out to `brmem`/`git`/`gt` as designed; the core is exercised through the `Exec` gateway with an in-memory fake.
-- The namespace rename (`brmem-plans` → `planned-branch`) and store-path rebrand are complete across code, docs, and tests; Pi commands are namespaced and Pi's session-history "latest plan" feature still works.
-- Evidence: `just ts-check` and `just ts-test` pass; CLI scenario tests over the bin cover the `exec` operations, help, and version; `docs/pi/planned-branch-workflow.md` reflects the new package, namespace, path, and command surface.
+- `@asdl/planned-branch` is the single deterministic source of truth: planned-branch creation, storage, loading, prompt rendering, validation, and command output are implemented in the package and tested through fake-driven unit tests plus CLI scenario tests.
+- The hidden exec operations work end-to-end from Claude Code skills and from Pi-imported core behavior against the same `planned-branch` Branch Memory namespace and `~/.asdl/planned-branch/plans/...` local store. A plan written from one harness can be branched and implemented from the other.
+- `@asdl/pi-extensions` contains only Pi-specific planned-branch orchestration and imports the extracted core. The old `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` command names are replaced by `/planned-branch:write-plan`, `/planned-branch:create`, and `/planned-branch:impl` in adapters, tests, docs, and cmux launch paths.
+- The namespace/store rename is complete across source, tests, docs, prompts, and status rendering: no active planned-branch path still uses `brmem-plans` or `~/.asdl/plans/...` except in historical/transition prose that intentionally explains the break.
+- The three public Claude skills exist under `skills/` and are installed/discoverable through `.agents/skills` symlinks; their prose is user-facing and references CLI operations rather than internal implementation details.
+- Evidence: `just ts-check` and `just ts-test` pass; the new package has CLI scenario coverage for top-level help/version and each `exec` operation; documentation reflects the new package, namespace, path, and command surface.
+
+## Definition of Progress
+
+Progress is keepable when:
+
+- one reviewable slice has a single clear thesis and leaves the repo in a coherent state for that slice;
+- deterministic planned-branch behavior moves from Pi-only code into the package or a Pi/cmux/skill surface is adjusted to the extracted package contract;
+- tests or docs demonstrate the same cross-harness storage contract (`planned-branch` namespace and `~/.asdl/planned-branch/plans/...` store);
+- validation appropriate to the slice has passed, or a concrete blocker is recorded with no hidden partial external mutation.
+
+Do not keep changes that:
+
+- duplicate deterministic planned-branch logic in both `@asdl/planned-branch` and `@asdl/pi-extensions`;
+- add model/text-generation dependencies to the package or CLI;
+- silently preserve old command/storage names as compatibility shims;
+- broaden the scope into a generic artifact framework, npm release automation, or an `asdl` TS umbrella; or
+- leave package extraction half-wired such that Pi and Claude use different storage contracts.
+
+Useful evidence includes:
+
+- fake-driven unit tests for store path derivation, command execution, branch creation, Branch Memory parsing, attached-plan selection, and prompt rendering;
+- CLI scenario tests exercising `planned-branch --help`, `planned-branch --version`, and the hidden `exec` operations;
+- Pi extension tests proving namespaced commands, session-history latest-plan resolution, tiny-model slug derivation, and imported-core calls;
+- skill/docs diffs showing the public flow and command contracts; and
+- `just ts-check` / `just ts-test` pass results.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-stack-impl` after the normal preview/confirmation gate.
+
+- Direct execution is allowed when the preview plans a small Graphite stack of one to three independently reviewable branches. The expected full implementation stack is:
+  1. extract `@asdl/planned-branch` core and CLI exec primitives;
+  2. refactor Pi/cmux surfaces to import the package and use the namespaced command/storage contract; and
+  3. add Claude skills plus workflow docs and final validation.
+- Work may change files under `ts/packages/planned-branch/`, `ts/packages/pi-extensions/`, `.pi/extensions/`, `skills/planned-branch-*`, `.agents/skills/planned-branch-*` symlinks, `.claude/skills/planned-branch-*` symlinks when generated by skill tooling, `docs/pi/`, and this Objective record. It may also update workspace lock/config files required for the new TS package.
+- Use the TypeScript style and TypeScript fake-driven testing skills for implementation slices, and the skill-management skill when creating/installing public skills.
+- Prefer parent-orchestrated runner subagents one slice at a time. Each subagent prompt should include the selected Objective slug, the current slice thesis, exact expected command/storage names, model-free package boundary, and validation commands.
+- Validation before keeping a slice: run targeted `bun test`/`tsc` for changed TS packages when available; run `just ts-check` and `just ts-test` before treating the Objective as fully implemented. Run dprint/markdown formatting checks or autofixes for skill/docs changes when needed.
+- Steer or ask first if implementation evidence suggests the CLI contract above is unsuitable, package publication setup must be decided now, the namespace break is no longer acceptable, Pi command backward compatibility is requested, `brmem` JSON contracts differ from current expectations, or cmux behavior needs product choices beyond renaming launch/read paths.
+- Do not submit PRs, publish npm packages, mutate GitHub state, add release automation, or migrate old local/Branch Memory data unless explicitly requested after the implementation preview.
 
 ## Assumptions and Risks
 
 Assumptions:
 
-- The only Pi coupling in `pi-extensions/src/planned-branch/*` is `pi.exec` (plus the slug model call and session-history scanning), so swapping in an `Exec` gateway cleanly separates the deterministic core; if deeper coupling surfaces, the extraction is larger than scoped.
-- The `brmem` CLI's `put`/`get`/`list --namespace` contract is stable enough to shell out to from both the bin and the skills.
-- Claude can derive an acceptable kebab-case slug inline from plan content, so no CLI-side model call is needed for the Claude flow.
-- A standalone `ts/packages/planned-branch` feature CLI (not an `asdl` umbrella) is the right first home, consistent with the composability principle and the Python dual-entry-point precedent.
+- The deterministic modules currently under `ts/packages/pi-extensions/src/planned-branch/*` are extractable with modest adaptation: existing command-runtime and brmem helpers may need to move, be copied, or be re-expressed behind the new package's `Exec` gateway, but Pi UI/session/model behavior can remain outside the package.
+- The `brmem` CLI `put`/`get`/`list --namespace ... --format json` contract is stable enough for the new package and skills to shell out to it.
+- Claude can derive acceptable kebab-case slugs inline from plan content for the skill workflow; Pi can continue deriving slugs through its tiny-model calls before invoking package core.
+- A standalone `ts/packages/planned-branch` feature CLI is the right first TS package boundary; an umbrella `asdl` TS CLI can mount it later if needed.
+- Workspace dependency wiring lets private `@asdl/pi-extensions` import the new package without introducing runtime Pi dependencies into `@asdl/planned-branch`.
 
 Risks:
 
-- Renaming the brmem namespace `brmem-plans` → `planned-branch` orphans any plans already attached under the old namespace; with no migration shim, in-flight branches carrying old-namespace plans will not be found. De-risk by confirming no active branch depends on `brmem-plans` before landing, or explicitly accept the break.
-- The published package's runtime dependency on the (Python) `brmem` CLI dents standalone-adoptability; accepted for now, and expected to improve when brmem ports to TS.
-- As the first non-private TS package it requires net-new npm publish/packaging setup (the TS analog of `setup-pypi-publish`), which may surface packaging issues; mitigated by keeping actual publication parked.
-- Pi's session-history "latest plan" resolution must survive the extraction (it stays in the extension over the imported core); risk of regression during the refactor, covered by migrating the existing extension tests.
+- Renaming `brmem-plans` → `planned-branch` and `~/.asdl/plans/...` → `~/.asdl/planned-branch/plans/...` orphans existing attached/saved plans. This is accepted for implementation, but final docs should call out the break and the final validation pass should confirm no active tests/docs unintentionally depend on the old names.
+- The new package's runtime dependency on Python `brmem` dents standalone adoptability. Accepted for now; the package boundary should make a later TS brmem import/adaptor swap straightforward.
+- As the first publishable TS package, package manifest/bin/exports details may surface new workspace conventions. Mitigate by keeping publication automation parked and validating local bin/workspace behavior only.
+- Pi's session-history latest-plan resolution and tiny-model slug derivation are easy to regress while deleting duplicate logic. Keep those responsibilities explicitly in Pi extension tests.
+- cmux helpers and worktree/status renderers contain planned-branch command and namespace references outside the obvious planned-branch extension files; the implementation must search and update those references deliberately.
 
 ## Open Questions
 
-- What should the parked human surface (`planned-branch list` / `show`) read — attached plans on the current branch, the local plan store, or both?
-- What is the exact npm publish setup for the first non-private TS package (publish config, versioning, and whether it is actually published versus only publish-ready)?
+- None blocking the implementation stack. Parked questions remain: what a future human `planned-branch list/show` surface should read, and what exact npm publication/release automation should look like when actual publication is requested.
