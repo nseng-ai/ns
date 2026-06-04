@@ -12,6 +12,15 @@ The core v1 workflow is:
 
 `vibechk` does not create workdirs, push branches, create PRs, or judge solution quality. It captures evidence so a human can review it.
 
+## How vibechk differs from promptfoo
+
+`vibechk` is sometimes confused with general LLM eval tools like [promptfoo](https://github.com/promptfoo/promptfoo). They solve different problems:
+
+- **promptfoo** evaluates LLM _outputs_: it runs prompts/models/providers against test cases with assertions and graders to answer "is the answer good, correct, or safe?" It is a large, mature platform with many providers, red-teaming, a web UI, and CI/CD gating.
+- **vibechk** evaluates an agent _run's cost and speed_: it runs the same plan in a baseline vs. treatment git workdir and reports metric deltas (wall time, tokens, cost) plus transcripts and diffs to answer "did this context change make an autonomous coding run cheaper or faster?"
+
+`vibechk` deliberately does not grade solution quality — it captures evidence for a human to judge. The overlap is only the word "eval": promptfoo asks _is the model's answer good?_, while `vibechk` asks _did my context change make the agent run cheaper or faster?_
+
 ## Current status
 
 Implemented today:
