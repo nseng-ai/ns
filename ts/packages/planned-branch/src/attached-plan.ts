@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { TextEncoder } from "node:util";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./planned-branch-creation.ts";
 import { formatCommandFailure, runBrmem, type PlanCommandExecApi, type ExecOptions } from "./plan-persistence.ts";
 
@@ -161,13 +162,10 @@ export function selectAttachedPlanKey(input: { branch: string; requestedKey?: st
 }
 
 export function parseBrmemListEntries(stdout: string, expected: { namespace: string; branch: string }): AttachedPlanEntry[] {
-	const envelope = parseJsonEnvelope(stdout, "brmem list");
-	assertEnvelopeExitCode(envelope, stdout, "brmem list");
-
-	const data = envelope.data;
-	if (!isRecord(data)) {
-		throw malformedBrmemEnvelope("brmem list", stdout, "expected a data object");
-	}
+	const data = parseMachineEnvelopeData(stdout, {
+		label: "brmem list JSON",
+		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
+	});
 
 	const entries = data.entries;
 	if (!Array.isArray(entries)) {
@@ -178,13 +176,10 @@ export function parseBrmemListEntries(stdout: string, expected: { namespace: str
 }
 
 export function parseBrmemGetContent(stdout: string, expected: { namespace: string; branch: string; key: string }): BrmemGetContent {
-	const envelope = parseJsonEnvelope(stdout, "brmem get");
-	assertEnvelopeExitCode(envelope, stdout, "brmem get");
-
-	const data = envelope.data;
-	if (!isRecord(data)) {
-		throw malformedBrmemEnvelope("brmem get", stdout, "expected a data object");
-	}
+	const data = parseMachineEnvelopeData(stdout, {
+		label: "brmem get JSON",
+		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
+	});
 
 	const namespace = data.namespace;
 	const key = data.key;
@@ -330,33 +325,6 @@ async function runGit(
 	} catch (error) {
 		throw new Error(`git command failed before completion.\nCommand: ${displayCommand}\nError: ${errorMessage(error)}`);
 	}
-}
-
-function parseJsonEnvelope(stdout: string, commandName: string): Record<string, unknown> {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		throw new Error(
-			`Malformed ${commandName} JSON: ${errorMessage(error)}\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`,
-		);
-	}
-
-	if (!isRecord(parsed)) {
-		throw malformedBrmemEnvelope(commandName, stdout, "expected an envelope object");
-	}
-	return parsed;
-}
-
-function assertEnvelopeExitCode(envelope: Record<string, unknown>, stdout: string, commandName: string): void {
-	const exitCode = envelope.exit_code;
-	if (exitCode === undefined) {
-		return;
-	}
-	if (typeof exitCode === "number" && exitCode === 0) {
-		return;
-	}
-	throw malformedBrmemEnvelope(commandName, stdout, `expected envelope exit_code 0, got ${JSON.stringify(exitCode)}`);
 }
 
 function parseListEntry(
