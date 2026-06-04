@@ -2,6 +2,13 @@
 
 ## Work
 
+Standing operating direction
+
+- [~] Keep `CONTEXT.md`, `CONTEXT-MAP.md`, and `grill-with-docs`-maintained docs up to date.
+  - Guidance: Re-derive the next slice from current source/docs, existing context coverage, and unresolved map ambiguities; do not treat old phase numbers as a hidden queue when repo reality has drifted.
+  - Policy: direct execution after preview for source-backed docs/context updates; steer first for terminology decisions, context-surface changes, or scope changes.
+  - Evidence: changed context/map/docs files cite current source evidence, relevant Markdown formatting passes, and meaningful Objective tracking records durable decisions.
+
 Completed foundation
 
 - [x] Phase 0 — initial `/CONTEXT-MAP.md` scaffold: created the repo ontology entry point, seeded planned contexts, explicit skips, candidate relationships, and candidate ambiguities.

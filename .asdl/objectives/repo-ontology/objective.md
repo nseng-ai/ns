@@ -2,17 +2,15 @@
 
 ## Thesis
 
-The asdl monorepo needs a durable domain-language map that lets a contributor or agent enter from one file, navigate to the right package or extension context, and understand overloaded terms without opening source first. The repo reality has moved again: the previously pending work has reached clean `master`, and the current checkout now has the root Objective-system context, `CONTEXT-MAP.md`, 11 in-scope Python package context targets, and 2 repo-local TypeScript package context targets.
+The standing goal is simple: keep the repo's domain-language documentation up to date.
 
-The foundation is still mostly landed: root Objective vocabulary, all `asdl-core` subdomain H2 sections, the Pi extension context, and the brmem context exist. The map and remaining roadmap now need to catch up to the post-merge inventory: `areg`, `asdl-handoff`, and `vibechk` are tracked Python packages with live domain language, and `ts/packages/asdl-dev` is a private TypeScript CLI package whose command table is mirrored by the Pi extension layer.
-
-The outcome remains the same: `/CONTEXT-MAP.md` is the single navigation index, each context file owns its local glossary and relationships, and cross-context naming collisions such as Review/Comment, State/status, active/root status, branch/ref/snapshot-ref, plan/handoff terminology, skill/agent/resource language, Graphite stack projection, and evidence/finding language are explicitly resolved or recorded rather than left implicit in implementation names.
+That means every `CONTEXT.md`, the root `CONTEXT-MAP.md`, and any ADRs or related docs maintained through `grill-with-docs` should reflect current checked-in repo reality. Contributors and agents should be able to use those files to understand the repo's canonical terms, boundaries, relationships, and deliberately avoided aliases without opening source first.
 
 ## Scope
 
-Current checkout baseline and closure target:
+Current known documentation surface:
 
-The list below is the known current baseline, not a frozen final inventory. Closure requires this baseline plus any additional tracked packages, extension surfaces, or substantial repo-local domain-language surfaces introduced before the Objective closes.
+The list below is the current known context inventory to keep fresh, not a frozen final inventory. When tracked packages, extension surfaces, or substantial repo-local domain-language surfaces change, the Objective should update the relevant context/map/docs rather than treating the old inventory as authoritative.
 
 - Root repo context: `CONTEXT.md` for Objective-system vocabulary.
 - Repo map: `CONTEXT-MAP.md` as the navigation index and relationship/ambiguity rollup.
@@ -32,13 +30,13 @@ The list below is the known current baseline, not a frozen final inventory. Clos
   - `ts/packages/asdl-dev/CONTEXT.md` — repo-local developer CLI vocabulary for `preview-url`, `cp`, `submit`, command execution, Vercel preview resolution, checkpoint text generation, and Graphite submission.
   - `ts/packages/pi-extensions/CONTEXT.md` — project-local Pi discovery adapters, engineered extension layer, command mirrors, planned/autobranch flows, runner subagents, terminal/CLI output presentation, and runtime CLI edges.
 
-Rephased sequence from the current state:
+Current backlog from the prior finite sweep:
 
 - Completed foundation — old Phases 0 through 2: map scaffold/rebaselines, root/Pi/asdl-core contexts, brmem context, and brmem terminology alignment.
 - Phase 3 — current-checkout map catch-up: update `/CONTEXT-MAP.md` so it no longer lags the completed brmem context or the post-merge package inventory.
 - Phase 4 — post-merge Objective rebaseline: record that the outstanding-change batch has landed, update this Objective's closure target, and add context phases for new package/TypeScript surfaces.
 - Phases 5 through 15 — one focused context or rebaseline slice at a time: `areg`, `asdl-handoff`, `asdl-pr-address`, `roaster`, `asdl-slots`, `asdl-objectives`, `packagechk`, `aretro`, `vibechk`, `asdl-dev`, and a refresh of `@asdl/pi-extensions`.
-- Phase 16 — final `/CONTEXT-MAP.md` relationship/ambiguity/readback pass. If future drift discovers new in-scope contexts, insert them before this final phase and renumber/update the roadmap rather than treating Phase 16 as fixed.
+- Phase 16 — final `/CONTEXT-MAP.md` relationship/ambiguity/readback pass for the current backlog. If future drift discovers new in-scope contexts, update the roadmap rather than treating Phase 16 as fixed.
 
 Each context-writing phase is expected to use `grill-with-docs` or an equivalent focused readback session. A package context may be accepted from an adjacent Objective only when it conforms to this Objective's contract: Language entries with `Avoid:` aliases where relevant, followed by Relationships, with map-level collisions either resolved locally or carried forward deliberately.
 
@@ -54,17 +52,39 @@ Each context-writing phase is expected to use `grill-with-docs` or an equivalent
 
 ## Completion Criteria
 
-- `/CONTEXT-MAP.md` exists at repo root and accurately lists the final merged context inventory at closure time: root `CONTEXT.md`, the current 11 known in-scope Python package contexts, `ts/packages/asdl-dev/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, and any additional in-scope package or extension contexts introduced before closure. It keeps operation-less or absent surfaces explicitly out of scope and mentions names such as `asdl-dispatcher`, `asdl-initiatives`, or `asdl-reviewer` only when their current tracked status makes that useful.
-- `/CONTEXT-MAP.md` marks `packages/brmem/CONTEXT.md` as present and summarizes the current brmem ontology without stale `Entry/Ref locator` or prompt-resolution-as-normal-operation wording.
-- `/CONTEXT-MAP.md` contains a populated Relationships section whose edges correspond to real package dependencies, source imports, checked-in extension adapters, or runtime CLI interactions. It must include known-real edges such as `asdl-handoff → brmem`, `asdl-objectives → asdl-core.gt` for `objective gt` stack projection, `@asdl/pi-extensions → asdl-dev` for mirrored commands, the current `areg → asdl-core.project_config` boundary, and standalone/no-`asdl-core` boundaries for `packagechk` and `vibechk`; it must not reintroduce stale speculative edges such as `asdl-objectives → brmem` storage.
-- `CONTEXT.md` and `docs/objective-system.md` distinguish Active Objective Root, Objective Archive Root, Archived Objective, Objective Close, Objective Archive, and Closure Marker without treating archive state as closure state.
-- `packages/asdl-core/CONTEXT.md` remains the single asdl-core context file and contains conforming H2 sections for `Clinkr`, `Git`, `Gt`, `Gh`, `Top-level utilities`, and `Sessions`.
-- `packages/brmem/CONTEXT.md` exists and covers Branch Memory System, Branch Memory, Namespace, Base Namespace with canonical name `base`, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export.
-- `ts/packages/asdl-dev/CONTEXT.md` exists and covers the flat command table, `preview-url`, `cp`, `submit`, command-runner boundaries, Vercel preview URL resolution, checkpoint-message generation/validation, Graphite submit/restack/current-PR verification, and text-generation gateway boundaries.
-- `ts/packages/pi-extensions/CONTEXT.md` is refreshed against the current Pi extension surface and covers project-local discovery adapters, the engineered package layer, the `asdl-dev` command mirror, planned/autobranch/checkpoint flows, runner subagents, handoff adapters, terminal/CLI output presentation, and runtime CLI edges.
-- Each current known missing Python package context exists with Language and Relationships sections: `packages/areg/CONTEXT.md`, `packages/asdl-handoff/CONTEXT.md`, `packages/asdl-pr-address/CONTEXT.md`, `packages/roaster/CONTEXT.md`, `packages/asdl-slots/CONTEXT.md`, `packages/asdl-objectives/CONTEXT.md`, `packages/packagechk/CONTEXT.md`, `packages/aretro/CONTEXT.md`, and `packages/vibechk/CONTEXT.md`; any additional contexts discovered by future rebaselines are added to the roadmap and completed before final map readback.
-- Cross-context naming collisions discovered during sessions are either resolved consistently in the local contexts or recorded as concise resolved entries in `/CONTEXT-MAP.md`: Review/Comment, State/status, Active/root status, branch/ref/start-point/snapshot-ref, Graphite stack projection, evidence/finding, plan/attachment/handoff terminology, skill/agent/resource language, and run/evaluation metric language.
-- Readback test: an unfamiliar contributor can open `/CONTEXT-MAP.md`, navigate to any listed context, and explain key terms and `Avoid:` aliases without opening source files.
+This is a standing Objective. It has no goal-met finish line. Close it only when the repo no longer maintains domain language through `CONTEXT.md`, `CONTEXT-MAP.md`, and `grill-with-docs`-maintained docs; ownership moves to a successor Objective/process; or a human explicitly retires this maintenance cadence.
+
+## Definition of Progress
+
+Progress is keepable when:
+
+- A `CONTEXT.md`, `CONTEXT-MAP.md`, ADR, or related `grill-with-docs`-maintained file better reflects current checked-in repo reality.
+- Canonical terms, relationships, and `Avoid:` aliases are sharper and easier for contributors or agents to apply.
+- Cross-context terminology collisions are resolved locally or recorded concisely in the map.
+- Stale ontology claims are removed or rebaselined from source evidence.
+
+Do not keep changes that:
+
+- Invent package vocabulary not supported by source/docs.
+- Turn context files into generated registries, schemas, lifecycle state, or task databases.
+- Expand a context-writing slice into broad implementation work.
+
+Useful evidence includes:
+
+- Source/package inventory checks.
+- Concrete file paths and relationship edges.
+- `dprint` / relevant docs validation.
+- A `grill-with-docs` readback or equivalent check that an unfamiliar contributor can navigate from `CONTEXT-MAP.md` to the right context.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` under the boundaries below.
+
+- Direct execution is allowed when: the slice is docs/context-only, source-backed, and limited to keeping `CONTEXT.md`, `CONTEXT-MAP.md`, ADRs, related `grill-with-docs` docs, or Objective tracking up to date.
+- Steer or ask first when: choosing canonical terminology, changing the context/ADR format, adding/removing a context surface, or resolving a non-obvious cross-context ambiguity.
+- Materialization: local Markdown edits only unless branch/commit work is explicitly confirmed.
+- Validation: run `dprint` checks for Markdown and cite source evidence for inventory/relationship claims.
+- External side effects: none by default.
 
 ## Assumptions and Risks
 
