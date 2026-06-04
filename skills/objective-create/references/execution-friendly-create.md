@@ -17,8 +17,8 @@ Gather at least:
 1. when direct execution is allowed;
 2. when to steer or ask first;
 3. what keepable progress looks like;
-4. validation and materialization boundaries;
-5. external side-effect policy when relevant.
+4. validation boundaries and how work may be left;
+5. what external systems, PR submission, publishing, deployment, or write APIs are out of scope unless explicitly previewed and confirmed.
 
 ## Placement and template
 
@@ -48,5 +48,5 @@ Before reporting completion for an execution-friendly Objective, confirm:
 - `objective.md` contains `## Definition of Progress` and `## Runner Policy`;
 - policy prose covers the minimum policy items above;
 - any row-level `Policy:` notes are prose guidance, not machine-readable state;
-- external side effects are explicitly bounded or out of scope;
+- external systems and write-capable actions are explicitly bounded or out of scope;
 - planning-only Objectives did not receive execution policy sections unless explicitly requested.

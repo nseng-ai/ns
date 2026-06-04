@@ -130,9 +130,9 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 
 - Direct execution is allowed when: ...
 - Steer or ask first when: ...
-- Materialization: ...
-- Validation: ...
-- External side effects: ...
+- How work may change files and be left: ...
+- Validation before keeping work: ...
+- What will not happen unless explicitly requested: ...
 ```
 
 The `## Runner Policy` signal is prose, not a key-value permission bit. If policy is absent or ambiguous, `objective-next` must not infer execution permission from a concrete roadmap row alone. It should recommend only and explain that durable policy enables future execution offers.
@@ -221,9 +221,9 @@ The preview should include:
 - selected Objective slug;
 - policy basis, including Runner Policy and row-level `Policy:` when relevant;
 - proposed bounded scope;
-- likely materialization shape;
+- likely files or areas and how the work will be left;
 - expected validation;
-- external access and side-effect expectations;
+- external systems or write-capable actions, with PR submission, publishing, deployment, and write APIs out of scope unless explicitly included;
 - when the runner should stop or ask;
 - whether Objective updates are expected;
 - PR submission status.
@@ -238,7 +238,7 @@ Keep `objective-stack-impl` as the specialized planned-stack runner. It remains 
 
 ---
 
-## 5. Keep, reject, and materialize
+## 5. Keep, reject, and leave work
 
 A runner pass is kept only when it can cite concrete evidence against the Objective's Definition of Progress or equivalent policy and pass evidence-appropriate validation.
 
@@ -251,7 +251,7 @@ Validation is artifact-specific:
 
 Ambiguous changes are not kept.
 
-For v1, materialization defaults to local edits unless the confirmed preview includes branch or commit work. If branch creation, commit amendment, restacking, or submission is in scope in this repo, consult the Graphite workflow first.
+For v1, work defaults to local edits unless the confirmed preview includes branch or commit work. If branch creation, commit amendment, restacking, or submission is in scope in this repo, consult the Graphite workflow first.
 
 Rejected candidates should be discarded: reset/delete the candidate branch or dirty state, and preserve only reusable semantic learnings when they matter.
 
@@ -259,7 +259,7 @@ A launch can still be successful with no branch or Objective update when the run
 
 ### Objective updates in kept work
 
-When a kept pass materially advances the Objective, include concise Objective tracking changes in the same materialized work:
+When a kept pass materially advances the Objective, include concise Objective tracking changes in the same kept work:
 
 - edit `objective.md` or `roadmap.md` when durable narrative/guidance changes;
 - add a Semantic Update when there is meaningful Objective impact;
@@ -287,7 +287,7 @@ Do not formalize “autoobjective” as schema or a required type field. It is c
 
 Do not require metrics. Numeric metrics are powerful when available, but qualitative Definitions of Progress are valid.
 
-External side effects are not allowed by default. Publishing, deploying, mutating GitHub issues/PRs, calling write APIs, or changing external systems requires explicit Runner Policy or confirmed preview scope.
+External systems and write-capable actions are not allowed by default. Publishing, deploying, mutating GitHub issues/PRs, submitting PRs, calling write APIs, or changing external systems requires explicit Runner Policy or confirmed preview scope.
 
 ---
 
@@ -296,7 +296,7 @@ External side effects are not allowed by default. Publishing, deploying, mutatin
 These remain intentionally deferred until real use clarifies them:
 
 - exact execution-preview format;
-- branch naming and candidate-branch cleanup mechanics when branch materialization is confirmed;
+- branch naming and candidate-branch cleanup mechanics when branch or commit work is confirmed;
 - how much `objective-next` and `objective-stack-impl` should share implementation guidance;
 - whether stable runner behavior should eventually move from skill prose into deterministic CLI fact helpers;
 - whether `## Runner Policy` should gain more standard example bullets after real use.

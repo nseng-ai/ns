@@ -6,7 +6,9 @@ Implement `vibechk` as a lightweight, ephemeral evaluation CLI for measuring the
 
 The source implementation spec is GitHub issue #434: <https://github.com/dagster-io/asdl-tools/issues/434>. The Objective should track the v1 behavior and validation from that issue while leaving v1.5/v2 ideas parked.
 
-## Source Spec Anchors
+## Scope
+
+### Source Spec Anchors
 
 Issue #434 defines the vocabulary and workflow that should remain recognizable in the implementation:
 
@@ -23,7 +25,7 @@ Implementation sequencing should prioritize a thin, incomplete vertical slice of
 
 Design choices from the issue should not be accidentally reversed during implementation: baseline means an autonomous re-run with old context, not the original human PR; the user writes the plan; v1 measures efficiency only; N is exactly one per side; there is no default runtime budget; `vibechk` stays local and never pushes or creates PRs; failed runner bundles remain useful evidence rather than being hidden.
 
-## Scope
+### Implementation Scope
 
 - Create a standalone workspace package at `packages/vibechk` exposing the CLI command `vibechk`.
 - Implement v1 in Python, following this repository's Python package and fake-driven testing conventions.
