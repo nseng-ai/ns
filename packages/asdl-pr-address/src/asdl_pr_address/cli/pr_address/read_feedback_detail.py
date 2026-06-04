@@ -1,4 +1,4 @@
-"""Read one selected feedback detail from a raw PR feedback sidecar."""
+"""Read one selected feedback detail from a raw PR feedback payload."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ class ReadFeedbackDetailResult(ClinkrModel):
 
 @clinkr_operation(
     name="read-feedback-detail",
-    help="Read one selected PR feedback body or item from a raw sidecar payload.",
+    help="Read one selected PR feedback body or item from a raw payload artifact.",
 )
 def run_read_feedback_detail(
     ctx: click.Context,

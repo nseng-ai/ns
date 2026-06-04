@@ -13,13 +13,13 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRDiscussionComment, PRReview, PRReviewThread
-from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_sidecar
+from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_payload_artifact
 from asdl_core.payloads.store import PayloadStore
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_pr_address.cli.pr_address.feedback_sidecar import (
-    GetFeedbackSidecarManifest,
+from asdl_pr_address.cli.pr_address.feedback_payload import (
+    GetFeedbackPayloadManifest,
     PayloadMode,
-    build_get_feedback_sidecar_manifest,
+    build_get_feedback_payload_manifest,
 )
 from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
@@ -32,10 +32,10 @@ class GetFeedbackRequest(ClinkrModel):
         PayloadMode,
         click.Option(
             ["--payload-mode"],
-            type=click.Choice(["inline", "sidecar"]),
-            default="sidecar",
+            type=click.Choice(["inline", "payload"]),
+            default="payload",
         ),
-    ] = "sidecar"
+    ] = "payload"
     payload_session_id: Annotated[
         str | None,
         click.Option(["--payload-session-id"], type=click.STRING),
@@ -67,9 +67,9 @@ class GetFeedbackInlineResult(ClinkrModel):
 def run_get_feedback(
     ctx: click.Context,
     request: GetFeedbackRequest,
-) -> ClinkrExit[GetFeedbackInlineResult | GetFeedbackSidecarManifest]:
+) -> ClinkrExit[GetFeedbackInlineResult | GetFeedbackPayloadManifest]:
     store: PayloadStore | None = None
-    if request.payload_mode == "sidecar":
+    if request.payload_mode == "payload":
         store = open_clinkr_payload_store(request.payload_session_id)
 
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
@@ -89,14 +89,14 @@ def run_get_feedback(
         return ClinkrExit.ok(inline_result)
 
     if store is None:
-        raise AssertionError("sidecar payload store must be opened before writing raw payload")
-    raw_reference = write_clinkr_raw_sidecar(
+        raise AssertionError("payload artifact store must be opened before writing raw payload")
+    raw_reference = write_clinkr_raw_payload_artifact(
         store=store,
         descriptor=f"pr-address-get-feedback-pr-{request.pr_number}",
         result=ClinkrExit.ok(inline_result),
     )
     return ClinkrExit.ok(
-        build_get_feedback_sidecar_manifest(
+        build_get_feedback_payload_manifest(
             payload_reference=raw_reference,
             pr_number=inline_result.pr_number,
             reviews=inline_result.reviews,

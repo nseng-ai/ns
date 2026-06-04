@@ -14,23 +14,23 @@ enumerations.
 
 ## Inputs
 
-The classifier receives side-channel evidence, not pasted raw review JSON:
+The classifier receives payload artifact evidence, not pasted raw review JSON:
 
 - **Manifest:** the compact `data` object from `pr-address exec prepare-run` or
-  `pr-address exec get-feedback` in default sidecar mode.
+  `pr-address exec get-feedback` in default payload mode.
 - **Raw payload path:** `manifest.payload_reference.payload_path`, pointing to
-  the full `.raw.json` sidecar envelope.
+  the full `.raw.json` payload envelope.
 - **Locators:** `body_locator` and `item_pointer` values from manifest reviews,
   review-thread comments, and discussion comments.
 - **Restructured files:** optional `restructured_files` from `prepare-run`, used
   when judging moved/copied-path bot comments as pre-existing.
-- **Selected body text:** obtained either by a side-channel summarizer/subagent
-  that can read the raw sidecar file, or by targeted calls to
+- **Selected body text:** obtained either by a payload-aware summarizer/subagent
+  that can read the raw payload file, or by targeted calls to
   `pr-address exec read-feedback-detail`.
 
-Do not paste the full raw sidecar payload into the main transcript. Pass paths,
+Do not paste the full raw payload artifact into the main transcript. Pass paths,
 locators, expected output shape, and completeness requirements to the side
-channel. If no side channel is available, inspect only the required bodies with
+channel. If no separate subagent or helper is available, inspect only the required bodies with
 `read-feedback-detail`.
 
 ## Output packet

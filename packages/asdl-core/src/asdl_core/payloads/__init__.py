@@ -1,1 +1,1 @@
-"""Payload side-channel artifact primitives."""
+"""Payload artifact primitives."""

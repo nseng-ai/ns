@@ -1,4 +1,4 @@
-# Specification: Agent payload side-channels and prompt launch policy
+# Specification: Agent payload artifacts and prompt launch policy
 
 Status: Contract specification for implementation
 Scope: shared payload artifact conventions, prompt resolution, and the `pr-address` first steelthread.
@@ -9,7 +9,7 @@ This document specifies observable behavior and stable file/wire contracts. It d
 
 ## 1. Purpose and audience
 
-Agent-facing CLI commands sometimes produce machine-readable payloads that are too large for the main agent transcript. The side-channel pattern lets a command write the complete raw payload to a private local artifact and print a compact manifest with enough identity, counts, and locators for the agent to decide what to inspect next.
+Agent-facing CLI commands sometimes produce machine-readable payloads that are too large for the main agent transcript. The payload artifact pattern lets a command write the complete raw payload to a private local artifact and print a compact manifest with enough identity, counts, and locators for the agent to decide what to inspect next.
 
 This specification is for implementers of the shared `asdl-core` primitives, `pr-address` command authors, skill/documentation authors, and harness integrations in Pi, Claude, Codex, or equivalent local agent environments.
 
@@ -17,7 +17,7 @@ The first concrete consumer is `pr-address` because PR reviews, review threads, 
 
 ## 2. Definitions
 
-- **Payload root**: the configured root directory for side-channel artifacts. By default this is the absolute platform temp directory joined with `asdl`.
+- **Payload root**: the configured root directory for payload artifacts. By default this is the absolute platform temp directory joined with `asdl`.
 - **Session id**: a safe single path segment supplied by a harness, workflow, environment variable, or explicit command option to group artifacts for one agent task/session.
 - **Descriptor**: a safe caller-supplied artifact descriptor such as `pr-address-get-feedback-pr-815`.
 - **Artifact role**: the artifact's role in the workflow. V1 roles are `raw`, `summary`, and `log`.
@@ -38,12 +38,12 @@ This contract does not require or authorize the following in v1:
 - command-level LLM invocation;
 - migration of non-`pr-address` commands;
 - `.asdl/prompts/subagent-launch.md` creation during the docs-first contract slice;
-- `skills/pr-address/SKILL.md` rewrite before sidecar command behavior exists;
+- `skills/pr-address/SKILL.md` rewrite before payload command behavior exists;
 - payload retention, garbage collection, or crash-proof durability tooling;
 - numeric token/character budget tests;
 - a bounded body-preview option such as `--body-preview-chars` in v1.
 
-The supported escape hatches for full body text are sidecar/subagent access, selected-detail lookup, and explicit inline mode.
+The supported escape hatches for full body text are payload/subagent access, selected-detail lookup, and explicit inline mode.
 
 ## 4. Payload-store contract
 
@@ -51,18 +51,18 @@ The supported escape hatches for full body text are sidecar/subagent access, sel
 
 The shared payload-store primitive belongs under the future `asdl_core.payloads` namespace. It should be framework-agnostic: the store owns validated paths, artifact names, writes, and payload references, while individual commands own their compact domain manifests.
 
-A small Clinkr adapter/helper may be layered on top of the pure store, but Clinkr must not automatically spool every command output. Sidecar-enabled commands opt in explicitly.
+A small Clinkr adapter/helper may be layered on top of the pure store, but Clinkr must not automatically spool every command output. Payload-enabled commands opt in explicitly.
 
 The implementation may expose a small `PayloadStore`-like object constructed with root and session settings, with methods equivalent to writing JSON artifacts and text/log artifacts. The stable contract is the observable behavior, not exact Python spelling.
 
 ### 4.2 Root, session, and path controls
 
-Sidecar mode requires a valid supplied session id. The session id sources are, in order:
+Payload mode requires a valid supplied session id. The session id sources are, in order:
 
 1. an explicit command option such as `--payload-session-id`;
 2. the `ASDL_PAYLOAD_SESSION_ID` environment variable.
 
-If no session id is supplied in sidecar mode, command preflight fails before domain work starts. If a supplied session id is invalid, preflight fails before domain work starts. Commands must not invent generated fallback session ids in sidecar mode.
+If no session id is supplied in payload mode, command preflight fails before domain work starts. If a supplied session id is invalid, preflight fails before domain work starts. Commands must not invent generated fallback session ids in payload mode.
 
 Inline mode bypasses payload-store preflight and does not require a session id. The harness or top-level agent workflow owns creating one session id per task/session; individual commands validate it but do not create it.
 
@@ -178,13 +178,13 @@ The payload layer reserves these stable error types for future Clinkr failures a
 - `payload_write_failed`
 - `payload_lookup_failed`
 
-A sidecar-write failure in a Clinkr operation is a command failure: exit code `2`, a stable payload error type such as `payload_write_failed`, a useful message, and no compact result `data`. The command must not fall back to printing the raw payload inline.
+A payload-write failure in a Clinkr operation is a command failure: exit code `2`, a stable payload error type such as `payload_write_failed`, a useful message, and no compact result `data`. The command must not fall back to printing the raw payload inline.
 
 ## 5. Clinkr adapter contract
 
-A `.raw.json` sidecar stores the full Clinkr machine envelope for the operation, not only the `data` object. It is schema-equivalent to the same command's explicit inline JSON machine-envelope output: formatting need not be byte-for-byte identical, but JSON shape and values must be equivalent.
+A `.raw.json` payload stores the full Clinkr machine envelope for the operation, not only the `data` object. It is schema-equivalent to the same command's explicit inline JSON machine-envelope output: formatting need not be byte-for-byte identical, but JSON shape and values must be equivalent.
 
-Sidecar-enabled Clinkr commands may return discriminated unions. Machine callers must be able to branch on a stable discriminator such as `payload_mode`.
+Payload-enabled Clinkr commands may return discriminated unions. Machine callers must be able to branch on a stable discriminator such as `payload_mode`.
 
 The adapter/helper boundary is intentionally explicit:
 
@@ -201,7 +201,7 @@ Compact manifests should contain enough deterministic facts for an agent to deci
 
 For `pr-address`, compact manifests must include:
 
-- a payload reference/path to the raw sidecar;
+- a payload reference/path to the raw payload;
 - PR metadata;
 - counts;
 - every relevant feedback item;
@@ -229,16 +229,16 @@ Body locators in compact manifests should include an RFC 6901 JSON Pointer to th
 
 ## 8. `pr-address` steelthread contract
 
-`pr-address exec prepare-run` and `pr-address exec get-feedback` eventually accept an explicit `--payload-mode inline|sidecar` option or equivalent.
+`pr-address exec prepare-run` and `pr-address exec get-feedback` eventually accept an explicit `--payload-mode inline|payload` option or equivalent.
 
-- Default mode is `sidecar`.
-- `sidecar` requires a valid payload session id and fails preflight before GitHub or repository domain work if the id is missing or invalid.
+- Default mode is `payload`.
+- `payload` requires a valid payload session id and fails preflight before GitHub or repository domain work if the id is missing or invalid.
 - `inline` bypasses payload session preflight and returns the full raw output for debugging and migration.
-- Machine output is a discriminated union: sidecar mode returns a compact manifest with `payload_mode: "sidecar"`; inline mode returns the raw model or raw wrapper tagged with `payload_mode: "inline"`.
+- Machine output is a discriminated union: payload mode returns a compact manifest with `payload_mode: "payload"`; inline mode returns the raw model or raw wrapper tagged with `payload_mode: "inline"`.
 
-Sidecar mode changes transport, not the raw data contract. The raw sidecar contains the same full machine-envelope shape available through inline JSON output.
+Payload mode changes transport, not the raw data contract. The raw payload contains the same full machine-envelope shape available through inline JSON output.
 
-No bounded body-preview escape hatch is included in v1. Implementers must not add default compact body previews or a `--body-preview-chars` option as part of this Objective. The supported paths to full text are sidecar/subagent access, selected-detail lookup, and explicit inline mode.
+No bounded body-preview escape hatch is included in v1. Implementers must not add default compact body previews or a `--body-preview-chars` option as part of this Objective. The supported paths to full text are payload/subagent access, selected-detail lookup, and explicit inline mode.
 
 ## 9. Classification summary and validation contract
 
@@ -281,7 +281,7 @@ The `subagent-launch.md` policy is not created in the docs-first contract slice.
 - Pi launch guidance;
 - Claude launch guidance;
 - Codex launch guidance;
-- fallback behavior when no side-channel subagent is available;
+- fallback behavior when no separate subagent is available;
 - safety and failure behavior.
 
 It must not contain PR-specific classification schema or task prompt text.
@@ -292,7 +292,7 @@ A conforming implementation should proceed in small slices:
 
 1. implement the shared `asdl_core.payloads` store and opt-in Clinkr helper;
 2. implement the prompt resolver and add the `subagent-launch.md` policy with embedded-default drift protection;
-3. convert `pr-address exec prepare-run` and `get-feedback` to sidecar defaults with inline mode;
+3. convert `pr-address exec prepare-run` and `get-feedback` to payload defaults with inline mode;
 4. add `pr-address exec read-feedback-detail` on top of core JSON Pointer lookup;
 5. add classification validation;
 6. update `pr-address` skill/docs once command behavior exists;
@@ -303,7 +303,7 @@ A conforming implementation should proceed in small slices:
 
 ### 12.1 Payload store
 
-- Reject missing session id in sidecar store construction or command preflight.
+- Reject missing session id in payload store construction or command preflight.
 - Reject invalid session id values.
 - Reject invalid descriptors.
 - Reject relative `ASDL_PAYLOAD_ROOT`.
@@ -318,10 +318,10 @@ A conforming implementation should proceed in small slices:
 
 ### 12.2 Clinkr adapter
 
-- `.raw.json` sidecar content is schema-equivalent to the inline machine envelope.
-- Sidecar write failure produces a failure envelope with a stable `error_type` and no `data`.
+- `.raw.json` payload content is schema-equivalent to the inline machine envelope.
+- Payload write failure produces a failure envelope with a stable `error_type` and no `data`.
 - Inline mode bypasses payload session requirement.
-- Sidecar mode preflight happens before domain/GitHub work.
+- Payload mode preflight happens before domain/GitHub work.
 
 ### 12.3 Prompt resolver
 
@@ -332,9 +332,9 @@ A conforming implementation should proceed in small slices:
 
 ### 12.4 `pr-address` manifest, detail, and validation
 
-- Default sidecar result contains a compact manifest with no body text.
+- Default payload result contains a compact manifest with no body text.
 - Compact manifest lists every expected feedback item with body character counts and locators.
-- Raw sidecar contains full bodies.
+- Raw payload contains full bodies.
 - `read-feedback-detail` resolves a body pointer and item pointer without dumping the whole payload.
 - Classification validator accepts a packet that accounts for all manifest items exactly once.
 - Classification validator rejects missing, duplicate, unknown, and invalid enum entries.
@@ -345,11 +345,11 @@ A conforming implementation should proceed in small slices:
 
 ### 13.1 Risks
 
-- Required session IDs may make default sidecar mode fail in plain terminal use until harnesses/skills pass `ASDL_PAYLOAD_SESSION_ID` or `--payload-session-id`. Mitigation: inline mode remains an explicit escape hatch, and skill/harness guidance must create a valid session id.
+- Required session IDs may make default payload mode fail in plain terminal use until harnesses/skills pass `ASDL_PAYLOAD_SESSION_ID` or `--payload-session-id`. Mitigation: inline mode remains an explicit escape hatch, and skill/harness guidance must create a valid session id.
 - Strict directory permissions can fail on unusual filesystems or preexisting temp roots. Mitigation: fail closed with clear `payload_directory_unsafe` or `payload_root_invalid` errors.
 - Supporting the `log` role broadens the shared store beyond the immediate `pr-address` JSON steelthread. Mitigation: this contract only reserves store support; command-output summary implementation remains separate work.
 - Reusable JSON Pointer lookup has one immediate JSON consumer. Mitigation: keep it narrow: RFC 6901 against validated payload artifacts only, no query language and no generic CLI.
-- Raw sidecar files can contain sensitive PR discussion, code snippets, bot output, and review text. Mitigation: private temp permissions and temp-root scoping; retention remains OS temp cleanup in v1.
+- Raw payload files can contain sensitive PR discussion, code snippets, bot output, and review text. Mitigation: private temp permissions and temp-root scoping; retention remains OS temp cleanup in v1.
 
 ### 13.2 Open implementation questions
 

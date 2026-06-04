@@ -8,10 +8,10 @@ from typing import Literal, TypeAlias
 from pydantic import ValidationError
 
 from asdl_core.clinkr.models import ClinkrModel
-from asdl_pr_address.cli.pr_address.feedback_sidecar import (
+from asdl_pr_address.cli.pr_address.feedback_payload import (
     DiscussionCommentManifestItem,
-    GetFeedbackSidecarManifest,
-    PrepareRunSidecarManifest,
+    GetFeedbackPayloadManifest,
+    PrepareRunPayloadManifest,
     ReviewManifestItem,
     ThreadManifestItem,
 )
@@ -194,7 +194,7 @@ def _manifest_view(
     manifest_kind = _manifest_kind_for_payload(manifest_payload)
     try:
         if manifest_kind == "prepare_run":
-            manifest = PrepareRunSidecarManifest.model_validate(manifest_payload)
+            manifest = PrepareRunPayloadManifest.model_validate(manifest_payload)
             view = FeedbackManifestView(
                 kind="prepare_run",
                 pr_number=manifest.number if manifest.found else None,
@@ -209,7 +209,7 @@ def _manifest_view(
                 discussion_comments=manifest.discussion_comments,
             )
         else:
-            manifest = GetFeedbackSidecarManifest.model_validate(manifest_payload)
+            manifest = GetFeedbackPayloadManifest.model_validate(manifest_payload)
             view = FeedbackManifestView(
                 kind="get_feedback",
                 pr_number=manifest.pr_number,

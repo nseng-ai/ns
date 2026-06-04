@@ -1,10 +1,10 @@
-"""Tests for compact PR feedback sidecar manifest construction."""
+"""Tests for compact PR feedback payload manifest construction."""
 
 import json
 
 from asdl_core.gh.types import PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread
 from asdl_core.payloads.models import PayloadReference
-from asdl_pr_address.cli.pr_address.feedback_sidecar import build_get_feedback_sidecar_manifest
+from asdl_pr_address.cli.pr_address.feedback_payload import build_get_feedback_payload_manifest
 
 
 def _payload_reference() -> PayloadReference:
@@ -21,12 +21,12 @@ def _payload_reference() -> PayloadReference:
     )
 
 
-def test_get_feedback_sidecar_manifest_counts_and_locators_without_body_text() -> None:
+def test_get_feedback_payload_manifest_counts_and_locators_without_body_text() -> None:
     review_body = "REVIEW_SENTINEL_BODY"
     thread_body = "THREAD_SENTINEL_BODY"
     discussion_body = "DISCUSSION_SENTINEL_BODY"
 
-    manifest = build_get_feedback_sidecar_manifest(
+    manifest = build_get_feedback_payload_manifest(
         payload_reference=_payload_reference(),
         pr_number=42,
         reviews=(

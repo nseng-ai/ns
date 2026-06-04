@@ -1,4 +1,4 @@
-"""Payload side-channel artifact store."""
+"""Payload artifact store."""
 
 from __future__ import annotations
 

@@ -17,5 +17,5 @@ Verification: focused payload unit tests passed, focused Ruff and format checks 
 ## Follow-Ups
 
 - Add the opt-in Clinkr/helper layer without making Clinkr auto-spool all command outputs.
-- Keep `pr-address` unchanged until the compact manifest and sidecar command slice is implemented.
+- Keep `pr-address` unchanged until the compact manifest and payload command slice is implemented.
 - Implement JSON Pointer lookup and prompt-resolution slices separately, preserving the non-goals around generic CLIs and command-level LLM invocation.

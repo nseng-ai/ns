@@ -1,4 +1,4 @@
-"""Lookup helpers for JSON payload side-channel artifacts."""
+"""Lookup helpers for JSON payload artifacts."""
 
 from __future__ import annotations
 

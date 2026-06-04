@@ -28,7 +28,7 @@ class ValidateFeedbackClassificationRequest(ClinkrModel):
 
 @clinkr_operation(
     name="validate-feedback-classification",
-    help="Validate a PR feedback classification packet against a compact sidecar manifest.",
+    help="Validate a PR feedback classification packet against a compact payload manifest.",
 )
 def run_validate_feedback_classification(
     ctx: click.Context,

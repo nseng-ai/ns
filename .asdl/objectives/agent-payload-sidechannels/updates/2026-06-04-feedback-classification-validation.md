@@ -2,7 +2,7 @@
 
 ## Summary
 
-Added deterministic PR feedback classification validation for compact `pr-address` sidecar manifests. `feedback_classification.py` defines strict packet, result, count, and error models plus a pure `validate_feedback_classification` function that accepts either `get-feedback` or `prepare-run` compact manifests.
+Added deterministic PR feedback classification validation for compact `pr-address` payload manifests. `feedback_classification.py` defines strict packet, result, count, and error models plus a pure `validate_feedback_classification` function that accepts either `get-feedback` or `prepare-run` compact manifests.
 
 The validator requires every PR-level review, every unresolved review thread, every comment inside each classified unresolved review thread, and every PR discussion comment to be accounted for exactly once. It rejects duplicate, missing, unknown, resolved-thread, invalid-locator, invalid-enum/schema, and invalid action/informational field cases with structured errors.
 
@@ -10,7 +10,7 @@ The validator requires every PR-level review, every unresolved review thread, ev
 
 ## Objective Impact
 
-This completes the roadmap row for PR feedback classification validation. The side-channel workflow now has a tested deterministic gate that can prove an LM/subagent classification packet accounted for the compact manifest before execution planning proceeds.
+This completes the roadmap row for PR feedback classification validation. The payload artifact workflow now has a tested deterministic gate that can prove an LM/subagent classification packet accounted for the compact manifest before execution planning proceeds.
 
 Changed files include:
 
@@ -30,6 +30,6 @@ Validation evidence:
 
 ## Follow-Ups
 
-- Wire the side-channel LM/subagent summary workflow into `pr-address` documentation and public skill behavior.
+- Wire the payload-aware LM/subagent summary workflow into `pr-address` documentation and public skill behavior.
 - Decide in that future slice whether and how validated LM classifications should be saved as `.summary.json` payload artifacts.
 - Keep command-level LLM invocation out of `pr-address`; classification remains agent/subagent judgment with deterministic CLI validation.
