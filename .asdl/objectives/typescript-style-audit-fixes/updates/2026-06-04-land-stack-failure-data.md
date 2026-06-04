@@ -8,11 +8,13 @@ Expected `land-stack` failures now flow as returned data through argument parsin
 
 Tests were updated to assert on success/failure result variants for direct helpers (`parseArgs`, `loadPr`, PR validation) and to cover command-stream startup throws returning failed command data. Scenario coverage remains behavior-preserving for dry-run, success, warning, cancellation, command-stream redaction, already-landed context, and stop-failure flows.
 
+Reviewer feedback on the helper shape was addressed in the same slice: `presentLandStackFailure` now takes a named options object instead of four positional parameters, keeping the new failure-presentation helper aligned with the TypeScript style rule for multi-argument helpers.
+
 ## Objective Impact
 
 This completes the `land-stack` portion of the roadmap row "Rework expected failure APIs toward discriminated returned data where callers branch on failures." The row remains `[~]` because `handoff`/`objective` parsing and runner runtime parsing are still open, but `land-stack` is no longer listed as an open throw-based slice.
 
-Evidence: local branch diff against Graphite parent `master` touches only `land-stack` source/test files plus this Objective update. Focused scans found no `LandStackError` or `fail(` references in `ts/packages/pi-extensions/src/land-stack.ts`, `ts/packages/pi-extensions/src/land-stack`, or `ts/packages/pi-extensions/test/land-stack.test.ts`; remaining `throw new Error(...)` matches in the slice are test assertion/setup guards.
+Evidence: local branch diff against Graphite parent `master` touches only `land-stack` source/test files plus this Objective update. PR #880 corroborates the same file set and includes the options-object reviewer follow-up. Focused scans found no `LandStackError` or `fail(` references in `ts/packages/pi-extensions/src/land-stack.ts`, `ts/packages/pi-extensions/src/land-stack`, or `ts/packages/pi-extensions/test/land-stack.test.ts`; remaining `throw new Error(...)` matches in the slice are test assertion/setup guards. Current feedback fetch for PR #880 reported no unresolved review threads after the reviewer follow-up was resolved.
 
 Validation passed:
 
@@ -20,6 +22,8 @@ Validation passed:
 - `bun run --cwd ts/packages/pi-extensions test`
 - `just ts-check`
 - `just ts-test`
+
+After the reviewer follow-up, the focused package gate also passed again with `bun run --cwd ts/packages/pi-extensions check` and `bun run --cwd ts/packages/pi-extensions test`.
 
 ## Follow-Ups
 
