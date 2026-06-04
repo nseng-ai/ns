@@ -242,9 +242,9 @@ No bounded body-preview escape hatch is included in v1. Implementers must not ad
 
 ## 9. Classification summary and validation contract
 
-`.summary.json` artifacts are separate payload files in the same session. Summary JSON content embeds the source raw artifact's `PayloadReference`; it does not rely on filename proximity, matching descriptors, mutable indexes, or mutation of the raw artifact. Summaries may carry LM-generated classification packets plus validation metadata.
+`.summary.json` artifacts are reserved as separate payload files in the same session. Summary JSON content embeds the source raw artifact's `PayloadReference`; it does not rely on filename proximity, matching descriptors, mutable indexes, or mutation of the raw artifact. The shared payload store supports this role, but `pr-address` v1 does not require a supported command for writing validated classification summaries.
 
-For PR feedback classification:
+For PR feedback classification, validation-before-acting is the v1 closure contract:
 
 - the compact manifest is the deterministic authority for validation;
 - inline review classification is thread-level: exactly one classification entry per unresolved review thread, with nested locators/comment/body references as needed;
@@ -294,9 +294,10 @@ A conforming implementation should proceed in small slices:
 2. implement the prompt resolver and add the `subagent-launch.md` policy with embedded-default drift protection;
 3. convert `pr-address exec prepare-run` and `get-feedback` to sidecar defaults with inline mode;
 4. add `pr-address exec read-feedback-detail` on top of core JSON Pointer lookup;
-5. add classification validation and `.summary.json` writing;
+5. add classification validation;
 6. update `pr-address` skill/docs once command behavior exists;
-7. close with functional tests and Objective evidence.
+7. decide that validated-in-run classification is sufficient for v1 and defer `.summary.json` classification writing until a concrete reload/replay consumer emerges;
+8. close with functional tests and Objective evidence.
 
 ## 12. Functional test matrix
 
@@ -338,7 +339,7 @@ A conforming implementation should proceed in small slices:
 - Classification validator accepts a packet that accounts for all manifest items exactly once.
 - Classification validator rejects missing, duplicate, unknown, and invalid enum entries.
 - Validator failure reports contain IDs, locators, and counts but no body text.
-- `.summary.json` classification artifact embeds the source raw `PayloadReference`.
+- Shared payload-store tests cover `.summary.json` artifact writing and `PayloadReference` metadata; `pr-address` v1 does not require a classification-summary write command.
 
 ## 13. Risks and open questions
 

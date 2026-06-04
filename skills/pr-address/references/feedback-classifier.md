@@ -1,65 +1,155 @@
 # Feedback classifier — LLM guidance
 
-This file is the heart of `pr-address`. After Phase 1 fetches review
-threads, PR-level reviews, and discussion comments, the LLM (you) applies
-the rules below to classify each item and group them into an ordered
-execution plan.
+This file is the heart of `pr-address`. After `prepare-run` or `get-feedback`
+returns a compact feedback manifest, the LLM applies the rules below to classify
+each item and group actionable work into an ordered execution plan.
 
-Classification is **LLM-driven, not rule-based**. Tools change and users
-have patterns of their own — the LLM judges free-form review content
-better than brittle string-matching rules keyed off specific bot names.
-If this file ever starts listing more than a handful of specific bot
-accounts or magic strings, that's a smell: the judgment should be stated
-as principles, not enumerations.
+Classification is **LLM-driven, not rule-based**, but the classifier's output is
+validated deterministically before the parent skill acts on it. Tools change and
+users have patterns of their own — the LLM judges free-form review content
+better than brittle string-matching rules keyed off specific bot names. If this
+file ever starts listing more than a handful of specific bot accounts or magic
+strings, that's a smell: the judgment should be stated as principles, not
+enumerations.
 
 ## Inputs
 
-Three arrays from Phase 1:
+The classifier receives side-channel evidence, not pasted raw review JSON:
 
-- **threads**: inline review threads from the `review_threads` field of
-  `pr-address exec get-feedback` (normalized in SKILL.md Phase 1 so the
-  unresolved/`--all` behavior is already decided before classification).
-- **reviews**: PR-level review submissions with `{id, author, body, state,
-  submittedAt}`. State ∈ {`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`}.
-- **discussions**: top-level PR comments with `{id, author, body,
-  html_url}`
+- **Manifest:** the compact `data` object from `pr-address exec prepare-run` or
+  `pr-address exec get-feedback` in default sidecar mode.
+- **Raw payload path:** `manifest.payload_reference.payload_path`, pointing to
+  the full `.raw.json` sidecar envelope.
+- **Locators:** `body_locator` and `item_pointer` values from manifest reviews,
+  review-thread comments, and discussion comments.
+- **Restructured files:** optional `restructured_files` from `prepare-run`, used
+  when judging moved/copied-path bot comments as pre-existing.
+- **Selected body text:** obtained either by a side-channel summarizer/subagent
+  that can read the raw sidecar file, or by targeted calls to
+  `pr-address exec read-feedback-detail`.
 
-Plus a set of `restructured_paths` (files renamed/copied since the base
-ref).
+Do not paste the full raw sidecar payload into the main transcript. Pass paths,
+locators, expected output shape, and completeness requirements to the side
+channel. If no side channel is available, inspect only the required bodies with
+`read-feedback-detail`.
 
-## Outputs
+## Output packet
 
-A classification record per input item with one of these fields set:
+Return a strict classification packet with `schema_version: 1`:
 
-- **Review threads:** always emit an explicit record with
-  `classification: "actionable"` or `classification: "informational"`.
-  Review threads are never dropped silently.
-- **Review submissions / discussion comments:** `classification:
-  "actionable"` → goes into an execution batch.
-- **Review submissions / discussion comments:** `classification:
-  "informational"` or dropped silently → may be collapsed into
-  `informational_count` in the final summary.
+```jsonc
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "review_id": "PRR_...",
+      "disposition": "actionable", // or "informational"
+      "body_locator": {
+        "json_pointer": "/data/reviews/0/body",
+        "item_pointer": "/data/reviews/0"
+      },
+      "summary": "Human-readable classification summary.",
+      "action_summary": "Required for actionable items.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "review_threads": [
+    {
+      "thread_id": "PRRT_...",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/0",
+      "covered_comments": [
+        {
+          "comment_id": 123456,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/0/comments/0/body",
+            "item_pointer": "/data/review_threads/0/comments/0"
+          }
+        }
+      ],
+      "summary": "Thread summary.",
+      "action_summary": "Required for actionable threads.",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "discussion_comments": [
+    {
+      "comment_id": 987654,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/0/body",
+        "item_pointer": "/data/discussion_comments/0"
+      },
+      "summary": "Comment summary.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    }
+  ]
+}
+```
 
-Plus, for explicit thread records and actionable items: `action_summary`
-(≤120 chars, describes the change needed or the user decision required),
-`complexity` (see below for actionable items), `pre_existing` flag
-(true/false), and the original `thread_id` or `comment_id` is carried
-through.
+Use locator references copied from the manifest. Do not invent IDs, pointers, or
+item paths.
 
-## Review-thread completeness invariant
+Enum values:
 
-Every unresolved review thread from Phase 1 must appear exactly once in the
-classifier output.
+- `disposition`: `actionable`, `informational`
+- `complexity`: `pre_existing`, `local`, `single_file`, `cross_cutting`,
+  `complex`
+- `informational_reason`: `resolved_reference`, `automation`,
+  `acknowledgement`, `approval`, `question_only`, `fyi`, `noise`,
+  `already_addressed`, `other`
 
-- If the user passed `--all`, resolved threads included for reference do not
-  count toward this invariant.
-- Unresolved review threads must never disappear into `informational_count`.
-- Before returning the plan, compare:
+Field rules:
 
-  `classified_unresolved_review_thread_count == fetched_unresolved_review_thread_count`
+- Every item has a non-empty `summary`.
+- `actionable` items have non-empty `action_summary`, non-null `complexity`, and
+  no `informational_reason`.
+- `informational` items have `informational_reason`, and no `action_summary`,
+  `complexity`, `pre_existing: true`, or `needs_reply: true`.
+- `pre_existing: true` and `complexity: "pre_existing"` must appear together.
 
-If the counts do not match, stop and re-classify. A partial thread list is a
-bug, not an acceptable approximation.
+## Completeness invariant
+
+The packet must account for the manifest exactly:
+
+- Every manifest PR-level review appears in `classification.reviews` exactly
+  once.
+- Every unresolved manifest review thread appears in
+  `classification.review_threads` exactly once.
+- Every comment in each classified unresolved review thread appears exactly once
+  in that thread's `covered_comments`.
+- Every manifest discussion comment appears in `classification.discussion_comments`
+  exactly once.
+- Resolved threads are not actionable and should not be classified unless the
+  validator/schema explicitly supports a reference-only reason in the future.
+
+Unresolved review threads must never disappear into an aggregate count. Old
+scratchpad fields such as `actionable_reviews`, `discussion_actions`, and
+`informational_count` are no longer the contract; informational items are
+explicit per-ID records with `informational_reason`.
+
+## Validation and retry
+
+The parent skill validates the wrapper:
+
+```json
+{ "manifest": "<compact manifest>", "classification": "<packet>" }
+```
+
+with `pr-address exec validate-feedback-classification` before showing an
+execution plan.
+
+If validation returns `exit_code: 1`, inspect `data.counts` and `data.errors`,
+pass those diagnostics back to the classifier once, and ask for a corrected
+packet. If the retry still fails, stop and report the diagnostics. If validation
+returns `exit_code: 2`, treat it as malformed workflow input and stop.
 
 ## Classification rules
 
@@ -68,78 +158,80 @@ matches wins.
 
 ### Review submissions (PR-level)
 
-1. **APPROVED** → drop silently. An approval doesn't require action.
-2. **DISMISSED** → already filtered by the GraphQL query; should not appear.
-3. **CHANGES_REQUESTED with non-empty body** → `classification:
-   "actionable"`. Read the body to write `action_summary`. Complexity is
-   usually `cross_cutting` or `complex` — a reviewer requesting changes
-   rarely means a single-line fix.
-4. **CHANGES_REQUESTED with empty body** → `classification: "actionable"`,
-   but `action_summary: "Reviewer requested changes with no body — check
-   inline threads for specifics"`. The inline threads will carry the real
-   work.
-5. **COMMENTED with empty body** → drop silently. It's a review with only
-   inline comments; the inline comments will be classified separately.
+1. **APPROVED** → `disposition: "informational"`, usually
+   `informational_reason: "approval"`.
+2. **DISMISSED** → should not normally appear. If it does, classify as
+   informational with `informational_reason: "already_addressed"` unless the
+   body clearly requests new work.
+3. **CHANGES_REQUESTED with non-empty body** → `disposition: "actionable"`.
+   Read the body to write `action_summary`. Complexity is usually
+   `cross_cutting` or `complex` — a reviewer requesting changes rarely means a
+   single-line fix.
+4. **CHANGES_REQUESTED with empty body** → `disposition: "actionable"`, with
+   `action_summary: "Reviewer requested changes with no body — check inline threads for specifics"`.
+   The inline threads will carry the real work.
+5. **COMMENTED with empty body** → `disposition: "informational"`, usually
+   `informational_reason: "noise"`. It's often a review shell with only inline
+   comments.
 6. **COMMENTED with body** → judge the body:
    - If it explicitly asks for a change ("please update", "can you add",
      "this should") → `actionable`.
-   - If it's an observation, thanks, or approval in prose ("looks great",
-     "nice refactor") → drop silently.
+   - If it's an observation, thanks, or approval in prose ("looks great", "nice
+     refactor") → `informational`.
    - If it's a question the user needs to answer → `actionable` with
-     `complexity: "local"` and `action_summary: "Reply to reviewer's
-     question about <X>"`.
+     `complexity: "local"` and an action summary like `Reply to reviewer's question about <X>`.
 
 ### Review threads (inline)
 
-1. **Resolved threads** → already filtered in Phase 1 unless the user
-   passed `--all`. If present because of `--all`, drop silently.
+1. **Resolved threads** → reference-only. Current validation rejects them in the
+   packet, so do not include them as work.
 2. **Thread on a restructured path, first commenter is a bot** →
-   `classification: "actionable"`, `complexity: "pre_existing"`,
-   `pre_existing: true`. Action summary: `"Bot comment on moved file:
-   <summary of body>"`. These land in Batch 0 and auto-resolve with the
-   standard pre-existing comment without code changes.
-3. **Thread from a bot, body is a trivial nit** (repeated boilerplate,
-   suggests a pattern already present nearby, or flags a false positive
-   you can verify in-place) → still `actionable`, but you will often
-   decide to reply-and-resolve without a code change in Phase 3.
-4. **Outdated thread** (`is_outdated: true`, `line: null`) → `actionable`
-   with a note in the `action_summary`: `"[outdated] <summary>"`. In
-   Phase 3, check whether the issue is already fixed; if so, resolve
-   without a new edit.
-5. **Normal inline thread with a request or suggestion** → `actionable`.
-   Infer complexity from the body (see below).
-6. **Normal inline thread with only questions or approvals** →
-   `informational`. The user decides whether to reply or dismiss.
+   `disposition: "actionable"`, `complexity: "pre_existing"`,
+   `pre_existing: true`. Action summary: `Bot comment on moved file: <summary of body>`.
+   These land in the Pre-Existing batch and auto-resolve with the standard
+   pre-existing comment without code changes.
+3. **Thread from a bot, body is a trivial nit** (repeated boilerplate, suggests
+   a pattern already present nearby, or flags a false positive you can verify
+   in-place) → still `actionable`, but execution will often reply-and-resolve
+   without a code change.
+4. **Outdated thread** (`is_outdated: true`, `line: null`) → `actionable` with a
+   note in `action_summary`: `[outdated] <summary>`. During execution, check
+   whether the issue is already fixed; if so, resolve without a new edit.
+5. **Normal inline thread with a request or suggestion** → `actionable`. Infer
+   complexity from the body.
+6. **Normal inline thread with only questions or approvals** → `informational`
+   with `informational_reason: "question_only"`, `"approval"`, or `"fyi"`. The
+   user decides whether to reply or dismiss.
 
 ### Discussion comments
 
-1. **Comment from an obvious CI status bot** (commit status summaries,
-   workflow-run links, coverage reports) → drop silently. The heuristic:
-   it's long, auto-generated, and has no request verbs. Do NOT enumerate
-   specific bot account names here — judge the content.
-2. **Comment from an obvious stacked-diff automation** (Graphite-style
-   stack-status blocks, branch-rename notices) → drop silently. Same
-   heuristic: auto-generated, no action needed.
-3. **Comment asking for a change or a reply** → `actionable`. Complexity
-   depends on scope.
+1. **Comment from an obvious CI/status bot** (commit status summaries,
+   workflow-run links, coverage reports) → `informational` with
+   `informational_reason: "automation"` unless it contains a direct request.
+2. **Comment from obvious stacked-diff automation** (stack-status blocks,
+   branch-rename notices) → `informational` with
+   `informational_reason: "automation"` unless it contains a direct request.
+3. **Comment asking for a change or a reply** → `actionable`. Set
+   `needs_reply: true` when the action is a reply rather than a code change, or
+   when a reply is needed after the code change. Complexity depends on scope.
 4. **Comment that's just an acknowledgment / thanks / FYI from a human** →
-   `informational`. User may reply or dismiss.
+   `informational` with `informational_reason: "acknowledgement"` or `"fyi"`.
 5. **Comment that summarizes prior work** ("Here's what I changed in this
-   round…") → drop silently.
+   round…") → `informational` with `informational_reason: "already_addressed"`
+   or `"fyi"`.
 
 ### Bot detection — rule of thumb
 
 A comment is "from a bot" if any of these are true:
 
 - The author login ends with `[bot]`.
-- The comment body is auto-generated boilerplate (consistent structure
-  across many comments, no prose from a human).
+- The comment body is auto-generated boilerplate (consistent structure across
+  many comments, no prose from a human).
 - The comment is a repeated nit that a linter would produce.
 
-You don't need to match a specific list of bot accounts. The principle:
-bots are mechanical, humans are specific. When in doubt, treat borderline
-cases as human — better to bother the user once than to silently drop a
-real request.
+You don't need to match a specific list of bot accounts. The principle: bots are
+mechanical, humans are specific. When in doubt, treat borderline cases as human —
+better to bother the user once than to silently drop a real request.
 
 ## Complexity levels
 
@@ -147,120 +239,64 @@ Assigned only to `actionable` items. Used for batching.
 
 - **pre_existing** — bot comment on a moved/restructured file. Batch 0.
   Auto-resolves without a code change.
-- **local** — one file, one location, a few lines at most. Typical cases:
-  rename a variable on line N, fix a typo, add a type annotation. Batch 1.
-- **single_file** — one file, multiple locations. Typical cases: "rename
-  this throughout the file", "apply the LBYL pattern everywhere in this
-  module". Batch 2.
-- **cross_cutting** — multiple files affected. Typical cases: "update
-  every caller of `foo()`", "rename this function and every import".
-  Batch 3. **Needs user approval before executing.**
-- **complex** — multiple comments inform a single unified architectural
-  change, or one comment describes a refactor that touches design rather
-  than syntax. Batch 4. **Needs user approval before executing.**
+- **local** — one file, one location, a few lines at most. Typical cases: rename
+  a variable on line N, fix a typo, add a type annotation. Batch 1.
+- **single_file** — one file, multiple locations. Typical cases: "rename this
+  throughout the file", "apply the LBYL pattern everywhere in this module".
+  Batch 2.
+- **cross_cutting** — multiple files affected. Typical cases: "update every
+  caller of `foo()`", "rename this function and every import". Batch 3. **Needs
+  user approval before executing.**
+- **complex** — multiple comments inform a single unified architectural change,
+  or one comment describes a refactor that touches design rather than syntax.
+  Batch 4. **Needs user approval before executing.**
 
-When you're uncertain between two levels, pick the higher one. Better to
-ask for approval than to auto-execute something surprising.
+When you're uncertain between two levels, pick the higher one. Better to ask for
+approval than to auto-execute something surprising.
 
 ## Batch assembly
 
-Batches are always in this order:
+Batches are derived from the validated packet, not from unvalidated scratchpad
+fields. Use only `disposition: "actionable"` items for actionable batches.
 
-| # | Name          | auto_proceed | Contents                                                                    |
-| - | ------------- | ------------ | --------------------------------------------------------------------------- |
-| 0 | Pre-Existing  | yes          | All items with `complexity: "pre_existing"`                                 |
-| 1 | Local Fixes   | yes          | All items with `complexity: "local"`                                        |
-| 2 | Single-File   | yes          | All items with `complexity: "single_file"`                                  |
-| 3 | Cross-Cutting | **no**       | All items with `complexity: "cross_cutting"`                                |
-| 4 | Complex       | **no**       | All items with `complexity: "complex"`                                      |
-| 5 | Informational | **no**       | All review threads with `classification: "informational"` (per-item prompt) |
+| # | Name          | auto_proceed | Contents                                           |
+| - | ------------- | ------------ | -------------------------------------------------- |
+| 0 | Pre-Existing  | yes          | All items with `complexity: "pre_existing"`        |
+| 1 | Local Fixes   | yes          | All items with `complexity: "local"`               |
+| 2 | Single-File   | yes          | All items with `complexity: "single_file"`         |
+| 3 | Cross-Cutting | **no**       | All items with `complexity: "cross_cutting"`       |
+| 4 | Complex       | **no**       | All items with `complexity: "complex"`             |
+| 5 | Informational | **no**       | Review threads with `disposition: "informational"` |
 
 Skip any batch that would be empty.
 
-If two items are clearly part of a single unified change (e.g., reviewer
-left separate comments on `impl.py:50` and `cmd.py:100` asking for the
-same refactor), group them into one "meta-item" in the complex batch
-rather than two unrelated complex entries.
+If two items are clearly part of a single unified change (e.g., reviewer left
+separate comments on `impl.py:50` and `cmd.py:100` asking for the same
+refactor), group them into one "meta-item" in the complex batch rather than two
+unrelated complex entries.
 
 ## False positives from automated reviewers
 
-Before making a code change for a bot comment, **verify**. Many bot
-comments are technically correct under the bot's model but wrong in
-context:
+Before making a code change for a bot comment, **verify**. Many bot comments are
+technically correct under the bot's model but wrong in context:
 
-1. **Read the flagged code carefully**. Look at the 5–10 lines before and
-   after, not just the flagged line.
-2. **Check whether the pattern the bot wants already exists** on a
-   preceding line (LBYL check, guard clause, type cast, etc.). If it
-   does, the bot is misreading the flow.
-3. **Check whether the bot is applying a rule that doesn't fit this
-   context**. Example: a "use pathlib" rule firing on a line that
-   deliberately uses `os.path` for Python-version compatibility.
-4. **If it's a false positive**: do NOT edit the code. In Phase 3, reply
-   to the thread explaining why, reference the specific line where the
-   correct pattern already exists, and resolve the thread. Don't argue
-   with the bot — just state the fact and resolve.
-
-## Output format (for your own notes during Phase 2)
-
-You don't have to emit a specific JSON schema — this classifier is a
-mental model, not a CLI. But a useful internal representation looks
-something like:
-
-```jsonc
-{
-  "pr_number": 123,
-  "pr_title": "...",
-  "pr_url": "...",
-  "review_threads": [
-    {
-      "thread_id": "PRRT_abc",
-      "path": "src/foo.py",
-      "line": 42,
-      "classification": "actionable",
-      "pre_existing": false,
-      "action_summary": "Use LBYL pattern for the dict lookup",
-      "complexity": "local",
-      "original_comment": "This would be clearer as an `in` check"
-    },
-    {
-      "thread_id": "PRRT_def",
-      "path": "src/foo.py",
-      "line": 57,
-      "classification": "informational",
-      "pre_existing": false,
-      "action_summary": "Reviewer asked whether this helper belongs on the gateway",
-      "original_comment": "Should this move onto the gateway instead?"
-    }
-  ],
-  "actionable_reviews": [
-    {
-      "review_id": "PRR_abc",
-      "action_summary": "Reviewer requested error-handling rework",
-      "complexity": "cross_cutting"
-    }
-  ],
-  "discussion_actions": [
-    {
-      "comment_id": 12345,
-      "action_summary": "Update CHANGELOG entry per reviewer",
-      "complexity": "cross_cutting"
-    }
-  ],
-  "informational_count": 7,
-  "batches": [ /* see batch assembly above */ ]
-}
-```
-
-Use this as a scratchpad during Phase 2; you don't have to print it to
-the user verbatim. The user sees the plan-display output in the format
-shown in `SKILL.md` Phase 2.
+1. **Read the flagged code carefully**. Look at the 5–10 lines before and after,
+   not just the flagged line.
+2. **Check whether the pattern the bot wants already exists** on a preceding
+   line (LBYL check, guard clause, type cast, etc.). If it does, the bot is
+   misreading the flow.
+3. **Check whether the bot is applying a rule that doesn't fit this context**.
+   Example: a "use pathlib" rule firing on a line that deliberately uses
+   `os.path` for Python-version compatibility.
+4. **If it's a false positive**: do NOT edit the code. During execution, reply
+   to the thread explaining why, reference the specific line where the correct
+   pattern already exists, and resolve the thread. Don't argue with the bot —
+   just state the fact and resolve.
 
 ## When this file is wrong
 
-If the skill mis-classifies something — e.g., auto-dismisses a real
-review comment, treats a human question as a bot nit, or mis-batches a
-cross-cutting change as local — the fix goes here, not in the SKILL.md.
-Update the rule that failed, add a principle (not a hard-coded enum), and
-re-run the skill. This file is the only place classification behavior
-should change.
+If the skill mis-classifies something — e.g., treats a human question as a bot
+nit, marks a cross-cutting change as local, or chooses the wrong informational
+reason — the fix goes here, not in the main `SKILL.md`. Update the rule that
+failed, add a principle (not a hard-coded account list), and re-run the skill.
+This file is the only place classification behavior should change.
