@@ -13,13 +13,20 @@ export { runCli, type CliDeps } from "./cli.ts";
 export { createRealPlannedBranchContext, RealCommandExecApi, type PlannedBranchContext } from "./context.ts";
 export {
 	PLAN_BRANCH_NAMESPACE,
+	buildPlannedBranchCreateOperation,
 	createPlannedBranchFromFile,
 	deriveTargetBranch,
+	formatPlannedBranchCreateFailure,
+	formatPlannedBranchCreatePreview,
+	formatPlannedBranchEvidence,
 	normalizeBranchCreationMethod,
+	resolvePlannedBranchCreatePreviewContext,
 	validateTargetBranchName,
 	type BranchCreationMethod,
 	type CreatePlannedBranchFromFileOptions,
 	type CreatePlannedBranchFromFileParams,
+	type PlannedBranchCreateOperation,
+	type PlannedBranchCreatePreviewContext,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
 export {

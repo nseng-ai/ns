@@ -8,10 +8,11 @@
   - Evidence: tests reject outside-plan-store session evidence, wrong repo metadata, wrong source branch/branch key, and basename/slug mismatches; missing session files remain stale/fallback behavior where intended.
   - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/pi-extensions && bun test`, `just ts-check`, and `just ts-test` passed.
 
-- [ ] Planned-branch-owned operation model for CMUX composition
-  - Move branch/key derivation, dry-run/preview evidence, create parameters, and planned-branch evidence formatting behind planned-branch-owned helpers.
-  - Keep CMUX focused on slot checkout and workspace launch after planned-branch creation succeeds.
-  - Evidence: CMUX tests assert composition behavior without re-encoding brmem/git/gt command internals unnecessarily.
+- [x] Planned-branch-owned operation model for CMUX composition
+  - `@asdl/planned-branch` now owns planned-branch create operation derivation, dry-run preview command rendering, shared success evidence formatting, and planned-branch failure context.
+  - CMUX dispatch builds the planned-branch operation, delegates planned-branch preview/evidence/failure text to the package, and keeps local ownership of selected session plan presentation, slot checkout, workspace launch, and CMUX-specific recovery wording.
+  - Evidence: planned-branch operation tests encode exact git/gt/brmem preview command internals, while CMUX dispatch tests assert composition behavior and no mutation in dry-run without re-encoding planned-branch command details.
+  - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/pi-extensions && bun test`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Unified Branch Memory envelope parsing
   - Route `brmem put`, `brmem list`, and `brmem get` through one strict machine-envelope parser.
