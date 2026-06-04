@@ -38,7 +38,7 @@ Current backlog from the prior finite sweep:
 - Phases 5 through 15 — one focused context or rebaseline slice at a time: `areg`, `asdl-handoff`, `asdl-pr-address`, `roaster`, `asdl-slots`, `asdl-objectives`, `packagechk`, `aretro`, `vibechk`, `asdl-dev`, and a refresh of `@asdl/pi-extensions`.
 - Phase 16 — final `/CONTEXT-MAP.md` relationship/ambiguity/readback pass for the current backlog. If future drift discovers new in-scope contexts, update the roadmap rather than treating Phase 16 as fixed.
 
-Each context-writing phase is expected to use `grill-with-docs` or an equivalent focused readback session. A package context may be accepted from an adjacent Objective only when it conforms to this Objective's contract: Language entries with `Avoid:` aliases where relevant, followed by Relationships, with map-level collisions either resolved locally or carried forward deliberately.
+Each context-writing phase is expected to explicitly invoke `grill-me` for focused terminology/readback decisions, or `grill-with-docs` when the same grilling session should update documentation inline. A package context may be accepted from an adjacent Objective only when it conforms to this Objective's contract: Language entries with `Avoid:` aliases where relevant, followed by Relationships, with map-level collisions either resolved locally or carried forward deliberately.
 
 ## Non-Goals
 
@@ -83,9 +83,9 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 - Action recommendation: `objective-next` should pick one route, not present a grab bag of possible next actions.
 - Implement from a plan only when: the slice is docs/context-only, source-backed, limited to keeping `CONTEXT.md`, `CONTEXT-MAP.md`, ADRs, related `grill-with-docs` docs, or Objective tracking up to date, and `objective-next` can form a concrete plan from the Objective plus current repo evidence. The plan should name the selected slice, evidence to inspect, likely edits, validation, and stop conditions.
 - Plan first when: the roadmap row is too broad, source evidence has not been inspected enough to form a concrete plan, canonical terminology must be chosen, the context/ADR format might change, a context surface may be added/removed, or a non-obvious cross-context ambiguity must be resolved.
-- Plan-first confirmation: when recommending planning, ask a yes/no confirmation question so the user can type `yes` to start the planning/readback session immediately.
-- Auto-objective slices: if no concrete plan exists yet, start the planning/readback work needed to produce one, then continue only if the plan becomes bounded and source-backed; otherwise stop/fail instead of offering ad hoc implementation.
-- Manual slices: ask for confirmation of the steered planning session and do not present immediate implementation as an option.
+- Plan-first confirmation: when recommending planning, ask a yes/no confirmation question so the user can type `yes` to start the `grill-me` planning/readback session immediately; use `grill-with-docs` instead when the confirmed session should update documentation inline.
+- Auto-objective slices: if no concrete plan exists yet, start the `grill-me` planning/readback work needed to produce one, then continue only if the plan becomes bounded and source-backed; otherwise stop/fail instead of offering ad hoc implementation.
+- Manual slices: ask for confirmation of the steered `grill-me` planning session and do not present immediate implementation as an option.
 - How `objective-next` should preview the work: say which files or areas it may edit, how it will leave the work, and what it will not do unless explicitly asked.
 - Default work shape: leave only local Markdown file edits in this worktree. Do not create a branch, commit, submit a PR, or touch external systems unless explicitly confirmed.
 - Validation: run `dprint` checks for Markdown and cite source evidence for inventory/relationship claims.
