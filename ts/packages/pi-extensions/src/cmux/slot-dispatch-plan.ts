@@ -9,7 +9,6 @@ import {
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
-import type { CmuxWorkspaceSummaryController } from "./workspace-summary.ts";
 import { getWorktreeDescription as getSharedWorktreeDescription } from "./worktree-description.ts";
 import type { CommandContext, ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
@@ -83,7 +82,6 @@ interface BrmemPutData {
 
 interface AttachSlotAndLaunchOptions {
 	pi: ExtensionAPI;
-	summaryController: CmuxWorkspaceSummaryController;
 	ctx: CommandContext;
 	plan: SavedPlanEvidence;
 	checkout: CurrentCheckout;
@@ -131,22 +129,18 @@ type TextResult =
 			message: string;
 	  };
 
-export function registerCmuxSlotDispatchPlanCommand(
-	pi: ExtensionAPI,
-	summaryController: CmuxWorkspaceSummaryController,
-): void {
+export function registerCmuxSlotDispatchPlanCommand(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Dispatch the latest saved plan into a CMUX slot for implementation.",
 		argumentHint: "[--dry-run]",
 		handler: async (args, ctx) => {
-			await handleCommand(pi, summaryController, args, ctx);
+			await handleCommand(pi, args, ctx);
 		},
 	});
 }
 
 async function handleCommand(
 	pi: ExtensionAPI,
-	summaryController: CmuxWorkspaceSummaryController,
 	rawArgs: string,
 	ctx: CommandContext,
 ): Promise<void> {
@@ -206,7 +200,6 @@ async function handleCommand(
 
 		await createAttachSlotAndLaunch({
 			pi,
-			summaryController,
 			ctx,
 			plan: selectedPlan,
 			checkout,
@@ -471,7 +464,7 @@ async function preflightTarget(
 }
 
 async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
-	const { pi, summaryController, ctx, plan, checkout, targetBranch, key } = options;
+	const { pi, ctx, plan, checkout, targetBranch, key } = options;
 	present(ctx, `Creating Graphite-tracked planned branch ${targetBranch}…`, "info");
 	setStatus(ctx, "creating branch…");
 	const branch = await createGraphiteBranch(pi, checkout.repoRoot, targetBranch, checkout.branch);
@@ -515,7 +508,6 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	}
 
 	present(ctx, formatFinalSuccess({ targetBranch, key, target: slot.target, launchOptions }), "success");
-	await summaryController.queuePrFromHook(ctx);
 }
 
 async function createGraphiteBranch(

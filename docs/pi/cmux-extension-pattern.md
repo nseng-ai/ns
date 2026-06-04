@@ -5,8 +5,8 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 ## Use this pattern when
 
 - A Pi command labels or annotates the caller cmux workspace from Pi session context.
-- A Pi command opens a new cmux workspace and should refresh the caller workspace sidebar afterward.
-- The target of sidebar updates must be the workspace that launched this terminal, not whatever cmux workspace is focused now.
+- A Pi command opens a new cmux workspace without automatically refreshing sidebar metadata.
+- A manual sidebar update must target the workspace that launched this terminal, not whatever cmux workspace is focused now.
 - The behavior is repo-local to `asdl-tools` and should not become a global Pi extension.
 - The workflow needs a short semantic model pass but deterministic cmux mutation.
 
@@ -22,7 +22,7 @@ Current layers:
 | Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what sidebar fields to generate                                |
 | Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the old status pill          |
 | cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                               |
-| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command/hook behavior                        |
+| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                             |
 
 Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable cmux command behavior under `ts/packages/pi-extensions/src/cmux/` with Bun tests.
 
@@ -53,21 +53,21 @@ find /Users/schrockn/.pi/agent/extensions -maxdepth 2 \
 
 Remove stale user-local cmux files only after confirming the project adapter registers the command suite. Do not run a broad home-directory search for duplicate Pi resources.
 
-## Caller workspace sidebar hook
+## Automatic sidebar summaries are disabled
 
-Commands that successfully open a new cmux workspace should queue the shared PR-sidebar flow for the caller workspace after success:
+Workspace-opening commands currently do not auto-run sidebar summaries after success:
 
 - `/cmux-slot:dispatch-plan`
 - `/cmux-slot:open-branch`
 - `/cmux-dispatch`
 
-The hook updates the workspace running the command, not the newly opened workspace. The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
+The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during the future cmux extension consolidation pass rather than inferred from `cmux workspace list` in this slice.
 
-Hook failures are non-fatal. If the caller workspace env is absent or the fast summary model is unavailable, the workspace-opening command remains successful.
+The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
 
 ## Caller workspace contract
 
-The sidebar controller resolves the caller workspace from process environment only:
+Manual sidebar commands resolve the caller workspace from process environment only:
 
 ```typescript
 process.env.CMUX_WORKSPACE_ID ?? process.env.CMUX_TAB_ID
@@ -75,7 +75,7 @@ process.env.CMUX_WORKSPACE_ID ?? process.env.CMUX_TAB_ID
 
 If no caller workspace is available, notify and return. Do not fall back to the focused workspace because a background Pi session can be running while another cmux workspace is focused.
 
-The skill and hook do not pass `--workspace`; `asdl exec cmux-workspace-summary` resolves the same caller workspace env itself.
+The manual sidebar skill does not pass `--workspace`; `asdl exec cmux-workspace-summary` resolves the same caller workspace env itself.
 
 ## Model choice and speed
 
@@ -149,7 +149,7 @@ Do not inspect or rely on `/Users/schrockn/code/githubs/manaflow-ai/cmux` for be
 
 ## Context pollution
 
-The current implementation injects a normal follow-up user message with the expanded skill block. That means the control prompt, assistant response, and tool result can appear in future model context. Filtering those traces is intentionally not implemented in this pass.
+The manual sidebar implementation injects a normal follow-up user message with the expanded skill block. That means the control prompt, assistant response, and tool result can appear in future model context. Filtering those traces is intentionally not implemented in this pass.
 
 If future summaries start describing earlier sidebar refreshes, design a context-filtering extension hook or move the whole flow into direct extension code.
 
@@ -162,7 +162,7 @@ If the next iteration should require no model-authored shell at all, make the ex
 3. Call `pi.exec("asdl", ["exec", "cmux-workspace-summary", ...])` with argv.
 4. Display the resulting title directly.
 
-That design keeps semantic summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It also removes the skill-driven bash block from the conversation.
+That design keeps semantic summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It also removes the skill-driven bash block from the conversation. Reintroducing automatic summaries should wait until that targeting and apply path are explicit.
 
 ## Validation checklist
 

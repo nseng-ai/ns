@@ -1,5 +1,4 @@
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
-import type { CmuxWorkspaceSummaryController } from "./workspace-summary.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type {
 	AutocompleteItem,
@@ -39,7 +38,6 @@ type ResolvedBranch =
 
 export interface HandleCmuxSlotOpenBranchOptions {
 	pi: Pick<ExtensionAPI, "exec">;
-	summaryController: CmuxWorkspaceSummaryController;
 	args: string;
 	ctx: CommandContext;
 }
@@ -48,10 +46,7 @@ const COMMAND_NAME = "cmux-slot:open-branch";
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 
-export function registerCmuxSlotOpenBranchCommand(
-	pi: ExtensionAPI,
-	summaryController: CmuxWorkspaceSummaryController,
-): void {
+export function registerCmuxSlotOpenBranchCommand(pi: ExtensionAPI): void {
 	let currentCwd = process.cwd();
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -67,13 +62,13 @@ export function registerCmuxSlotOpenBranchCommand(
 			return completions.length > 0 ? completions : null;
 		},
 		handler: async (args, ctx) => {
-			await handleCmuxSlotOpenBranch({ pi, summaryController, args, ctx });
+			await handleCmuxSlotOpenBranch({ pi, args, ctx });
 		},
 	});
 }
 
 export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranchOptions): Promise<void> {
-	const { pi, summaryController, args, ctx } = options;
+	const { pi, args, ctx } = options;
 	await ctx.waitForIdle();
 
 	const explicitBranch = args.trim();
@@ -116,7 +111,6 @@ export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranch
 	}
 
 	ctx.ui.notify(`Opened branch in CMUX slot: ${target.branchName}`, "info");
-	await summaryController.queuePrFromHook(ctx);
 }
 
 async function resolveInferredPlannedBranch(ctx: {
