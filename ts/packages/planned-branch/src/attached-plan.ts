@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { TextEncoder } from "node:util";
 
-import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { tailText } from "./command-runtime.ts";
+import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./planned-branch-creation.ts";
-import { formatCommandFailure, runBrmem, type PlanCommandExecApi, type ExecOptions } from "./plan-persistence.ts";
-
-const GIT_TIMEOUT_MS = 10_000;
+import { formatCommandFailure, runBrmem, type PlanCommandExecApi } from "./plan-persistence.ts";
 const MAX_ERROR_CHARS = 4_000;
 const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
 
@@ -34,11 +33,7 @@ export interface LoadAttachedPlanParams {
 export interface LoadAttachedPlanOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-}
-
-interface CommandRun {
-	result: ExecResult;
-	displayCommand: string;
+	git?: PlannedBranchGitGateway | undefined;
 }
 
 interface BrmemGetContent {
@@ -51,7 +46,8 @@ export async function loadAttachedPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	const branch = await resolveSafeImplementationBranch(pi, options.cwd, options.signal);
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const branch = await resolveSafeImplementationBranch(git, options.cwd, options.signal);
 	const list = await runBrmem(pi, {
 		cwd: options.cwd,
 		args: ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
@@ -238,93 +234,25 @@ export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): stri
 	].join("\n");
 }
 
-async function resolveSafeImplementationBranch(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	signal: AbortSignal | undefined,
-): Promise<string> {
-	let repoRoot: CommandRun;
-	try {
-		repoRoot = await runGit(pi, cwd, ["rev-parse", "--show-toplevel"], signal);
-	} catch (error) {
-		throw new Error(`Cannot load attached plan: not in a Git repository.\n\n${errorMessage(error)}`);
-	}
-	if (repoRoot.result.code !== 0 || repoRoot.result.killed) {
-		throw new Error(
-			[
-				"Cannot load attached plan: not in a Git repository.",
-				"",
-				formatCommandFailure("git rev-parse --show-toplevel failed", repoRoot.displayCommand, repoRoot.result),
-			].join("\n"),
-		);
-	}
-	const root = firstNonEmptyLine(repoRoot.result.stdout);
-	if (root === undefined) {
-		throw new Error(`Cannot load attached plan: git rev-parse --show-toplevel returned no repository root.\nCommand: ${repoRoot.displayCommand}`);
+async function resolveSafeImplementationBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const repoRoot = await git.repoRoot({ cwd, signal });
+	if (!repoRoot.ok) {
+		throw new Error(["Cannot load attached plan: not in a Git repository.", "", repoRoot.error.message].join("\n"));
 	}
 
-	let branchRun: CommandRun;
-	try {
-		branchRun = await runGit(pi, cwd, ["symbolic-ref", "--short", "HEAD"], signal);
-	} catch (error) {
-		throw new Error(`Cannot load attached plan from detached HEAD. Check out a feature branch first.\n\n${errorMessage(error)}`);
+	const branchResult = await git.implementationBranch({ cwd, signal });
+	if (!branchResult.ok) {
+		throw new Error(["Cannot load attached plan from detached HEAD. Check out a feature branch first.", "", branchResult.error.message].join("\n"));
 	}
-	if (branchRun.result.code !== 0 || branchRun.result.killed) {
-		throw new Error(
-			[
-				"Cannot load attached plan from detached HEAD. Check out a feature branch first.",
-				"",
-				formatCommandFailure("git symbolic-ref --short HEAD failed", branchRun.displayCommand, branchRun.result),
-			].join("\n"),
-		);
-	}
-	const branch = firstNonEmptyLine(branchRun.result.stdout);
-	if (branch === undefined) {
-		throw new Error(`Cannot load attached plan from detached HEAD. Check out a feature branch first.\nCommand: ${branchRun.displayCommand}`);
-	}
+	const branch = branchResult.value;
 
-	const defaultBranch = await resolveDefaultBranch(pi, cwd, signal);
-	if (branch === "main" || branch === "master" || branch === defaultBranch) {
+	const defaultBranch = await git.defaultBranch({ cwd, signal });
+	const defaultBranchValue = defaultBranch.type === "found" ? defaultBranch.value : undefined;
+	if (branch === "main" || branch === "master" || branch === defaultBranchValue) {
 		throw new Error(`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`);
 	}
 
 	return branch;
-}
-
-async function resolveDefaultBranch(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	signal: AbortSignal | undefined,
-): Promise<string | undefined> {
-	let result: CommandRun;
-	try {
-		result = await runGit(pi, cwd, ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], signal);
-	} catch {
-		return undefined;
-	}
-	if (result.result.code !== 0 || result.result.killed) {
-		return undefined;
-	}
-	const ref = firstNonEmptyLine(result.result.stdout);
-	if (ref === undefined) {
-		return undefined;
-	}
-	return ref.startsWith("origin/") ? ref.slice("origin/".length) : ref;
-}
-
-async function runGit(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	args: string[],
-	signal: AbortSignal | undefined,
-): Promise<CommandRun> {
-	const displayCommand = formatCommand("git", args);
-	try {
-		const result = await pi.exec("git", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
-		return { result, displayCommand };
-	} catch (error) {
-		throw new Error(`git command failed before completion.\nCommand: ${displayCommand}\nError: ${errorMessage(error)}`);
-	}
 }
 
 function parseListEntry(
@@ -384,24 +312,7 @@ function finalBranchSegment(branch: string): string {
 	return segments.at(-1) ?? branch;
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function firstNonEmptyLine(value: string): string | undefined {
-	return value
-		.split(/\r?\n/)
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
-}

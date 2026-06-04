@@ -1,4 +1,5 @@
 import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import {
 	formatCommandFailure,
 	normalizeSummary,
@@ -13,7 +14,6 @@ import {
 
 export const PLAN_BRANCH_NAMESPACE = "planned-branch";
 
-const GIT_TIMEOUT_MS = 10_000;
 const GT_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 
@@ -30,6 +30,7 @@ export interface CreatePlannedBranchFromFileParams {
 export interface CreatePlannedBranchFromFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
+	git?: PlannedBranchGitGateway | undefined;
 }
 
 export interface PlannedBranchEvidence {
@@ -72,13 +73,14 @@ export async function createPlannedBranchFromFile(
 	options: CreatePlannedBranchFromFileOptions,
 ): Promise<PlannedBranchEvidence> {
 	const operation = buildPlannedBranchCreateOperation(rawParams);
-	const sourceFile = await resolvePlanSourceFile(pi, options.cwd, operation.filePath, options.signal);
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const sourceFile = await resolvePlanSourceFile(pi, options.cwd, operation.filePath, options.signal, git);
 
-	await checkBranchRefFormat(pi, options.cwd, operation.branch, options.signal);
-	const startPoint = await resolveStartPoint(pi, options.cwd, options.signal);
-	await assertLocalBranchAbsent(pi, options.cwd, operation.branch, options.signal);
+	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
+	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
+	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
 	await assertBrmemEntryAbsent(pi, options.cwd, operation.branch, operation.key, options.signal);
-	await createPlanBranch(pi, options.cwd, {
+	await createPlanBranch(pi, git, options.cwd, {
 		method: operation.branchCreation,
 		branch: operation.branch,
 		signal: options.signal,
@@ -173,9 +175,10 @@ export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBr
 
 export async function resolvePlannedBranchCreatePreviewContext(
 	pi: PlanCommandExecApi,
-	options: { cwd: string; signal?: AbortSignal | undefined },
+	options: { cwd: string; signal?: AbortSignal | undefined; git?: PlannedBranchGitGateway | undefined },
 ): Promise<PlannedBranchCreatePreviewContext> {
-	return { startPoint: await resolveStartPoint(pi, options.cwd, options.signal) };
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	return { startPoint: await resolveStartPoint(git, options.cwd, options.signal) };
 }
 
 export function formatPlannedBranchCreatePreview(
@@ -339,55 +342,46 @@ export function validateTargetBranchName(branch: string): string | undefined {
 }
 
 async function checkBranchRefFormat(
-	pi: PlanCommandExecApi,
+	git: PlannedBranchGitGateway,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const refFormat = await runGit(pi, { cwd, args: ["check-ref-format", "--branch", targetBranch], signal });
-	if (refFormat.result.code !== 0 || refFormat.result.killed) {
-		throw new Error(formatCommandFailure("git check-ref-format failed", refFormat.displayCommand, refFormat.result));
+	const refFormat = await git.validateBranchRef({ cwd, branch: targetBranch, signal });
+	if (!refFormat.ok) {
+		throw new Error(refFormat.error.message);
 	}
 }
 
-async function resolveStartPoint(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
-	const head = await runGit(pi, { cwd, args: ["rev-parse", "HEAD"], signal });
-	if (head.result.code !== 0 || head.result.killed) {
-		throw new Error(formatCommandFailure("git rev-parse HEAD failed", head.displayCommand, head.result));
+async function resolveStartPoint(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const head = await git.headCommit({ cwd, signal });
+	if (!head.ok) {
+		throw new Error(head.error.message);
 	}
-
-	const startPoint = firstNonEmptyLine(head.result.stdout);
-	if (startPoint === undefined) {
-		throw new Error(`git rev-parse HEAD returned no commit.\nCommand: ${head.displayCommand}`);
-	}
-	return startPoint;
+	return head.value;
 }
 
 async function assertLocalBranchAbsent(
-	pi: PlanCommandExecApi,
+	git: PlannedBranchGitGateway,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const branchRef = `refs/heads/${targetBranch}`;
-	const check = await runGit(pi, { cwd, args: ["rev-parse", "--verify", branchRef], signal });
-	if (check.result.killed) {
-		throw new Error(formatCommandFailure("git branch existence check was killed", check.displayCommand, check.result));
+	const check = await git.localBranchPresence({ cwd, branch: targetBranch, signal });
+	if (check.type === "absent") {
+		return;
 	}
-	if (check.result.code === 0) {
+	if (check.type === "present") {
 		throw new Error(
 			[
 				"Target branch already exists; refusing to overwrite.",
 				`Branch: ${targetBranch}`,
-				`Ref: ${branchRef}`,
+				`Ref: ${check.refName}`,
 				`Command: ${check.displayCommand}`,
 			].join("\n"),
 		);
 	}
-	if (check.result.code === 1 || isMissingRevisionResult(check.result)) {
-		return;
-	}
-	throw new Error(formatCommandFailure("git branch existence check failed", check.displayCommand, check.result));
+	throw new Error(check.error.message);
 }
 
 async function assertBrmemEntryAbsent(
@@ -426,6 +420,7 @@ async function assertBrmemEntryAbsent(
 
 async function createPlanBranch(
 	pi: PlanCommandExecApi,
+	git: PlannedBranchGitGateway,
 	cwd: string,
 	input: {
 		method: BranchCreationMethod;
@@ -434,32 +429,33 @@ async function createPlanBranch(
 	},
 ): Promise<void> {
 	if (input.method === "graphite") {
-		await createGraphiteBranch(pi, cwd, input.branch, input.signal);
+		await createGraphiteBranch(pi, git, cwd, input.branch, input.signal);
 		return;
 	}
-	await createPlainGitBranch(pi, cwd, input.branch, input.signal);
+	await createPlainGitBranch(git, cwd, input.branch, input.signal);
 }
 
 async function createPlainGitBranch(
-	pi: PlanCommandExecApi,
+	git: PlannedBranchGitGateway,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const create = await runGit(pi, { cwd, args: ["branch", targetBranch, "HEAD"], signal });
-	if (create.result.code !== 0 || create.result.killed) {
-		throw new Error(formatCommandFailure("git branch failed", create.displayCommand, create.result));
+	const create = await git.createBranchAtHead({ cwd, branch: targetBranch, signal });
+	if (!create.ok) {
+		throw new Error(create.error.message);
 	}
 }
 
 async function createGraphiteBranch(
 	pi: PlanCommandExecApi,
+	git: PlannedBranchGitGateway,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const parentBranch = await resolveCurrentBranch(pi, cwd, signal);
-	await createPlainGitBranch(pi, cwd, targetBranch, signal);
+	const parentBranch = await resolveCurrentBranch(git, cwd, signal);
+	await createPlainGitBranch(git, cwd, targetBranch, signal);
 	const track = await runGt(pi, { cwd, args: ["track", targetBranch, "--parent", parentBranch, "--no-interactive"], signal });
 	if (track.result.code !== 0 || track.result.killed) {
 		throw new Error(
@@ -475,17 +471,15 @@ async function createGraphiteBranch(
 	}
 }
 
-async function resolveCurrentBranch(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
-	const branch = await runGit(pi, { cwd, args: ["branch", "--show-current"], signal });
-	if (branch.result.code !== 0 || branch.result.killed) {
-		throw new Error(formatCommandFailure("git branch --show-current failed", branch.displayCommand, branch.result));
+async function resolveCurrentBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const branch = await git.sourceBranch({ cwd, signal });
+	if (!branch.ok) {
+		if (branch.error.code === "detached_head") {
+			throw new Error("Graphite branch creation requires a named current branch; the current checkout appears to be detached.");
+		}
+		throw new Error(branch.error.message);
 	}
-
-	const currentBranch = firstNonEmptyLine(branch.result.stdout);
-	if (currentBranch === undefined) {
-		throw new Error("Graphite branch creation requires a named current branch; the current checkout appears to be detached.");
-	}
-	return currentBranch;
+	return branch.value;
 }
 
 function buildEvidence(input: {
@@ -564,17 +558,6 @@ interface RunCommandOptions {
 	signal?: AbortSignal | undefined;
 }
 
-async function runGit(pi: PlanCommandExecApi, options: RunCommandOptions): Promise<CommandRun> {
-	const displayCommand = formatCommand("git", options.args);
-	try {
-		const result = await pi.exec("git", options.args, execOptions(options.cwd, GIT_TIMEOUT_MS, options.signal));
-		return { result, displayCommand };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`git command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`);
-	}
-}
-
 async function runGt(pi: PlanCommandExecApi, options: RunCommandOptions): Promise<CommandRun> {
 	const displayCommand = formatCommand("gt", options.args);
 	try {
@@ -604,21 +587,7 @@ function trimErrorText(value: string): string {
 	return `…${value.slice(-MAX_ERROR_CHARS)}`;
 }
 
-function isMissingRevisionResult(result: ExecResult): boolean {
-	if (result.code !== 128) {
-		return false;
-	}
-	const output = `${result.stderr}\n${result.stdout}`;
-	return output.includes("Needed a single revision");
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function firstNonEmptyLine(value: string): string | undefined {
-	return value
-		.split(/\r?\n/)
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
-}

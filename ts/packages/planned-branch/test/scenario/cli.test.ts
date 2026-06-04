@@ -8,6 +8,7 @@ import { PLAN_BRANCH_NAMESPACE } from "../../src/planned-branch-creation.ts";
 import { encodeBranchForPlanPath } from "../../src/source-plan-file.ts";
 import type { ExecResult } from "../../src/command-runtime.ts";
 import type { ExecOptions, PlanCommandExecApi } from "../../src/plan-persistence.ts";
+import { InMemoryPlannedBranchGitGateway, type InMemoryGitGatewayState } from "../support/in-memory-git-gateway.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "branch-scoped-plan";
@@ -69,6 +70,14 @@ interface CliRun {
 	stdout: string[];
 	stderr: string[];
 	commands: FakeCommands;
+	git: InMemoryPlannedBranchGitGateway;
+}
+
+interface RunWithFakesOptions {
+	cwd: string;
+	stdin?: string;
+	planStoreRoot?: string;
+	git?: InMemoryGitGatewayState;
 }
 
 const tempDirs: string[] = [];
@@ -84,16 +93,23 @@ async function makeTempDir(prefix = "planned-branch-cli-"): Promise<string> {
 	return dir;
 }
 
-function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] = [], options: { cwd: string; stdin?: string; planStoreRoot?: string }): CliRun {
+function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] = [], options: RunWithFakesOptions): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const commands = new FakeCommands(script);
+	const git = new InMemoryPlannedBranchGitGateway({
+		repoRoot: options.cwd,
+		optionalRepoRoot: options.cwd,
+		sourceBranch: SOURCE_BRANCH,
+		...(options.git ?? {}),
+	});
 	return {
 		stdout,
 		stderr,
 		commands,
+		git,
 		exit: runCli(args, {
-			context: { commands },
+			context: { commands, git },
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
@@ -124,36 +140,20 @@ function parseJson(run: CliRun): Record<string, unknown> {
 	return JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 }
 
-function repoDiscoveryScript(repoRoot: string): ScriptedExec[] {
+function createScript(input: { branch: string; planFile: string }): ScriptedExec[] {
 	return [
-		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${repoRoot}\n` }),
-		step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` }),
-		step("git", ["config", "--get", "remote.origin.url"], { stdout: "git@github.com:Owner/Repo.git\n" }),
-	];
-}
-
-function createScript(input: { repoRoot: string; branch: string; planFile: string }): ScriptedExec[] {
-	return [
-		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${input.repoRoot}\n` }),
-		step("git", ["check-ref-format", "--branch", input.branch]),
-		step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-		step("git", ["rev-parse", "--verify", `refs/heads/${input.branch}`], { code: 1, stderr: "missing" }),
 		step("brmem", ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--format", "json"], {
 			code: 1,
 			stderr: "missing",
 		}),
-		step("git", ["branch", input.branch, "HEAD"]),
 		step("brmem", ["put", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--file", input.planFile, "--format", "json"], {
 			stdout: brmemPutEnvelope(input.branch, input.planFile),
 		}),
 	];
 }
 
-function loadScript(input: { repoRoot: string; branch: string; content: string }): ScriptedExec[] {
+function loadScript(input: { branch: string; content: string }): ScriptedExec[] {
 	return [
-		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${input.repoRoot}\n` }),
-		step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${input.branch}\n` }),
-		step("git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], { stdout: "origin/main\n" }),
 		step("brmem", ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--format", "json"], {
 			stdout: brmemListEnvelope(input.branch),
 		}),
@@ -277,11 +277,11 @@ describe("planned-branch exec", () => {
 	test("write-plan-file stores stdin content under the planned-branch local store", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const run = runWithFakes(
-			["exec", "write-plan-file", "--slug", PLAN_SLUG, "--summary", "Save it", "--stdin", "--format", "json"],
-			repoDiscoveryScript(repoRoot),
-			{ cwd: repoRoot, stdin: "# Plan\n\nDo it.\n", planStoreRoot },
-		);
+		const run = runWithFakes(["exec", "write-plan-file", "--slug", PLAN_SLUG, "--summary", "Save it", "--stdin", "--format", "json"], [], {
+			cwd: repoRoot,
+			stdin: "# Plan\n\nDo it.\n",
+			planStoreRoot,
+		});
 
 		expect(await run.exit).toBe(0);
 		run.commands.assertDone();
@@ -303,9 +303,7 @@ describe("planned-branch exec", () => {
 		const outsideDir = await makeTempDir();
 		const explicitPlan = join(outsideDir, "explicit.md");
 		await writeFile(explicitPlan, "# Explicit\n", "utf8");
-		const explicit = runWithFakes(["exec", "resolve-plan", explicitPlan, "--format", "json"], [step("git", ["rev-parse", "--show-toplevel"], { stdout: `${repoRoot}\n` })], {
-			cwd: repoRoot,
-		});
+		const explicit = runWithFakes(["exec", "resolve-plan", explicitPlan, "--format", "json"], [], { cwd: repoRoot });
 		expect(await explicit.exit).toBe(0);
 		expect(parseJson(explicit)).toMatchObject({ success: true, source: "explicit", file_path: explicitPlan });
 
@@ -319,7 +317,7 @@ describe("planned-branch exec", () => {
 		await utimes(older, new Date(1_000), new Date(1_000));
 		await utimes(newer, new Date(2_000), new Date(2_000));
 
-		const latest = runWithFakes(["exec", "resolve-plan", "--format", "json"], repoDiscoveryScript(repoRoot), {
+		const latest = runWithFakes(["exec", "resolve-plan", "--format", "json"], [], {
 			cwd: repoRoot,
 			planStoreRoot,
 		});
@@ -335,8 +333,8 @@ describe("planned-branch exec", () => {
 		const branch = "planned-branches/branch-scoped-plan";
 		const run = runWithFakes(
 			["exec", "create", "--slug", PLAN_SLUG, "--plan-file", planFile, "--branch", branch, "--summary", "Create it", "--format", "json"],
-			createScript({ repoRoot, branch, planFile }),
-			{ cwd: repoRoot },
+			createScript({ branch, planFile }),
+			{ cwd: repoRoot, git: { headCommit: START_POINT } },
 		);
 
 		expect(await run.exit).toBe(0);
@@ -358,7 +356,10 @@ describe("planned-branch exec", () => {
 		const repoRoot = await makeTempDir();
 		const branch = "planned-branches/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
-		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "json"], loadScript({ repoRoot, branch, content }), { cwd: repoRoot });
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "json"], loadScript({ branch, content }), {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+		});
 
 		expect(await run.exit).toBe(0);
 		run.commands.assertDone();

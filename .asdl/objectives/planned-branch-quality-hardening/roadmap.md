@@ -32,10 +32,11 @@
   - Evidence: direct slug tests cover the shared normalizer plus saved-plan-specific success and invalid-output failure text, with prompt/fallback distinctions preserved.
   - Verification: `cd ts/packages/pi-extensions && bun test`, `cd ts/packages/pi-extensions && bun run check`, `just ts-check`, and `just ts-test` passed.
 
-- [ ] Semantic gateway boundary for planned-branch core
-  - Introduce planned-branch-owned semantic gateways or equivalent adapters for Git facts/branch creation, Branch Memory attachment/loading, and Graphite tracking.
-  - Move raw command construction and stdout parsing out of core workflow functions and into real adapters plus focused adapter tests.
-  - Evidence: core tests use stateful semantic fakes; adapter tests preserve exact command protocol expectations.
+- [~] Semantic gateway boundary for planned-branch core
+  - Git facts and branch operations now have a planned-branch-owned semantic gateway in `@asdl/planned-branch`; Branch Memory attachment/loading and Graphite tracking gateways remain as follow-up slices.
+  - Core planned-branch create, source-plan store, explicit/latest plan resolution, and attached-plan loading now consume semantic Git facts/operations instead of constructing and parsing raw Git commands inline.
+  - Evidence: planned-branch core/scenario tests use a stateful semantic Git fake for Git repository facts, branch validation, branch existence, branch creation, source branch, implementation branch, origin URL, default branch, and HEAD commit; real Git gateway tests preserve exact `git` command protocol expectations.
+  - Verification: `cd ts/packages/planned-branch && bun test`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Public skills and docs accuracy pass
   - Correct `planned-branch-create` branch-creation wording so omission means the CLI default `plain-git`, while Graphite requires `--branch-creation graphite` unless a Pi adapter explicitly owns a different default.

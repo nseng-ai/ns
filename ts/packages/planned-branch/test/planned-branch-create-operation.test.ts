@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { type ExecResult, formatCommand } from "../src/command-runtime.ts";
+import { formatCommand } from "../src/command-runtime.ts";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	buildPlannedBranchCreateOperation,
@@ -9,7 +9,8 @@ import {
 	formatPlannedBranchEvidence,
 	resolvePlannedBranchCreatePreviewContext,
 } from "../src/planned-branch-creation.ts";
-import type { ExecOptions, PlanCommandExecApi } from "../src/plan-persistence.ts";
+import type { PlanCommandExecApi } from "../src/plan-persistence.ts";
+import { InMemoryPlannedBranchGitGateway } from "./support/in-memory-git-gateway.ts";
 
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
@@ -18,65 +19,11 @@ const TARGET_BRANCH = "planned-branches/branch-scoped-plan";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "feature/source-plan";
 
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: ExecOptions | undefined;
-}
-
-interface ScriptedExec {
-	command: string;
-	args: string[];
-	result: Partial<ExecResult>;
-}
-
-class FakeCommands implements PlanCommandExecApi {
-	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
-	private readonly script: ScriptedExec[];
-
-	constructor(script: readonly ScriptedExec[]) {
-		this.script = [...script];
-	}
-
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (expected === undefined) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		if (expected.command !== command || !sameArgs(expected.args, args)) {
-			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		return execResult(expected.result);
-	}
-
-	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
-	}
-}
-
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return {
-		stdout: overrides.stdout ?? "",
-		stderr: overrides.stderr ?? "",
-		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-	};
-}
-
-function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
-	return { command, args, result };
-}
-
-function sameArgs(left: readonly string[], right: readonly string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
+const NO_COMMANDS: PlanCommandExecApi = {
+	async exec() {
+		throw new Error("unexpected command execution");
+	},
+};
 
 describe("buildPlannedBranchCreateOperation", () => {
 	test("derives the default branch, key, namespace, params, and normalized summary", () => {
@@ -168,14 +115,13 @@ describe("planned-branch create preview", () => {
 		expect(text).not.toContain("gt track");
 	});
 
-	test("resolves only the read-only start-point command", async () => {
-		const commands = new FakeCommands([step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` })]);
+	test("resolves preview context through the semantic git gateway", async () => {
+		const git = new InMemoryPlannedBranchGitGateway({ headCommit: START_POINT });
 
-		const context = await resolvePlannedBranchCreatePreviewContext(commands, { cwd: "/repo" });
+		const context = await resolvePlannedBranchCreatePreviewContext(NO_COMMANDS, { cwd: "/repo", git });
 
-		commands.assertDone();
 		expect(context).toEqual({ startPoint: START_POINT });
-		expect(commands.execCalls).toEqual([{ command: "git", args: ["rev-parse", "HEAD"], options: { cwd: "/repo", timeout: 10_000 } }]);
+		expect(git.headCommitCalls).toEqual([{ cwd: "/repo" }]);
 	});
 });
 

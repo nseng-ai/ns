@@ -153,7 +153,7 @@ async function runWritePlanFile(args: readonly string[], deps: RequiredCliDeps):
 	const evidence = await writeSourceBranchPlanFile(
 		deps.context.commands,
 		{ slug: options.slug, content, ...(options.summary === undefined ? {} : { summary: options.summary }) },
-		{ cwd: deps.cwd, ...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }) },
+		{ cwd: deps.cwd, git: deps.context.git, ...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }) },
 	);
 	if (options.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...sourcePlanFileJson(evidence) })}\n`);
@@ -198,7 +198,7 @@ async function runCreate(args: readonly string[], deps: RequiredCliDeps): Promis
 			...(options.branchCreation === undefined ? {} : { branchCreation: options.branchCreation }),
 			...(options.summary === undefined ? {} : { summary: options.summary }),
 		},
-		{ cwd: deps.cwd },
+		{ cwd: deps.cwd, git: deps.context.git },
 	);
 	if (options.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...plannedBranchJson(evidence) })}\n`);
@@ -217,7 +217,7 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
 
 	const requestedKey = parsed.value.keyOrSlug;
-	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd });
+	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git });
 	const implementationPrompt = buildImplPlannedBranchPrompt(plan);
 	if (parsed.value.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...loadedPlanJson(plan, implementationPrompt) })}\n`);
@@ -433,11 +433,12 @@ async function readContentSource(source: WritePlanFileArgs["contentSource"], dep
 
 async function resolvePlanEvidence(args: ResolvePlanArgs, deps: RequiredCliDeps): Promise<ResolvePlanEvidence> {
 	if (args.path !== undefined) {
-		const filePath = await resolvePlanSourceFile(deps.context.commands, deps.cwd, args.path, undefined);
+		const filePath = await resolvePlanSourceFile(deps.context.commands, deps.cwd, args.path, undefined, deps.context.git);
 		return { source: "explicit", filePath };
 	}
 	const latest = await findLatestSourceBranchPlanFile(deps.context.commands, {
 		cwd: deps.cwd,
+		git: deps.context.git,
 		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 	});
 	return { source: "latest", ...latest };
