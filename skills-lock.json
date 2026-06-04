@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "autoreview": {
+      "source": "openclaw/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/autoreview/SKILL.md",
+      "computedHash": "c01ad85b2dc7e1e3bdcb91f3e8e21eb5fcfda0ddf7924fe47a62b37f00928b33"
+    },
     "branch-retro": {
       "source": "skills/branch-retro",
       "sourceType": "local",
@@ -21,6 +27,21 @@
       "sourceType": "local",
       "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
     },
+    "cmux-sidebar": {
+      "source": "skills/cmux-sidebar",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "code-gt-restack-resolve": {
+      "source": "skills/code-gt-restack-resolve",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "code-resolve-merge-conflicts": {
+      "source": "skills/code-resolve-merge-conflicts",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "create-bun-typescript-project": {
       "source": "skills/create-bun-typescript-project",
       "sourceType": "local",
@@ -35,46 +56,6 @@
       "source": "skills/create-python-package",
       "sourceType": "local",
       "computedHash": "a05f76714e88cdd41eb506c006783a77a0fa8cbbbbf7d2b3ce26e988ffa9a9d8"
-    },
-    "internal-code-checkpoint": {
-      "source": "skills/internal-code-checkpoint",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "internal-code-gh": {
-      "source": "skills/internal-code-gh",
-      "sourceType": "local",
-      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
-    },
-    "internal-code-gh-ci-debug": {
-      "source": "skills/internal-code-gh-ci-debug",
-      "sourceType": "local",
-      "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
-    },
-    "code-gt-restack-resolve": {
-      "source": "skills/code-gt-restack-resolve",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "internal-code-gt-stackify-branch": {
-      "source": "skills/internal-code-gt-stackify-branch",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "internal-code-just-fix": {
-      "source": "skills/internal-code-just-fix",
-      "sourceType": "local",
-      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
-    },
-    "internal-code-stacker-agent": {
-      "source": "skills/internal-code-stacker-agent",
-      "sourceType": "local",
-      "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
-    },
-    "internal-pr-stack-address": {
-      "source": "skills/internal-pr-stack-address",
-      "sourceType": "local",
-      "computedHash": "94adde3f6e37c5aaa3b4d5d15d34f05f96e434b8060f3392d83b402d29f116a3"
     },
     "dignified-python": {
       "source": "skills/dignified-python",
@@ -126,6 +107,41 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ef32aea0a8fab9b365ff9e08a95f8d353e20ca21ea46ec2e73587c86dd341351"
+    },
+    "internal-code-checkpoint": {
+      "source": "skills/internal-code-checkpoint",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "internal-code-gh": {
+      "source": "skills/internal-code-gh",
+      "sourceType": "local",
+      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
+    },
+    "internal-code-gh-ci-debug": {
+      "source": "skills/internal-code-gh-ci-debug",
+      "sourceType": "local",
+      "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
+    },
+    "internal-code-gt-stackify-branch": {
+      "source": "skills/internal-code-gt-stackify-branch",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "internal-code-just-fix": {
+      "source": "skills/internal-code-just-fix",
+      "sourceType": "local",
+      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
+    },
+    "internal-code-stacker-agent": {
+      "source": "skills/internal-code-stacker-agent",
+      "sourceType": "local",
+      "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
+    },
+    "internal-pr-stack-address": {
+      "source": "skills/internal-pr-stack-address",
+      "sourceType": "local",
+      "computedHash": "94adde3f6e37c5aaa3b4d5d15d34f05f96e434b8060f3392d83b402d29f116a3"
     },
     "objective": {
       "source": "skills/objective",
@@ -192,11 +208,6 @@
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
     },
-    "code-resolve-merge-conflicts": {
-      "source": "skills/code-resolve-merge-conflicts",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
     "setup-dprint": {
       "source": "skills/setup-dprint",
       "sourceType": "local",
@@ -249,18 +260,13 @@
       "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
       "computedHash": "9052b01b46b1d8dbf94c45f9313ec1983443f9a460e83d49cdc7fe0f640ca476"
     },
-    "typescript-style": {
-      "source": "skills/typescript-style",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
     "typescript-fake-driven-testing": {
       "source": "skills/typescript-fake-driven-testing",
       "sourceType": "local",
       "computedHash": "37c1b8015fb8c7b270cbb665a9de7add828bba24e438e118c887d3283cb83f7b"
     },
-    "cmux-sidebar": {
-      "source": "skills/cmux-sidebar",
+    "typescript-style": {
+      "source": "skills/typescript-style",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     }
