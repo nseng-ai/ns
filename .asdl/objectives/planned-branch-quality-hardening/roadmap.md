@@ -33,10 +33,11 @@
   - Verification: `cd ts/packages/pi-extensions && bun test`, `cd ts/packages/pi-extensions && bun run check`, `just ts-check`, and `just ts-test` passed.
 
 - [~] Semantic gateway boundary for planned-branch core
-  - Git facts and branch operations now have a planned-branch-owned semantic gateway in `@asdl/planned-branch`; Branch Memory attachment/loading and Graphite tracking gateways remain as follow-up slices.
+  - Git facts/branch operations and Branch Memory attachment/loading now have planned-branch-owned semantic gateways in `@asdl/planned-branch`; Graphite tracking remains as the follow-up gateway slice.
   - Core planned-branch create, source-plan store, explicit/latest plan resolution, and attached-plan loading now consume semantic Git facts/operations instead of constructing and parsing raw Git commands inline.
-  - Evidence: planned-branch core/scenario tests use a stateful semantic Git fake for Git repository facts, branch validation, branch existence, branch creation, source branch, implementation branch, origin URL, default branch, and HEAD commit; real Git gateway tests preserve exact `git` command protocol expectations.
-  - Verification: `cd ts/packages/planned-branch && bun test`, `just ts-check`, and `just ts-test` passed.
+  - Core planned-branch create and load-plan workflows now consume semantic Branch Memory operations for attachment presence, attach, list, and get instead of constructing raw `brmem check/put/list/get` command arguments or parsing Branch Memory machine envelopes inline.
+  - Evidence: planned-branch core/scenario tests use stateful semantic Git and Branch Memory fakes; real gateway tests preserve exact `git` and `brmem` command protocol expectations, exit-code conventions, timeout behavior, unavailable-command handling, and malformed/mismatched envelope handling.
+  - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/planned-branch && bun run check`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Public skills and docs accuracy pass
   - Correct `planned-branch-create` branch-creation wording so omission means the CLI default `plain-git`, while Graphite requires `--branch-creation graphite` unless a Pi adapter explicitly owns a different default.
