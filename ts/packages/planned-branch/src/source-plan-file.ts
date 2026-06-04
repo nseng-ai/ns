@@ -147,7 +147,7 @@ export async function resolvePlanStoreDirectory(
 ): Promise<PlanStoreDirectoryEvidence> {
 	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
 	const sourceBranch = await resolveCurrentBranch(pi, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(pi, options.cwd, repoRoot, options.signal);
+	const repoIdentity = await resolveRepoIdentity(pi, { cwd: options.cwd, repoRoot, signal: options.signal });
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
 	const planStoreRoot = options.planStoreRoot ?? defaultPlanStoreRoot();
@@ -270,7 +270,7 @@ async function resolveRequiredGitRepoRoot(
 	cwd: string,
 	signal: AbortSignal | undefined,
 ): Promise<string> {
-	const root = await runGit(pi, cwd, ["rev-parse", "--show-toplevel"], signal);
+	const root = await runGit(pi, { cwd, args: ["rev-parse", "--show-toplevel"], signal });
 	if (root.result.code !== 0 || root.result.killed) {
 		throw new Error(formatCommandFailure("git rev-parse --show-toplevel failed", root.displayCommand, root.result));
 	}
@@ -283,7 +283,7 @@ async function resolveRequiredGitRepoRoot(
 }
 
 async function resolveCurrentBranch(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
-	const branch = await runGit(pi, cwd, ["branch", "--show-current"], signal);
+	const branch = await runGit(pi, { cwd, args: ["branch", "--show-current"], signal });
 	if (branch.result.code !== 0 || branch.result.killed) {
 		throw new Error(formatCommandFailure("git branch --show-current failed", branch.displayCommand, branch.result));
 	}
@@ -295,13 +295,14 @@ async function resolveCurrentBranch(pi: PlanCommandExecApi, cwd: string, signal:
 	return currentBranch;
 }
 
-async function resolveRepoIdentity(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	repoRoot: string,
-	signal: AbortSignal | undefined,
-): Promise<RepoIdentity> {
-	const origin = await runGit(pi, cwd, ["config", "--get", "remote.origin.url"], signal);
+interface RepoIdentityOptions {
+	cwd: string;
+	repoRoot: string;
+	signal?: AbortSignal | undefined;
+}
+
+async function resolveRepoIdentity(pi: PlanCommandExecApi, options: RepoIdentityOptions): Promise<RepoIdentity> {
+	const origin = await runGit(pi, { cwd: options.cwd, args: ["config", "--get", "remote.origin.url"], signal: options.signal });
 	if (origin.result.killed) {
 		throw new Error(formatCommandFailure("git config --get remote.origin.url was killed", origin.displayCommand, origin.result));
 	}
@@ -311,11 +312,11 @@ async function resolveRepoIdentity(
 		if (normalized.length > 0) {
 			return { source: "origin-url", identity: normalized };
 		}
-		return { source: "repo-root", identity: await realpathIfPossible(repoRoot) };
+		return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
 	}
 
 	if (origin.result.code === 1) {
-		return { source: "repo-root", identity: await realpathIfPossible(repoRoot) };
+		return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
 	}
 
 	throw new Error(formatCommandFailure("git config --get remote.origin.url failed", origin.displayCommand, origin.result));
@@ -368,15 +369,16 @@ async function writeExclusiveFile(filePath: string, content: string): Promise<vo
 	}
 }
 
-async function runGit(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	args: string[],
-	signal: AbortSignal | undefined,
-): Promise<CommandRun> {
-	const displayCommand = formatCommand("git", args);
+interface RunGitOptions {
+	cwd: string;
+	args: string[];
+	signal?: AbortSignal | undefined;
+}
+
+async function runGit(pi: PlanCommandExecApi, options: RunGitOptions): Promise<CommandRun> {
+	const displayCommand = formatCommand("git", options.args);
 	try {
-		const result = await pi.exec("git", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
+		const result = await pi.exec("git", options.args, execOptions(options.cwd, GIT_TIMEOUT_MS, options.signal));
 		return { result, displayCommand };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

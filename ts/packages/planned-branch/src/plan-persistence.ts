@@ -167,15 +167,19 @@ export async function resolveGitRepoRoot(
 	return root ? resolve(root) : undefined;
 }
 
-export async function runBrmem(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	args: string[],
-	signal: AbortSignal | undefined,
-): Promise<BrmemRun> {
-	const run = await runFirstAvailableBrmemCommand(pi, cwd, args, {
+export interface RunBrmemOptions {
+	cwd: string;
+	args: string[];
+	signal?: AbortSignal | undefined;
+}
+
+export async function runBrmem(pi: PlanCommandExecApi, options: RunBrmemOptions): Promise<BrmemRun> {
+	const run = await runFirstAvailableBrmemCommand({
+		gateway: pi,
+		cwd: options.cwd,
+		brmemArgs: options.args,
 		timeoutMs: BRMEM_TIMEOUT_MS,
-		signal,
+		signal: options.signal,
 	});
 	if (run.type === "unavailable") {
 		return {

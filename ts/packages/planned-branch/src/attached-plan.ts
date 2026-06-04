@@ -51,12 +51,11 @@ export async function loadAttachedPlan(
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
 	const branch = await resolveSafeImplementationBranch(pi, options.cwd, options.signal);
-	const list = await runBrmem(
-		pi,
-		options.cwd,
-		["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
-		options.signal,
-	);
+	const list = await runBrmem(pi, {
+		cwd: options.cwd,
+		args: ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
+		signal: options.signal,
+	});
 	if (list.type === "unavailable") {
 		throw new Error(list.message);
 	}
@@ -78,12 +77,11 @@ export async function loadAttachedPlan(
 
 	const selectionInput = params.requestedKey === undefined ? { branch, entries } : { branch, requestedKey: params.requestedKey, entries };
 	const selectedKey = selectAttachedPlanKey(selectionInput);
-	const get = await runBrmem(
-		pi,
-		options.cwd,
-		["get", selectedKey, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
-		options.signal,
-	);
+	const get = await runBrmem(pi, {
+		cwd: options.cwd,
+		args: ["get", selectedKey, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"],
+		signal: options.signal,
+	});
 	if (get.type === "unavailable") {
 		throw new Error(get.message);
 	}
