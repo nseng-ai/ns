@@ -1,4 +1,4 @@
-"""Safe path segment validation for payload side-channel identifiers."""
+"""Safe path segment validation for payload artifact identifiers."""
 
 from __future__ import annotations
 

@@ -47,7 +47,7 @@ code, commit, or mutate GitHub.
 
 - Works only on the current branch's PR.
 - Never pushes. The user pushes manually after reviewing local commits.
-- Default feedback fetching uses sidecar payloads so raw review bodies stay out
+- Default feedback fetching uses payload artifacts so raw review bodies stay out
   of the main transcript.
 - Classification must validate before execution planning proceeds.
 - Every PR-level review, unresolved inline review thread, covered thread
@@ -109,7 +109,7 @@ Choose one payload session id for this skill invocation. It must be a lowercase
 safe path segment matching `^[a-z0-9][a-z0-9._-]{0,127}$`. Example:
 `pr-address-20260604t120000z-a1`.
 
-Pass the same id to every default sidecar feedback command with
+Pass the same id to every default payload feedback command with
 `--payload-session-id <payload-session-id>`, or set
 `ASDL_PAYLOAD_SESSION_ID=<payload-session-id>` in the command environment. Do
 not rely on commands to invent a session id.
@@ -119,7 +119,7 @@ execution plan. Do not edit files, commit, or call GitHub mutation commands.
 
 ### 2. Prepare the run
 
-Use the composite helper in default sidecar mode:
+Use the composite helper in default payload mode:
 
 ```bash
 <pr-address-runner> exec prepare-run \
@@ -141,9 +141,9 @@ noise by default).
 - reopens contested threads previously resolved by `pr-address`
 - drops empty-body `COMMENTED` / `APPROVED` reviews unless
   `include_empty_reviews=true`
-- returns `data.payload_mode: "sidecar"` in the default workflow
+- returns `data.payload_mode: "payload"` in the default workflow
 - returns `data.payload_reference.payload_path`, pointing to the full raw
-  sidecar envelope
+  payload envelope
 - returns compact `reviews`, `review_threads`, and `discussion_comments` with
   body locators rather than full bodies
 - returns `restructured_files` for moved/copied paths
@@ -159,7 +159,7 @@ restructured-file evidence.
 If the result has `data.found: false`, stop and report that there is no PR for
 the current branch.
 
-If the sidecar counts show no reviews, unresolved review threads, or discussion
+If the payload counts show no reviews, unresolved review threads, or discussion
 comments, report that there is no outstanding feedback and stop.
 
 ### 3. Classify, validate, and plan
@@ -169,18 +169,18 @@ The classifier output is a JSON packet with `schema_version: 1` and explicit
 `reviews`, `review_threads`, and `discussion_comments` entries.
 
 When running in an asdl checkout, also read `.asdl/prompts/subagent-launch.md`
-before launching a side-channel summarizer/subagent. That policy describes how
-to pass payload paths and locators without pasting raw sidecar JSON.
+before launching a payload-aware summarizer/subagent. That policy describes how
+to pass payload paths and locators without pasting raw payload JSON.
 
 Preferred classification path:
 
 1. Pass the compact manifest, `payload_reference.payload_path`, relevant body
    locators, expected packet schema, and completeness requirements to a focused
-   side-channel summarizer/subagent.
+   payload-aware summarizer/subagent.
 2. Require the summarizer to return only the strict classification packet.
-3. Do not paste the full `.raw.json` sidecar payload into the main transcript.
+3. Do not paste the full `.raw.json` payload artifact into the main transcript.
 
-Fallback path when no subagent/side channel is available:
+Fallback path when no subagent/separate subagent or helper is available:
 
 - Use targeted detail lookup for the bodies needed to classify items:
 
@@ -249,7 +249,7 @@ For each approved batch, do the real engineering work:
 
 - inspect the referenced code
 - use `read-feedback-detail` when exact original body text is needed and was not
-  already provided by the side-channel classifier answer
+  already provided by the payload-aware classifier answer
 - decide whether the feedback needs a code change, a reply, or both
 - make the edit
 - run appropriate tests for the affected project
@@ -329,7 +329,7 @@ and standard formatting.
 
 ### 5. Verify and hand off
 
-After the last batch, re-fetch current feedback with default sidecar mode:
+After the last batch, re-fetch current feedback with default payload mode:
 
 ```bash
 <pr-address-runner> exec get-feedback <pr_number> \
@@ -337,7 +337,7 @@ After the last batch, re-fetch current feedback with default sidecar mode:
   --format json
 ```
 
-This returns a compact sidecar manifest by default. Use selected-detail lookup
+This returns a compact payload manifest by default. Use selected-detail lookup
 or explicit inline mode only if full body text is required for debugging.
 
 Summarize:
@@ -369,9 +369,9 @@ Do not run `git push`. Do not run `gt submit`.
   the classification packet.
 - Retry invalid classification once with structured diagnostics, then fail
   closed.
-- Do not paste full raw sidecar JSON into the main transcript by default.
+- Do not paste full raw payload JSON into the main transcript by default.
 - Do not use `--payload-mode inline` unless debugging/migrating or when
-  side-channel and selected-detail paths cannot provide enough evidence.
+  payload artifact and selected-detail paths cannot provide enough evidence.
 - Do not commit a broken batch.
 - Record skipped items in the final summary.
 

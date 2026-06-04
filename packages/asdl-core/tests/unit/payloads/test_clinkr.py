@@ -1,4 +1,4 @@
-"""Tests for Clinkr payload sidecar helpers."""
+"""Tests for Clinkr payload artifact helpers."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_sidecar
+from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_payload_artifact
 from asdl_core.payloads.errors import PayloadError
 from asdl_core.payloads.models import PayloadReference
 from asdl_core.payloads.root import ASDL_PAYLOAD_ROOT_ENV, ASDL_PAYLOAD_SESSION_ID_ENV
@@ -30,8 +30,8 @@ class _RawProbeResult(ClinkrModel):
     value: str
 
 
-class _SidecarManifest(ClinkrModel):
-    payload_mode: Literal["sidecar"]
+class _PayloadManifest(ClinkrModel):
+    payload_mode: Literal["payload"]
     payload_reference: PayloadReference
 
 
@@ -66,7 +66,7 @@ def _read_payload_json(reference: PayloadReference) -> dict[str, object]:
 def _make_group() -> ClinkrGroup:
     return ClinkrGroup(
         name="payload-probes",
-        operations=[_run_open_helper_failure, _run_sidecar_manifest],
+        operations=[_run_open_helper_failure, _run_payload_manifest],
     )
 
 
@@ -87,23 +87,23 @@ def _run_open_helper_failure(
     return ClinkrExit.ok(_RawProbeResult(value="not reached"))
 
 
-@clinkr_operation(name="sidecar-manifest", help="Exercise helper manifest dispatch.")
-def _run_sidecar_manifest(
+@clinkr_operation(name="payload-manifest", help="Exercise helper manifest dispatch.")
+def _run_payload_manifest(
     ctx: click.Context,
     request: _HelperRequest,
-) -> ClinkrExit[_SidecarManifest]:
+) -> ClinkrExit[_PayloadManifest]:
     del ctx
     store = open_clinkr_payload_store(
         env=_payload_env(root=request.payload_root, session_id=request.session_id),
         clock=_fixed_clock,
     )
-    reference = write_clinkr_raw_sidecar(
+    reference = write_clinkr_raw_payload_artifact(
         store=store,
         descriptor="operation-probe",
-        result=ClinkrExit.ok(_RawProbeResult(value="from sidecar")),
+        result=ClinkrExit.ok(_RawProbeResult(value="from payload")),
     )
     return ClinkrExit.ok(
-        _SidecarManifest(payload_mode="sidecar", payload_reference=reference),
+        _PayloadManifest(payload_mode="payload", payload_reference=reference),
     )
 
 
@@ -142,10 +142,10 @@ def test_open_clinkr_payload_store_translates_relative_root_to_clinkr_failure() 
     assert isinstance(exc_info.value.__cause__, PayloadError)
 
 
-def test_write_clinkr_raw_sidecar_writes_ok_machine_envelope(tmp_path: Path) -> None:
+def test_write_clinkr_raw_payload_writes_ok_machine_envelope(tmp_path: Path) -> None:
     store = _open_store(tmp_path)
 
-    reference = write_clinkr_raw_sidecar(
+    reference = write_clinkr_raw_payload_artifact(
         store=store,
         descriptor="probe",
         result=ClinkrExit.ok(_RawProbeResult(value="found")),
@@ -165,10 +165,10 @@ def test_write_clinkr_raw_sidecar_writes_ok_machine_envelope(tmp_path: Path) -> 
     }
 
 
-def test_write_clinkr_raw_sidecar_writes_negative_machine_envelope(tmp_path: Path) -> None:
+def test_write_clinkr_raw_payload_writes_negative_machine_envelope(tmp_path: Path) -> None:
     store = _open_store(tmp_path)
 
-    reference = write_clinkr_raw_sidecar(
+    reference = write_clinkr_raw_payload_artifact(
         store=store,
         descriptor="probe",
         result=ClinkrExit.negative(_RawProbeResult(value="partial"), message="nothing here"),
@@ -181,12 +181,12 @@ def test_write_clinkr_raw_sidecar_writes_negative_machine_envelope(tmp_path: Pat
     }
 
 
-def test_write_clinkr_raw_sidecar_writes_failure_machine_envelope_without_data(
+def test_write_clinkr_raw_payload_writes_failure_machine_envelope_without_data(
     tmp_path: Path,
 ) -> None:
     store = _open_store(tmp_path)
 
-    reference = write_clinkr_raw_sidecar(
+    reference = write_clinkr_raw_payload_artifact(
         store=store,
         descriptor="probe",
         result=ClinkrExit.failure(error_type="bad_mode", message="boom"),
@@ -200,7 +200,7 @@ def test_write_clinkr_raw_sidecar_writes_failure_machine_envelope_without_data(
     assert "data" not in _read_payload_json(reference)
 
 
-def test_write_clinkr_raw_sidecar_translates_payload_write_failure(
+def test_write_clinkr_raw_payload_translates_payload_write_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -213,7 +213,7 @@ def test_write_clinkr_raw_sidecar_translates_payload_write_failure(
     monkeypatch.setattr(payload_store_module, "_write_bytes_to_fd", fail_after_partial_write)
 
     with pytest.raises(ClinkrFailure) as exc_info:
-        write_clinkr_raw_sidecar(
+        write_clinkr_raw_payload_artifact(
             store=store,
             descriptor="probe",
             result=ClinkrExit.ok(_RawProbeResult(value="found")),
@@ -224,13 +224,13 @@ def test_write_clinkr_raw_sidecar_translates_payload_write_failure(
     assert list(store.payload_dir.iterdir()) == []
 
 
-def test_write_clinkr_raw_sidecar_translates_envelope_serialization_failure(
+def test_write_clinkr_raw_payload_translates_envelope_serialization_failure(
     tmp_path: Path,
 ) -> None:
     store = _open_store(tmp_path)
 
     with pytest.raises(ClinkrFailure) as exc_info:
-        write_clinkr_raw_sidecar(
+        write_clinkr_raw_payload_artifact(
             store=store,
             descriptor="probe",
             result=ClinkrExit(status=ExitStatus.OK, data=object()),
@@ -255,12 +255,12 @@ def test_operation_using_open_helper_failure_dispatches_json_failure_without_dat
     assert "data" not in envelope
 
 
-def test_operation_using_helper_returns_manifest_and_writes_raw_sidecar(tmp_path: Path) -> None:
+def test_operation_using_helper_returns_manifest_and_writes_raw_payload(tmp_path: Path) -> None:
     root = tmp_path / "payload-root"
 
     result = CliRunner().invoke(
         _make_group(),
-        ["sidecar-manifest", str(root), "session1", "--format", "json"],
+        ["payload-manifest", str(root), "session1", "--format", "json"],
         obj=_runtime_obj(),
     )
 
@@ -268,11 +268,11 @@ def test_operation_using_helper_returns_manifest_and_writes_raw_sidecar(tmp_path
     envelope = json.loads(result.output)
     assert envelope["exit_code"] == 0
     data = envelope["data"]
-    assert data["payload_mode"] == "sidecar"
+    assert data["payload_mode"] == "payload"
     reference = data["payload_reference"]
     assert reference["descriptor"] == "operation-probe"
     assert reference["role"] == "raw"
     assert json.loads(Path(reference["payload_path"]).read_text(encoding="utf-8")) == {
         "exit_code": 0,
-        "data": {"value": "from sidecar"},
+        "data": {"value": "from payload"},
     }

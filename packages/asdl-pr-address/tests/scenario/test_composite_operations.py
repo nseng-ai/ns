@@ -458,7 +458,7 @@ def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
     assert "not a git repository" in output["message"]
 
 
-def test_prepare_run_default_sidecar_writes_raw_payload_and_compact_manifest(
+def test_prepare_run_default_payload_writes_raw_payload_and_compact_manifest(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -553,7 +553,7 @@ def test_prepare_run_default_sidecar_writes_raw_payload_and_compact_manifest(
     assert discussion_body not in result.output
     output = json.loads(result.output)
     data = output["data"]
-    assert data["payload_mode"] == "sidecar"
+    assert data["payload_mode"] == "payload"
     assert data["found"] is True
     assert data["current_branch"] == "feature"
     assert data["number"] == 42
@@ -714,7 +714,7 @@ def test_read_feedback_detail_reads_prepare_run_review_thread_item(
     assert discussion_body not in detail_json
 
 
-def test_prepare_run_default_sidecar_writes_found_false_raw_payload(
+def test_prepare_run_default_payload_writes_found_false_raw_payload(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -731,7 +731,7 @@ def test_prepare_run_default_sidecar_writes_found_false_raw_payload(
 
     assert exit_code == 0
     data = output["data"]
-    assert data["payload_mode"] == "sidecar"
+    assert data["payload_mode"] == "payload"
     assert data["found"] is False
     assert data["payload_reference"]["descriptor"] == "pr-address-prepare-run-no-pr"
     assert data["counts"] is None
@@ -756,7 +756,7 @@ class ExplodingPRGateway(FakePRGateway):
         raise AssertionError("PR gateway should not be called before payload preflight")
 
 
-def test_prepare_run_default_sidecar_requires_payload_session_before_domain_work(
+def test_prepare_run_default_payload_requires_payload_session_before_domain_work(
     cli_group: ClinkrGroup,
 ) -> None:
     exit_code, output = _invoke_json(
@@ -773,7 +773,7 @@ def test_prepare_run_default_sidecar_requires_payload_session_before_domain_work
     assert "data" not in output
 
 
-def test_prepare_run_default_sidecar_rejects_invalid_payload_session_before_domain_work(
+def test_prepare_run_default_payload_rejects_invalid_payload_session_before_domain_work(
     cli_group: ClinkrGroup,
 ) -> None:
     exit_code, output = _invoke_json(

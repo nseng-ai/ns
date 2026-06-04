@@ -25,18 +25,18 @@ pr-address exec resolve-thread-with-reply \
   PRRT_kw... fixed "Updated the guard." abc1234 --format json
 ```
 
-### Sidecar payload commands
+### Payload artifact commands
 
-`prepare-run` and `get-feedback` default to `payload_mode: "sidecar"`. In
-sidecar mode, the command prints a compact manifest under `data` and writes the
+`prepare-run` and `get-feedback` default to `payload_mode: "payload"`. In
+payload mode, the command prints a compact manifest under `data` and writes the
 full feedback envelope to a store-owned `.raw.json` payload. The manifest carries
 `payload_reference.payload_path` plus item-level body locators; it does not paste
 full review bodies into the main transcript.
 
-Sidecar mode requires one caller-supplied payload session id, passed with
+Payload mode requires one caller-supplied payload session id, passed with
 `--payload-session-id <id>` or the `ASDL_PAYLOAD_SESSION_ID` environment
 variable. The id must be a lowercase safe path segment matching
-`^[a-z0-9][a-z0-9._-]{0,127}$`. Use the same id for every sidecar feedback
+`^[a-z0-9][a-z0-9._-]{0,127}$`. Use the same id for every payload feedback
 command in one skill invocation.
 
 Use `--payload-mode inline` only as an explicit debugging or migration escape
@@ -56,7 +56,7 @@ session id.
 ### `prepare-run`
 
 Resolve PR context, reopen contested threads, normalize feedback, and return a
-compact sidecar manifest by default.
+compact payload manifest by default.
 
 **Input fields:**
 
@@ -64,14 +64,14 @@ compact sidecar manifest by default.
 | ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
 | `include_all_threads`   | no       | Include resolved threads for reference (default false)                                              |
 | `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)             |
-| `payload_mode`          | no       | `sidecar` by default; pass `--payload-mode inline` only for debugging/migration                     |
-| `payload_session_id`    | sidecar  | Required in sidecar mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+| `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration                     |
+| `payload_session_id`    | payload  | Required in payload mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
 
-**Default sidecar output fields (under `data`):**
+**Default payload output fields (under `data`):**
 
 | Field                  | Description                                                                    |
 | ---------------------- | ------------------------------------------------------------------------------ |
-| `payload_mode`         | `sidecar` for the default workflow                                             |
+| `payload_mode`         | `payload` for the default workflow                                             |
 | `payload_reference`    | Store-owned payload metadata, including `payload_path`, `session_id`, and size |
 | `found`                | Whether a PR was found for the current branch                                  |
 | `current_branch`       | Branch name                                                                    |
@@ -126,14 +126,14 @@ read-only triage when the PR number is already known.
 | `pr_number`             | yes      | PR number                                                                                           |
 | `include_resolved`      | no       | Include resolved review threads in the manifest (default false)                                     |
 | `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)             |
-| `payload_mode`          | no       | `sidecar` by default; pass `--payload-mode inline` only for debugging/migration                     |
-| `payload_session_id`    | sidecar  | Required in sidecar mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+| `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration                     |
+| `payload_session_id`    | payload  | Required in payload mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
 
-**Default sidecar output fields (under `data`):**
+**Default payload output fields (under `data`):**
 
 | Field                 | Description                                                               |
 | --------------------- | ------------------------------------------------------------------------- |
-| `payload_mode`        | `sidecar` for the default workflow                                        |
+| `payload_mode`        | `payload` for the default workflow                                        |
 | `payload_reference`   | Store-owned payload metadata, including `payload_path`                    |
 | `pr_number`           | PR number                                                                 |
 | `counts`              | Review/thread/comment counts, including resolved/unresolved thread totals |
@@ -158,14 +158,14 @@ Gateway/auth failures use `exit_code: 2`.
 
 ### `read-feedback-detail`
 
-Read one allowed detail from a sidecar `.raw.json` feedback envelope. Use this
+Read one allowed detail from a payload `.raw.json` feedback envelope. Use this
 for targeted full-body inspection instead of pasting the full raw payload.
 
 **Input fields:**
 
 | Field          | Required | Description                                                     |
 | -------------- | -------- | --------------------------------------------------------------- |
-| `payload_path` | yes      | Raw sidecar path from `manifest.payload_reference.payload_path` |
+| `payload_path` | yes      | Raw payload path from `manifest.payload_reference.payload_path` |
 | `json_pointer` | yes      | JSON Pointer copied from a manifest item or body locator        |
 
 Allowed pointer families:
@@ -182,7 +182,7 @@ Allowed pointer families:
 
 | Field          | Description                                                                                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `payload_path` | Echo of the raw sidecar path                                                                                                          |
+| `payload_path` | Echo of the raw payload path                                                                                                          |
 | `json_pointer` | Echo of the selected pointer                                                                                                          |
 | `detail_kind`  | `review`, `review_body`, `review_thread`, `thread_comment`, `thread_comment_body`, `discussion_comment`, or `discussion_comment_body` |
 | `value`        | Selected JSON value or body text                                                                                                      |
@@ -201,7 +201,7 @@ pr-address exec read-feedback-detail \
 
 ### `validate-feedback-classification`
 
-Validate a strict PR feedback classification packet against a compact sidecar
+Validate a strict PR feedback classification packet against a compact payload
 manifest before planning or execution proceeds.
 
 **Invocation:** reads the wrapper JSON from stdin by default. `--payload-json` is
@@ -519,9 +519,9 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 
 | Command                            | Description                                                                                                                                                            |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get-feedback`                     | Detailed above. Fetch all PR feedback in sidecar mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
-| `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw sidecar payload.                                                                                         |
-| `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact sidecar manifest.                                                                            |
+| `get-feedback`                     | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
+| `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw payload artifact.                                                                                        |
+| `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
 | `get-pr-for-branch`                | Look up the open PR for a branch                                                                                                                                       |
 | `get-reviews`                      | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |

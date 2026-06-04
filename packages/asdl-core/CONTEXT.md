@@ -58,6 +58,32 @@ _Avoid_: "params" (collides with `click.Parameter`), "input," "args."
 The Pydantic-compatible OK data type for an Operation. It is the body of successful machine output and the value rendered by human presenters.
 _Avoid_: "response," "output," "payload" alone; "data" alone.
 
+### Payload artifacts
+
+**Payload artifact architecture**:
+The agent-workflow pattern where large command details are held in local artifacts while the main transcript receives compact references, counts, and locators.
+_Avoid_: raw transcript dump, automatic output spooling.
+
+**Payload artifact**:
+A local workflow artifact that carries command details too large or too specific for the main agent transcript.
+_Avoid_: Branch Memory, durable record, transcript.
+
+**Payload mode**:
+A command transport mode that writes full command detail to a **Payload artifact** and returns a compact manifest through the normal command output.
+_Avoid_: automatic spooling, inline mode.
+
+**Compact manifest**:
+The command-specific small result that points to payload artifacts and includes enough identifiers, counts, and locators for the agent to decide what to inspect next.
+_Avoid_: summary, raw payload, full output.
+
+**Payload reference**:
+The store-owned facts that identify one written **Payload artifact**, separate from command-domain identifiers such as PR numbers, comment IDs, or file paths.
+_Avoid_: PR locator, domain metadata, artifact body.
+
+**Payload locator**:
+A pointer from a compact manifest to a specific value or item inside a payload artifact.
+_Avoid_: search query, summary, body preview.
+
 ### Git
 
 **GitGateway**:

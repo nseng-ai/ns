@@ -58,7 +58,7 @@ def resolve_payload_session_id(
             raise PayloadError(
                 error_type="payload_session_required",
                 message=(
-                    "Payload sidecar mode requires a session id from an explicit option "
+                    "Payload artifact mode requires a session id from an explicit option "
                     f"or {ASDL_PAYLOAD_SESSION_ID_ENV}."
                 ),
             )

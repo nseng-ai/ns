@@ -11,9 +11,9 @@ from asdl_pr_address.cli.pr_address.feedback_classification import (
     ValidationErrorCode,
     validate_feedback_classification,
 )
-from asdl_pr_address.cli.pr_address.feedback_sidecar import (
-    build_get_feedback_sidecar_manifest,
-    build_prepare_run_sidecar_manifest,
+from asdl_pr_address.cli.pr_address.feedback_payload import (
+    build_get_feedback_payload_manifest,
+    build_prepare_run_payload_manifest,
 )
 
 
@@ -84,7 +84,7 @@ def _manifest_payload(*, include_resolved: bool = False) -> dict:
             )
         )
 
-    manifest = build_get_feedback_sidecar_manifest(
+    manifest = build_get_feedback_payload_manifest(
         payload_reference=_payload_reference(),
         pr_number=42,
         reviews=(
@@ -191,7 +191,7 @@ def test_validate_feedback_classification_accepts_complete_packet() -> None:
 
 
 def test_validate_feedback_classification_accepts_empty_prepare_run_found_false_packet() -> None:
-    manifest = build_prepare_run_sidecar_manifest(
+    manifest = build_prepare_run_payload_manifest(
         payload_reference=_payload_reference(),
         found=False,
         current_branch="feature",

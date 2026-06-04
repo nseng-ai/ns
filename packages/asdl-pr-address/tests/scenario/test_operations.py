@@ -428,7 +428,7 @@ def test_get_feedback_inline_json_mode_succeeds_without_payload_session(
     assert output["data"]["pr_number"] == 99
 
 
-def test_get_feedback_default_sidecar_json_mode_writes_raw_payload(
+def test_get_feedback_default_payload_json_mode_writes_raw_payload(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -495,7 +495,7 @@ def test_get_feedback_default_sidecar_json_mode_writes_raw_payload(
     output = json.loads(result.output)
     assert output["exit_code"] == 0
     data = output["data"]
-    assert data["payload_mode"] == "sidecar"
+    assert data["payload_mode"] == "payload"
     assert data["pr_number"] == 42
     assert data["payload_reference"]["descriptor"] == "pr-address-get-feedback-pr-42"
     assert data["payload_reference"]["role"] == "raw"
@@ -691,7 +691,7 @@ def test_validate_feedback_classification_command_rejects_invalid_json(
     assert output["error_type"] == "invalid_json"
 
 
-def test_get_feedback_default_sidecar_human_mode_omits_bodies(
+def test_get_feedback_default_payload_human_mode_omits_bodies(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -718,7 +718,7 @@ def test_get_feedback_default_sidecar_human_mode_omits_bodies(
     )
 
     assert exit_code == 0
-    assert output["payload_mode"] == "sidecar"
+    assert output["payload_mode"] == "payload"
     assert output["reviews"][0]["body_locator"]["body_chars"] == len(body)
     assert "body" not in output["reviews"][0]
     raw_payload = _read_raw_payload(output)
@@ -894,7 +894,7 @@ def test_read_feedback_detail_rejects_missing_payload(
     assert detail_output["error_type"] == "payload_lookup_failed"
 
 
-def test_read_feedback_detail_rejects_non_raw_sidecar(
+def test_read_feedback_detail_rejects_non_raw_payload(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -981,7 +981,7 @@ def test_read_feedback_detail_rejects_body_type_mismatch(
     assert detail_output["error_type"] == "payload_lookup_failed"
 
 
-def test_get_feedback_default_sidecar_requires_payload_session(
+def test_get_feedback_default_payload_requires_payload_session(
     cli_group: ClinkrGroup,
 ) -> None:
     fake = FakePRGateway()
@@ -998,7 +998,7 @@ def test_get_feedback_default_sidecar_requires_payload_session(
     assert "data" not in output
 
 
-def test_get_feedback_default_sidecar_rejects_invalid_payload_session(
+def test_get_feedback_default_payload_rejects_invalid_payload_session(
     cli_group: ClinkrGroup,
 ) -> None:
     fake = FakePRGateway()

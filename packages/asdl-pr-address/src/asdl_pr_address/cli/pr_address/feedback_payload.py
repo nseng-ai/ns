@@ -1,4 +1,4 @@
-"""Compact sidecar manifests for PR feedback payloads."""
+"""Compact payload manifests for PR feedback payloads."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from asdl_core.gh.types import (
 from asdl_core.git.types import RestructuredFile
 from asdl_core.payloads.models import PayloadReference
 
-PayloadMode: TypeAlias = Literal["inline", "sidecar"]
+PayloadMode: TypeAlias = Literal["inline", "payload"]
 RestructuredFiles: TypeAlias = tuple[RestructuredFile, ...]
 
 
@@ -88,8 +88,8 @@ class DiscussionCommentManifestItem(ClinkrModel):
     body_locator: BodyLocator
 
 
-class GetFeedbackSidecarManifest(ClinkrModel):
-    payload_mode: Literal["sidecar"] = "sidecar"
+class GetFeedbackPayloadManifest(ClinkrModel):
+    payload_mode: Literal["payload"] = "payload"
     payload_reference: PayloadReference
     pr_number: int
     counts: FeedbackCounts
@@ -98,8 +98,8 @@ class GetFeedbackSidecarManifest(ClinkrModel):
     discussion_comments: tuple[DiscussionCommentManifestItem, ...]
 
 
-class PrepareRunSidecarManifest(ClinkrModel):
-    payload_mode: Literal["sidecar"] = "sidecar"
+class PrepareRunPayloadManifest(ClinkrModel):
+    payload_mode: Literal["payload"] = "payload"
     payload_reference: PayloadReference
     found: bool
     current_branch: str | None = None
@@ -120,15 +120,15 @@ class PrepareRunSidecarManifest(ClinkrModel):
     returncode: int | None = None
 
 
-def build_get_feedback_sidecar_manifest(
+def build_get_feedback_payload_manifest(
     *,
     payload_reference: PayloadReference,
     pr_number: int,
     reviews: tuple[PRReview, ...],
     review_threads: tuple[PRReviewThread, ...],
     discussion_comments: tuple[PRDiscussionComment, ...],
-) -> GetFeedbackSidecarManifest:
-    return GetFeedbackSidecarManifest(
+) -> GetFeedbackPayloadManifest:
+    return GetFeedbackPayloadManifest(
         payload_reference=payload_reference,
         pr_number=pr_number,
         counts=_feedback_counts(
@@ -142,7 +142,7 @@ def build_get_feedback_sidecar_manifest(
     )
 
 
-def build_prepare_run_sidecar_manifest(
+def build_prepare_run_payload_manifest(
     *,
     payload_reference: PayloadReference,
     found: bool,
@@ -161,7 +161,7 @@ def build_prepare_run_sidecar_manifest(
     warnings: tuple[str, ...] = (),
     error: str | None = None,
     returncode: int | None = None,
-) -> PrepareRunSidecarManifest:
+) -> PrepareRunPayloadManifest:
     counts = None
     if found:
         counts = _feedback_counts(
@@ -170,7 +170,7 @@ def build_prepare_run_sidecar_manifest(
             discussion_comments=discussion_comments,
         )
 
-    return PrepareRunSidecarManifest(
+    return PrepareRunPayloadManifest(
         payload_reference=payload_reference,
         found=found,
         current_branch=current_branch,

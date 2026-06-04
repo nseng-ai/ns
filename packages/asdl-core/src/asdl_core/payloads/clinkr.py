@@ -1,4 +1,4 @@
-"""Clinkr helpers for opt-in payload sidecar writes."""
+"""Clinkr helpers for opt-in payload artifact writes."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def open_clinkr_payload_store(
     temp_dir: Path | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> PayloadStore:
-    """Open a payload store for a Clinkr sidecar command.
+    """Open a payload store for a Clinkr payload command.
 
     Payload preflight failures are translated to ``ClinkrFailure`` so the
     Clinkr dispatcher emits a stable failure envelope with no result data.
@@ -38,13 +38,13 @@ def open_clinkr_payload_store(
         _raise_clinkr_failure_for_payload_error(error)
 
 
-def write_clinkr_raw_sidecar(
+def write_clinkr_raw_payload_artifact(
     *,
     store: PayloadStore,
     descriptor: str,
     result: ClinkrExit[Any],
 ) -> PayloadReference:
-    """Write ``result`` as a full Clinkr machine envelope raw sidecar."""
+    """Write ``result`` as a full Clinkr machine envelope raw payload."""
 
     try:
         envelope = result.to_envelope_dict()

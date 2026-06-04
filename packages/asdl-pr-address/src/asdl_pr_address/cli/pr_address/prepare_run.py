@@ -24,13 +24,13 @@ from asdl_core.gh.types import (
     PRState,
 )
 from asdl_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
-from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_sidecar
+from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_payload_artifact
 from asdl_core.payloads.store import PayloadStore
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_pr_address.cli.pr_address.feedback_sidecar import (
+from asdl_pr_address.cli.pr_address.feedback_payload import (
     PayloadMode,
-    PrepareRunSidecarManifest,
-    build_prepare_run_sidecar_manifest,
+    PrepareRunPayloadManifest,
+    build_prepare_run_payload_manifest,
 )
 from asdl_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
@@ -62,10 +62,10 @@ class PrepareRunRequest(ClinkrModel):
         PayloadMode,
         click.Option(
             ["--payload-mode"],
-            type=click.Choice(["inline", "sidecar"]),
-            default="sidecar",
+            type=click.Choice(["inline", "payload"]),
+            default="payload",
         ),
-    ] = "sidecar"
+    ] = "payload"
     payload_session_id: Annotated[
         str | None,
         click.Option(["--payload-session-id"], type=click.STRING),
@@ -170,9 +170,9 @@ class PrepareRunInlineResult(ClinkrModel):
 def run_prepare_run(
     ctx: click.Context,
     request: PrepareRunRequest,
-) -> ClinkrExit[PrepareRunInlineResult | PrepareRunSidecarManifest]:
+) -> ClinkrExit[PrepareRunInlineResult | PrepareRunPayloadManifest]:
     store: PayloadStore | None = None
-    if request.payload_mode == "sidecar":
+    if request.payload_mode == "payload":
         store = open_clinkr_payload_store(request.payload_session_id)
 
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
@@ -274,23 +274,23 @@ def _prepare_run_exit_for_payload_mode(
     inline_result: PrepareRunInlineResult,
     payload_mode: PayloadMode,
     store: PayloadStore | None,
-) -> ClinkrExit[PrepareRunInlineResult | PrepareRunSidecarManifest]:
+) -> ClinkrExit[PrepareRunInlineResult | PrepareRunPayloadManifest]:
     if payload_mode == "inline":
         return ClinkrExit.ok(inline_result)
 
     if store is None:
-        raise AssertionError("sidecar payload store must be opened before writing raw payload")
+        raise AssertionError("payload artifact store must be opened before writing raw payload")
 
     descriptor = "pr-address-prepare-run-no-pr"
     if inline_result.found and inline_result.number is not None:
         descriptor = f"pr-address-prepare-run-pr-{inline_result.number}"
-    raw_reference = write_clinkr_raw_sidecar(
+    raw_reference = write_clinkr_raw_payload_artifact(
         store=store,
         descriptor=descriptor,
         result=ClinkrExit.ok(inline_result),
     )
     return ClinkrExit.ok(
-        build_prepare_run_sidecar_manifest(
+        build_prepare_run_payload_manifest(
             payload_reference=raw_reference,
             found=inline_result.found,
             current_branch=inline_result.current_branch,
