@@ -9,8 +9,8 @@ import {
 	deriveTargetBranch,
 	validateTargetBranchName,
 	type CreatePlannedBranchFromFileParams,
-} from "../src/planned-branch/planned-branch-creation.ts";
-import type { PlanCommandExecApi, ExecOptions } from "../src/planned-branch/plan-persistence.ts";
+} from "@asdl/planned-branch";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/planned-branch";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";

@@ -24,6 +24,7 @@
     "packages/pi-extensions": {
       "name": "@asdl/pi-extensions",
       "dependencies": {
+        "@asdl/planned-branch": "workspace:*",
         "asdl-dev": "workspace:*",
       },
       "devDependencies": {

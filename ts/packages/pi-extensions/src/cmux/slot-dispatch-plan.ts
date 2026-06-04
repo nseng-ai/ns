@@ -1,6 +1,7 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute, resolve } from "node:path";
 
+import { PLAN_BRANCH_NAMESPACE, createPlannedBranchFromFile, type PlannedBranchEvidence } from "@asdl/planned-branch";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
@@ -12,12 +13,9 @@ const COMMAND_NAME = "cmux-slot:dispatch-plan";
 const STATUS_KEY = "cmux-slot:dispatch-plan";
 const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
 const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
-const PLAN_BRANCH_NAMESPACE = "brmem-plans";
 const BRANCH_CREATION = "graphite";
 
 const GIT_TIMEOUT_MS = 10_000;
-const GT_TIMEOUT_MS = 30_000;
-const BRMEM_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
@@ -28,7 +26,7 @@ Options:
   --dry-run    Show the selected plan and commands without mutating.
   --help, -h   Show this help.
 
-Run /write-plan first, then rerun /${COMMAND_NAME}.`;
+Run /planned-branch:write-plan first, then rerun /${COMMAND_NAME}.`;
 
 interface CommandArgs {
 	isDryRun: boolean;
@@ -50,28 +48,6 @@ interface CurrentCheckout {
 	repoRoot: string;
 	branch: string;
 	startPoint: string;
-}
-
-interface PlannedBranchEvidence {
-	slug: string;
-	branch: string;
-	branchCreation: typeof BRANCH_CREATION;
-	startPoint: string;
-	namespace: string;
-	key: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
-	summary?: string;
-}
-
-interface BrmemPutData {
-	namespace: string;
-	key: string;
-	branch: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
 }
 
 interface AttachSlotAndLaunchOptions {
@@ -167,12 +143,6 @@ async function handleCommand(
 
 		const targetBranch = selectedPlan.slug;
 		const key = `${selectedPlan.slug}.md`;
-		const preflight = await preflightTarget(pi, checkout.repoRoot, targetBranch, key);
-		if ("error" in preflight) {
-			present(ctx, preflight.error, "error");
-			return;
-		}
-
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
 			presentPlannedBranchMessage(
@@ -236,8 +206,8 @@ function resolveLatestSavedPlanFromSession(ctx: CommandContext): { plan: SavedPl
 
 	return {
 		error: [
-			"No saved plan from /write-plan was found in the current session branch.",
-			`Run /write-plan first, then rerun /${COMMAND_NAME}.`,
+			"No saved plan from /planned-branch:write-plan was found in the current session branch.",
+			`Run /planned-branch:write-plan first, then rerun /${COMMAND_NAME}.`,
 		].join("\n"),
 	};
 }
@@ -393,81 +363,23 @@ async function validateSavedPlanForCurrentCheckout(
 	return { ok: true };
 }
 
-async function preflightTarget(
-	pi: ExtensionAPI,
-	cwd: string,
-	targetBranch: string,
-	key: string,
-): Promise<{ ok: true } | { error: string }> {
-	const refFormat = await runCommand(pi, cwd, "git", ["check-ref-format", "--branch", targetBranch], GIT_TIMEOUT_MS);
-	if (refFormat.code !== 0 || refFormat.killed) {
-		return {
-			error: formatCommandFailure("Target branch is not a valid Git branch name.", "git", ["check-ref-format", "--branch", targetBranch], refFormat),
-		};
-	}
-
-	const branchRef = `refs/heads/${targetBranch}`;
-	const existingBranch = await runCommand(pi, cwd, "git", ["rev-parse", "--verify", branchRef], GIT_TIMEOUT_MS);
-	if (existingBranch.code === 0) {
-		return {
-			error: ["Target branch already exists; refusing to overwrite.", `Branch: ${targetBranch}`].join("\n"),
-		};
-	}
-	if (existingBranch.killed || !isMissingRevisionResult(existingBranch)) {
-		return {
-			error: formatCommandFailure("Could not check target branch collision.", "git", ["rev-parse", "--verify", branchRef], existingBranch),
-		};
-	}
-
-	const attachment = await runCommand(
-		pi,
-		cwd,
-		"brmem",
-		["check", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--format", "json"],
-		BRMEM_TIMEOUT_MS,
-	);
-	if (attachment.code === 0) {
-		return {
-			error: [
-				"Attached plan already exists on target branch; refusing to overwrite.",
-				`Namespace: ${PLAN_BRANCH_NAMESPACE}`,
-				`Branch: ${targetBranch}`,
-				`Key: ${key}`,
-			].join("\n"),
-		};
-	}
-	if (attachment.code !== 1 || attachment.killed) {
-		return {
-			error: formatCommandFailure(
-				"Could not check target Branch Memory attachment collision.",
-				"brmem",
-				["check", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--format", "json"],
-				attachment,
-			),
-		};
-	}
-
-	return { ok: true };
-}
-
 async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
 	const { pi, ctx, plan, checkout, targetBranch, key } = options;
 	present(ctx, `Creating Graphite-tracked planned branch ${targetBranch}…`, "info");
-	setStatus(ctx, "creating branch…");
-	const branch = await createGraphiteBranch(pi, checkout.repoRoot, targetBranch, checkout.branch);
-	if ("error" in branch) {
-		present(ctx, branch.error, "error");
+	setStatus(ctx, "creating branch and attaching plan…");
+	let evidence: PlannedBranchEvidence;
+	try {
+		evidence = await createPlannedBranchFromFile(
+			pi,
+			{ slug: plan.slug, filePath: plan.filePath, branchCreation: BRANCH_CREATION, summary: plan.summary },
+			{ cwd: checkout.repoRoot },
+		);
+	} catch (error) {
+		present(ctx, formatCreatePlannedBranchFailure(targetBranch, key, plan.filePath, error), "error");
 		return;
 	}
 
-	setStatus(ctx, "attaching plan…");
-	const attached = await attachPlan(pi, checkout.repoRoot, plan, targetBranch, key, checkout.startPoint);
-	if ("error" in attached) {
-		present(ctx, attached.error, "error");
-		return;
-	}
-
-	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(attached.evidence), { status: "success", evidence: attached.evidence }, "info");
+	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", evidence }, "info");
 
 	setStatus(ctx, "checking out CMUX slot…");
 	const target = await checkoutSlot(pi, checkout.repoRoot, targetBranch);
@@ -500,168 +412,6 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	}
 
 	present(ctx, formatFinalSuccess({ targetBranch, key, target, launchOptions }), "success");
-}
-
-async function createGraphiteBranch(
-	pi: ExtensionAPI,
-	cwd: string,
-	targetBranch: string,
-	parentBranch: string,
-): Promise<{ ok: true } | { error: string }> {
-	const created = await runCommand(pi, cwd, "git", ["branch", targetBranch, "HEAD"], GIT_TIMEOUT_MS);
-	if (created.code !== 0 || created.killed) {
-		return {
-			error: formatCommandFailure(`Failed to create branch ${targetBranch}.`, "git", ["branch", targetBranch, "HEAD"], created),
-		};
-	}
-
-	const tracked = await runCommand(
-		pi,
-		cwd,
-		"gt",
-		["track", targetBranch, "--parent", parentBranch, "--no-interactive"],
-		GT_TIMEOUT_MS,
-	);
-	if (tracked.code !== 0 || tracked.killed) {
-		return {
-			error: [
-				"Created local Git branch but failed to track it with Graphite.",
-				`Branch: ${targetBranch}`,
-				"No attached plan was stored.",
-				"No cleanup was attempted; inspect the created branch manually.",
-				"",
-				formatCommandFailure("gt track failed.", "gt", ["track", targetBranch, "--parent", parentBranch, "--no-interactive"], tracked),
-			].join("\n"),
-		};
-	}
-
-	return { ok: true };
-}
-
-async function attachPlan(
-	pi: ExtensionAPI,
-	cwd: string,
-	plan: SavedPlanEvidence,
-	targetBranch: string,
-	key: string,
-	startPoint: string,
-): Promise<{ evidence: PlannedBranchEvidence } | { error: string }> {
-	const args = ["put", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--file", plan.filePath, "--format", "json"];
-	const put = await runCommand(pi, cwd, "brmem", args, BRMEM_TIMEOUT_MS);
-	if (put.code !== 0 || put.killed) {
-		return {
-			error: formatAttachPartialFailure(
-				"Created planned branch, but failed to attach the plan in Branch Memory.",
-				targetBranch,
-				key,
-				plan.filePath,
-				formatCommandFailure("brmem put failed.", "brmem", args, put),
-			),
-		};
-	}
-
-	const data = parseBrmemPutData(put.stdout);
-	if ("error" in data) {
-		return {
-			error: formatAttachPartialFailure(
-				"Created planned branch, but could not parse Branch Memory storage result.",
-				targetBranch,
-				key,
-				plan.filePath,
-				data.error,
-			),
-		};
-	}
-
-	const mismatches = expectedBrmemPutMismatches(data.data, targetBranch, key);
-	if (mismatches.length > 0) {
-		return {
-			error: formatAttachPartialFailure(
-				"Created planned branch, but Branch Memory returned unexpected storage metadata.",
-				targetBranch,
-				key,
-				plan.filePath,
-				mismatches.join("\n"),
-			),
-		};
-	}
-
-	const normalizedSummary = normalizeSummary(plan.summary);
-	const evidence: PlannedBranchEvidence = {
-		slug: plan.slug,
-		branch: data.data.branch,
-		branchCreation: BRANCH_CREATION,
-		startPoint,
-		namespace: data.data.namespace,
-		key: data.data.key,
-		refName: data.data.refName,
-		commit: data.data.commit,
-		sourceFile: data.data.sourceFile,
-	};
-	if (normalizedSummary === undefined) {
-		return { evidence };
-	}
-	return { evidence: { ...evidence, summary: normalizedSummary } };
-}
-
-function parseBrmemPutData(stdout: string): { data: BrmemPutData } | { error: string } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		return { error: `Malformed brmem put JSON: ${formatErrorMessage(error)}.\nstdout tail:\n${tailText(stdout)}` };
-	}
-
-	if (!isRecord(parsed)) {
-		return { error: `Malformed brmem put JSON: expected an envelope object.\nstdout tail:\n${tailText(stdout)}` };
-	}
-	if (parsed.exit_code !== 0) {
-		return { error: `Malformed brmem put JSON: expected exit_code 0.\nstdout tail:\n${tailText(stdout)}` };
-	}
-
-	const data = parsed.data;
-	if (!isRecord(data)) {
-		return { error: `Malformed brmem put JSON: expected a data object.\nstdout tail:\n${tailText(stdout)}` };
-	}
-
-	const namespace = stringField(data, "namespace");
-	const key = stringField(data, "key");
-	const branch = stringField(data, "branch");
-	const refName = stringField(data, "ref_name") ?? stringField(data, "refName");
-	const commit = stringField(data, "commit");
-	const sourceFile = stringField(data, "source_file") ?? stringField(data, "sourceFile");
-	if (
-		namespace === undefined ||
-		key === undefined ||
-		branch === undefined ||
-		refName === undefined ||
-		commit === undefined ||
-		sourceFile === undefined
-	) {
-		return {
-			error: [
-				"Malformed brmem put JSON: expected string fields data.namespace, data.key, data.branch, data.ref_name, data.commit, and data.source_file.",
-				"stdout tail:",
-				tailText(stdout),
-			].join("\n"),
-		};
-	}
-
-	return { data: { namespace, key, branch, refName, commit, sourceFile } };
-}
-
-function expectedBrmemPutMismatches(data: BrmemPutData, targetBranch: string, key: string): string[] {
-	const mismatches: string[] = [];
-	if (data.namespace !== PLAN_BRANCH_NAMESPACE) {
-		mismatches.push(`namespace ${JSON.stringify(data.namespace)} != ${JSON.stringify(PLAN_BRANCH_NAMESPACE)}`);
-	}
-	if (data.key !== key) {
-		mismatches.push(`key ${JSON.stringify(data.key)} != ${JSON.stringify(key)}`);
-	}
-	if (data.branch !== targetBranch) {
-		mismatches.push(`branch ${JSON.stringify(data.branch)} != ${JSON.stringify(targetBranch)}`);
-	}
-	return mismatches;
 }
 
 async function runText(
@@ -782,17 +532,17 @@ function formatPlanBranchEvidence(evidence: PlannedBranchEvidence): string {
 	return lines.join("\n");
 }
 
-function formatAttachPartialFailure(title: string, targetBranch: string, key: string, sourceFile: string, cause: string): string {
+function formatCreatePlannedBranchFailure(targetBranch: string, key: string, sourceFile: string, error: unknown): string {
 	return [
-		title,
+		"Failed to create planned branch and attach plan.",
 		`Branch: ${targetBranch}`,
 		`Branch creation: ${BRANCH_CREATION}`,
 		`Namespace: ${PLAN_BRANCH_NAMESPACE}`,
 		`Key: ${key}`,
 		`Source file: ${sourceFile}`,
-		"No cleanup was attempted; inspect the created branch manually.",
+		"No CMUX slot was opened.",
 		"",
-		cause,
+		formatErrorMessage(error),
 	].join("\n");
 }
 
@@ -834,7 +584,7 @@ function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 }
 
 function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): string {
-	return buildPiLaunchCommand(`/impl-planned-branch ${key}`, launchOptions);
+	return buildPiLaunchCommand(`/planned-branch:impl ${key}`, launchOptions);
 }
 
 function formatCommandFailure(title: string, command: string, args: string[], result: ExecResult): string {
@@ -872,17 +622,6 @@ function tailText(value: string): string {
 	return `…${value.slice(-MAX_ERROR_CHARS)}`;
 }
 
-function isMissingRevisionResult(result: ExecResult): boolean {
-	if (result.code === 1) {
-		return true;
-	}
-	if (result.code !== 128) {
-		return false;
-	}
-	const output = `${result.stderr}\n${result.stdout}`;
-	return output.includes("Needed a single revision") || output.includes("unknown revision") || output.includes("ambiguous argument");
-}
-
 async function normalizePathForComparison(path: string): Promise<string> {
 	const resolved = resolve(path);
 	try {
@@ -890,11 +629,6 @@ async function normalizePathForComparison(path: string): Promise<string> {
 	} catch {
 		return resolved;
 	}
-}
-
-function normalizeSummary(summary: string | undefined): string | undefined {
-	const trimmed = summary?.trim();
-	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
 function stringField(record: Record<string, unknown>, key: string): string | undefined {

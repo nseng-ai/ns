@@ -2,68 +2,68 @@ import { stat } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 
 import {
-	buildImplPlannedBranchPrompt,
-	formatLoadedAttachedPlanEvidence,
-	loadAttachedPlan,
-	type LoadedAttachedPlan,
-} from "./planned-branch/attached-plan.ts";
-import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
-import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
-import {
 	PLAN_BRANCH_NAMESPACE,
+	buildImplPlannedBranchPrompt,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
 	deriveTargetBranch,
-	type BranchCreationMethod,
-	type PlannedBranchEvidence,
-} from "./planned-branch/planned-branch-creation.ts";
-import { isPathInside, normalizePlanFilePath, type ExecOptions } from "./planned-branch/plan-persistence.ts";
-import {
 	findLatestSourceBranchPlanFile,
+	formatLoadedAttachedPlanEvidence,
 	formatSourceBranchPlanFileEvidence,
+	isPathInside,
+	loadAttachedPlan,
+	normalizePlanFilePath,
 	resolvePlanStoreDirectory,
 	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
+	type BranchCreationMethod,
+	type ExecOptions,
 	type LatestSourceBranchPlanFileEvidence,
+	type LoadedAttachedPlan,
 	type PlanStoreDirectoryEvidence,
+	type PlannedBranchEvidence,
 	type SourceBranchPlanFileEvidence,
-} from "./planned-branch/source-plan-file.ts";
+} from "@asdl/planned-branch";
+import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
+import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
 import type { ExecResult } from "./command-runtime.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
-export { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./planned-branch/plan-persistence.ts";
 export {
 	PLAN_BRANCH_NAMESPACE,
-	createPlannedBranchFromFile,
-	deriveTargetBranch,
-	validateTargetBranchName,
-} from "./planned-branch/planned-branch-creation.ts";
-export type { BranchCreationMethod, PlannedBranchEvidence, CreatePlannedBranchFromFileParams } from "./planned-branch/planned-branch-creation.ts";
-export {
 	buildRepoPlanStoreKey,
+	createPlannedBranchFromFile,
 	defaultPlanStoreRoot,
+	deriveTargetBranch,
 	encodeBranchForPlanPath,
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
+	isPathInside,
+	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
 	resolvePlanStoreDirectory,
 	sanitizePlanPathSegment,
+	validatePlanSlug,
+	validateTargetBranchName,
 	writeSourceBranchPlanFile,
-} from "./planned-branch/source-plan-file.ts";
+} from "@asdl/planned-branch";
 export type {
+	BranchCreationMethod,
+	CreatePlannedBranchFromFileParams,
 	LatestSourceBranchPlanFileEvidence,
 	PlanStoreDirectoryEvidence,
+	PlannedBranchEvidence,
 	RepoIdentitySource,
 	SourceBranchPlanFileEvidence,
 	SourceBranchPlanFileOptions,
 	SourceBranchPlanFileParams,
-} from "./planned-branch/source-plan-file.ts";
+} from "@asdl/planned-branch";
 
-const WRITE_PLAN_COMMAND_NAME = "write-plan";
-const CREATE_PLANNED_BRANCH_COMMAND_NAME = "create-planned-branch";
-const IMPL_PLANNED_BRANCH_COMMAND_NAME = "impl-planned-branch";
+const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
+const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
+const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
 const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
-const PLANNED_BRANCH_STATUS_KEY = "create-planned-branch";
-const IMPL_PLANNED_BRANCH_STATUS_KEY = "impl-planned-branch";
+const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
+const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -194,7 +194,7 @@ export interface ExtensionAPI {
 	sendUserMessage(content: string): void;
 }
 
-export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /create-planned-branch [options] [absolute-or-home-plan-file.md]
+export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /planned-branch:create [options] [absolute-or-home-plan-file.md]
 
 Create a planned branch from a saved plan. The branch slug and attached-plan key are derived from the plan content by a tiny Pi model, then the plan is attached to the branch in Branch Memory.
 
@@ -211,7 +211,7 @@ An explicit file path may be absolute or current-user home-relative with ~ or ~/
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
 export function buildWritePlanPrompt(steering: string): string {
-	return `This is a /write-plan request. Write a detailed implementation plan and save it in the local plan store.
+	return `This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
 
@@ -247,7 +247,7 @@ Workflow:
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any plan-branch tool.
 
 Local plan store contract:
-- Path convention: ~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md
+- Path convention: ~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
@@ -454,7 +454,7 @@ async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: Comma
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /write-plan planning turn…", "info");
+		ctx.ui.notify("Starting /planned-branch:write-plan planning turn…", "info");
 	}
 	pi.sendUserMessage(buildWritePlanPrompt(steering));
 }
@@ -551,13 +551,13 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 		name: WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
-			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
+			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
-			"Use write_source_branch_plan_file for `/write-plan` after producing a reviewed final Markdown plan.",
+			"Use write_source_branch_plan_file for `/planned-branch:write-plan` after producing a reviewed final Markdown plan.",
 			"Do not generate or pass a saved-plan filename slug; write_source_branch_plan_file derives it from content through the Codex-backed slug model.",
-			"write_source_branch_plan_file writes the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_source_branch_plan_file writes the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
 			"write_source_branch_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_source_branch_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
 			"If write_source_branch_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",
@@ -716,7 +716,7 @@ async function resolveSelectedSavedPlanFile(
 
 	const filePath = normalizePlanFilePath(args.filePath);
 	if (!isAbsolute(filePath)) {
-		throw new Error(`Plan file path must be absolute or home-relative for /create-planned-branch; got ${filePath || "(empty)"}.`);
+		throw new Error(`Plan file path must be absolute or home-relative for /planned-branch:create; got ${filePath || "(empty)"}.`);
 	}
 
 	const fileName = basename(filePath);

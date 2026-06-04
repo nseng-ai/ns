@@ -8,9 +8,8 @@ import {
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
-} from "../src/planned-branch/attached-plan.ts";
-import { PLAN_BRANCH_NAMESPACE } from "../src/planned-branch/planned-branch-creation.ts";
-import type { PlanCommandExecApi, ExecOptions } from "../src/planned-branch/plan-persistence.ts";
+} from "@asdl/planned-branch";
+import { PLAN_BRANCH_NAMESPACE, type ExecOptions, type PlanCommandExecApi } from "@asdl/planned-branch";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";
@@ -236,7 +235,7 @@ describe("loadAttachedPlan", () => {
 				branch: "planned-branches/no-match",
 				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
 			}),
-		).toThrow(/Multiple attached plans[\s\S]*- alpha\.md[\s\S]*- beta\.md[\s\S]*\/impl-planned-branch <key>/);
+		).toThrow(/Multiple attached plans[\s\S]*- alpha\.md[\s\S]*- beta\.md[\s\S]*planned-branch exec load-plan <key>/);
 	});
 
 	test("reports missing requested key with available keys", () => {
@@ -263,7 +262,7 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, []) }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/No brmem-plans entries[\s\S]*\/write-plan[\s\S]*\/create-planned-branch/);
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/No planned-branch entries[\s\S]*planned-branch exec write-plan-file[\s\S]*planned-branch exec create/);
 
 		pi.assertDone();
 	});
@@ -394,7 +393,7 @@ describe("buildImplPlannedBranchPrompt", () => {
 			availableKeys: [PLAN_KEY],
 		});
 
-		expect(prompt).toContain("This is a /impl-planned-branch request");
+		expect(prompt).toContain("The attached planned-branch plan has been loaded by the planning-layer reader.");
 		expect(prompt).toContain(`Branch: ${PLAN_BRANCH}`);
 		expect(prompt).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(prompt).toContain(`Selected key: ${PLAN_KEY}`);

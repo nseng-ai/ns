@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { formatOutputSection } from "../command-runtime.ts";
 import { deriveSlugWithModel, type SlugModelEvidence } from "../model-slug.ts";
-import { validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { validatePlanSlug, type PlanCommandExecApi } from "@asdl/planned-branch";
 
 const MAX_ERROR_CHARS = 4_000;
 const MAX_PLAN_SLUG_WORDS = 7;

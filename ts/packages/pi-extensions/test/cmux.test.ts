@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -334,16 +334,14 @@ describe("cmux extension", () => {
 
 	test("cmux-slot:dispatch-plan dry-run emits preview without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
-		const planFile = join(repoRoot, `${PLAN_SLUG}.md`);
+		const planDir = await makeTempDir();
+		const planFile = join(planDir, `${PLAN_SLUG}.md`);
 		await writeFile(planFile, "# Plan\n", "utf8");
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				headStep(),
-				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
-				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step("brmem", ["check", PLAN_KEY, "--namespace", "brmem-plans", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
 			],
 		});
 		registerCmuxSlotDispatchPlanCommand(pi);
@@ -359,20 +357,25 @@ describe("cmux extension", () => {
 
 	test("cmux-slot:dispatch-plan full success opens cmux without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
-		const planFile = join(repoRoot, `${PLAN_SLUG}.md`);
+		const planDir = await makeTempDir();
+		const planFile = join(planDir, `${PLAN_SLUG}.md`);
 		await writeFile(planFile, "# Plan\n", "utf8");
+		const realPlanFile = await realpath(planFile);
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				headStep(),
+				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
+				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step("brmem", ["check", PLAN_KEY, "--namespace", "brmem-plans", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
+				step("brmem", ["check", PLAN_KEY, "--namespace", "planned-branch", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
+				gitCurrentBranchStep(),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("brmem", ["put", PLAN_KEY, "--namespace", "brmem-plans", "--branch", PLAN_SLUG, "--file", planFile, "--format", "json"], {
-					stdout: brmemPutJson(repoRoot, planFile),
+				step("brmem", ["put", PLAN_KEY, "--namespace", "planned-branch", "--branch", PLAN_SLUG, "--file", realPlanFile, "--format", "json"], {
+					stdout: brmemPutJson(repoRoot, realPlanFile),
 				}),
 				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(PLAN_SLUG) }),
 				step("git", ["remote", "get-url", "origin"], { stdout: "git@github.com:owner/repo.git\n" }),
@@ -385,7 +388,7 @@ describe("cmux extension", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/impl-planned-branch cmux-summary-hooks.md'",
+					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/planned-branch:impl cmux-summary-hooks.md'",
 				], {}),
 			],
 		});
@@ -479,10 +482,10 @@ function brmemPutJson(repoRoot: string, planFile: string): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			namespace: "brmem-plans",
+			namespace: "planned-branch",
 			key: PLAN_KEY,
 			branch: PLAN_SLUG,
-			ref_name: `refs/brmem/ns/brmem-plans/${PLAN_SLUG}:${PLAN_KEY}`,
+			ref_name: `refs/brmem/ns/planned-branch/${PLAN_SLUG}:${PLAN_KEY}`,
 			commit: START_POINT,
 			source_file: planFile,
 			repo_root: repoRoot,
