@@ -111,7 +111,6 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
 | `/roast`                 | `.pi/extensions/roast.ts`          | Runs matching roaster reviewers for the current branch diff through the local `roaster` CLI.        |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
-| `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
 | `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` to recommend, steer, or preview execution.   |
 | `/objective:current`     | `.pi/extensions/objective.ts`      | Picks an Objective and invokes `objective-current` for the selected slug.                           |
 | `/objective:update`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-update` for the selected slug.                     |
@@ -185,7 +184,6 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow from saved plans to implementation branches and Branch Memory attachments.              |
 | `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                    |
 | `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                        |
-| `docs/specs/objective-gt-stacks.md`                     | Specifies `objective gt stacks` and the companion `/objective:gt-stacks` Pi display command.                              |
 | `docs/internal-code-gh-skill-trim-plan.md`              | Historical plan for trimming the GitHub CLI skill; current skill name is `internal-code-gh`.                              |
 | `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                            |
 | `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                    |

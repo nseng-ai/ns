@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from asdl_core.gt.types import (
-    GtBranchGraph,
     GtBranchInfo,
     GtCommandFailure,
     NoParent,
@@ -43,7 +42,3 @@ class GtGateway(ABC):
     @abstractmethod
     def stack(self, cwd: Path) -> StackInfo | UntrackedBranch | GtCommandFailure:
         """Return a metadata-store stack snapshot for the branch checked out at ``cwd``."""
-
-    @abstractmethod
-    def branch_graph(self, cwd: Path) -> GtBranchGraph | GtCommandFailure:
-        """Return all Graphite-tracked branches under the configured Graphite trunk."""

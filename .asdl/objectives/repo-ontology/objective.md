@@ -22,7 +22,7 @@ The list below is the current known context inventory to keep fresh, not a froze
   - `packages/asdl-pr-address/CONTEXT.md` — PR review-thread/comment/addressing vocabulary.
   - `packages/roaster/CONTEXT.md` — review harness, finding, and posting vocabulary.
   - `packages/asdl-slots/CONTEXT.md` — worktree slot and explicit `slot gt` vocabulary.
-  - `packages/asdl-objectives/CONTEXT.md` — Objective CLI package vocabulary, including archive/status/exec and opt-in `objective gt` stack projection.
+  - `packages/asdl-objectives/CONTEXT.md` — Objective CLI package vocabulary, including archive/status/list/exec surfaces.
   - `packages/packagechk/CONTEXT.md` — standalone package-name availability and claimability vocabulary.
   - `packages/aretro/CONTEXT.md` — branch retrospective evidence CLI vocabulary.
   - `packages/vibechk/CONTEXT.md` — agent-context evaluation run, bundle, metric, runner, and comparison-report vocabulary.
@@ -102,7 +102,7 @@ Assumptions:
 
 Risks:
 
-- Inventory drift has already materialized multiple times and more drift remains possible before closure: `packagechk`, `@asdl/pi-extensions`, Objective archive mechanics, `roaster`, `aretro`, asdl-core Sessions, `objective gt stacks`, brmem Base Namespace terminology, `areg`, `asdl-handoff`, `vibechk`, and `asdl-dev` all changed the closure target after the initial scaffold. Mitigation: the Phase 4 rebaseline records the current post-merge inventory, and later drift should be handled as focused rebaseline/update phases rather than silently widening an unrelated package session.
+- Inventory drift has already materialized multiple times and more drift remains possible before closure: `packagechk`, `@asdl/pi-extensions`, Objective archive mechanics, `roaster`, `aretro`, asdl-core Sessions, brmem Base Namespace terminology, `areg`, `asdl-handoff`, `vibechk`, and `asdl-dev` all changed the closure target after the initial scaffold. Mitigation: the Phase 4 rebaseline records the current post-merge inventory, and later drift should be handled as focused rebaseline/update phases rather than silently widening an unrelated package session.
 - Map drift has expanded: `packages/brmem/CONTEXT.md` exists and brmem terminology has been aligned, but `/CONTEXT-MAP.md` still marks brmem as planned and also lacks `areg`, `asdl-handoff`, `vibechk`, and `asdl-dev`. Mitigation: make that catch-up the first remaining product phase.
 - Runtime-boundary drift between `asdl-dev` and `@asdl/pi-extensions` could duplicate command vocabulary. Mitigation: assign CLI command semantics to `asdl-dev`; assign Pi discovery, command mirroring, UI/presentation, and runtime adapter semantics to `@asdl/pi-extensions`.
 - Cross-context ambiguity can grow into unresolved debate. Mitigation: local contexts pick package-local canonical terms; the map records only concise resolved collisions, not open-ended discussion.
