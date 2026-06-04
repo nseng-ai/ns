@@ -1,5 +1,6 @@
 export {
 	buildImplPlannedBranchPrompt,
+	formatLoadedAttachedPlanEvidence,
 	loadAttachedPlan,
 	normalizeRequestedAttachedPlanKey,
 	parseBrmemGetContent,
@@ -28,6 +29,7 @@ export {
 	resolveGitRepoRoot,
 	resolvePlanSourceFile,
 	validatePlanSlug,
+	type ExecOptions,
 	type PlanCommandExecApi,
 } from "./plan-persistence.ts";
 export {
@@ -42,6 +44,7 @@ export {
 	writeSourceBranchPlanFile,
 	type LatestSourceBranchPlanFileEvidence,
 	type PlanStoreDirectoryEvidence,
+	type RepoIdentitySource,
 	type SourceBranchPlanFileEvidence,
 	type SourceBranchPlanFileOptions,
 	type SourceBranchPlanFileParams,

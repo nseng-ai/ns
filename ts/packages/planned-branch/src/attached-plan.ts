@@ -7,7 +7,7 @@ import { formatCommandFailure, runBrmem, type PlanCommandExecApi, type ExecOptio
 
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
-const IMPL_PLANNED_BRANCH_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/impl-planned-branch.md", import.meta.url), "utf8").trimEnd();
+const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
 
 export interface AttachedPlanEntry {
 	namespace: string;
@@ -214,7 +214,7 @@ export function parseBrmemGetContent(stdout: string, expected: { namespace: stri
 }
 
 export function buildImplPlannedBranchPrompt(plan: LoadedAttachedPlan): string {
-	return renderTemplate(IMPL_PLANNED_BRANCH_PROMPT_TEMPLATE, {
+	return renderTemplate(PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE, {
 		branch: plan.branch,
 		namespace: plan.namespace,
 		selected_key: plan.selectedKey,

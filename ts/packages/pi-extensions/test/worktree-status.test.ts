@@ -227,7 +227,7 @@ describe("worktree status extension registration", () => {
 					stdout: JSON.stringify({
 						exit_code: 0,
 						data: {
-							entries: [{ namespace: "brmem-plans", key: "model-only-checkpoint-message-text-generation.md" }],
+							entries: [{ namespace: "planned-branch", key: "model-only-checkpoint-message-text-generation.md" }],
 						},
 					}),
 				}),
@@ -251,7 +251,7 @@ describe("worktree status extension registration", () => {
 
 			pi.assertDone();
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[brmem] (brmem-plans: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)",
+				"[brmem] (planned-branch: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)",
 			);
 			await pi.sessionShutdown?.();
 		} finally {

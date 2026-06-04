@@ -6,7 +6,7 @@ import { basename, join } from "node:path";
 import { buildPlanContentSlugPrompt, derivePlanContentSlug } from "../src/planned-branch/plan-content-slug.ts";
 import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
 import type { ExecResult } from "../src/command-runtime.ts";
-import type { ExecOptions, PlanCommandExecApi } from "../src/planned-branch/plan-persistence.ts";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/planned-branch";
 
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";

@@ -1,6 +1,6 @@
 import { formatOutputSection } from "../command-runtime.ts";
 import { deriveSlugWithModel, type SlugModelEvidence } from "../model-slug.ts";
-import { validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { validatePlanSlug, type PlanCommandExecApi } from "@asdl/planned-branch";
 import { normalizePlanContentSlugOutput, truncatePlanContentForSlug } from "./plan-content-slug.ts";
 
 const MAX_ERROR_CHARS = 4_000;
