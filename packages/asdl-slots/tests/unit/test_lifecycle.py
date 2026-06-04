@@ -21,9 +21,9 @@ from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
 from asdl_slots.lifecycle.free import (
+    SLOT_FREE_ALL_CLEANUP_ACTIONS,
     execute_cleanup_for_freed_slots,
     execute_free_plan,
-    expand_cleanup_actions,
     free_slots,
     plan_cleanup_for_free_targets,
     plan_free_slots,
@@ -880,16 +880,11 @@ def test_execute_free_plan_preserves_free_slots_behavior(tmp_path: Path) -> None
     assert git._detach_head_calls == [(path, "main")]
 
 
-def test_cleanup_action_expansion_dedupes_all_in_fixed_order() -> None:
-    assert expand_cleanup_actions(("branch", "all", "pr", "branch")) == (
+def test_all_cleanup_actions_are_in_fixed_order() -> None:
+    assert SLOT_FREE_ALL_CLEANUP_ACTIONS == (
         "pr",
         "local_branch",
     )
-
-
-def test_cleanup_action_expansion_rejects_removed_remote_branch() -> None:
-    with pytest.raises(ValueError, match="unknown cleanup value: remote-branch"):
-        expand_cleanup_actions(("remote-branch",))
 
 
 def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
@@ -907,7 +902,7 @@ def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
     cleanup = plan_cleanup_for_free_targets(
         ctx,
         plan.targets,
-        expand_cleanup_actions(("all",)),
+        SLOT_FREE_ALL_CLEANUP_ACTIONS,
         trunk_branch=plan.trunk_branch,
     )
 

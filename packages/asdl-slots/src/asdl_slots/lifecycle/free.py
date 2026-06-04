@@ -19,7 +19,7 @@ from asdl_slots.lifecycle.outcomes import (
     SlotLifecycleFailure,
 )
 
-_CLEANUP_ACTION_ORDER: tuple[SlotFreeCleanupAction, ...] = (
+SLOT_FREE_ALL_CLEANUP_ACTIONS: tuple[SlotFreeCleanupAction, ...] = (
     "pr",
     "local_branch",
 )
@@ -45,21 +45,6 @@ def _operation_in_progress_message(
         f"{slot_name} has a {operation} in progress for '{branch_name}' at {worktree_path}; "
         f"{_operation_recovery_instruction(operation)} before {action}."
     )
-
-
-def expand_cleanup_actions(cleanup_values: Sequence[str]) -> tuple[SlotFreeCleanupAction, ...]:
-    """Expand user-facing cleanup values into deterministic internal actions."""
-    requested: set[SlotFreeCleanupAction] = set()
-    for value in cleanup_values:
-        if value == "pr":
-            requested.add("pr")
-        elif value == "branch":
-            requested.add("local_branch")
-        elif value == "all":
-            requested.update(_CLEANUP_ACTION_ORDER)
-        else:
-            raise ValueError(f"unknown cleanup value: {value}")
-    return tuple(action for action in _CLEANUP_ACTION_ORDER if action in requested)
 
 
 def plan_free_slots(

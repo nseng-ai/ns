@@ -127,15 +127,15 @@ Detach one or more assigned slots back to trunk and keep the worktree directorie
 for reuse. Selectors may be combined; duplicates are removed and processed in
 first-seen order.
 
-| Option            | Type / default                      | Description                                                    |
-| ----------------- | ----------------------------------- | -------------------------------------------------------------- |
-| `-n`, `--num`     | repeatable integer                  | Select by slot number.                                         |
-| `-w`, `--wt`      | repeatable string                   | Select by worktree name.                                       |
-| `-b`, `--branch`  | repeatable string                   | Select by branch name.                                         |
-| `-c`, `--current` | boolean, false                      | Select the current worktree's assigned slot.                   |
-| `--cleanup`       | repeatable `branch`, `pr`, or `all` | Also delete the local branch and/or close the PR after detach. |
-| `--dry-run`       | boolean, false                      | Show the free/cleanup plan without mutating anything.          |
-| `-y`, `--yes`     | boolean, false                      | Skip confirmation for destructive cleanup.                     |
+| Option            | Type / default     | Description                                                   |
+| ----------------- | ------------------ | ------------------------------------------------------------- |
+| `-n`, `--num`     | repeatable integer | Select by slot number.                                        |
+| `-w`, `--wt`      | repeatable string  | Select by worktree name.                                      |
+| `-b`, `--branch`  | repeatable string  | Select by branch name.                                        |
+| `-c`, `--current` | boolean, false     | Select the current worktree's assigned slot.                  |
+| `--all`           | boolean, false     | Also close the matching PR and force-delete the local branch. |
+| `--dry-run`       | boolean, false     | Show the free/cleanup plan without mutating anything.         |
+| `-y`, `--yes`     | boolean, false     | Skip confirmation for destructive cleanup.                    |
 
 ### `slot resize`
 
