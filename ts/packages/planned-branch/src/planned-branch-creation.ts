@@ -74,13 +74,14 @@ export async function createPlannedBranchFromFile(
 ): Promise<PlannedBranchEvidence> {
 	const operation = buildPlannedBranchCreateOperation(rawParams);
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
-	const sourceFile = await resolvePlanSourceFile(pi, options.cwd, operation.filePath, options.signal, git);
+	const sourceFile = await resolvePlanSourceFile(pi, { cwd: options.cwd, rawFilePath: operation.filePath, signal: options.signal, git });
 
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
 	await assertBrmemEntryAbsent(pi, options.cwd, operation.branch, operation.key, options.signal);
-	await createPlanBranch(pi, git, options.cwd, {
+	await createPlanBranch(pi, git, {
+		cwd: options.cwd,
 		method: operation.branchCreation,
 		branch: operation.branch,
 		signal: options.signal,
@@ -418,50 +419,45 @@ async function assertBrmemEntryAbsent(
 	}
 }
 
-async function createPlanBranch(
-	pi: PlanCommandExecApi,
-	git: PlannedBranchGitGateway,
-	cwd: string,
-	input: {
-		method: BranchCreationMethod;
-		branch: string;
-		signal: AbortSignal | undefined;
-	},
-): Promise<void> {
-	if (input.method === "graphite") {
-		await createGraphiteBranch(pi, git, cwd, input.branch, input.signal);
-		return;
-	}
-	await createPlainGitBranch(git, cwd, input.branch, input.signal);
+interface CreatePlanBranchOptions {
+	cwd: string;
+	method: BranchCreationMethod;
+	branch: string;
+	signal: AbortSignal | undefined;
 }
 
-async function createPlainGitBranch(
-	git: PlannedBranchGitGateway,
-	cwd: string,
-	targetBranch: string,
-	signal: AbortSignal | undefined,
-): Promise<void> {
-	const create = await git.createBranchAtHead({ cwd, branch: targetBranch, signal });
+interface CreatePlainGitBranchOptions {
+	cwd: string;
+	branch: string;
+	signal: AbortSignal | undefined;
+}
+
+interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {}
+
+async function createPlanBranch(pi: PlanCommandExecApi, git: PlannedBranchGitGateway, options: CreatePlanBranchOptions): Promise<void> {
+	if (options.method === "graphite") {
+		await createGraphiteBranch(pi, git, options);
+		return;
+	}
+	await createPlainGitBranch(git, options);
+}
+
+async function createPlainGitBranch(git: PlannedBranchGitGateway, options: CreatePlainGitBranchOptions): Promise<void> {
+	const create = await git.createBranchAtHead({ cwd: options.cwd, branch: options.branch, signal: options.signal });
 	if (!create.ok) {
 		throw new Error(create.error.message);
 	}
 }
 
-async function createGraphiteBranch(
-	pi: PlanCommandExecApi,
-	git: PlannedBranchGitGateway,
-	cwd: string,
-	targetBranch: string,
-	signal: AbortSignal | undefined,
-): Promise<void> {
-	const parentBranch = await resolveCurrentBranch(git, cwd, signal);
-	await createPlainGitBranch(git, cwd, targetBranch, signal);
-	const track = await runGt(pi, { cwd, args: ["track", targetBranch, "--parent", parentBranch, "--no-interactive"], signal });
+async function createGraphiteBranch(pi: PlanCommandExecApi, git: PlannedBranchGitGateway, options: CreateGraphiteBranchOptions): Promise<void> {
+	const parentBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
+	await createPlainGitBranch(git, options);
+	const track = await runGt(pi, { cwd: options.cwd, args: ["track", options.branch, "--parent", parentBranch, "--no-interactive"], signal: options.signal });
 	if (track.result.code !== 0 || track.result.killed) {
 		throw new Error(
 			[
 				"Created local Git branch but failed to track it with Graphite.",
-				`Branch: ${targetBranch}`,
+				`Branch: ${options.branch}`,
 				"No attached plan was stored.",
 				"No cleanup was attempted; inspect the created branch manually.",
 				"",
