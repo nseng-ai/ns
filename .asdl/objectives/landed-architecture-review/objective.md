@@ -70,7 +70,8 @@ Assumptions:
 
 Risks:
 
-- The cmux and Pi CLI lifecycle clusters may be more coupled than they look, causing the first slices to expand unless interfaces are named narrowly.
+- The cmux command-suite review found several workflow Modules rather than one coherent deep Module. The slot-launch seam is now narrower, but planned-branch creation/attachment remains a potential follow-up seam if `slot-dispatch-plan.ts` continues to carry too much Branch Memory and Graphite detail.
+- The cmux and Pi CLI lifecycle clusters may be more coupled than they look, causing future slices to expand unless interfaces are named narrowly.
 - Some clusters overlap existing open Objectives such as `command-output-summaries`, `agent-payload-sidechannels`, `planned-branch-ts-cli`, `repo-ontology`, or `typescript-style-audit-fixes`; work should update or reference those records when it materially advances them.
 - Architecture changes could churn recently landed behavior if the review optimizes for cleanliness instead of locality and user-visible safety.
 - Parking decisions may be too terse unless each parked cluster records the concrete reason future agents should not re-suggest the same change immediately.
@@ -78,7 +79,7 @@ Risks:
 
 ## Open Questions
 
-- Should cmux get one deep workflow module with `slot`, `gt`, `cmux`, and `asdl exec` as adapters, or should each cmux command keep its own local module boundary?
+- Resolved for cmux command-suite review: cmux should remain several workflow Modules, not one deep workflow Module; the shared slot-launch seam should carry slot checkout, worktree description, and cmux workspace opening.
 - Should Pi command lifecycle behavior become a harness-neutral module before more `/code:*` and cmux commands depend on it?
 - Which clusters, if any, should update existing Objectives instead of only recording progress here?
 - What is the smallest useful evidence standard for saying a cluster was reviewed and intentionally parked?
