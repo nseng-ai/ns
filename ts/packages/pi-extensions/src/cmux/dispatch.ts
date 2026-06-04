@@ -8,6 +8,7 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import type { CmuxWorkspaceSummaryController } from "./workspace-summary.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
@@ -42,7 +43,7 @@ export interface ResolvedCmuxDispatchOptions {
 }
 
 export interface HandleCmuxDispatchOptions {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
 	summaryController: CmuxWorkspaceSummaryController;
 	dispatchOptions: ResolvedCmuxDispatchOptions;
 	args: string;
@@ -96,9 +97,10 @@ export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Pr
 		return;
 	}
 
+	const launchOptions = getPiLaunchOptions(pi, ctx);
 	const launched = await openCmuxWorkspace(pi, target, {
 		description: target.slotName,
-		command: `pi @${shellQuote(promptFile)}`,
+		command: buildPiLaunchCommand(`@${promptFile}`, launchOptions),
 		failureHeading: "Created tracked branch and slot worktree, but failed to open cmux workspace.",
 		failureDetails: [`Branch: ${target.branchName}`, `Worktree: ${target.worktreePath}`],
 	});
@@ -220,9 +222,6 @@ function resolveCmuxDispatchOptions(options: CmuxDispatchOptions): ResolvedCmuxD
 	};
 }
 
-function shellQuote(value: string): string {
-	return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
 
 async function runText(
 	pi: Pick<ExtensionAPI, "exec">,

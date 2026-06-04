@@ -390,13 +390,13 @@ describe("cmux extension", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					"pi '/impl-planned-branch cmux-summary-hooks.md'",
+					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/impl-planned-branch cmux-summary-hooks.md'",
 				], {}),
 			],
 		});
 		const controller = createCmuxWorkspaceSummaryController(pi);
 		registerCmuxSlotDispatchPlanCommand(pi, controller);
-		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
+		const ctx = new FakeCommandContext({ cwd: repoRoot, model: PREVIOUS_MODEL, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
 		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("", ctx);
 
@@ -427,13 +427,13 @@ describe("cmux extension", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					`pi @'${join(promptDir, `123-${BRANCH}.md`)}'`,
+					`pi --provider anthropic --model claude-sonnet-4-5 --thinking medium @${join(promptDir, `123-${BRANCH}.md`)}`,
 				], {}),
 			],
 		});
 		const controller = createCmuxWorkspaceSummaryController(pi);
 		registerCmuxDispatchCommand(pi, controller, { promptDir, now: () => 123 });
-		const ctx = new FakeCommandContext();
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
 		await pi.commands.get("cmux-dispatch")?.handler("Implement the cmux summary hook", ctx);
 
