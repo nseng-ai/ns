@@ -14,10 +14,11 @@
   - Evidence: planned-branch operation tests encode exact git/gt/brmem preview command internals, while CMUX dispatch tests assert composition behavior and no mutation in dry-run without re-encoding planned-branch command details.
   - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/pi-extensions && bun test`, `just ts-check`, and `just ts-test` passed.
 
-- [ ] Unified Branch Memory envelope parsing
-  - Route `brmem put`, `brmem list`, and `brmem get` through one strict machine-envelope parser.
-  - Keep operation-specific body validators small and typed.
-  - Evidence: parser tests cover invalid JSON, missing/nonzero `exit_code`, malformed `data`, and namespace/branch/key mismatches consistently.
+- [x] Unified Branch Memory envelope parsing
+  - `brmem put`, `brmem list`, and `brmem get` now route through one strict `parseMachineEnvelopeData` path with shared `exit_code` and object-envelope validation.
+  - Operation-specific body validators remain small and typed for put source metadata, list entries, and get content/ref data.
+  - Evidence: `brmem-envelope-parsing.test.ts` covers valid put/list/get behavior, malformed JSON, missing/nonzero `exit_code`, malformed `data`, and namespace/branch/key mismatches consistently.
+  - Verification: `cd ts/packages/planned-branch && bun test`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] CLI and type-contract cleanup
   - Replace optional evidence bags and casts with discriminated unions for plan resolution and similar variants.
