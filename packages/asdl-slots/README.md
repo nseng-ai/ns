@@ -169,21 +169,21 @@ worktree directories for reuse. Targets are passed via `-n/--num`,
 `-w/--wt`, `-b/--branch`, or `-c/--current`, and may be combined;
 duplicates are removed and the rest are processed in first-seen order.
 
-By default, freeing only detaches the slot worktree. Add explicit cleanup
-when you also want to close the PR and/or force-delete the local branch:
+By default, freeing only detaches the slot worktree. Add `--all` when you
+also want to close the matching PR and force-delete the local branch:
 
 ```
-slot free -c --cleanup branch --yes
-slot free -c --cleanup pr --yes
-slot free -n 1 -n 3 --cleanup all --dry-run
-slot free -n 1 -n 3 --cleanup all --yes
+slot free -c --all --dry-run
+slot free -c --all --yes
+slot free -n 1 -n 3 --all --dry-run
+slot free -n 1 -n 3 --all --yes
 ```
 
-Cleanup modes may be repeated and are deduped. `--cleanup all` expands to
-PR close and local branch force-delete. PRs are closed, not deleted. Local
-branch cleanup uses `git branch -D <branch>` after the slot worktree has
-successfully detached. Trunk is refused for branch cleanup. `slot free` does
-not delete remote branches; clean those up separately if desired.
+`--all` closes the matching PR, then force-deletes the local branch. PRs
+are closed, not deleted. Local branch cleanup uses `git branch -D <branch>`
+after the slot worktree has successfully detached. Trunk is refused for
+branch cleanup. `slot free` does not delete remote branches; clean those up
+separately if desired.
 
 Destructive cleanup prompts in human mode unless `-y/--yes` is passed.
 Use `--dry-run` to show the free/cleanup plan without detaching, closing

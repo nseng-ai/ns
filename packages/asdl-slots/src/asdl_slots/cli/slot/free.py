@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Literal
+from typing import Annotated
 
 import click
 
@@ -22,9 +22,9 @@ from asdl_slots.cli.slot.selectors import (
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch
 from asdl_slots.lifecycle.free import (
+    SLOT_FREE_ALL_CLEANUP_ACTIONS,
     execute_cleanup_for_freed_slots,
     execute_free_plan,
-    expand_cleanup_actions,
     plan_cleanup_for_free_targets,
     plan_free_slots,
 )
@@ -43,8 +43,6 @@ from asdl_slots.lifecycle.outcomes import (
 )
 from asdl_slots.repo_context import NoRepoSentinel
 
-SlotFreeCleanupOption = Literal["branch", "pr", "all"]
-
 
 class SlotFreeRequest(ClinkrModel):
     num: Annotated[
@@ -60,19 +58,17 @@ class SlotFreeRequest(ClinkrModel):
         click.Option(["-b", "--branch"], type=click.STRING, multiple=True),
     ] = ()
     current: Annotated[bool, click.Option(["-c", "--current"], is_flag=True, default=False)] = False
-    cleanup: Annotated[
-        tuple[SlotFreeCleanupOption, ...],
+    all: Annotated[
+        bool,
         click.Option(
-            ["--cleanup"],
-            type=click.Choice(["branch", "pr", "all"]),
-            multiple=True,
+            ["--all"],
+            is_flag=True,
+            default=False,
             help=(
-                "Extra cleanup after freeing. May be repeated. "
-                "branch: force-delete the local branch; pr: close the matching GitHub PR; "
-                "all: pr + branch."
+                "Also close the matching GitHub PR and force-delete the local branch after freeing."
             ),
         ),
-    ] = ()
+    ] = False
     dry_run: Annotated[
         bool,
         click.Option(["--dry-run"], is_flag=True, default=False, help="Show the plan only."),
@@ -249,7 +245,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
     if isinstance(free_plan, SlotLifecycleFailure):
         return ClinkrExit.failure(error_type=free_plan.error_type, message=free_plan.message)
 
-    cleanup_actions = expand_cleanup_actions(request.cleanup)
+    cleanup_actions = SLOT_FREE_ALL_CLEANUP_ACTIONS if request.all else ()
 
     if request.dry_run:
         cleanup_plan = plan_cleanup_for_free_targets(
