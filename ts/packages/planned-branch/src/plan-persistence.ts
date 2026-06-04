@@ -114,14 +114,22 @@ export function isPathInside(parent: string, child: string): boolean {
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
-export async function resolvePlanSourceFile(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	rawFilePath: string,
-	signal: AbortSignal | undefined,
-	git: PlannedBranchGitGateway = new RealPlannedBranchGitGateway(pi),
-): Promise<string> {
-	const normalizedPath = normalizePlanFilePath(rawFilePath);
+export interface ResolvePlanSourceFileOptions {
+	cwd: string;
+	rawFilePath: string;
+	signal?: AbortSignal | undefined;
+	git?: PlannedBranchGitGateway | undefined;
+}
+
+export interface ResolveGitRepoRootOptions {
+	cwd: string;
+	signal?: AbortSignal | undefined;
+	git?: PlannedBranchGitGateway | undefined;
+}
+
+export async function resolvePlanSourceFile(pi: PlanCommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
 		throw new Error(`Plan file path must be absolute or home-relative; got ${normalizedPath || "(empty)"}.`);
 	}
@@ -137,7 +145,7 @@ export async function resolvePlanSourceFile(
 	}
 
 	const realFilePath = await realpathIfPossible(normalizedPath);
-	const repoRoot = await resolveGitRepoRoot(pi, cwd, signal, git);
+	const repoRoot = await resolveGitRepoRoot(pi, { cwd: options.cwd, signal: options.signal, git });
 	if (repoRoot !== undefined) {
 		const realRepoRoot = await realpathIfPossible(repoRoot);
 		if (isPathInside(realRepoRoot, realFilePath)) {
@@ -148,13 +156,9 @@ export async function resolvePlanSourceFile(
 	return realFilePath;
 }
 
-export async function resolveGitRepoRoot(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	signal: AbortSignal | undefined,
-	git: PlannedBranchGitGateway = new RealPlannedBranchGitGateway(pi),
-): Promise<string | undefined> {
-	const root = await git.optionalRepoRoot({ cwd, signal });
+export async function resolveGitRepoRoot(pi: PlanCommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const root = await git.optionalRepoRoot({ cwd: options.cwd, signal: options.signal });
 	return root.type === "found" ? resolve(root.value) : undefined;
 }
 

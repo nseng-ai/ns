@@ -433,7 +433,7 @@ async function readContentSource(source: WritePlanFileArgs["contentSource"], dep
 
 async function resolvePlanEvidence(args: ResolvePlanArgs, deps: RequiredCliDeps): Promise<ResolvePlanEvidence> {
 	if (args.path !== undefined) {
-		const filePath = await resolvePlanSourceFile(deps.context.commands, deps.cwd, args.path, undefined, deps.context.git);
+		const filePath = await resolvePlanSourceFile(deps.context.commands, { cwd: deps.cwd, rawFilePath: args.path, git: deps.context.git });
 		return { source: "explicit", filePath };
 	}
 	const latest = await findLatestSourceBranchPlanFile(deps.context.commands, {
