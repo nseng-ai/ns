@@ -91,6 +91,36 @@ interface AttachSlotAndLaunchOptions {
 	key: string;
 }
 
+interface OpenCmuxWorkspaceOptions {
+	pi: ExtensionAPI;
+	target: SlotCheckoutTarget;
+	key: string;
+	launchOptions: PiLaunchOptions;
+}
+
+interface FormatDryRunOptions {
+	plan: SavedPlanEvidence;
+	checkout: CurrentCheckout;
+	targetBranch: string;
+	key: string;
+	launchOptions: PiLaunchOptions;
+}
+
+interface FormatCmuxFailureOptions {
+	targetBranch: string;
+	key: string;
+	worktreePath: string;
+	cause: string;
+	launchOptions: PiLaunchOptions;
+}
+
+interface FormatFinalSuccessOptions {
+	targetBranch: string;
+	key: string;
+	target: SlotCheckoutTarget;
+	launchOptions: PiLaunchOptions;
+}
+
 type TextResult =
 	| {
 			ok: true;
@@ -167,7 +197,7 @@ async function handleCommand(
 			presentPlannedBranchMessage(
 				pi,
 				ctx,
-				formatDryRun(selectedPlan, checkout, targetBranch, key, launchOptions),
+				formatDryRun({ plan: selectedPlan, checkout, targetBranch, key, launchOptions }),
 				{ status: "dry-run", selectedPlan, targetBranch, key },
 				"info",
 			);
@@ -468,13 +498,23 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 
 	setStatus(ctx, "opening CMUX slot workspace…");
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launched = await openCmuxWorkspace(pi, slot.target, key, launchOptions);
+	const launched = await openCmuxWorkspace({ pi, target: slot.target, key, launchOptions });
 	if ("error" in launched) {
-		present(ctx, formatCmuxFailure(targetBranch, key, slot.target.worktreePath, launched.error, launchOptions), "error");
+		present(
+			ctx,
+			formatCmuxFailure({
+				targetBranch,
+				key,
+				worktreePath: slot.target.worktreePath,
+				cause: launched.error,
+				launchOptions,
+			}),
+			"error",
+		);
 		return;
 	}
 
-	present(ctx, formatFinalSuccess(targetBranch, key, slot.target, launchOptions), "success");
+	present(ctx, formatFinalSuccess({ targetBranch, key, target: slot.target, launchOptions }), "success");
 	await summaryController.queuePrFromHook(ctx);
 }
 
@@ -664,12 +704,8 @@ async function checkoutSlot(
 	};
 }
 
-async function openCmuxWorkspace(
-	pi: ExtensionAPI,
-	target: SlotCheckoutTarget,
-	key: string,
-	launchOptions: PiLaunchOptions,
-): Promise<{ ok: true } | { error: string }> {
+async function openCmuxWorkspace(options: OpenCmuxWorkspaceOptions): Promise<{ ok: true } | { error: string }> {
+	const { pi, target, key, launchOptions } = options;
 	const description = await getSharedWorktreeDescription(pi, target.worktreePath, target.branchName);
 	const launchCommand = formatPiLaunchCommand(key, launchOptions);
 	const result = await runCommand(
@@ -838,13 +874,8 @@ function setStatus(ctx: CommandContext, value: string | undefined): void {
 	ctx.ui.setStatus?.(STATUS_KEY, value);
 }
 
-function formatDryRun(
-	plan: SavedPlanEvidence,
-	checkout: CurrentCheckout,
-	targetBranch: string,
-	key: string,
-	launchOptions: PiLaunchOptions,
-): string {
+function formatDryRun(options: FormatDryRunOptions): string {
+	const { plan, checkout, targetBranch, key, launchOptions } = options;
 	const launchCommand = formatPiLaunchCommand(key, launchOptions);
 	const description = `${repositoryNameFromPath(checkout.repoRoot) ?? basename(checkout.repoRoot)}/${targetBranch}`;
 	return [
@@ -926,13 +957,8 @@ function formatSlotFailure(targetBranch: string, key: string, cause: string): st
 	].join("\n");
 }
 
-function formatCmuxFailure(
-	targetBranch: string,
-	key: string,
-	worktreePath: string,
-	cause: string,
-	launchOptions: PiLaunchOptions,
-): string {
+function formatCmuxFailure(options: FormatCmuxFailureOptions): string {
+	const { targetBranch, key, worktreePath, cause, launchOptions } = options;
 	return [
 		"Created planned branch, attached plan, and checked out the slot, but failed to open the CMUX workspace.",
 		`Branch: ${targetBranch}`,
@@ -944,12 +970,8 @@ function formatCmuxFailure(
 	].join("\n");
 }
 
-function formatFinalSuccess(
-	targetBranch: string,
-	key: string,
-	target: SlotCheckoutTarget,
-	launchOptions: PiLaunchOptions,
-): string {
+function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
+	const { targetBranch, key, target, launchOptions } = options;
 	return [
 		"Dispatched plan in CMUX slot.",
 		`Branch: ${targetBranch}`,
