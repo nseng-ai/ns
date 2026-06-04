@@ -695,7 +695,7 @@ async function resolveSelectedSavedPlanFile(
 		planStoreRoot: resolvePlanStoreRootOption(options),
 		explicitPath: args.filePath,
 		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
-		fallbackToLatest: true,
+		shouldFallbackToLatest: true,
 	});
 }
 

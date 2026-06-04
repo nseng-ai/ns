@@ -48,7 +48,7 @@ export type SelectedSavedPlanFile =
 export interface ResolveSelectedSavedPlanFileOptions extends SourceBranchPlanFileOptions {
 	explicitPath?: string | undefined;
 	sessionEntries?: readonly unknown[] | undefined;
-	fallbackToLatest?: boolean | undefined;
+	shouldFallbackToLatest?: boolean | undefined;
 }
 
 export function extractSourceBranchPlanFileEvidenceFromSessionEntry(
@@ -203,7 +203,7 @@ export async function resolveSelectedSavedPlanFile(
 		}
 	}
 
-	if (options.fallbackToLatest ?? false) {
+	if (options.shouldFallbackToLatest ?? false) {
 		const latest = await findLatestSourceBranchPlanFile(pi, options);
 		return { type: "latest", plan: latest, savedPlanFileStem: latest.slug };
 	}
