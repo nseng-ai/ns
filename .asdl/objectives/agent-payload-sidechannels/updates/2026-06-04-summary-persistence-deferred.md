@@ -6,7 +6,7 @@ Decided that validated-in-run classification is sufficient for the `pr-address` 
 
 ## Objective Impact
 
-The roadmap row “Resolve `.summary.json` classification artifact persistence for closure” is complete by decision rather than by new command implementation. The Objective and durable payload artifact specification now state that validation-before-acting, one retry on invalid packets, and fail-closed behavior are the v1 closure contract for PR feedback classification.
+The roadmap row “Resolve `.summary.json` classification artifact persistence for closure” is complete by decision rather than by new command implementation. The Objective and durable side-channel specification now state that validation-before-acting, one retry on invalid packets, and fail-closed behavior are the v1 closure contract for PR feedback classification.
 
 This trims the remaining scope: no generic payload CLI, no command-level LLM invocation, and no durable classification artifact writer are needed to land the steelthread.
 
