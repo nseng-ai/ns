@@ -1,5 +1,7 @@
 import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "./brmem-cli.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -19,6 +21,9 @@ const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
 const COMMAND_TIMEOUT_MS = 5_000;
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
+const HANDOFF_NAMESPACE = "handoffs";
+const SESSION_ARTIFACTS_NAMESPACE = "session-artifacts";
+const SESSION_ARTIFACT_HANDOFF_PREFIX = "handoffs/";
 const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 const MUTATING_TOOL_NAMES = new Set(["bash", "edit", "write", "multi_tool_use.parallel"]);
 const IGNORED_WORKTREE_PATH_PARTS = new Set([
@@ -60,7 +65,82 @@ export interface ExtensionContext {
 		theme: StatusTheme;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: undefined): void;
+		setFooter?(factory: StatusFooterFactory | undefined): void;
 	};
+	sessionManager?: StatusSessionManager;
+	modelRegistry?: StatusModelRegistry;
+	model?: StatusModel;
+	getContextUsage?(): StatusContextUsage | undefined;
+}
+
+interface StatusFooterTui {
+	requestRender(): void;
+}
+
+interface StatusFooterData {
+	getGitBranch(): string | null;
+	getExtensionStatuses(): ReadonlyMap<string, string>;
+	getAvailableProviderCount(): number;
+	onBranchChange(callback: () => void): () => void;
+}
+
+interface StatusFooterComponent {
+	render(width: number): string[];
+	invalidate(): void;
+	dispose?(): void;
+}
+
+interface StatusFooterRenderOptions {
+	ctx: ExtensionContext;
+	footerData: StatusFooterData;
+	theme: StatusTheme;
+	width: number;
+}
+
+type StatusFooterFactory = (
+	tui: StatusFooterTui,
+	theme: StatusTheme,
+	footerData: StatusFooterData,
+) => StatusFooterComponent;
+
+interface StatusSessionManager {
+	getEntries(): readonly StatusSessionEntry[];
+	getCwd(): string;
+	getSessionName(): string | undefined;
+}
+
+interface StatusSessionEntry {
+	type: string;
+	message?: StatusMessage;
+}
+
+interface StatusMessage {
+	role: string;
+	usage: StatusUsage;
+}
+
+interface StatusUsage {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	cost: { total: number };
+}
+
+interface StatusModelRegistry {
+	isUsingOAuth(model: StatusModel): boolean;
+}
+
+interface StatusModel {
+	id: string;
+	provider?: string;
+	contextWindow?: number;
+	reasoning?: unknown;
+}
+
+interface StatusContextUsage {
+	contextWindow: number;
+	percent: number | null;
 }
 
 interface CustomMessage {
@@ -170,6 +250,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
+			session.ctx.ui.setFooter?.(undefined);
 			if (refreshInFlightSession === session) refreshInFlightSession = undefined;
 			if (refreshPendingSession === session) refreshPendingSession = undefined;
 		}
@@ -265,6 +346,22 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			// Session replacement can make ctx stale between the active check and render.
 			return false;
 		}
+	}
+
+	function installStatusFooter(session: ActiveSession): void {
+		const setFooter = session.ctx.ui.setFooter;
+		if (!session.hasUI || setFooter === undefined) return;
+
+		setFooter((tui, theme, footerData) => {
+			const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
+			return {
+				dispose: unsubscribe,
+				invalidate() {},
+				render(width) {
+					return isActiveSession(session) ? renderStatusFooter({ ctx: session.ctx, footerData, theme, width }) : [];
+				},
+			};
+		});
 	}
 
 	function setupGitWatchers(session: ActiveSession): void {
@@ -447,6 +544,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
+		installStatusFooter(session);
 		setupGitWatchers(session);
 		await refreshImmediately(session);
 	});
@@ -537,7 +635,7 @@ function formatBrmemScopes(entries: readonly BrmemEntry[]): string {
 	const seenNamespaces = new Map<string, { name: string; keys: string[]; seenKeys: Set<string> }>();
 
 	for (const entry of entries) {
-		const scope = scopeFromEntry(entry);
+		const scope = displayScopeFromEntry(entry);
 		if (!scope) continue;
 
 		let namespace = seenNamespaces.get(scope.namespace);
@@ -559,8 +657,13 @@ function formatBrmemScopes(entries: readonly BrmemEntry[]): string {
 		.join(" ");
 }
 
-function scopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } | undefined {
+function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } | undefined {
 	if (EXCLUDED_BRMEM_NAMESPACES.has(entry.namespace)) return undefined;
+
+	if (entry.namespace === SESSION_ARTIFACTS_NAMESPACE && entry.key.startsWith(SESSION_ARTIFACT_HANDOFF_PREFIX)) {
+		const handoffKey = entry.key.slice(SESSION_ARTIFACT_HANDOFF_PREFIX.length);
+		return handoffKey.length > 0 ? { namespace: HANDOFF_NAMESPACE, key: handoffKey } : undefined;
+	}
 
 	const keyParts = entry.key.split("/").filter((part) => part.length > 0);
 	const topLevelKey = keyParts[0] ?? entry.key;
@@ -769,7 +872,7 @@ function worktreeStatusLineColor(line: string): string {
 }
 
 export interface StatusTheme {
-	fg(color: "dim" | "accent", value: string): string;
+	fg(color: string, value: string): string;
 	underline?(value: string): string;
 }
 
@@ -824,6 +927,148 @@ function formatPrNumber(pr: GtPrStatus, theme: StatusTheme | undefined): string 
 
 function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
 	return theme ? theme.fg("dim", text) : text;
+}
+
+function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
+	const { ctx, footerData, theme, width } = options;
+	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
+	const branch = footerData.getGitBranch();
+	const sessionName = ctx.sessionManager?.getSessionName();
+	let pwd = formatFooterCwd(cwd, process.env.HOME || process.env.USERPROFILE);
+	if (branch) pwd = `${pwd} (${branch})`;
+	if (sessionName) pwd = `${pwd} • ${sessionName}`;
+
+	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
+	const lines = [truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "...")), statsLine];
+	for (const statusLine of formatExtensionStatusLines(footerData.getExtensionStatuses())) {
+		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
+	}
+	return lines;
+}
+
+function formatFooterCwd(cwd: string, home: string | undefined): string {
+	if (!home) return cwd;
+
+	const resolvedCwd = resolve(cwd);
+	const resolvedHome = resolve(home);
+	const relativeToHome = relative(resolvedHome, resolvedCwd);
+	const isInsideHome =
+		relativeToHome === "" ||
+		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
+
+	if (!isInsideHome) return cwd;
+	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
+}
+
+function formatFooterStats(options: StatusFooterRenderOptions): string {
+	const { ctx, footerData, theme, width } = options;
+	const totals = totalAssistantUsage(ctx.sessionManager?.getEntries() ?? []);
+	const statsParts: string[] = [];
+	if (totals.input) statsParts.push(`↑${formatFooterTokens(totals.input)}`);
+	if (totals.output) statsParts.push(`↓${formatFooterTokens(totals.output)}`);
+	if (totals.cacheRead) statsParts.push(`R${formatFooterTokens(totals.cacheRead)}`);
+	if (totals.cacheWrite) statsParts.push(`W${formatFooterTokens(totals.cacheWrite)}`);
+
+	const model = ctx.model;
+	const usingSubscription = model !== undefined && (ctx.modelRegistry?.isUsingOAuth(model) ?? false);
+	if (totals.cost.total || usingSubscription) {
+		statsParts.push(`$${totals.cost.total.toFixed(3)}${usingSubscription ? " (sub)" : ""}`);
+	}
+
+	statsParts.push(formatContextUsage(ctx, theme));
+	let statsLeft = statsParts.join(" ");
+	let statsLeftWidth = visibleWidth(statsLeft);
+	if (statsLeftWidth > width) {
+		statsLeft = truncateToWidth(statsLeft, width, "...");
+		statsLeftWidth = visibleWidth(statsLeft);
+	}
+
+	let rightSide = model?.id ?? "no-model";
+	if (footerData.getAvailableProviderCount() > 1 && model?.provider) {
+		const providerRightSide = `(${model.provider}) ${rightSide}`;
+		if (statsLeftWidth + 2 + visibleWidth(providerRightSide) <= width) rightSide = providerRightSide;
+	}
+
+	const rightSideWidth = visibleWidth(rightSide);
+	if (statsLeftWidth + 2 + rightSideWidth <= width) {
+		return theme.fg("dim", statsLeft) + theme.fg("dim", " ".repeat(width - statsLeftWidth - rightSideWidth) + rightSide);
+	}
+
+	const availableForRight = width - statsLeftWidth - 2;
+	if (availableForRight <= 0) return theme.fg("dim", statsLeft);
+
+	const truncatedRight = truncateToWidth(rightSide, availableForRight, "");
+	const padding = " ".repeat(Math.max(0, width - statsLeftWidth - visibleWidth(truncatedRight)));
+	return theme.fg("dim", statsLeft) + theme.fg("dim", padding + truncatedRight);
+}
+
+function totalAssistantUsage(entries: readonly StatusSessionEntry[]): StatusUsage {
+	const totals: StatusUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } };
+	for (const entry of entries) {
+		const message = entry.message;
+		if (entry.type !== "message" || message?.role !== "assistant") continue;
+		totals.input += message.usage.input;
+		totals.output += message.usage.output;
+		totals.cacheRead += message.usage.cacheRead;
+		totals.cacheWrite += message.usage.cacheWrite;
+		totals.cost.total += message.usage.cost.total;
+	}
+	return totals;
+}
+
+function formatContextUsage(ctx: ExtensionContext, theme: StatusTheme): string {
+	const contextUsage = ctx.getContextUsage?.();
+	const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
+	const percent = contextUsage?.percent;
+	const display = percent == null ? `?/${formatFooterTokens(contextWindow)} (auto)` : `${percent.toFixed(1)}%/${formatFooterTokens(contextWindow)} (auto)`;
+	if ((percent ?? 0) > 90) return theme.fg("error", display);
+	if ((percent ?? 0) > 70) return theme.fg("warning", display);
+	return display;
+}
+
+function formatFooterTokens(count: number): string {
+	if (count < 1000) return count.toString();
+	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
+	if (count < 1000000) return `${Math.round(count / 1000)}k`;
+	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
+	return `${Math.round(count / 1000000)}M`;
+}
+
+function formatExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): string[] {
+	const statusLines: string[] = [];
+	let compactStatusParts: string[] = [];
+
+	for (const [, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+		const sanitizedLines = sanitizeStatusLines(text);
+		if (sanitizedLines.length <= 1) {
+			const line = sanitizedLines[0];
+			if (line !== undefined) compactStatusParts.push(line);
+			continue;
+		}
+
+		if (compactStatusParts.length > 0) {
+			statusLines.push(compactStatusParts.join(" "));
+			compactStatusParts = [];
+		}
+		statusLines.push(...sanitizedLines);
+	}
+
+	if (compactStatusParts.length > 0) statusLines.push(compactStatusParts.join(" "));
+	return statusLines;
+}
+
+function sanitizeStatusLines(text: string): string[] {
+	return text
+		.split("\n")
+		.map((line) => sanitizeStatusLine(line))
+		.filter((line) => line.length > 0);
+}
+
+function sanitizeStatusLine(text: string): string {
+	return text
+		.replace(/[\r\t]/g, " ")
+		.replace(/ +/g, " ")
+		.trim();
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {

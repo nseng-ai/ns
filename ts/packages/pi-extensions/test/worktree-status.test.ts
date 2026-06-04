@@ -212,7 +212,7 @@ const TEST_THEME: StatusTheme = {
 describe("worktree status extension registration", () => {
 	test("registers automatic status hooks without visible slash commands", () => {
 		const pi = new RegistrationFakePi();
-		worktreeStatusExtension(pi as unknown as ExtensionAPI);
+		worktreeStatusExtension(pi as ExtensionAPI);
 
 		expect(pi.commands).toEqual([]);
 		expect(pi.renderers).toEqual(["worktree-status"]);
@@ -246,13 +246,146 @@ describe("worktree status extension registration", () => {
 				},
 			};
 
-			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			worktreeStatusExtension(pi as ExtensionAPI);
 			await pi.sessionStart?.({}, ctx);
 
 			pi.assertDone();
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 				"[brmem] (brmem-plans: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)",
 			);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("consolidates handoff footer scopes before rendering gt on the next line", async () => {
+		const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
+		try {
+			const pi = new LifecycleFakePi([
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: {
+							entries: [
+								{ namespace: "handoffs", key: "document-local-github-pull-guidance.md" },
+								{ namespace: "handoffs", key: "routing-docs-close-objective.md" },
+								{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
+							],
+						},
+					}),
+				}),
+				...basicGtScript(),
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[brmem] (handoffs: document-local-github-pull-guidance.md, routing-docs-close-objective.md, resume-resource-audit-session.md)\n[gt] (↓: main) (↑: -) (commits)",
+			);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("custom footer renders multiline worktree status as separate footer lines", async () => {
+		const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
+		try {
+			const pi = new LifecycleFakePi([
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: {
+							entries: [{ namespace: "brmem-plans", key: "handoffs-graphite-footer-lines.md" }],
+						},
+					}),
+				}),
+				...basicGtScript(),
+			]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				sessionManager: {
+					getEntries() {
+						return [];
+					},
+					getCwd() {
+						return root;
+					},
+					getSessionName() {
+						return undefined;
+					},
+				},
+				modelRegistry: {
+					isUsingOAuth() {
+						return false;
+					},
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+				getContextUsage() {
+					return { contextWindow: 272000, percent: 18.2 };
+				},
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						if (value === undefined) statuses.delete(key);
+						else statuses.set(key, value);
+					},
+					setWidget() {},
+					setFooter(factory) {
+						footerFactory = factory;
+					},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				{
+					getGitBranch() {
+						return "handoffs-graphite-footer-lines";
+					},
+					getExtensionStatuses() {
+						return statuses;
+					},
+					getAvailableProviderCount() {
+						return 1;
+					},
+					onBranchChange() {
+						return () => {};
+					},
+				},
+			);
+
+			const footerLines = footer.render(200).map(stripTerminalEscapes);
+			expect(footerLines.slice(-2)).toEqual([
+				"[brmem] (brmem-plans: handoffs-graphite-footer-lines.md)",
+				"[gt] (↓: main) (↑: -) (commits)",
+			]);
 			await pi.sessionShutdown?.();
 		} finally {
 			rmSync(root, { recursive: true, force: true });
@@ -407,6 +540,31 @@ describe("loadWorktreeStatus", () => {
 
 		pi.assertDone();
 		expect(status.brmem).toBe("(base: scratch) (plans: adapter)");
+	});
+
+	test("deduplicates normalized handoffs and preserves unrelated session artifacts", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({
+				stdout: JSON.stringify({
+					exit_code: 0,
+					data: {
+						entries: [
+							{ namespace: "handoffs", key: "resume-resource-audit-session.md" },
+							{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
+							{ namespace: "session-artifacts", key: "handoffs/" },
+							{ namespace: "session-artifacts", key: "logs/run-123.md" },
+							{ namespace: "objectives-archive", key: "closed/objective.md" },
+						],
+					},
+				}),
+			}),
+			...basicGtScript(),
+		]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBe("(handoffs: resume-resource-audit-session.md) (session-artifacts: logs)");
 	});
 
 	test("uses a later brmem candidate after an earlier candidate returns a nonzero envelope", async () => {
