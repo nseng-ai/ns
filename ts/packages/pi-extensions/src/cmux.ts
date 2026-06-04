@@ -7,7 +7,7 @@ import type { ExtensionAPI } from "./cmux/types.ts";
 export default function registerCmuxExtension(pi: ExtensionAPI): void {
 	const summaryController = createCmuxWorkspaceSummaryController(pi);
 	registerCmuxSidebarCommands(pi, summaryController);
-	registerCmuxSlotDispatchPlanCommand(pi, summaryController);
-	registerCmuxSlotOpenBranchCommand(pi, summaryController);
-	registerCmuxDispatchCommand(pi, summaryController);
+	registerCmuxSlotDispatchPlanCommand(pi);
+	registerCmuxSlotOpenBranchCommand(pi);
+	registerCmuxDispatchCommand(pi);
 }

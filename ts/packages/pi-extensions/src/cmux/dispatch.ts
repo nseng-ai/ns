@@ -10,7 +10,6 @@ import {
 } from "./branch-slug.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
-import type { CmuxWorkspaceSummaryController } from "./workspace-summary.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "cmux-dispatch";
@@ -44,7 +43,6 @@ export interface ResolvedCmuxDispatchOptions {
 
 export interface HandleCmuxDispatchOptions {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
-	summaryController: CmuxWorkspaceSummaryController;
 	dispatchOptions: ResolvedCmuxDispatchOptions;
 	args: string;
 	ctx: CommandContext;
@@ -52,7 +50,6 @@ export interface HandleCmuxDispatchOptions {
 
 export function registerCmuxDispatchCommand(
 	pi: ExtensionAPI,
-	summaryController: CmuxWorkspaceSummaryController,
 	options: CmuxDispatchOptions = {},
 ): void {
 	const resolvedOptions = resolveCmuxDispatchOptions(options);
@@ -60,13 +57,13 @@ export function registerCmuxDispatchCommand(
 		description: "Create a Graphite-tracked branch and run a prompt in a new cmux Pi slot",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {
-			await handleCmuxDispatch({ pi, summaryController, dispatchOptions: resolvedOptions, args, ctx });
+			await handleCmuxDispatch({ pi, dispatchOptions: resolvedOptions, args, ctx });
 		},
 	});
 }
 
 export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Promise<void> {
-	const { pi, summaryController, dispatchOptions, args, ctx } = options;
+	const { pi, dispatchOptions, args, ctx } = options;
 	const prompt = args.trim();
 	if (prompt.length === 0) {
 		ctx.ui.notify(`Usage: /${COMMAND_NAME} <prompt>`, "error");
@@ -117,7 +114,6 @@ export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Pr
 		].join("\n"),
 		"info",
 	);
-	await summaryController.queuePrFromHook(ctx);
 }
 
 export async function createTrackedBranchForPrompt(

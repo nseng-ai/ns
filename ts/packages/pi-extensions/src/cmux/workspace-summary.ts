@@ -16,7 +16,6 @@ interface RestoreState {
 export interface CmuxWorkspaceSummaryController {
 	handlePrCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
-	queuePrFromHook(ctx: CommandContext): Promise<void>;
 }
 
 interface QueueSidebarOptions {
@@ -72,15 +71,6 @@ export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWork
 			});
 		},
 
-		async queuePrFromHook(ctx): Promise<void> {
-			await queueSidebar(pi, ctx, (state) => {
-				pendingRestore = state;
-			}, {
-				request: { type: "pr" },
-				shouldWaitForIdle: false,
-				shouldWarnWhenMissingWorkspace: true,
-			});
-		},
 	};
 }
 
