@@ -302,6 +302,95 @@ describe("worktree status extension registration", () => {
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
+
+	test("custom footer renders multiline worktree status as separate footer lines", async () => {
+		const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
+		try {
+			const pi = new LifecycleFakePi([
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: {
+							entries: [{ namespace: "brmem-plans", key: "handoffs-graphite-footer-lines.md" }],
+						},
+					}),
+				}),
+				...basicGtScript(),
+			]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				sessionManager: {
+					getEntries() {
+						return [];
+					},
+					getCwd() {
+						return root;
+					},
+					getSessionName() {
+						return undefined;
+					},
+				},
+				modelRegistry: {
+					isUsingOAuth() {
+						return false;
+					},
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+				getContextUsage() {
+					return { contextWindow: 272000, percent: 18.2 };
+				},
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						if (value === undefined) statuses.delete(key);
+						else statuses.set(key, value);
+					},
+					setWidget() {},
+					setFooter(factory) {
+						footerFactory = factory;
+					},
+				},
+			};
+
+			worktreeStatusExtension(pi as unknown as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				{
+					getGitBranch() {
+						return "handoffs-graphite-footer-lines";
+					},
+					getExtensionStatuses() {
+						return statuses;
+					},
+					getAvailableProviderCount() {
+						return 1;
+					},
+					onBranchChange() {
+						return () => {};
+					},
+				},
+			);
+
+			const footerLines = footer.render(200).map(stripTerminalEscapes);
+			expect(footerLines.slice(-2)).toEqual([
+				"[brmem] (brmem-plans: handoffs-graphite-footer-lines.md)",
+				"[gt] (↓: main) (↑: -) (commits)",
+			]);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("worktree status message rendering", () => {
