@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import click
 from pydantic import model_serializer
@@ -24,7 +24,14 @@ from asdl_core.gh.types import (
     PRState,
 )
 from asdl_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
+from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_sidecar
+from asdl_core.payloads.store import PayloadStore
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
+from asdl_pr_address.cli.pr_address.feedback_sidecar import (
+    PayloadMode,
+    PrepareRunSidecarManifest,
+    build_prepare_run_sidecar_manifest,
+)
 from asdl_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
@@ -51,9 +58,21 @@ class PrepareRunRequest(ClinkrModel):
 
     include_all_threads: bool = False
     include_empty_reviews: bool = False
+    payload_mode: Annotated[
+        PayloadMode,
+        click.Option(
+            ["--payload-mode"],
+            type=click.Choice(["inline", "sidecar"]),
+            default="sidecar",
+        ),
+    ] = "sidecar"
+    payload_session_id: Annotated[
+        str | None,
+        click.Option(["--payload-session-id"], type=click.STRING),
+    ] = None
 
 
-class PrepareRunResult(ClinkrModel):
+class PrepareRunInlineResult(ClinkrModel):
     """Normalized PR feedback snapshot for a single `pr-address` run.
 
     When `found` is False the current branch has no associated PR; all other
@@ -91,6 +110,7 @@ class PrepareRunResult(ClinkrModel):
         returncode: exit code from `gh pr view` when `found` is False.
     """
 
+    payload_mode: Literal["inline"] = "inline"
     found: bool
     current_branch: str | None = None
     number: int | None = None
@@ -112,6 +132,7 @@ class PrepareRunResult(ClinkrModel):
     def serialize_model(self) -> dict[str, Any]:
         if not self.found:
             payload: dict[str, Any] = {
+                "payload_mode": self.payload_mode,
                 "found": False,
                 "current_branch": self.current_branch,
             }
@@ -122,6 +143,7 @@ class PrepareRunResult(ClinkrModel):
             return payload
 
         return {
+            "payload_mode": self.payload_mode,
             "found": True,
             "current_branch": self.current_branch,
             "number": self.number,
@@ -148,7 +170,11 @@ class PrepareRunResult(ClinkrModel):
 def run_prepare_run(
     ctx: click.Context,
     request: PrepareRunRequest,
-) -> ClinkrExit[PrepareRunResult]:
+) -> ClinkrExit[PrepareRunInlineResult | PrepareRunSidecarManifest]:
+    store: PayloadStore | None = None
+    if request.payload_mode == "sidecar":
+        store = open_clinkr_payload_store(request.payload_session_id)
+
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
     branch_result = pr_address_context.git_gateway.get_current_branch(Path.cwd())
     match branch_result:
@@ -172,13 +198,16 @@ def run_prepare_run(
             ),
         )
     if isinstance(pr, PRLookupMiss):
-        return ClinkrExit.ok(
-            PrepareRunResult(
-                found=False,
-                current_branch=current_branch,
-                error=pr.stderr,
-                returncode=pr.returncode,
-            )
+        inline_result = PrepareRunInlineResult(
+            found=False,
+            current_branch=current_branch,
+            error=pr.stderr,
+            returncode=pr.returncode,
+        )
+        return _prepare_run_exit_for_payload_mode(
+            inline_result=inline_result,
+            payload_mode=request.payload_mode,
+            store=store,
         )
     # pr is now guaranteed to be a PR object, not PR lookup miss/failure.
 
@@ -217,22 +246,68 @@ def run_prepare_run(
     else:
         restructured_files = files_result
 
+    inline_result = PrepareRunInlineResult(
+        found=True,
+        current_branch=current_branch,
+        number=pr.number,
+        title=pr.title,
+        url=pr.url,
+        head_ref_name=pr.head_ref_name,
+        base_ref_name=pr.base_ref_name,
+        state=pr.state,
+        reviews=reviews,
+        review_threads=normalized_threads,
+        discussion_comments=discussion_comments,
+        reopened_thread_ids=tuple(reopened_thread_ids),
+        restructured_files=restructured_files,
+        warnings=tuple(warnings),
+    )
+    return _prepare_run_exit_for_payload_mode(
+        inline_result=inline_result,
+        payload_mode=request.payload_mode,
+        store=store,
+    )
+
+
+def _prepare_run_exit_for_payload_mode(
+    *,
+    inline_result: PrepareRunInlineResult,
+    payload_mode: PayloadMode,
+    store: PayloadStore | None,
+) -> ClinkrExit[PrepareRunInlineResult | PrepareRunSidecarManifest]:
+    if payload_mode == "inline":
+        return ClinkrExit.ok(inline_result)
+
+    if store is None:
+        raise AssertionError("sidecar payload store must be opened before writing raw payload")
+
+    descriptor = "pr-address-prepare-run-no-pr"
+    if inline_result.found and inline_result.number is not None:
+        descriptor = f"pr-address-prepare-run-pr-{inline_result.number}"
+    raw_reference = write_clinkr_raw_sidecar(
+        store=store,
+        descriptor=descriptor,
+        result=ClinkrExit.ok(inline_result),
+    )
     return ClinkrExit.ok(
-        PrepareRunResult(
-            found=True,
-            current_branch=current_branch,
-            number=pr.number,
-            title=pr.title,
-            url=pr.url,
-            head_ref_name=pr.head_ref_name,
-            base_ref_name=pr.base_ref_name,
-            state=pr.state,
-            reviews=reviews,
-            review_threads=normalized_threads,
-            discussion_comments=discussion_comments,
-            reopened_thread_ids=tuple(reopened_thread_ids),
-            restructured_files=restructured_files,
-            warnings=tuple(warnings),
+        build_prepare_run_sidecar_manifest(
+            payload_reference=raw_reference,
+            found=inline_result.found,
+            current_branch=inline_result.current_branch,
+            number=inline_result.number,
+            title=inline_result.title,
+            url=inline_result.url,
+            head_ref_name=inline_result.head_ref_name,
+            base_ref_name=inline_result.base_ref_name,
+            state=inline_result.state,
+            reviews=inline_result.reviews,
+            review_threads=inline_result.review_threads,
+            discussion_comments=inline_result.discussion_comments,
+            reopened_thread_ids=inline_result.reopened_thread_ids,
+            restructured_files=inline_result.restructured_files,
+            warnings=inline_result.warnings,
+            error=inline_result.error,
+            returncode=inline_result.returncode,
         )
     )
 

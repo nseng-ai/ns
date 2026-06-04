@@ -45,6 +45,7 @@ def _invoke_json(
     *,
     git_gateway: FakeGitGateway | None = None,
     input_text: str | None = None,
+    env: dict[str, str | None] | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = PrAddressCliContext(
@@ -60,9 +61,21 @@ def _invoke_json(
         ["exec", op_name, "--format", "json", *rest],
         obj=_obj(ctx),
         input=input_text,
+        env=env,
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
+
+
+def _payload_env(tmp_path: Path, *, session_id: str = "session1") -> dict[str, str]:
+    return {
+        "ASDL_PAYLOAD_ROOT": str(tmp_path / "payload-root"),
+        "ASDL_PAYLOAD_SESSION_ID": session_id,
+    }
+
+
+def _read_raw_payload(data: dict) -> dict:
+    return json.loads(Path(data["payload_reference"]["payload_path"]).read_text(encoding="utf-8"))
 
 
 def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
@@ -181,7 +194,9 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
         },
     )
 
-    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(
+        cli_group, ["prepare-run", "--payload-mode", "inline"], fake, git_gateway=git_gateway
+    )
 
     assert exit_code == 0
     assert output["exit_code"] == 0
@@ -252,7 +267,7 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
 
     exit_code, output = _invoke_json(
         cli_group,
-        ["prepare-run", "--include-all-threads"],
+        ["prepare-run", "--payload-mode", "inline", "--include-all-threads"],
         fake,
         git_gateway=git_gateway,
     )
@@ -302,7 +317,10 @@ def test_prepare_run_filters_empty_reviews_by_default(
     fake_default = FakePRGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
     exit_default, out_default = _invoke_json(
-        cli_group, ["prepare-run"], fake_default, git_gateway=git_gateway
+        cli_group,
+        ["prepare-run", "--payload-mode", "inline"],
+        fake_default,
+        git_gateway=git_gateway,
     )
     assert exit_default == 0
     assert [r["id"] for r in out_default["data"]["reviews"]] == ["PRR_signal"]
@@ -310,7 +328,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
     fake_all = FakePRGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     exit_all, out_all = _invoke_json(
         cli_group,
-        ["prepare-run", "--include-empty-reviews"],
+        ["prepare-run", "--payload-mode", "inline", "--include-empty-reviews"],
         fake_all,
         git_gateway=git_gateway,
     )
@@ -328,7 +346,9 @@ def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     fake = FakePRGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
 
-    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(
+        cli_group, ["prepare-run", "--payload-mode", "inline"], fake, git_gateway=git_gateway
+    )
 
     assert exit_code == 0
     assert output["exit_code"] == 0
@@ -349,7 +369,9 @@ def test_prepare_run_lookup_failure_returns_failure_envelope(
     fake = FailingLookupGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
 
-    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(
+        cli_group, ["prepare-run", "--payload-mode", "inline"], fake, git_gateway=git_gateway
+    )
 
     assert exit_code == 2
     assert output["exit_code"] == 2
@@ -364,7 +386,9 @@ def test_prepare_run_detached_head_returns_command_error(
     fake = FakePRGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): DetachedHead()})
 
-    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(
+        cli_group, ["prepare-run", "--payload-mode", "inline"], fake, git_gateway=git_gateway
+    )
 
     assert exit_code == 2
     assert output["exit_code"] == 2
@@ -400,7 +424,9 @@ def test_prepare_run_warns_when_restructured_file_detection_fails(
         },
     )
 
-    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(
+        cli_group, ["prepare-run", "--payload-mode", "inline"], fake, git_gateway=git_gateway
+    )
 
     assert exit_code == 0
     assert output["exit_code"] == 0
@@ -422,12 +448,236 @@ def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
         }
     )
 
-    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(
+        cli_group, ["prepare-run", "--payload-mode", "inline"], fake, git_gateway=git_gateway
+    )
 
     assert exit_code == 2
     assert output["exit_code"] == 2
     assert output["error_type"] == "git_failed"
     assert "not a git repository" in output["message"]
+
+
+def test_prepare_run_default_sidecar_writes_raw_payload_and_compact_manifest(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    review_body = "PREPARE_REVIEW_BODY_SENTINEL tighten workflow"
+    thread_body = "PREPARE_THREAD_BODY_SENTINEL revisit edge case"
+    discussion_body = "PREPARE_DISCUSSION_BODY_SENTINEL update summary"
+    fake = FakePRGateway(
+        prs_by_branch={
+            "feature": PRSummary(
+                number=42,
+                title="Update helper surface",
+                url="https://example.com/pr/42",
+                head_ref_name="feature",
+                base_ref_name="master",
+                state="OPEN",
+            )
+        },
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body=review_body,
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2026-04-15T12:00:00Z",
+                )
+            ]
+        },
+        review_threads={
+            42: [
+                PRReviewThread(
+                    id="PRRT_contested",
+                    path="src/new.py",
+                    line=11,
+                    is_resolved=True,
+                    is_outdated=False,
+                    comments=(
+                        PRReviewComment(
+                            id=2,
+                            body=f"Fixed already.\n{RESOLUTION_MARKER}",
+                            author="github-actions[bot]",
+                            path="src/new.py",
+                            line=11,
+                            created_at="2026-04-15T12:00:00Z",
+                        ),
+                        PRReviewComment(
+                            id=3,
+                            body=thread_body,
+                            author="reviewer",
+                            path="src/new.py",
+                            line=11,
+                            created_at="2026-04-15T12:05:00Z",
+                        ),
+                    ),
+                )
+            ]
+        },
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=9001,
+                    body=discussion_body,
+                    author="reviewer",
+                    url="https://example.com/comment/9001",
+                )
+            ]
+        },
+    )
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={Path.cwd(): "feature"},
+        restructured_files_by_key={
+            (Path.cwd(), "master"): (
+                RestructuredFile(
+                    status="R",
+                    old_path="src/old.py",
+                    new_path="src/new.py",
+                    similarity=100,
+                ),
+            )
+        },
+    )
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "prepare-run", "--format", "json"],
+        obj=_obj(PrAddressCliContext(pr_gateway=fake, git_gateway=git_gateway)),
+        env=_payload_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert review_body not in result.output
+    assert thread_body not in result.output
+    assert discussion_body not in result.output
+    output = json.loads(result.output)
+    data = output["data"]
+    assert data["payload_mode"] == "sidecar"
+    assert data["found"] is True
+    assert data["current_branch"] == "feature"
+    assert data["number"] == 42
+    assert data["payload_reference"]["descriptor"] == "pr-address-prepare-run-pr-42"
+    assert data["counts"] == {
+        "reviews": 1,
+        "review_threads": 1,
+        "unresolved_review_threads": 1,
+        "resolved_review_threads": 0,
+        "thread_comments": 2,
+        "discussion_comments": 1,
+    }
+    assert data["reopened_thread_ids"] == ["PRRT_contested"]
+    assert data["review_threads"][0]["thread_id"] == "PRRT_contested"
+    assert data["review_threads"][0]["comments"][1]["body_locator"] == {
+        "body_chars": len(thread_body),
+        "json_pointer": "/data/review_threads/0/comments/1/body",
+        "item_pointer": "/data/review_threads/0/comments/1",
+        "domain": {
+            "kind": "review_thread_comment",
+            "review_id": None,
+            "thread_id": "PRRT_contested",
+            "comment_id": 3,
+            "discussion_comment_id": None,
+            "comment_index": 1,
+            "path": "src/new.py",
+            "line": 11,
+            "start_line": None,
+            "is_resolved": False,
+            "is_outdated": False,
+            "author": "reviewer",
+        },
+    }
+    assert data["restructured_files"] == [
+        {
+            "status": "R",
+            "old_path": "src/old.py",
+            "new_path": "src/new.py",
+            "similarity": 100,
+        }
+    ]
+    assert fake.unresolved_thread_ids == ("PRRT_contested",)
+
+    raw_payload = _read_raw_payload(data)
+    assert raw_payload["exit_code"] == 0
+    assert raw_payload["data"]["payload_mode"] == "inline"
+    assert raw_payload["data"]["reviews"][0]["body"] == review_body
+    assert raw_payload["data"]["review_threads"][0]["comments"][1]["body"] == thread_body
+    assert raw_payload["data"]["discussion_comments"][0]["body"] == discussion_body
+
+
+def test_prepare_run_default_sidecar_writes_found_false_raw_payload(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway()
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        env=_payload_env(tmp_path),
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert data["payload_mode"] == "sidecar"
+    assert data["found"] is False
+    assert data["payload_reference"]["descriptor"] == "pr-address-prepare-run-no-pr"
+    assert data["counts"] is None
+    assert data["error"] == "no PR found"
+    raw_payload = _read_raw_payload(data)
+    assert raw_payload["data"] == {
+        "payload_mode": "inline",
+        "found": False,
+        "current_branch": "feature",
+        "error": "no PR found",
+        "returncode": 1,
+    }
+
+
+class ExplodingGitGateway(FakeGitGateway):
+    def get_current_branch(self, cwd: Path) -> str | DetachedHead | GitCommandFailure:
+        raise AssertionError("git gateway should not be called before payload preflight")
+
+
+class ExplodingPRGateway(FakePRGateway):
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        raise AssertionError("PR gateway should not be called before payload preflight")
+
+
+def test_prepare_run_default_sidecar_requires_payload_session_before_domain_work(
+    cli_group: ClinkrGroup,
+) -> None:
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        ExplodingPRGateway(),
+        git_gateway=ExplodingGitGateway(),
+        env={"ASDL_PAYLOAD_SESSION_ID": None},
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "payload_session_required"
+    assert "data" not in output
+
+
+def test_prepare_run_default_sidecar_rejects_invalid_payload_session_before_domain_work(
+    cli_group: ClinkrGroup,
+) -> None:
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run", "--payload-session-id", "BadSession"],
+        ExplodingPRGateway(),
+        git_gateway=ExplodingGitGateway(),
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "payload_session_invalid"
+    assert "data" not in output
 
 
 def test_resolve_thread_with_reply_fixed_uses_canonical_format(
