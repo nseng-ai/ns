@@ -23,8 +23,13 @@ def resolve_prompt(
     _require_safe_prompt_name(name)
     resolved_prompt_root = _resolve_prompt_root(repo_root=repo_root, prompt_root=prompt_root)
     repo_prompt_path = resolved_prompt_root / f"{name}.md"
+    _ensure_repo_prompt_path_safe(
+        repo_prompt_path,
+        repo_root=repo_root,
+        prompt_root=resolved_prompt_root,
+    )
 
-    if repo_prompt_path.exists():
+    if repo_prompt_path.exists() or repo_prompt_path.is_symlink():
         if not repo_prompt_path.is_file():
             raise PromptError(
                 error_type="prompt_root_invalid",
@@ -84,6 +89,42 @@ def _resolve_prompt_root(*, repo_root: Path | None, prompt_root: Path | None) ->
     if repo_root is not None:
         return repo_root / ".asdl" / "prompts"
     raise AssertionError("unreachable prompt root state")
+
+
+def _ensure_repo_prompt_path_safe(
+    repo_prompt_path: Path,
+    *,
+    repo_root: Path | None,
+    prompt_root: Path,
+) -> None:
+    unsafe_component = _first_symlinked_prompt_component(
+        repo_prompt_path,
+        repo_root=repo_root,
+        prompt_root=prompt_root,
+    )
+    if unsafe_component is None:
+        return
+    raise PromptError(
+        error_type="prompt_root_invalid",
+        message=f"Prompt path must not contain symlinks: {unsafe_component}",
+    )
+
+
+def _first_symlinked_prompt_component(
+    repo_prompt_path: Path,
+    *,
+    repo_root: Path | None,
+    prompt_root: Path,
+) -> Path | None:
+    candidates = (
+        (repo_root / ".asdl", prompt_root, repo_prompt_path)
+        if repo_root is not None
+        else (prompt_root, repo_prompt_path)
+    )
+    for candidate in candidates:
+        if candidate.is_symlink():
+            return candidate
+    return None
 
 
 def _resolve_embedded_default(
