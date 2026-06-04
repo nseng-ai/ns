@@ -144,11 +144,11 @@ Resolved by the contract specification:
 - Bounded previews: no bounded body-preview escape hatch is included in v1. Fallbacks are sidecar/subagent access, selected-detail lookup, and explicit inline mode.
 - Selected-detail reader: reusable core RFC 6901 JSON Pointer lookup is accepted as a library/API contract, while agent-facing CLI access remains under `pr-address exec` in v1.
 - Prompt default/provenance behavior: the resolver returns content plus provenance, distinguishes repo-local prompts from embedded defaults, and later protects the checked-in `subagent-launch.md` prompt against embedded-default drift.
+- Launch-policy wording: `.asdl/prompts/subagent-launch.md` is a general delegation policy with Pi, Claude, Codex, fallback, path-passing, structured-return, and fail-closed safety guidance, not a PR-specific task template.
 
 Remaining implementation questions:
 
 - What exact JSON schema should the PR feedback classification packet use for actionable threads, actionable reviews, discussion actions, informational items, complexity enum values, and locator references?
 - What exact Pydantic field names should the `pr-address` compact manifests use, beyond the semantics specified in `docs/specs/agent-payload-sidechannels.md`?
-- What exact wording should `.asdl/prompts/subagent-launch.md` use while staying limited to general delegation mechanics?
 - Should any part of this design rise to an ADR after implementation reveals a hard-to-reverse trade-off, or is the Objective plus specification and skill/reference documentation sufficient?
 - Which future Objective should pick up branch-naming and commit-summary prompt policies once this steelthread proves the `.asdl/prompts` pattern?
