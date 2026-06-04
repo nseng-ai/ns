@@ -76,19 +76,14 @@ interface JsonFailure {
 	error: { code: string; message: string };
 }
 
-interface ResolvePlanEvidence {
-	source: "explicit" | "latest";
+interface ExplicitResolvePlanEvidence {
+	source: "explicit";
 	filePath: string;
-	slug?: string;
-	fileName?: string;
-	modifiedTimeMs?: number;
-	repoRoot?: string;
-	repoKey?: string;
-	repoIdentitySource?: string;
-	sourceBranch?: string;
-	branchKey?: string;
-	directoryPath?: string;
 }
+
+type LatestResolvePlanEvidence = LatestSourceBranchPlanFileEvidence & { source: "latest" };
+
+type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
@@ -248,12 +243,16 @@ function parseWritePlanFileArgs(args: readonly string[]): ParseResult<WritePlanF
 		if (arg === undefined) continue;
 		if (arg === "--help" || arg === "-h") return { type: "help" };
 		if (arg === "--slug") {
-			slug = requireValue(args, index, "--slug");
+			const parsed = parseFlagValue(args, index, "--slug");
+			if (parsed.type === "error") return parsed;
+			slug = parsed.value;
 			index += 1;
 			continue;
 		}
 		if (arg === "--summary") {
-			summary = requireValue(args, index, "--summary");
+			const parsed = parseFlagValue(args, index, "--summary");
+			if (parsed.type === "error") return parsed;
+			summary = parsed.value;
 			index += 1;
 			continue;
 		}
@@ -262,12 +261,16 @@ function parseWritePlanFileArgs(args: readonly string[]): ParseResult<WritePlanF
 			continue;
 		}
 		if (arg === "--content-file") {
-			contentFile = requireValue(args, index, "--content-file");
+			const parsed = parseFlagValue(args, index, "--content-file");
+			if (parsed.type === "error") return parsed;
+			contentFile = parsed.value;
 			index += 1;
 			continue;
 		}
 		if (arg === "--format") {
-			const parsed = parseFormat(requireValue(args, index, "--format"));
+			const value = parseFlagValue(args, index, "--format");
+			if (value.type === "error") return value;
+			const parsed = parseFormat(value.value);
 			if (parsed.type === "error") return parsed;
 			format = parsed.value;
 			index += 1;
@@ -292,7 +295,9 @@ function parseResolvePlanArgs(args: readonly string[]): ParseResult<ResolvePlanA
 		if (arg === undefined) continue;
 		if (arg === "--help" || arg === "-h") return { type: "help" };
 		if (arg === "--format") {
-			const parsed = parseFormat(requireValue(args, index, "--format"));
+			const value = parseFlagValue(args, index, "--format");
+			if (value.type === "error") return value;
+			const parsed = parseFormat(value.value);
 			if (parsed.type === "error") return parsed;
 			format = parsed.value;
 			index += 1;
@@ -318,22 +323,30 @@ function parseCreateArgs(args: readonly string[]): ParseResult<CreateArgs> {
 		if (arg === undefined) continue;
 		if (arg === "--help" || arg === "-h") return { type: "help" };
 		if (arg === "--slug") {
-			slug = requireValue(args, index, "--slug");
+			const parsed = parseFlagValue(args, index, "--slug");
+			if (parsed.type === "error") return parsed;
+			slug = parsed.value;
 			index += 1;
 			continue;
 		}
 		if (arg === "--plan-file") {
-			planFile = requireValue(args, index, "--plan-file");
+			const parsed = parseFlagValue(args, index, "--plan-file");
+			if (parsed.type === "error") return parsed;
+			planFile = parsed.value;
 			index += 1;
 			continue;
 		}
 		if (arg === "--branch") {
-			branch = requireValue(args, index, "--branch");
+			const parsed = parseFlagValue(args, index, "--branch");
+			if (parsed.type === "error") return parsed;
+			branch = parsed.value;
 			index += 1;
 			continue;
 		}
 		if (arg === "--branch-creation") {
-			const value = requireValue(args, index, "--branch-creation");
+			const parsed = parseFlagValue(args, index, "--branch-creation");
+			if (parsed.type === "error") return parsed;
+			const value = parsed.value;
 			if (value !== "plain-git" && value !== "graphite") {
 				return { type: "error", message: "--branch-creation must be one of plain-git or graphite." };
 			}
@@ -342,12 +355,16 @@ function parseCreateArgs(args: readonly string[]): ParseResult<CreateArgs> {
 			continue;
 		}
 		if (arg === "--summary") {
-			summary = requireValue(args, index, "--summary");
+			const parsed = parseFlagValue(args, index, "--summary");
+			if (parsed.type === "error") return parsed;
+			summary = parsed.value;
 			index += 1;
 			continue;
 		}
 		if (arg === "--format") {
-			const parsed = parseFormat(requireValue(args, index, "--format"));
+			const value = parseFlagValue(args, index, "--format");
+			if (value.type === "error") return value;
+			const parsed = parseFormat(value.value);
 			if (parsed.type === "error") return parsed;
 			format = parsed.value;
 			index += 1;
@@ -381,7 +398,9 @@ function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 		if (arg === undefined) continue;
 		if (arg === "--help" || arg === "-h") return { type: "help" };
 		if (arg === "--format") {
-			const parsed = parseFormat(requireValue(args, index, "--format"));
+			const value = parseFlagValue(args, index, "--format");
+			if (value.type === "error") return value;
+			const parsed = parseFormat(value.value);
 			if (parsed.type === "error") return parsed;
 			format = parsed.value;
 			index += 1;
@@ -399,12 +418,12 @@ function parseFormat(value: string): ValueParseResult<"json"> {
 	return { type: "error", message: "--format must be json." };
 }
 
-function requireValue(args: readonly string[], index: number, flag: string): string {
+function parseFlagValue(args: readonly string[], index: number, flag: string): ValueParseResult<string> {
 	const value = args[index + 1];
 	if (value === undefined || value.startsWith("--")) {
-		throw new Error(`${flag} requires a value.`);
+		return { type: "error", message: `${flag} requires a value.` };
 	}
-	return value;
+	return { type: "ok", value };
 }
 
 async function readContentSource(source: WritePlanFileArgs["contentSource"], deps: RequiredCliDeps): Promise<string> {
@@ -438,19 +457,27 @@ function sourcePlanFileJson(evidence: SourceBranchPlanFileEvidence): Record<stri
 }
 
 function resolvePlanJson(evidence: ResolvePlanEvidence): Record<string, unknown> {
-	return {
-		source: evidence.source,
-		file_path: evidence.filePath,
-		...(evidence.slug === undefined ? {} : { slug: evidence.slug }),
-		...(evidence.fileName === undefined ? {} : { file_name: evidence.fileName }),
-		...(evidence.modifiedTimeMs === undefined ? {} : { modified_time_ms: evidence.modifiedTimeMs }),
-		...(evidence.repoRoot === undefined ? {} : { repo_root: evidence.repoRoot }),
-		...(evidence.repoKey === undefined ? {} : { repo_key: evidence.repoKey }),
-		...(evidence.repoIdentitySource === undefined ? {} : { repo_identity_source: evidence.repoIdentitySource }),
-		...(evidence.sourceBranch === undefined ? {} : { source_branch: evidence.sourceBranch }),
-		...(evidence.branchKey === undefined ? {} : { branch_key: evidence.branchKey }),
-		...(evidence.directoryPath === undefined ? {} : { directory_path: evidence.directoryPath }),
-	};
+	switch (evidence.source) {
+		case "explicit":
+			return {
+				source: evidence.source,
+				file_path: evidence.filePath,
+			};
+		case "latest":
+			return {
+				source: evidence.source,
+				file_path: evidence.filePath,
+				slug: evidence.slug,
+				file_name: evidence.fileName,
+				modified_time_ms: evidence.modifiedTimeMs,
+				repo_root: evidence.repoRoot,
+				repo_key: evidence.repoKey,
+				repo_identity_source: evidence.repoIdentitySource,
+				source_branch: evidence.sourceBranch,
+				branch_key: evidence.branchKey,
+				directory_path: evidence.directoryPath,
+			};
+	}
 }
 
 function plannedBranchJson(evidence: PlannedBranchEvidence): Record<string, unknown> {
@@ -485,7 +512,7 @@ function formatResolvePlanEvidence(evidence: ResolvePlanEvidence): string {
 	if (evidence.source === "explicit") {
 		return [`Resolved explicit plan file.`, `Path: ${evidence.filePath}`].join("\n");
 	}
-	return formatLatestSourceBranchPlanFileEvidence(evidence as LatestSourceBranchPlanFileEvidence);
+	return formatLatestSourceBranchPlanFileEvidence(evidence);
 }
 
 function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPlanFileEvidence): string {

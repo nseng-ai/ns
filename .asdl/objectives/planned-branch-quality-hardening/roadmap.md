@@ -20,10 +20,11 @@
   - Evidence: `brmem-envelope-parsing.test.ts` covers valid put/list/get behavior, malformed JSON, missing/nonzero `exit_code`, malformed `data`, and namespace/branch/key mismatches consistently.
   - Verification: `cd ts/packages/planned-branch && bun test`, `just ts-check`, and `just ts-test` passed.
 
-- [ ] CLI and type-contract cleanup
-  - Replace optional evidence bags and casts with discriminated unions for plan resolution and similar variants.
-  - Make expected CLI parse failures return structured parse errors rather than throwing through the top-level catch.
-  - Evidence: TypeScript check passes without casts for these variants; CLI scenario tests still cover human and JSON failure output.
+- [x] CLI and type-contract cleanup
+  - Resolve-plan evidence now uses explicit/latest discriminated variants instead of an optional-field bag.
+  - Expected CLI flag-value parse failures now return parser errors instead of throwing through `requireValue`, while the top-level catch remains for non-parse execution failures.
+  - Evidence: `formatResolvePlanEvidence` no longer casts latest evidence, resolve-plan JSON serialization switches by variant, and CLI scenario tests cover missing-value and malformed-argument failures in both human and JSON modes without command execution.
+  - Verification: `cd ts/packages/planned-branch && bun test`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Shared content-slug derivation
   - Collapse planned-branch slug and saved-plan filename slug derivation into one reusable helper parameterized by semantic label, prompt wording, and failure text.

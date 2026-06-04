@@ -225,6 +225,54 @@ describe("planned-branch CLI help", () => {
 	});
 });
 
+describe("planned-branch CLI parse failures", () => {
+	test("reports missing flag values as human errors without running commands", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "create", "--slug"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Error: --slug requires a value.\n");
+		expect(run.commands.execCalls).toEqual([]);
+	});
+
+	test("reports missing flag values as JSON errors without running commands", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "create", "--slug", "--format", "json"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(parseJson(run)).toEqual({
+			success: false,
+			error: { code: "planned_branch_error", message: "--slug requires a value." },
+		});
+		expect(run.stderr.join("")).toBe("");
+		expect(run.commands.execCalls).toEqual([]);
+	});
+
+	test("reports malformed arguments as human errors without running commands", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "load-plan", "--bogus"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Error: Unknown option: --bogus\n");
+		expect(run.commands.execCalls).toEqual([]);
+	});
+
+	test("reports malformed arguments as JSON errors without running commands", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "load-plan", "--format", "json", "--bogus"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(parseJson(run)).toEqual({
+			success: false,
+			error: { code: "planned_branch_error", message: "Unknown option: --bogus" },
+		});
+		expect(run.stderr.join("")).toBe("");
+		expect(run.commands.execCalls).toEqual([]);
+	});
+});
+
 describe("planned-branch exec", () => {
 	test("write-plan-file stores stdin content under the planned-branch local store", async () => {
 		const repoRoot = await makeTempDir();
