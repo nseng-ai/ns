@@ -81,35 +81,11 @@ When an objective is closed, add:
 
 Additional narrative sections are allowed when they clarify the work, but avoid turning this file into a task database or branch log.
 
-Optional execution-friendly sections may be added for Objectives that should let `objective-next` offer confirmed execution:
+For standing Objectives with no natural goal-met finish line, `## Completion Criteria` should describe retirement or closure criteria. Standing design rationale lives in [Standing Objectives & Objective Runners](pi/standing-objectives-and-runners.md); agent-facing guidance lives in `skills/objective/references/standing-objectives.md`.
 
-```md
-## Definition of Progress
+Optional execution-friendly `## Definition of Progress` and `## Runner Policy` sections may be added for Objectives that should let `objective-next` offer confirmed execution. Ordinary Objectives may omit these sections. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
 
-Progress is keepable when:
-
-- ...
-
-Do not keep changes that:
-
-- ...
-
-Useful evidence includes:
-
-- ...
-
-## Runner Policy
-
-This Objective is execution-friendly for `objective-next` under the boundaries below.
-
-- Direct execution is allowed when: ...
-- Steer or ask first when: ...
-- Materialization: ...
-- Validation: ...
-- External side effects: ...
-```
-
-Ordinary Objectives may omit these sections. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
+Agent-facing progressive-disclosure details live in skill references: `skills/objective/references/execution-policy.md`, `skills/objective-create/references/execution-friendly-create.md`, and `skills/objective-next/references/confirmed-execution.md`.
 
 ### `roadmap.md`
 
@@ -136,17 +112,7 @@ Use lightweight checkbox notation as narrative roadmap status:
   - Notes: sequencing, constraints, or context.
 ```
 
-Roadmap rows may include slice-local policy and evidence prose:
-
-```md
-- [ ] Example semantic slice.
-  - Policy: direct execution after preview.
-  - Evidence: targeted tests and relevant repo checks pass.
-- [ ] Resolve the terminology boundary.
-  - Policy: steer first; ask the human to choose the canonical term before editing docs.
-```
-
-Row-level `Policy:` notes may override Objective-level execution defaults for that row. They are prose guidance, not machine-readable state.
+Roadmap rows may include slice-local `Policy:` and `Evidence:` prose when the selected slice differs from Objective-level defaults or needs explicit validation expectations. Row-level `Policy:` notes may override Objective-level execution defaults for that row. They are prose guidance, not machine-readable state.
 
 Allowed states:
 
@@ -259,9 +225,9 @@ Contract:
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
 - Create `.asdl/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
 - Write LM-authored initial content using the standardized required headings, including a concrete `## Assumptions and Risks` section.
-- Ask whether the Objective should be planning-only or execution-friendly for `objective-next` after preview.
+- Default to planning-only unless the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point.
 - For planning-only Objectives, omit `## Definition of Progress` and `## Runner Policy` unless the user explicitly asks for them.
-- For execution-friendly Objectives, write optional `## Definition of Progress` and `## Runner Policy` sections with at least: when direct execution is allowed; when to steer/ask first; what counts as keepable progress; and validation/materialization boundaries, including external side-effect policy.
+- For execution-friendly Objectives, write optional `## Definition of Progress` and `## Runner Policy` sections with at least: when direct execution is allowed; when to steer/ask first; what counts as keepable progress; validation/materialization boundaries; and external side-effect policy.
 - Keep initial roadmap rows substantive; put routine validation expectations under semantic rows as expected evidence instead of standalone validation-only items.
 - Use indented `Policy:` and `Evidence:` prose under roadmap rows when slice-local policy or validation expectations differ from Objective-level defaults.
 - Do not create an initial update file; the initial durable files are the birth record.
@@ -276,7 +242,7 @@ User interview:
 - Ask one unresolved question at a time.
 - Include a recommended answer with each question.
 - After each question, ask whether to continue or stop and create the Objective with the context gathered so far.
-- Focus on scope, completion criteria, assumptions, risks, sequencing, closure evidence, and whether durable execution policy should be included.
+- Focus on scope, completion criteria, assumptions, risks, sequencing, closure evidence, and durable execution policy only when requested or surfaced as relevant.
 
 Shipped CLI:
 

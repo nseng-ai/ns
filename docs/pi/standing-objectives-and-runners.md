@@ -6,6 +6,13 @@
 
 This document is a design brief, not the canonical Objective spec. The canonical checked-in Objective mechanics remain in [`docs/objective-system.md`](../objective-system.md).
 
+Agent-facing progressive-disclosure guidance lives in skill references so ordinary Objective workflows do not load standing/runner context by default:
+
+- `skills/objective/references/standing-objectives.md`
+- `skills/objective/references/execution-policy.md`
+- `skills/objective-create/references/execution-friendly-create.md`
+- `skills/objective-next/references/confirmed-execution.md`
+
 ---
 
 ## 1. Core model
