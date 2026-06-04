@@ -310,3 +310,87 @@ def test_cleanup_skill_dir_handles_nonexistent() -> None:
     result = cleanup_skill_dir(f"{tmp_root}/skillx.nonexistent")
     assert result.success is False
     assert "does not exist" in result.error
+
+
+def test_cleanup_skill_dir_refuses_canonical_tmp_escape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    temp_root = tmp_path / "tmp"
+    child = temp_root / "child"
+    child.mkdir(parents=True)
+    outside = tmp_path / "skillx.outside"
+    outside.mkdir()
+    sentinel = outside / "sentinel.txt"
+    sentinel.write_text("keep\n", encoding="utf-8")
+    monkeypatch.setattr("areg.skillx.tempfile.gettempdir", lambda: str(temp_root))
+
+    result = cleanup_skill_dir(str(child / ".." / ".." / outside.name))
+
+    assert result.success is False
+    assert result.error is not None
+    assert "Refusing to remove" in result.error
+    assert sentinel.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_cleanup_skill_dir_refuses_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    temp_root = tmp_path / "tmp"
+    temp_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "sentinel.txt"
+    sentinel.write_text("keep\n", encoding="utf-8")
+    link = temp_root / "skillx.link"
+    link.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr("areg.skillx.tempfile.gettempdir", lambda: str(temp_root))
+
+    result = cleanup_skill_dir(str(link))
+
+    assert result.success is False
+    assert result.error is not None
+    assert "symlink" in result.error
+    assert sentinel.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_cleanup_skill_dir_refuses_non_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    temp_root = tmp_path / "tmp"
+    temp_root.mkdir()
+    target = temp_root / "skillx.file"
+    target.write_text("keep\n", encoding="utf-8")
+    monkeypatch.setattr("areg.skillx.tempfile.gettempdir", lambda: str(temp_root))
+
+    result = cleanup_skill_dir(str(target))
+
+    assert result.success is False
+    assert result.error is not None
+    assert "not a directory" in result.error
+    assert target.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_cleanup_skill_dir_reports_rmtree_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    temp_root = tmp_path / "tmp"
+    target = temp_root / "skillx.fail"
+    target.mkdir(parents=True)
+    monkeypatch.setattr("areg.skillx.tempfile.gettempdir", lambda: str(temp_root))
+
+    def _raise_rmtree(_path: Path) -> None:
+        raise OSError("boom")
+
+    monkeypatch.setattr("areg.skillx.shutil.rmtree", _raise_rmtree)
+
+    result = cleanup_skill_dir(str(target))
+
+    assert result.success is False
+    assert result.error is not None
+    assert "Failed to remove" in result.error
+    assert "boom" in result.error
+    assert target.exists()

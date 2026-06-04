@@ -230,20 +230,16 @@ def cleanup_skill_dir(path: str) -> CleanupResult:
     """Remove a skillx temp directory with safety validation."""
     p = Path(path)
 
-    # Safety: must be under the system temp directory and have skillx. prefix
-    tmp_root = Path(tempfile.gettempdir())
-    try:
-        p.relative_to(tmp_root)
-    except ValueError:
-        return CleanupResult(
-            success=False,
-            error=f"Refusing to remove: {path!r} is not under {tmp_root}",
-        )
-
     if not p.name.startswith("skillx."):
         return CleanupResult(
             success=False,
             error=f"Refusing to remove: {path!r} does not have 'skillx.' prefix",
+        )
+
+    if p.is_symlink():
+        return CleanupResult(
+            success=False,
+            error=f"Refusing to remove: {path!r} is a symlink",
         )
 
     if not p.exists():
@@ -252,7 +248,25 @@ def cleanup_skill_dir(path: str) -> CleanupResult:
             error=f"Directory does not exist: {path!r}",
         )
 
-    shutil.rmtree(p)
+    if not p.is_dir():
+        return CleanupResult(
+            success=False,
+            error=f"Refusing to remove: {path!r} is not a directory",
+        )
+
+    tmp_root = Path(tempfile.gettempdir()).resolve()
+    resolved = p.resolve()
+    if resolved != tmp_root and not resolved.is_relative_to(tmp_root):
+        return CleanupResult(
+            success=False,
+            error=f"Refusing to remove: {path!r} is not under {tmp_root}",
+        )
+
+    try:
+        shutil.rmtree(p)
+    except OSError as e:
+        return CleanupResult(success=False, error=f"Failed to remove {path!r}: {e}")
+
     return CleanupResult(success=True, removed=path)
 
 

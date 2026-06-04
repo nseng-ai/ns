@@ -131,15 +131,76 @@ def _write_text(path: Path, content: str, description: str) -> None:
         raise click.ClickException(f"Failed to write {description} at {path}: {e}") from e
 
 
-def _apply_text_file_plan(plan: TextFilePlan) -> None:
+def _reject_symlink(path: Path, *, description: str) -> None:
+    if path.is_symlink():
+        raise click.ClickException(f"{description} at {path} is a symlink; refusing to manage it.")
+
+
+def _is_under_project(path: Path, *, project_dir: Path) -> bool:
+    return path == project_dir or path.is_relative_to(project_dir)
+
+
+def _require_existing_path_under_project(
+    path: Path,
+    *,
+    project_dir: Path,
+    description: str,
+) -> None:
+    if not path.exists():
+        raise click.ClickException(f"{description} at {path} does not exist.")
+    resolved = path.resolve()
+    if not _is_under_project(resolved, project_dir=project_dir):
+        raise click.ClickException(
+            f"{description} at {path} resolves outside {project_dir}; refusing to manage it."
+        )
+
+
+def _validate_existing_parent(path: Path, *, project_dir: Path) -> None:
+    _reject_symlink(path, description="Parent directory")
+    if not path.is_dir():
+        raise click.ClickException(f"{path} exists but is not a directory.")
+    _require_existing_path_under_project(
+        path,
+        project_dir=project_dir,
+        description="Parent directory",
+    )
+
+
+def _validate_parent_chain(path: Path, *, project_dir: Path) -> None:
+    current = path.parent
+    while not current.exists() and current != project_dir:
+        current = current.parent
+
+    _validate_existing_parent(current, project_dir=project_dir)
+
+
+def _validate_text_write_target(plan: TextWritePlan, *, project_dir: Path) -> None:
+    if plan.path.exists():
+        _reject_symlink(plan.path, description=plan.description)
+        if not plan.path.is_file():
+            raise click.ClickException(f"{plan.path} exists but is not a file.")
+        _require_existing_path_under_project(
+            plan.path,
+            project_dir=project_dir,
+            description=plan.description,
+        )
+        return
+
+    _reject_symlink(plan.path, description=plan.description)
+    _validate_parent_chain(plan.path, project_dir=project_dir)
+
+
+def _apply_text_file_plan(plan: TextFilePlan, *, project_dir: Path) -> None:
     if isinstance(plan, SkippedTextWrite):
         return
 
+    _validate_text_write_target(plan, project_dir=project_dir)
     if plan.create_parent:
         try:
             plan.path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             raise click.ClickException(f"Failed to create {plan.path.parent}: {e}") from e
+        _validate_text_write_target(plan, project_dir=project_dir)
     _write_text(plan.path, plan.content, plan.description)
 
 
@@ -197,6 +258,9 @@ def _plan_managed_block(
     append_prompt: str,
     update_prompt: str,
 ) -> TextFilePlan:
+    if path.is_symlink():
+        _reject_symlink(path, description=path.name)
+
     if not path.exists():
         return TextWritePlan(path=path, content=new_file_content, description=path.name)
 
@@ -300,6 +364,8 @@ def _plan_claude_md(
 ) -> TextFilePlan:
     path = project_dir / "CLAUDE.md"
     include_agents_ref = True
+    if path.is_symlink():
+        _reject_symlink(path, description=path.name)
     if path.exists():
         if not path.is_file():
             raise click.ClickException(f"{path} exists but is not a file.")
@@ -328,6 +394,9 @@ def _plan_claude_md(
 
 def _plan_asdl_toml(project_dir: Path, *, agents: tuple[str, ...]) -> TextWritePlan:
     path = project_dir / ASDL_CONFIG_FILENAME
+    if path.is_symlink():
+        _reject_symlink(path, description=ASDL_CONFIG_FILENAME)
+
     if not path.exists():
         return TextWritePlan(
             path=path,
@@ -410,10 +479,14 @@ def _toml_table_name(line: str) -> str | None:
 
 def _plan_settings(project_dir: Path) -> TextFilePlan:
     claude_dir = project_dir / ".claude"
+    if claude_dir.is_symlink():
+        _reject_symlink(claude_dir, description=".claude")
     if claude_dir.exists() and not claude_dir.is_dir():
         raise click.ClickException(f"{claude_dir} exists but is not a directory.")
 
     settings_path = claude_dir / "settings.local.json"
+    if settings_path.is_symlink():
+        _reject_symlink(settings_path, description=settings_path.name)
     if settings_path.exists():
         if not settings_path.is_file():
             raise click.ClickException(f"{settings_path} exists but is not a file.")
@@ -502,7 +575,7 @@ def init_project_cmd(
         raise click.ClickException(f"npx skills add failed: {e}") from e
 
     for text_file in init_plan.text_files:
-        _apply_text_file_plan(text_file)
+        _apply_text_file_plan(text_file, project_dir=project_dir)
 
     click.echo(f"\nInitialized areg in {project_dir}")
     click.echo("Bootstrap skills installed: skill-management, skillx")
