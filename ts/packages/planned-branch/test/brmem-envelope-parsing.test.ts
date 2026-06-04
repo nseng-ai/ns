@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseBrmemGetContent, parseBrmemListEntries } from "../src/attached-plan.ts";
-import { parseBrmemPutData } from "../src/plan-persistence.ts";
-import { PLAN_BRANCH_NAMESPACE } from "../src/planned-branch-creation.ts";
+import { parseBrmemGetContent, parseBrmemListEntries, parseBrmemPutData } from "../src/brmem-gateway.ts";
+import { PLAN_BRANCH_NAMESPACE } from "../src/constants.ts";
 
 const BRANCH = "planned-branches/branch-scoped-plan";
 const KEY = "branch-scoped-plan.md";

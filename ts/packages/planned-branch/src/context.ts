@@ -1,8 +1,9 @@
 import { spawn, type SpawnOptions } from "node:child_process";
 
-import type { ExecOptions, PlanCommandExecApi } from "./plan-persistence.ts";
+import { RealPlannedBranchBrmemGateway, type PlannedBranchBrmemGateway } from "./brmem-gateway.ts";
 import type { ExecResult } from "./command-runtime.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
+import type { ExecOptions, PlanCommandExecApi } from "./plan-persistence.ts";
 
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;
@@ -10,11 +11,12 @@ const TIMEOUT_EXIT_CODE = 124;
 export interface PlannedBranchContext {
 	commands: PlanCommandExecApi;
 	git: PlannedBranchGitGateway;
+	brmem?: PlannedBranchBrmemGateway | undefined;
 }
 
 export function createRealPlannedBranchContext(): PlannedBranchContext {
 	const commands = new RealCommandExecApi();
-	return { commands, git: new RealPlannedBranchGitGateway(commands) };
+	return { commands, git: new RealPlannedBranchGitGateway(commands), brmem: new RealPlannedBranchBrmemGateway(commands) };
 }
 
 export class RealCommandExecApi implements PlanCommandExecApi {

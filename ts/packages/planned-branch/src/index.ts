@@ -9,6 +9,16 @@ export {
 	type AttachedPlanEntry,
 	type LoadedAttachedPlan,
 } from "./attached-plan.ts";
+export {
+	RealPlannedBranchBrmemGateway,
+	parseBrmemPutData,
+	type BrmemAttachmentPresenceResult,
+	type BrmemErrorInfo,
+	type BrmemGetContent,
+	type BrmemPutData,
+	type BrmemResult,
+	type PlannedBranchBrmemGateway,
+} from "./brmem-gateway.ts";
 export { runCli, type CliDeps } from "./cli.ts";
 export { createRealPlannedBranchContext, RealCommandExecApi, type PlannedBranchContext } from "./context.ts";
 export {

@@ -2,16 +2,9 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import {
-	formatBrmemUnavailableMessage,
-	runFirstAvailableBrmemCommand,
-	type UnavailableBrmemRun,
-} from "./brmem-cli.ts";
 import { formatOutputSection, tailText, type ExecResult } from "./command-runtime.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
-import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 
-const BRMEM_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 
 const GENERIC_SLUG_WORDS = new Set([
@@ -35,29 +28,6 @@ export interface ExecOptions {
 
 export interface PlanCommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-}
-
-interface CompletedBrmemRunForPlan {
-	type: "completed";
-	result: ExecResult;
-	displayCommand: string;
-}
-
-interface BrmemUnavailableRun {
-	type: "unavailable";
-	message: string;
-	failures: readonly UnavailableBrmemRun[];
-}
-
-export type BrmemRun = CompletedBrmemRunForPlan | BrmemUnavailableRun;
-
-export interface BrmemPutData {
-	namespace: string;
-	key: string;
-	branch: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
 }
 
 export function validatePlanSlug(slug: string): string | undefined {
@@ -162,59 +132,6 @@ export async function resolveGitRepoRoot(pi: PlanCommandExecApi, options: Resolv
 	return root.type === "found" ? resolve(root.value) : undefined;
 }
 
-export interface RunBrmemOptions {
-	cwd: string;
-	args: string[];
-	signal?: AbortSignal | undefined;
-}
-
-export async function runBrmem(pi: PlanCommandExecApi, options: RunBrmemOptions): Promise<BrmemRun> {
-	const run = await runFirstAvailableBrmemCommand({
-		gateway: pi,
-		cwd: options.cwd,
-		brmemArgs: options.args,
-		timeoutMs: BRMEM_TIMEOUT_MS,
-		signal: options.signal,
-	});
-	if (run.type === "unavailable") {
-		return {
-			type: "unavailable",
-			message: formatBrmemUnavailableMessage(run.failures),
-			failures: run.failures,
-		};
-	}
-	return { type: "completed", result: run.result, displayCommand: run.displayCommand };
-}
-
-export function parseBrmemPutData(stdout: string): BrmemPutData {
-	const data = parseMachineEnvelopeData(stdout, {
-		label: "brmem put JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
-	});
-
-	const namespace = data.namespace;
-	const key = data.key;
-	const branch = data.branch;
-	const refName = data.ref_name;
-	const commit = data.commit;
-	const sourceFile = data.source_file;
-	if (
-		typeof namespace !== "string" ||
-		typeof key !== "string" ||
-		typeof branch !== "string" ||
-		typeof refName !== "string" ||
-		typeof commit !== "string" ||
-		typeof sourceFile !== "string"
-	) {
-		throw malformedBrmemPutData(
-			stdout,
-			"expected string fields data.namespace, data.key, data.branch, data.ref_name, data.commit, and data.source_file",
-		);
-	}
-
-	return { namespace, key, branch, refName, commit, sourceFile };
-}
-
 export function normalizeSummary(summary: string | undefined): string | undefined {
 	if (summary === undefined) {
 		return undefined;
@@ -236,19 +153,11 @@ export function formatCommandFailure(title: string, displayCommand: string, resu
 	);
 }
 
-function malformedBrmemPutData(stdout: string, reason: string): Error {
-	return new Error(`Malformed brmem put JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
-}
-
 async function realpathIfPossible(path: string): Promise<string> {
 	try {
 		return await realpath(path);
 	} catch {
 		return resolve(path);
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
