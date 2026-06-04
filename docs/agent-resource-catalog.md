@@ -10,8 +10,8 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
-| First-party skill commands               |    41 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    22 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| First-party skill commands               |    44 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
+| Project Pi extension commands            |    21 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     3 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -84,6 +84,9 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:objective-stack-impl`             | `skills/objective-stack-impl/SKILL.md`             | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
 | `/skill:objective-update`                 | `skills/objective-update/SKILL.md`                 | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
 | `/skill:pi-grill-ui`                      | `skills/pi-grill-ui/SKILL.md`                      | Internal backend skill for the Pi `/grill-ui` structured-question extension.                                        |
+| `/skill:planned-branch-write-plan`        | `skills/planned-branch-write-plan/SKILL.md`        | Writes, reviews, and saves a planned-branch implementation plan through the `planned-branch` CLI.                   |
+| `/skill:planned-branch-create`            | `skills/planned-branch-create/SKILL.md`            | Creates a planned implementation branch from a saved plan and attaches it through the `planned-branch` CLI.         |
+| `/skill:planned-branch-impl`              | `skills/planned-branch-impl/SKILL.md`              | Loads an attached planned-branch plan through the `planned-branch` CLI before implementation.                       |
 | `/skill:pr-address`                       | `skills/pr-address/SKILL.md`                       | Addresses current-branch PR review feedback end-to-end without pushing.                                             |
 
 ## Skill installation surfaces
@@ -95,29 +98,29 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## Project Pi extension commands
 
-| Command                  | Source                             | Description                                                                                         |
-| ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `/handoff:create`        | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
-| `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
-| `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
-| `/code:changes`          | `.pi/extensions/code.ts`           | Summarizes outstanding worktree changes without committing.                                         |
-| `/code:cp`               | `.pi/extensions/code.ts`           | Mirrors `asdl-dev cp` to create a checkpoint commit for the current diff.                           |
-| `/code:submit`           | `.pi/extensions/code.ts`           | Mirrors `asdl-dev submit` to submit or update the current Graphite stack with headless guards.      |
-| `/code:autobranch`       | `.pi/extensions/code.ts`           | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
-| `/code:land`             | `.pi/extensions/code.ts`           | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
-| `/code:land-stack`       | `.pi/extensions/code.ts`           | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
-| `/dev:preview-url`       | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
-| `/grill-ui`              | `.pi/extensions/grill-ui.ts`       | Starts a grill-me session using the structured `grill_ask` question UI.                             |
-| `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
-| `/roast`                 | `.pi/extensions/roast.ts`          | Runs matching roaster reviewers for the current branch diff through the local `roaster` CLI.        |
-| `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
-| `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` to recommend, steer, or preview execution.   |
-| `/objective:current`     | `.pi/extensions/objective.ts`      | Picks an Objective and invokes `objective-current` for the selected slug.                           |
-| `/objective:update`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-update` for the selected slug.                     |
-| `/objective:stack-impl`  | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes the portable Objective stack implementation skill.            |
-| `/write-plan`            | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
-| `/create-planned-branch` | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
-| `/impl-planned-branch`   | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
+| Command                      | Source                             | Description                                                                                         |
+| ---------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `/handoff:create`            | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
+| `/handoff:pickup`            | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
+| `/handoff:list`              | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
+| `/code:changes`              | `.pi/extensions/code.ts`           | Summarizes outstanding worktree changes without committing.                                         |
+| `/code:cp`                   | `.pi/extensions/code.ts`           | Mirrors `asdl-dev cp` to create a checkpoint commit for the current diff.                           |
+| `/code:submit`               | `.pi/extensions/code.ts`           | Mirrors `asdl-dev submit` to submit or update the current Graphite stack with headless guards.      |
+| `/code:autobranch`           | `.pi/extensions/code.ts`           | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
+| `/code:land`                 | `.pi/extensions/code.ts`           | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
+| `/code:land-stack`           | `.pi/extensions/code.ts`           | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
+| `/dev:preview-url`           | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
+| `/grill-ui`                  | `.pi/extensions/grill-ui.ts`       | Starts a grill-me session using the structured `grill_ask` question UI.                             |
+| `/just`                      | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
+| `/roast`                     | `.pi/extensions/roast.ts`          | Runs matching roaster reviewers for the current branch diff through the local `roaster` CLI.        |
+| `/objective:list`            | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
+| `/objective:next`            | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` to recommend, steer, or preview execution.   |
+| `/objective:current`         | `.pi/extensions/objective.ts`      | Picks an Objective and invokes `objective-current` for the selected slug.                           |
+| `/objective:update`          | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-update` for the selected slug.                     |
+| `/objective:stack-impl`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes the portable Objective stack implementation skill.            |
+| `/planned-branch:write-plan` | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
+| `/planned-branch:create`     | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
+| `/planned-branch:impl`       | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
 
 ## Project Pi custom tools
 
@@ -131,20 +134,23 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 | Family                | Disposition                                                                                                                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planned branches      | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.                  |
+| Planned branches      | Final first-party surface: `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`, `/skill:planned-branch-write-plan`, `/skill:planned-branch-create`, and `/skill:planned-branch-impl` over the `planned-branch` CLI.       |
 | Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained. |
 | Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                |
 | Structured grill UI   | Retain `/grill-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills.                                               |
 | Objective execution   | General Objective execution is folded into `objective-next` behind explicit Runner Policy and preview confirmation. `objective-stack-impl` remains the specialized stack implementation runner.                                                      |
 
-## Engineered Pi extension package
+## Engineered TypeScript packages
 
-| Artifact                                 | Description                                                                                                                             |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `ts/packages/pi-extensions/package.json` | Defines the private TypeScript workspace package that holds tested implementations for project-local Pi behavior.                       |
-| `ts/packages/pi-extensions/CONTEXT.md`   | Defines the package's domain language for discovery adapters, engineered behavior, planned branches, checkpoints, and runner subagents. |
-| `ts/packages/pi-extensions/src/`         | Contains the tested implementation modules used by the thin `.pi/extensions/*.ts` discovery adapters.                                   |
-| `ts/packages/pi-extensions/test/`        | Contains Bun tests for the engineered Pi extension package and its promoted workflows.                                                  |
+| Artifact                                  | Description                                                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ts/packages/planned-branch/package.json` | Defines the `@asdl/planned-branch` package and `planned-branch` bin used by Pi and Claude skills for saved-plan and attached-plan operations. |
+| `ts/packages/planned-branch/src/`         | Contains the hidden `planned-branch exec` CLI operations, local plan store helpers, branch creation, and attached-plan loading.               |
+| `ts/packages/planned-branch/test/`        | Contains Bun scenario tests for the `planned-branch` CLI contract.                                                                            |
+| `ts/packages/pi-extensions/package.json`  | Defines the private TypeScript workspace package that holds tested implementations for project-local Pi behavior.                             |
+| `ts/packages/pi-extensions/CONTEXT.md`    | Defines the package's domain language for discovery adapters, engineered behavior, planned branches, checkpoints, and runner subagents.       |
+| `ts/packages/pi-extensions/src/`          | Contains the tested implementation modules used by the thin `.pi/extensions/*.ts` discovery adapters.                                         |
+| `ts/packages/pi-extensions/test/`         | Contains Bun tests for the engineered Pi extension package and its promoted workflows.                                                        |
 
 ## Claude workflow artifacts
 
@@ -174,19 +180,19 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## Harness-facing documentation and specs
 
-| Artifact                                                | Description                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance. |
-| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored under domain-specific Pi namespaces.      |
-| `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                       |
-| `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.        |
-| `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                            |
-| `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow from saved plans to implementation branches and Branch Memory attachments.              |
-| `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                    |
-| `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                        |
-| `docs/internal-code-gh-skill-trim-plan.md`              | Historical plan for trimming the GitHub CLI skill; current skill name is `internal-code-gh`.                              |
-| `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                            |
-| `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                    |
+| Artifact                                                | Description                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance.                         |
+| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored under domain-specific Pi namespaces.                              |
+| `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                                               |
+| `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.                                |
+| `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                                                    |
+| `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow, `@asdl/planned-branch` CLI operations, Pi commands, Claude skills, local store, and Branch Memory attachments. |
+| `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                                            |
+| `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                                                |
+| `docs/internal-code-gh-skill-trim-plan.md`              | Historical plan for trimming the GitHub CLI skill; current skill name is `internal-code-gh`.                                                      |
+| `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                                                    |
+| `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                                            |
 
 ## Absent first-party surfaces
 

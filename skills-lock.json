@@ -183,6 +183,21 @@
       "sourceType": "local",
       "computedHash": "f49cbadcf884d3789a473b1c0051f9e1ea314f943391675ef4e7b90935678d78"
     },
+    "planned-branch-create": {
+      "source": "skills/planned-branch-create",
+      "sourceType": "local",
+      "computedHash": "d1841aea32260d284e5e44d49697931c2e7aa9840f36aac1a7b7364dff7b0681"
+    },
+    "planned-branch-impl": {
+      "source": "skills/planned-branch-impl",
+      "sourceType": "local",
+      "computedHash": "ba4510d57af7762e2d51728926551ff7a74966faafceeb244b7f14943d084b85"
+    },
+    "planned-branch-write-plan": {
+      "source": "skills/planned-branch-write-plan",
+      "sourceType": "local",
+      "computedHash": "858b06e8ec48835b7849241ca3bf949eb1193afa2828f5216ea27ec59a43b7c5"
+    },
     "pr-address": {
       "source": "skills/pr-address",
       "sourceType": "local",
