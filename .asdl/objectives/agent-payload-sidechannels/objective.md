@@ -161,3 +161,5 @@ Completed. The Objective landed the payload artifact and prompt-pluggability ste
 The final scope decision is that validation-before-acting is sufficient for `pr-address` v1. The shared payload store reserves `.summary.json` artifacts, but no supported classification-summary write command is needed until a future reload/replay workflow appears.
 
 Closure evidence is recorded in the roadmap and Semantic Updates, including focused payload, prompt, payload, selected-detail, classification, schema-command, Ruff, `ty`, dprint, and diff-check validation. Remaining ideas are parked or future-objective material rather than active work for this Objective.
+
+Supersession note: terminology cleanup that remains after closure is tracked by the new `agent-payload-artifacts` Objective. This closed Objective keeps its original slug as historical identity rather than being renamed.
