@@ -5,6 +5,7 @@ standalone CLI entry point that users and skills invoke directly.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -43,12 +44,25 @@ def _invoke(
     cli_group: ClinkrGroup,
     args: list[str],
     fake: FakePRGateway,
+    *,
+    env: dict[str, str | None] | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = _ctx(fake)
-    result = runner.invoke(cli_group, args, obj=_obj(ctx))
+    result = runner.invoke(cli_group, args, obj=_obj(ctx), env=env)
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
+
+
+def _payload_env(tmp_path: Path, *, session_id: str = "session1") -> dict[str, str]:
+    return {
+        "ASDL_PAYLOAD_ROOT": str(tmp_path / "payload-root"),
+        "ASDL_PAYLOAD_SESSION_ID": session_id,
+    }
+
+
+def _read_raw_payload(data: dict) -> dict:
+    return json.loads(Path(data["payload_reference"]["payload_path"]).read_text(encoding="utf-8"))
 
 
 def _summary_pr(number: int = 42) -> PRSummary:
@@ -298,9 +312,14 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
         discussion_comments={42: comments},
     )
 
-    exit_code, output = _invoke(cli_group, ["exec", "get-feedback", "42"], fake)
+    exit_code, output = _invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--payload-mode", "inline"],
+        fake,
+    )
 
     assert exit_code == 0
+    assert output["payload_mode"] == "inline"
     assert output["pr_number"] == 42
     # All reviews pass through unfiltered — including APPROVED.
     assert len(output["reviews"]) == 2
@@ -321,29 +340,222 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
 def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
     fake = FakePRGateway()
 
-    exit_code, output = _invoke(cli_group, ["exec", "get-feedback", "99"], fake)
+    exit_code, output = _invoke(
+        cli_group,
+        ["exec", "get-feedback", "99", "--payload-mode", "inline"],
+        fake,
+    )
 
     assert exit_code == 0
+    assert output["payload_mode"] == "inline"
     assert output["pr_number"] == 99
     assert output["reviews"] == []
     assert output["review_threads"] == []
     assert output["discussion_comments"] == []
 
 
-def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
+def test_get_feedback_inline_json_mode_succeeds_without_payload_session(
+    cli_group: ClinkrGroup,
+) -> None:
     fake = FakePRGateway()
     ctx = _ctx(fake)
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["exec", "get-feedback", "99", "--format", "json"],
+        ["exec", "get-feedback", "99", "--payload-mode", "inline", "--format", "json"],
         obj=_obj(ctx),
+        env={"ASDL_PAYLOAD_SESSION_ID": None},
     )
 
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["exit_code"] == 0
+    assert output["data"]["payload_mode"] == "inline"
     assert output["data"]["pr_number"] == 99
+
+
+def test_get_feedback_default_sidecar_json_mode_writes_raw_payload(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    review_body = "REVIEW_BODY_SENTINEL please fix the workflow"
+    thread_body = "THREAD_BODY_SENTINEL add focused tests"
+    discussion_body = "DISCUSSION_BODY_SENTINEL stack metadata"
+    fake = FakePRGateway(
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body=review_body,
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2025-01-01T00:00:00Z",
+                )
+            ]
+        },
+        review_threads={
+            42: [
+                PRReviewThread(
+                    id="PRRT_1",
+                    path="file.py",
+                    line=10,
+                    start_line=8,
+                    is_resolved=False,
+                    is_outdated=False,
+                    comments=(
+                        PRReviewComment(
+                            id=7,
+                            body=thread_body,
+                            author="reviewer",
+                            path="file.py",
+                            line=10,
+                            start_line=8,
+                            created_at="2025-01-01T00:00:00Z",
+                        ),
+                    ),
+                )
+            ]
+        },
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=11,
+                    author="Graphite Automations",
+                    body=discussion_body,
+                    url="https://example.com/11",
+                )
+            ]
+        },
+    )
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        env=_payload_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert review_body not in result.output
+    assert thread_body not in result.output
+    assert discussion_body not in result.output
+    output = json.loads(result.output)
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["payload_mode"] == "sidecar"
+    assert data["pr_number"] == 42
+    assert data["payload_reference"]["descriptor"] == "pr-address-get-feedback-pr-42"
+    assert data["payload_reference"]["role"] == "raw"
+    assert data["counts"] == {
+        "reviews": 1,
+        "review_threads": 1,
+        "unresolved_review_threads": 1,
+        "resolved_review_threads": 0,
+        "thread_comments": 1,
+        "discussion_comments": 1,
+    }
+    assert data["reviews"][0]["body_locator"] == {
+        "body_chars": len(review_body),
+        "json_pointer": "/data/reviews/0/body",
+        "item_pointer": "/data/reviews/0",
+        "domain": {
+            "kind": "review",
+            "review_id": "PRR_1",
+            "thread_id": None,
+            "comment_id": None,
+            "discussion_comment_id": None,
+            "comment_index": None,
+            "path": None,
+            "line": None,
+            "start_line": None,
+            "is_resolved": None,
+            "is_outdated": None,
+            "author": "reviewer",
+        },
+    }
+    assert data["review_threads"][0]["comments"][0]["body_locator"]["json_pointer"] == (
+        "/data/review_threads/0/comments/0/body"
+    )
+    assert data["review_threads"][0]["comments"][0]["body_locator"]["body_chars"] == len(
+        thread_body
+    )
+    assert data["discussion_comments"][0]["body_locator"]["json_pointer"] == (
+        "/data/discussion_comments/0/body"
+    )
+    assert data["discussion_comments"][0]["body_locator"]["body_chars"] == len(discussion_body)
+
+    raw_payload = _read_raw_payload(data)
+    assert raw_payload["exit_code"] == 0
+    assert raw_payload["data"]["payload_mode"] == "inline"
+    assert raw_payload["data"]["reviews"][0]["body"] == review_body
+    assert raw_payload["data"]["review_threads"][0]["comments"][0]["body"] == thread_body
+    assert raw_payload["data"]["discussion_comments"][0]["body"] == discussion_body
+
+
+def test_get_feedback_default_sidecar_human_mode_omits_bodies(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    body = "HUMAN_MODE_BODY_SENTINEL"
+    fake = FakePRGateway(
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body=body,
+                    state="COMMENTED",
+                    submitted_at="2025-01-01T00:00:00Z",
+                )
+            ]
+        }
+    )
+
+    exit_code, output = _invoke(
+        cli_group,
+        ["exec", "get-feedback", "42"],
+        fake,
+        env=_payload_env(tmp_path),
+    )
+
+    assert exit_code == 0
+    assert output["payload_mode"] == "sidecar"
+    assert output["reviews"][0]["body_locator"]["body_chars"] == len(body)
+    assert "body" not in output["reviews"][0]
+    raw_payload = _read_raw_payload(output)
+    assert raw_payload["data"]["reviews"][0]["body"] == body
+
+
+def test_get_feedback_default_sidecar_requires_payload_session(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["get-feedback", "42"],
+        fake,
+        env={"ASDL_PAYLOAD_SESSION_ID": None},
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "payload_session_required"
+    assert "data" not in output
+
+
+def test_get_feedback_default_sidecar_rejects_invalid_payload_session(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["get-feedback", "42", "--payload-session-id", "BadSession"],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "payload_session_invalid"
+    assert "data" not in output
 
 
 # -- summarize-feedback --
@@ -907,6 +1119,8 @@ def _invoke_json(
     cli_group: ClinkrGroup,
     args: list[str],
     fake: FakePRGateway,
+    *,
+    env: dict[str, str | None] | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = _ctx(fake)
@@ -914,6 +1128,7 @@ def _invoke_json(
         cli_group,
         ["exec", *args, "--format", "json"],
         obj=_obj(ctx),
+        env=env,
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
@@ -1162,13 +1377,26 @@ def test_get_feedback_include_resolved(cli_group: ClinkrGroup) -> None:
     ]
 
     fake_default = FakePRGateway(review_threads={42: threads})
-    exit_default, output_default = _invoke(cli_group, ["exec", "get-feedback", "42"], fake_default)
+    exit_default, output_default = _invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--payload-mode", "inline"],
+        fake_default,
+    )
     assert exit_default == 0
     assert [t["id"] for t in output_default["review_threads"]] == ["PRRT_1"]
 
     fake_all = FakePRGateway(review_threads={42: threads})
     exit_all, output_all = _invoke(
-        cli_group, ["exec", "get-feedback", "42", "--include-resolved"], fake_all
+        cli_group,
+        [
+            "exec",
+            "get-feedback",
+            "42",
+            "--include-resolved",
+            "--payload-mode",
+            "inline",
+        ],
+        fake_all,
     )
     assert exit_all == 0
     assert {t["id"] for t in output_all["review_threads"]} == {"PRRT_1", "PRRT_2"}
@@ -1206,7 +1434,11 @@ def test_get_feedback_filters_empty_reviews_by_default(cli_group: ClinkrGroup) -
         ),
     ]
     fake_default = FakePRGateway(reviews={42: reviews})
-    exit_default, output_default = _invoke(cli_group, ["exec", "get-feedback", "42"], fake_default)
+    exit_default, output_default = _invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--payload-mode", "inline"],
+        fake_default,
+    )
     assert exit_default == 0
     assert [r["id"] for r in output_default["reviews"]] == [
         "PRR_signal_commented",
@@ -1215,7 +1447,16 @@ def test_get_feedback_filters_empty_reviews_by_default(cli_group: ClinkrGroup) -
 
     fake_all = FakePRGateway(reviews={42: reviews})
     exit_all, output_all = _invoke(
-        cli_group, ["exec", "get-feedback", "42", "--include-empty-reviews"], fake_all
+        cli_group,
+        [
+            "exec",
+            "get-feedback",
+            "42",
+            "--include-empty-reviews",
+            "--payload-mode",
+            "inline",
+        ],
+        fake_all,
     )
     assert exit_all == 0
     assert [r["id"] for r in output_all["reviews"]] == [
