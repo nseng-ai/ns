@@ -22,33 +22,7 @@ Gather at least:
 
 ## Placement and template
 
-Place optional sections after `## Completion Criteria`:
-
-```md
-## Definition of Progress
-
-Progress is keepable when:
-
-- ...
-
-Do not keep changes that:
-
-- ...
-
-Useful evidence includes:
-
-- ...
-
-## Runner Policy
-
-This Objective is execution-friendly for `objective-next` under the boundaries below.
-
-- Direct execution is allowed when: ...
-- Steer or ask first when: ...
-- Materialization: ...
-- Validation: ...
-- External side effects: ...
-```
+Place the optional `## Definition of Progress` and `## Runner Policy` sections after `## Completion Criteria`, using the template in `skills/objective/references/execution-policy.md`.
 
 Use durable prose. Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 

@@ -21,17 +21,7 @@ Active root:
   closed.md  # optional marker
 ```
 
-Archive root:
-
-```text
-.asdl/objective-archive/<slug>/
-  objective.md
-  roadmap.md
-  updates/
-  closed.md  # optional marker, preserved when present
-```
-
-Do not use `docs/objectives/`.
+The archive root mirrors this layout under `.asdl/objective-archive/<slug>/`; the `closed.md` marker is preserved when present. Do not use `docs/objectives/`.
 
 Archive state is represented by location. `objective archive <slug>` moves the whole record out of active discovery; `objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
 
