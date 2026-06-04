@@ -20,6 +20,9 @@ from asdl_pr_address.cli.pr_address.resolve_thread_batch import run_resolve_thre
 from asdl_pr_address.cli.pr_address.resolve_thread_with_reply import run_resolve_thread_with_reply
 from asdl_pr_address.cli.pr_address.summarize_feedback import run_summarize_feedback
 from asdl_pr_address.cli.pr_address.unresolve_thread import run_unresolve_thread
+from asdl_pr_address.cli.pr_address.validate_feedback_classification import (
+    run_validate_feedback_classification,
+)
 
 
 def build_pr_address_group() -> ClinkrGroup:
@@ -44,6 +47,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_resolve_thread_with_reply,
             run_summarize_feedback,
             run_unresolve_thread,
+            run_validate_feedback_classification,
         ],
         hidden=True,
     )

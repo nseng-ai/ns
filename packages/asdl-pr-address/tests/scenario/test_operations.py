@@ -65,6 +65,60 @@ def _read_raw_payload(data: dict) -> dict:
     return json.loads(Path(data["payload_reference"]["payload_path"]).read_text(encoding="utf-8"))
 
 
+def _locator_ref(locator: dict) -> dict:
+    return {
+        "json_pointer": locator["json_pointer"],
+        "item_pointer": locator["item_pointer"],
+    }
+
+
+def _complete_classification_packet(manifest: dict) -> dict:
+    return {
+        "schema_version": 1,
+        "reviews": [
+            {
+                "review_id": review["id"],
+                "disposition": "informational",
+                "body_locator": _locator_ref(review["body_locator"]),
+                "summary": "Top-level review was accounted for.",
+                "informational_reason": "acknowledgement",
+            }
+            for review in manifest["reviews"]
+        ],
+        "review_threads": [
+            {
+                "thread_id": thread["thread_id"],
+                "disposition": "actionable",
+                "thread_item_pointer": thread["item_pointer"],
+                "covered_comments": [
+                    {
+                        "comment_id": comment["id"],
+                        "body_locator": _locator_ref(comment["body_locator"]),
+                    }
+                    for comment in thread["comments"]
+                ],
+                "summary": "Inline review thread requires a code change.",
+                "action_summary": "Apply the requested inline review change.",
+                "complexity": "local",
+            }
+            for thread in manifest["review_threads"]
+            if not thread["is_resolved"]
+        ],
+        "discussion_comments": [
+            {
+                "comment_id": comment["comment_id"],
+                "disposition": "actionable",
+                "body_locator": _locator_ref(comment["body_locator"]),
+                "summary": "Discussion comment requires a follow-up reply.",
+                "action_summary": "Reply after addressing the request.",
+                "complexity": "single_file",
+                "needs_reply": True,
+            }
+            for comment in manifest["discussion_comments"]
+        ],
+    }
+
+
 def _summary_pr(number: int = 42) -> PRSummary:
     return PRSummary(
         number=number,
@@ -489,6 +543,152 @@ def test_get_feedback_default_sidecar_json_mode_writes_raw_payload(
     assert raw_payload["data"]["reviews"][0]["body"] == review_body
     assert raw_payload["data"]["review_threads"][0]["comments"][0]["body"] == thread_body
     assert raw_payload["data"]["discussion_comments"][0]["body"] == discussion_body
+
+
+def test_validate_feedback_classification_command_accepts_complete_get_feedback_packet(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway(
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body="Please account for this review.",
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2025-01-01T00:00:00Z",
+                )
+            ]
+        },
+        review_threads={
+            42: [
+                PRReviewThread(
+                    id="PRRT_1",
+                    path="file.py",
+                    line=10,
+                    start_line=8,
+                    is_resolved=False,
+                    is_outdated=False,
+                    comments=(
+                        PRReviewComment(
+                            id=7,
+                            body="Add focused tests here.",
+                            author="reviewer",
+                            path="file.py",
+                            line=10,
+                            start_line=8,
+                            created_at="2025-01-01T00:00:00Z",
+                        ),
+                    ),
+                )
+            ]
+        },
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=11,
+                    author="reviewer",
+                    body="Please reply when fixed.",
+                    url="https://example.com/11",
+                )
+            ]
+        },
+    )
+    runner = CliRunner()
+    get_result = runner.invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        env=_payload_env(tmp_path),
+    )
+    assert get_result.exit_code == 0, get_result.output
+    manifest = json.loads(get_result.output)["data"]
+    packet = _complete_classification_packet(manifest)
+
+    validate_result = runner.invoke(
+        cli_group,
+        ["exec", "validate-feedback-classification", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        input=json.dumps({"manifest": manifest, "classification": packet}),
+    )
+
+    assert validate_result.exit_code == 0, validate_result.output
+    output = json.loads(validate_result.output)
+    assert output["exit_code"] == 0
+    assert output["data"]["valid"] is True
+    assert output["data"]["counts"]["thread_comments_covered"] == 1
+
+
+def test_validate_feedback_classification_command_returns_negative_for_incomplete_packet(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway(
+        review_threads={
+            42: [
+                PRReviewThread(
+                    id="PRRT_1",
+                    path="file.py",
+                    line=10,
+                    start_line=8,
+                    is_resolved=False,
+                    is_outdated=False,
+                    comments=(
+                        PRReviewComment(
+                            id=7,
+                            body="Add focused tests here.",
+                            author="reviewer",
+                            path="file.py",
+                            line=10,
+                            start_line=8,
+                            created_at="2025-01-01T00:00:00Z",
+                        ),
+                    ),
+                )
+            ]
+        }
+    )
+    runner = CliRunner()
+    get_result = runner.invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        env=_payload_env(tmp_path),
+    )
+    assert get_result.exit_code == 0, get_result.output
+    manifest = json.loads(get_result.output)["data"]
+    packet = _complete_classification_packet(manifest)
+    packet["review_threads"] = []
+
+    validate_result = runner.invoke(
+        cli_group,
+        ["exec", "validate-feedback-classification", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        input=json.dumps({"manifest": manifest, "classification": packet}),
+    )
+
+    assert validate_result.exit_code == 1, validate_result.output
+    output = json.loads(validate_result.output)
+    assert output["exit_code"] == 1
+    assert output["data"]["valid"] is False
+    assert "missing_thread" in {error["code"] for error in output["data"]["errors"]}
+
+
+def test_validate_feedback_classification_command_rejects_invalid_json(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "validate-feedback-classification", "--format", "json"],
+        obj=_obj(_ctx(FakePRGateway())),
+        input="{",
+    )
+
+    assert result.exit_code == 2, result.output
+    output = json.loads(result.output)
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_json"
 
 
 def test_get_feedback_default_sidecar_human_mode_omits_bodies(
