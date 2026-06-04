@@ -525,6 +525,262 @@ def test_get_feedback_default_sidecar_human_mode_omits_bodies(
     assert raw_payload["data"]["reviews"][0]["body"] == body
 
 
+def test_read_feedback_detail_reads_get_feedback_review_body(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    review_body = "READ_DETAIL_REVIEW_BODY_SENTINEL please fix the workflow"
+    thread_body = "READ_DETAIL_THREAD_BODY_SENTINEL add focused tests"
+    discussion_body = "READ_DETAIL_DISCUSSION_BODY_SENTINEL stack metadata"
+    fake = FakePRGateway(
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body=review_body,
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2025-01-01T00:00:00Z",
+                )
+            ]
+        },
+        review_threads={42: [_summary_thread("PRRT_1", body=thread_body)]},
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=11,
+                    author="Graphite Automations",
+                    body=discussion_body,
+                    url="https://example.com/11",
+                )
+            ]
+        },
+    )
+
+    get_exit, get_output = _invoke_json(
+        cli_group,
+        ["get-feedback", "42"],
+        fake,
+        env=_payload_env(tmp_path),
+    )
+    assert get_exit == 0
+    manifest = get_output["data"]
+    payload_path = manifest["payload_reference"]["payload_path"]
+    json_pointer = manifest["reviews"][0]["body_locator"]["json_pointer"]
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            payload_path,
+            "--json-pointer",
+            json_pointer,
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 0
+    detail = detail_output["data"]
+    assert detail == {
+        "payload_path": payload_path,
+        "json_pointer": json_pointer,
+        "detail_kind": "review_body",
+        "value": review_body,
+    }
+    detail_json = json.dumps(detail_output)
+    assert thread_body not in detail_json
+    assert discussion_body not in detail_json
+
+
+def test_read_feedback_detail_reads_get_feedback_thread_comment_item(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    thread_body = "READ_DETAIL_THREAD_COMMENT_ITEM_SENTINEL add focused tests"
+    fake = FakePRGateway(review_threads={42: [_summary_thread("PRRT_1", body=thread_body)]})
+
+    get_exit, get_output = _invoke_json(
+        cli_group,
+        ["get-feedback", "42"],
+        fake,
+        env=_payload_env(tmp_path),
+    )
+    assert get_exit == 0
+    manifest = get_output["data"]
+    payload_path = manifest["payload_reference"]["payload_path"]
+    json_pointer = manifest["review_threads"][0]["comments"][0]["body_locator"]["item_pointer"]
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            payload_path,
+            "--json-pointer",
+            json_pointer,
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 0
+    detail = detail_output["data"]
+    assert detail["payload_path"] == payload_path
+    assert detail["json_pointer"] == json_pointer
+    assert detail["detail_kind"] == "thread_comment"
+    assert detail["value"]["id"] == 1
+    assert detail["value"]["author"] == "reviewer"
+    assert detail["value"]["body"] == thread_body
+    assert detail["value"]["path"] == "src/app.py"
+
+
+def test_read_feedback_detail_rejects_broad_pointer(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway(review_threads={42: [_summary_thread("PRRT_1")]})
+    get_exit, get_output = _invoke_json(
+        cli_group,
+        ["get-feedback", "42"],
+        fake,
+        env=_payload_env(tmp_path),
+    )
+    assert get_exit == 0
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            get_output["data"]["payload_reference"]["payload_path"],
+            "--json-pointer",
+            "/data",
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 2
+    assert detail_output["exit_code"] == 2
+    assert detail_output["error_type"] == "invalid_request"
+
+
+def test_read_feedback_detail_rejects_missing_payload(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    missing_payload = (
+        tmp_path
+        / "payload-root"
+        / "sessions"
+        / "session1"
+        / "payloads"
+        / "20260603t123456z-0001-missing.raw.json"
+    )
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            str(missing_payload),
+            "--json-pointer",
+            "/data/reviews/0/body",
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 2
+    assert detail_output["exit_code"] == 2
+    assert detail_output["error_type"] == "payload_lookup_failed"
+
+
+def test_read_feedback_detail_rejects_non_raw_sidecar(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    payload_dir = tmp_path / "payload-root" / "sessions" / "session1" / "payloads"
+    payload_dir.mkdir(parents=True)
+    summary_path = payload_dir / "20260603t123456z-0001-probe.summary.json"
+    summary_path.write_text(
+        json.dumps({"exit_code": 0, "data": {"reviews": [{"body": "summary"}]}}),
+        encoding="utf-8",
+    )
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            str(summary_path),
+            "--json-pointer",
+            "/data/reviews/0/body",
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 2
+    assert detail_output["exit_code"] == 2
+    assert detail_output["error_type"] == "payload_lookup_failed"
+
+
+def test_read_feedback_detail_rejects_failed_raw_envelope(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    payload_dir = tmp_path / "payload-root" / "sessions" / "session1" / "payloads"
+    payload_dir.mkdir(parents=True)
+    raw_path = payload_dir / "20260603t123456z-0001-probe.raw.json"
+    raw_path.write_text(
+        json.dumps({"exit_code": 2, "data": {"reviews": [{"body": "failed"}]}}),
+        encoding="utf-8",
+    )
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            str(raw_path),
+            "--json-pointer",
+            "/data/reviews/0/body",
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 2
+    assert detail_output["exit_code"] == 2
+    assert detail_output["error_type"] == "payload_lookup_failed"
+
+
+def test_read_feedback_detail_rejects_body_type_mismatch(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    payload_dir = tmp_path / "payload-root" / "sessions" / "session1" / "payloads"
+    payload_dir.mkdir(parents=True)
+    raw_path = payload_dir / "20260603t123456z-0001-probe.raw.json"
+    raw_path.write_text(
+        json.dumps({"exit_code": 0, "data": {"reviews": [{"body": {"not": "string"}}]}}),
+        encoding="utf-8",
+    )
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            str(raw_path),
+            "--json-pointer",
+            "/data/reviews/0/body",
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 2
+    assert detail_output["exit_code"] == 2
+    assert detail_output["error_type"] == "payload_lookup_failed"
+
+
 def test_get_feedback_default_sidecar_requires_payload_session(
     cli_group: ClinkrGroup,
 ) -> None:
