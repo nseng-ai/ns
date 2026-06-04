@@ -1,7 +1,7 @@
 import { formatCommand } from "../command-runtime.ts";
 import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
-import { fail } from "./errors.ts";
+import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { collectPrSubmitRequirements, loadPr, validateInitialPrPreflight } from "./pr-facts.ts";
 import {
 	assertCleanRepo,
@@ -27,57 +27,78 @@ export async function buildLandingPlan(
 	pi: ExtensionAPI,
 	cwd: string,
 	options: { allowSubmitRequiredState?: boolean } = {},
-): Promise<LandingPlan> {
+): Promise<LandStackResult<LandingPlan>> {
 	const repoRoot = await loadRepoRoot(pi, cwd);
-	const current = await loadCurrentBranch(pi, repoRoot);
-	const trunk = await loadTrunk(pi, repoRoot);
-	const stack = await loadStackSnapshot(pi, repoRoot, current, trunk);
+	if (repoRoot.type === "failure") return repoRoot;
 
-	if (stack.current === stack.trunk || stack.landingBranches.length === 0) {
-		fail(`Current branch is ${stack.current}, which is trunk or has no PR path to land. Nothing to do.`, { level: "info" });
+	const current = await loadCurrentBranch(pi, repoRoot.value);
+	if (current.type === "failure") return current;
+
+	const trunk = await loadTrunk(pi, repoRoot.value);
+	if (trunk.type === "failure") return trunk;
+
+	const stack = await loadStackSnapshot(pi, repoRoot.value, current.value, trunk.value);
+	if (stack.type === "failure") return stack;
+
+	if (stack.value.current === stack.value.trunk || stack.value.landingBranches.length === 0) {
+		return failure(
+			landStackFailure(`Current branch is ${stack.value.current}, which is trunk or has no PR path to land. Nothing to do.`, { level: "info" }),
+		);
 	}
 
-	await assertCleanRepo(pi, repoRoot);
+	const cleanRepo = await assertCleanRepo(pi, repoRoot.value);
+	if (cleanRepo.type === "failure") return cleanRepo;
 
-	const landingBranches = stack.landingBranches;
-	const descendantBranches = stack.descendantBranches;
+	const landingBranches = stack.value.landingBranches;
+	const descendantBranches = stack.value.descendantBranches;
 	for (const branch of landingBranches) {
-		await assertLocalBranchExists(pi, repoRoot, branch);
+		const branchExists = await assertLocalBranchExists(pi, repoRoot.value, branch);
+		if (branchExists.type === "failure") return branchExists;
 	}
 
 	const branchPlans: BranchPlan[] = [];
-	for (const branch of stack.landingBranches) {
-		const localSha = await loadLocalSha(pi, repoRoot, branch);
-		const pr = await loadPr(pi, repoRoot, branch);
-		branchPlans.push({ branch, localSha, pr });
+	for (const branch of stack.value.landingBranches) {
+		const localSha = await loadLocalSha(pi, repoRoot.value, branch);
+		if (localSha.type === "failure") return localSha;
+		const pr = await loadPr(pi, repoRoot.value, branch);
+		if (pr.type === "failure") return pr;
+		branchPlans.push({ branch, localSha: localSha.value, pr: pr.value });
 	}
-	validateInitialPrPreflight(branchPlans, stack.trunk, { allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState) });
-	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.trunk);
+	const preflight = validateInitialPrPreflight(branchPlans, stack.value.trunk, {
+		allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState),
+	});
+	if (preflight.type === "failure") return preflight;
+	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.value.trunk);
 
-	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot, current, landingBranches);
-	const landingManualConflicts = landingConflicts.filter((conflict) => conflict.kind === "manual-worktree");
+	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot.value, current.value, landingBranches);
+	if (landingConflicts.type === "failure") return landingConflicts;
+	const landingManualConflicts = landingConflicts.value.filter((conflict) => conflict.kind === "manual-worktree");
 	if (landingManualConflicts.length > 0) {
-		fail(formatManualWorktreeConflict(landingManualConflicts), {
-			suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /code:land-stack.",
-		});
+		return failure(
+			landStackFailure(formatManualWorktreeConflict(landingManualConflicts), {
+				suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /code:land-stack.",
+			}),
+		);
 	}
 
 	const descendantConflicts =
-		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot, current, descendantBranches) : [];
-	const descendantMaintenance = buildDescendantMaintenancePlan(descendantBranches, descendantConflicts);
+		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot.value, current.value, descendantBranches) : success([]);
+	if (descendantConflicts.type === "failure") return descendantConflicts;
+	const descendantMaintenance = buildDescendantMaintenancePlan(descendantBranches, descendantConflicts.value);
 
 	const submitRestackRequirements =
-		prSubmitRequirements.length > 0 ? await collectSubmitRestackRequirements(pi, repoRoot, stack) : [];
+		prSubmitRequirements.length > 0 ? await collectSubmitRestackRequirements(pi, repoRoot.value, stack.value) : success([]);
+	if (submitRestackRequirements.type === "failure") return submitRestackRequirements;
 
-	return {
-		repoRoot,
-		stack,
+	return success({
+		repoRoot: repoRoot.value,
+		stack: stack.value,
 		branchPlans,
 		prSubmitRequirements,
-		submitRestackRequirements,
-		managedSlotConflicts: landingConflicts.filter((conflict) => conflict.kind === "managed-slot"),
+		submitRestackRequirements: submitRestackRequirements.value,
+		managedSlotConflicts: landingConflicts.value.filter((conflict) => conflict.kind === "managed-slot"),
 		descendantMaintenance,
-	};
+	});
 }
 
 function buildDescendantMaintenancePlan(
@@ -107,27 +128,24 @@ export async function collectSubmitRestackRequirements(
 	pi: ExtensionAPI,
 	repoRoot: string,
 	stack: StackSnapshot,
-): Promise<RestackRequirement[]> {
+): Promise<LandStackResult<RestackRequirement[]>> {
 	const requirements: RestackRequirement[] = [];
 	for (const edge of landingParentEdges(stack)) {
-		const result = await exec(
-			pi,
-			"git",
-			["rev-list", "-1", localBranchRef(edge.parent), "--not", localBranchRef(edge.branch)],
-			repoRoot,
-			GIT_TIMEOUT_MS,
-		);
+		const args = ["rev-list", "-1", localBranchRef(edge.parent), "--not", localBranchRef(edge.branch)];
+		const result = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
 		if (result.code !== 0) {
-			fail(`Could not inspect whether ${edge.branch} contains parent ${edge.parent}.`, {
-				commandDisplay: formatCommand("git", ["rev-list", "-1", localBranchRef(edge.parent), "--not", localBranchRef(edge.branch)]),
-				result,
-			});
+			return failure(
+				landStackFailure(`Could not inspect whether ${edge.branch} contains parent ${edge.parent}.`, {
+					commandDisplay: formatCommand("git", args),
+					result,
+				}),
+			);
 		}
 		if (result.stdout.trim().length > 0) {
 			requirements.push(edge);
 		}
 	}
-	return requirements;
+	return success(requirements);
 }
 
 export function landingParentEdges(stack: StackSnapshot): RestackRequirement[] {

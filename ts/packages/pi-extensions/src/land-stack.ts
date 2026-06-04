@@ -6,7 +6,7 @@ import {
 	withCommandStreaming,
 } from "./land-stack/command-stream.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./land-stack/constants.ts";
-import { fail, LandStackError } from "./land-stack/errors.ts";
+import { errorMessage, failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./land-stack/errors.ts";
 import { buildLandingPlan, submitUpdateArgs } from "./land-stack/landing-plan.ts";
 import {
 	confirmAndFreeManagedSlots,
@@ -47,59 +47,93 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 			const runtimePi = withCommandStreaming(pi, commandStream);
 			try {
 				const args = parseArgs(rawArgs);
-				if (args.help) {
+				if (args.type === "failure") {
+					presentLandStackFailure(ctx, commandStream, landed, args.failure);
+					return;
+				}
+				if (args.value.help) {
 					present(ctx, usage(), "info");
 					return;
 				}
 
 				setStatus(ctx, "preflighting...");
 				let plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
-				const planText = formatPlan(plan);
+				if (plan.type === "failure") {
+					presentLandStackFailure(ctx, commandStream, landed, plan.failure);
+					return;
+				}
+				const planText = formatPlan(plan.value);
 
-				if (args.dryRun) {
+				if (args.value.dryRun) {
 					commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
 					present(ctx, `Dry run only; no PRs or local refs were changed.\n\n${planText}`, "info");
 					return;
 				}
 
-				if (!args.yes) {
+				if (!args.value.yes) {
 					if (!ctx.hasUI) {
-						fail(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`);
+						presentLandStackFailure(
+							ctx,
+							commandStream,
+							landed,
+							landStackFailure(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`),
+						);
+						return;
 					}
 					const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
 					if (!confirmed) {
-						fail("Cancelled before merge; no PRs were landed.", { level: "info" });
+						presentLandStackFailure(ctx, commandStream, landed, landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
+						return;
 					}
 				}
 
-				if (plan.prSubmitRequirements.length > 0) {
-					await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan);
+				if (plan.value.prSubmitRequirements.length > 0) {
+					const submitOutcome = await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan.value);
+					if (submitOutcome.type === "failure") {
+						presentLandStackFailure(ctx, commandStream, landed, submitOutcome.failure);
+						return;
+					}
 					setStatus(ctx, "rechecking preflight...");
 					plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
-					if (plan.prSubmitRequirements.length > 0) {
-						fail(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-							suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.current))} manually, inspect PR heads, and rerun /code:land-stack.`,
-						});
+					if (plan.type === "failure") {
+						presentLandStackFailure(ctx, commandStream, landed, plan.failure);
+						return;
+					}
+					if (plan.value.prSubmitRequirements.length > 0) {
+						presentLandStackFailure(
+							ctx,
+							commandStream,
+							landed,
+							landStackFailure(formatRemainingSubmitRequirements(plan.value.prSubmitRequirements), {
+								suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.value.stack.current))} manually, inspect PR heads, and rerun /code:land-stack.`,
+							}),
+						);
+						return;
 					}
 				}
 
-				if (plan.managedSlotConflicts.length > 0) {
-					await confirmAndFreeManagedSlots(runtimePi, ctx, plan);
+				if (plan.value.managedSlotConflicts.length > 0) {
+					const slotOutcome = await confirmAndFreeManagedSlots(runtimePi, ctx, plan.value);
+					if (slotOutcome.type === "failure") {
+						presentLandStackFailure(ctx, commandStream, landed, slotOutcome.failure);
+						return;
+					}
 				}
 
-				await runMergeLoop(runtimePi, ctx, plan, landed, warnings, { commandStream, unstreamedPi: pi });
+				const mergeOutcome = await runMergeLoop(runtimePi, ctx, plan.value, landed, warnings, { commandStream, unstreamedPi: pi });
+				if (mergeOutcome.type === "failure") {
+					presentLandStackFailure(ctx, commandStream, landed, mergeOutcome.failure);
+					return;
+				}
 
-				const successSummary = formatSuccessSummary(landed, plan.descendantMaintenance, warnings);
+				const successSummary = formatSuccessSummary(landed, plan.value.descendantMaintenance, warnings);
 				const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
 				const completionLevel = hasWarnings ? "warning" : "success";
 				const commandStreamDetails = commandStreamDetailsForLanded(landed);
 				commandStream.finishSuccess(successSummary, commandStreamDetails);
 				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
 			} catch (error) {
-				const formatted = formatFailure(error, landed);
-				const level = error instanceof LandStackError ? error.level : "error";
-				commandStream.finishFailure(formatted);
-				presentBrief(ctx, formatted, level, formatFailureNotification(error));
+				presentLandStackFailure(ctx, commandStream, landed, landStackFailure(`land-stack failed unexpectedly: ${errorMessage(error)}`));
 			} finally {
 				setStatus(ctx, undefined);
 			}
@@ -107,7 +141,18 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 	});
 }
 
-export function parseArgs(argsText: string): ParsedArgs {
+function presentLandStackFailure(
+	ctx: ExtensionCommandContext,
+	commandStream: LandStackCommandStream,
+	landed: readonly LandedPr[],
+	landStackFailure: LandStackFailure,
+): void {
+	const formatted = formatFailure(landStackFailure, landed);
+	commandStream.finishFailure(formatted);
+	presentBrief(ctx, formatted, landStackFailure.level, formatFailureNotification(landStackFailure));
+}
+
+export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 	const parsed: ParsedArgs = { yes: false, dryRun: false, help: false };
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 
@@ -119,9 +164,9 @@ export function parseArgs(argsText: string): ParsedArgs {
 		} else if (part === "--help" || part === "-h") {
 			parsed.help = true;
 		} else {
-			fail(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`);
+			return failure(landStackFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`));
 		}
 	}
 
-	return parsed;
+	return success(parsed);
 }

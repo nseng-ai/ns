@@ -4,45 +4,47 @@ import { isAbsolute, resolve } from "node:path";
 import { formatCommand } from "../command-runtime.ts";
 import { CURRENT_MARKER, GIT_TIMEOUT_MS, GT_TIMEOUT_MS, OTHER_MARKER } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { fail } from "./errors.ts";
+import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
 import type { ExtensionAPI, ParsedStackOutput, StackSnapshot } from "./types.ts";
 
-export async function loadRepoRoot(pi: ExtensionAPI, cwd: string): Promise<string> {
+export async function loadRepoRoot(pi: ExtensionAPI, cwd: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "git", ["rev-parse", "--show-toplevel"], cwd, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(`Not inside a git repository.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--show-toplevel"]))}`);
+		return failure(landStackFailure(`Not inside a git repository.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--show-toplevel"]))}`));
 	}
 	const root = result.stdout.trim();
 	if (!root) {
-		fail("git rev-parse --show-toplevel returned no repository root.");
+		return failure(landStackFailure("git rev-parse --show-toplevel returned no repository root."));
 	}
-	return root;
+	return success(root);
 }
 
-export async function loadCurrentBranch(pi: ExtensionAPI, repoRoot: string): Promise<string> {
+export async function loadCurrentBranch(pi: ExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "git", ["symbolic-ref", "--short", "HEAD"], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(
-			`Detached HEAD; check out a branch before running /code:land-stack.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+		return failure(
+			landStackFailure(
+				`Detached HEAD; check out a branch before running /code:land-stack.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+			),
 		);
 	}
 	const branch = result.stdout.trim();
 	if (!branch) {
-		fail("Could not resolve current branch before running /code:land-stack.");
+		return failure(landStackFailure("Could not resolve current branch before running /code:land-stack."));
 	}
-	return branch;
+	return success(branch);
 }
 
-export async function loadTrunk(pi: ExtensionAPI, repoRoot: string): Promise<string> {
+export async function loadTrunk(pi: ExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "gt", ["trunk", "--no-interactive"], repoRoot, GT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatCommand("gt", ["trunk", "--no-interactive"]))}`);
+		return failure(landStackFailure(`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatCommand("gt", ["trunk", "--no-interactive"]))}`));
 	}
 	const trunk = firstNonEmptyLine(result.stdout);
 	if (!trunk) {
-		fail("gt trunk --no-interactive returned no branch.");
+		return failure(landStackFailure("gt trunk --no-interactive returned no branch."));
 	}
-	return trunk;
+	return success(trunk);
 }
 
 export async function loadStackSnapshot(
@@ -50,19 +52,19 @@ export async function loadStackSnapshot(
 	repoRoot: string,
 	current: string,
 	trunk: string,
-): Promise<StackSnapshot> {
+): Promise<LandStackResult<StackSnapshot>> {
 	const args = ["log", "short", "--stack", "-r", "--no-interactive"];
 	const result = await exec(pi, "gt", args, repoRoot, GT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(`Could not load Graphite stack.\n${formatCommandDetails(result, formatCommand("gt", args))}`);
+		return failure(landStackFailure(`Could not load Graphite stack.\n${formatCommandDetails(result, formatCommand("gt", args))}`));
 	}
 
 	const parsed = parseGtStackOutput(result.stdout);
 	if (!parsed) {
-		fail("gt log short --stack returned no current-branch marker; refusing to infer the stack from git history.");
+		return failure(landStackFailure("gt log short --stack returned no current-branch marker; refusing to infer the stack from git history."));
 	}
 	if (parsed.current !== current) {
-		fail(`Graphite stack current marker is ${parsed.current}, but git current branch is ${current}; refusing to continue.`);
+		return failure(landStackFailure(`Graphite stack current marker is ${parsed.current}, but git current branch is ${current}; refusing to continue.`));
 	}
 
 	const warnings = [...parsed.warnings];
@@ -73,13 +75,13 @@ export async function loadStackSnapshot(
 	const landingBranches = unique([...parsed.ancestors.filter((branch) => branch !== trunk), current].filter((branch) => branch !== trunk));
 	const descendantBranches = unique(parsed.descendants.filter((branch) => branch !== current && branch !== trunk));
 
-	return {
+	return success({
 		trunk,
 		current,
 		landingBranches,
 		descendantBranches,
 		warnings,
-	};
+	});
 }
 
 export function parseGtStackOutput(stdout: string): ParsedStackOutput | undefined {
@@ -144,19 +146,20 @@ export function branchNameFromLine(line: string, markerIndex: number): string {
 	return (annotationIndex === -1 ? tail : tail.slice(0, annotationIndex)).trim();
 }
 
-export async function assertCleanRepo(pi: ExtensionAPI, repoRoot: string): Promise<void> {
+export async function assertCleanRepo(pi: ExtensionAPI, repoRoot: string): Promise<LandStackOutcome> {
 	const status = await exec(pi, "git", ["status", "--porcelain=v1"], repoRoot, GIT_TIMEOUT_MS);
 	if (status.code !== 0) {
-		fail(`Could not inspect working tree status.\n${formatCommandDetails(status, formatCommand("git", ["status", "--porcelain=v1"]))}`);
+		return failure(landStackFailure(`Could not inspect working tree status.\n${formatCommandDetails(status, formatCommand("git", ["status", "--porcelain=v1"]))}`));
 	}
 	if (status.stdout.trim().length > 0) {
-		fail("Working tree is dirty; refusing to start stack landing.");
+		return failure(landStackFailure("Working tree is dirty; refusing to start stack landing."));
 	}
 
 	const operation = await detectInProgressOperation(pi, repoRoot);
 	if (operation) {
-		fail(`${operation} is in progress; refusing to start stack landing.`);
+		return failure(landStackFailure(`${operation} is in progress; refusing to start stack landing.`));
 	}
+	return completed();
 }
 
 export async function detectInProgressOperation(pi: ExtensionAPI, repoRoot: string): Promise<string | undefined> {
@@ -192,24 +195,25 @@ export function resolveGitPath(repoRoot: string, gitPath: string): string {
 	return isAbsolute(gitPath) ? gitPath : resolve(repoRoot, gitPath);
 }
 
-export async function assertLocalBranchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<void> {
+export async function assertLocalBranchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<LandStackOutcome> {
 	const result = await exec(pi, "git", ["show-ref", "--verify", `refs/heads/${branch}`], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(`Local branch ${branch} does not exist; refusing to start stack landing.\n${formatCommandDetails(result)}`);
+		return failure(landStackFailure(`Local branch ${branch} does not exist; refusing to start stack landing.\n${formatCommandDetails(result)}`));
 	}
+	return completed();
 }
 
-export async function loadLocalSha(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<string> {
+export async function loadLocalSha(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<LandStackResult<string>> {
 	const ref = `refs/heads/${branch}^{commit}`;
 	const result = await exec(pi, "git", ["rev-parse", "--verify", ref], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(`Could not resolve local branch ${branch}.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--verify", ref]))}`);
+		return failure(landStackFailure(`Could not resolve local branch ${branch}.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--verify", ref]))}`));
 	}
 	const sha = result.stdout.trim();
 	if (!sha) {
-		fail(`git rev-parse returned no SHA for ${branch}.`);
+		return failure(landStackFailure(`git rev-parse returned no SHA for ${branch}.`));
 	}
-	return sha;
+	return success(sha);
 }
 
 export function firstNonEmptyLine(output: string): string | undefined {

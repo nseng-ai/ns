@@ -2,7 +2,7 @@ import { formatCommand } from "../command-runtime.ts";
 import { linkifyPrReferences, prLinksFromDetails, truncateDisplayLine } from "../terminal-presentation.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
-import { emptyResult, errorMessage, LandStackError } from "./errors.ts";
+import { emptyResult, type LandStackFailure } from "./errors.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import type {
@@ -209,14 +209,10 @@ export function formatSubmitFailureMessage(previousPrNumber: number, branch: str
 	return `Submit/update failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual PR update.`;
 }
 
-export function formatFailure(error: unknown, landed: LandedPr[]): string {
-	if (!(error instanceof LandStackError)) {
-		return `land-stack failed unexpectedly: ${errorMessage(error)}`;
-	}
-
-	const simple = landed.length === 0 && !error.commandDisplay && !error.failedBranch && !error.failedPr && !error.suggestedAction;
+export function formatFailure(failure: LandStackFailure, landed: readonly LandedPr[]): string {
+	const simple = landed.length === 0 && !failure.commandDisplay && !failure.failedBranch && !failure.failedPr && !failure.suggestedAction;
 	if (simple) {
-		return error.message;
+		return failure.message;
 	}
 
 	const lines = ["land-stack stopped."];
@@ -226,23 +222,23 @@ export function formatFailure(error: unknown, landed: LandedPr[]): string {
 			lines.push(`  - #${entry.number} ${entry.branch}`);
 		}
 	}
-	if (error.failedBranch || error.failedPr) {
-		lines.push("", `Failed at: ${formatFailedTarget(error)}`);
+	if (failure.failedBranch || failure.failedPr) {
+		lines.push("", `Failed at: ${formatFailedTarget(failure)}`);
 	}
-	lines.push("", error.message);
-	if (error.commandDisplay || error.result) {
-		lines.push("", formatCommandDetails(error.result ?? emptyResult(), error.commandDisplay));
+	lines.push("", failure.message);
+	if (failure.commandDisplay || failure.result) {
+		lines.push("", formatCommandDetails(failure.result ?? emptyResult(), failure.commandDisplay));
 	}
-	if (error.suggestedAction) {
-		lines.push("", `Suggested next action: ${error.suggestedAction}`);
+	if (failure.suggestedAction) {
+		lines.push("", `Suggested next action: ${failure.suggestedAction}`);
 	}
 	return lines.join("\n");
 }
 
-export function formatFailedTarget(error: LandStackError): string {
+export function formatFailedTarget(failure: LandStackFailure): string {
 	const parts: string[] = [];
-	if (error.failedPr) parts.push(`#${error.failedPr}`);
-	if (error.failedBranch) parts.push(error.failedBranch);
+	if (failure.failedPr) parts.push(`#${failure.failedPr}`);
+	if (failure.failedBranch) parts.push(failure.failedBranch);
 	return parts.join(" ") || "unknown";
 }
 
@@ -289,15 +285,12 @@ function nonBlank(value: string | undefined): string | undefined {
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function formatFailureNotification(error: unknown): string {
-	if (!(error instanceof LandStackError)) {
-		return `land-stack failed unexpectedly: ${errorMessage(error)}`;
+export function formatFailureNotification(failure: LandStackFailure): string {
+	const detail = firstNonEmptyLine(failure.message) ?? "unknown error";
+	if (failure.failedBranch || failure.failedPr) {
+		return `land-stack stopped at ${formatFailedTarget(failure)}: ${detail}`;
 	}
-	const detail = firstNonEmptyLine(error.message) ?? "unknown error";
-	if (error.failedBranch || error.failedPr) {
-		return `land-stack stopped at ${formatFailedTarget(error)}: ${detail}`;
-	}
-	if (error.level === "info") {
+	if (failure.level === "info") {
 		return detail;
 	}
 	return `land-stack stopped: ${detail}`;

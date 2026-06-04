@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { formatCommand } from "../command-runtime.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
-import { fail } from "./errors.ts";
+import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import type { ExtensionAPI, WorktreeConflict, WorktreeEntry } from "./types.ts";
 
 export async function detectWorktreeConflicts(
@@ -12,13 +12,15 @@ export async function detectWorktreeConflicts(
 	repoRoot: string,
 	currentBranch: string,
 	relevantBranches: string[],
-): Promise<WorktreeConflict[]> {
+): Promise<LandStackResult<WorktreeConflict[]>> {
 	const worktrees = await loadWorktrees(pi, repoRoot);
+	if (worktrees.type === "failure") return worktrees;
+
 	const relevant = new Set(relevantBranches);
 	const currentPath = normalizeExistingPath(repoRoot);
 	const conflicts: WorktreeConflict[] = [];
 
-	for (const worktree of worktrees) {
+	for (const worktree of worktrees.value) {
 		if (!worktree.branch || !relevant.has(worktree.branch)) continue;
 		const worktreePath = normalizeExistingPath(worktree.path);
 		if (worktree.branch === currentBranch && worktreePath === currentPath) {
@@ -32,15 +34,17 @@ export async function detectWorktreeConflicts(
 		});
 	}
 
-	return conflicts;
+	return success(conflicts);
 }
 
-export async function loadWorktrees(pi: ExtensionAPI, repoRoot: string): Promise<WorktreeEntry[]> {
+export async function loadWorktrees(pi: ExtensionAPI, repoRoot: string): Promise<LandStackResult<WorktreeEntry[]>> {
 	const result = await exec(pi, "git", ["worktree", "list", "--porcelain"], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail(`Could not inspect git worktrees.\n${formatCommandDetails(result, formatCommand("git", ["worktree", "list", "--porcelain"]))}`);
+		return failure(
+			landStackFailure(`Could not inspect git worktrees.\n${formatCommandDetails(result, formatCommand("git", ["worktree", "list", "--porcelain"]))}`),
+		);
 	}
-	return parseWorktreeList(result.stdout);
+	return success(parseWorktreeList(result.stdout));
 }
 
 export function parseWorktreeList(output: string): WorktreeEntry[] {

@@ -8,7 +8,7 @@ import {
 	type CheckedOutElsewhere,
 } from "./command-exec.ts";
 import { GH_MERGE_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
-import { errorMessage, fail } from "./errors.ts";
+import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
 import { formatPrSubmitRequirement, loadPr, validateStrictMergeGate } from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
@@ -43,7 +43,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	pi: ExtensionAPI,
 	ctx: ExtensionCommandContext,
 	plan: LandingPlan,
-): Promise<void> {
+): Promise<LandStackOutcome> {
 	const submitArgs = submitUpdateArgs(plan.stack.current);
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
@@ -54,19 +54,21 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	const actionName = restackTarget ? "restack + submit/update" : "submit/update";
 
 	if (!ctx.hasUI) {
-		fail(
-			[
-				`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
-				details,
-				`No PRs were landed. Run ${manualCommandText} manually, then rerun /code:land-stack --yes.`,
-			].join("\n"),
-			{ suggestedAction: `Run ${manualCommandText} manually, then rerun /code:land-stack --yes.` },
+		return failure(
+			landStackFailure(
+				[
+					`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
+					details,
+					`No PRs were landed. Run ${manualCommandText} manually, then rerun /code:land-stack --yes.`,
+				].join("\n"),
+				{ suggestedAction: `Run ${manualCommandText} manually, then rerun /code:land-stack --yes.` },
+			),
 		);
 	}
 
 	const confirmed = await ctx.ui.confirm(restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?", details);
 	if (!confirmed) {
-		fail("Cancelled before merge; no PRs were landed.", { level: "info" });
+		return failure(landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
 	}
 
 	if (restackTarget) {
@@ -74,23 +76,28 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		setStatus(ctx, `restacking ${restackTarget}...`);
 		const restacked = await exec(pi, "gt", restackArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
 		if (restacked.code !== 0) {
-			fail("gt restack failed before any PRs were landed.", {
-				commandDisplay: formatCommand("gt", restackArgs),
-				result: restacked,
-				suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /code:land-stack.`,
-			});
+			return failure(
+				landStackFailure("gt restack failed before any PRs were landed.", {
+					commandDisplay: formatCommand("gt", restackArgs),
+					result: restacked,
+					suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /code:land-stack.`,
+				}),
+			);
 		}
 	}
 
 	setStatus(ctx, `submitting ${plan.stack.current}...`);
 	const result = await exec(pi, "gt", submitArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail("gt submit/update failed before any PRs were landed.", {
-			commandDisplay: formatCommand("gt", submitArgs),
-			result,
-			suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /code:land-stack.`,
-		});
+		return failure(
+			landStackFailure("gt submit/update failed before any PRs were landed.", {
+				commandDisplay: formatCommand("gt", submitArgs),
+				result,
+				suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /code:land-stack.`,
+			}),
+		);
 	}
+	return completed();
 }
 
 export function formatSubmitUpdateDetails(plan: LandingPlan): string {
@@ -137,7 +144,7 @@ export async function confirmAndFreeManagedSlots(
 	pi: ExtensionAPI,
 	ctx: ExtensionCommandContext,
 	plan: LandingPlan,
-): Promise<void> {
+): Promise<LandStackOutcome> {
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("slot", freeArgs);
 	const details = [
@@ -149,44 +156,53 @@ export async function confirmAndFreeManagedSlots(
 	].join("\n");
 
 	if (!ctx.hasUI) {
-		fail(
-			[
-				"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
-				details,
-				`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /code:land-stack --yes.`,
-			].join("\n"),
+		return failure(
+			landStackFailure(
+				[
+					"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
+					details,
+					`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /code:land-stack --yes.`,
+				].join("\n"),
+			),
 		);
 	}
 
 	const confirmed = await ctx.ui.confirm("Free landing slots?", details);
 	if (!confirmed) {
-		fail("Cancelled before merge; no PRs were landed.", { level: "info" });
+		return failure(landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
 	}
 
 	setStatus(ctx, "freeing landing slots...");
 	const result = await exec(pi, "slot", freeArgs, plan.repoRoot, SLOT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail("Targeted slot cleanup failed before any PRs were landed.", {
-			commandDisplay,
-			result,
-			suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /code:land-stack.",
-		});
+		return failure(
+			landStackFailure("Targeted slot cleanup failed before any PRs were landed.", {
+				commandDisplay,
+				result,
+				suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /code:land-stack.",
+			}),
+		);
 	}
 
 	setStatus(ctx, "rechecking landing worktrees...");
-	await assertCleanRepo(pi, plan.repoRoot);
+	const cleanRepo = await assertCleanRepo(pi, plan.repoRoot);
+	if (cleanRepo.type === "failure") return cleanRepo;
 	const conflicts = await detectWorktreeConflicts(pi, plan.repoRoot, plan.stack.current, plan.stack.landingBranches);
-	const remaining = conflicts.filter((conflict) => conflict.kind !== "current");
+	if (conflicts.type === "failure") return conflicts;
+	const remaining = conflicts.value.filter((conflict) => conflict.kind !== "current");
 	if (remaining.length > 0) {
-		fail(
-			[
-				"slot free completed, but landing branches are still checked out in other worktrees.",
-				...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
-				"No PRs were landed.",
-			].join("\n"),
-			{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /code:land-stack." },
+		return failure(
+			landStackFailure(
+				[
+					"slot free completed, but landing branches are still checked out in other worktrees.",
+					...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
+					"No PRs were landed.",
+				].join("\n"),
+				{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /code:land-stack." },
+			),
 		);
 	}
+	return completed();
 }
 
 function slotFreeArgs(conflicts: WorktreeConflict[]): string[] {
@@ -235,7 +251,7 @@ export async function runMergeLoop(
 	landed: LandedPr[],
 	warnings: LandingWarning[],
 	options: { commandStream?: LandStackCommandStream; unstreamedPi?: ExtensionAPI } = {},
-): Promise<void> {
+): Promise<LandStackOutcome> {
 	const { repoRoot, stack } = plan;
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
@@ -243,43 +259,59 @@ export async function runMergeLoop(
 		const maintenance = nextGraphiteMaintenance(plan, index);
 
 		const localSha = await loadLocalSha(pi, repoRoot, branch);
+		if (localSha.type === "failure") return localSha;
 		const pr = await loadPr(pi, repoRoot, branch);
-		validateStrictMergeGate({ branch, localSha, pr, trunk: stack.trunk });
+		if (pr.type === "failure") return pr;
+		const currentPr = pr.value;
+		const mergeGate = validateStrictMergeGate({ branch, localSha: localSha.value, pr: currentPr, trunk: stack.trunk });
+		if (mergeGate.type === "failure") return mergeGate;
 
-		setStatus(ctx, `merging #${pr.number} ${branch} with PR title/body...`);
-		const mergeArgs = squashMergeArgs(pr);
+		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
+		const mergeArgs = squashMergeArgs(currentPr);
 		const merge = await exec(pi, "gh", mergeArgs, repoRoot, GH_MERGE_TIMEOUT_MS);
 		if (merge.code !== 0) {
-			fail("Merge rejected; stopping stack landing immediately.", {
-				commandDisplay: formatCommandForDisplay("gh", mergeArgs),
-				result: merge,
-				failedBranch: branch,
-				failedPr: pr.number,
-				suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /code:land-stack from the desired branch.`,
-			});
+			return failure(
+				landStackFailure("Merge rejected; stopping stack landing immediately.", {
+					commandDisplay: formatCommandForDisplay("gh", mergeArgs),
+					result: merge,
+					failedBranch: branch,
+					failedPr: currentPr.number,
+					suggestedAction: `Inspect PR #${currentPr.number}, resolve the merge rejection, then rerun /code:land-stack from the desired branch.`,
+				}),
+			);
 		}
 
-		setStatus(ctx, `verifying #${pr.number}...`);
-		let verified: PullRequestSnapshot;
-		try {
-			verified = await loadPr(pi, repoRoot, String(pr.number));
-		} catch (error) {
-			fail(`gh pr merge exited 0, but verification could not load PR #${pr.number}; local Graphite cleanup skipped.\n${errorMessage(error)}`, {
-				failedBranch: branch,
-				failedPr: pr.number,
-				suggestedAction: `Inspect PR #${pr.number} on GitHub before deleting or restacking local Graphite branches.`,
-			});
+		setStatus(ctx, `verifying #${currentPr.number}...`);
+		const verified = await loadPr(pi, repoRoot, String(currentPr.number));
+		if (verified.type === "failure") {
+			return failure(
+				landStackFailure(
+					`gh pr merge exited 0, but verification could not load PR #${currentPr.number}; local Graphite cleanup skipped.\n${verified.failure.message}`,
+					{
+						failedBranch: branch,
+						failedPr: currentPr.number,
+						suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
+					},
+				),
+			);
 		}
-		if (verified.state !== "MERGED" || !verified.mergedAt || verified.baseRefName !== stack.trunk || verified.headRefName !== branch) {
-			fail("gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.", {
-				failedBranch: branch,
-				failedPr: pr.number,
-				suggestedAction: `Inspect PR #${pr.number} on GitHub before deleting or restacking local Graphite branches.`,
-			});
+		if (
+			verified.value.state !== "MERGED" ||
+			!verified.value.mergedAt ||
+			verified.value.baseRefName !== stack.trunk ||
+			verified.value.headRefName !== branch
+		) {
+			return failure(
+				landStackFailure("gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.", {
+					failedBranch: branch,
+					failedPr: currentPr.number,
+					suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
+				}),
+			);
 		}
 
-		const prUrl = verified.url ?? pr.url;
-		landed.push({ branch, number: pr.number, title: pr.title, ...(prUrl ? { url: prUrl } : {}) });
+		const prUrl = verified.value.url ?? currentPr.url;
+		landed.push({ branch, number: currentPr.number, title: currentPr.title, ...(prUrl ? { url: prUrl } : {}) });
 
 		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
 			setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
@@ -294,23 +326,27 @@ export async function runMergeLoop(
 				if (maintenance.kind === "required-next-landing") {
 					const checkoutConflict = parseGitCheckedOutElsewhere(got);
 					if (checkoutConflict) {
-						fail(
-							`PR #${pr.number} merged, but Graphite could not refresh next landing branch ${maintenance.branch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
-							{
-								commandDisplay: getCommandDisplay,
-								result: got,
-								failedBranch: maintenance.branch,
-								suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /code:land-stack if appropriate.`,
-							},
+						return failure(
+							landStackFailure(
+								`PR #${currentPr.number} merged, but Graphite could not refresh next landing branch ${maintenance.branch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
+								{
+									commandDisplay: getCommandDisplay,
+									result: got,
+									failedBranch: maintenance.branch,
+									suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /code:land-stack if appropriate.`,
+								},
+							),
 						);
 					}
 
-					fail(`PR #${pr.number} merged, but targeted Graphite refresh failed.`, {
-						commandDisplay: getCommandDisplay,
-						result: got,
-						failedBranch: maintenance.branch,
-						suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /code:land-stack if appropriate.`,
-					});
+					return failure(
+						landStackFailure(`PR #${currentPr.number} merged, but targeted Graphite refresh failed.`, {
+							commandDisplay: getCommandDisplay,
+							result: got,
+							failedBranch: maintenance.branch,
+							suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /code:land-stack if appropriate.`,
+						}),
+					);
 				}
 
 				if (getResult.checkoutConflict) {
@@ -346,13 +382,15 @@ export async function runMergeLoop(
 				: await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 		if (deleted.code !== 0) {
 			if (maintenance.kind === "required-next-landing") {
-				fail(`PR #${pr.number} merged, but deleting the local Graphite branch ${branch} failed.`, {
-					commandDisplay: formatCommand("gt", deleteArgs),
-					result: deleted,
-					failedBranch: branch,
-					failedPr: pr.number,
-					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /code:land-stack.`,
-				});
+				return failure(
+					landStackFailure(`PR #${currentPr.number} merged, but deleting the local Graphite branch ${branch} failed.`, {
+						commandDisplay: formatCommand("gt", deleteArgs),
+						result: deleted,
+						failedBranch: branch,
+						failedPr: currentPr.number,
+						suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /code:land-stack.`,
+					}),
+				);
 			}
 
 			warnings.push({
@@ -373,16 +411,18 @@ export async function runMergeLoop(
 			const restacked = await exec(pi, "gt", restackArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 			if (restacked.code !== 0) {
 				if (maintenance.kind === "required-next-landing") {
-					fail(formatRestackFailureMessage(pr.number, maintenance.branch, true), {
-						commandDisplay: formatCommand("gt", restackArgs),
-						result: restacked,
-						failedBranch: maintenance.branch,
-						suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /code:land-stack if appropriate.`,
-					});
+					return failure(
+						landStackFailure(formatRestackFailureMessage(currentPr.number, maintenance.branch, true), {
+							commandDisplay: formatCommand("gt", restackArgs),
+							result: restacked,
+							failedBranch: maintenance.branch,
+							suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /code:land-stack if appropriate.`,
+						}),
+					);
 				}
 
 				warnings.push({
-					message: formatRestackFailureMessage(pr.number, maintenance.branch, false),
+					message: formatRestackFailureMessage(currentPr.number, maintenance.branch, false),
 					commandDisplay: formatCommand("gt", restackArgs),
 					result: restacked,
 					suggestedAction: `Resolve restack failures for ${maintenance.branch}, then update that PR manually.`,
@@ -395,16 +435,18 @@ export async function runMergeLoop(
 			const submitted = await exec(pi, "gt", submitArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 			if (submitted.code !== 0) {
 				if (maintenance.kind === "required-next-landing") {
-					fail(formatSubmitFailureMessage(pr.number, maintenance.branch, true), {
-						commandDisplay: formatCommand("gt", submitArgs),
-						result: submitted,
-						failedBranch: maintenance.branch,
-						suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /code:land-stack if appropriate.`,
-					});
+					return failure(
+						landStackFailure(formatSubmitFailureMessage(currentPr.number, maintenance.branch, true), {
+							commandDisplay: formatCommand("gt", submitArgs),
+							result: submitted,
+							failedBranch: maintenance.branch,
+							suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /code:land-stack if appropriate.`,
+						}),
+					);
 				}
 
 				warnings.push({
-					message: formatSubmitFailureMessage(pr.number, maintenance.branch, false),
+					message: formatSubmitFailureMessage(currentPr.number, maintenance.branch, false),
 					commandDisplay: formatCommand("gt", submitArgs),
 					result: submitted,
 					suggestedAction: `Update PR for ${maintenance.branch} manually and verify it targets ${stack.trunk}.`,
@@ -412,6 +454,7 @@ export async function runMergeLoop(
 			}
 		}
 	}
+	return completed();
 }
 
 async function runOptionalDescendantGraphiteCommand(

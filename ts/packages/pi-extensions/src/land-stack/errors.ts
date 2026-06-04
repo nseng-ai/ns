@@ -1,7 +1,7 @@
 import type { ExecResult } from "../command-runtime.ts";
 import type { NotifyLevel } from "./types.ts";
 
-export interface LandStackErrorOptions {
+export interface LandStackFailureOptions {
 	level?: NotifyLevel;
 	commandDisplay?: string;
 	result?: ExecResult;
@@ -10,28 +10,48 @@ export interface LandStackErrorOptions {
 	suggestedAction?: string;
 }
 
-export class LandStackError extends Error {
-	readonly level: NotifyLevel;
-	readonly commandDisplay: string | undefined;
-	readonly result: ExecResult | undefined;
-	readonly failedBranch: string | undefined;
-	readonly failedPr: number | undefined;
-	readonly suggestedAction: string | undefined;
-
-	constructor(message: string, options: LandStackErrorOptions = {}) {
-		super(message);
-		this.name = "LandStackError";
-		this.level = options.level ?? "error";
-		this.commandDisplay = options.commandDisplay;
-		this.result = options.result;
-		this.failedBranch = options.failedBranch;
-		this.failedPr = options.failedPr;
-		this.suggestedAction = options.suggestedAction;
-	}
+export interface LandStackFailure {
+	type: "land_stack_failure";
+	level: NotifyLevel;
+	message: string;
+	commandDisplay: string | undefined;
+	result: ExecResult | undefined;
+	failedBranch: string | undefined;
+	failedPr: number | undefined;
+	suggestedAction: string | undefined;
 }
 
-export function fail(message: string, options?: LandStackErrorOptions): never {
-	throw new LandStackError(message, options);
+export type LandStackResult<T> = { type: "success"; value: T } | { type: "failure"; failure: LandStackFailure };
+
+export type LandStackOutcome = LandStackResult<void>;
+
+export function landStackFailure(message: string, options: LandStackFailureOptions = {}): LandStackFailure {
+	return {
+		type: "land_stack_failure",
+		level: options.level ?? "error",
+		message,
+		commandDisplay: options.commandDisplay,
+		result: options.result,
+		failedBranch: options.failedBranch,
+		failedPr: options.failedPr,
+		suggestedAction: options.suggestedAction,
+	};
+}
+
+export function success<T>(value: T): LandStackResult<T> {
+	return { type: "success", value };
+}
+
+export function failure<T = never>(landStackFailure: LandStackFailure): LandStackResult<T> {
+	return { type: "failure", failure: landStackFailure };
+}
+
+export function completed(): LandStackOutcome {
+	return success(undefined);
+}
+
+export function isFailure<T>(result: LandStackResult<T>): result is Extract<LandStackResult<T>, { type: "failure" }> {
+	return result.type === "failure";
 }
 
 export function errorMessage(error: unknown): string {

@@ -9,7 +9,8 @@ import {
 	shortSha,
 	stripAnsi,
 } from "../src/land-stack/command-exec.ts";
-import { LandStackError } from "../src/land-stack/errors.ts";
+import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
+import { LandStackCommandStream, withCommandStreaming } from "../src/land-stack/command-stream.ts";
 import landStackExtension, { parseArgs } from "../src/land-stack.ts";
 import { loadPr, validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
 import { formatFailure, formatPlan, formatSuccessNotification } from "../src/land-stack/presentation.ts";
@@ -136,6 +137,22 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 		code: overrides.code ?? 0,
 		killed: overrides.killed ?? false,
 	};
+}
+
+function expectSuccess<T>(result: LandStackResult<T>): T {
+	expect(result.type).toBe("success");
+	if (result.type !== "success") {
+		throw new Error(`Expected land-stack success, got failure: ${result.failure.message}`);
+	}
+	return result.value;
+}
+
+function expectFailure<T>(result: LandStackResult<T>) {
+	expect(result.type).toBe("failure");
+	if (result.type !== "failure") {
+		throw new Error("Expected land-stack failure, got success.");
+	}
+	return result.failure;
 }
 
 function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
@@ -537,9 +554,9 @@ describe("land-stack extension registration", () => {
 
 describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
-		expect(parseArgs("--yes --dry-run --help")).toEqual({ yes: true, dryRun: true, help: true });
-		expect(parseArgs("-y -h")).toEqual({ yes: true, dryRun: false, help: true });
-		expect(() => parseArgs("--wat")).toThrow(LandStackError);
+		expect(expectSuccess(parseArgs("--yes --dry-run --help"))).toEqual({ yes: true, dryRun: true, help: true });
+		expect(expectSuccess(parseArgs("-y -h"))).toEqual({ yes: true, dryRun: false, help: true });
+		expect(expectFailure(parseArgs("--wat")).message).toContain("Unknown /code:land-stack argument: --wat");
 	});
 
 	test("parses the current Graphite column and warns about off-column branches", () => {
@@ -644,13 +661,30 @@ describe("land-stack pure helpers", () => {
 		);
 
 		const landed: LandedPr[] = [{ branch: "feature-a", number: 101, title: "PR 101" }];
-		const failure = formatFailure(
-			new LandStackError("Restack failed.", { failedBranch: CURRENT, suggestedAction: "Run gt restack." }),
-			landed,
-		);
+		const failure = formatFailure(landStackFailure("Restack failed.", { failedBranch: CURRENT, suggestedAction: "Run gt restack." }), landed);
 		expect(failure).toContain("Already landed:");
 		expect(failure).toContain("Failed at: feature-b");
 		expect(failure).toContain("Suggested next action: Run gt restack.");
+	});
+
+	test("command streaming returns failed command data when pi.exec throws", async () => {
+		class ThrowingPi extends FakePi {
+			override async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
+				this.execCalls.push({ command, args: [...args], options });
+				throw new Error("spawn failed");
+			}
+		}
+
+		const pi = new ThrowingPi();
+		const context = createContext();
+		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const streamed = withCommandStreaming(pi, commandStream);
+
+		const result = await streamed.exec("git", ["status"], { cwd: ROOT });
+
+		expect(result).toEqual(execResult({ code: 1, stderr: "spawn failed" }));
+		expect(commandMessagesText(pi.messages)).toContain("✗ $ git status — exit 1");
+		expect(commandMessagesText(pi.messages)).toContain("spawn failed");
 	});
 
 	test("formats success notifications with action-first warnings", () => {
@@ -690,42 +724,48 @@ describe("land-stack pure helpers", () => {
 			localSha: SHA_A,
 			pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
 		};
-		expect(() => validateInitialPrPreflight([validBottom], TRUNK)).not.toThrow();
+		expect(validateInitialPrPreflight([validBottom], TRUNK).type).toBe("success");
 		expect(shortSha(SHA_A)).toBe("aaaaaaa");
 
 		const wrongBase = {
 			...validBottom,
 			pr: prSnapshot({ number: 101, branch: "feature-a", base: "not-main", sha: SHA_A }),
 		};
-		expect(() => validateInitialPrPreflight([wrongBase], TRUNK)).toThrow("expected main");
+		expect(expectFailure(validateInitialPrPreflight([wrongBase], TRUNK)).message).toContain("expected main");
 
 		const draft = {
 			...validBottom,
 			pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, isDraft: true }),
 		};
-		expect(() => validateInitialPrPreflight([draft], TRUNK)).toThrow("draft");
+		expect(expectFailure(validateInitialPrPreflight([draft], TRUNK)).message).toContain("draft");
 
-		expect(() =>
-			validateOpenPrBasics({
-				branch: "feature-a",
-				localSha: SHA_A,
-				pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, state: "CLOSED" }),
-			}),
-		).toThrow("CLOSED");
-		expect(() =>
-			validateOpenPrBasics({
-				branch: "feature-a",
-				localSha: SHA_A,
-				pr: prSnapshot({ number: 101, branch: "wrong-head", base: TRUNK, sha: SHA_A }),
-			}),
-		).toThrow("head branch is wrong-head");
-		expect(() =>
-			validateOpenPrBasics({
-				branch: "feature-a",
-				localSha: SHA_A,
-				pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B }),
-			}),
-		).toThrow("head SHA does not match");
+		expect(
+			expectFailure(
+				validateOpenPrBasics({
+					branch: "feature-a",
+					localSha: SHA_A,
+					pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, state: "CLOSED" }),
+				}),
+			).message,
+		).toContain("CLOSED");
+		expect(
+			expectFailure(
+				validateOpenPrBasics({
+					branch: "feature-a",
+					localSha: SHA_A,
+					pr: prSnapshot({ number: 101, branch: "wrong-head", base: TRUNK, sha: SHA_A }),
+				}),
+			).message,
+		).toContain("head branch is wrong-head");
+		expect(
+			expectFailure(
+				validateOpenPrBasics({
+					branch: "feature-a",
+					localSha: SHA_A,
+					pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B }),
+				}),
+			).message,
+		).toContain("head SHA does not match");
 	});
 });
 
@@ -754,7 +794,7 @@ describe("loadPr boundary parsing", () => {
 			}),
 		]);
 
-		const pr = await loadPr(pi, ROOT, "feature-a");
+		const pr = expectSuccess(await loadPr(pi, ROOT, "feature-a"));
 
 		pi.assertDone();
 		expect(pr).toEqual({
@@ -791,7 +831,7 @@ describe("loadPr boundary parsing", () => {
 			}),
 		]);
 
-		const pr = await loadPr(pi, ROOT, "feature-a");
+		const pr = expectSuccess(await loadPr(pi, ROOT, "feature-a"));
 
 		pi.assertDone();
 		expect(pr.isDraft).toBe(true);
@@ -803,16 +843,10 @@ describe("loadPr boundary parsing", () => {
 	test("rejects a non-object top-level PR JSON", async () => {
 		const pi = new FakePi([prViewStep({ stdout: "[]" })]);
 
-		let caught: unknown;
-		try {
-			await loadPr(pi, ROOT, "feature-a");
-		} catch (error) {
-			caught = error;
-		}
+		const failure = expectFailure(await loadPr(pi, ROOT, "feature-a"));
 
 		pi.assertDone();
-		expect(caught).toBeInstanceOf(LandStackError);
-		expect((caught as LandStackError).message).toContain("did not return required PR fields");
+		expect(failure.message).toContain("did not return required PR fields");
 	});
 
 	test("rejects a non-boolean isDraft rather than coercing it", async () => {
@@ -831,13 +865,13 @@ describe("loadPr boundary parsing", () => {
 			}),
 		]);
 
-		await expect(loadPr(pi, ROOT, "feature-a")).rejects.toThrow("did not return required PR fields");
+		expect(expectFailure(await loadPr(pi, ROOT, "feature-a")).message).toContain("did not return required PR fields");
 	});
 
 	test("fails clearly on invalid PR JSON", async () => {
 		const pi = new FakePi([prViewStep({ stdout: "not json" })]);
 
-		await expect(loadPr(pi, ROOT, "feature-a")).rejects.toThrow("Failed to parse gh pr view output for feature-a");
+		expect(expectFailure(await loadPr(pi, ROOT, "feature-a")).message).toContain("Failed to parse gh pr view output for feature-a");
 	});
 });
 
