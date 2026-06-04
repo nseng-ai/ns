@@ -1,15 +1,11 @@
 import { realpath, stat } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
 
-import {
-	isSlotCheckoutSuccessEnvelope,
-	parseSlotCheckoutEnvelope as parseSharedSlotCheckoutEnvelope,
-	slotCheckoutTargetFromData,
-} from "./slot.ts";
+import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
-import { getWorktreeDescription as getSharedWorktreeDescription } from "./worktree-description.ts";
+import { getWorktreeDescription, repositoryNameFromPath } from "./worktree-description.ts";
 import type { CommandContext, ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
@@ -22,8 +18,6 @@ const BRANCH_CREATION = "graphite";
 const GIT_TIMEOUT_MS = 10_000;
 const GT_TIMEOUT_MS = 30_000;
 const BRMEM_TIMEOUT_MS = 30_000;
-const SLOT_TIMEOUT_MS = 30_000;
-const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
@@ -87,13 +81,6 @@ interface AttachSlotAndLaunchOptions {
 	checkout: CurrentCheckout;
 	targetBranch: string;
 	key: string;
-}
-
-interface OpenCmuxWorkspaceOptions {
-	pi: ExtensionAPI;
-	target: SlotCheckoutTarget;
-	key: string;
-	launchOptions: PiLaunchOptions;
 }
 
 interface FormatDryRunOptions {
@@ -483,22 +470,27 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(attached.evidence), { status: "success", evidence: attached.evidence }, "info");
 
 	setStatus(ctx, "checking out CMUX slot…");
-	const slot = await checkoutSlot(pi, checkout.repoRoot, targetBranch);
-	if ("error" in slot) {
-		present(ctx, formatSlotFailure(targetBranch, key, slot.error), "error");
+	const target = await checkoutSlot(pi, checkout.repoRoot, targetBranch);
+	if ("error" in target) {
+		present(ctx, formatSlotFailure(targetBranch, key, target.error), "error");
 		return;
 	}
 
 	setStatus(ctx, "opening CMUX slot workspace…");
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launched = await openCmuxWorkspace({ pi, target: slot.target, key, launchOptions });
+	const launchCommand = formatPiLaunchCommand(key, launchOptions);
+	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
+	const launched = await openCmuxWorkspace(pi, target, {
+		description,
+		command: launchCommand,
+	});
 	if ("error" in launched) {
 		present(
 			ctx,
 			formatCmuxFailure({
 				targetBranch,
 				key,
-				worktreePath: slot.target.worktreePath,
+				worktreePath: target.worktreePath,
 				cause: launched.error,
 				launchOptions,
 			}),
@@ -507,7 +499,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		return;
 	}
 
-	present(ctx, formatFinalSuccess({ targetBranch, key, target: slot.target, launchOptions }), "success");
+	present(ctx, formatFinalSuccess({ targetBranch, key, target, launchOptions }), "success");
 }
 
 async function createGraphiteBranch(
@@ -670,139 +662,6 @@ function expectedBrmemPutMismatches(data: BrmemPutData, targetBranch: string, ke
 		mismatches.push(`branch ${JSON.stringify(data.branch)} != ${JSON.stringify(targetBranch)}`);
 	}
 	return mismatches;
-}
-
-async function checkoutSlot(
-	pi: ExtensionAPI,
-	cwd: string,
-	branch: string,
-): Promise<{ target: SlotCheckoutTarget } | { error: string }> {
-	const result = await runCommand(pi, cwd, "slot", ["checkout", branch, "--format", "json", "--no-clipboard"], SLOT_TIMEOUT_MS);
-	const parsed = parseSharedSlotCheckoutEnvelope(result.stdout);
-	if (!parsed) {
-		const details = result.stderr.trim() || result.stdout.trim() || `slot exited with ${result.code}`;
-		return { error: `slot checkout failed with unreadable JSON output.\n${details}` };
-	}
-
-	if (isSlotCheckoutSuccessEnvelope(parsed)) {
-		return {
-			target: slotCheckoutTargetFromData(parsed.data),
-		};
-	}
-
-	const failure = parsed;
-	return {
-		error: failure.message ?? `slot checkout failed${failure.error_type ? ` (${failure.error_type})` : ""}.`,
-	};
-}
-
-async function openCmuxWorkspace(options: OpenCmuxWorkspaceOptions): Promise<{ ok: true } | { error: string }> {
-	const { pi, target, key, launchOptions } = options;
-	const description = await getSharedWorktreeDescription(pi, target.worktreePath, target.branchName);
-	const launchCommand = formatPiLaunchCommand(key, launchOptions);
-	const result = await runCommand(
-		pi,
-		target.worktreePath,
-		"cmux",
-		[
-			"new-workspace",
-			"--name",
-			target.branchName,
-			"--description",
-			description,
-			"--cwd",
-			target.worktreePath,
-			"--command",
-			launchCommand,
-		],
-		CMUX_TIMEOUT_MS,
-	);
-
-	if (result.code === 0 && !result.killed) {
-		return { ok: true };
-	}
-
-	return {
-		error: [
-			formatCommandFailure(
-				"cmux new-workspace failed.",
-				"cmux",
-				[
-					"new-workspace",
-					"--name",
-					target.branchName,
-					"--description",
-					description,
-					"--cwd",
-					target.worktreePath,
-					"--command",
-					launchCommand,
-				],
-				result,
-			),
-		].join("\n"),
-	};
-}
-
-async function getWorktreeDescription(pi: ExtensionAPI, worktreePath: string, branchName: string): Promise<string> {
-	const repoName = await getGitRepositoryName(pi, worktreePath);
-	return repoName ? `${repoName}/${branchName}` : branchName;
-}
-
-async function getGitRepositoryName(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
-	const remote = await runCommand(pi, cwd, "git", ["remote", "get-url", "origin"], GIT_TIMEOUT_MS);
-	if (remote.code === 0) {
-		const repoName = repositoryNameFromPath(remote.stdout.trim());
-		if (repoName) {
-			return repoName;
-		}
-	}
-
-	const commonDir = await runCommand(pi, cwd, "git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], GIT_TIMEOUT_MS);
-	if (commonDir.code !== 0) {
-		return undefined;
-	}
-
-	return repositoryNameFromGitCommonDir(commonDir.stdout.trim());
-}
-
-function repositoryNameFromGitCommonDir(path: string): string | undefined {
-	const normalized = path.replace(/[\\/]+$/, "");
-	if (normalized.length === 0) {
-		return undefined;
-	}
-
-	const base = basename(normalized);
-	if (base === ".git") {
-		return basename(dirname(normalized)) || undefined;
-	}
-	return stripGitSuffix(base) || undefined;
-}
-
-function repositoryNameFromPath(path: string): string | undefined {
-	const normalized = path.trim().replace(/[\\/]+$/, "");
-	if (normalized.length === 0) {
-		return undefined;
-	}
-
-	const separatorIndex = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf(":"));
-	return stripGitSuffix(normalized.slice(separatorIndex + 1)) || undefined;
-}
-
-function stripGitSuffix(value: string): string {
-	return value.endsWith(".git") ? value.slice(0, -4) : value;
-}
-
-function basename(path: string): string {
-	const normalized = path.replace(/[\\/]+$/, "");
-	const parts = normalized.split(/[\\/]/);
-	return parts[parts.length - 1] ?? "";
-}
-
-function dirname(path: string): string {
-	const normalized = path.replace(/[\\/]+$/, "");
-	const separatorIndex = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
-	return separatorIndex >= 0 ? normalized.slice(0, separatorIndex) : "";
 }
 
 async function runText(
