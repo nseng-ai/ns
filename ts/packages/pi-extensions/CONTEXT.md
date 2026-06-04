@@ -45,19 +45,19 @@ A reviewed Markdown implementation plan written before an implementation branch 
 _Avoid_: attached plan, Branch Memory entry, checked-in plan.
 
 **Local plan store**:
-The machine-local pre-branch store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` used by `/write-plan` and `/create-planned-branch`.
+The machine-local pre-branch store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md` used by `/planned-branch:write-plan`, `/planned-branch:create`, and the `planned-branch` CLI.
 _Avoid_: Branch Memory namespace, repo docs directory, objective update.
 
 **Saved-plan filename slug**:
-The `<slug>` filename stem in the Local plan store, derived by `/write-plan` from the final reviewed plan content through the Codex-backed slug model as a semantic local locator for a reviewed plan file.
-_Avoid_: planned-branch slug, Branch Memory key, target branch, assistant-generated slug.
+The `<slug>` filename stem in the Local plan store, derived by the write-plan workflow from the final reviewed plan content as a semantic local locator for a reviewed plan file.
+_Avoid_: planned-branch slug, Branch Memory key, target branch, arbitrary slug.
 
 **Source branch plan file**:
 One saved plan file scoped to the repository and source branch where planning happened.
 _Avoid_: attached plan, implementation branch plan, source file unqualified.
 
-**Content-derived planned-branch slug**:
-The implementation slug derived by `/create-planned-branch` from the saved plan body through a mandatory tiny Pi model call, then deterministically normalized/repaired without using the filename or path as a fallback. It drives the default target branch and the attached-plan key.
+**Planned-branch slug**:
+The implementation slug derived from the saved plan body by the workflow surface before calling `planned-branch exec create`. It drives the default target branch and the attached-plan key.
 _Avoid_: saved-plan filename slug, path stem, deterministic fallback.
 
 **Planned branch**:
@@ -65,11 +65,11 @@ An implementation branch created from a saved plan and carrying that plan as bra
 _Avoid_: brmem branch, Objective branch, plan branch.
 
 **Attached plan**:
-The canonical implementation plan stored on a planned branch in Branch Memory namespace `brmem-plans` with key `<content-derived-planned-branch-slug>.md`.
+The canonical implementation plan stored on a planned branch in Branch Memory namespace `planned-branch` with key `<planned-branch-slug>.md`.
 _Avoid_: saved plan, local plan store file, prompt template.
 
 **Branch Memory attachment**:
-The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `brmem-plans` namespace contract.
+The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `planned-branch` namespace contract.
 _Avoid_: Branch Memory policy, brmem-owned workflow, package import edge.
 
 **Handoff artifact**:
