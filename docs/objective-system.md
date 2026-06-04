@@ -81,6 +81,36 @@ When an objective is closed, add:
 
 Additional narrative sections are allowed when they clarify the work, but avoid turning this file into a task database or branch log.
 
+Optional execution-friendly sections may be added for Objectives that should let `objective-next` offer confirmed execution:
+
+```md
+## Definition of Progress
+
+Progress is keepable when:
+
+- ...
+
+Do not keep changes that:
+
+- ...
+
+Useful evidence includes:
+
+- ...
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` under the boundaries below.
+
+- Direct execution is allowed when: ...
+- Steer or ask first when: ...
+- Materialization: ...
+- Validation: ...
+- External side effects: ...
+```
+
+Ordinary Objectives may omit these sections. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
+
 ### `roadmap.md`
 
 `roadmap.md` is ordered work guidance.
@@ -105,6 +135,18 @@ Use lightweight checkbox notation as narrative roadmap status:
 - [ ] Planned work item.
   - Notes: sequencing, constraints, or context.
 ```
+
+Roadmap rows may include slice-local policy and evidence prose:
+
+```md
+- [ ] Example semantic slice.
+  - Policy: direct execution after preview.
+  - Evidence: targeted tests and relevant repo checks pass.
+- [ ] Resolve the terminology boundary.
+  - Policy: steer first; ask the human to choose the canonical term before editing docs.
+```
+
+Row-level `Policy:` notes may override Objective-level execution defaults for that row. They are prose guidance, not machine-readable state.
 
 Allowed states:
 
@@ -216,8 +258,12 @@ Contract:
 
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
 - Create `.asdl/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
-- Write LM-authored initial content using the standardized headings, including a concrete `## Assumptions and Risks` section.
+- Write LM-authored initial content using the standardized required headings, including a concrete `## Assumptions and Risks` section.
+- Ask whether the Objective should be planning-only or execution-friendly for `objective-next` after preview.
+- For planning-only Objectives, omit `## Definition of Progress` and `## Runner Policy` unless the user explicitly asks for them.
+- For execution-friendly Objectives, write optional `## Definition of Progress` and `## Runner Policy` sections with at least: when direct execution is allowed; when to steer/ask first; what counts as keepable progress; and validation/materialization boundaries, including external side-effect policy.
 - Keep initial roadmap rows substantive; put routine validation expectations under semantic rows as expected evidence instead of standalone validation-only items.
+- Use indented `Policy:` and `Evidence:` prose under roadmap rows when slice-local policy or validation expectations differ from Objective-level defaults.
 - Do not create an initial update file; the initial durable files are the birth record.
 - Do not create `closed.md`.
 
@@ -230,7 +276,7 @@ User interview:
 - Ask one unresolved question at a time.
 - Include a recommended answer with each question.
 - After each question, ask whether to continue or stop and create the Objective with the context gathered so far.
-- Focus on scope, completion criteria, assumptions, risks, sequencing, and closure evidence.
+- Focus on scope, completion criteria, assumptions, risks, sequencing, closure evidence, and whether durable execution policy should be included.
 
 Shipped CLI:
 
@@ -261,17 +307,23 @@ Shipped CLI:
 
 ### `objective-next`
 
-Chooses the next useful work for an active objective.
+Acts as the front door for advancing an active objective: recommend next work, steer planning, or offer confirmed execution when explicit Objective policy allows it.
 
 Contract:
 
 - Resolve the objective using the selection rules.
 - Exclude closed objectives by default.
 - Read `objective.md`, `roadmap.md`, and relevant updates.
-- Apply the **Tracking Gate** before recommending next work.
+- Apply the **Tracking Gate** before recommending next work or offering execution.
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
-- If the Tracking Gate indicates likely unrecorded progress, ask whether to run `objective-update` for the same selected objective before recommending next work. If the user confirms or explicitly preauthorized update-and-continue, perform that update, reread the objective and repo evidence, then continue `objective-next`; otherwise stop without a recommendation.
-- Do not mutate files except through that explicit `objective-update` handoff.
+- If the Tracking Gate indicates likely unrecorded progress, ask whether to run `objective-update` for the same selected objective before recommending or executing next work. If the user confirms or explicitly preauthorized update-and-continue, perform that update, reread the objective and repo evidence, then continue `objective-next`; otherwise stop without a recommendation or execution offer.
+- Direct execution offers require explicit Objective prose policy, such as `## Runner Policy` plus enough `## Definition of Progress` guidance, or row-level `Policy:` prose that clearly permits direct execution for the selected slice.
+- Do not infer execution permission from roadmap concreteness alone. If policy is missing or incomplete, recommend only and include a policy-upgrade note.
+- When policy says to steer first, ask one concrete question or recommend a planning/grilling/readback step instead of executing.
+- When policy allows direct execution, present an inline execution preview and wait for explicit affirmative confirmation before material action.
+- The preview should state selected slug, policy basis, bounded scope, likely files/areas, materialization shape, validation, external side effects, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission and external side effects require explicit Runner Policy or confirmed preview scope.
+- Do not use hidden ledgers, task files, private queues, Branch Memory run state, alternate Objective stores, or new Objective lifecycle states.
+- In recommendation-only or steer-first paths, do not mutate files except through an explicit `objective-update` handoff. In confirmed execution, mutate only within the confirmed preview scope and write Objective tracking only for meaningful impact.
 
 Shipped CLI:
 
@@ -367,7 +419,7 @@ Markdown-only v1 behavior:
 - If confirmation is pending or declined, stop without a next-work recommendation.
 - If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
 
-The Tracking Gate check must not mutate files, auto-refresh objective state, or perform hidden reconciliation. When it blocks, `objective-next` may offer a user-confirmed handoff to `objective-update`; any file changes belong to that explicit update workflow, not to the read-only gate.
+The Tracking Gate check must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When it blocks, `objective-next` may offer a user-confirmed handoff to `objective-update`; any file changes belong to that explicit update workflow, not to the read-only gate.
 
 Deterministic git comparison and changed-path scope facts for the Tracking Gate are left as future CLI work; collection of branch evidence and semantic materiality both remain LM/human-authored in v1.
 
@@ -402,4 +454,5 @@ Responsibilities that should remain LM/human-authored:
 - Deciding whether evidence is semantically meaningful.
 - Explaining why durable files changed or did not change.
 - Choosing roadmap wording and next-work recommendations.
+- Interpreting Runner Policy, Definition of Progress, row-level `Policy:` notes, and execution permission.
 - Summarizing closure context.

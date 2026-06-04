@@ -28,7 +28,7 @@ const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillNa
 };
 
 const SELECTION_TITLES: Record<ObjectiveCommandName, string> = {
-	"objective:next": "Select an active Objective for next-work recommendation",
+	"objective:next": "Select an active Objective for next work or execution preview",
 	"objective:current": "Select an active Objective to summarize",
 	"objective:update": "Select an active Objective to update",
 };
@@ -787,7 +787,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (only Objective changed vs master)",
+			title: "Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
 				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -809,7 +809,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (only Objective changed in checkout or vs master)",
+			title: "Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
 				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -827,7 +827,7 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		expect(result.pi.execCalls.map((call) => call.args[0])).toEqual(["list", "status"]);
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (only Objective changed in checkout)",
+			title: "Select an active Objective for next work or execution preview (only Objective changed in checkout)",
 			items: [
 				"bravo — suggested: only Objective changed in checkout — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -844,7 +844,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (changed Objectives in checkout or vs master)",
+			title: "Select an active Objective for next work or execution preview (changed Objectives in checkout or vs master)",
 			items: [
 				"alpha — changed in checkout or vs master — open — latest update 2026-01-01T00:00:00Z",
 				"charlie — changed in checkout or vs master — open — latest update 2026-01-03T00:00:00Z",
@@ -882,7 +882,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[1]).toEqual({
-			title: "Select an active Objective for next-work recommendation (other active Objectives)",
+			title: "Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
 				"alpha — open — latest update 2026-01-01T00:00:00Z",
 				"charlie — open — latest update 2026-01-03T00:00:00Z",
@@ -903,7 +903,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
+			title: "Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
 				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
 				"charlie — changed vs master — open — latest update 2026-01-03T00:00:00Z",
@@ -930,7 +930,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[1]).toEqual({
-			title: "Select an active Objective for next-work recommendation (other active Objectives)",
+			title: "Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
 				"bravo — open — latest update 2026-01-02T00:00:00Z",
 				"delta — open — latest update 2026-01-04T00:00:00Z",
@@ -948,7 +948,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
+			title: "Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
 				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
 				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
@@ -1005,7 +1005,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
+			title: "Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
 				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -1032,7 +1032,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (only Objective changed vs master)",
+			title: "Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
 				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -1049,7 +1049,7 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next-work recommendation (only Objective changed in checkout or vs master)",
+			title: "Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
 				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",

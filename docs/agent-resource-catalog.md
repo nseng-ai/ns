@@ -10,8 +10,8 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
-| First-party skill commands               |    42 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    23 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| First-party skill commands               |    41 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
+| Project Pi extension commands            |    22 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     3 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -36,7 +36,7 @@ The promoted first-party catalog uses flat semantic names instead of an organiza
 | Ambient  | Python standards and testing   | `dignified-python`, `python-fake-driven-testing`, `python-fake-driven-test-layout`, `pytest`       |
 | Ambient  | TypeScript standards/testing   | `typescript-style`, `typescript-fake-driven-testing`                                               |
 | Ambient  | Workflow operations            | `refactor-swarm`, `code-resolve-merge-conflicts`                                                   |
-| Internal | Pi UI and Objective prototypes | `pi-grill-ui`, `proto-objective-impl`                                                              |
+| Internal | Pi UI                          | `pi-grill-ui`                                                                                      |
 
 Projects initialized with `areg init` install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
 
@@ -80,11 +80,10 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:objective-close`                  | `skills/objective-close/SKILL.md`                  | Closes one Objective by adding closure narrative and a `closed.md` marker.                                          |
 | `/skill:objective-create`                 | `skills/objective-create/SKILL.md`                 | Creates a new Objective record under `.asdl/objectives/<slug>/`.                                                    |
 | `/skill:objective-current`                | `skills/objective-current/SKILL.md`                | Reads and summarizes the current state of one Objective without mutation.                                           |
-| `/skill:objective-next`                   | `skills/objective-next/SKILL.md`                   | Recommends the next useful work for one active Objective after checking for stale tracking.                         |
+| `/skill:objective-next`                   | `skills/objective-next/SKILL.md`                   | Recommends, steers planning, or offers confirmed execution when Objective policy allows it.                         |
 | `/skill:objective-stack-impl`             | `skills/objective-stack-impl/SKILL.md`             | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
 | `/skill:objective-update`                 | `skills/objective-update/SKILL.md`                 | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
 | `/skill:pi-grill-ui`                      | `skills/pi-grill-ui/SKILL.md`                      | Internal backend skill for the Pi `/grill-ui` structured-question extension.                                        |
-| `/skill:proto-objective-impl`             | `skills/proto-objective-impl/SKILL.md`             | Internal prototype Objective runner invoked by explicit user request or `/proto:objective-impl`.                    |
 | `/skill:pr-address`                       | `skills/pr-address/SKILL.md`                       | Addresses current-branch PR review feedback end-to-end without pushing.                                             |
 
 ## Skill installation surfaces
@@ -113,11 +112,10 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/roast`                 | `.pi/extensions/roast.ts`          | Runs matching roaster reviewers for the current branch diff through the local `roaster` CLI.        |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
 | `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
-| `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` for the selected slug.                       |
+| `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` to recommend, steer, or preview execution.   |
 | `/objective:current`     | `.pi/extensions/objective.ts`      | Picks an Objective and invokes `objective-current` for the selected slug.                           |
 | `/objective:update`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-update` for the selected slug.                     |
 | `/objective:stack-impl`  | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes the portable Objective stack implementation skill.            |
-| `/proto:objective-impl`  | `.pi/extensions/proto.ts`          | Picks an active Objective and invokes the parked prototype Objective implementation runner.         |
 | `/write-plan`            | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
 | `/create-planned-branch` | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
 | `/impl-planned-branch`   | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
@@ -138,7 +136,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained. |
 | Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                |
 | Structured grill UI   | Retain `/grill-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills.                                               |
-| Prototype runner      | Keep `/proto:objective-impl` and `/skill:proto-objective-impl` as parked prototype/internal surfaces. They are not canonical `/objective:*` behavior, and lifecycle disposition is deferred until explicitly unparked.                               |
+| Objective execution   | General Objective execution is folded into `objective-next` behind explicit Runner Policy and preview confirmation. `objective-stack-impl` remains the specialized stack implementation runner.                                                      |
 
 ## Engineered Pi extension package
 

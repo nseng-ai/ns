@@ -41,7 +41,7 @@ The `<slug>` directory name is the durable Objective identity. Titles, command n
 
 ## Files
 
-`objective.md` contains durable purpose, boundaries, criteria, assumptions, risks, open questions, and closure context. Required headings:
+`objective.md` contains durable purpose, boundaries, criteria, assumptions, risks, open questions, optional execution policy, and closure context. Required headings:
 
 - `# <Title>`
 - `## Thesis`
@@ -51,6 +51,8 @@ The `<slug>` directory name is the durable Objective identity. Titles, command n
 - `## Assumptions and Risks`
 - `## Open Questions`
 - `## Closure` only when closed
+
+Optional top-level `## Definition of Progress` and `## Runner Policy` sections may make an Objective execution-friendly for `objective-next` after preview and confirmation. They are durable prose policy, not schema, lifecycle state, or a hidden task queue. Objectives may omit them and remain planning/recommendation-only.
 
 `## Assumptions and Risks` captures assumptions that might be disproven and risks that need de-risking, mitigation, acceptance, or explicit follow-up. Keep it narrative and evidence-linked; do not turn it into IDs, owners, due dates, or a task database.
 
@@ -62,7 +64,7 @@ The `<slug>` directory name is the durable Objective identity. Titles, command n
 
 Use only `[ ]`, `[~]`, and `[x]` statuses.
 
-Roadmap rows represent semantic Objective work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up. Size roadmap work by human-legible decision count and thesis clarity, not by diff size, file count, or line count: a broad mechanical rename can be one simple row, while a tiny mixed change may need multiple rows. Routine validation/CI/CD checks such as `just`, tests, dprint, waiting for CI, or full repo validation are completion evidence; record them in roadmap notes, Semantic Updates, or closure context instead of standalone rows. Validation may be roadmap work only when validation/test/CI behavior, release qualification, or a non-routine validation investigation is the Objective deliverable.
+Roadmap rows represent semantic Objective work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up. Size roadmap work by human-legible decision count and thesis clarity, not by diff size, file count, or line count: a broad mechanical rename can be one simple row, while a tiny mixed change may need multiple rows. Routine validation/CI/CD checks such as `just`, tests, dprint, waiting for CI, or full repo validation are completion evidence; record them in roadmap notes, Semantic Updates, or closure context instead of standalone rows. Validation may be roadmap work only when validation/test/CI behavior, release qualification, or a non-routine validation investigation is the Objective deliverable. Execution-friendly rows may include indented prose such as `Policy: direct execution after preview`, `Policy: steer first`, and `Evidence: ...`; these notes are read as prose, not machine state.
 
 `updates/` contains Semantic Updates: meaningful findings, decisions, blockers, assumption changes, risk de-risking or surfacing, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Required headings:
 
@@ -95,10 +97,10 @@ Do not use `objective gt stacks` to select an Objective for active-record workfl
 
 ## Tracking Gate
 
-Before `objective-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask whether to run `objective-update` for the same selected Objective before recommending new work. If the user confirms or preauthorized update-and-continue, perform the explicit Objective Update workflow, reread the Objective and repo evidence, and then continue `objective-next`. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
+Before `objective-next` recommends work or offers confirmed execution, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask whether to run `objective-update` for the same selected Objective before recommending or executing new work. If the user confirms or preauthorized update-and-continue, perform the explicit Objective Update workflow, reread the Objective and repo evidence, and then continue `objective-next`. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
 
 ## Non-goals
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective gt stacks`, `objective exec read-objective`) owns only deterministic facts such as record inventory, Graphite stack projection, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
+- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective gt stacks`, `objective exec read-objective`) owns only deterministic facts such as record inventory, Graphite stack projection, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.
