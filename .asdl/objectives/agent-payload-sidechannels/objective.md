@@ -67,7 +67,7 @@ This Objective covers the following design and implementation work:
   - the PR feedback summary is a full classification packet, not just a relevance summary: every unresolved inline review thread, PR-level review, and discussion comment represented in the manifest must be accounted for exactly once;
   - informational/noise items must be explicitly accounted for by ID rather than disappearing into only aggregate counts;
   - the main workflow validates the classification packet against the deterministic locator manifest, retries the summarization once with focused correction if validation fails, and then stops rather than executing from an invalid packet;
-  - LM-generated summaries/classifications are saved as `.summary.json` artifacts beside the raw payload through the shared payload helper, embedding the source raw artifact's payload reference.
+  - validated classifications may remain in run-local scratch context for `pr-address` v1; the shared payload store reserves `.summary.json` support, but a supported `pr-address exec` classification-summary write command is deferred until a concrete reload/replay workflow needs it.
 - Generalized prompt pluggability for this steelthread:
   - introduce a shared repo-local `.asdl/prompts` resolution primitive in `asdl-core`, under the future `asdl_core.prompts` namespace;
   - for v1, the canonical editable scope is repo-local `.asdl/prompts/<name>.md`; prompt names are safe single segments and subdirectories are out of scope;
@@ -104,7 +104,7 @@ This Objective covers the following design and implementation work:
 - `--payload-mode inline|sidecar` or an equivalent explicit option exists, with `sidecar` as default and `inline` as an intentional full-stdout debugging/migration path. Inline mode bypasses payload session preflight.
 - `pr-address` provides a tested way to retrieve selected full details from a raw sidecar by locator through a `pr-address exec` surface, backed by reusable core RFC 6901 JSON Pointer lookup against validated payload artifacts.
 - The `pr-address` classification workflow is updated so a side-channel agent/subagent can read the raw payload path and return a strict full classification packet. The main workflow validates that every manifest feedback item is accounted for exactly once, rejects duplicates/missing ids/unknown ids/invalid enum values, retries once for correction, and fails closed if the packet remains invalid.
-- LM summary artifacts can be saved as `.summary.json` payload files through the shared payload helper, embedding the source raw artifact's payload reference.
+- The shared payload store can save `.summary.json` payload artifacts, but `pr-address` v1 closure does not require a supported classification-summary write command; validation-before-acting with run-local scratch context is sufficient for the steelthread.
 - A shared `.asdl/prompts` resolver exists for repo-local prompt documents, returns content plus provenance, rejects unsafe prompt names, and provides embedded-default fallback behavior where intended.
 - `.asdl/prompts/subagent-launch.md` is checked in with concrete Pi, Claude, Codex, and fallback launch guidance, and its checked-in text matches the embedded fallback through a drift test.
 - The `pr-address` skill/reference documentation reflects the new workflow: use compact sidecar defaults with a supplied session id, avoid printing raw JSON into the main transcript, prefer side-channel/subagent summarization when available, use selected-detail lookup for targeted body text, use explicit inline/full-output mode only as an escape hatch, and preserve the per-item completeness invariant.
@@ -123,6 +123,7 @@ Assumptions:
 - OS temp cleanup is acceptable for v1 because payloads are short-lived workflow artifacts, not durable records.
 - Repo-local `.asdl/prompts` is the right first prompt-pluggability surface. Additional scopes can be added later without changing the steelthread's thesis.
 - Keeping the PR feedback task prompt/schema embedded in `pr-address` is acceptable for v1 because the completeness invariant is domain-critical; only launch mechanics need user-editable policy now.
+- Validation-before-acting is sufficient for `pr-address` v1 because no current workflow needs to reload or replay a persisted classification summary after the run.
 
 Risks:
 
@@ -146,9 +147,17 @@ Resolved by the contract specification:
 - Prompt default/provenance behavior: the resolver returns content plus provenance, distinguishes repo-local prompts from embedded defaults, and later protects the checked-in `subagent-launch.md` prompt against embedded-default drift.
 - Launch-policy wording: `.asdl/prompts/subagent-launch.md` is a general delegation policy with Pi, Claude, Codex, fallback, path-passing, structured-return, and fail-closed safety guidance, not a PR-specific task template.
 - Compact manifest field names: the `pr-address` sidecar manifest models now establish `payload_mode`, `payload_reference`, `counts`, review items, review-thread items, discussion-comment items, and per-body `body_locator` objects with `body_chars`, `json_pointer`, optional `item_pointer`, and PR-domain locator metadata.
+- Classification summary persistence: validation-before-acting is sufficient for this steelthread's closure. The shared payload store keeps `.summary.json` as a reserved artifact role, but `pr-address` should not add a supported classification-summary write command until a concrete reload/replay consumer appears.
 
-Remaining implementation questions:
+Closure follow-ups:
 
-- What exact JSON schema should the PR feedback classification packet use for actionable threads, actionable reviews, discussion actions, informational items, complexity enum values, and locator references?
-- Should any part of this design rise to an ADR after implementation reveals a hard-to-reverse trade-off, or is the Objective plus specification and skill/reference documentation sufficient?
-- Which future Objective should pick up branch-naming and commit-summary prompt policies once this steelthread proves the `.asdl/prompts` pattern?
+- No ADR is required for this steelthread because the Objective, durable specification, implementation updates, and public skill/reference documentation capture the hard-to-reverse trade-offs discovered during implementation.
+- Branch-naming, commit-summary, generic prompt scopes, and classification-summary persistence remain future-objective material only when a concrete workflow needs them.
+
+## Closure
+
+Completed. The Objective landed the payload side-channel and prompt-pluggability steelthread around `pr-address`: a durable specification, shared payload store, opt-in Clinkr sidecar helper, repo-local launch policy with embedded fallback, compact `prepare-run` / `get-feedback` manifests, selected-detail lookup, deterministic feedback-classification validation, and public `pr-address` skill/reference workflow wiring.
+
+The final scope decision is that validation-before-acting is sufficient for `pr-address` v1. The shared payload store reserves `.summary.json` artifacts, but no supported classification-summary write command is needed until a future reload/replay workflow appears.
+
+Closure evidence is recorded in the roadmap and Semantic Updates, including focused payload, prompt, sidecar, selected-detail, classification, schema-command, Ruff, `ty`, dprint, and diff-check validation. Remaining ideas are parked or future-objective material rather than active work for this Objective.

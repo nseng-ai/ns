@@ -31,8 +31,8 @@ allowed-tools:
 
 Address review comments on the current branch's PR, end-to-end. The skill
 prepares one normalized feedback snapshot, classifies it with LLM judgment,
-executes approved batches, commits locally, and resolves or replies to the
-matching GitHub feedback. It never pushes.
+validates that classification, executes approved batches, commits locally, and
+resolves or replies to the matching GitHub feedback. It never pushes.
 
 ## When to use
 
@@ -40,42 +40,49 @@ Run this skill only when the user explicitly invokes `pr-address` by name in
 their current harness. Do not trigger it from natural-language requests like
 "fix review feedback".
 
-If the user wants a read-only pass, stop after the execution plan. Do not
-edit code, commit, or mutate GitHub.
+If the user wants a read-only pass, stop after the execution plan. Do not edit
+code, commit, or mutate GitHub.
 
 ## Guarantees
 
 - Works only on the current branch's PR.
 - Never pushes. The user pushes manually after reviewing local commits.
-- Every unresolved inline review thread must be classified explicitly.
-- `cross_cutting`, `complex`, and informational items require user input
-  before execution.
+- Default feedback fetching uses sidecar payloads so raw review bodies stay out
+  of the main transcript.
+- Classification must validate before execution planning proceeds.
+- Every PR-level review, unresolved inline review thread, covered thread
+  comment, and PR discussion comment must be accounted for in the validated
+  classification packet.
+- `cross_cutting`, `complex`, and informational items require user input before
+  execution.
 - GitHub mutations go through `pr-address exec` operations, not raw `gh api`
   calls.
 
 ## How `pr-address` is invoked
 
-This skill bundles a wrapper at
-`scripts/pr-address-run` that dispatches to either `uv run pr-address`
-(when the current working directory is inside an asdl checkout) or
-`uvx --from asdl-pr-address pr-address`
-(otherwise), so the skill works without a local clone.
+This skill bundles a wrapper at `scripts/pr-address-run` that dispatches to
+either `uv run pr-address` (when the current working directory is inside an
+asdl checkout) or `uvx --from asdl-pr-address pr-address` (otherwise), so the
+skill works without a local clone.
 
-Resolve the wrapper from this skill's own directory, not from a
-harness-specific path. For the rest of this document,
-`<pr-address-runner>` means the executable at `<skill-dir>/scripts/pr-address-run`,
-where `<skill-dir>` is the directory containing this `SKILL.md`.
+Resolve the wrapper from this skill's own directory, not from a harness-specific
+path. For the rest of this document, `<pr-address-runner>` means the executable
+at `<skill-dir>/scripts/pr-address-run`, where `<skill-dir>` is the directory
+containing this `SKILL.md`.
 
 Common locations are:
 
 - `skills/pr-address/scripts/pr-address-run` in an asdl checkout
-- `.agents/skills/pr-address/scripts/pr-address-run` in an installed skill mirror
+- `.agents/skills/pr-address/scripts/pr-address-run` in an installed skill
+  mirror
 
 Wherever this skill or `references/cli-reference.md` shows `pr-address ...`,
 substitute `<pr-address-runner>`. For example:
 
 ```bash
-echo '{}' | <pr-address-runner> exec prepare-run --format json
+<pr-address-runner> exec prepare-run \
+  --payload-session-id pr-address-20260604t120000z-a1 \
+  --format json
 ```
 
 `ASDL_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
@@ -88,9 +95,9 @@ echo '{}' | <pr-address-runner> exec prepare-run --format json
 
 Stop on the first failed prerequisite and report the problem clearly.
 
-The working tree does not need to be clean. `pr-address` is allowed to run
-with uncommitted edits in the tree. The operator is responsible for staging
-only the files belonging to each batch (see step 4).
+The working tree does not need to be clean. `pr-address` is allowed to run with
+uncommitted edits in the tree. The operator is responsible for staging only the
+files belonging to each batch (see step 4).
 
 ## Workflow
 
@@ -98,33 +105,50 @@ only the files belonging to each batch (see step 4).
 
 Run the prerequisite checks above before fetching any feedback.
 
-If the surrounding harness is in a planning-only mode, stop after printing
-the execution plan. Do not edit files, commit, or call GitHub mutation
-commands.
+Choose one payload session id for this skill invocation. It must be a lowercase
+safe path segment matching `^[a-z0-9][a-z0-9._-]{0,127}$`. Example:
+`pr-address-20260604t120000z-a1`.
+
+Pass the same id to every default sidecar feedback command with
+`--payload-session-id <payload-session-id>`, or set
+`ASDL_PAYLOAD_SESSION_ID=<payload-session-id>` in the command environment. Do
+not rely on commands to invent a session id.
+
+If the surrounding harness is in a planning-only mode, stop after printing the
+execution plan. Do not edit files, commit, or call GitHub mutation commands.
 
 ### 2. Prepare the run
 
-Use the composite helper:
+Use the composite helper in default sidecar mode:
 
-- `<pr-address-runner> exec prepare-run --format json`
+```bash
+<pr-address-runner> exec prepare-run \
+  --payload-session-id <payload-session-id> \
+  --format json
+```
 
 Pass `{"include_all_threads": true}` only when the user explicitly wants
 resolved threads included for reference. Otherwise let it default to `false`.
 
-Pass `{"include_empty_reviews": true}` only when the user explicitly wants
-to see raw empty-body `COMMENTED` / `APPROVED` reviews (they are filtered
-out as noise by default).
+Pass `{"include_empty_reviews": true}` only when the user explicitly wants to
+see raw empty-body `COMMENTED` / `APPROVED` reviews (they are filtered out as
+noise by default).
 
 `prepare-run` is the source of truth for the mechanical setup. It:
 
 - resolves the current branch and its PR
-- fetches one feedback snapshot with resolved threads included
+- fetches one feedback snapshot with resolved threads included as needed
 - reopens contested threads previously resolved by `pr-address`
 - drops empty-body `COMMENTED` / `APPROVED` reviews unless
   `include_empty_reviews=true`
-- returns normalized `reviews`, `review_threads`, and `discussion_comments`
+- returns `data.payload_mode: "sidecar"` in the default workflow
+- returns `data.payload_reference.payload_path`, pointing to the full raw
+  sidecar envelope
+- returns compact `reviews`, `review_threads`, and `discussion_comments` with
+  body locators rather than full bodies
 - returns `restructured_files` for moved/copied paths
-- returns any warnings that should be shown to the user before continuing
+- returns counts and any warnings that should be shown to the user before
+  continuing
 
 For read-only stack triage where PR numbers are already known, use
 `<pr-address-runner> exec summarize-feedback <pr_number> --format json` to
@@ -132,110 +156,79 @@ reduce token volume. Do not use it as a replacement for `prepare-run` in the
 current-branch workflow; it does not reopen contested threads or return
 restructured-file evidence.
 
-If the result has `found: false`, stop and report that there is no PR for the
-current branch.
+If the result has `data.found: false`, stop and report that there is no PR for
+the current branch.
 
-If `reviews`, `review_threads`, and `discussion_comments` are all empty,
-report that there is no outstanding feedback and stop.
+If the sidecar counts show no reviews, unresolved review threads, or discussion
+comments, report that there is no outstanding feedback and stop.
 
-### 3. Classify and plan
+### 3. Classify, validate, and plan
 
-Classify the normalized payload from `prepare-run`.
+Open `references/feedback-classifier.md` and follow its strict packet contract.
+The classifier output is a JSON packet with `schema_version: 1` and explicit
+`reviews`, `review_threads`, and `discussion_comments` entries.
 
-This is judgment work. Keep it in the model. Do not turn these rules into a
-Python classifier.
+When running in an asdl checkout, also read `.asdl/prompts/subagent-launch.md`
+before launching a side-channel summarizer/subagent. That policy describes how
+to pass payload paths and locators without pasting raw sidecar JSON.
 
-`prepare-run` provides four inputs:
+Preferred classification path:
 
-- `reviews` - PR-level review submissions
-- `review_threads` - normalized inline review threads
-- `discussion_comments` - top-level PR discussion comments
-- `restructured_files` - moved/copied paths detected from git diff
+1. Pass the compact manifest, `payload_reference.payload_path`, relevant body
+   locators, expected packet schema, and completeness requirements to a focused
+   side-channel summarizer/subagent.
+2. Require the summarizer to return only the strict classification packet.
+3. Do not paste the full `.raw.json` sidecar payload into the main transcript.
 
-`review_threads` is already normalized:
+Fallback path when no subagent/side channel is available:
 
-- contested threads previously resolved by `pr-address` may already be
-  reopened and marked unresolved
-- if the user asked for all threads, resolved reference threads may still be
-  present
+- Use targeted detail lookup for the bodies needed to classify items:
 
-Required classifier outputs:
+  ```bash
+  <pr-address-runner> exec read-feedback-detail \
+    --payload-path <payload-path> \
+    --json-pointer <locator-json-pointer> \
+    --format json
+  ```
 
-- one explicit record for every unresolved inline review thread
-- `actionable_reviews` for PR-level reviews that need action
-- `discussion_actions` for discussion comments that need action or a reply
-- `informational_count` for non-thread items dropped as noise or acknowledgments
-- each explicit actionable record includes:
-  - id (`thread_id`, `review_id`, or `comment_id`)
-  - `action_summary`
-  - `complexity`
-  - `pre_existing` when relevant
+- Stop if targeted lookup still leaves insufficient evidence. Do not switch to
+  full inline payloads by default.
 
-Before showing the plan, verify the completeness invariant:
+Validate before displaying any execution plan:
 
-- every unresolved thread from `prepare-run.review_threads` appears exactly once
-- resolved threads present only because of `include_all_threads=true` are
-  reference-only and may be omitted
-- unresolved review threads must never disappear into `informational_count`
+```bash
+printf '%s' '<json wrapper>' \
+  | <pr-address-runner> exec validate-feedback-classification --format json
+```
 
-If you cannot account for every unresolved review thread, stop and
-re-classify. A partial thread list is a bug.
+where `<json wrapper>` is:
 
-Evaluate classification rules in order. First match wins.
+```json
+{ "manifest": "<prepare-run data>", "classification": "<classification packet>" }
+```
 
-PR-level reviews (empty-body `COMMENTED` / `APPROVED` are pre-filtered by
-`prepare-run` unless `include_empty_reviews=true`, so most rules below only
-trigger when the user opts in to raw reviews):
+Validation outcomes:
 
-1. `APPROVED` -> drop silently.
-2. `CHANGES_REQUESTED` with a body -> actionable. Usually `cross_cutting` or
-   `complex`.
-3. `CHANGES_REQUESTED` with no body -> actionable with summary "Reviewer
-   requested changes; inspect inline threads for specifics".
-4. `COMMENTED` with no body -> drop silently.
-5. `COMMENTED` with a body:
-   - actionable if it asks for a change or answer
-   - drop if it is praise, acknowledgment, or a non-actionable observation
+- If validation exits `0` and `data.valid` is true, continue to plan display.
+- If validation exits `1`, inspect `data.counts` and `data.errors`, retry
+  classification once with focused correction, then revalidate.
+- If the retry still fails, stop and report the diagnostics.
+- If validation exits `2`, treat it as malformed workflow input and stop.
 
-Inline review threads:
+The validated packet drives planning:
 
-1. Resolved reference-only threads -> ignore unless the user explicitly wants
-   to act on them.
-2. Thread on a moved/copied `new_path` where the first commenter is a bot ->
-   actionable, `pre_existing=true`, `complexity=pre_existing`.
-3. Outdated thread (`line: null` or `is_outdated=true`) -> actionable. Mark
-   the summary so execution knows to verify whether the issue is already fixed.
-4. Bot nit or likely false positive -> actionable, but execution must verify
-   the code before changing anything.
-5. Normal request or suggestion -> actionable.
-6. Question-only or approval-only thread -> informational.
+- `disposition: "actionable"` entries become execution items.
+- `disposition: "informational"` review threads require a per-item user choice:
+  `act`, `dismiss`, or `skip`.
+- Informational reviews and discussion comments are summarized explicitly; they
+  do not hide unresolved review threads.
 
-Discussion comments:
+Evaluate classification rules in `references/feedback-classifier.md`. Key
+batching rules:
 
-1. Obvious CI/status/stack automation with no request -> drop silently.
-2. Request for change, clarification, or reply -> actionable.
-3. Human acknowledgment, thanks, or FYI -> informational.
-4. Comment that only summarizes prior work -> drop silently.
-
-Treat a comment as bot-generated when the evidence is strong:
-
-- author login ends with `[bot]`
-- body is obviously auto-generated boilerplate
-- the same style appears across many comments like a linter pass
-
-When in doubt, treat the author as human. False negatives are safer than
-silently dropping real review feedback.
-
-Assign `complexity` only to actionable items:
-
-- `pre_existing` - moved/restructured bot comment; no code change expected
-- `local` - one file, one location, a small edit
-- `single_file` - one file, multiple locations
-- `cross_cutting` - multiple files affected
-- `complex` - architectural or multi-comment coordinated change
-
-If uncertain, choose the higher complexity. It is better to pause for user
-approval than to auto-execute something surprising.
+- auto-proceed: `pre_existing`, `local`, `single_file`
+- ask first: `cross_cutting`, `complex`
+- prompt per item: informational review threads (`act`, `dismiss`, or `skip`)
 
 Use this batch order:
 
@@ -246,20 +239,17 @@ Use this batch order:
 5. `complex`
 6. informational review threads
 
-Execution rules:
-
-- auto-proceed: `pre_existing`, `local`, `single_file`
-- ask first: `cross_cutting`, `complex`
-- prompt per item: informational review threads (`act`, `dismiss`, or `skip`)
-
-Display a compact plan grouped by batch with item location and a one-line
-summary.
+Display a compact plan grouped by batch with item location, one-line summary,
+and whether the evidence came from a review, review thread, or discussion
+comment.
 
 ### 4. Execute approved batches
 
 For each approved batch, do the real engineering work:
 
 - inspect the referenced code
+- use `read-feedback-detail` when exact original body text is needed and was not
+  already provided by the side-channel classifier answer
 - decide whether the feedback needs a code change, a reply, or both
 - make the edit
 - run appropriate tests for the affected project
@@ -267,20 +257,19 @@ For each approved batch, do the real engineering work:
 - stage only the files changed for that batch
 - create exactly one commit for the batch
 
-All `pr-address exec <helper> --format json` helpers emit the machine
-envelope `{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}`
-on stdout. Failures exit 2 with `error_type` and `message` set.
+All `pr-address exec <helper> --format json` helpers emit the machine envelope
+`{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}` on
+stdout. Failures exit 2 with `error_type` and `message` set.
 
 **Before calling any `pr-address exec <helper> --format json`, open
-`references/cli-reference.md` and read that helper's input field table and
-enum values.** Do not guess field names, omit required fields, or invent
-enum values (for example, `mode`). The reference is authoritative — if it
-disagrees with memory, the reference wins. If unsure about a field's exact
-shape, also run `pr-address exec <helper> --json-schema` to print the
-JSON schema.
+`references/cli-reference.md` and read that helper's input field table and enum
+values.** Do not guess field names, omit required fields, or invent enum values
+(for example, `mode`). The reference is authoritative — if it disagrees with
+memory, the reference wins. If unsure about a field's exact shape, also run
+`pr-address exec <helper> --json-schema` to print the JSON schema.
 
-Substitute the wrapper path documented above for every literal
-`pr-address` shown in that reference.
+Substitute the wrapper path documented above for every literal `pr-address`
+shown in that reference.
 
 Commit format:
 
@@ -297,8 +286,8 @@ Treat these cases specially:
   making a new edit
 - automated false positives: explain why they are false positives and resolve
   them without a code change
-- informational items the user chose to act on: treat them like actionable
-  items for that batch
+- informational items the user chose to act on: treat them like actionable items
+  for that batch
 
 Before execution changes code for a bot comment, verify the local context:
 
@@ -313,8 +302,7 @@ If the bot is wrong:
 - keep the explanation factual and brief
 
 Use the composite helpers for GitHub mutations. Read each helper's entry in
-`references/cli-reference.md` before calling it — do not guess the JSON
-shape:
+`references/cli-reference.md` before calling it — do not guess the JSON shape:
 
 - `resolve-thread-batch` — after a batch commit, reply to and resolve every
   inline thread addressed by that commit in one JSON payload
@@ -322,17 +310,17 @@ shape:
 - `reply-to-review` — post a formatted reply to a PR-level review
 - `reply-to-discussion` — reply to a discussion comment with reaction
 
-For an approved batch that addresses multiple inline threads, commit first,
-then call `resolve-thread-batch` once with the batch commit SHA and one item
-per thread. Use `mode=fixed` for code changes, `mode=pre_existing` for
+For an approved batch that addresses multiple inline threads, commit first, then
+call `resolve-thread-batch` once with the batch commit SHA and one item per
+thread. Use `mode=fixed` for code changes, `mode=pre_existing` for
 moved/restructured pre-existing comments, and `mode=explained` for factual
 false-positive/already-fixed explanations.
 
 Common footguns (the reference is still the source of truth):
 
-- `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads
-  fail before mutation; gateway failures may return `exit_code: 1` with
-  partial result data.
+- `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads fail
+  before mutation; gateway failures may return `exit_code: 1` with partial
+  result data.
 - `resolve-thread-with-reply` uses positional fields and `mode` must be one of
   `pre_existing`, `fixed`, or `explained`. Anything else is rejected.
 
@@ -341,9 +329,16 @@ and standard formatting.
 
 ### 5. Verify and hand off
 
-After the last batch, re-fetch current feedback with:
+After the last batch, re-fetch current feedback with default sidecar mode:
 
-- `<pr-address-runner> exec get-feedback <pr_number>`
+```bash
+<pr-address-runner> exec get-feedback <pr_number> \
+  --payload-session-id <payload-session-id> \
+  --format json
+```
+
+This returns a compact sidecar manifest by default. Use selected-detail lookup
+or explicit inline mode only if full body text is required for debugging.
 
 Summarize:
 
@@ -367,8 +362,22 @@ Do not run `git push`. Do not run `gt submit`.
 
 - Work on the current branch. Do not create a branch or a new PR.
 - Never push. Commits stay local for the user to review first.
-- Do not use raw GitHub review-thread reply endpoints. Use the helper
-  commands above.
+- Do not use raw GitHub review-thread reply endpoints. Use the helper commands
+  above.
 - Do not drop unresolved review threads during classification.
+- Do not show or execute a plan until `validate-feedback-classification` accepts
+  the classification packet.
+- Retry invalid classification once with structured diagnostics, then fail
+  closed.
+- Do not paste full raw sidecar JSON into the main transcript by default.
+- Do not use `--payload-mode inline` unless debugging/migrating or when
+  side-channel and selected-detail paths cannot provide enough evidence.
 - Do not commit a broken batch.
 - Record skipped items in the final summary.
+
+## Summary persistence
+
+The current skill validates classification before acting and may keep the
+validated packet in scratch context for this run. Durable `.summary.json`
+persistence is intentionally not required for v1; add it only when a concrete
+reload/replay workflow needs a supported `pr-address exec` write command.

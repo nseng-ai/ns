@@ -1,10 +1,10 @@
 # pr-address CLI reference
 
-Command reference for `pr-address exec` helpers, with invocation
-examples from real sessions.
+Command reference for `pr-address exec` helpers, with invocation examples from real
+sessions.
 
-When this reference is used from the skill, replace literal `pr-address` with
-the bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
+When this reference is used from the skill, replace literal `pr-address` with the
+bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
 
 ## Invocation convention
 
@@ -17,13 +17,31 @@ All `pr-address exec <command> --format json` helpers:
 - Negative, non-fatal outcomes set `exit_code: 1`, include `message`, and may
   include `data` with partial evidence.
 - Failures set `exit_code: 2` with `error_type` and `message` (no `data`).
-- Support `--json-schema` to print JSON schemas for input/output/error shapes and
-  exit without running the operation.
+- Support `--json-schema` to print JSON schemas for input/output/error shapes
+  and exit without running the operation.
 
 ```bash
 pr-address exec resolve-thread-with-reply \
   PRRT_kw... fixed "Updated the guard." abc1234 --format json
 ```
+
+### Sidecar payload commands
+
+`prepare-run` and `get-feedback` default to `payload_mode: "sidecar"`. In
+sidecar mode, the command prints a compact manifest under `data` and writes the
+full feedback envelope to a store-owned `.raw.json` payload. The manifest carries
+`payload_reference.payload_path` plus item-level body locators; it does not paste
+full review bodies into the main transcript.
+
+Sidecar mode requires one caller-supplied payload session id, passed with
+`--payload-session-id <id>` or the `ASDL_PAYLOAD_SESSION_ID` environment
+variable. The id must be a lowercase safe path segment matching
+`^[a-z0-9][a-z0-9._-]{0,127}$`. Use the same id for every sidecar feedback
+command in one skill invocation.
+
+Use `--payload-mode inline` only as an explicit debugging or migration escape
+hatch. Inline mode prints the full raw payload and does not require a payload
+session id.
 
 ## ID scoping
 
@@ -37,63 +55,268 @@ pr-address exec resolve-thread-with-reply \
 
 ### `prepare-run`
 
-Resolve PR context, reopen contested threads, and normalize feedback.
+Resolve PR context, reopen contested threads, normalize feedback, and return a
+compact sidecar manifest by default.
 
 **Input fields:**
 
-| Field                   | Required | Description                                                                             |
-| ----------------------- | -------- | --------------------------------------------------------------------------------------- |
-| `include_all_threads`   | no       | Include resolved threads for reference (default false)                                  |
-| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
+| Field                   | Required | Description                                                                                         |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `include_all_threads`   | no       | Include resolved threads for reference (default false)                                              |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)             |
+| `payload_mode`          | no       | `sidecar` by default; pass `--payload-mode inline` only for debugging/migration                     |
+| `payload_session_id`    | sidecar  | Required in sidecar mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
 
-**Output fields (under `data`):**
+**Default sidecar output fields (under `data`):**
 
-| Field                 | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| `found`               | Whether a PR was found for the current branch           |
-| `current_branch`      | Branch name                                             |
-| `number`              | PR number                                               |
-| `title`               | PR title                                                |
-| `url`                 | PR URL                                                  |
-| `head_ref_name`       | PR head branch                                          |
-| `base_ref_name`       | PR base branch (needed for restructured-file detection) |
-| `state`               | PR state (`OPEN`, `CLOSED`, `MERGED`)                   |
-| `reviews`             | Array of PR-level review submissions                    |
-| `review_threads`      | Array of normalized inline review threads               |
-| `discussion_comments` | Array of top-level PR discussion comments               |
-| `reopened_thread_ids` | Thread IDs reopened by contested-thread detection       |
-| `restructured_files`  | Moved/copied paths from `git diff --name-status -M -C`  |
-| `warnings`            | Non-fatal issues to show the user                       |
+| Field                  | Description                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `payload_mode`         | `sidecar` for the default workflow                                             |
+| `payload_reference`    | Store-owned payload metadata, including `payload_path`, `session_id`, and size |
+| `found`                | Whether a PR was found for the current branch                                  |
+| `current_branch`       | Branch name                                                                    |
+| `number`               | PR number                                                                      |
+| `title`                | PR title                                                                       |
+| `url`                  | PR URL                                                                         |
+| `head_ref_name`        | PR head branch                                                                 |
+| `base_ref_name`        | PR base branch (needed for restructured-file detection)                        |
+| `state`                | PR state (`OPEN`, `CLOSED`, `MERGED`)                                          |
+| `counts`               | Review/thread/comment counts, including resolved/unresolved thread totals      |
+| `reviews`              | Compact PR-level review items with `body_locator`, not body text               |
+| `review_threads`       | Compact inline-thread items with comment locators, not body text               |
+| `discussion_comments`  | Compact discussion-comment items with `body_locator`, not body text            |
+| `reopened_thread_ids`  | Thread IDs reopened by contested-thread detection                              |
+| `restructured_files`   | Moved/copied paths from `git diff --name-status -M -C`                         |
+| `warnings`             | Non-fatal issues to show the user                                              |
+| `error` / `returncode` | Optional failure details when no PR is found                                   |
+
+Manifest items carry locators rather than bodies:
+
+- `reviews[]`: `id`, `author`, `state`, `submitted_at`, `body_locator`.
+- `review_threads[]`: `thread_id`, `path`, `line`, `start_line`,
+  `is_resolved`, `is_outdated`, `comment_count`, `item_pointer`, `comments[]`.
+- `review_threads[].comments[]`: `id`, `author`, `path`, `line`, `start_line`,
+  `created_at`, `body_locator`.
+- `discussion_comments[]`: `comment_id`, `author`, `url`, `body_locator`.
+- `body_locator`: `body_chars`, `json_pointer`, `item_pointer`, and domain
+  metadata that identifies the review/thread/comment source.
+
+Inline output (`--payload-mode inline`) returns the full raw normalized arrays
+under `data` and should not be the default skill path.
 
 **Example:**
 
 ```bash
-pr-address exec prepare-run --format json
-```
-
-```json
-{
-  "exit_code": 0,
-  "data": {
-    "found": true,
-    "current_branch": "implement-push-down-refactor",
-    "number": 104,
-    "title": "Add composite pr-address operations",
-    "url": "https://github.com/dagster-io/asdl/pull/104",
-    "head_ref_name": "implement-push-down-refactor",
-    "base_ref_name": "master",
-    "state": "OPEN",
-    "reviews": [ ... ],
-    "review_threads": [ ... ],
-    "discussion_comments": [ ... ],
-    "reopened_thread_ids": [],
-    "restructured_files": [],
-    "warnings": []
-  }
-}
+pr-address exec prepare-run \
+  --payload-session-id pr-address-20260604t120000z-a1 \
+  --format json
 ```
 
 When `data.found` is `false`, there is no PR for the current branch.
+
+### `get-feedback`
+
+Fetch feedback for a known PR number. Use this for final verification or
+read-only triage when the PR number is already known.
+
+**Input fields:**
+
+| Field                   | Required | Description                                                                                         |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `pr_number`             | yes      | PR number                                                                                           |
+| `include_resolved`      | no       | Include resolved review threads in the manifest (default false)                                     |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)             |
+| `payload_mode`          | no       | `sidecar` by default; pass `--payload-mode inline` only for debugging/migration                     |
+| `payload_session_id`    | sidecar  | Required in sidecar mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+
+**Default sidecar output fields (under `data`):**
+
+| Field                 | Description                                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `payload_mode`        | `sidecar` for the default workflow                                        |
+| `payload_reference`   | Store-owned payload metadata, including `payload_path`                    |
+| `pr_number`           | PR number                                                                 |
+| `counts`              | Review/thread/comment counts, including resolved/unresolved thread totals |
+| `reviews`             | Compact PR-level review items with body locators                          |
+| `review_threads`      | Compact inline-thread items with comment locators                         |
+| `discussion_comments` | Compact discussion-comment items with body locators                       |
+
+`include_resolved` may include resolved reference threads in the manifest.
+Current classification validation requires every unresolved thread exactly once
+and rejects resolved threads as actionable work.
+
+**Example:**
+
+```bash
+pr-address exec get-feedback 630 \
+  --payload-session-id pr-address-20260604t120000z-a1 \
+  --format json
+```
+
+If no PR is found, the JSON envelope uses `exit_code: 1` and `data.found=false`.
+Gateway/auth failures use `exit_code: 2`.
+
+### `read-feedback-detail`
+
+Read one allowed detail from a sidecar `.raw.json` feedback envelope. Use this
+for targeted full-body inspection instead of pasting the full raw payload.
+
+**Input fields:**
+
+| Field          | Required | Description                                                     |
+| -------------- | -------- | --------------------------------------------------------------- |
+| `payload_path` | yes      | Raw sidecar path from `manifest.payload_reference.payload_path` |
+| `json_pointer` | yes      | JSON Pointer copied from a manifest item or body locator        |
+
+Allowed pointer families:
+
+- `/data/reviews/<n>`
+- `/data/reviews/<n>/body`
+- `/data/review_threads/<n>`
+- `/data/review_threads/<n>/comments/<m>`
+- `/data/review_threads/<n>/comments/<m>/body`
+- `/data/discussion_comments/<n>`
+- `/data/discussion_comments/<n>/body`
+
+**Output fields (under `data`):**
+
+| Field          | Description                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `payload_path` | Echo of the raw sidecar path                                                                                                          |
+| `json_pointer` | Echo of the selected pointer                                                                                                          |
+| `detail_kind`  | `review`, `review_body`, `review_thread`, `thread_comment`, `thread_comment_body`, `discussion_comment`, or `discussion_comment_body` |
+| `value`        | Selected JSON value or body text                                                                                                      |
+
+Invalid broad pointers, unrelated pointers, missing files, and malformed
+payloads return `exit_code: 2` with an error type/message.
+
+**Example:**
+
+```bash
+pr-address exec read-feedback-detail \
+  --payload-path /tmp/asdl/sessions/.../payloads/...raw.json \
+  --json-pointer /data/review_threads/0/comments/0/body \
+  --format json
+```
+
+### `validate-feedback-classification`
+
+Validate a strict PR feedback classification packet against a compact sidecar
+manifest before planning or execution proceeds.
+
+**Invocation:** reads the wrapper JSON from stdin by default. `--payload-json` is
+also available for direct/manual invocation.
+
+```bash
+printf '%s' '{"manifest":{...},"classification":{...}}' \
+  | pr-address exec validate-feedback-classification --format json
+```
+
+**Wrapper shape:**
+
+```json
+{
+  "manifest": "<prepare-run or get-feedback data object>",
+  "classification": "<schema_version: 1 classification packet>"
+}
+```
+
+**Classification packet shape:**
+
+```jsonc
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "review_id": "PRR_...",
+      "disposition": "actionable",
+      "body_locator": {
+        "json_pointer": "/data/reviews/0/body",
+        "item_pointer": "/data/reviews/0"
+      },
+      "summary": "Human-readable classification summary.",
+      "action_summary": "Required for actionable items.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "review_threads": [
+    {
+      "thread_id": "PRRT_...",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/0",
+      "covered_comments": [
+        {
+          "comment_id": 123456,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/0/comments/0/body",
+            "item_pointer": "/data/review_threads/0/comments/0"
+          }
+        }
+      ],
+      "summary": "Thread summary.",
+      "action_summary": "Required for actionable threads.",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "discussion_comments": [
+    {
+      "comment_id": 987654,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/0/body",
+        "item_pointer": "/data/discussion_comments/0"
+      },
+      "summary": "Comment summary.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    }
+  ]
+}
+```
+
+Enum values:
+
+- `disposition`: `actionable`, `informational`
+- `complexity`: `pre_existing`, `local`, `single_file`, `cross_cutting`,
+  `complex`
+- `informational_reason`: `resolved_reference`, `automation`,
+  `acknowledgement`, `approval`, `question_only`, `fyi`, `noise`,
+  `already_addressed`, `other`
+
+Semantic validation rules:
+
+- Every PR-level review in the manifest must be classified exactly once.
+- Every unresolved review thread in the manifest must be classified exactly
+  once.
+- Resolved threads must not be classified as actionable work; current validation
+  rejects resolved-thread classification.
+- Every comment inside each classified unresolved review thread must be covered
+  exactly once in `covered_comments`.
+- Every PR discussion comment in the manifest must be classified exactly once.
+- Unknown IDs, duplicate IDs, missing IDs, invalid locators, and invalid
+  enum/schema values are rejected.
+- Every item requires a non-empty `summary`.
+- `actionable` items require non-empty `action_summary` and non-null
+  `complexity`, and must not include `informational_reason`.
+- `informational` items require `informational_reason`, and must not include
+  `action_summary`, `complexity`, `pre_existing: true`, or `needs_reply: true`.
+- If `pre_existing` is true, `complexity` must be `pre_existing`; if
+  `complexity` is `pre_existing`, `pre_existing` must be true.
+
+**Output behavior:**
+
+- Valid packet: `exit_code: 0`, `data.valid == true`.
+- Well-formed but invalid packet: `exit_code: 1`, message
+  `PR feedback classification failed validation.`, `data.valid == false`, plus
+  structured `data.counts` and `data.errors` diagnostics.
+- Malformed/empty input: `exit_code: 2` with an error type such as
+  `invalid_json` or `invalid_request`.
 
 ### `resolve-thread-with-reply`
 
@@ -137,25 +360,13 @@ pr-address exec resolve-thread-with-reply \
   --format json
 ```
 
-```json
-{
-  "exit_code": 0,
-  "data": {
-    "thread_id": "PRRT_kwDOR4YhMs57SeUg",
-    "body": "Fixed in commit ac18f2b: Introduced DetachedHead ...\n\nAddressed via _pr-address_ at 2026-04-16T01:40:33Z\n<!-- pr-address:resolved -->",
-    "comment": { "id": 3090302853, "author": "schrockn", ... },
-    "is_resolved": true
-  }
-}
-```
-
 On invalid input: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
 
 ### `resolve-thread-batch`
 
-Reply to and resolve multiple PR review threads with canonical formatting.
-Use this after a batch commit instead of looping over
-`resolve-thread-with-reply` once per thread.
+Reply to and resolve multiple PR review threads with canonical formatting. Use
+this after a batch commit instead of looping over `resolve-thread-with-reply`
+once per thread.
 
 **Invocation:** reads JSON from stdin by default. `--payload-json` is also
 available for direct/manual invocation.
@@ -167,11 +378,11 @@ printf '%s' '{"commit_sha":"abc1234","items":[{"thread_id":"PRRT_kw...","mode":"
 
 **Payload fields:**
 
-| Field               | Required | Description                                       |
-| ------------------- | -------- | ------------------------------------------------- |
-| `commit_sha`        | no       | Batch commit SHA used by `fixed` items            |
-| `continue_on_error` | no       | Attempt later items after a mutation failure      |
-| `items`             | yes      | Non-empty ordered array of thread resolution jobs |
+| Field               | Required | Description                                  |
+| ------------------- | -------- | -------------------------------------------- |
+| `commit_sha`        | no       | Batch commit SHA used by `fixed` items       |
+| `continue_on_error` | no       | Attempt later items after a mutation failure |
+| `items`             | yes      | Non-empty ordered array of thread jobs       |
 
 Each `items[]` entry:
 
@@ -188,14 +399,14 @@ Validation happens for the whole payload before any GitHub mutation. Duplicate
 
 **Output fields (under `data`):**
 
-| Field           | Description                                      |
-| --------------- | ------------------------------------------------ |
-| `total`         | Number of input items                            |
-| `resolved`      | Number successfully replied-to and resolved      |
-| `failed`        | Number that hit a gateway/API mutation failure   |
-| `skipped`       | Number skipped after a failure                   |
-| `all_succeeded` | Whether every item succeeded                     |
-| `results`       | Ordered per-item results with status and details |
+| Field           | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `total`         | Number of input items                          |
+| `resolved`      | Number successfully replied-to and resolved    |
+| `failed`        | Number that hit a gateway/API mutation failure |
+| `skipped`       | Number skipped after a failure                 |
+| `all_succeeded` | Whether every item succeeded                   |
+| `results`       | Ordered per-item results                       |
 
 Per-item `status` is `resolved`, `failed`, or `skipped`. Successful items carry
 `body`, `comment`, and `is_resolved`. Failed/skipped items carry
@@ -209,8 +420,8 @@ items and still returns `exit_code: 1` if any item failed.
 ### `summarize-feedback`
 
 Fetch compact feedback evidence for a known PR number without dumping full raw
-review/discussion/comment JSON. This helper compresses source evidence only;
-it does not decide actionability, complexity, or batch membership.
+review/discussion/comment JSON. This helper compresses source evidence only; it
+does not decide actionability, complexity, or batch membership.
 
 **Input fields:**
 
@@ -243,7 +454,6 @@ and `source_evidence` such as `bot_author`, `graphite_link`, `vercel_marker`,
 `roaster_marker`, or `asdl_reviewer_marker`. These are conservative mechanical
 signals only; when uncertain the helper reports `human_like`.
 
-If no PR is found, the JSON envelope uses `exit_code: 1` and `data.found=false`.
 Gateway/auth failures use `exit_code: 2`.
 
 ### `reply-to-review`
@@ -275,16 +485,6 @@ pr-address exec reply-to-review \
   --format json
 ```
 
-```json
-{
-  "exit_code": 0,
-  "data": {
-    "body": "Addressed review feedback from @reviewer-login:\n- Used LBYL pattern ...\n\n_Addressed via pr-address at ..._",
-    "comment": { "id": 12345678, ... }
-  }
-}
-```
-
 ### `reply-to-discussion`
 
 Reply to a PR discussion comment and add a +1 reaction.
@@ -301,58 +501,35 @@ Reply to a PR discussion comment and add a +1 reaction.
 
 **Output fields (under `data`):**
 
-| Field            | Description                                           |
-| ---------------- | ----------------------------------------------------- |
-| `body`           | The formatted reply body posted to GitHub             |
-| `comment`        | The created comment object                            |
-| `reaction_added` | Whether the +1 reaction was added successfully        |
-| `reaction`       | The reaction type (`+1`)                              |
-| `warning`        | Non-null if the reaction failed (not a batch failure) |
-
-**Example:**
-
-```bash
-pr-address exec reply-to-discussion \
-  104 \
-  4256544189 \
-  reviewer-login \
-  "Can we add a named type for this return value?" \
-  "Done — introduced RestructuredFiles TypeAlias." \
-  --format json
-```
-
-```json
-{
-  "exit_code": 0,
-  "data": {
-    "body": "> @reviewer-login wrote:\n> Can we add a named type ...\n\nDone — introduced ...\n\n_Addressed via pr-address at ..._",
-    "comment": { "id": 98765432, ... },
-    "reaction_added": true,
-    "reaction": "+1",
-    "warning": null
-  }
-}
-```
+| Field            | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| `body`           | The formatted reply body posted to GitHub      |
+| `comment`        | The created comment object                     |
+| `reaction_added` | Whether the +1 reaction was added successfully |
+| `reaction`       | The reaction type (`+1`)                       |
+| `warning`        | Non-null if the reaction failed                |
 
 Reaction failure produces a warning, not a batch failure.
 
 ## Other commands
 
 Lower-level helpers available via `pr-address exec <command> --format json`.
-The composite helpers above call these internally — use them directly only
-when the workflow requires it. Run `<command> --json-schema` for full schemas.
+The composite helpers above call these internally — use them directly only when
+the workflow requires it. Run `<command> --json-schema` for full schemas.
 
-| Command                   | Description                                                                                                                                                                                                                                           |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get-feedback`            | Fetch all PR feedback (reviews, threads, discussion comments) in a single batch. Empty-body `COMMENTED` / `APPROVED` reviews are filtered out by default; pass `--include-empty-reviews` (CLI) or `"include_empty_reviews": true` (JSON) to see them. |
-| `summarize-feedback`      | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                                                                                                |
-| `get-pr-for-branch`       | Look up the open PR for a branch                                                                                                                                                                                                                      |
-| `get-reviews`             | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                                                                                                 |
-| `get-review-comments`     | Fetch review threads for a PR                                                                                                                                                                                                                         |
-| `get-discussion-comments` | Fetch discussion comments for a PR                                                                                                                                                                                                                    |
-| `add-issue-comment`       | Add a discussion comment to a PR                                                                                                                                                                                                                      |
-| `add-reaction`            | Add a reaction to a comment                                                                                                                                                                                                                           |
-| `add-review-thread-reply` | Post a reply comment on a PR review thread                                                                                                                                                                                                            |
-| `resolve-thread`          | Resolve a PR review thread by its GraphQL node ID                                                                                                                                                                                                     |
-| `resolve-thread-batch`    | Reply to and resolve multiple PR review threads from one JSON payload.                                                                                                                                                                                |
-| `unresolve-thread`        | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                                                                                                          |
+| Command                            | Description                                                                                                                                                            |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get-feedback`                     | Detailed above. Fetch all PR feedback in sidecar mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
+| `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw sidecar payload.                                                                                         |
+| `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact sidecar manifest.                                                                            |
+| `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
+| `get-pr-for-branch`                | Look up the open PR for a branch                                                                                                                                       |
+| `get-reviews`                      | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
+| `get-review-comments`              | Fetch review threads for a PR                                                                                                                                          |
+| `get-discussion-comments`          | Fetch discussion comments for a PR                                                                                                                                     |
+| `add-issue-comment`                | Add a discussion comment to a PR                                                                                                                                       |
+| `add-reaction`                     | Add a reaction to a comment                                                                                                                                            |
+| `add-review-thread-reply`          | Post a reply comment on a PR review thread                                                                                                                             |
+| `resolve-thread`                   | Resolve a PR review thread by its GraphQL node ID                                                                                                                      |
+| `resolve-thread-batch`             | Reply to and resolve multiple PR review threads from one JSON payload.                                                                                                 |
+| `unresolve-thread`                 | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                           |

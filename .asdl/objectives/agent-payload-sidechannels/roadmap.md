@@ -16,10 +16,12 @@
       Evidence: `asdl_core.payloads.lookup` can resolve RFC 6901 JSON Pointers and read selected values from validated `.raw.json` / `.summary.json` payload artifacts without requiring the current payload root, while `pr-address exec read-feedback-detail` restricts callers to manifest-supported PR feedback body/item pointers, requires raw successful Clinkr sidecars, type-checks selected body vs item values, and returns one compact provenance envelope without printing unrelated raw feedback bodies.
 - [x] Add PR feedback classification validation.
       Evidence: `pr-address exec validate-feedback-classification` and `feedback_classification.py` validate strict classification packets against compact sidecar manifests, including exact-once PR reviews, unresolved review threads, covered thread comments, discussion comments, locator matches, enum/schema failures, duplicate/missing/unknown IDs, resolved-thread rejection, and action/informational field consistency. Focused unit and scenario tests plus Ruff and `ty` checks passed.
-- [ ] Wire the side-channel LM/subagent summary workflow into `pr-address` documentation and skill behavior.
-      Evidence: the skill instructs agents to use compact sidecar defaults with a supplied payload session id, read `.asdl/prompts/subagent-launch.md`, pass payload paths rather than raw JSON to side-channel summarizers when available, save `.summary.json` classification artifacts through the payload helper, retry invalid classifications once, use selected-detail lookup for targeted body text, and use explicit inline/full-output mode only as a debugging or migration escape hatch.
-- [ ] Cover the steelthread with functional tests and closure evidence.
-      Evidence: tests cover path/session validation, relative root rejection, sidecar creation, sidecar failure, manifest body elision, locator retrieval, prompt resolution and embedded-default drift, `pr-address` completeness validation, and relevant command/schema behavior; targeted repo checks pass for changed Python and documentation surfaces.
+- [x] Wire the side-channel LM/subagent summary workflow into `pr-address` documentation and skill behavior.
+      Evidence: the public `pr-address` skill and references now instruct agents to use compact sidecar defaults with a supplied payload session id, read `.asdl/prompts/subagent-launch.md` when available, pass payload paths and locators rather than raw JSON to side-channel summarizers, require a strict `schema_version: 1` classification packet, validate with `pr-address exec validate-feedback-classification` before planning/execution, retry invalid classifications once with diagnostics, use `pr-address exec read-feedback-detail` for targeted body text, and treat explicit inline/full-output mode as a debugging or migration escape hatch. Summary artifact persistence is intentionally deferred until a concrete reload/replay workflow needs a supported write command.
+- [x] Resolve `.summary.json` classification artifact persistence for closure.
+      Evidence: validation-before-acting is sufficient for the `pr-address` v1 steelthread. The shared payload store still supports `.summary.json` artifacts as a reserved role, but `pr-address` does not need a supported classification-summary write command until a concrete reload/replay workflow appears. The skill keeps validated packets in run-local scratch context instead of requiring durable summary persistence.
+- [x] Cover the steelthread with functional tests and closure evidence.
+      Evidence: tests cover path/session validation, relative root rejection, sidecar creation, sidecar failure, manifest body elision, locator retrieval, prompt resolution and embedded-default drift, `pr-address` completeness validation, and relevant command/schema behavior. The stack's semantic updates record focused pytest, Ruff, `ty`, dprint, schema-command, and diff-check validation for the changed surfaces; the final persistence decision kept the steelthread closed around validation-before-acting instead of adding an unneeded write-command slice.
 
 ## Parked
 
@@ -32,4 +34,5 @@
 - Payload retention/GC tooling.
 - Bounded body-preview escape hatches in compact manifests.
 - Numeric token/character budget tests or measurement scripts.
+- A supported `pr-address exec` command for writing classification `.summary.json` artifacts until a concrete reload/replay consumer appears.
 - ADRs unless implementation reveals a hard-to-reverse, surprising trade-off that is not already captured by the Objective and docs.
