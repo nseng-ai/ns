@@ -80,11 +80,15 @@ Useful evidence includes:
 
 This Objective is execution-friendly for `objective-next` under the boundaries below.
 
-- Direct execution is allowed when: the slice is docs/context-only, source-backed, and limited to keeping `CONTEXT.md`, `CONTEXT-MAP.md`, ADRs, related `grill-with-docs` docs, or Objective tracking up to date.
-- Steer or ask first when: choosing canonical terminology, changing the context/ADR format, adding/removing a context surface, or resolving a non-obvious cross-context ambiguity.
-- Materialization: local Markdown edits only unless branch/commit work is explicitly confirmed.
+- Action recommendation: `objective-next` should pick one route, not present a grab bag of possible next actions.
+- Implement from a plan only when: the slice is docs/context-only, source-backed, limited to keeping `CONTEXT.md`, `CONTEXT-MAP.md`, ADRs, related `grill-with-docs` docs, or Objective tracking up to date, and `objective-next` can form a concrete plan from the Objective plus current repo evidence. The plan should name the selected slice, evidence to inspect, likely edits, validation, and stop conditions.
+- Plan first when: the roadmap row is too broad, source evidence has not been inspected enough to form a concrete plan, canonical terminology must be chosen, the context/ADR format might change, a context surface may be added/removed, or a non-obvious cross-context ambiguity must be resolved.
+- Plan-first confirmation: when recommending planning, ask a yes/no confirmation question so the user can type `yes` to start the planning/readback session immediately.
+- Auto-objective slices: if no concrete plan exists yet, start the planning/readback work needed to produce one, then continue only if the plan becomes bounded and source-backed; otherwise stop/fail instead of offering ad hoc implementation.
+- Manual slices: ask for confirmation of the steered planning session and do not present immediate implementation as an option.
+- How `objective-next` should preview the work: say which files or areas it may edit, how it will leave the work, and what it will not do unless explicitly asked.
+- Default work shape: leave only local Markdown file edits in this worktree. Do not create a branch, commit, submit a PR, or touch external systems unless explicitly confirmed.
 - Validation: run `dprint` checks for Markdown and cite source evidence for inventory/relationship claims.
-- External side effects: none by default.
 
 ## Assumptions and Risks
 
