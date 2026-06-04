@@ -605,6 +605,115 @@ def test_prepare_run_default_sidecar_writes_raw_payload_and_compact_manifest(
     assert raw_payload["data"]["discussion_comments"][0]["body"] == discussion_body
 
 
+def test_read_feedback_detail_reads_prepare_run_review_thread_item(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    review_body = "PREPARE_READ_DETAIL_REVIEW_BODY_SENTINEL tighten workflow"
+    thread_body = "PREPARE_READ_DETAIL_THREAD_BODY_SENTINEL revisit edge case"
+    discussion_body = "PREPARE_READ_DETAIL_DISCUSSION_BODY_SENTINEL update summary"
+    fake = FakePRGateway(
+        prs_by_branch={
+            "feature": PRSummary(
+                number=42,
+                title="Update helper surface",
+                url="https://example.com/pr/42",
+                head_ref_name="feature",
+                base_ref_name="master",
+                state="OPEN",
+            )
+        },
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body=review_body,
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2026-04-15T12:00:00Z",
+                )
+            ]
+        },
+        review_threads={
+            42: [
+                PRReviewThread(
+                    id="PRRT_contested",
+                    path="src/new.py",
+                    line=11,
+                    is_resolved=True,
+                    is_outdated=False,
+                    comments=(
+                        PRReviewComment(
+                            id=2,
+                            body=f"Fixed already.\n{RESOLUTION_MARKER}",
+                            author="github-actions[bot]",
+                            path="src/new.py",
+                            line=11,
+                            created_at="2026-04-15T12:00:00Z",
+                        ),
+                        PRReviewComment(
+                            id=3,
+                            body=thread_body,
+                            author="reviewer",
+                            path="src/new.py",
+                            line=11,
+                            created_at="2026-04-15T12:05:00Z",
+                        ),
+                    ),
+                )
+            ]
+        },
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=9001,
+                    body=discussion_body,
+                    author="reviewer",
+                    url="https://example.com/comment/9001",
+                )
+            ]
+        },
+    )
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+
+    prepare_exit, prepare_output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        env=_payload_env(tmp_path),
+    )
+    assert prepare_exit == 0
+    manifest = prepare_output["data"]
+    payload_path = manifest["payload_reference"]["payload_path"]
+    json_pointer = manifest["review_threads"][0]["item_pointer"]
+
+    detail_exit, detail_output = _invoke_json(
+        cli_group,
+        [
+            "read-feedback-detail",
+            "--payload-path",
+            payload_path,
+            "--json-pointer",
+            json_pointer,
+        ],
+        FakePRGateway(),
+    )
+
+    assert detail_exit == 0
+    detail = detail_output["data"]
+    assert detail["payload_path"] == payload_path
+    assert detail["json_pointer"] == json_pointer
+    assert detail["detail_kind"] == "review_thread"
+    assert detail["value"]["id"] == "PRRT_contested"
+    assert detail["value"]["path"] == "src/new.py"
+    assert detail["value"]["is_resolved"] is False
+    assert detail["value"]["comments"][1]["body"] == thread_body
+    detail_json = json.dumps(detail_output)
+    assert review_body not in detail_json
+    assert discussion_body not in detail_json
+
+
 def test_prepare_run_default_sidecar_writes_found_false_raw_payload(
     cli_group: ClinkrGroup,
     tmp_path: Path,
