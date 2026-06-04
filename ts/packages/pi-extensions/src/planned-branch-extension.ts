@@ -1,25 +1,19 @@
-import { stat } from "node:fs/promises";
-import { basename, isAbsolute } from "node:path";
-
 import {
 	PLAN_BRANCH_NAMESPACE,
+	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 	buildImplPlannedBranchPrompt,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
 	deriveTargetBranch,
-	findLatestSourceBranchPlanFile,
 	formatLoadedAttachedPlanEvidence,
 	formatSourceBranchPlanFileEvidence,
-	isPathInside,
 	loadAttachedPlan,
-	normalizePlanFilePath,
-	resolvePlanStoreDirectory,
+	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
 	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
 	type BranchCreationMethod,
 	type ExecOptions,
-	type LatestSourceBranchPlanFileEvidence,
 	type LoadedAttachedPlan,
-	type PlanStoreDirectoryEvidence,
 	type PlannedBranchEvidence,
+	type SelectedSavedPlanFile,
 	type SourceBranchPlanFileEvidence,
 } from "@asdl/planned-branch";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
@@ -60,7 +54,6 @@ export type {
 const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
-const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
 const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
@@ -146,6 +139,7 @@ export interface CreatePlannedBranchPreview {
 	sourceBranch?: string;
 	branchKey?: string;
 	modifiedTimeMs?: number;
+	summary?: string;
 }
 
 export interface ToolContext {
@@ -364,15 +358,16 @@ export async function resolveCreatePlannedBranchPreview(
 	options: PlannedBranchExtensionOptions = {},
 ): Promise<CreatePlannedBranchPreview> {
 	const selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
+	const selectedFile = selectedSavedPlanFileInfo(selected);
 	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "deriving branch slug from plan content…");
-	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selected.filePath, cwd: ctx.cwd });
+	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedFile.filePath, cwd: ctx.cwd });
 	const branchCreation = args.branchCreation ?? resolvePlannedBranchDefaultCreation(options);
 	const targetBranch = derivePlannedTargetBranch(args, slugEvidence.slug, options);
 	const base = {
 		slug: slugEvidence.slug,
 		savedPlanFileStem: selected.savedPlanFileStem,
-		filePath: selected.filePath,
-		fileName: selected.fileName,
+		filePath: selectedFile.filePath,
+		fileName: selectedFile.fileName,
 		targetBranch,
 		branchCreation,
 		slugEvidence,
@@ -380,19 +375,20 @@ export async function resolveCreatePlannedBranchPreview(
 		key: `${slugEvidence.slug}.md`,
 	};
 
-	if (selected.mode === "explicit") {
+	if (selected.type === "explicit") {
 		return { ...base, mode: "explicit" };
 	}
 
 	return {
 		...base,
-		mode: selected.mode,
-		repoRoot: selected.repoRoot,
-		repoKey: selected.repoKey,
-		repoIdentitySource: selected.repoIdentitySource,
-		sourceBranch: selected.sourceBranch,
-		branchKey: selected.branchKey,
-		modifiedTimeMs: selected.modifiedTimeMs,
+		mode: selected.type,
+		repoRoot: selected.plan.repoRoot,
+		repoKey: selected.plan.repoKey,
+		repoIdentitySource: selected.plan.repoIdentitySource,
+		sourceBranch: selected.plan.sourceBranch,
+		branchKey: selected.plan.branchKey,
+		modifiedTimeMs: selected.plan.modifiedTimeMs,
+		...(selected.type === "session" && selected.plan.summary !== undefined ? { summary: selected.plan.summary } : {}),
 	};
 }
 
@@ -528,13 +524,16 @@ async function handleCreatePlannedBranchCommand(
 
 	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "creating branch and attaching plan…");
 	try {
-		const params: { slug: string; filePath: string; branchCreation: BranchCreationMethod; branchName?: string } = {
+		const params: { slug: string; filePath: string; branchCreation: BranchCreationMethod; branchName?: string; summary?: string } = {
 			slug: preview.slug,
 			filePath: preview.filePath,
 			branchCreation: preview.branchCreation,
 		};
 		if (preview.targetBranch !== preview.slug) {
 			params.branchName = preview.targetBranch;
+		}
+		if (preview.summary !== undefined) {
+			params.summary = preview.summary;
 		}
 
 		const evidence = await createPlannedBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
@@ -677,16 +676,6 @@ function formatSourceBranchPlanFileEvidenceWithSlugModel(
 	return `${formatSourceBranchPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
 
-type SelectedSavedPlanFile =
-	| {
-			mode: "explicit";
-			savedPlanFileStem: string;
-			filePath: string;
-			fileName: string;
-	  }
-	| (LatestSourceBranchPlanFileEvidence & { mode: "latest"; savedPlanFileStem: string })
-	| (LatestSourceBranchPlanFileEvidence & { mode: "session"; savedPlanFileStem: string });
-
 interface PlannedBranchMessageDetails {
 	status: "usage" | "dry-run" | "success" | "failure";
 	preview?: CreatePlannedBranchPreview;
@@ -701,163 +690,20 @@ async function resolveSelectedSavedPlanFile(
 	ctx: CommandContext,
 	options: PlannedBranchExtensionOptions,
 ): Promise<SelectedSavedPlanFile> {
-	if (args.filePath === undefined) {
-		const sessionEvidence = await findLatestSavedPlanFileFromSessionHistory(pi, ctx, options);
-		if (sessionEvidence !== undefined) {
-			return sessionEvidence;
-		}
-
-		const evidence = await findLatestSourceBranchPlanFile(pi, {
-			cwd: ctx.cwd,
-			planStoreRoot: resolvePlanStoreRootOption(options),
-		});
-		return { ...evidence, mode: "latest", savedPlanFileStem: evidence.slug };
-	}
-
-	const filePath = normalizePlanFilePath(args.filePath);
-	if (!isAbsolute(filePath)) {
-		throw new Error(`Plan file path must be absolute or home-relative for /planned-branch:create; got ${filePath || "(empty)"}.`);
-	}
-
-	const fileName = basename(filePath);
-	if (!fileName.endsWith(".md")) {
-		throw new Error(`Plan file must use a .md filename; got ${fileName || "(empty)"}.`);
-	}
-
-	return { mode: "explicit", savedPlanFileStem: fileName.slice(0, -".md".length), filePath, fileName };
-}
-
-async function findLatestSavedPlanFileFromSessionHistory(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	options: PlannedBranchExtensionOptions,
-): Promise<(LatestSourceBranchPlanFileEvidence & { mode: "session"; savedPlanFileStem: string }) | undefined> {
-	const entries = ctx.sessionManager?.getBranch?.();
-	if (entries === undefined) {
-		return undefined;
-	}
-
-	const directory = await resolvePlanStoreDirectory(pi, {
+	return resolveSelectedSavedPlanFilePrimitive(pi, {
 		cwd: ctx.cwd,
 		planStoreRoot: resolvePlanStoreRootOption(options),
+		explicitPath: args.filePath,
+		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
+		fallbackToLatest: true,
 	});
-
-	for (let index = entries.length - 1; index >= 0; index -= 1) {
-		const entry = entries[index];
-		const evidence = extractSourcePlanEvidenceFromSessionEntry(entry);
-		if (evidence === undefined) {
-			continue;
-		}
-
-		const candidate = await validateSessionSavedPlanCandidate(evidence, directory);
-		if (candidate !== undefined) {
-			return { ...candidate, mode: "session", savedPlanFileStem: candidate.slug };
-		}
-	}
-
-	return undefined;
 }
 
-function extractSourcePlanEvidenceFromSessionEntry(entry: unknown): SourceBranchPlanFileEvidence | undefined {
-	if (!isRecord(entry) || entry.type !== "message") {
-		return undefined;
+function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): { filePath: string; fileName: string } {
+	if (selected.type === "explicit") {
+		return { filePath: selected.filePath, fileName: selected.fileName };
 	}
-
-	const message = entry.message;
-	if (!isRecord(message) || message.role !== "toolResult") {
-		return undefined;
-	}
-	if (message.toolName !== WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME || message.isError === true) {
-		return undefined;
-	}
-
-	const details = message.details;
-	if (!isRecord(details)) {
-		return undefined;
-	}
-
-	const slug = details.slug;
-	const repoRoot = details.repoRoot;
-	const repoKey = details.repoKey;
-	const repoIdentitySource = details.repoIdentitySource;
-	const sourceBranch = details.sourceBranch;
-	const branchKey = details.branchKey;
-	const filePath = details.filePath;
-	if (
-		typeof slug !== "string" ||
-		typeof repoRoot !== "string" ||
-		typeof repoKey !== "string" ||
-		typeof sourceBranch !== "string" ||
-		typeof branchKey !== "string" ||
-		typeof filePath !== "string"
-	) {
-		return undefined;
-	}
-	if (repoIdentitySource !== "origin-url" && repoIdentitySource !== "repo-root") {
-		return undefined;
-	}
-
-	const evidence: SourceBranchPlanFileEvidence = {
-		slug,
-		repoRoot,
-		repoKey,
-		repoIdentitySource,
-		sourceBranch,
-		branchKey,
-		filePath,
-	};
-	const summary = details.summary;
-	if (summary === undefined) {
-		return evidence;
-	}
-	if (typeof summary !== "string") {
-		return undefined;
-	}
-	return { ...evidence, summary };
-}
-
-async function validateSessionSavedPlanCandidate(
-	evidence: SourceBranchPlanFileEvidence,
-	directory: PlanStoreDirectoryEvidence,
-): Promise<LatestSourceBranchPlanFileEvidence | undefined> {
-	if (!isAbsolute(evidence.filePath) || !evidence.filePath.endsWith(".md")) {
-		return undefined;
-	}
-
-	const fileName = basename(evidence.filePath);
-	if (!fileName.endsWith(".md")) {
-		return undefined;
-	}
-	if (!isPathInside(directory.directoryPath, evidence.filePath)) {
-		return undefined;
-	}
-	if (
-		evidence.repoRoot !== directory.repoRoot ||
-		evidence.repoKey !== directory.repoKey ||
-		evidence.repoIdentitySource !== directory.repoIdentitySource ||
-		evidence.sourceBranch !== directory.sourceBranch ||
-		evidence.branchKey !== directory.branchKey
-	) {
-		return undefined;
-	}
-
-	let fileStat: Awaited<ReturnType<typeof stat>>;
-	try {
-		fileStat = await stat(evidence.filePath);
-	} catch {
-		return undefined;
-	}
-	if (!fileStat.isFile()) {
-		return undefined;
-	}
-
-	return {
-		...directory,
-		slug: fileName.slice(0, -".md".length),
-		filePath: evidence.filePath,
-		fileName,
-		modifiedTimeMs: fileStat.mtimeMs,
-	};
+	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 }
 
 function resolvePlannedBranchDefaultCreation(options: PlannedBranchExtensionOptions): BranchCreationMethod {
