@@ -40,6 +40,24 @@ This Objective is complete when each in-scope cluster has one of the following d
 
 Closure should summarize the final cluster disposition table, the most important shared architecture decision, and any remaining risks that were accepted or moved elsewhere.
 
+## Definition of Progress
+
+A useful execution slice for this Objective advances exactly one roadmap cluster at a time unless the inspected seam proves that two clusters are inseparable and the agent asks before broadening scope. Progress means the slice leaves durable Objective evidence for the selected cluster:
+
+- a named module/interface/seam decision and the review route actually used;
+- either a small architecture-deepening implementation with targeted tests, or a parked rationale explaining why no refactor is currently justified;
+- updated assumptions, risks, roadmap notes, or Semantic Updates when the inspection changes durable understanding.
+
+Routine validation, formatting, CI waiting, or repo-wide checks are completion evidence for a semantic slice, not standalone Objective progress unless the validation behavior itself becomes the deliverable.
+
+## Runner Policy
+
+After the Tracking Gate passes, `objective-next` may offer execution for the next non-parked roadmap cluster when the preview limits work to one coherent semantic slice and cites this policy. The default execution boundary is local worktree edits only: inspect code, make targeted source/test/doc changes when warranted, run relevant local validation, and update this Objective under `.asdl/objectives/landed-architecture-review/` with meaningful evidence.
+
+The execution preview must name the selected roadmap cluster, likely files or packages, expected validation, how work will be left, and stop/ask conditions. Branch creation, commits, Graphite stack operations, PR submission, publishing, deployment, and other write-capable external systems are out of scope unless the user explicitly asks for them in the confirmed preview.
+
+Stop and ask before continuing if the slice appears to require a broad rewrite, crosses into another active Objective as the primary deliverable, needs ambiguous product/terminology judgment, would change Objective slug identity or hidden state, or cannot be validated with targeted local evidence.
+
 ## Assumptions and Risks
 
 Assumptions:
