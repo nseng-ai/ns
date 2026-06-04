@@ -48,7 +48,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 			try {
 				const args = parseArgs(rawArgs);
 				if (args.type === "failure") {
-					presentLandStackFailure(ctx, commandStream, landed, args.failure);
+					presentLandStackFailure({ ctx, commandStream, landed, failure: args.failure });
 					return;
 				}
 				if (args.value.help) {
@@ -59,7 +59,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				setStatus(ctx, "preflighting...");
 				let plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
 				if (plan.type === "failure") {
-					presentLandStackFailure(ctx, commandStream, landed, plan.failure);
+					presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
 					return;
 				}
 				const planText = formatPlan(plan.value);
@@ -72,17 +72,22 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 
 				if (!args.value.yes) {
 					if (!ctx.hasUI) {
-						presentLandStackFailure(
+						presentLandStackFailure({
 							ctx,
 							commandStream,
 							landed,
-							landStackFailure(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`),
-						);
+							failure: landStackFailure(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`),
+						});
 						return;
 					}
 					const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
 					if (!confirmed) {
-						presentLandStackFailure(ctx, commandStream, landed, landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
+						presentLandStackFailure({
+							ctx,
+							commandStream,
+							landed,
+							failure: landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }),
+						});
 						return;
 					}
 				}
@@ -90,24 +95,24 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				if (plan.value.prSubmitRequirements.length > 0) {
 					const submitOutcome = await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan.value);
 					if (submitOutcome.type === "failure") {
-						presentLandStackFailure(ctx, commandStream, landed, submitOutcome.failure);
+						presentLandStackFailure({ ctx, commandStream, landed, failure: submitOutcome.failure });
 						return;
 					}
 					setStatus(ctx, "rechecking preflight...");
 					plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
 					if (plan.type === "failure") {
-						presentLandStackFailure(ctx, commandStream, landed, plan.failure);
+						presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
 						return;
 					}
 					if (plan.value.prSubmitRequirements.length > 0) {
-						presentLandStackFailure(
+						presentLandStackFailure({
 							ctx,
 							commandStream,
 							landed,
-							landStackFailure(formatRemainingSubmitRequirements(plan.value.prSubmitRequirements), {
+							failure: landStackFailure(formatRemainingSubmitRequirements(plan.value.prSubmitRequirements), {
 								suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.value.stack.current))} manually, inspect PR heads, and rerun /code:land-stack.`,
 							}),
-						);
+						});
 						return;
 					}
 				}
@@ -115,14 +120,14 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				if (plan.value.managedSlotConflicts.length > 0) {
 					const slotOutcome = await confirmAndFreeManagedSlots(runtimePi, ctx, plan.value);
 					if (slotOutcome.type === "failure") {
-						presentLandStackFailure(ctx, commandStream, landed, slotOutcome.failure);
+						presentLandStackFailure({ ctx, commandStream, landed, failure: slotOutcome.failure });
 						return;
 					}
 				}
 
 				const mergeOutcome = await runMergeLoop(runtimePi, ctx, plan.value, landed, warnings, { commandStream, unstreamedPi: pi });
 				if (mergeOutcome.type === "failure") {
-					presentLandStackFailure(ctx, commandStream, landed, mergeOutcome.failure);
+					presentLandStackFailure({ ctx, commandStream, landed, failure: mergeOutcome.failure });
 					return;
 				}
 
@@ -133,7 +138,12 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				commandStream.finishSuccess(successSummary, commandStreamDetails);
 				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
 			} catch (error) {
-				presentLandStackFailure(ctx, commandStream, landed, landStackFailure(`land-stack failed unexpectedly: ${errorMessage(error)}`));
+				presentLandStackFailure({
+					ctx,
+					commandStream,
+					landed,
+					failure: landStackFailure(`land-stack failed unexpectedly: ${errorMessage(error)}`),
+				});
 			} finally {
 				setStatus(ctx, undefined);
 			}
@@ -141,15 +151,18 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 	});
 }
 
-function presentLandStackFailure(
-	ctx: ExtensionCommandContext,
-	commandStream: LandStackCommandStream,
-	landed: readonly LandedPr[],
-	landStackFailure: LandStackFailure,
-): void {
-	const formatted = formatFailure(landStackFailure, landed);
+interface PresentLandStackFailureOptions {
+	ctx: ExtensionCommandContext;
+	commandStream: LandStackCommandStream;
+	landed: readonly LandedPr[];
+	failure: LandStackFailure;
+}
+
+function presentLandStackFailure(options: PresentLandStackFailureOptions): void {
+	const { ctx, commandStream, landed, failure } = options;
+	const formatted = formatFailure(failure, landed);
 	commandStream.finishFailure(formatted);
-	presentBrief(ctx, formatted, landStackFailure.level, formatFailureNotification(landStackFailure));
+	presentBrief(ctx, formatted, failure.level, formatFailureNotification(failure));
 }
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
