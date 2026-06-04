@@ -4,7 +4,7 @@
 
 Prototype an opt-in Objective implementation runner that can advance standing and autonomy-designed Objective work without changing the canonical Objective system or the main `/objective:*` command surface.
 
-The prototype should prove the runner shape from `docs/pi/perpetual-objectives-and-runners.md`: a normal Objective record supplies durable intent and progress guidance, while a separate runner harness chooses bounded work, validates it, materializes kept progress, and stops safely.
+The prototype should prove the runner shape now documented in `docs/pi/standing-objectives-and-runners.md`: a normal Objective record supplies durable intent and progress guidance, while a separate runner harness chooses bounded work, validates it, keeps evidenced progress, and stops safely.
 
 ## Scope
 
@@ -55,7 +55,7 @@ Risks:
 
 - The prototype may blur into canonical Objective behavior if it changes `docs/objective-system.md`, the `objective` CLI, or existing `/objective:*` commands too early.
 - Runner safety is the primary product risk: branch creation, commits, validation, rollback, and PR submission must remain inside explicitly confirmed scope.
-- A broad `impl` runner can overreach into external side effects; external writes other than explicitly previewed PR submission should remain out of scope.
+- A broad `impl` runner can overreach into external systems; external writes other than explicitly previewed PR submission should remain out of scope.
 - The `proto-` prefix may look inconsistent with existing `dev-` tooling; this Objective intentionally does not solve the broader naming convention.
 - If the skill becomes too procedural, it may need later CLI pushdown; that should be learned from prototype use rather than designed up front.
 
@@ -75,7 +75,7 @@ Still deferred:
 
 Outcome: completed.
 
-The prototype standing Objective runner shipped as an isolated island, exactly as scoped. `proto-objective-impl` exists as an internal prototype skill (`metadata.internal: true`) documenting the v1 runner contract: explicit Objective resolution, context compaction, autonomy-designed versus human-assisted mode, an upfront preview/confirmation gate before material git work, serial subagent execution, keep/discard/materialization rules, Objective-tracking boundaries, and preview-scoped PR submission via `gt submit --no-interactive`. The opt-in command surface `/proto:objective-impl` lives behind a dedicated project-local `.pi/extensions/proto.ts` adapter backed by `ts/packages/pi-extensions/src/proto.ts`; it accepts an explicit Objective slug/path or falls back to the existing active Objective picker, expands `proto-objective-impl`, and leaves every canonical `/objective:*` command name and behavior unchanged. The isolation boundary held: no Objective file contract, CLI status model, lifecycle semantics, `docs/objective-system.md`, or main Objective command was changed; no daemon, scheduler, sweeper, hidden run ledger, registry, or task database was added.
+The prototype standing Objective runner shipped as an isolated island, exactly as scoped. `proto-objective-impl` exists as an internal prototype skill (`metadata.internal: true`) documenting the v1 runner contract: explicit Objective resolution, context compaction, autonomy-designed versus human-assisted mode, an upfront preview/confirmation gate before material git work, serial subagent execution, keep/discard rules and how work is left, Objective-tracking boundaries, and preview-scoped PR submission via `gt submit --no-interactive`. The opt-in command surface `/proto:objective-impl` lives behind a dedicated project-local `.pi/extensions/proto.ts` adapter backed by `ts/packages/pi-extensions/src/proto.ts`; it accepts an explicit Objective slug/path or falls back to the existing active Objective picker, expands `proto-objective-impl`, and leaves every canonical `/objective:*` command name and behavior unchanged. The isolation boundary held: no Objective file contract, CLI status model, lifecycle semantics, `docs/objective-system.md`, or main Objective command was changed; no daemon, scheduler, sweeper, hidden run ledger, registry, or task database was added.
 
 Evidence: all three `## Work` roadmap rows are `[x]` with shipped/validation evidence captured in `updates/`. `skills/proto-objective-impl/SKILL.md` exists with `.agents`/`.claude` links resolving to the canonical source and a `skills-lock.json` entry; `ts/packages/pi-extensions/test/proto.test.ts` covers registration, explicit slug/path routing, skill-expansion fallback, active picker behavior, cancellation/no-active/non-UI paths, changed-Objective suggestions, and command-surface separation from `objective:stack-impl`. Validation passed at the recorded slices: `just ts-check`, `just ts-test`, `just dprint-check`, and `dprint check skills/proto-objective-impl/SKILL.md skills-lock.json`. Landed-state basis: branch commits `4e1fb987` (skill), `07999ed4` (wrapper + tests), and `e9dd7444` (design brief).
 

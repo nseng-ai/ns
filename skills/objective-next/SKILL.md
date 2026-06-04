@@ -80,7 +80,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 - The Tracking Gate finds likely unrecorded material progress and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
 - Execution policy is relevant but ambiguous for the selected slice; load `references/confirmed-execution.md` and recommend or steer instead of executing.
-- Requested execution would exceed durable policy, preview scope, validation boundaries, or side-effect permissions.
+- Requested execution would exceed durable policy, preview scope, validation boundaries, or permissions for external systems / write-capable actions.
 
 ## Verify
 

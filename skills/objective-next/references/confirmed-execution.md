@@ -47,9 +47,9 @@ The preview must include:
 - policy basis: quote or summarize the Runner Policy and row-level `Policy:` that permits execution;
 - bounded scope/slice;
 - inline plan and likely files or areas;
-- materialization shape, defaulting to local edits unless branch/commit creation was explicitly requested;
+- how the work will be left, defaulting to local edits unless branch/commit creation was explicitly requested;
 - validation expected before keeping work;
-- external access and side effects, with external side effects out of scope unless explicit policy or confirmation includes them;
+- external systems or write-capable actions, with PR submission, publishing, deployment, and write APIs out of scope unless explicit policy or confirmation includes them;
 - stop/ask conditions;
 - Objective tracking expectations;
 - PR submission status, defaulting to `PR submission is out of scope for this launch.`
@@ -72,7 +72,7 @@ If the user changes scope, revise the preview and ask again. Proceed only after 
 Report:
 
 - changed files;
-- materialization shape;
+- how the work was left;
 - validation performed or skipped with justification;
 - Objective tracking changes;
 - PR submission status;

@@ -20,9 +20,7 @@ This Objective is the cross-harness parity **umbrella**. It owns a living parity
 - Eliminate the `/handoff:list` duplication: point the Pi command at the dedicated `handoff list` CLI instead of re-deriving listing over raw `brmem list` in TypeScript, keeping only the card renderer Pi-side.
 - Author a durable **parity-review skill**: a diff-scoped review that flags any added/changed Pi command or tool lacking a CLI+skill counterpart (or a recorded waiver), plus an on-demand full-repo sweep that refreshes the parity table. Establish the waiver rule for genuinely Pi-native primitives (e.g. `dispatch_runner_subagent`, `grill_ask` TUI, the worktree status line): acceptable Pi-only provided dependent workflows document an agent-neutral fallback.
 
-## Parity Table (living tracker)
-
-`parity-table.md` is the canonical status surface for this Objective. Rules:
+**Parity table tracking:** `parity-table.md` is the canonical status surface for this Objective. Rules:
 
 - Every Pi extension command and custom tool appears as exactly one row.
 - A row is **FULL** only when a shared CLI carries the deterministic logic and a skill drives it so Claude/Codex reach the workflow standalone; the Pi part must be purely additive.

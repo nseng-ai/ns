@@ -227,7 +227,7 @@ Contract:
 - Write LM-authored initial content using the standardized required headings, including a concrete `## Assumptions and Risks` section.
 - Default to planning-only unless the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point.
 - For planning-only Objectives, omit `## Definition of Progress` and `## Runner Policy` unless the user explicitly asks for them.
-- For execution-friendly Objectives, write optional `## Definition of Progress` and `## Runner Policy` sections with at least: when direct execution is allowed; when to steer/ask first; what counts as keepable progress; validation/materialization boundaries; and external side-effect policy.
+- For execution-friendly Objectives, write optional `## Definition of Progress` and `## Runner Policy` sections with at least: when direct execution is allowed; when to steer/ask first; what counts as keepable progress; validation boundaries and how work may be left; and what external systems, PR submission, publishing, deployment, or write APIs are out of scope unless explicitly previewed and confirmed.
 - Keep initial roadmap rows substantive; put routine validation expectations under semantic rows as expected evidence instead of standalone validation-only items.
 - Use indented `Policy:` and `Evidence:` prose under roadmap rows when slice-local policy or validation expectations differ from Objective-level defaults.
 - Do not create an initial update file; the initial durable files are the birth record.
@@ -287,7 +287,7 @@ Contract:
 - Do not infer execution permission from roadmap concreteness alone. If policy is missing or incomplete, recommend only and include a policy-upgrade note.
 - When policy says to steer first, ask one concrete question or recommend a planning/grilling/readback step instead of executing.
 - When policy allows direct execution, present an inline execution preview and wait for explicit affirmative confirmation before material action.
-- The preview should state selected slug, policy basis, bounded scope, likely files/areas, materialization shape, validation, external side effects, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission and external side effects require explicit Runner Policy or confirmed preview scope.
+- The preview should state selected slug, policy basis, bounded scope, likely files/areas, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy or confirmed preview scope.
 - Do not use hidden ledgers, task files, private queues, Branch Memory run state, alternate Objective stores, or new Objective lifecycle states.
 - In recommendation-only or steer-first paths, do not mutate files except through an explicit `objective-update` handoff. In confirmed execution, mutate only within the confirmed preview scope and write Objective tracking only for meaningful impact.
 
