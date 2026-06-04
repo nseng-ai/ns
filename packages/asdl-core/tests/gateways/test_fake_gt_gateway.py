@@ -4,9 +4,7 @@ from pathlib import Path
 
 from asdl_core.gt.testing import FakeGtGateway
 from asdl_core.gt.types import (
-    GtBranchGraph,
     GtCommandFailure,
-    GtTrackedBranch,
     NoParent,
     StackInfo,
     UntrackedBranch,
@@ -145,93 +143,3 @@ def test_fake_gt_gateway_stack_plumbs_descendants() -> None:
 
     assert isinstance(result, StackInfo)
     assert result.descendants == ("feat/child", "feat/grandchild")
-
-
-def test_fake_gt_gateway_branch_graph_default_is_trunk_only_and_call_tracked() -> None:
-    cwd = Path("/repo")
-    gateway = FakeGtGateway(trunk="main")
-
-    result = gateway.branch_graph(cwd)
-
-    assert result == GtBranchGraph(
-        trunk="main",
-        branches=(
-            GtTrackedBranch(
-                name="main",
-                parent=None,
-                children=(),
-                validation_result=None,
-            ),
-        ),
-        warnings=(),
-    )
-    assert gateway.branch_graph_calls == (cwd,)
-
-
-def test_fake_gt_gateway_branch_graph_by_cwd_overrides_default() -> None:
-    cwd = Path("/wt/slot-01")
-    graph = GtBranchGraph(
-        trunk="master",
-        branches=(
-            GtTrackedBranch(
-                name="master",
-                parent=None,
-                children=("feat/base",),
-                validation_result="TRUNK",
-            ),
-            GtTrackedBranch(
-                name="feat/base",
-                parent="master",
-                children=(),
-                validation_result=None,
-            ),
-        ),
-        warnings=(),
-    )
-    gateway = FakeGtGateway(trunk="main", branch_graph_by_cwd={cwd: graph})
-
-    assert gateway.branch_graph(cwd) == graph
-
-
-def test_fake_gt_gateway_branch_graph_failure_passthrough() -> None:
-    cwd = Path("/repo")
-    failure = GtCommandFailure(message="metadata missing", returncode=None)
-    gateway = FakeGtGateway(branch_graph=failure)
-
-    assert gateway.branch_graph(cwd) == failure
-
-
-def test_fake_gt_gateway_branch_graph_can_represent_forked_graph() -> None:
-    graph = GtBranchGraph(
-        trunk="main",
-        branches=(
-            GtTrackedBranch(
-                name="main",
-                parent=None,
-                children=("feat/a", "feat/b"),
-                validation_result="TRUNK",
-            ),
-            GtTrackedBranch(
-                name="feat/a",
-                parent="main",
-                children=("feat/a2",),
-                validation_result=None,
-            ),
-            GtTrackedBranch(
-                name="feat/a2",
-                parent="feat/a",
-                children=(),
-                validation_result=None,
-            ),
-            GtTrackedBranch(
-                name="feat/b",
-                parent="main",
-                children=(),
-                validation_result=None,
-            ),
-        ),
-        warnings=(),
-    )
-    gateway = FakeGtGateway(branch_graph=graph)
-
-    assert gateway.branch_graph(Path("/repo")) == graph

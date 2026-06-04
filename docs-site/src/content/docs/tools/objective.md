@@ -28,13 +28,12 @@ asdl objective --help
 
 ## Common commands
 
-| Goal                    | Command                                | Boundary     |
-| ----------------------- | -------------------------------------- | ------------ |
-| List objective records  | `objective list`                       | Read-only    |
-| Archive an objective    | `objective archive`                    | Working tree |
-| Inspect Graphite stacks | `objective gt stacks`                  | Read-only    |
-| Read objective details  | `objective exec read-objective`        | Read-only    |
-| Summarize runner usage  | `objective exec runner-subagent-usage` | Read-only    |
+| Goal                   | Command                                | Boundary     |
+| ---------------------- | -------------------------------------- | ------------ |
+| List objective records | `objective list`                       | Read-only    |
+| Archive an objective   | `objective archive`                    | Working tree |
+| Read objective details | `objective exec read-objective`        | Read-only    |
+| Summarize runner usage | `objective exec runner-subagent-usage` | Read-only    |
 
 ## Agent interface
 

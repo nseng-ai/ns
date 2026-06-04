@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Use for conceptual questions about asdl Objectives, objective list, objective gt stacks, and as shared grounding with Objective command skills. Read-only."
+description: "Use for conceptual questions about asdl Objectives, objective list, and as shared grounding with Objective command skills. Read-only."
 ---
 
 # objective
@@ -80,15 +80,11 @@ Roadmap rows represent semantic Objective work: deliverables, decisions, de-risk
 
 A picker UI may use deterministic git facts to group changed active Objectives first when direct changes under `.asdl/objectives/<slug>/` are present compared with repository trunk. If exactly one active Objective is the only Objective slug changed, the picker may label it as suggested. If multiple active Objectives changed, the picker may show those changed active Objectives in the first menu and offer a separate option to view the remaining active Objectives. The user must still confirm a changed Objective or choose another Objective. If the diff is unavailable, empty, or contains no changed slugs that are active Objectives, show the normal ordering with no suggestion.
 
-Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Do not use `objective gt stacks` output as a candidate list for active Objective selection; it is projection evidence, not checkout-local inventory. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
+Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Objective selection must come from an explicit slug/path or checkout-local `objective list` inventory. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
 ## Repository status
 
 Use `objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.asdl/objectives/`. Archived records under `.asdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The shipped list command has no branch projection, current-branch mode, detail view, or third active status. Use `objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
-
-Use `objective gt stacks` when the question is how Objective work is distributed across local Graphite-tracked stack branches under the current Graphite trunk. It is read-only stack projection, not active-record inventory: it groups branch-local active-root touches by Objective slug, can show stack-only `in-flight` groups, and uses connector rows to preserve stack shape. Archive-root paths under `.asdl/objective-archive/` are ignored by the projection; active-root lifecycle changes such as deletions still count as touches.
-
-Do not use `objective gt stacks` to select an Objective for active-record workflows. Once a slug is explicitly selected, stack output may be evidence for that selected Objective.
 
 ## Tracking Gate
 
@@ -98,4 +94,4 @@ Before `objective-next` recommends work or offers confirmed execution, check rea
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective gt stacks`, `objective exec read-objective`) owns only deterministic facts such as record inventory, Graphite stack projection, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.
+- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.

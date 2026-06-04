@@ -17,24 +17,16 @@ export type { ExecResult } from "./command-runtime.ts";
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const OBJECTIVE_STATUS_TIMEOUT_MS = 30_000;
-const OBJECTIVE_GT_STACKS_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
-const OBJECTIVE_GT_STACKS_COMMAND_NAME = "objective:gt-stacks";
-const OBJECTIVE_GT_STACKS_MESSAGE_TYPE = "objective-gt-stacks-output";
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--status all|active|open|closed] [--help]
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_GT_STACKS_USAGE = `Usage: /objective:gt-stacks [--help]
-
-Shows \`objective gt stacks\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
-
 const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
-const OBJECTIVE_GT_STACKS_ARG_COMPLETIONS = ["--help", "-h"] as const;
 
 export type NotifyLevel = "info" | "warning" | "error";
 
@@ -118,10 +110,6 @@ interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
 
 export interface ObjectiveListParsedArgs {
 	args: string[];
-	help: boolean;
-}
-
-export interface ObjectiveGtStacksParsedArgs {
 	help: boolean;
 }
 
@@ -644,35 +632,6 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs
 	return { args, help };
 }
 
-export function parseObjectiveGtStacksArgs(rawArgs: string): ObjectiveGtStacksParsedArgs {
-	const tokens = tokenizeArgumentString(rawArgs);
-	let help = false;
-
-	for (const token of tokens) {
-		if (token === "--help" || token === "-h") {
-			help = true;
-			continue;
-		}
-		if (token === "--format" || token.startsWith("--format=")) {
-			throw new CustomCliUsageError(
-				"--format is controlled by the Pi extension and is not supported here.",
-			);
-		}
-		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			throw new CustomCliUsageError("--json-schema is not supported by /objective:gt-stacks.");
-		}
-		if (token.startsWith("-")) {
-			throw new CustomCliUsageError(`Unsupported /${OBJECTIVE_GT_STACKS_COMMAND_NAME} flag: ${token}.`);
-		}
-
-		throw new CustomCliUsageError(
-			`/${OBJECTIVE_GT_STACKS_COMMAND_NAME} does not accept positional arguments: ${token}.`,
-		);
-	}
-
-	return { help };
-}
-
 function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
 	for (const token of tokens) {
 		if (token === "--format" || token.startsWith("--format=")) {
@@ -696,13 +655,6 @@ function parseObjectiveListStatus(value: string): (typeof OBJECTIVE_LIST_STATUS_
 
 function customCliUsage(spec: CustomCliCommandSpec, error: string): string {
 	return `Error: ${error}\n\n${spec.usage}`;
-}
-
-export function completeObjectiveGtStacksArgs(prefix: string): AutocompleteItem[] | null {
-	const tokens = tokenizeArgumentString(prefix);
-	const endsWithWhitespace = /\s$/.test(prefix);
-	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
-	return matchingCompletions(OBJECTIVE_GT_STACKS_ARG_COMPLETIONS, currentToken);
 }
 
 export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | null {
@@ -738,24 +690,10 @@ const OBJECTIVE_LIST_SPEC: CustomCliCommandSpec = {
 	completer: completeObjectiveListArgs,
 };
 
-const OBJECTIVE_GT_STACKS_SPEC: CustomCliCommandSpec = {
-	commandName: OBJECTIVE_GT_STACKS_COMMAND_NAME,
-	messageType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
-	timeoutMs: OBJECTIVE_GT_STACKS_TIMEOUT_MS,
-	usage: OBJECTIVE_GT_STACKS_USAGE,
-	parseArgs: (raw) => ({ args: [], help: parseObjectiveGtStacksArgs(raw).help }),
-	buildArgs: (parsed) => (parsed.help ? ["gt", "stacks", "--help"] : ["gt", "stacks", "--format", "markdown"]),
-	completer: completeObjectiveGtStacksArgs,
-};
-
 const CUSTOM_CLI_COMMANDS: { spec: CustomCliCommandSpec; description: string }[] = [
 	{
 		spec: OBJECTIVE_LIST_SPEC,
 		description: "List active Objectives in this repository without invoking the agent.",
-	},
-	{
-		spec: OBJECTIVE_GT_STACKS_SPEC,
-		description: "Show Objective work across Graphite-tracked branches without invoking the agent.",
 	},
 ];
 

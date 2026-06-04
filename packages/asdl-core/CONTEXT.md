@@ -159,7 +159,7 @@ _Avoid_: changed file, moved path, deleted file.
 ### Gt
 
 **GtGateway**:
-The interface for Graphite stack metadata, trunk-scoped branch graph reads, and Graphite stack operations.
+The interface for Graphite parent/child/trunk reads, focused stack snapshots, and Graphite stack operations.
 _Avoid_: git gateway, branch gateway, generic branch graph service.
 
 **Graphite stack**:
@@ -170,20 +170,12 @@ _Avoid_: Git history, branch tree, arbitrary DAG.
 A successful focused snapshot of the Graphite stack around the branch checked out at a `cwd`; it always names the current Graphite branch and is not a complete branch graph.
 _Avoid_: stack graph, branch tree, full stack inventory, nullable stack snapshot.
 
-**GtBranchGraph**:
-A successful repo-level Graphite graph rooted at the configured Graphite trunk. It contains the trunk row and Graphite metadata rows reachable through stored child edges, not every row in the metadata database and not every possible configured trunk.
-_Avoid_: `StackInfo`, all branches, all metadata rows, Git commit graph.
-
-**GtTrackedBranch**:
-One branch row in a `GtBranchGraph`, carrying the branch name, stored Graphite parent, stored children, raw Graphite validation marker, and derived needs-restack flag.
-_Avoid_: Git branch tip, PR summary, commit node.
-
 **Current stack branch**:
 The Graphite branch marked current in a successful stack snapshot for a `cwd`.
 _Avoid_: unknown current, implicit trunk, detached head.
 
 **Graphite trunk**:
-The branch Graphite says stacks merge into, returned by `gt trunk` for command-style reads and stored as `trunk` in Graphite repo config for repo-level graph reads.
+The branch Graphite says stacks merge into, returned by `gt trunk` for command-style reads and appearing as `trunk` in successful focused stack snapshots.
 _Avoid_: Git default branch, remote HEAD, base branch.
 
 **Graphite metadata store**:
@@ -193,14 +185,6 @@ _Avoid_: repo config, Git object database, asdl cache.
 **Stack slice query**:
 The canonical four-column metadata-store query (`branch_name`, `parent_branch_name`, `children`, `validation_result`) that defines asdl's required stack schema contract.
 _Avoid_: full Graphite schema, `SELECT *`, migration contract.
-
-**Restack revision pair**:
-Optional metadata-store columns (`parent_branch_revision`, `parent_head_revision`) that let `GtBranchGraph` mark a branch as needing restack when both non-empty values differ.
-_Avoid_: validation result, human `gt ls` parsing, required schema slice.
-
-**Graphite repo config**:
-Graphite-owned JSON file at `<git-common-dir>/.graphite_repo_config` that stores repository-level Graphite settings such as trunk name. It is distinct from the Graphite metadata store.
-_Avoid_: metadata store, stack slice, Git config.
 
 **Graphite parent**:
 The immediate downstack branch returned by `gt parent` for the current branch.
