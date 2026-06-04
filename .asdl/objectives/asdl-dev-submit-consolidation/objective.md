@@ -90,3 +90,23 @@ Risks:
 
 - Resolved: `/code:submit` does not need a dedicated thin Pi UX wrapper for this Objective. The generic asdl-dev command adapter is the closure target unless final review finds a concrete regression that cannot be addressed without wrapper code.
 - Resolved: the blast radius of the SIGTERM→SIGKILL fallback is contained. `timeoutKillGraceMs` is optional with a 5s default and the new behavior only adds a bounded SIGKILL escalation plus a normalized exit code 124 for timed-out runs; callers that pass no new options are otherwise unchanged, so no existing caller depended on the prior weaker timeout behavior (PR #787).
+
+## Closure
+
+Closed on 2026-06-04 as completed.
+
+Final review confirmed that `asdl-dev submit` remains the canonical owner of Graphite submit behavior and `/code:submit` remains a generic Pi mirror through the shared `asdl-dev` CLI adapter. Manual review inspected the submit command/gateway/runner paths, Pi namespace wiring, generic CLI bridge, project-local `.pi` adapters, submit and namespace tests, and relevant docs. No Pi-owned submit implementation, Graphite output parsing, retry policy, or dedicated `/code:submit` wrapper was introduced.
+
+The accepted closeout findings were stale namespace wording in `ts/packages/asdl-dev/README.md` and `docs/agent-resource-catalog.md`; they now describe domain-specific Pi mirrors rather than the old all-`/dev:*` model, including the current split of `/dev:preview-url` through `.pi/extensions/asdl-dev.ts` and `/code:cp` plus `/code:submit` through `.pi/extensions/code.ts`.
+
+Strict review evidence: `.agents/skills/autoreview/scripts/autoreview --mode local --prompt ...` returned clean with no accepted/actionable findings. The reviewer specifically confirmed the README correction matched current Pi wiring and that inspected submit/mirror code preserved `asdl-dev` ownership, the generic CLI bridge, semantic submit/verification causes, and absence of a separate Pi-owned Graphite submit workflow.
+
+Validation passed:
+
+- `cd ts/packages/asdl-dev && bun test test/scenario/submit-cli.test.ts test/gateways/submit-gateway.test.ts test/gateways/command-runner.test.ts`
+- `cd ts/packages/pi-extensions && bun test test/asdl-dev-extension.test.ts test/code.test.ts`
+- `just dprint-check`
+- `just ts-check`
+- `just ts-test`
+
+Remaining caveats are intentional deferrals rather than blockers: richer Pi submit UX can be a separate future Objective if concrete user-facing need appears, and additional Graphite zero-exit semantic failure states should become explicit `SubmitSemanticFailureCause` variants instead of raw gateway prose.

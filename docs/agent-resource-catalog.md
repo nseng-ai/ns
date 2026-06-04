@@ -177,7 +177,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | Artifact                                                | Description                                                                                                               |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance. |
-| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored as `/dev:*` Pi commands.                  |
+| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored under domain-specific Pi namespaces.      |
 | `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                       |
 | `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.        |
 | `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                            |
