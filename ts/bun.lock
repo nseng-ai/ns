@@ -37,6 +37,13 @@
         "@earendil-works/pi-tui": "*",
       },
     },
+    "packages/planned-branch": {
+      "name": "@asdl/planned-branch",
+      "version": "0.1.0",
+      "bin": {
+        "planned-branch": "./src/cli.ts",
+      },
+    },
   },
   "patchedDependencies": {
     "@earendil-works/pi-ai@0.78.0": "patches/@earendil-works%2Fpi-ai@0.78.0.patch",
@@ -45,6 +52,8 @@
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.91.1", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-LAmu761tSN9r66ixvmciswUj/ZC+1Q4iAfpedTfSVLeswRwnY3n2Nb6Tsk+cLPP28aLOPWeMgIuTuCcMC6W/iw=="],
 
     "@asdl/pi-extensions": ["@asdl/pi-extensions@workspace:packages/pi-extensions"],
+
+    "@asdl/planned-branch": ["@asdl/planned-branch@workspace:packages/planned-branch"],
 
     "@aws-crypto/crc32": ["@aws-crypto/crc32@5.2.0", "", { "dependencies": { "@aws-crypto/util": "^5.2.0", "@aws-sdk/types": "^3.222.0", "tslib": "^2.6.2" } }, "sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg=="],
 
