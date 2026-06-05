@@ -230,6 +230,10 @@ function gtTrackStep(branch: string, parent: string = SOURCE_BRANCH, result: Par
 	return step("gt", ["track", branch, "--parent", parent, "--no-interactive"], result);
 }
 
+function gtUpStep(result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["up"], result);
+}
+
 function brmemPutStep(branch: string, key: string, filePath: string, result: Partial<ExecResult>): ScriptedExec {
 	return step(
 		"brmem",
@@ -430,6 +434,7 @@ function createContext(
 		cwd?: string;
 		confirm?: (title: string, message?: string) => Promise<boolean>;
 		sessionEntries?: unknown[];
+		newSession?: CommandContext["newSession"];
 	} = {},
 ): { ctx: CommandContext; notifications: Notification[]; statuses: Array<{ key: string; value: string | undefined }>; waits: () => number } {
 	const notifications: Notification[] = [];
@@ -461,6 +466,9 @@ function createContext(
 			waitCount += 1;
 		},
 	};
+	if (options.newSession !== undefined) {
+		ctx.newSession = options.newSession;
+	}
 	const sessionEntries = options.sessionEntries;
 	if (sessionEntries !== undefined) {
 		ctx.sessionManager = {
@@ -839,7 +847,12 @@ describe("plan workflow commands", () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual(["planned-branch:create", "planned-branch:impl", "planned-branch:write-plan"]);
+		expect([...pi.commands.keys()].sort()).toEqual([
+			"planned-branch:create",
+			"planned-branch:impl",
+			"planned-branch:start-impl",
+			"planned-branch:write-plan",
+		]);
 		expect(pi.commands.has("create-plan-file")).toBe(false);
 		expect(pi.commands.has("create-brmem-plan-branch")).toBe(false);
 		expect(pi.commands.has("create-latest-plan-branch")).toBe(false);
@@ -1390,6 +1403,87 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
+	});
+
+	test("planned-branch:start-impl creates with Graphite, runs gt up, starts a new session, and dispatches impl", async () => {
+		const filePath = await makeNamedPlanFile();
+		const events: string[] = [];
+		const newSessionMessages: string[] = [];
+		const pi = new FakePi(
+			[planSlugStep(DEFAULT_PLAN_CONTENT), ...graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }), gtUpStep()],
+			events,
+		);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:start-impl");
+		const context = createContext(events, {
+			newSession: async (options) => {
+				events.push("new-session");
+				await options?.withSession?.({
+					sendUserMessage(content) {
+						events.push("new-session-send");
+						newSessionMessages.push(content);
+					},
+				});
+				return { cancelled: false };
+			},
+		});
+
+		await command?.handler(`${filePath} --yes`, context.ctx);
+
+		pi.assertDone();
+		expect(context.waits()).toBe(1);
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+			planSlugExecCall(DEFAULT_PLAN_CONTENT),
+			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
+			{ command: "git", args: ["check-ref-format", "--branch", PLAN_SLUG] },
+			{ command: "git", args: ["rev-parse", "HEAD"] },
+			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_SLUG, "--format", "json"] },
+			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "git", args: ["branch", PLAN_SLUG, "HEAD"] },
+			{ command: "gt", args: ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"] },
+			{
+				command: "brmem",
+				args: ["put", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_SLUG, "--file", filePath, "--format", "json"],
+			},
+			{ command: "gt", args: ["up"] },
+		]);
+		expect(events).toContain("new-session");
+		expect(events).toContain("new-session-send");
+		expect(pi.sentMessages[0]?.content).toContain("Created planned branch and attached plan.");
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
+		expect(newSessionMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
+		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:start-impl", value: undefined });
+	});
+
+	test("planned-branch:start-impl dry-run previews the Graphite navigation and new-session implementation flow", async () => {
+		const filePath = await makeNamedPlanFile();
+		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:start-impl");
+		const context = createContext();
+
+		await command?.handler(`${filePath} --dry-run`, context.ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([planSlugExecCall(DEFAULT_PLAN_CONTENT)]);
+		expect(pi.sentMessages[0]?.content).toContain("Dry run: no branch was created");
+		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
+		expect(pi.sentMessages[0]?.content).toContain("gt up");
+		expect(pi.sentMessages[0]?.content).toContain("/new");
+		expect(pi.sentMessages[0]?.content).toContain(`/planned-branch:impl ${PLAN_KEY}`);
+	});
+
+	test("planned-branch:start-impl rejects plain Git because the follow-up navigation is Graphite-specific", async () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:start-impl");
+
+		await command?.handler("--plain-git", createContext().ctx);
+
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.sentMessages[0]?.content).toContain("requires Graphite");
+		expect(pi.sentMessages[0]?.content).toContain("does not support --plain-git");
 	});
 
 	test("planned-branch:create --plain-git override keeps the slug branch under the Graphite default", async () => {

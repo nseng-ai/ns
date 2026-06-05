@@ -15,6 +15,7 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 - No saved plan found: ask for an explicit saved plan path or run the write-plan workflow first.
 - Target branch exists: stop and ask whether to choose another branch or inspect the existing branch.
 - Branch Memory entry exists: stop; do not overwrite the attached plan manually.
+- Graphite setup fails after branch creation: report the partial branch state; do not attach a plan manually unless the user explicitly directs recovery.
 - Multiple attached plans: rerun `planned-branch exec load-plan` with the desired key/slug from the error or listing.
 - Current branch is trunk/default/detached for implementation: stop and ask for the intended implementation branch.
 - Stale plan content: report the observed mismatch and ask or adjust scope before implementing beyond the plan.
@@ -33,6 +34,15 @@ When inspecting saved plans:
 - Inspect only the relevant `<repo>` or specific `<encoded-source-branch>` directory.
 - Do not search broadly from the home directory.
 - Treat the saved-plan filename slug as a local locator, not as proof of the planned-branch slug.
+
+## Read-only attached-plan inspection
+
+Inspect Branch Memory attachments directly only for diagnostics — not as a replacement for the create/load workflows:
+
+```bash
+brmem list --namespace planned-branch --branch <branch>
+brmem get <key> --namespace planned-branch --branch <branch>
+```
 
 ## Admin examples
 
