@@ -13,17 +13,17 @@ import {
 	type PlannedBranchCreateOperation,
 	type ValidatedSessionSavedPlan,
 } from "@asdl/planned-branch";
-import { formatCommand, formatShellArg, shellQuote } from "../command-runtime.ts";
+import { formatCommand, formatShellArg } from "../command-runtime.ts";
 import {
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	formatPlanBranchEvidence,
 	type PlannedBranchEvidence,
 } from "../planned-branch-output.ts";
-import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
+import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
-import { getWorktreeDescription, repositoryNameFromPath } from "./worktree-description.ts";
+import { repositoryNameFromPath } from "./worktree-description.ts";
 import { formatErrorMessage } from "./primitives.ts";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
@@ -62,14 +62,6 @@ interface FormatDryRunOptions {
 	checkout: CurrentCheckout;
 	operation: PlannedBranchCreateOperation;
 	plannedBranchPreview: string;
-	launchOptions: PiLaunchOptions;
-}
-
-interface FormatCmuxFailureOptions {
-	targetBranch: string;
-	key: string;
-	worktreePath: string;
-	cause: string;
 	launchOptions: PiLaunchOptions;
 }
 
@@ -238,45 +230,30 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 
 	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", evidence }, "info");
 
-	setStatus(ctx, "checking out CMUX slot…");
-	const target = await checkoutSlot(pi, checkout.directory.repoRoot, operation.branch);
-	if ("error" in target) {
-		present(ctx, formatSlotFailure(operation.branch, operation.key, target.error), "error");
-		return;
-	}
-
-	setStatus(ctx, "opening CMUX slot workspace…");
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launchCommand = formatPiLaunchCommand(operation.key, launchOptions);
-	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
-	const launched = await openCmuxWorkspace(pi, target, {
-		description,
-		command: launchCommand,
+	const launched = await openBranchInCmuxSlot({
+		pi,
+		cwd: checkout.directory.repoRoot,
+		branchName: operation.branch,
+		command: formatPiLaunchCommand(operation.key, launchOptions),
+		notify: (message, level) => ctx.ui.notify(message, level),
+		onStatus: (message) => setStatus(ctx, message),
+		successMessage: (target) =>
+			formatFinalSuccess({ targetBranch: operation.branch, key: operation.key, target, launchOptions }),
 	});
 	if ("error" in launched) {
-		present(
-			ctx,
-			formatCmuxFailure({
-				targetBranch: operation.branch,
-				key: operation.key,
-				worktreePath: target.worktreePath,
-				cause: launched.error,
-				launchOptions,
-			}),
-			"error",
-		);
 		return;
 	}
-
-	present(ctx, formatFinalSuccess({ targetBranch: operation.branch, key: operation.key, target, launchOptions }), "success");
 }
+
+type PresentLevel = Exclude<NotifyLevel, "success">;
 
 function presentPlannedBranchMessage(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	content: string,
 	details: unknown,
-	level: NotifyLevel,
+	level: PresentLevel,
 ): void {
 	if (pi.sendMessage) {
 		pi.sendMessage({
@@ -291,8 +268,8 @@ function presentPlannedBranchMessage(
 	present(ctx, content, level);
 }
 
-function present(ctx: CommandContext, message: string, level: NotifyLevel): void {
-	ctx.ui.notify(message, level === "success" ? "info" : level);
+function present(ctx: CommandContext, message: string, level: PresentLevel): void {
+	ctx.ui.notify(message, level);
 }
 
 function setStatus(ctx: CommandContext, value: string | undefined): void {
@@ -331,31 +308,6 @@ function formatDryRun(options: FormatDryRunOptions): string {
 function formatCmuxPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
 	const failure = formatPlannedBranchCreateFailure(operation, error);
 	return failure.replace("\n\n", "\nNo CMUX slot was opened.\n\n");
-}
-
-function formatSlotFailure(targetBranch: string, key: string, cause: string): string {
-	return [
-		"Created planned branch and attached plan, but CMUX slot checkout failed.",
-		`Branch: ${targetBranch}`,
-		`Key: ${key}`,
-		`Recovery: free or resize slots, then run /cmux-slot:open-branch ${targetBranch}.`,
-		`Alternative: slot checkout ${formatShellArg(targetBranch)}`,
-		"",
-		cause,
-	].join("\n");
-}
-
-function formatCmuxFailure(options: FormatCmuxFailureOptions): string {
-	const { targetBranch, key, worktreePath, cause, launchOptions } = options;
-	return [
-		"Created planned branch, attached plan, and checked out the slot, but failed to open the CMUX workspace.",
-		`Branch: ${targetBranch}`,
-		`Key: ${key}`,
-		`Worktree: ${worktreePath}`,
-		`Recovery: cd ${shellQuote(worktreePath)} && ${formatPiLaunchCommand(key, launchOptions)}`,
-		"",
-		cause,
-	].join("\n");
 }
 
 function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
