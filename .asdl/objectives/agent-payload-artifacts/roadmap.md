@@ -8,8 +8,8 @@
       Evidence: `.asdl/prompts/subagent-launch.md` and `packages/asdl-core/src/asdl_core/prompts/defaults/subagent-launch.md` now describe artifact-backed inspection, payload artifact paths, locators, selected-detail lookup, direct-inspection fallback, and fail-closed validation without stale channel wording. The focused stale-terminology audit, prompt/default byte-equality check, prompt drift test, and Markdown formatting check passed.
 - [x] Update current docs and active Objective references.
       Evidence: active planning guidance in `command-output-summaries` now cites the `agent-payload-artifacts` carry-forward payload artifact contract rather than the closed `agent-payload-sidechannels` Objective, and its assumptions/open questions reflect that the shared payload artifact store has shipped. `landed-architecture-review` now names the open payload-artifacts Objective and describes the out-of-scope architecture with payload artifact terminology in its objective, roadmap, and current update evidence. A focused active-guidance search found no remaining current docs/spec/readme/skill references that point readers to the deleted side-channel spec or closed Objective as the architectural base.
-- [ ] Run and record terminology audit evidence.
-      Re-run focused text searches for stale payload terminology and classify any remaining hits as historical, unrelated to payload artifacts, or explicit compatibility aliases. Record closure evidence and relevant Markdown/check validation in the Objective before closing.
+- [x] Run and record terminology audit evidence.
+      Evidence: focused current-guidance and implementation-doc/source searches found no unclassified stale architecture references. The only implementation-doc/source hit is the `packages/asdl-core/CONTEXT.md` `_Avoid_:` line that intentionally rejects `side-channel` and `hidden channel`; full stale-term inventory leftovers are classified as selected-Objective legacy-boundary prose, closed historical Objective evidence, unrelated non-payload wording, or glossary rejected synonyms. `just dprint-check` passed.
 
 ## Parked
 
