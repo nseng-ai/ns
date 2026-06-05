@@ -21,5 +21,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [Slot co-autocomplete plan](slot-co-autocomplete-plan.md): slot autocomplete design notes.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
+- [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 
 Agents should consult this README first, then follow the narrowest relevant link instead of scanning the whole repository.
