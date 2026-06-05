@@ -43,13 +43,13 @@ Assumptions:
 
 Risks:
 
-- The gateway/fake cleanup may reveal a missing domain abstraction, especially around installed skill trees versus project filesystem state, and could grow beyond a small patch.
+- The gateway/fake cleanup may reveal a missing domain abstraction, especially around installed skill trees versus project filesystem state, and could grow beyond a small patch. Partially de-risked: host-tool checks and Git-root discovery now have an injectable `AregEnvironment` seam with fake-driven scenario coverage (commit `0470dc19`). Still open: installed skill trees versus project filesystem state remains unresolved.
 - Making `areg init` more atomic may require deciding whether to preserve, merge, prompt for, or overwrite existing `areg.json`; the wrong default could surprise users. Resolved: `init` now preserves unknown keys from an existing `areg.json` by default rather than overwriting the file, covered by scenario tests (landed commit `a2086b45`).
 - Symlink/path hardening can become either too permissive to be safe or too strict for real repos with legitimate symlinked config directories. De-risked for the current remediation slice: managed `areg init` files and `.claude` settings now reject symlinks outright, and `skillx cleanup` validates canonical temp-root containment before deletion. Legitimate symlinked config support remains an intentional future policy decision if users need it.
 - Tightening lockfile validation may expose existing repository lockfile debt, including `PENDING_REGEN` placeholders, that must be resolved before CI can enforce the stronger rule.
 
 ## Open Questions
 
-- Should tool availability and Git-root discovery be separate gateways, methods on an existing context, or part of a broader project environment boundary?
+- ~~Should tool availability and Git-root discovery be separate gateways, methods on an existing context, or part of a broader project environment boundary?~~ Resolved for the current slice: they live on an injectable `AregEnvironment` carried by `AregContext` (commit `0470dc19`). Broader project skill-state ownership remains open under the boundary-model roadmap row.
 - Should `NpxSkills.add` continue to model side-effectful installation, or should it return an installed skill tree while a separate store owns filesystem application?
 - ~~Should existing `areg.json` unknown keys be preserved by default, or should replacement require an explicit force/yes path?~~ Resolved: unknown keys are preserved by default; `init` merges the managed `agents` field into the existing object instead of overwriting it (landed commit `a2086b45`).

@@ -1,22 +1,22 @@
 # External boundary host environment gateway slice
 
-Implemented a focused row-3 remediation slice for areg host-tool and Git-root boundaries.
+## Summary
 
-## What changed
+The host-tool and Git-root portion of the external-boundary remediation has landed in branch evidence via commit `0470dc19` ("[cp] Add environment gateway preconditions"). The change adds an injectable `AregEnvironment` gateway with real and fake implementations for `gh`/`npx` availability checks and Git-root discovery.
 
-- Added an injectable `AregEnvironment` gateway with real and fake implementations.
-- `AregContext` now carries `environment` alongside `GhCli` and `NpxSkills`.
-- `preconditions.py` no longer calls global `shutil.which`; command preconditions require `gh`/`npx` through the injected environment gateway.
-- `init_project.py` no longer shells out to Git directly; Git-root discovery is delegated to `ctx.environment.require_git_root(...)` while the root-equality policy remains in init business logic.
-- Scenario precondition/init/skillx/update-skills tests now inject `FakeAregEnvironment` instead of patching global process state or running `git init` during scenario setup.
-- Real gateway sanity tests cover missing `gh`, missing `npx`, missing `git`, Git command failure, empty Git root output, and successful Git-root discovery.
+`AregContext` now carries the environment gateway alongside `GhCli` and `NpxSkills`. `preconditions.py` no longer calls global `shutil.which`; commands require host tools through `ctx.environment`. `init_project.py` no longer shells out to Git directly; Git-root discovery is delegated to `ctx.environment.require_git_root(...)` while the root-equality policy remains in init business logic.
 
-## Validation
+Scenario precondition/init/skillx/update-skills tests now inject `FakeAregEnvironment` instead of patching global process state or running `git init` during scenario setup. Real gateway sanity tests cover missing `gh`, missing `npx`, missing `git`, Git command failure, empty Git root output, and successful Git-root discovery.
 
-- `uv run pytest packages/areg/tests/gateways/test_fakes.py packages/areg/tests/gateways/test_real_gateways.py packages/areg/tests/scenario/test_cli_preconditions.py packages/areg/tests/scenario/test_init_project.py packages/areg/tests/scenario/test_skillx_cli.py packages/areg/tests/scenario/test_update_skills.py` — passed, 119 tests.
-- `uv run ruff check packages/areg/src/areg packages/areg/tests` — passed.
-- `uv run ruff format --check packages/areg/src/areg packages/areg/tests` — passed.
-- `uv run ty check` — passed.
-- `just` — passed, including 1897 non-integration pytest tests.
+Evidence basis: local committed branch diff against Graphite parent `safer-areg-init-preflight`; no current-branch PR was available or required. Verification: targeted areg gateway/scenario suite passed; ruff check/format passed; `ty` passed; full `just` passed.
 
-Roadmap row 3 remains open for the broader project-skill-state ownership cleanup.
+## Objective Impact
+
+- Roadmap Work item #3 moved from `[ ]` to `[~]` because host-tool checks and Git-root discovery now have coherent injectable ownership, but broader project skill-state ownership and the `NpxSkills` fake/store boundary remain open.
+- The open question about where tool availability and Git-root discovery should live is resolved for this slice: they are methods on the injectable `AregEnvironment` carried by `AregContext`.
+- The gateway/fake cleanup risk is partially de-risked: scenario tests for init/preconditions/skillx/update-skills no longer depend on unrelated global process patching for host-tool or Git-root behavior. The risk remains active for installed skill trees versus project filesystem state.
+
+## Follow-Ups
+
+- Continue the remainder of roadmap Work item #3 by clarifying project skill-state ownership and deciding whether `NpxSkills.add` should keep side-effectful filesystem writes in the default fake or return an installed skill tree for a separate store to apply.
+- Continue with typed lockfile validation, migrated skill docs/template reconciliation, and the final strict-review rerun rows.
