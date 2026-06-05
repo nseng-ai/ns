@@ -193,8 +193,13 @@ from the dedicated dir back to `.agents/skills/<name>`.
 
 `source` is a path captured at install time. `computedHash` is also captured at
 install time and is not refreshed by `skills check`/`update`. Committed local
-entries should use the repo-relative `skills/<name>` form. A stale local hash is
-harmless because the real content is whatever is currently at `skills/<name>/`.
+entries must use the repo-relative `skills/<name>` form. Local hashes are
+committed generated metadata: `areg check` requires them to be present as
+64-character lowercase hexadecimal strings and rejects placeholders such as
+`PENDING_REGEN` or short/invalid hashes. When regenerating a local entry,
+normalize the source back to `skills/<name>`, keep the diff scoped to the
+intended skill, and restore `.agents/skills/<name>` to the
+`../../skills/<name>` symlink if the CLI replaced it with a copy.
 
 **GitHub skill:**
 

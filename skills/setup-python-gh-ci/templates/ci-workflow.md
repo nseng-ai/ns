@@ -2,10 +2,12 @@
 
 **Target path:** `.github/workflows/ci.yml`
 
-## Placeholder
+## Placeholders
 
 - `<PYTHON_VERSIONS>` -- Replace with quoted, comma-separated version list
   from Step 1. Example: `"3.11", "3.12", "3.13", "3.14"`
+- `<DEFAULT_BRANCH>` -- Replace with the detected default branch name from
+  Step 3. Example: `master` or `main`
 
 ## Template
 
@@ -14,7 +16,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [<DEFAULT_BRANCH>]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:

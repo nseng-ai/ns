@@ -50,6 +50,9 @@ For every skill-management operation, produce an end state with:
 - **Committed local `skills-lock.json` entries must use**
   `"source": "skills/<name>"`. If `npx skills add` captures an absolute local
   path, rewrite it to the repo-relative form before committing.
+- **Committed `computedHash` values must be real 64-character lowercase hex
+  hashes.** Do not leave `PENDING_REGEN`, shortened hashes, or other
+  placeholders in the lockfile; `areg check` rejects them.
 - **Always install with `--agent codex claude-code -y`.** Never use
   `--agent claude-code` alone; it creates the Claude symlink without ensuring
   `.agents/skills/` is populated. Never omit `-a`; the CLI may auto-detect

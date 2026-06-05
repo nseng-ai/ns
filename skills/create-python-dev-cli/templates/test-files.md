@@ -5,10 +5,6 @@
 - `<DEV_PROJECT_NAME>` -- dev project name (e.g., `my-cool-lib-dev`)
 - `<DEV_PACKAGE_NAME>` -- dev import name (e.g., `my_cool_lib_dev`)
 
-## Test package init
-
-Create `packages/<DEV_PROJECT_NAME>/tests/__init__.py` as an empty file.
-
 ## Command tests
 
 **Target path:** `packages/<DEV_PROJECT_NAME>/tests/test_commands.py`
@@ -18,7 +14,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from <DEV_PACKAGE_NAME>.cli import cli
+from <DEV_PACKAGE_NAME>.cli.main import cli
 
 
 def test_cli_help_shows_commands() -> None:

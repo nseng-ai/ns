@@ -50,12 +50,12 @@
     "create-python-dev-cli": {
       "source": "skills/create-python-dev-cli",
       "sourceType": "local",
-      "computedHash": "5f77d5cd4c45939f703138c5e3402965b5d088967974ebe38f1a29a5d1efae3c"
+      "computedHash": "a86ad4c6bee4924e95628bf9ecf02cf191a93f092cec1ae54af653bd72f3c06a"
     },
     "create-python-package": {
       "source": "skills/create-python-package",
       "sourceType": "local",
-      "computedHash": "a05f76714e88cdd41eb506c006783a77a0fa8cbbbbf7d2b3ce26e988ffa9a9d8"
+      "computedHash": "a1d58290263dcbee8b86f5305a0846708048dea8ca47e81595aa77390aaa6eb0"
     },
     "dignified-python": {
       "source": "skills/dignified-python",
@@ -216,7 +216,7 @@
     "python-fake-driven-test-layout": {
       "source": "skills/python-fake-driven-test-layout",
       "sourceType": "local",
-      "computedHash": "7e96441ead1b42ad588d100f0015ca9fd22257161bbc9728eb457bca8a1a8ae0"
+      "computedHash": "31eba62b47823c752f49eeccc24d45d5d44dcfe2bbeb343d05670ce48f54a8bd"
     },
     "python-fake-driven-testing": {
       "source": "skills/python-fake-driven-testing",
@@ -251,7 +251,7 @@
     "setup-python-gh-ci": {
       "source": "skills/setup-python-gh-ci",
       "sourceType": "local",
-      "computedHash": "a6da47d087e57a96973f928719f887bbc4ffbbf406c6a2c258b70bb6fc8c0052"
+      "computedHash": "5c036caa107e6cdc698a6de868495815021c04d360d3b8c3be6f37a16bed11e8"
     },
     "skill-audit": {
       "source": "skills/skill-audit",
@@ -267,7 +267,7 @@
     "skill-management": {
       "source": "skills/skill-management",
       "sourceType": "local",
-      "computedHash": "c742652d181932a368d08331686b4e28052a6b27ae7f12f2509e1118a56b8b99"
+      "computedHash": "7d508bccf884cc18fbf047566b6689dfd13150f53de8a1cf3e463c7be3a8d4ac"
     },
     "skillx": {
       "source": "skills/skillx",
