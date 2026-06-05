@@ -46,7 +46,7 @@ Assumptions:
 - The existing behavior and tests from the planned-branch TS CLI stack are a valid baseline; the cleanup should preserve observable behavior except where tests intentionally tighten invalid-boundary rejection.
 - The planned-branch package is the canonical owner of branch creation, Branch Memory attachment, saved-plan evidence, and attached-plan loading semantics.
 - CMUX should remain a composition layer: after planned-branch creates/attaches, CMUX checks out a slot and opens a workspace.
-- Semantic gateways can be introduced incrementally without blocking the smaller boundary fixes; the saved-plan resolver, CMUX operation model, Branch Memory envelope cleanup, and CLI type-contract cleanup have now landed as independent slices.
+- Semantic gateways can be introduced incrementally without blocking the smaller boundary fixes; the saved-plan resolver, CMUX operation model, Branch Memory envelope cleanup, CLI type-contract cleanup, and shared content-slug derivation have now landed as independent slices.
 
 Risks:
 
@@ -59,6 +59,6 @@ Risks:
 
 ## Open Questions
 
-- Should semantic gateways land before or after the remaining content-slug cleanup? The current preference is after that smaller boundary fix, unless implementation shows the gateway model makes it substantially simpler.
+- Semantic gateway extraction is now the next structural implementation question after the smaller boundary fixes landed. Keep it limited to planned-branch Git, Branch Memory, and Graphite semantics unless implementation evidence shows a narrower slice is safer.
 - Should the portable `planned-branch` CLI eventually expose a dry-run/preview operation directly, or is an internal operation model sufficient for Pi/CMUX composition?
 - Should public docs keep any developer source-file map, or should implementation references move to package-level developer documentation only?

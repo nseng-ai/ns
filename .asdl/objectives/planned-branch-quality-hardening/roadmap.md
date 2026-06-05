@@ -26,9 +26,11 @@
   - Evidence: `formatResolvePlanEvidence` no longer casts latest evidence, resolve-plan JSON serialization switches by variant, and CLI scenario tests cover missing-value and malformed-argument failures in both human and JSON modes without command execution.
   - Verification: `cd ts/packages/planned-branch && bun test`, `just ts-check`, and `just ts-test` passed.
 
-- [ ] Shared content-slug derivation
-  - Collapse planned-branch slug and saved-plan filename slug derivation into one reusable helper parameterized by semantic label, prompt wording, and failure text.
-  - Evidence: existing slug tests pass with reduced duplication and no divergent normalization/validation paths.
+- [x] Shared content-slug derivation
+  - Planned-branch slug and saved-plan filename slug derivation now share one Pi content-slug helper parameterized by semantic label, prompt intro wording, invalid-output text, failure header, and no-fallback sentence.
+  - `derivePlanContentSlug` remains the file-reading wrapper for `/planned-branch:create`, while `deriveSavedPlanContentSlug` remains the in-memory content wrapper for `write_source_branch_plan_file`.
+  - Evidence: direct slug tests cover the shared normalizer plus saved-plan-specific success and invalid-output failure text, with prompt/fallback distinctions preserved.
+  - Verification: `cd ts/packages/pi-extensions && bun test`, `cd ts/packages/pi-extensions && bun run check`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Semantic gateway boundary for planned-branch core
   - Introduce planned-branch-owned semantic gateways or equivalent adapters for Git facts/branch creation, Branch Memory attachment/loading, and Graphite tracking.
