@@ -5,37 +5,23 @@ description: "Use for explicit planned-branch lifecycle, reference, diagnostics,
 
 # planned-branch
 
-Umbrella/reference root for the bundled planned-branch skill family.
+Shared lifecycle, terminology, safety posture, diagnostics, and administration for the planned-branch skill family. Each operation's command contract lives in its step skill.
 
-## Role in the skill family
+## Skill family
 
-`planned-branch` supplies the shared lifecycle model, terminology, command contracts, safety posture, diagnostics, and administration guidance for planned-branch work.
+Step entrypoints carry their own command and recovery and are runnable standalone:
 
-The step entrypoints are intended to be installed with this skill:
+- `planned-branch-write-plan` — save a source-branch plan.
+- `planned-branch-create` — create a planned branch and attach the plan.
+- `planned-branch-impl` — load and implement an attached plan.
 
-- `planned-branch-write-plan`
-- `planned-branch-create`
-- `planned-branch-impl`
-
-When a step skill triggers, use this skill first for shared model, safety, and command details, then follow the step-specific workflow.
-
-## Use this skill when
-
-- The user explicitly asks about planned-branch lifecycle, storage, commands, diagnostics, admin, or repair.
-- The request uses specific planned-branch terms such as Saved plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, or Branch Memory attachment.
-- A Pi planned-branch command or handoff is involved: `/planned-branch:write-plan`, `/planned-branch:create`, or `/planned-branch:impl`.
+Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
 
 ## Do not use this skill for
 
-- Generic planning, branch creation, or implementation requests with no planned-branch intent.
+- Generic planning, branch creation, or implementation with no planned-branch intent.
 - Generic Branch Memory work unless it concerns the planned-branch namespace/attached-plan contract.
-- Replacing the step skills when a specific write/create/implement workflow is requested; use this skill as their shared reference.
-
-## Reference map
-
-- `references/lifecycle.md`: terms, lifecycle, storage boundaries, Pi/CLI surfaces, and branch creation policy.
-- `references/commands.md`: exact write, resolve, create, load, and inspection command contracts plus success-report evidence.
-- `references/diagnostics-admin.md`: inspection, recovery, admin examples, collision handling, and destructive-change safety.
+- Replacing the step skills for a specific write/create/implement request; it is their shared reference, not a substitute.
 
 ## Default safety posture
 
@@ -45,9 +31,9 @@ When a step skill triggers, use this skill first for shared model, safety, and c
 - Use read-only Branch Memory inspection only for diagnostics.
 - If plan content appears stale relative to repository state, explain the discrepancy before changing scope.
 
-## Quick routing
+## References
 
-- Write/save a source-branch plan: load `references/lifecycle.md` and `references/commands.md`, then use the write-plan workflow or `planned-branch-write-plan`.
-- Resolve/create a planned branch: load `references/lifecycle.md` and `references/commands.md`, then use the create workflow or `planned-branch-create`.
-- Implement an attached plan: load `references/lifecycle.md` and `references/commands.md`, then use the implementation workflow or `planned-branch-impl`.
-- Inspect, repair, or administer planned-branch state: load `references/lifecycle.md` and `references/diagnostics-admin.md`.
+Each step skill carries its own command, slug rule, recovery, and report fields inline, so the common path needs no reference hop. Load a reference only when the task needs the shared model or a non-happy-path flow:
+
+- `references/lifecycle.md` — terms, lifecycle, storage boundaries, Pi/CLI surfaces, branch creation policy. Load to keep Saved plan vs Attached plan, the two slug kinds, and the two storage locations distinct.
+- `references/diagnostics-admin.md` — inspection, recovery, read-only Branch Memory inspection, retarget/copy admin, collision handling, destructive-change safety. Load for repair, inspection, or admin.
