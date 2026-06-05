@@ -12,6 +12,7 @@ allowed-tools:
   - "Bash(command -v *)"
   - "Bash(gh auth status*)"
   - "Bash(gh api *)"
+  - "Bash(gh repo view *)"
   - "Bash(git *)"
 ---
 
@@ -93,10 +94,17 @@ Detect the repository's default branch before writing the workflow so the
    git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##'
    ```
 
-2. If that is unavailable, check existing local branch/ref names and prefer
-   `master` when it exists, then `main`.
-3. If neither heuristic is conclusive, ask the user to confirm the default
-   branch name.
+2. If local `origin/HEAD` metadata is unavailable and `gh` is authenticated,
+   ask GitHub for the repository default branch:
+
+   ```bash
+   gh repo view --json defaultBranchRef --jq .defaultBranchRef.name
+   ```
+
+3. If GitHub metadata is unavailable, inspect existing local branch/ref names.
+   Use a local heuristic only when exactly one of `main` or `master` exists.
+   If both exist, neither exists, or the evidence is otherwise ambiguous, ask
+   the user to confirm the default branch name instead of guessing.
 4. Present the detected default branch to the user before writing the workflow.
 
 ### Step 4: Create the composite action
