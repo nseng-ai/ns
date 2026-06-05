@@ -9,31 +9,19 @@ from areg.context import AregContext
 from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
-from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
+from areg.gateways.npx_skills.gateway import NpxSkillsError
+from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
 
 DEFAULT_REPO = "dagster-io/asdl-tools"
 OTHER = "someone/other-repo"
 
 
-def _catalog_all_default() -> dict[str, dict[str, SkillFiles]]:
-    names = [
-        "dignified-python",
-        "pytest",
-        "skill-audit",
-        "skill-management",
-        "skillx",
-    ]
-    return {
-        DEFAULT_REPO: {n: SkillFiles(files={"SKILL.md": f"---\nname: {n}\n---\n"}) for n in names},
-        OTHER: {"other-skill": SkillFiles(files={"SKILL.md": "---\nname: other-skill\n---\n"})},
-    }
-
-
 def _ctx(npx: FakeNpxSkills | None = None) -> AregContext:
     return AregContext(
         gh=FakeGhCli(),
-        npx_skills=npx or FakeNpxSkills(catalog=_catalog_all_default()),
+        npx_skills=npx or FakeNpxSkills(),
         environment=FakeAregEnvironment(),
+        skillx_workspace=FakeSkillxWorkspaceInstaller(),
     )
 
 
@@ -67,7 +55,7 @@ def test_update_skills_calls_npx_per_skill(tmp_path) -> None:
             "skillx": _github_entry(),
         },
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -94,7 +82,7 @@ def test_update_skills_skips_local_entries(tmp_path) -> None:
             "my-local": _local_entry("my-local"),
         },
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -117,7 +105,7 @@ def test_update_skills_filter_by_skill_name(tmp_path) -> None:
             "skillx": _github_entry(),
         },
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(
         main,
@@ -132,7 +120,7 @@ def test_update_skills_filter_by_skill_name(tmp_path) -> None:
 def test_update_skills_unknown_skill_name_errors(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(
         main,
@@ -154,7 +142,7 @@ def test_update_skills_filter_by_source(tmp_path) -> None:
             "other-skill": _github_entry(OTHER),
         },
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(
         main,
@@ -181,7 +169,7 @@ def test_update_skills_dry_run_makes_no_calls(tmp_path) -> None:
             "skillx": _github_entry(),
         },
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(
         main,
@@ -205,7 +193,7 @@ def test_update_skills_reads_agents_from_asdl_toml(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
     (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -219,7 +207,7 @@ def test_update_skills_reads_agents_from_legacy_areg_json(tmp_path) -> None:
     (project / "areg.json").write_text(
         json.dumps({"agents": ["codex", "cursor"]}), encoding="utf-8"
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -234,7 +222,7 @@ def test_update_skills_asdl_toml_overrides_legacy_areg_json(tmp_path) -> None:
     (project / "areg.json").write_text(
         json.dumps({"agents": ["codex", "windsurf"]}), encoding="utf-8"
     )
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -246,7 +234,7 @@ def test_update_skills_explicit_agent_overrides_asdl_toml(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
     (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(
         main,
@@ -262,7 +250,7 @@ def test_update_skills_explicit_agent_ignores_invalid_legacy_areg_json(tmp_path)
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
     (project / "areg.json").write_text("{not json\n", encoding="utf-8")
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(
         main,
@@ -279,7 +267,7 @@ def test_update_skills_asdl_toml_ignores_invalid_legacy_areg_json(tmp_path) -> N
     _write_lockfile(project, {"pytest": _github_entry()})
     (project / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
     (project / "areg.json").write_text("{not json\n", encoding="utf-8")
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -291,7 +279,7 @@ def test_update_skills_invalid_asdl_toml_errors(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
     (project / "asdl.toml").write_text("[areg\n", encoding="utf-8")
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
@@ -303,7 +291,7 @@ def test_update_skills_invalid_asdl_toml_errors(tmp_path) -> None:
 def test_update_skills_default_agents_when_no_project_config(tmp_path) -> None:
     project = tmp_path / "proj"
     _write_lockfile(project, {"pytest": _github_entry()})
-    fake = FakeNpxSkills(catalog=_catalog_all_default())
+    fake = FakeNpxSkills()
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 

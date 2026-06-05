@@ -12,27 +12,19 @@ from areg.context import AregContext
 from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
-from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
+from areg.gateways.npx_skills.gateway import NpxSkills, NpxSkillsError
+from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
 
 BOOTSTRAP_REPO = "dagster-io/asdl-tools"
 
 
 def _default_npx() -> FakeNpxSkills:
-    return FakeNpxSkills(
-        catalog={
-            BOOTSTRAP_REPO: {
-                "skill-management": SkillFiles(
-                    files={"SKILL.md": "---\nname: skill-management\n---\n"}
-                ),
-                "skillx": SkillFiles(files={"SKILL.md": "---\nname: skillx\n---\n"}),
-            }
-        }
-    )
+    return FakeNpxSkills()
 
 
 def _ctx(
     *,
-    npx: FakeNpxSkills | None = None,
+    npx: NpxSkills | None = None,
     project_dir: Path | None = None,
     git_roots: dict[Path, Path] | None = None,
 ) -> AregContext:
@@ -44,23 +36,20 @@ def _ctx(
         gh=FakeGhCli(),
         npx_skills=npx or _default_npx(),
         environment=FakeAregEnvironment(git_roots=configured_git_roots),
+        skillx_workspace=FakeSkillxWorkspaceInstaller(),
     )
 
 
-class _SymlinkClaudeDirAfterAdd(FakeNpxSkills):
+class _SymlinkClaudeDirAfterAddNpx(NpxSkills):
+    """Npx stub that deliberately mutates .claude after the install boundary."""
+
     def __init__(self, *, outside: Path) -> None:
-        super().__init__(
-            catalog={
-                BOOTSTRAP_REPO: {
-                    "skill-management": SkillFiles(
-                        files={"SKILL.md": "---\nname: skill-management\n---\n"}
-                    ),
-                    "skillx": SkillFiles(files={"SKILL.md": "---\nname: skillx\n---\n"}),
-                }
-            },
-            write_claude_symlinks=False,
-        )
         self._outside = outside
+        self._invocations: list[tuple[str, tuple[str, ...] | None, tuple[str, ...], Path]] = []
+
+    @property
+    def invocations(self) -> list[tuple[str, tuple[str, ...] | None, tuple[str, ...], Path]]:
+        return list(self._invocations)
 
     def add(
         self,
@@ -70,7 +59,9 @@ class _SymlinkClaudeDirAfterAdd(FakeNpxSkills):
         agents: list[str],
         cwd: Path,
     ) -> None:
-        super().add(repo, skills=skills, agents=agents, cwd=cwd)
+        self._invocations.append(
+            (repo, tuple(skills) if skills is not None else None, tuple(agents), cwd)
+        )
         self._outside.mkdir()
         (cwd / ".claude").symlink_to(self._outside, target_is_directory=True)
 
@@ -97,15 +88,21 @@ def _assert_init_error_before_install(
 
 
 def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
+    fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path))
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path)],
+        obj=_ctx(npx=fake_npx, project_dir=tmp_path),
+    )
 
     assert result.exit_code == 0, result.output
-    assert (tmp_path / ".agents" / "skills" / "skill-management").is_dir()
-    assert (tmp_path / ".agents" / "skills" / "skillx").is_dir()
-    assert (tmp_path / ".claude" / "skills" / "skill-management").is_symlink()
-    assert (tmp_path / ".claude" / "skills" / "skillx").is_symlink()
-    assert (tmp_path / "skills-lock.json").is_file()
+    assert fake_npx.invocations[0].repo == BOOTSTRAP_REPO
+    assert fake_npx.invocations[0].skills == ("skill-management", "skillx")
+    assert fake_npx.invocations[0].agents == ("codex", "claude-code")
+    assert fake_npx.invocations[0].cwd == tmp_path
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
     assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "claude-code"]}}
     assert not (tmp_path / "areg.json").exists()
     assert "<!-- areg:skills:start -->" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
@@ -313,7 +310,7 @@ def test_init_rejects_claude_settings_symlink_before_install(tmp_path: Path) -> 
 
 def test_init_revalidates_settings_parent_after_npx_install(tmp_path: Path) -> None:
     outside = tmp_path / "outside-claude-after-install"
-    fake_npx = _SymlinkClaudeDirAfterAdd(outside=outside)
+    fake_npx = _SymlinkClaudeDirAfterAddNpx(outside=outside)
 
     result = CliRunner().invoke(
         main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)

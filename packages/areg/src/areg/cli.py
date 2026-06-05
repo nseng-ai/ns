@@ -7,6 +7,7 @@ from areg.context import AregContext
 from areg.gateways.environment.real import RealAregEnvironment
 from areg.gateways.gh.real import RealGhCli
 from areg.gateways.npx_skills.real import RealNpxSkills
+from areg.gateways.skillx_workspace.real import RealSkillxWorkspaceInstaller
 from areg.init_project import init_project_cmd
 from areg.skillx import exec_group
 from areg.update_skills import update_skills_cmd
@@ -17,10 +18,12 @@ from areg.update_skills import update_skills_cmd
 def main(ctx: click.Context) -> None:
     """areg CLI."""
     if ctx.obj is None:
+        npx_skills = RealNpxSkills()
         ctx.obj = AregContext(
             gh=RealGhCli(),
-            npx_skills=RealNpxSkills(),
+            npx_skills=npx_skills,
             environment=RealAregEnvironment(),
+            skillx_workspace=RealSkillxWorkspaceInstaller(npx_skills=npx_skills),
         )
 
 

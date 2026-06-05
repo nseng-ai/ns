@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from areg.gateways.environment.gateway import AregEnvironment
 from areg.gateways.gh.gateway import GhCli
 from areg.gateways.npx_skills.gateway import NpxSkills
+from areg.gateways.skillx_workspace.gateway import SkillxWorkspaceInstaller
 
 
 @dataclass
@@ -21,3 +22,4 @@ class AregContext:
     gh: GhCli
     npx_skills: NpxSkills
     environment: AregEnvironment
+    skillx_workspace: SkillxWorkspaceInstaller

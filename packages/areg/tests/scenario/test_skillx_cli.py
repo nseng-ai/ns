@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import tempfile
-from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -12,13 +11,20 @@ from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
 from areg.gateways.npx_skills.gateway import SkillFiles
+from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
 
 
-def _ctx(*, gh: FakeGhCli | None = None, npx: FakeNpxSkills | None = None) -> AregContext:
+def _ctx(
+    *,
+    gh: FakeGhCli | None = None,
+    npx: FakeNpxSkills | None = None,
+    skillx_workspace: FakeSkillxWorkspaceInstaller | None = None,
+) -> AregContext:
     return AregContext(
         gh=gh or FakeGhCli(),
         npx_skills=npx or FakeNpxSkills(),
         environment=FakeAregEnvironment(),
+        skillx_workspace=skillx_workspace or FakeSkillxWorkspaceInstaller(),
     )
 
 
@@ -65,7 +71,7 @@ def test_skillx_list_json_output() -> None:
 
 
 def test_skillx_fetch_json_output() -> None:
-    fake_npx = FakeNpxSkills(
+    fake_workspace = FakeSkillxWorkspaceInstaller(
         catalog={
             "owner/repo": {
                 "my-skill": SkillFiles(
@@ -80,24 +86,21 @@ def test_skillx_fetch_json_output() -> None:
     result = CliRunner().invoke(
         main,
         ["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "my-skill"],
-        obj=_ctx(npx=fake_npx),
+        obj=_ctx(skillx_workspace=fake_workspace),
     )
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["success"] is True
     assert data["skill"] == "my-skill"
-    assert data["tmp_dir"] is not None
+    assert data["tmp_dir"] == "/tmp/skillx.fake-1"
+    assert data["skill_dir"] == "/tmp/skillx.fake-1/.agents/skills/my-skill"
+    assert data["skill_md"] == "/tmp/skillx.fake-1/.agents/skills/my-skill/SKILL.md"
+    assert data["files"] == ["SKILL.md", "references/patterns.md"]
 
-    assert len(fake_npx.invocations) == 1
-    inv = fake_npx.invocations[0]
-    assert inv.repo == "owner/repo"
-    assert inv.skills == ("my-skill",)
-    assert inv.agents == ("codex",)
-
-    # Clean up the real temp dir fetch_skill created
-    tmp = Path(data["tmp_dir"])
-    if tmp.exists():
-        __import__("shutil").rmtree(tmp)
+    assert len(fake_workspace.invocations) == 1
+    invocation = fake_workspace.invocations[0]
+    assert invocation.repo == "owner/repo"
+    assert invocation.skill == "my-skill"
 
 
 def test_skillx_cleanup_json_output() -> None:

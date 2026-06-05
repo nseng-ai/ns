@@ -12,7 +12,7 @@ class NpxSkillsError(Exception):
 
 
 class NpxSkills(ABC):
-    """Abstract gateway for the `npx skills` CLI."""
+    """Gateway for invoking the external `npx skills add` command."""
 
     @abstractmethod
     def add(
@@ -29,10 +29,10 @@ class NpxSkills(ABC):
         every skill the repo provides. ``agents`` is the list of agent
         directories to populate (e.g. ``["codex", "claude-code"]``).
 
-        On success, the canonical skill files have been written under
-        ``cwd/.agents/skills/<name>/...``, ``cwd/.claude/skills/<name>``
-        symlinks have been created, and ``cwd/skills-lock.json`` has been
-        written.
+        The production command mutates ``cwd`` on success. The default fake
+        records requested invocations only and does not simulate the resulting
+        filesystem layout. Callers that need to inspect fetched skill content
+        should depend on the skillx transient-workspace gateway instead.
 
         Raises:
             NpxSkillsError: ``npx skills add`` failed.
@@ -41,7 +41,7 @@ class NpxSkills(ABC):
 
 @dataclass(frozen=True)
 class SkillFiles:
-    """In-memory representation of a single skill's file tree.
+    """In-memory representation of a single skill's file tree for tests.
 
     ``files`` maps relative paths under the skill directory to their contents.
     For example::

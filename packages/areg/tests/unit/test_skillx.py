@@ -7,8 +7,14 @@ import pytest
 
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.gh.gateway import GhAuthError, GhError
-from areg.gateways.npx_skills.fake import FakeNpxSkills
-from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
+from areg.gateways.npx_skills.gateway import SkillFiles
+from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
+from areg.gateways.skillx_workspace.gateway import (
+    SkillxInstalledSkill,
+    SkillxWorkspace,
+    SkillxWorkspaceError,
+    SkillxWorkspaceInstaller,
+)
 from areg.skillx import (
     cleanup_skill_dir,
     fetch_skill,
@@ -27,6 +33,23 @@ def _two_skill_files(*names: str) -> dict[str, SkillFiles]:
         )
         for name in names
     }
+
+
+class _DifferentSkillWorkspaceInstaller(SkillxWorkspaceInstaller):
+    def install(self, repo: str, *, skill: str | None) -> SkillxWorkspace:
+        return SkillxWorkspace(
+            tmp_dir=Path("/tmp/skillx.fake-mismatch"),
+            skills=(
+                SkillxInstalledSkill(
+                    name="different-skill",
+                    skill_dir=Path("/tmp/skillx.fake-mismatch/.agents/skills/different-skill"),
+                    skill_md=Path(
+                        "/tmp/skillx.fake-mismatch/.agents/skills/different-skill/SKILL.md"
+                    ),
+                    files=("SKILL.md",),
+                ),
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -206,71 +229,79 @@ def test_list_skills_to_dict_with_hint() -> None:
 
 
 def test_fetch_skill_single() -> None:
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("setup-dprint")})
-    result = fetch_skill("dagster-io/asdl-tools", "setup-dprint", npx_skills=npx)
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={"dagster-io/asdl-tools": _two_skill_files("setup-dprint")}
+    )
+    result = fetch_skill(
+        "dagster-io/asdl-tools",
+        "setup-dprint",
+        workspace_installer=installer,
+    )
 
     assert result.success is True
     assert result.skill == "setup-dprint"
-    assert result.tmp_dir is not None
-    assert result.skill_md.endswith("SKILL.md")
+    assert result.tmp_dir == "/tmp/skillx.fake-1"
+    assert result.skill_md == "/tmp/skillx.fake-1/.agents/skills/setup-dprint/SKILL.md"
     assert "SKILL.md" in result.files
     assert result.needs_selection is False
-
-    # Clean up
-    Path(result.tmp_dir).exists() and __import__("shutil").rmtree(result.tmp_dir)
+    assert installer.invocations[0].repo == "dagster-io/asdl-tools"
+    assert installer.invocations[0].skill == "setup-dprint"
 
 
 def test_fetch_skill_all_single_result() -> None:
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("setup-dprint")})
-    result = fetch_skill("dagster-io/asdl-tools", None, npx_skills=npx)
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={"dagster-io/asdl-tools": _two_skill_files("setup-dprint")}
+    )
+    result = fetch_skill("dagster-io/asdl-tools", None, workspace_installer=installer)
 
     assert result.success is True
     assert result.skill == "setup-dprint"
     assert result.needs_selection is False
 
-    Path(result.tmp_dir).exists() and __import__("shutil").rmtree(result.tmp_dir)
-
 
 def test_fetch_skill_all_multiple_results() -> None:
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("skill-a", "skill-b")})
-    result = fetch_skill("dagster-io/asdl-tools", None, npx_skills=npx)
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={"dagster-io/asdl-tools": _two_skill_files("skill-a", "skill-b")}
+    )
+    result = fetch_skill("dagster-io/asdl-tools", None, workspace_installer=installer)
 
     assert result.success is True
     assert result.needs_selection is True
     assert result.available_skills == ["skill-a", "skill-b"]
 
-    Path(result.tmp_dir).exists() and __import__("shutil").rmtree(result.tmp_dir)
-
 
 def test_fetch_skill_handles_npx_failure() -> None:
-    npx = FakeNpxSkills(raise_on_add=NpxSkillsError("install failed"))
-    result = fetch_skill("dagster-io/asdl-tools", "bad-skill", npx_skills=npx)
+    installer = FakeSkillxWorkspaceInstaller(
+        raise_on_install=SkillxWorkspaceError("npx skills add failed: install failed")
+    )
+    result = fetch_skill(
+        "dagster-io/asdl-tools",
+        "bad-skill",
+        workspace_installer=installer,
+    )
 
     assert result.success is False
     assert "npx skills add failed" in result.error
-    # Temp dir should have been cleaned up
     assert result.to_dict()["tmp_dir"] is None
 
 
 def test_fetch_skill_handles_no_skills_installed() -> None:
-    # Catalog has the repo but with no skills, so the .agents/skills dir
-    # never gets created — fetch_skill should report "No skills were installed".
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": {}}, write_lock=False)
-    result = fetch_skill("dagster-io/asdl-tools", None, npx_skills=npx)
+    installer = FakeSkillxWorkspaceInstaller(catalog={"dagster-io/asdl-tools": {}})
+    result = fetch_skill("dagster-io/asdl-tools", None, workspace_installer=installer)
 
     assert result.success is False
     assert "No skills were installed" in result.error
 
 
 def test_fetch_skill_skill_not_in_installed() -> None:
-    """Skill was specified but the catalog only has a different one."""
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("different-skill")})
-    result = fetch_skill("dagster-io/asdl-tools", "wanted-skill", npx_skills=npx)
+    result = fetch_skill(
+        "dagster-io/asdl-tools",
+        "wanted-skill",
+        workspace_installer=_DifferentSkillWorkspaceInstaller(),
+    )
 
-    # FakeNpxSkills raises NpxSkillsError("unknown skill"), which the caller
-    # surfaces through the same "npx skills add failed" path the real CLI uses.
     assert result.success is False
-    assert "npx skills add failed" in result.error
+    assert "Skill 'wanted-skill' was not found in installed skills" in result.error
 
 
 # ---------------------------------------------------------------------------
