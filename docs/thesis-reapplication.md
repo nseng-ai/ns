@@ -66,9 +66,22 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
 - **The new baseline** — the live, correctly-tracked branch the work should sit on.
   Re-read its SHA at session start; stacks move, and a baseline that "needs restack"
   will move again once you restack it.
+- **Attached planned-branch plans on every branch you target.** For each source
+  branch whose intent may be re-applied, and for each target/baseline branch you
+  may land on, inspect Branch Memory namespace `planned-branch` before reading the
+  diffs:
+
+  ```bash
+  brmem list --namespace planned-branch --branch <branch>
+  brmem get <key> --namespace planned-branch --branch <branch>
+  ```
+
+  If you are currently on the branch, `planned-branch exec load-plan [key-or-slug]
+  --format json` is the higher-level loader. Treat an attached plan as authored
+  intent, not incidental notes.
 - **The PR for each source branch** (`gh pr view <n>`). The PR title and body are
-  usually the cleanest statement of intent you will find — read them _before_ the
-  diffs.
+  usually the cleanest statement of intent after any attached planned-branch plan
+  — read them _before_ the diffs.
 - **Backups.** Snapshot every source tip before touching anything:
   `git update-ref refs/backup/<branch>-prefix <tip>`. This is mandatory — retirement
   (phase 6) deletes these branches, and the backup ref is the only undo.
@@ -78,9 +91,9 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
 The thesis is the **intent**, decoupled from any specific hunk. The diffs are
 _evidence_ of intent, not the artifact to salvage.
 
-- **Read intent in source order:** PR description, then commit messages, then the
-  diff. Earlier sources are authored intent; the diff is reverse-engineering and the
-  last resort.
+- **Read intent in source order:** attached planned-branch plan, then PR
+  description, then commit messages, then the diff. Earlier sources are authored
+  intent; the diff is reverse-engineering and the last resort.
 - **Dedupe across branches.** If several branches express overlapping intent, collapse
   them into one thesis — but run `git diff <branchA> <branchB>` first to surface what
   is _unique_ to each, so a lesser branch's contribution (often docs or objective
