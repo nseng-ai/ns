@@ -76,7 +76,7 @@
   - Policy: direct execution after preview.
   - Evidence: dry-run tests assert no mutating gateway calls, deterministic JSON envelope fields, useful human output, clear target/profile/run/reviewer/batch summaries, and clear failure rendering for invalid profile or invalid triage output.
 
-- [ ] Add the Graphite stack gateway and generated branch/PR marker support.
+- [x] Add the Graphite stack gateway and generated branch/PR marker support.
   - Thesis: all Graphite-specific stack reads and mutations sit behind a roaster-specific gateway that can attach generated resolution branches above the target implementation stack while preserving lineage to the original target branch/PR.
   - Expected implementation branch/PR: `roaster-stack/graphite-gateway`.
   - Depends on: `roaster-stack/contracts` plus marker/run-storage shapes; do not wire the full resolver loop in this slice.

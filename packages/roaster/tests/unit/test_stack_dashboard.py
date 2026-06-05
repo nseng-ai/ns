@@ -14,11 +14,19 @@ from roaster.stack_dashboard import (
     render_stack_dashboard,
 )
 from roaster.stack_markers import (
+    GeneratedPrBodyRequest,
+    GeneratedPrBranchMemoryLocator,
     StackDashboardMarker,
     StackDashboardMarkerParseError,
+    StackGeneratedPrMarker,
+    StackGeneratedPrMarkerParseError,
     parse_stack_dashboard_marker,
     parse_stack_dashboard_marker_from_body,
+    parse_stack_generated_pr_marker,
+    parse_stack_generated_pr_marker_from_body,
+    render_generated_pr_body,
     render_stack_dashboard_marker,
+    render_stack_generated_pr_marker,
 )
 from roaster.stack_run_storage import ROASTER_RUNS_NAMESPACE, StackRunLocator
 
@@ -144,6 +152,124 @@ def test_parse_stack_dashboard_marker_rejects_unknown_version() -> None:
 
     assert isinstance(parsed, StackDashboardMarkerParseError)
     assert "`version` must be 1" in parsed.message
+
+
+# -- generated PR markers and bodies ----------------------------------------
+
+
+def _generated_pr_locator() -> GeneratedPrBranchMemoryLocator:
+    return GeneratedPrBranchMemoryLocator(
+        namespace=ROASTER_RUNS_NAMESPACE,
+        branch="feature/impl",
+        key="runs/impl/thermonuclear-stack/run-1/batches/fix-tests/resolver.md",
+    )
+
+
+def test_render_stack_generated_pr_marker_uses_compact_deterministic_json() -> None:
+    marker = render_stack_generated_pr_marker(
+        implementation_branch="feature/impl",
+        implementation_pr="123",
+        profile_slug="thermonuclear-stack",
+        run_slug="run-1",
+        batch_slug="fix-tests",
+        finding_ids=("F-1", "F-2"),
+        branch_memory=_generated_pr_locator(),
+    )
+
+    assert marker == (
+        '<!-- roaster-stack-generated-pr {"version":1,"implementation_branch":"feature/impl",'
+        '"implementation_pr":"123","profile_slug":"thermonuclear-stack","run_slug":"run-1",'
+        '"batch_slug":"fix-tests","finding_ids":["F-1","F-2"],'
+        '"branch_memory_namespace":"roaster-runs","branch_memory_branch":"feature/impl",'
+        '"branch_memory_key":"runs/impl/thermonuclear-stack/run-1/batches/fix-tests/'
+        'resolver.md"} -->'
+    )
+
+
+def test_parse_stack_generated_pr_marker_accepts_canonical_marker() -> None:
+    marker = render_stack_generated_pr_marker(
+        implementation_branch="feature/impl",
+        implementation_pr="123",
+        profile_slug="thermonuclear-stack",
+        run_slug="run-1",
+        batch_slug="fix-tests",
+        finding_ids=("F-1", "F-2"),
+        branch_memory=_generated_pr_locator(),
+    )
+
+    parsed = parse_stack_generated_pr_marker(marker)
+
+    assert parsed == StackGeneratedPrMarker(
+        implementation_branch="feature/impl",
+        implementation_pr="123",
+        profile_slug="thermonuclear-stack",
+        run_slug="run-1",
+        batch_slug="fix-tests",
+        finding_ids=("F-1", "F-2"),
+        branch_memory_namespace=ROASTER_RUNS_NAMESPACE,
+        branch_memory_branch="feature/impl",
+        branch_memory_key="runs/impl/thermonuclear-stack/run-1/batches/fix-tests/resolver.md",
+    )
+
+
+def test_parse_stack_generated_pr_marker_from_body_requires_first_line_marker() -> None:
+    body = render_generated_pr_body(
+        GeneratedPrBodyRequest(
+            implementation_branch="feature/impl",
+            implementation_pr="123",
+            profile_slug="thermonuclear-stack",
+            run_slug="run-1",
+            batch_slug="fix-tests",
+            batch_title="Fix tests",
+            batch_summary="Repair brittle tests.",
+            finding_ids=("F-1",),
+            validation_summary="just test passed",
+            branch_memory=_generated_pr_locator(),
+            dashboard_pointer="https://github.com/acme/widgets/pull/123#issuecomment-99",
+        )
+    )
+
+    parsed = parse_stack_generated_pr_marker_from_body(body)
+
+    assert isinstance(parsed, StackGeneratedPrMarker)
+    assert parsed.batch_slug == "fix-tests"
+
+
+def test_parse_stack_generated_pr_marker_rejects_malformed_payload() -> None:
+    parsed = parse_stack_generated_pr_marker("<!-- roaster-stack-generated-pr {bad} -->")
+
+    assert isinstance(parsed, StackGeneratedPrMarkerParseError)
+    assert "JSON is invalid" in parsed.message
+
+
+def test_render_generated_pr_body_includes_source_batch_validation_and_dashboard() -> None:
+    body = render_generated_pr_body(
+        GeneratedPrBodyRequest(
+            implementation_branch="feature/impl",
+            implementation_pr="https://github.com/acme/widgets/pull/123",
+            profile_slug="thermonuclear-stack",
+            run_slug="run-1",
+            batch_slug="fix-tests",
+            batch_title="Fix tests",
+            batch_summary="Repair brittle tests.",
+            finding_ids=("F-1", "F-2"),
+            validation_summary="just test passed",
+            branch_memory=_generated_pr_locator(),
+            dashboard_pointer="https://github.com/acme/widgets/pull/123#issuecomment-99",
+        )
+    )
+
+    assert body.startswith("<!-- roaster-stack-generated-pr ")
+    assert "## roaster stack resolution · fix-tests" in body
+    assert "- **Branch:** `feature/impl`" in body
+    assert "- **PR:** https://github.com/acme/widgets/pull/123" in body
+    assert "- **Profile:** `thermonuclear-stack`" in body
+    assert "- **Run:** `run-1`" in body
+    assert "- **Title:** Fix tests" in body
+    assert "- **Findings:** `F-1`, `F-2`" in body
+    assert "just test passed" in body
+    assert "- **Branch Memory:** `roaster-runs` / " in body
+    assert "- **Dashboard:** https://github.com/acme/widgets/pull/123#issuecomment-99" in body
 
 
 # -- render_stack_dashboard -------------------------------------------------
