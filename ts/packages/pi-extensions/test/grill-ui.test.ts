@@ -10,7 +10,10 @@ import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
+	GRILL_WITH_DOCS_UI_COMMAND_NAME,
+	GRILL_WITH_DOCS_UI_SKILL_NAME,
 	buildGrillUiPrompt,
+	buildGrillWithDocsUiPrompt,
 	executeGrillAsk,
 	registerGrillUiExtension,
 	type ExtensionAPI,
@@ -53,13 +56,21 @@ class FakePi implements ExtensionAPI {
 	}
 }
 
-function register(pi = new FakePi()): { pi: FakePi; command: RegisteredCommand; tool: ToolDefinition } {
+function register(pi = new FakePi()): {
+	pi: FakePi;
+	command: RegisteredCommand;
+	grillCommand: RegisteredCommand;
+	docsCommand: RegisteredCommand;
+	tool: ToolDefinition;
+} {
 	registerGrillUiExtension(pi);
-	const command = pi.commands.get(GRILL_UI_COMMAND_NAME);
+	const grillCommand = pi.commands.get(GRILL_UI_COMMAND_NAME);
+	const docsCommand = pi.commands.get(GRILL_WITH_DOCS_UI_COMMAND_NAME);
 	const tool = pi.tools.get(GRILL_ASK_TOOL_NAME);
-	expect(command).toBeDefined();
+	expect(grillCommand).toBeDefined();
+	expect(docsCommand).toBeDefined();
 	expect(tool).toBeDefined();
-	return { pi, command: command!, tool: tool! };
+	return { pi, command: grillCommand!, grillCommand: grillCommand!, docsCommand: docsCommand!, tool: tool! };
 }
 
 function baseInput(): GrillAskInput {
@@ -112,11 +123,16 @@ function grillAskToolResult(details: unknown): unknown {
 	};
 }
 
-function commandContext(options: { hasUI?: boolean; editorResult?: string; notifications?: Notification[] } = {}): GrillUiCommandContext {
+function commandContext(
+	options: { hasUI?: boolean; editorResult?: string; editorTitles?: string[]; notifications?: Notification[] } = {},
+): GrillUiCommandContext {
 	return {
 		hasUI: options.hasUI ?? true,
 		ui: {
-			editor: async () => options.editorResult,
+			editor: async (title) => {
+				options.editorTitles?.push(title);
+				return options.editorResult;
+			},
 			notify: (message, level) => options.notifications?.push({ message, level }),
 		},
 		waitForIdle: async () => {},
@@ -143,6 +159,32 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Fallback target");
 		expect(prompt).toContain("If grill_ask returns action: \"end_grill\"");
 		expect(prompt).toContain("Show current grill status");
+	});
+});
+
+describe("grill-with-docs-ui prompt", () => {
+	test("includes the expanded docs-aware skill block when provided", () => {
+		const skillBlock = `<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}">Run docs-aware preflight and update CONTEXT.md.</skill>`;
+		const prompt = buildGrillWithDocsUiPrompt(skillBlock, "Docs-aware target");
+
+		expect(prompt).toContain(skillBlock);
+		expect(prompt).toContain("Docs-aware target");
+		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
+		expect(prompt).toContain("CONTEXT.md");
+		expect(prompt).toContain("docs-aware preflight");
+		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
+	});
+
+	test("includes fallback docs-aware instructions when no skill block is available", () => {
+		const prompt = buildGrillWithDocsUiPrompt(undefined, "Fallback docs target");
+
+		expect(prompt).toContain("fallback=\"true\"");
+		expect(prompt).toContain("docs-first preflight");
+		expect(prompt).toContain("CONTEXT-MAP.md");
+		expect(prompt).toContain("CONTEXT.md");
+		expect(prompt).toContain("Offer ADRs sparingly");
+		expect(prompt).toContain("Documentation updates");
+		expect(prompt).toContain("Fallback docs target");
 	});
 });
 
@@ -205,6 +247,74 @@ describe("/grill-ui command", () => {
 
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(notifications).toEqual([{ message: "No plan/design provided for /grill-ui.", level: "warning" }]);
+	});
+});
+
+describe("/grill-with-docs-ui command", () => {
+	test("with args sends exactly one user message containing the target, UI contract, and docs guidance", async () => {
+		const { pi, docsCommand } = register();
+
+		await docsCommand.handler("  A docs-aware design prompt  ", commandContext({ hasUI: false }));
+
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("A docs-aware design prompt");
+		expect(pi.sentUserMessages[0]).toContain("structured-grill-question-ui-contract");
+		expect(pi.sentUserMessages[0]).toContain("grill_ask");
+		expect(pi.sentUserMessages[0]).toContain("docs-first preflight");
+		expect(pi.sentUserMessages[0]).toContain("CONTEXT.md");
+		expect(pi.sentUserMessages[0]).toContain("Offer ADRs sparingly");
+		expect(pi.sentUserMessages[0]).toContain("Documentation updates");
+	});
+
+	test("expands the pi-grill-with-docs-ui skill when available", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "pi-grill-with-docs-ui-test-"));
+		try {
+			const skillPath = join(dir, "SKILL.md");
+			await writeFile(
+				skillPath,
+				`---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
+				"utf8",
+			);
+
+			const { pi, docsCommand } = register();
+			pi.commandsList = [
+				{
+					name: `skill:${GRILL_WITH_DOCS_UI_SKILL_NAME}`,
+					source: "skill",
+					sourceInfo: { path: skillPath, baseDir: dir },
+				},
+			];
+
+			await docsCommand.handler("Target docs design", commandContext({ hasUI: false }));
+
+			expect(pi.sentUserMessages).toHaveLength(1);
+			expect(pi.sentUserMessages[0]).toContain(`<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" location="${skillPath}">`);
+			expect(pi.sentUserMessages[0]).toContain("Docs-aware backend skill body from test.");
+			expect(pi.sentUserMessages[0]).toContain("Target docs design");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("without args uses the docs-aware editor title when UI is available", async () => {
+		const { pi, docsCommand } = register();
+		const editorTitles: string[] = [];
+
+		await docsCommand.handler("", commandContext({ editorResult: "Edited docs plan text", editorTitles }));
+
+		expect(editorTitles).toEqual(["What plan or design should be grilled against docs?"]);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("Edited docs plan text");
+	});
+
+	test("without args and blank editor input notifies and sends no message", async () => {
+		const { pi, docsCommand } = register();
+		const notifications: Notification[] = [];
+
+		await docsCommand.handler("", commandContext({ editorResult: "   ", notifications }));
+
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(notifications).toEqual([{ message: "No plan/design provided for /grill-with-docs-ui.", level: "warning" }]);
 	});
 });
 
@@ -562,11 +672,11 @@ describe("grill_ask execution", () => {
 });
 
 describe("registerGrillUiExtension", () => {
-	test("registers one command named grill-ui and one tool named grill_ask", () => {
+	test("registers plain and docs-aware grill commands and one grill_ask tool", () => {
 		const { pi, tool } = register();
 		const schema = tool.parameters as { type?: string; required?: string[]; additionalProperties?: boolean };
 
-		expect([...pi.commands.keys()]).toEqual([GRILL_UI_COMMAND_NAME]);
+		expect([...pi.commands.keys()]).toEqual([GRILL_UI_COMMAND_NAME, GRILL_WITH_DOCS_UI_COMMAND_NAME]);
 		expect([...pi.tools.keys()]).toEqual([GRILL_ASK_TOOL_NAME]);
 		expect(schema.type).toBe("object");
 		expect(schema.required).toEqual(["question", "recommended", "options"]);

@@ -20,6 +20,10 @@ _Avoid_: deprecated extension, throwaway script, unowned code.
 The private TypeScript workspace package at `ts/packages/pi-extensions/` that holds tested implementation modules for project-local Pi behavior.
 _Avoid_: published npm API, stable library boundary, global Pi extension.
 
+**Structured grill UI surface**:
+The Pi-specific command/tool layer for starting grill sessions and routing user-facing questions through `grill_ask`. It includes the plain `/grill-ui` path and the docs-aware `/grill-with-docs-ui` path.
+_Avoid_: questionnaire framework, docs editor, generic form engine.
+
 **Command runtime**:
 The package helper layer for invoking external commands from Pi extensions with cwd, timeout, signal, and captured stdout/stderr evidence.
 _Avoid_: shell script, subprocess wrapper unqualified, test fake.

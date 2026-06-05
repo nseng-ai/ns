@@ -10,8 +10,8 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
-| First-party skill commands               |    44 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    21 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| First-party skill commands               |    45 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
+| Project Pi extension commands            |    22 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     3 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -36,7 +36,7 @@ The promoted first-party catalog uses flat semantic names instead of an organiza
 | Ambient  | Python standards and testing   | `dignified-python`, `python-fake-driven-testing`, `python-fake-driven-test-layout`, `pytest`       |
 | Ambient  | TypeScript standards/testing   | `typescript-style`, `typescript-fake-driven-testing`                                               |
 | Ambient  | Workflow operations            | `refactor-swarm`, `code-resolve-merge-conflicts`                                                   |
-| Internal | Pi UI                          | `pi-grill-ui`                                                                                      |
+| Internal | Pi UI                          | `pi-grill-ui`, `pi-grill-with-docs-ui`                                                             |
 
 Projects initialized with `areg init` install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
 
@@ -84,6 +84,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/skill:objective-stack-impl`             | `skills/objective-stack-impl/SKILL.md`             | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
 | `/skill:objective-update`                 | `skills/objective-update/SKILL.md`                 | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
 | `/skill:pi-grill-ui`                      | `skills/pi-grill-ui/SKILL.md`                      | Internal backend skill for the Pi `/grill-ui` structured-question extension.                                        |
+| `/skill:pi-grill-with-docs-ui`            | `skills/pi-grill-with-docs-ui/SKILL.md`            | Internal backend skill for the Pi `/grill-with-docs-ui` structured-question extension.                              |
 | `/skill:planned-branch-write-plan`        | `skills/planned-branch-write-plan/SKILL.md`        | Writes, reviews, and saves a planned-branch implementation plan through the `planned-branch` CLI.                   |
 | `/skill:planned-branch-create`            | `skills/planned-branch-create/SKILL.md`            | Creates a planned implementation branch from a saved plan and attaches it through the `planned-branch` CLI.         |
 | `/skill:planned-branch-impl`              | `skills/planned-branch-impl/SKILL.md`              | Loads an attached planned-branch plan through the `planned-branch` CLI before implementation.                       |
@@ -111,6 +112,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/code:land-stack`           | `.pi/extensions/code.ts`           | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/dev:preview-url`           | `.pi/extensions/asdl-dev.ts`       | Prints the Vercel preview URL for a branch.                                                         |
 | `/grill-ui`                  | `.pi/extensions/grill-ui.ts`       | Starts a grill-me session using the structured `grill_ask` question UI.                             |
+| `/grill-with-docs-ui`        | `.pi/extensions/grill-ui.ts`       | Starts a docs-aware grill-with-docs session using the structured `grill_ask` question UI.           |
 | `/just`                      | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `internal-code-just-fix` workflow prompt when the suite fails.          |
 | `/roast`                     | `.pi/extensions/roast.ts`          | Runs matching roaster reviewers for the current branch diff through the local `roaster` CLI.        |
 | `/objective:list`            | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
@@ -124,21 +126,21 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## Project Pi custom tools
 
-| Tool                            | Source                                       | Description                                                                                      |
-| ------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `dispatch_runner_subagent`      | `.pi/extensions/dispatch-runner-subagent.ts` | Launches a focused Pi runner subagent in the current cwd and returns final-text/status evidence. |
-| `grill_ask`                     | `.pi/extensions/grill-ui.ts`                 | Asks one grill-me question through structured choices, freeform input, or an end-session path.   |
-| `write_source_branch_plan_file` | `.pi/extensions/planned-branch.ts`           | Writes a reviewed Markdown implementation plan into the local source-branch plan store.          |
+| Tool                            | Source                                       | Description                                                                                               |
+| ------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `dispatch_runner_subagent`      | `.pi/extensions/dispatch-runner-subagent.ts` | Launches a focused Pi runner subagent in the current cwd and returns final-text/status evidence.          |
+| `grill_ask`                     | `.pi/extensions/grill-ui.ts`                 | Asks one grill-session question through structured choices, freeform input, status, or end-session paths. |
+| `write_source_branch_plan_file` | `.pi/extensions/planned-branch.ts`           | Writes a reviewed Markdown implementation plan into the local source-branch plan store.                   |
 
 ## Repo-owned workflow family dispositions
 
-| Family                | Disposition                                                                                                                                                                                                                                          |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planned branches      | Final first-party surface: `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`, `/skill:planned-branch-write-plan`, `/skill:planned-branch-create`, and `/skill:planned-branch-impl` over the `planned-branch` CLI.       |
-| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained. |
-| Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                |
-| Structured grill UI   | Retain `/grill-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills.                                               |
-| Objective execution   | General Objective execution is folded into `objective-next` behind explicit Runner Policy and preview confirmation. `objective-stack-impl` remains the specialized stack implementation runner.                                                      |
+| Family                | Disposition                                                                                                                                                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planned branches      | Final first-party surface: `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`, `/skill:planned-branch-write-plan`, `/skill:planned-branch-create`, and `/skill:planned-branch-impl` over the `planned-branch` CLI.                    |
+| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained.              |
+| Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                             |
+| Structured grill UI   | Retain `/grill-ui`, `/grill-with-docs-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` plus `/skill:pi-grill-with-docs-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills. |
+| Objective execution   | General Objective execution is folded into `objective-next` behind explicit Runner Policy and preview confirmation. `objective-stack-impl` remains the specialized stack implementation runner.                                                                   |
 
 ## Engineered TypeScript packages
 

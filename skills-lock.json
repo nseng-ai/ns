@@ -183,6 +183,11 @@
       "sourceType": "local",
       "computedHash": "f49cbadcf884d3789a473b1c0051f9e1ea314f943391675ef4e7b90935678d78"
     },
+    "pi-grill-with-docs-ui": {
+      "source": "skills/pi-grill-with-docs-ui",
+      "sourceType": "local",
+      "computedHash": "6e689e74c0f82704af7b81463eb3ff0ed2e52c5fe32ae06e2acd301e7853531c"
+    },
     "planned-branch-create": {
       "source": "skills/planned-branch-create",
       "sourceType": "local",
