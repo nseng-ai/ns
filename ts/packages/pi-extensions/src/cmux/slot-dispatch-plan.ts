@@ -26,7 +26,7 @@ const MAX_ERROR_CHARS = 4_000;
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
 
-Dispatch the latest saved plan into a CMUX slot for implementation.
+Dispatch the latest saved plan into a cmux slot for implementation.
 
 Options:
   --dry-run    Show the selected plan and commands without mutating.
@@ -82,7 +82,7 @@ interface FormatFinalSuccessOptions {
 
 export function registerCmuxSlotDispatchPlanCommand(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Dispatch the latest saved plan into a CMUX slot for implementation.",
+		description: "Dispatch the latest saved plan into a cmux slot for implementation.",
 		argumentHint: "[--dry-run]",
 		handler: async (args, ctx) => {
 			await handleCommand(pi, args, ctx);
@@ -442,7 +442,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 	const launchCommand = formatPiLaunchCommand(key, launchOptions);
 	const description = `${repositoryNameFromPath(checkout.repoRoot) ?? basename(checkout.repoRoot)}/${targetBranch}`;
 	return [
-		"Dry run: no branch was created, no plan was attached, and no CMUX slot was opened.",
+		"Dry run: no branch was created, no plan was attached, and no cmux slot was opened.",
 		"",
 		"Selected saved plan:",
 		`Path: ${plan.filePath}`,
@@ -484,7 +484,7 @@ function formatCreatePlannedBranchFailure(targetBranch: string, key: string, sou
 		`Namespace: ${PLAN_BRANCH_NAMESPACE}`,
 		`Key: ${key}`,
 		`Source file: ${sourceFile}`,
-		"No CMUX slot was opened.",
+		"No cmux slot was opened.",
 		"",
 		formatErrorMessage(error),
 	].join("\n");
@@ -493,7 +493,7 @@ function formatCreatePlannedBranchFailure(targetBranch: string, key: string, sou
 function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 	const { targetBranch, key, target, launchOptions } = options;
 	return [
-		"Dispatched plan in CMUX slot.",
+		"Dispatched plan in cmux slot.",
 		`Branch: ${targetBranch}`,
 		`Slot: ${target.slotName}`,
 		`Worktree: ${target.worktreePath}`,

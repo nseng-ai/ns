@@ -25,11 +25,11 @@ The package helper layer for invoking external commands from Pi extensions with 
 _Avoid_: shell script, subprocess wrapper unqualified, test fake.
 
 **cmux command suite**:
-The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:pr-sidebar`, `/cmux:objective-sidebar`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, and `/cmux-dispatch`.
+The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:pr-sidebar`, `/cmux:objective-sidebar`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, and `/cmux-slot:dispatch-prompt`.
 _Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone.
 
 **cmux workspace-opening command**:
-A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch or slot: `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, or `/cmux-dispatch`.
+A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch or slot: `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, or `/cmux-slot:dispatch-prompt`.
 _Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
 
 **cmux sidebar command**:

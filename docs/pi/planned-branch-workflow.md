@@ -27,6 +27,14 @@ The public workflow surface is:
 The deterministic CLI operations are hidden under `planned-branch exec` so
 agents can share one package contract without duplicating TypeScript internals.
 
+## Pi Extension Boundary
+
+Do not edit Pi core for this repo's planned-branch workflow. Keep Pi-facing
+behavior in project-owned extension code under `ts/packages/pi-extensions/` and
+the project-local `.pi/extensions/` adapter. If a change appears to require
+modifying the installed Pi package or local Pi monorepo, treat that as an
+upstream follow-up and prefer an extension-local workaround for this repo.
+
 ## Command Flow
 
 ### Save a source-branch plan

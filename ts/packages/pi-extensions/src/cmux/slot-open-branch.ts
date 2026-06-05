@@ -56,7 +56,7 @@ export function registerCmuxSlotOpenBranchCommand(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open a branch, or the latest planned branch when omitted, in a CMUX slot.",
+		description: "Open a branch, or the latest planned branch when omitted, in a cmux slot.",
 		argumentHint: "[branch]",
 		getArgumentCompletions: async (argumentPrefix) => {
 			const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
@@ -86,13 +86,13 @@ export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranch
 	if (resolved.inferred) {
 		const confirmed = await confirmInferredBranch(ctx, resolved.selection);
 		if (!confirmed) {
-			ctx.ui.notify("Cancelled; no CMUX slot was opened.", "info");
+			ctx.ui.notify("Cancelled; no cmux slot was opened.", "info");
 			return;
 		}
 	}
 
 	const branch = resolved.branchName;
-	ctx.ui.notify(`Opening ${branch} in a CMUX slot…`, "info");
+	ctx.ui.notify(`Opening ${branch} in a cmux slot…`, "info");
 
 	const launched = await openBranchInCmuxSlot({
 		pi,
@@ -191,7 +191,7 @@ async function confirmInferredBranch(
 
 function formatInferredBranchConfirmation(selection: PlannedBranchSelection): string {
 	return [
-		`Use branch "${selection.branchName}" from the latest [planned-branch-output] and open it in a CMUX slot?`,
+		`Use branch "${selection.branchName}" from the latest [planned-branch-output] and open it in a cmux slot?`,
 		"",
 		selection.key ? `Key: ${selection.key}` : undefined,
 		selection.branchCreation ? `Branch creation: ${selection.branchCreation}` : undefined,

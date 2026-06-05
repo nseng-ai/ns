@@ -34,7 +34,7 @@ On success, the command applies three cmux mutations to the caller workspace:
 
 1. Rename workspace title with `cmux workspace rename <workspace> --title <title>`.
 2. Set the description through `cmux workspace-action --action set-description`.
-3. Clear the legacy `pi-summary` sidebar status pill with `cmux clear-status pi-summary`.
+3. Clear the legacy cmux status key `pi-summary` with `cmux clear-status pi-summary`.
 
 ## JSON contract
 

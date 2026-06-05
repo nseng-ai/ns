@@ -4,16 +4,16 @@ import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLe
 const PR_SIDEBAR_COMMAND_NAME = "cmux:pr-sidebar";
 const OBJECTIVE_SIDEBAR_COMMAND_NAME = "cmux:objective-sidebar";
 const SKILL_NAME = "cmux-sidebar";
-const STATUS_KEY = "cmux:sidebar";
-const SUMMARY_MODEL_ENV = "ASDL_CMUX_SUMMARY_MODEL";
-const DEFAULT_SUMMARY_MODEL_REF = "openai-codex/gpt-5.4-mini";
+const PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar";
+const SIDEBAR_MODEL_ENV = "ASDL_CMUX_SIDEBAR_MODEL";
+const DEFAULT_SIDEBAR_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
 interface RestoreState {
 	model?: ModelInfo;
 	thinkingLevel: ThinkingLevel;
 }
 
-export interface CmuxWorkspaceSummaryController {
+export interface CmuxSidebarController {
 	handlePrCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
@@ -38,7 +38,7 @@ type SidebarPromptRequest =
 			objectiveSelector?: string;
 	  };
 
-export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWorkspaceSummaryController {
+export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarController {
 	let pendingRestore: RestoreState | undefined;
 
 	pi.on("agent_end", async (_event, ctx) => {
@@ -76,7 +76,7 @@ export function createCmuxWorkspaceSummaryController(pi: ExtensionAPI): CmuxWork
 
 export function registerCmuxSidebarCommands(
 	pi: ExtensionAPI,
-	controller: CmuxWorkspaceSummaryController,
+	controller: CmuxSidebarController,
 ): void {
 	pi.registerCommand(PR_SIDEBAR_COMMAND_NAME, {
 		description: "Summarize the current PR work into the caller cmux sidebar.",
@@ -180,7 +180,7 @@ async function queueSidebar(
 	let restoreState: RestoreState | undefined;
 	try {
 		const skillBlock = await expandSidebarSkillBlock(pi, ctx);
-		restoreState = await switchToFastSummaryModel(pi, ctx);
+		restoreState = await switchToFastSidebarModel(pi, ctx);
 		if (restoreState !== undefined) {
 			setPendingRestore(restoreState);
 		}
@@ -194,7 +194,7 @@ async function queueSidebar(
 		if (restoreState !== undefined) {
 			await restoreModelState(pi, ctx, restoreState);
 		}
-		notify(ctx, `Could not queue cmux sidebar summary: ${formatErrorMessage(error)}`, "warning");
+		notify(ctx, `Could not queue cmux sidebar update: ${formatErrorMessage(error)}`, "warning");
 	} finally {
 		setStatus(ctx, undefined);
 	}
@@ -210,11 +210,11 @@ async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): P
 }
 
 function formatInvokingMessage(request: SidebarPromptRequest): string {
-	return request.type === "pr" ? "Invoking cmux PR sidebar summary." : "Invoking cmux Objective sidebar summary.";
+	return request.type === "pr" ? "Invoking cmux PR sidebar update." : "Invoking cmux Objective sidebar update.";
 }
 
-function configuredSummaryModelRef(): string {
-	return process.env[SUMMARY_MODEL_ENV]?.trim() || DEFAULT_SUMMARY_MODEL_REF;
+function configuredSidebarModelRef(): string {
+	return process.env[SIDEBAR_MODEL_ENV]?.trim() || DEFAULT_SIDEBAR_MODEL_REF;
 }
 
 function parseModelRef(modelRef: string): ParsedModelRef | undefined {
@@ -228,17 +228,17 @@ function parseModelRef(modelRef: string): ParsedModelRef | undefined {
 	};
 }
 
-async function switchToFastSummaryModel(pi: ExtensionAPI, ctx: CommandContext): Promise<RestoreState | undefined> {
-	const modelRef = configuredSummaryModelRef();
+async function switchToFastSidebarModel(pi: ExtensionAPI, ctx: CommandContext): Promise<RestoreState | undefined> {
+	const modelRef = configuredSidebarModelRef();
 	const parsed = parseModelRef(modelRef);
 	if (parsed === undefined) {
-		notify(ctx, `Invalid ${SUMMARY_MODEL_ENV}=${JSON.stringify(modelRef)}; using current model.`, "warning");
+		notify(ctx, `Invalid ${SIDEBAR_MODEL_ENV}=${JSON.stringify(modelRef)}; using current model.`, "warning");
 		return undefined;
 	}
 
 	const model = ctx.modelRegistry.find(parsed.provider, parsed.modelId);
 	if (model === undefined) {
-		notify(ctx, `Fast summary model ${modelRef} not found; using current model.`, "warning");
+		notify(ctx, `Fast sidebar model ${modelRef} not found; using current model.`, "warning");
 		return undefined;
 	}
 
@@ -251,7 +251,7 @@ async function switchToFastSummaryModel(pi: ExtensionAPI, ctx: CommandContext): 
 
 	const switched = await pi.setModel(model);
 	if (!switched) {
-		notify(ctx, `Fast summary model ${modelRef} is unavailable; using current model.`, "warning");
+		notify(ctx, `Fast sidebar model ${modelRef} is unavailable; using current model.`, "warning");
 		return undefined;
 	}
 	pi.setThinkingLevel("minimal");
@@ -262,7 +262,7 @@ async function restoreModelState(pi: ExtensionAPI, ctx: AgentEndContext, restore
 	if (restoreState.model !== undefined) {
 		const restored = await pi.setModel(restoreState.model);
 		if (!restored) {
-			notify(ctx, "Could not restore the previous model after cmux summary.", "warning");
+			notify(ctx, "Could not restore the previous model after cmux sidebar update.", "warning");
 		}
 	}
 	pi.setThinkingLevel(restoreState.thinkingLevel);
@@ -280,7 +280,7 @@ function notify(
 
 function setStatus(ctx: CommandContext, value: string | undefined): void {
 	if (ctx.hasUI !== false) {
-		ctx.ui.setStatus?.(STATUS_KEY, value);
+		ctx.ui.setStatus?.(PI_SIDEBAR_STATUS_KEY, value);
 	}
 }
 
