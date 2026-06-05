@@ -1677,6 +1677,37 @@ describe("write_source_branch_plan_file tool", () => {
 		]);
 	});
 
+	test("renders tool-call argument streaming progress without dumping plan content", () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const renderCall = tool.renderCall;
+
+		expect(renderCall).toBeDefined();
+		if (renderCall === undefined) {
+			throw new Error("write_source_branch_plan_file renderCall was not registered");
+		}
+
+		const distinctivePlanBody = "SECRET_PLAN_BODY_SHOULD_NOT_RENDER";
+		const content = `# Plan\n\n${distinctivePlanBody}\n\n${"Details ".repeat(1_800)}`;
+		const missingContent = renderCall({}, undefined, { executionStarted: false, argsComplete: false });
+		const receivingContent = renderCall({ content }, undefined, { executionStarted: false, argsComplete: false });
+		const savingContent = renderCall({ content }, undefined, { executionStarted: true, argsComplete: true });
+
+		const missingText = missingContent.render(100).join("\n");
+		const receivingText = receivingContent.render(100).join("\n");
+		const savingText = savingContent.render(100).join("\n");
+
+		expect(missingText).toContain("write_source_branch_plan_file");
+		expect(missingText).toContain("receiving saved-plan content from model");
+		expect(receivingText).toContain("receiving saved-plan content from model");
+		expect(receivingText).toMatch(/\d+(?:\.\d)?k chars/);
+		expect(receivingText).not.toContain(distinctivePlanBody);
+		expect(savingText).toContain("saving reviewed plan");
+		expect(savingText).toMatch(/\d+(?:\.\d)?k chars/);
+		expect(savingText).not.toContain(distinctivePlanBody);
+	});
+
 	test("renders partial write-plan progress with an in-progress heading", () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
