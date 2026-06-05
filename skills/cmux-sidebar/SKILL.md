@@ -62,4 +62,4 @@ asdl exec cmux-workspace-summary \
   --format json
 ```
 
-The command also clears the old `pi-summary` cmux status pill so no `cmux ready`-style text remains. The JSON envelope should have `exit_code: 0` and `data.success: true`. After success, respond briefly with the applied title. Do not produce a long session summary in chat.
+The command also clears the legacy `pi-summary` cmux status pill so no `cmux ready`-style text remains. The JSON envelope should have `exit_code: 0` and `data.success: true`. After success, respond briefly with the applied title. Do not produce a long session summary in chat.

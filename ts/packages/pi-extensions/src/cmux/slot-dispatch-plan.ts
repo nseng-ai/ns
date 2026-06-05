@@ -33,7 +33,7 @@ const BRANCH_CREATION = "graphite";
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
 
-Dispatch the latest saved plan into a CMUX slot for implementation.
+Dispatch the latest saved plan into a cmux slot for implementation.
 
 Options:
   --dry-run    Show the selected plan and commands without mutating.
@@ -78,7 +78,7 @@ export interface CmuxSlotDispatchPlanOptions {
 
 export function registerCmuxSlotDispatchPlanCommand(pi: ExtensionAPI, options: CmuxSlotDispatchPlanOptions = {}): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Dispatch the latest saved plan into a CMUX slot for implementation.",
+		description: "Dispatch the latest saved plan into a cmux slot for implementation.",
 		argumentHint: "[--dry-run]",
 		handler: async (args, ctx) => {
 			await handleCommand(pi, args, ctx, options);
@@ -281,7 +281,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 	const launchCommand = formatPiLaunchCommand(operation.key, launchOptions);
 	const description = `${repositoryNameFromPath(checkout.directory.repoRoot) ?? basename(checkout.directory.repoRoot)}/${operation.branch}`;
 	return [
-		"Dry run: no branch was created, no plan was attached, and no CMUX slot was opened.",
+		"Dry run: no branch was created, no plan was attached, and no cmux slot was opened.",
 		"",
 		"Selected saved plan:",
 		`Path: ${plan.filePath}`,
@@ -307,13 +307,13 @@ function formatDryRun(options: FormatDryRunOptions): string {
 
 function formatCmuxPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
 	const failure = formatPlannedBranchCreateFailure(operation, error);
-	return failure.replace("\n\n", "\nNo CMUX slot was opened.\n\n");
+	return failure.replace("\n\n", "\nNo cmux slot was opened.\n\n");
 }
 
 function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 	const { targetBranch, key, target, launchOptions } = options;
 	return [
-		"Dispatched plan in CMUX slot.",
+		"Dispatched plan in cmux slot.",
 		`Branch: ${targetBranch}`,
 		`Slot: ${target.slotName}`,
 		`Worktree: ${target.worktreePath}`,

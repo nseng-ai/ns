@@ -13,8 +13,8 @@ import { formatErrorMessage, type TextResult } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
-const COMMAND_NAME = "cmux-dispatch";
-const PROMPT_DIR = join(homedir(), ".pi", "agent", "cmux-dispatch-prompts");
+const COMMAND_NAME = "cmux-slot:dispatch-prompt";
+const PROMPT_DIR = join(homedir(), ".pi", "agent", "cmux-slot-dispatch-prompts");
 
 interface BranchCreateResult {
 	branchName: string;
@@ -22,38 +22,38 @@ interface BranchCreateResult {
 	startPoint: string;
 }
 
-export interface CmuxDispatchOptions {
+export interface CmuxSlotDispatchPromptOptions {
 	promptDir?: string;
 	now?: () => number;
 }
 
-export interface ResolvedCmuxDispatchOptions {
+export interface ResolvedCmuxSlotDispatchPromptOptions {
 	promptDir: string;
 	now: () => number;
 }
 
-export interface HandleCmuxDispatchOptions {
+export interface HandleCmuxSlotDispatchPromptOptions {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
-	dispatchOptions: ResolvedCmuxDispatchOptions;
+	dispatchOptions: ResolvedCmuxSlotDispatchPromptOptions;
 	args: string;
 	ctx: CommandContext;
 }
 
-export function registerCmuxDispatchCommand(
+export function registerCmuxSlotDispatchPromptCommand(
 	pi: ExtensionAPI,
-	options: CmuxDispatchOptions = {},
+	options: CmuxSlotDispatchPromptOptions = {},
 ): void {
-	const resolvedOptions = resolveCmuxDispatchOptions(options);
+	const resolvedOptions = resolveCmuxSlotDispatchPromptOptions(options);
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Create a Graphite-tracked branch and run a prompt in a new cmux Pi slot",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {
-			await handleCmuxDispatch({ pi, dispatchOptions: resolvedOptions, args, ctx });
+			await handleCmuxSlotDispatchPrompt({ pi, dispatchOptions: resolvedOptions, args, ctx });
 		},
 	});
 }
 
-export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Promise<void> {
+export async function handleCmuxSlotDispatchPrompt(options: HandleCmuxSlotDispatchPromptOptions): Promise<void> {
 	const { pi, dispatchOptions, args, ctx } = options;
 	const prompt = args.trim();
 	if (prompt.length === 0) {
@@ -74,7 +74,7 @@ export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Pr
 	try {
 		promptFile = await writePromptFile(dispatchOptions, branch.branchName, prompt);
 	} catch (error) {
-		ctx.ui.notify(`Failed to write cmux dispatch prompt file: ${formatErrorMessage(error)}`, "error");
+		ctx.ui.notify(`Failed to write cmux slot dispatch prompt file: ${formatErrorMessage(error)}`, "error");
 		return;
 	}
 
@@ -135,7 +135,7 @@ export async function createTrackedBranchForPrompt(
 			error: [
 				`Created git branch ${branchName}, but Graphite tracking failed:`,
 				track.message,
-				"The slot/cmux session was not launched.",
+				"The slot/cmux prompt session was not launched.",
 			].join("\n"),
 		};
 	}
@@ -170,7 +170,7 @@ function appendBranchSuffix(branchName: string, suffix: number): string {
 }
 
 export async function writePromptFile(
-	options: ResolvedCmuxDispatchOptions,
+	options: ResolvedCmuxSlotDispatchPromptOptions,
 	branchName: string,
 	prompt: string,
 ): Promise<string> {
@@ -192,7 +192,9 @@ export function buildLaunchPrompt(prompt: string): string {
 	].join("\n");
 }
 
-function resolveCmuxDispatchOptions(options: CmuxDispatchOptions): ResolvedCmuxDispatchOptions {
+function resolveCmuxSlotDispatchPromptOptions(
+	options: CmuxSlotDispatchPromptOptions,
+): ResolvedCmuxSlotDispatchPromptOptions {
 	return {
 		promptDir: options.promptDir ?? PROMPT_DIR,
 		now: options.now ?? Date.now,

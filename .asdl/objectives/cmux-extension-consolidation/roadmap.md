@@ -53,14 +53,18 @@
       success→info downgrade. Evidence: ts-test green; `test/cmux.test.ts` updated for the
       uniform `cmux-dispatch` description; behavior otherwise unchanged.
 
-- [ ] Naming normalization (final isolated slice). Rename `cmux-dispatch` →
+- [x] Naming normalization (final isolated slice). Rename `cmux-dispatch` →
       `cmux-slot:dispatch-prompt`; standardize one user-facing noun for the sidebar feature and
       rename the TS `workspace-summary`/`summary` symbols to match; normalize `CMUX`→`cmux` in
       user-facing copy; fix the crossed `cmux:sidebar` (Pi status pill) / `pi-summary` (cmux
       pill) keys. Update `docs/pi/cmux-extension-pattern.md`, `ts/packages/pi-extensions/CONTEXT.md`,
       the `.pi/extensions/cmux.ts` adapter references, and `skills/cmux-sidebar/SKILL.md`.
-      Evidence: ts-test and `just dprint-check` green; `grep` finds no `cmux-dispatch` or `CMUX`
-      residue in the suite or docs.
+      Evidence: `/cmux-slot:dispatch-prompt` is the only prompt-dispatch command in the cmux suite;
+      TS sidebar code now lives in `cmux/sidebar.ts` with `PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar"`,
+      while `asdl exec cmux-workspace-summary` continues to clear the legacy `pi-summary` cmux status
+      pill; docs/skill/context use sidebar terminology and lowercase user-facing cmux prose. Validation:
+      `just ts-check`, `just ts-test`, `just dprint-check`, and `git diff --check` passed. Scoped grep
+      found no `cmux-dispatch` or standalone user-facing `CMUX` residue in the suite, docs, or skill.
 
 ## Parked
 

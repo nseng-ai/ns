@@ -130,3 +130,30 @@ Risks:
   renamed to match — and does the Python `asdl exec cmux-workspace-summary` command name
   (a separate deterministic CLI contract) stay as-is, or also rename? Default: keep the
   Python exec name; rename only the TS-side symbols/commands and docs.
+
+## Closure
+
+Outcome: completed. The TypeScript cmux extension suite was consolidated in place: shared
+command/runtime helpers are reused, the `planned-branch-output` UI message contract has one
+owning module, the three workspace-opening commands route through `openBranchInCmuxSlot`,
+and the final prompt-dispatch/sidebar naming normalization slice is complete.
+
+Key evidence:
+
+- Roadmap active work is fully checked off; only parked follow-ups remain.
+- `/cmux-dispatch` was replaced by `/cmux-slot:dispatch-prompt` without a legacy alias.
+- The sidebar TypeScript module and symbols use the sidebar noun, with Pi transient status
+  ownership made explicit as `pi:cmux-sidebar`; `asdl exec cmux-workspace-summary` continues
+  to clear the legacy `pi-summary` cmux status pill.
+- User-facing standalone `CMUX` prose was normalized to lowercase `cmux` in the scoped cmux
+  suite/docs/skill, while literal env vars remain uppercase.
+- Validation passed after the final slice: `just ts-check`, `just ts-test`,
+  `just dprint-check`, and `git diff --check`; scoped grep found no `cmux-dispatch` or
+  standalone user-facing `CMUX` residue outside Objective history.
+
+Remaining caveats and follow-ups are intentionally parked rather than closure blockers:
+
+- Package-wide `isRecord`/guards consolidation across non-cmux files.
+- Reconciling the two slug-from-content strategies.
+- Any future cross-harness CLI pushdown belongs to the separate `cross-harness-parity`
+  objective or a new Objective, not this closure.
