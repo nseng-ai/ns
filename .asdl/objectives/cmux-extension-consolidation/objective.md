@@ -142,15 +142,16 @@ and the final prompt-dispatch/sidebar naming normalization slice is complete.
 Key evidence:
 
 - Roadmap active work is fully checked off; only parked follow-ups remain.
-- `/cmux-dispatch` was replaced by `/cmux-slot:dispatch-prompt` without a legacy alias.
+- The public cmux command suite now uses `/cmux:workspace:*` for workspace-opening commands
+  and `/cmux:sidebar:*` for caller-sidebar summary commands, with no legacy aliases.
 - The sidebar TypeScript module and symbols use the sidebar noun, with Pi transient status
   ownership made explicit as `pi:cmux-sidebar`; `asdl exec cmux-workspace-summary` continues
   to clear the legacy `pi-summary` cmux status pill.
 - User-facing standalone `CMUX` prose was normalized to lowercase `cmux` in the scoped cmux
   suite/docs/skill, while literal env vars remain uppercase.
 - Validation passed after the final slice: `just ts-check`, `just ts-test`,
-  `just dprint-check`, and `git diff --check`; scoped grep found no `cmux-dispatch` or
-  standalone user-facing `CMUX` residue outside Objective history.
+  `just dprint-check`, and `git diff --check`; scoped grep found no stale legacy command
+  names or standalone user-facing `CMUX` residue outside historical Objective planning notes.
 
 Remaining caveats and follow-ups are intentionally parked rather than closure blockers:
 

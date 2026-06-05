@@ -49,6 +49,11 @@ their content:
 - **Scope must be explicit.** Default to **full** for generic restack requests,
   matching plain `gt restack`; use **downstack** only when the user asks for the
   narrower ancestors/current scope or confirms a prompt.
+- **A single-PR (or tip) stack has no scope decision.** Full and downstack
+  differ _only_ by upstack descendants. When the current branch has none — a
+  single-PR stack, or the current branch is the stack tip — the two scopes are
+  the **identical** operation. Never prompt for scope (or for freeing upstack
+  slots) in that case; just proceed as full (= downstack).
 - **Full scope:** operate on the current Graphite stack as `gt restack` does
   (ancestors + current + descendants). This may rewrite upstack descendants, but
   that is the expected default for this skill.
@@ -102,8 +107,17 @@ Set `RESTACK_SCOPE` before running any restack command.
 
 Rules:
 
+- **Single-PR / tip stacks: never ask about scope.** _Before_ choosing scope or
+  prompting, check whether any branch is stacked on top of the current one
+  (`gt log short` / `gt ls` — look for children above the current `◉`). If there
+  are none, full and downstack are the **same** operation: skip the scope
+  question entirely and run plain `gt restack` (no `--downstack` needed — the
+  result is identical). There are no upstack slots to free either, so skip the
+  consolidation prompt too unless an in-scope **ancestor** is checked out in
+  another slot.
 - If the user did **not** explicitly ask for downstack-only behavior, default to
-  `full`. When in doubt, ask.
+  `full`. When in doubt, ask — **but only when scope actually changes the
+  outcome** (i.e., the current branch has upstack descendants).
 - `full` means Graphite's current stack from the current branch: ancestors,
   current, and descendants (upstack). It does **not** mean every stack in the
   repo.
@@ -116,6 +130,10 @@ In this repo a stack's branches can be checked out across multiple worktree
 **slots**, which locks them against rebasing. A restack can fail when another
 slot has a branch in the selected scope checked out, so consolidate only the
 selected scope before looping.
+
+If the current branch has no upstack descendants (the single-PR / tip case from
+**Choose scope**), there are no upstack slots in scope — skip this step entirely
+unless an in-scope **ancestor** branch is itself checked out in another slot.
 
 The `slot gt free-stack` command is **mutating**: it releases matching slots by
 detaching them at trunk. Do not treat `--format json` as a dry-run. If the user
