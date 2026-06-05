@@ -89,7 +89,7 @@ Optional technical detail:
 
 ```text
 Technical locator:
-Namespace: handoffs
+Namespace: handoff
 Entry: address-review-feedback.md
 ```
 
@@ -182,7 +182,7 @@ and does not create the handoff until the user answers.
 The current storage contract is:
 
 ```text
-namespace: handoffs
+namespace: handoff
 key:       <semantic-slug>.md
 branch:    <branch carrying the handoff>
 ```
@@ -199,11 +199,11 @@ handoff list --all --include-deleted
 handoff list --all --include-deleted --format json
 handoff delete [--branch <branch>] [-f|--force] <semantic-slug>
 handoff gc --dry-run
-brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
+brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
 `handoff delete` removes exactly one handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--force` to skip the confirmation prompt.
 
 `handoff gc` deletes handoffs whose local branch no longer exists. Use `handoff gc --dry-run` to preview candidates and `handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
 
-There is no backwards compatibility shim, alias, or migration for earlier handoff storage names because there are no users to preserve. Older design notes may mention previous names only as historical context.
+Normal handoff commands read only the `handoff` namespace. Older design notes may mention previous names only as historical context; they are not normal fallback storage.

@@ -51,7 +51,7 @@ describe("handoff-tab extension", () => {
 			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
 				["git", ["branch", "--show-current"]],
-				["brmem", ["check", "finish-handoff-tab-implementation.md", "--namespace", "handoffs", "--branch", BRANCH]],
+				["brmem", ["check", "finish-handoff-tab-implementation.md", "--namespace", "handoff", "--branch", BRANCH]],
 				["cmux", ["identify", "--json", "--id-format", "both"]],
 			]);
 			expect(result.notifications).toEqual([
@@ -63,7 +63,7 @@ describe("handoff-tab extension", () => {
 			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
 			expect(prompt).toContain("finish handoff tab implementation");
 			expect(prompt).toContain(`- Branch: ${BRANCH}`);
-			expect(prompt).toContain("- Namespace: handoffs");
+			expect(prompt).toContain("- Namespace: handoff");
 			expect(prompt).toContain("- Entry: finish-handoff-tab-implementation.md");
 			expect(prompt).toContain("- Slug: finish-handoff-tab-implementation");
 			expect(prompt).toContain("call the handoff_tab_launch tool with exactly");

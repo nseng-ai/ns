@@ -21,9 +21,6 @@ const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
 const COMMAND_TIMEOUT_MS = 5_000;
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
-const HANDOFF_NAMESPACE = "handoffs";
-const SESSION_ARTIFACTS_NAMESPACE = "session-artifacts";
-const SESSION_ARTIFACT_HANDOFF_PREFIX = "handoffs/";
 const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 const MUTATING_TOOL_NAMES = new Set(["bash", "edit", "write", "multi_tool_use.parallel"]);
 const IGNORED_WORKTREE_PATH_PARTS = new Set([
@@ -657,11 +654,6 @@ function formatBrmemScopes(entries: readonly BrmemEntry[]): string {
 
 function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } | undefined {
 	if (EXCLUDED_BRMEM_NAMESPACES.has(entry.namespace)) return undefined;
-
-	if (entry.namespace === SESSION_ARTIFACTS_NAMESPACE && entry.key.startsWith(SESSION_ARTIFACT_HANDOFF_PREFIX)) {
-		const handoffKey = entry.key.slice(SESSION_ARTIFACT_HANDOFF_PREFIX.length);
-		return handoffKey.length > 0 ? { namespace: HANDOFF_NAMESPACE, key: handoffKey } : undefined;
-	}
 
 	const keyParts = entry.key.split("/").filter((part) => part.length > 0);
 	const topLevelKey = keyParts[0] ?? entry.key;

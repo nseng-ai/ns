@@ -40,9 +40,9 @@ This Objective is complete when:
 Assumptions:
 
 - Handoff artifacts should remain small UTF-8 text entries suitable for Branch Memory rather than checked-in files or remote comments.
-- A handoff workflow benefits from a named, explicit storage convention more than from freeform ad-hoc Base Namespace entries; current evidence supports the workflow-owned `handoffs` Namespace as the durable handoff storage convention.
+- A handoff workflow benefits from a named, explicit storage convention more than from freeform ad-hoc Base Namespace entries; current evidence supports the workflow-owned `handoff` Namespace as the durable handoff storage convention.
 - Existing handoff skills and first-party `handoff` CLI admin surfaces are close enough that this Objective can tighten contracts without redesigning either subsystem.
-- Handoff administration should prefer first-party `handoff` CLI surfaces where available (`handoff list`, `handoff delete`, `handoff gc`), while direct `brmem --namespace handoffs` operations remain storage diagnostics/recovery fallback.
+- Handoff administration should prefer first-party `handoff` CLI surfaces where available (`handoff list`, `handoff delete`, `handoff gc`), while direct `brmem --namespace handoff` operations remain storage diagnostics/recovery fallback.
 - Future agents can make safer resume decisions when branch, namespace, entry key, locator, and overwrite semantics are stated plainly.
 - In this repo, durable user-facing handoff work should consolidate on Branch-Memory-backed handoff artifacts; worker-protocol handoffs are separate terminology.
 
@@ -54,9 +54,11 @@ Risks:
 - Agents may delete useful handoff context or confuse single-handoff deletion with garbage collection; the mitigation is exact-slug `handoff delete`, confirmation unless `--force`, explicit branch targeting, and keeping `handoff gc` separate from single active-branch deletion.
 - The Objective could drift into all Branch Memory improvements; the mitigation is to keep non-handoff brmem UX parked or split out.
 - The handoff contract may duplicate Objective or planned-branch context; the mitigation is to define handoff artifacts as directed resume context, not durable project truth.
-- Pi worktree status still normalizes `session-artifacts/handoffs/...` into the handoff display; the mitigation is to treat it as compatibility evidence until the contract-design slice decides whether to migrate, retain, or remove it.
+- The former `handoffs` Namespace and `session-artifacts/handoffs/...` display normalization are legacy storage/display shapes; the mitigation is now to keep normal flows singular-only and handle any old local entries as one-off operational work rather than as hidden fallback behavior.
 
 ## Open Questions
 
-- Should the currently implemented flat `<semantic-slug>.md` Entry Key shape become the final handoff contract, or should the contract allow another key shape?
-- Should `session-artifacts/handoffs/...` compatibility normalization be migrated, retained as display-only compatibility, or removed after consolidation?
+Resolved by the singular-namespace contract slice:
+
+- The flat `<semantic-slug>.md` Entry Key shape is the v1 handoff contract.
+- Worktree status should not normalize `session-artifacts/handoffs/...` into handoff display; normal handoff flows use only namespace `handoff`.

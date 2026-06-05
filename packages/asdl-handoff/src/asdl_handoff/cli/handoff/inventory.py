@@ -12,7 +12,7 @@ from brmem.gateway import BranchMemoryGateway
 from brmem.key_validation import check_key
 from brmem.ref_layout import EntryRef
 
-HANDOFF_NAMESPACE = "handoffs"
+HANDOFF_NAMESPACE = "handoff"
 _HANDOFF_KEY_SUFFIX = ".md"
 
 BranchState = Literal["active", "deleted"]
@@ -39,7 +39,7 @@ def collect_handoff_summaries(
     seen: set[tuple[str, str]] = set()
 
     for entry in entries:
-        if entry.namespace != HANDOFF_NAMESPACE or not _is_handoff_key(entry.key):
+        if entry.namespace != HANDOFF_NAMESPACE or not is_handoff_key(entry.key):
             continue
 
         identity = (entry.branch, entry.key)
@@ -51,7 +51,7 @@ def collect_handoff_summaries(
         if branch_state == "deleted" and not include_deleted:
             continue
 
-        slug = _handoff_slug(entry.key)
+        slug = handoff_slug_from_key(entry.key)
         updated_at = brmem_gateway.get_entry_updated_at(entry.namespace, entry.key, entry.branch)
         if updated_at is None:
             Ensure.fail(
@@ -113,7 +113,7 @@ def _parse_updated_at_or_fail(updated_at: str, *, slug: str, branch: str) -> dat
     return parsed.astimezone(UTC)
 
 
-def _is_handoff_key(key: str) -> bool:
+def is_handoff_key(key: str) -> bool:
     return (
         key.endswith(_HANDOFF_KEY_SUFFIX)
         and "/" not in key
@@ -122,5 +122,5 @@ def _is_handoff_key(key: str) -> bool:
     )
 
 
-def _handoff_slug(key: str) -> str:
+def handoff_slug_from_key(key: str) -> str:
     return key[: -len(_HANDOFF_KEY_SUFFIX)]

@@ -133,7 +133,7 @@ export function branchStep(branch = BRANCH): ScriptedExec {
 }
 
 export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
-	return step("brmem", ["check", key, "--namespace", "handoffs", "--branch", branch], { code: exists ? 0 : 1 });
+	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch], { code: exists ? 0 : 1 });
 }
 
 export function cmuxIdentifyStep(): ScriptedExec {
@@ -176,7 +176,7 @@ export function listAllStep(entries: Array<{ key: string; branch: string }>): Sc
 }
 
 export function getStep(branch: string, key: string, artifact: string): ScriptedExec {
-	return step("brmem", ["get", key, "--namespace", "handoffs", "--branch", branch], { stdout: artifact });
+	return step("brmem", ["get", key, "--namespace", "handoff", "--branch", branch], { stdout: artifact });
 }
 
 export function createContext(
@@ -284,7 +284,7 @@ export function listJson(entries: Array<string | { key: string; branch: string }
 					branch_state: "active",
 					slug: key.replace(/\.md$/, ""),
 					key,
-					entry_locator: `refs/brmem/ns/handoffs/${entryBranch}:${key}`,
+					entry_locator: `refs/brmem/ns/handoff/${entryBranch}:${key}`,
 					updated_at: "2026-06-05T00:00:00Z",
 				};
 			}),
@@ -296,15 +296,15 @@ export function brmemListJson(entries: Array<string | { key: string; branch: str
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			namespace: "handoffs",
+			namespace: "handoff",
 			key: null,
 			branch,
 			all_branches: branch === null,
 			entries: entries.map((entry) => {
 				if (typeof entry === "string") {
-					return { namespace: "handoffs", key: entry, branch: branch ?? BRANCH };
+					return { namespace: "handoff", key: entry, branch: branch ?? BRANCH };
 				}
-				return { namespace: "handoffs", key: entry.key, branch: entry.branch };
+				return { namespace: "handoff", key: entry.key, branch: entry.branch };
 			}),
 		},
 	});

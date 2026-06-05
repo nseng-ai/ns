@@ -15,8 +15,8 @@ Use this reference to keep handoff vocabulary, storage, branch scope, and workfl
 - **Handoff Artifact**: a directed Markdown resume note stored as a Branch Memory entry for a future session to continue a specific focus.
 - **Continuation Focus**: the explicit future work, decision, verification, or implementation target that a Handoff Artifact is meant to resume.
 - **Handoff Slug**: the user-facing semantic name for a handoff, derived from the recognized Markdown entry key by removing `.md`.
-- **Handoff Key**: the Branch Memory entry key for a Handoff Artifact in the `handoffs` namespace.
-- **Handoffs Namespace**: the workflow-owned Branch Memory namespace named `handoffs` where Handoff Artifacts live.
+- **Handoff Key**: the Branch Memory entry key for a Handoff Artifact in the `handoff` namespace.
+- **Handoff Namespace**: the workflow-owned Branch Memory namespace named `handoff` where Handoff Artifacts live.
 - **Handoff Summary**: the inventory record for a Handoff Artifact, including branch, Branch State, Handoff Slug, Handoff Key, Handoff Technical Locator, and updated timestamp.
 - **List Handoffs**: the public action that presents Handoff Artifacts in a List Scope so the user can choose what to Pick Up, inspect, or clean up.
 - **Handoff Technical Locator**: storage evidence for a Handoff Artifact: branch plus Branch Memory namespace, entry key, entry locator, and commit when available.
@@ -29,7 +29,7 @@ Use this reference to keep handoff vocabulary, storage, branch scope, and workfl
 ## Storage contract
 
 ```text
-Branch Memory namespace: handoffs
+Branch Memory namespace: handoff
 Entry key: <semantic-slug>.md
 Branch: branch that owns the durable continuation context
 ```
@@ -60,7 +60,7 @@ CLI surfaces:
 handoff list [--branch <branch>|--all] [--include-deleted] --format json
 handoff delete [--branch <branch>] [-f|--force] <slug>
 handoff gc [--dry-run|-f]
-brmem get|check|put|copy|delete ... --namespace handoffs
+brmem get|check|put|copy|delete ... --namespace handoff
 ```
 
 There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only.
