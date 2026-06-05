@@ -15,11 +15,13 @@ import {
 	type PlannedBranchEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@asdl/planned-branch";
+import { formatCommand, formatShellArg, shellQuote } from "../command-runtime.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
 import { getWorktreeDescription, repositoryNameFromPath } from "./worktree-description.ts";
+import { formatErrorMessage } from "./primitives.ts";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
@@ -316,10 +318,10 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		formatCommand("slot", ["checkout", operation.branch, "--format", "json", "--no-clipboard"]),
 		[
 			"cmux new-workspace",
-			`--name ${formatArg(operation.branch)}`,
-			`--description ${formatArg(description)}`,
+			`--name ${formatShellArg(operation.branch)}`,
+			`--description ${formatShellArg(description)}`,
 			"--cwd <slot-worktree-path>",
-			`--command ${formatArg(launchCommand)}`,
+			`--command ${formatShellArg(launchCommand)}`,
 		].join(" "),
 	].filter((line): line is string => line !== undefined).join("\n");
 }
@@ -335,7 +337,7 @@ function formatSlotFailure(targetBranch: string, key: string, cause: string): st
 		`Branch: ${targetBranch}`,
 		`Key: ${key}`,
 		`Recovery: free or resize slots, then run /cmux-slot:open-branch ${targetBranch}.`,
-		`Alternative: slot checkout ${formatArg(targetBranch)}`,
+		`Alternative: slot checkout ${formatShellArg(targetBranch)}`,
 		"",
 		cause,
 	].join("\n");
@@ -370,23 +372,6 @@ function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): str
 	return buildPiLaunchCommand(`/planned-branch:impl ${key}`, launchOptions);
 }
 
-function formatCommand(command: string, args: string[]): string {
-	return [command, ...args.map(formatArg)].join(" ");
-}
-
-function formatArg(value: string): string {
-	return /^[A-Za-z0-9_./:=@%+,-]+$/.test(value) ? value : shellQuote(value);
-}
-
-function shellQuote(value: string): string {
-	return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
-
 function formatUnexpectedError(error: unknown): string {
 	return [`/${COMMAND_NAME} failed unexpectedly.`, formatErrorMessage(error)].join("\n");
 }
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-

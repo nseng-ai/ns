@@ -1,3 +1,4 @@
+import { formatShellArg } from "../command-runtime.ts";
 import type { CommandContext, ExtensionAPI, ModelInfo, ThinkingLevel } from "./types.ts";
 
 export interface PiLaunchOptions {
@@ -26,12 +27,4 @@ export function buildPiLaunchCommand(initialArgument: string, launchOptions: PiL
 	}
 	args.push(initialArgument);
 	return args.map(formatShellArg).join(" ");
-}
-
-function formatShellArg(value: string): string {
-	return /^[A-Za-z0-9_./:=@%+,-]+$/.test(value) ? value : shellQuote(value);
-}
-
-function shellQuote(value: string): string {
-	return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
