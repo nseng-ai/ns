@@ -42,7 +42,7 @@ def _write_lockfile(project_dir: Path) -> None:
                     "skillx": {
                         "source": "dagster-io/asdl-tools",
                         "sourceType": "github",
-                        "computedHash": "abc",
+                        "computedHash": "b" * 64,
                     }
                 },
             }

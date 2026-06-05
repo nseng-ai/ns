@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from areg.cli import main
@@ -14,6 +16,8 @@ from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
 
 DEFAULT_REPO = "dagster-io/asdl-tools"
 OTHER = "someone/other-repo"
+_VALID_GITHUB_HASH = "b" * 64
+_VALID_LOCAL_HASH = "a" * 64
 
 
 def _ctx(npx: FakeNpxSkills | None = None) -> AregContext:
@@ -25,19 +29,23 @@ def _ctx(npx: FakeNpxSkills | None = None) -> AregContext:
     )
 
 
-def _write_lockfile(project_dir, entries: dict[str, dict]) -> None:
+def _write_lockfile(project_dir: Path, entries: dict[str, dict]) -> None:
+    _write_raw_lockfile(project_dir, {"version": 1, "skills": entries})
+
+
+def _write_raw_lockfile(project_dir: Path, raw_lockfile: object) -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / "skills-lock.json").write_text(
-        json.dumps({"version": 1, "skills": entries}, indent=2), encoding="utf-8"
+        json.dumps(raw_lockfile, indent=2), encoding="utf-8"
     )
 
 
-def _github_entry(source: str = DEFAULT_REPO, hash_suffix: str = "abc") -> dict:
-    return {"source": source, "sourceType": "github", "computedHash": hash_suffix}
+def _github_entry(source: str = DEFAULT_REPO, computed_hash: str = _VALID_GITHUB_HASH) -> dict:
+    return {"source": source, "sourceType": "github", "computedHash": computed_hash}
 
 
 def _local_entry(name: str) -> dict:
-    return {"source": f"skills/{name}", "sourceType": "local", "computedHash": "xxx"}
+    return {"source": f"skills/{name}", "sourceType": "local", "computedHash": _VALID_LOCAL_HASH}
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +320,50 @@ def test_update_skills_no_lockfile(tmp_path) -> None:
 
     assert result.exit_code != 0
     assert "skills-lock.json" in result.output
+
+
+@pytest.mark.parametrize(
+    ("raw_lockfile", "expected"),
+    [
+        ([], "root must be an object"),
+        ({"version": 1, "skills": {"pytest": []}}, "$.skills.pytest must be an object"),
+        (
+            {
+                "version": 1,
+                "skills": {
+                    "pytest": {
+                        "source": 1,
+                        "sourceType": "github",
+                        "computedHash": _VALID_GITHUB_HASH,
+                    }
+                },
+            },
+            "$.skills.pytest.source must be a string",
+        ),
+        (
+            {
+                "version": 1,
+                "skills": {"pytest": {"source": DEFAULT_REPO, "sourceType": "github"}},
+            },
+            "$.skills.pytest.computedHash is required",
+        ),
+    ],
+)
+def test_update_skills_malformed_lockfile_shape_errors_without_npx_calls(
+    tmp_path,
+    raw_lockfile: object,
+    expected: str,
+) -> None:
+    project = tmp_path / "proj"
+    _write_raw_lockfile(project, raw_lockfile)
+    fake = FakeNpxSkills()
+
+    result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
+
+    assert result.exit_code != 0
+    assert "Invalid skills-lock.json" in result.output
+    assert expected in result.output
+    assert fake.invocations == []
 
 
 def test_update_skills_empty_after_filter(tmp_path) -> None:

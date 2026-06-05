@@ -11,6 +11,8 @@ SUPPORTED_SOURCE_TYPES: frozenset[SourceType] = frozenset(get_args(SourceType))
 
 
 class IssueKind(Enum):
+    INVALID_LOCK_HASH = "invalid_lock_hash"
+
     MISSING_SKILLS_DIR = "missing_skills_dir"
     SKILLS_DIR_IS_SYMLINK = "skills_dir_is_symlink"
     INVALID_LOCAL_LOCK_SOURCE = "invalid_local_lock_source"
@@ -58,8 +60,28 @@ class SkillMeta:
 
 
 @dataclass(frozen=True)
+class LockfileSkill:
+    name: str
+    source: str
+    source_type: SourceType
+    computed_hash: str
+    skill_path: str | None = None
+
+
+@dataclass(frozen=True)
+class SkillsLockfile:
+    version: int
+    skills: tuple[LockfileSkill, ...]
+
+    @property
+    def names(self) -> frozenset[str]:
+        return frozenset(skill.name for skill in self.skills)
+
+
+@dataclass(frozen=True)
 class CheckContext:
     project_dir: Path
     skills: tuple[SkillMeta, ...]
     lockfile_names: frozenset[str]
     excluded_skills: frozenset[str]
+    lockfile_skills: tuple[LockfileSkill, ...]
