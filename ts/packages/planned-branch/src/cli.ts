@@ -198,7 +198,7 @@ async function runCreate(args: readonly string[], deps: RequiredCliDeps): Promis
 			...(options.branchCreation === undefined ? {} : { branchCreation: options.branchCreation }),
 			...(options.summary === undefined ? {} : { summary: options.summary }),
 		},
-		{ cwd: deps.cwd, git: deps.context.git },
+		{ cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem },
 	);
 	if (options.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...plannedBranchJson(evidence) })}\n`);
@@ -217,7 +217,7 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
 
 	const requestedKey = parsed.value.keyOrSlug;
-	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git });
+	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem });
 	const implementationPrompt = buildImplPlannedBranchPrompt(plan);
 	if (parsed.value.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...loadedPlanJson(plan, implementationPrompt) })}\n`);

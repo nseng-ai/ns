@@ -1,18 +1,14 @@
-import { formatCommand, type ExecResult } from "./command-runtime.ts";
-import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import {
-	formatCommandFailure,
-	normalizeSummary,
-	parseBrmemPutData,
-	resolvePlanSourceFile,
-	runBrmem,
-	validatePlanSlug,
-	type PlanCommandExecApi,
+	RealPlannedBranchBrmemGateway,
 	type BrmemPutData,
-	type ExecOptions,
-} from "./plan-persistence.ts";
+	type PlannedBranchBrmemGateway,
+} from "./brmem-gateway.ts";
+import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
+import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
+import { formatCommandFailure, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type ExecOptions, type PlanCommandExecApi } from "./plan-persistence.ts";
 
-export const PLAN_BRANCH_NAMESPACE = "planned-branch";
+export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 
 const GT_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -31,6 +27,7 @@ export interface CreatePlannedBranchFromFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	git?: PlannedBranchGitGateway | undefined;
+	brmem?: PlannedBranchBrmemGateway | undefined;
 }
 
 export interface PlannedBranchEvidence {
@@ -74,12 +71,13 @@ export async function createPlannedBranchFromFile(
 ): Promise<PlannedBranchEvidence> {
 	const operation = buildPlannedBranchCreateOperation(rawParams);
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
 	const sourceFile = await resolvePlanSourceFile(pi, { cwd: options.cwd, rawFilePath: operation.filePath, signal: options.signal, git });
 
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
-	await assertBrmemEntryAbsent(pi, options.cwd, operation.branch, operation.key, options.signal);
+	await assertBrmemEntryAbsent(brmem, options.cwd, operation.branch, operation.key, options.signal);
 	await createPlanBranch(pi, git, {
 		cwd: options.cwd,
 		method: operation.branchCreation,
@@ -87,52 +85,27 @@ export async function createPlannedBranchFromFile(
 		signal: options.signal,
 	});
 
-	const put = await runBrmem(pi, {
+	const attach = await brmem.attachPlan({
 		cwd: options.cwd,
-		args: ["put", operation.key, "--namespace", operation.namespace, "--branch", operation.branch, "--file", sourceFile, "--format", "json"],
+		branch: operation.branch,
+		key: operation.key,
+		sourceFile,
 		signal: options.signal,
 	});
-	if (put.type === "unavailable") {
+	if (!attach.ok) {
 		throw partialFailureError({
-			title: "Created branch but no brmem command was available to attach the plan.",
+			title: attachFailureTitle(attach.error.code),
 			branch: operation.branch,
 			branchCreation: operation.branchCreation,
 			startPoint,
 			namespace: operation.namespace,
 			key: operation.key,
 			sourceFile,
-			cause: put.message,
-		});
-	}
-	if (put.result.code !== 0 || put.result.killed) {
-		throw partialFailureError({
-			title: "Created branch but failed to attach the plan in Branch Memory.",
-			branch: operation.branch,
-			branchCreation: operation.branchCreation,
-			startPoint,
-			namespace: operation.namespace,
-			key: operation.key,
-			sourceFile,
-			cause: formatCommandFailure("brmem put failed", put.displayCommand, put.result),
+			cause: attach.error.message,
 		});
 	}
 
-	try {
-		const data = parseBrmemPutData(put.result.stdout);
-		assertPutDataMatchesCommand(data, { branch: operation.branch, key: operation.key, sourceFile });
-		return buildEvidence({ data, slug: operation.slug, branchCreation: operation.branchCreation, startPoint, summary: operation.summary });
-	} catch (error) {
-		throw partialFailureError({
-			title: "Created branch but could not parse Branch Memory storage result.",
-			branch: operation.branch,
-			branchCreation: operation.branchCreation,
-			startPoint,
-			namespace: operation.namespace,
-			key: operation.key,
-			sourceFile,
-			cause: error instanceof Error ? error.message : String(error),
-		});
-	}
+	return buildEvidence({ data: attach.value, slug: operation.slug, branchCreation: operation.branchCreation, startPoint, summary: operation.summary });
 }
 
 export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBranchCreateOperation {
@@ -386,24 +359,17 @@ async function assertLocalBranchAbsent(
 }
 
 async function assertBrmemEntryAbsent(
-	pi: PlanCommandExecApi,
+	brmem: PlannedBranchBrmemGateway,
 	cwd: string,
 	targetBranch: string,
 	key: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const check = await runBrmem(pi, {
-		cwd,
-		args: ["check", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--format", "json"],
-		signal,
-	});
-	if (check.type === "unavailable") {
-		throw new Error(check.message);
+	const check = await brmem.attachmentPresence({ cwd, branch: targetBranch, key, signal });
+	if (check.type === "absent") {
+		return;
 	}
-	if (check.result.killed) {
-		throw new Error(formatCommandFailure("brmem check timed out or was killed", check.displayCommand, check.result));
-	}
-	if (check.result.code === 0) {
+	if (check.type === "present") {
 		throw new Error(
 			[
 				"Attached plan already exists on target branch; refusing to overwrite.",
@@ -414,11 +380,8 @@ async function assertBrmemEntryAbsent(
 			].join("\n"),
 		);
 	}
-	if (check.result.code !== 1) {
-		throw new Error(formatCommandFailure("brmem check failed", check.displayCommand, check.result));
-	}
+	throw new Error(check.error.message);
 }
-
 interface CreatePlanBranchOptions {
 	cwd: string;
 	method: BranchCreationMethod;
@@ -503,23 +466,14 @@ function buildEvidence(input: {
 	return { ...evidence, summary: input.summary };
 }
 
-function assertPutDataMatchesCommand(data: BrmemPutData, expected: { branch: string; key: string; sourceFile: string }): void {
-	const mismatches: string[] = [];
-	if (data.namespace !== PLAN_BRANCH_NAMESPACE) {
-		mismatches.push(`namespace ${JSON.stringify(data.namespace)} != ${JSON.stringify(PLAN_BRANCH_NAMESPACE)}`);
+function attachFailureTitle(code: string): string {
+	if (code === "brmem_unavailable") {
+		return "Created branch but no brmem command was available to attach the plan.";
 	}
-	if (data.key !== expected.key) {
-		mismatches.push(`key ${JSON.stringify(data.key)} != ${JSON.stringify(expected.key)}`);
+	if (code === "brmem_malformed_put" || code === "brmem_unexpected_put_data") {
+		return "Created branch but could not parse Branch Memory storage result.";
 	}
-	if (data.branch !== expected.branch) {
-		mismatches.push(`branch ${JSON.stringify(data.branch)} != ${JSON.stringify(expected.branch)}`);
-	}
-	if (data.sourceFile !== expected.sourceFile) {
-		mismatches.push(`source_file ${JSON.stringify(data.sourceFile)} != ${JSON.stringify(expected.sourceFile)}`);
-	}
-	if (mismatches.length > 0) {
-		throw new Error(`Unexpected brmem put JSON data: ${mismatches.join(", ")}.`);
-	}
+	return "Created branch but failed to attach the plan in Branch Memory.";
 }
 
 function partialFailureError(input: {

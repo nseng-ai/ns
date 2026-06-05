@@ -4,10 +4,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { runCli } from "../../src/cli.ts";
-import { PLAN_BRANCH_NAMESPACE } from "../../src/planned-branch-creation.ts";
+import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
 import { encodeBranchForPlanPath } from "../../src/source-plan-file.ts";
 import type { ExecResult } from "../../src/command-runtime.ts";
 import type { ExecOptions, PlanCommandExecApi } from "../../src/plan-persistence.ts";
+import { InMemoryPlannedBranchBrmemGateway, type InMemoryBrmemGatewayState } from "../support/in-memory-brmem-gateway.ts";
 import { InMemoryPlannedBranchGitGateway, type InMemoryGitGatewayState } from "../support/in-memory-git-gateway.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
@@ -71,6 +72,7 @@ interface CliRun {
 	stderr: string[];
 	commands: FakeCommands;
 	git: InMemoryPlannedBranchGitGateway;
+	brmem: InMemoryPlannedBranchBrmemGateway;
 }
 
 interface RunWithFakesOptions {
@@ -78,6 +80,7 @@ interface RunWithFakesOptions {
 	stdin?: string;
 	planStoreRoot?: string;
 	git?: InMemoryGitGatewayState;
+	brmem?: InMemoryBrmemGatewayState;
 }
 
 const tempDirs: string[] = [];
@@ -103,13 +106,15 @@ function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] =
 		sourceBranch: SOURCE_BRANCH,
 		...(options.git ?? {}),
 	});
+	const brmem = new InMemoryPlannedBranchBrmemGateway(options.brmem);
 	return {
 		stdout,
 		stderr,
 		commands,
 		git,
+		brmem,
 		exit: runCli(args, {
-			context: { commands, git },
+			context: { commands, git, brmem },
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
@@ -138,72 +143,6 @@ function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 
 function parseJson(run: CliRun): Record<string, unknown> {
 	return JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-}
-
-function createScript(input: { branch: string; planFile: string }): ScriptedExec[] {
-	return [
-		step("brmem", ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--format", "json"], {
-			code: 1,
-			stderr: "missing",
-		}),
-		step("brmem", ["put", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--file", input.planFile, "--format", "json"], {
-			stdout: brmemPutEnvelope(input.branch, input.planFile),
-		}),
-	];
-}
-
-function loadScript(input: { branch: string; content: string }): ScriptedExec[] {
-	return [
-		step("brmem", ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--format", "json"], {
-			stdout: brmemListEnvelope(input.branch),
-		}),
-		step("brmem", ["get", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", input.branch, "--format", "json"], {
-			stdout: brmemGetEnvelope(input.branch, input.content),
-		}),
-	];
-}
-
-function brmemPutEnvelope(branch: string, sourceFile: string): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			namespace: PLAN_BRANCH_NAMESPACE,
-			key: PLAN_KEY,
-			branch,
-			ref_name: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-			commit: "abc123",
-			source_file: sourceFile,
-		},
-	});
-}
-
-function brmemListEnvelope(branch: string): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			entries: [
-				{
-					namespace: PLAN_BRANCH_NAMESPACE,
-					key: PLAN_KEY,
-					branch,
-					ref_name: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-				},
-			],
-		},
-	});
-}
-
-function brmemGetEnvelope(branch: string, content: string): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			namespace: PLAN_BRANCH_NAMESPACE,
-			key: PLAN_KEY,
-			branch,
-			content,
-			ref_name: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-		},
-	});
 }
 
 describe("planned-branch CLI help", () => {
@@ -333,7 +272,7 @@ describe("planned-branch exec", () => {
 		const branch = "planned-branches/branch-scoped-plan";
 		const run = runWithFakes(
 			["exec", "create", "--slug", PLAN_SLUG, "--plan-file", planFile, "--branch", branch, "--summary", "Create it", "--format", "json"],
-			createScript({ branch, planFile }),
+			[],
 			{ cwd: repoRoot, git: { headCommit: START_POINT } },
 		);
 
@@ -350,15 +289,26 @@ describe("planned-branch exec", () => {
 			source_file: planFile,
 			summary: "Create it",
 		});
+		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
+		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+		expect(run.brmem.attachedPlans).toContainEqual({
+			branch,
+			key: PLAN_KEY,
+			content: "",
+			refName: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+			commit: "abc123",
+			sourceFile: planFile,
+		});
 	});
 
 	test("load-plan selects the attached plan and returns an implementation prompt", async () => {
 		const repoRoot = await makeTempDir();
 		const branch = "planned-branches/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
-		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "json"], loadScript({ branch, content }), {
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "json"], [], {
 			cwd: repoRoot,
 			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -373,5 +323,7 @@ describe("planned-branch exec", () => {
 		});
 		expect(String(payload.implementation_prompt)).toContain("# planned-branch implementation");
 		expect(String(payload.implementation_prompt)).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
 });
