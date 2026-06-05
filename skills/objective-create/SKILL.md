@@ -7,7 +7,7 @@ description: "Command: objective-create"
 
 Create a new Objective record under `.asdl/objectives/<slug>/`.
 
-For shared vocabulary and system-wide rules, use the `objective` skill when available; this command remains self-contained.
+Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
 ## Required shape
 
@@ -59,7 +59,7 @@ Roadmap item quality:
 
 ## Conditional references
 
-- If the user asks for a standing/ongoing/no-natural-finish-line Objective, read `skills/objective/references/standing-objectives.md` before drafting completion criteria and roadmap.
+- If the user asks for a standing/ongoing/no-natural-finish-line Objective, load the `objective` skill's standing Objectives reference before drafting completion criteria and roadmap.
 - If the user asks for execution-friendly behavior, `objective-next` execution, autonomous/runner behavior, or durable Runner Policy, read `references/execution-friendly-create.md` before interviewing about policy.
 
 ## Slug and path

@@ -7,7 +7,7 @@ description: "Command: objective-current"
 
 Read and summarize the current state of one Objective without mutating files.
 
-For shared vocabulary and system-wide rules, use the `objective` skill when available; this command remains self-contained.
+Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
 ## Required shape
 

@@ -2,7 +2,7 @@
 
 Load this reference only when creating an Objective that should be execution-friendly for `objective-next`, autonomous/runner behavior, or direct execution after preview.
 
-Read `skills/objective/references/execution-policy.md` first when available.
+Read the `objective` skill's execution policy reference first when available.
 
 ## Interview timing
 
@@ -22,7 +22,7 @@ Gather at least:
 
 ## Placement and template
 
-Place the optional `## Definition of Progress` and `## Runner Policy` sections after `## Completion Criteria`, using the template in `skills/objective/references/execution-policy.md`.
+Place the optional `## Definition of Progress` and `## Runner Policy` sections after `## Completion Criteria`, using the template in the `objective` skill's execution policy reference.
 
 Use durable prose. Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 

@@ -2,7 +2,7 @@
 
 Load this reference after selecting and reading an Objective when the user asks to execute/advance/run work, or when the selected Objective or roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose.
 
-Read `skills/objective/references/execution-policy.md` first when shared policy concepts are unclear.
+Read the `objective` skill's execution policy reference first when shared policy concepts are unclear.
 
 ## Policy reading
 
