@@ -26,7 +26,7 @@ The cluster list above was snapshotted on 2026-06-03. By 2026-06-05, 72 further 
 - Agent resource / skill ontology (cluster 7) is **substantially superseded** and parked: typed `SkillsLockfile` + `LockfileConsistencyCheck` (12 `PENDING_REGEN` debt entries), skill-install hardening, and the `SkillxWorkspaceInstaller` gateway landed via the now-closed `areg-review-remediation` Objective.
 - Source-control mutation UX (cluster 3) is **partially overtaken**: `land-stack` is now discriminated returned data and `asdl-dev-submit-consolidation` is closed; the surviving question is shared mutation policy across the remaining flows.
 - Handoff artifacts (cluster 4) now **overlap** the separate `/handoff-tab` Objective and have already had parser-as-data conversion and a namespace remap land; the surviving question is the module/interface over Branch Memory.
-- A new cross-cutting cluster is added: the failure-as-data (throw → discriminated returned data) and gateway-extraction conventions now sweeping the codebase. The payload-artifact / sidecar architecture is explicitly out of scope here because it is owned by the `agent-payload-artifacts` Objective.
+- A new cross-cutting cluster is added: the failure-as-data (throw → discriminated returned data) and gateway-extraction conventions now sweeping the codebase. The payload artifact architecture is explicitly out of scope here because it is owned by the `agent-payload-artifacts` Objective.
 
 For each cluster, the expected pattern is: inspect the current modules and tests, name the important interface and seam, decide whether a deepening change is warranted, execute an independent slice when it is, and record semantic evidence or a parked rationale.
 
@@ -83,7 +83,7 @@ Risks:
 
 - The cmux command-suite review found several workflow Modules rather than one coherent deep Module. The slot-launch seam is now narrower, but planned-branch creation/attachment remains a potential follow-up seam if `slot-dispatch-plan.ts` continues to carry too much Branch Memory and Graphite detail.
 - The cmux and Pi CLI lifecycle clusters may be more coupled than they look, causing future slices to expand unless interfaces are named narrowly.
-- Some clusters overlap existing open Objectives such as `command-output-summaries`, `agent-payload-sidechannels`, `planned-branch-ts-cli`, `repo-ontology`, or `typescript-style-audit-fixes`; work should update or reference those records when it materially advances them.
+- Some clusters overlap existing open Objectives such as `command-output-summaries`, `agent-payload-artifacts`, `planned-branch-ts-cli`, `repo-ontology`, or `typescript-style-audit-fixes`; work should update or reference those records when it materially advances them.
 - Architecture changes could churn recently landed behavior if the review optimizes for cleanliness instead of locality and user-visible safety.
 - Parking decisions may be too terse unless each parked cluster records the concrete reason future agents should not re-suggest the same change immediately.
 - Running the thermo-nuclear review before naming the architecture seam could overfit to local messiness and miss the deeper Module shape; running only architecture on implementation-heavy clusters could miss simple code-judo deletions.

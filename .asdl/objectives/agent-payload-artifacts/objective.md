@@ -113,5 +113,4 @@ Risks:
 
 ## Open Questions
 
-- Which historical files should be explicitly excluded from cleanup evidence: old Semantic Updates only, or closed Objective prose as well?
-- Should any public skill documentation mention the legacy name for migration, or should public docs only expose payload artifact terminology?
+No terminology-policy questions remain open. Closed Objective records, the selected Objective's own legacy-boundary prose, glossary `_Avoid_:` examples, and unrelated non-payload uses of old terms may remain as classified audit leftovers; current public guidance should expose payload artifact terminology rather than the legacy side-channel name.

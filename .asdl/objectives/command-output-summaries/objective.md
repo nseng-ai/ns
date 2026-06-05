@@ -4,7 +4,7 @@
 
 Agents need a deterministic way to run noisy validation commands without forcing full stdout and stderr into the main conversation transcript. Test, lint, typecheck, build, and similar commands often matter as evidence, but the main agent usually needs only the command, cwd, outcome, elapsed time, output size, selected failure excerpts, bounded tails, and locators for full logs.
 
-This Objective tracks a harness-neutral summarized-command surface. The design should build on the payload artifact architecture described by the `agent-payload-sidechannels` Objective: complete raw payloads belong in private payload files with compact manifests in the transcript. This Objective does not need a formal dependency model; it should refer back to that architecture in prose and reuse or mirror its path/session/payload conventions when implementation time arrives.
+This Objective tracks a harness-neutral summarized-command surface. The design should build on the shipped payload artifact architecture carried forward by the `agent-payload-artifacts` Objective: complete raw payloads belong in private payload files with compact manifests in the transcript. This Objective does not need a formal dependency model; it should refer back to that architecture in prose and reuse or mirror its path/session/payload conventions when implementation time arrives.
 
 The first-class outcome is a canonical CLI/helper that any harness can invoke. Pi may get a thin adapter or tool, and Claude/Codex agents may invoke the same CLI directly, but the core behavior should not depend on Pi runner-subagent internals. The command-summary surface should fail closed around full-log leakage: full logs are written to payload artifact files, while model-visible output remains bounded and structured by default.
 
@@ -30,13 +30,13 @@ This Objective covers the following design and implementation work:
 - Do not require an LM or subagent to summarize command output. The default command summary is deterministic; agents may later inspect full logs or ask a subagent to interpret them, but that is outside the default summarizer.
 - Do not migrate every validation workflow or every repo command at once. The first closure can prove the primitive and update the most relevant agent guidance.
 - Do not implement payload retention, garbage collection, or durable archive behavior beyond the payload artifact conventions inherited or mirrored from the payload artifact architecture.
-- Do not formally model Objective dependencies, Objective graphs, or branch stacking metadata. Refer to `agent-payload-sidechannels` in prose as the architectural prerequisite and keep Objective records narrative.
+- Do not formally model Objective dependencies, Objective graphs, or branch stacking metadata. Refer to the `agent-payload-artifacts` carry-forward contract in prose as the current architectural basis and keep Objective records narrative.
 - Do not add strict numeric token-budget tests. The important functional property is that synthetic huge logs are not included in default model-visible output.
 
 ## Completion Criteria
 
 - A canonical harness-neutral CLI/helper exists for summarized command execution, with documented command/cwd/timeout/input semantics and clear human plus machine-readable output modes.
-- The helper writes complete stdout, stderr, and combined output artifacts to payload artifact log files using the payload artifact conventions from `agent-payload-sidechannels` where available, or a compatible temporary payload/log convention when that infrastructure is still settling.
+- The helper writes complete stdout, stderr, and combined output artifacts to payload artifact log files using the shared payload artifact store and conventions carried forward by `agent-payload-artifacts`.
 - Default output is compact and bounded. It reports outcome, command display, cwd, exit code or signal, elapsed time, stdout/stderr byte and line counts, selected bounded tails, detected profile/count information where available, selected bounded failure excerpts, and full-log paths.
 - Full stdout/stderr content is absent from default transcript-visible output and absent from structured result details except for bounded tails/excerpts with explicit size limits.
 - Test/lint/typecheck/generic profiles can detect obvious success/failure counts and useful failure headers from representative synthetic outputs without relying on real huge logs in tests.
@@ -49,7 +49,7 @@ This Objective covers the following design and implementation work:
 
 Assumptions:
 
-- The payload artifact architecture tracked by `agent-payload-sidechannels` is the right architectural base for full log preservation and compact locator manifests, even if this Objective needs to mirror parts of that convention before all consumers are complete.
+- The payload artifact architecture carried forward by `agent-payload-artifacts` is the right architectural base for full log preservation and compact locator manifests; the shared payload artifact store is already shipped, and this Objective can decide how directly to reuse it for command-log capture.
 - A standalone CLI/helper is the right canonical surface because Pi, Claude, Codex, and humans can all invoke it without depending on one harness's extension API.
 - Deterministic summaries are enough for the common validation loop: the main agent needs outcome evidence, counts, bounded tails, failure excerpts, and log paths more often than it needs semantic interpretation of every line.
 - Agents in the relevant harnesses can read local payload artifact log paths when deeper inspection is needed.
@@ -67,7 +67,7 @@ Risks:
 ## Open Questions
 
 - What final command name and package location should own the canonical helper?
-- Should the first implementation reuse an already-complete payload-store primitive from `agent-payload-sidechannels`, or provide a small compatible log-payload helper until that Objective's infrastructure lands?
+- How directly should the first implementation reuse the shipped `asdl-core` payload artifact store versus adding a command-summary-specific adapter over the same conventions?
 - Which concrete output formats should the first test/lint/typecheck parsers support beyond generic tails and failure excerpts?
 - Should Pi integration be a custom tool, a command wrapper, or only prompt guidance around invoking the harness-neutral helper?
 - What hard caps should apply to tails, failure excerpts, and final manifest text?

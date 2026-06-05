@@ -3,7 +3,7 @@
 ## Work
 
 - [ ] Define the harness-neutral summarized-command contract and payload artifact manifest shape.
-      Evidence: the contract names the canonical invocation surface, command/cwd/timeout/cancellation semantics, output modes, outcome taxonomy, log payload paths, bounded transcript-visible fields, no-leak guarantees, and how it refers back to the `agent-payload-sidechannels` architecture without a formal Objective dependency model.
+      Evidence: the contract names the canonical invocation surface, command/cwd/timeout/cancellation semantics, output modes, outcome taxonomy, log payload paths, bounded transcript-visible fields, no-leak guarantees, and how it refers back to the `agent-payload-artifacts` carry-forward payload artifact contract without a formal Objective dependency model.
 - [ ] Implement the canonical CLI/helper for payload artifact command capture.
       Evidence: commands can be spawned with explicit cwd and timeout behavior, stdout/stderr/combined logs are written to private payload artifact files, nonzero exits produce normal summarized outcomes, wrapper failures stay distinct, and default human/machine output remains compact.
 - [ ] Add deterministic summary profiles for noisy validation commands.
