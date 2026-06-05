@@ -22,7 +22,9 @@ class RealAgentRunnerGateway(AgentRunnerGateway):
         return AgentRunnerUnavailable(
             message=(
                 "Roaster stack agent runner is not wired to a supported local runner yet "
-                f"for {request.kind!r}. Use FakeAgentRunnerGateway in tests or implement "
-                "an explicit, guarded runner adapter before invoking this workflow for real."
+                f"for {request.kind!r}; the real adapter fails closed before model or "
+                "repository mutation. Use --dry-run with a test/fake runner for automated "
+                "checks, or implement an explicit guarded runner adapter before invoking "
+                "this workflow for real."
             )
         )

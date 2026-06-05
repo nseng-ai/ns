@@ -220,9 +220,39 @@ def test_real_graphite_failure_propagates_command_details(
     assert result.stderr == "gt failed\n"
 
 
+def test_real_graphite_missing_gt_message_is_actionable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(
+        argv: list[str],
+        *,
+        cwd: Path,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = argv
+        _ = cwd
+        _ = check
+        _ = capture_output
+        _ = text
+        raise FileNotFoundError
+
+    monkeypatch.setattr(graphite_real.subprocess, "run", fake_run)
+
+    result = RealGraphiteStackGateway().submit_generated_stack(cwd=Path("/repo"))
+
+    assert isinstance(result, GraphiteStackFailure)
+    assert result.error_type == "graphite_stack_command_failed"
+    assert result.returncode == 127
+    assert "Required command 'gt' was not found on PATH" in result.message
+    assert "--dry-run" in result.message
+
+
 def test_real_stack_reads_fail_closed_until_stable_read_support_exists() -> None:
     result = RealGraphiteStackGateway().read_current_stack(cwd=Path("/repo"))
 
     assert isinstance(result, GraphiteStackFailure)
     assert result.error_type == "graphite_stack_operation_unsupported"
     assert result.operation == "read-current-stack"
+    assert "pass --target-branch and --target-pr" in result.message
