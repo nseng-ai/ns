@@ -88,7 +88,7 @@
   - Policy: direct execution after preview using fakes and guarded real code; ask first before live Graphite mutation smoke tests or destructive stack repair behavior.
   - Evidence: tests cover stack-tip resolution, generated branch naming, branch-exists behavior, create/update/modify/submit call recording, dependency-first then confidence/risk ordering, generated marker rendering/parsing, PR body update path or documented fallback, Graphite failure propagation, and that runtime Graphite dependency is confined to the explicit `roaster stack` contract.
 
-- [ ] Implement resolver-loop mutation orchestration and hard safety stops.
+- [x] Implement resolver-loop mutation orchestration and hard safety stops.
   - Thesis: non-dry-run orchestration persists triage, publishes the dashboard, runs one resolver agent per accepted batch at the current stack tip, enforces structured validation/safety reports, creates or updates generated branches, updates manifest/dashboard status, submits the generated stack, and stops safely on failure.
   - Expected implementation branch/PR: `roaster-stack/resolver-loop`.
   - Depends on: all prior stack workflow/gateway slices; this is where the mutation steelthread is connected end-to-end behind fakes.

@@ -10,7 +10,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.context import RoasterCliContext
-from roaster.stack_models import StackWorkflowRequest
+from roaster.stack_models import StackWorkflowRequest, StackWorkflowResult
 from roaster.stack_profile import (
     StackProfile,
     StackProfileInvalidSlug,
@@ -120,8 +120,12 @@ class StackRunRequest(ClinkrModel):
     ] = None
 
 
-def render_stack_run(result: StackDryRunResult) -> None:
-    """Render deterministic stack dry-run planning for the human CLI."""
+def render_stack_run(result: StackDryRunResult | StackWorkflowResult) -> None:
+    """Render deterministic stack run results for the human CLI."""
+    if isinstance(result, StackWorkflowResult):
+        _render_stack_workflow_result(result)
+        return
+
     click.echo("Roaster Graphite stack run (dry run)")
     click.echo(f"Profile: {result.profile_slug} ({result.profile_path})")
     click.echo(f"Profile guidance: {result.guidance_char_count} raw markdown characters")
@@ -185,6 +189,19 @@ def render_stack_run(result: StackDryRunResult) -> None:
     click.echo("Mutations: Branch Memory puts 0, dashboard writes 0, Graphite commands 0")
 
 
+def _render_stack_workflow_result(result: StackWorkflowResult) -> None:
+    click.echo("Roaster Graphite stack run")
+    click.echo(f"Run slug: {result.run_slug}")
+    click.echo(f"Status: {result.status}")
+    click.echo(f"Generated branches: {len(result.manifest.generated_branches)}")
+    if not result.dashboard_rows:
+        click.echo("Batches: none")
+        return
+    click.echo("Batches:")
+    for row in result.dashboard_rows:
+        click.echo(f"- {row.batch_slug}: {row.status} ({_value_or_dash(row.branch_name)})")
+
+
 @clinkr_operation(
     name="run",
     help="Shape a Graphite (`gt`) stack run from a loose roaster profile.",
@@ -193,7 +210,7 @@ def render_stack_run(result: StackDryRunResult) -> None:
 def run_stack_command(
     ctx: click.Context,
     request: StackRunRequest,
-) -> ClinkrExit[StackDryRunResult]:
+) -> ClinkrExit[StackDryRunResult | StackWorkflowResult]:
     roaster_context = load_typed_context(ctx, RoasterCliContext)
     profile = resolve_stack_profile(cwd=roaster_context.cwd, slug=request.profile_slug)
     if not isinstance(profile, StackProfile):
@@ -227,6 +244,7 @@ def run_stack_command(
         agent_runner=roaster_context.agent_runner,
         branch_memory=roaster_context.branch_memory,
         pr_gateway=roaster_context.pr_gateway,
+        graphite_stack=roaster_context.graphite_stack,
     )
     if isinstance(result, StackWorkflowFailure):
         raise ClinkrFailure(error_type=result.error_type, message=result.message)

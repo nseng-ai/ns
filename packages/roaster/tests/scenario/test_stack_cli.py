@@ -16,6 +16,7 @@ from roaster.cli.main import build_cli
 from roaster.context import RoasterCliContext
 from roaster.gateways.agent_runner.fake import FakeAgentRunnerGateway
 from roaster.gateways.agent_runner.gateway import AgentRunCompleted
+from roaster.gateways.graphite_stack.fake import FakeGraphiteStackGateway
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
@@ -74,8 +75,12 @@ def _context(cwd: Path) -> ClinkrContextObject:
         cwd=cwd,
         branch_memory=FakeBranchMemoryGateway(),
         agent_runner=FakeAgentRunnerGateway(
-            responses=(AgentRunCompleted(output_markdown=_valid_triage_output()),)
+            responses=(
+                AgentRunCompleted(output_markdown=_valid_triage_output()),
+                AgentRunCompleted(output_markdown=_valid_resolver_output()),
+            )
         ),
+        graphite_stack=FakeGraphiteStackGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 
@@ -115,6 +120,31 @@ def _valid_triage_output() -> str:
         ],
     }
     return f"---\n{yaml.safe_dump(data, sort_keys=False)}---\n## Explanation\n"
+
+
+def _valid_resolver_output() -> str:
+    data: dict[str, Any] = {
+        "schema_version": "roaster.stack.resolver.v1",
+        "batch_slug": "avoid-print",
+        "status": "completed",
+        "summary": "Resolved print usage.",
+        "files_changed": ["app.py"],
+        "validation": [
+            {
+                "command": "uv run pytest packages/roaster/tests/unit/test_stack_workflow.py",
+                "status": "passed",
+                "output_summary": "passed",
+            }
+        ],
+        "safety": {
+            "unresolved_conflicts": False,
+            "destructive_changes": False,
+            "secrets_or_security_sensitive": False,
+            "validation_evidence_missing": False,
+            "notes": "No safety concerns.",
+        },
+    }
+    return f"---\n{yaml.safe_dump(data, sort_keys=False)}---\n## Resolver notes\n"
 
 
 def _write_profile(cwd: Path, slug: str, source: str = "Loose stack guidance.\n") -> Path:
@@ -233,7 +263,7 @@ def test_stack_run_loads_loose_profile_and_renders_options(
     assert "Branch Memory `roaster-runs`" in result.output
 
 
-def test_stack_run_without_dry_run_fails_before_mutating(
+def test_stack_run_without_dry_run_runs_fake_resolver_orchestration(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -247,13 +277,19 @@ def test_stack_run_without_dry_run_fails_before_mutating(
             "thermonuclear-stack",
             "--target-branch",
             "feature/target",
+            "--target-pr",
+            "123",
+            "--run-slug",
+            "stack-run-1",
         ],
         obj=_context(tmp_path),
     )
 
-    assert result.exit_code == 2
-    assert "non-dry-run stack orchestration is not implemented yet" in result.output
-    assert "pass --dry-run" in result.output
+    assert result.exit_code == 0, result.output
+    assert "Roaster Graphite stack run" in result.output
+    assert "Status: completed" in result.output
+    assert "Generated branches: 1" in result.output
+    assert "avoid-print: completed" in result.output
 
 
 def test_stack_run_json_output_includes_dry_run_plan(
