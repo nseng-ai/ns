@@ -6,8 +6,10 @@ import { join } from "node:path";
 import handoffExtension, {
 	HANDOFF_LIST_MESSAGE_TYPE,
 	buildCreateHandoffPrompt,
+	buildHandoffTabPrompt,
 	buildPickupHandoffPrompt,
 	deriveHandoffPreview,
+	deriveSemanticHandoffSlug,
 	formatHandoffListPlain,
 	formatHandoffPickupCommand,
 	groupHandoffListItemsByBranch,
@@ -28,6 +30,7 @@ const ROOT = "/repo";
 const BRANCH = "feature/handoff";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type RegisteredTool = Parameters<NonNullable<ExtensionAPI["registerTool"]>>[0];
 type CommandInfo = NonNullable<ReturnType<NonNullable<ExtensionAPI["getCommands"]>>>[number];
 type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
@@ -35,7 +38,7 @@ type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRende
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: { cwd?: string; timeout?: number } | undefined;
+	options: { cwd?: string; timeout?: number; signal?: AbortSignal } | undefined;
 }
 
 interface ScriptedExec {
@@ -61,6 +64,7 @@ interface InputPrompt {
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
+	readonly tools = new Map<string, RegisteredTool>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	readonly renderers = new Map<string, MessageRenderer>();
@@ -94,7 +98,11 @@ class FakePi implements ExtensionAPI {
 		this.commands.set(name, options);
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
+	registerTool(tool: RegisteredTool): void {
+		this.tools.set(tool.name, tool);
+	}
+
+	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const expected = this.script.shift();
 		if (expected === undefined) {
@@ -112,6 +120,10 @@ class FakePi implements ExtensionAPI {
 
 	getCommands(): CommandInfo[] {
 		return this.commandInfos;
+	}
+
+	getThinkingLevel(): "medium" {
+		return "medium";
 	}
 
 	sendUserMessage(content: string): void {
@@ -199,7 +211,7 @@ function createContext(
 }
 
 async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list",
+	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "handoff-tab",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: {
