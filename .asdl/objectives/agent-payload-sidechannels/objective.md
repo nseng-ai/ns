@@ -8,7 +8,7 @@ This Objective tracks the whole architecture plus an end-to-end `pr-address` ste
 
 The Objective also tracks the first generalized prompt-pluggability slice. Payload-artifact summarization depends on harness-specific delegation mechanics, so the repository should introduce a repo-local `.asdl/prompts/subagent-launch.md` policy and a small shared prompt-resolution primitive. That prompt policy is intentionally broader than `pr-address`: it establishes the pattern for future user-editable workflow prompts such as branch naming and commit summaries, while this Objective implements only the launch-policy consumer needed by the PR feedback steelthread.
 
-The durable contract for the payload artifact architecture and prompt resolver is `docs/specs/agent-payload-sidechannels.md`. This Objective records the purpose, boundaries, completion criteria, and decisions that should stay aligned with that specification.
+Historical note: this Objective originally used `docs/specs/agent-payload-sidechannels.md` as its durable contract. That stale standalone spec path has since been deleted; current terminology cleanup and the carried-forward payload artifact contract are tracked by the open `agent-payload-artifacts` Objective. This closed Objective preserves the implementation history and original slug identity.
 
 ## Scope
 

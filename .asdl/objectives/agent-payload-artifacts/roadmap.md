@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Establish the canonical terminology and compatibility boundary.
-      Decide whether the current spec file should become a new payload-artifacts path with a legacy shim, or remain in place with only prose/reference cleanup. Identify which old terms are historical and intentionally allowed in closure evidence.
+- [x] Establish the canonical terminology and compatibility boundary.
+      Evidence: the old standalone `docs/specs/agent-payload-sidechannels.md` path is not a compatibility shim or current entry point. Its relevant implementation contract has been carried forward into `objective.md` under payload artifact terminology, and current work should cite that Objective contract or use payload artifact terms directly. Historical Objective/update references to the old slug or removed path are provenance, not current guidance.
 - [ ] Refresh prompt-policy wording.
       Update `.asdl/prompts/subagent-launch.md` and the embedded fallback under `asdl-core` so the policy describes artifact-backed inspection, paths, locators, selected-detail lookup, and fail-closed fallback behavior without stale channel wording. Preserve the drift-test contract between the checked-in prompt and embedded default.
 - [ ] Update current docs and active Objective references.
