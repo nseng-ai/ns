@@ -39,6 +39,7 @@ Assumptions:
 - A single Objective is the right tracking unit because the findings share one purpose: making the areg migration branch structurally review-ready.
 - The intended remediation bar is structural/code-judo cleanup, not a checklist of narrow local patches.
 - The current branch can absorb these fixes without reopening the entire nonslop-to-areg migration strategy.
+- For `areg init` first-row safety, predictable local validation failures and `npx skills add` failures are sufficient evidence; rollback for arbitrary post-install OS write failures remains outside this row unless a later storage abstraction targets it.
 
 Risks:
 
