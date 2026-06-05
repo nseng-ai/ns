@@ -14,7 +14,7 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import FileStatus, WorktreeInfo, WorktreeOccupancy
+from asdl_core.git.types import FileStatus, GitCommandFailure, WorktreeInfo, WorktreeOccupancy
 from asdl_slots.cli.main import build_cli
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
@@ -171,6 +171,8 @@ def test_slot_gc_help(cli_group: ClinkrGroup) -> None:
     assert "merged or closed PR" in result.output
     assert "--format" in result.output
     assert "--json-schema" in result.output
+    assert "--delete-branches" in result.output
+    assert "local branches" in result.output
 
 
 def test_slot_gc_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -226,7 +228,54 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
     assert "Free 1 slot" not in result.output
     # Worktree detached at trunk; assigned-slot inventory drained.
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.delete_local_branch_calls == ()
+    assert fakes.git.branch_exists("feat/done")
     assert _assigned_worktrees(fakes) == {}
+
+
+def test_slot_gc_force_deletes_local_branch_for_merged_assignment(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--delete-branches"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "force-deleted local branch feat/done" in result.output.lower()
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.delete_local_branch_calls == (("feat/done", True),)
+    assert fakes.git.delete_remote_branch_calls == ()
+    assert not fakes.git.branch_exists("feat/done")
+    assert _assigned_worktrees(fakes) == {}
+
+
+def test_slot_gc_force_deletes_local_branch_for_closed_assignment(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/closed")
+    pr = FakePRGateway(prs_by_branch={"feat/closed": _make_pr(8, "CLOSED", "feat/closed")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--delete-branches"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.delete_local_branch_calls == (("feat/closed", True),)
+    assert not fakes.git.branch_exists("feat/closed")
 
 
 def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -289,6 +338,54 @@ def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) ->
     assert fakes.git._detach_head_calls == []
 
 
+def test_slot_gc_delete_branches_prompts_and_accepts(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--delete-branches"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="y\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "local branch: force-delete feat/done" in result.output
+    assert "delete local branches" in result.output
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.delete_local_branch_calls == (("feat/done", True),)
+
+
+def test_slot_gc_delete_branches_prompts_and_declines(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--delete-branches"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="n\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "local branch: force-delete feat/done" in result.output
+    assert "delete local branches" in result.output
+    assert "Cancelled" in result.output
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
+
+
 def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
@@ -297,7 +394,7 @@ def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Pa
 
     result = CliRunner().invoke(
         cli_group,
-        ["gc"],
+        ["gc", "--delete-branches"],
         obj=_make_obj(fakes, slots_root, pr=pr),
     )
 
@@ -305,6 +402,30 @@ def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Pa
     assert "Free 1 slot" not in result.output
     assert "Cancelled" not in result.output
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/wip"}
+    assert fakes.git.delete_local_branch_calls == ()
+
+
+def test_slot_gc_delete_branches_keeps_no_pr_branch(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/no-pr")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--delete-branches", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=FakePRGateway()),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    entry = payload["data"]["entries"][0]
+    assert entry["action"] == "kept_no_pr"
+    assert entry["cleanup"] == []
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/no-pr"}
+    assert fakes.git.delete_local_branch_calls == ()
 
 
 def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -320,6 +441,36 @@ def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Pa
 
     assert result.exit_code == 2
     assert "mutually exclusive" in result.output.lower()
+
+
+def test_slot_gc_delete_branches_skips_dirty_worktree(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(
+        fakes,
+        slots_root,
+        branch="feat/dirty",
+        file_status=FileStatus(staged=False, modified=True, untracked=False),
+    )
+    pr = FakePRGateway(prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--delete-branches", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    entry = payload["data"]["entries"][0]
+    assert entry["action"] == "skipped_dirty"
+    assert entry["cleanup"] == []
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/dirty"}
 
 
 def test_slot_gc_skips_operation_slot(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -406,6 +557,63 @@ def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path)
     assert "would free" in result.output.lower()
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
     assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
+
+
+def test_slot_gc_dry_run_delete_branches_plans_without_mutating(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--dry-run", "--delete-branches"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "would free" in result.output.lower()
+    assert "local branch: force-delete feat/done" in result.output
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
+    assert fakes.git.branch_exists("feat/done")
+
+
+def test_slot_gc_dry_run_delete_branches_json_includes_cleanup(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--dry-run", "--delete-branches", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    cleanup = payload["data"]["entries"][0]["cleanup"]
+    assert cleanup == [
+        {
+            "slot_name": "slot-01",
+            "branch_name": "feat/done",
+            "action": "local_branch",
+            "status": "planned",
+            "pr_number": None,
+            "message": None,
+        }
+    ]
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
 
 
 # -- machine mode -----------------------------------------------------------
@@ -445,6 +653,42 @@ def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assert data["cancelled"] is False
     actions_by_slot = {e["slot_name"]: e["action"] for e in data["entries"]}
     assert actions_by_slot == {"slot-01": "freed", "slot-02": "kept_open_pr"}
+
+
+def test_slot_gc_delete_branch_failure_is_negative_after_free(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    fakes.git._delete_local_branch_failure_by_branch["feat/done"] = GitCommandFailure(
+        message="cannot delete branch 'feat/done' checked out at '/repo-other'",
+        returncode=1,
+    )
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--delete-branches", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.stdout)
+    assert payload["exit_code"] == 1
+    data = payload["data"]
+    assert data["freed_count"] == 1
+    assert data["cleanup_error_count"] == 1
+    entry = data["entries"][0]
+    assert entry["action"] == "freed"
+    cleanup = entry["cleanup"][0]
+    assert cleanup["action"] == "local_branch"
+    assert cleanup["status"] == "error"
+    assert "checked out" in cleanup["message"]
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.delete_local_branch_calls == (("feat/done", True),)
+    assert fakes.git.branch_exists("feat/done")
 
 
 def test_slot_gc_format_json_interactive_cancel_has_json_stdout(

@@ -1503,7 +1503,7 @@ def test_outcome_from_gc_plan_preserves_dry_run_tally_semantics(tmp_path: Path) 
     plan = plan_gc(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
 
-    outcome = outcome_from_gc_plan(plan, dry_run=True)
+    outcome = outcome_from_gc_plan(ctx, plan, dry_run=True)
 
     assert [entry.action for entry in outcome.entries] == ["would_free"]
     assert outcome.freed_count == 1
