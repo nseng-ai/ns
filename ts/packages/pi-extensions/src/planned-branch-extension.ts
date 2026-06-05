@@ -170,6 +170,7 @@ export interface ToolDefinition {
 		onUpdate: ToolUpdateHandler | undefined,
 		ctx: ToolContext,
 	): Promise<ToolResult> | ToolResult;
+	renderCall?(args: unknown, theme: unknown, context: unknown): Component;
 	renderResult?(result: ToolResult, options: ToolRenderResultOptions, theme: unknown, context: unknown): Component;
 }
 
@@ -642,6 +643,9 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 				setWriteSourcePlanStatus(ctx, undefined);
 			}
 		},
+		renderCall(args, _theme, context) {
+			return new Text(formatWriteSourceBranchPlanFileCall(args, context), 0, 0);
+		},
 		renderResult(result, { isPartial }) {
 			const text = formatToolResultText(result);
 			if (isPartial) {
@@ -678,6 +682,41 @@ function canSetWriteSourcePlanStatus(ctx: ToolContext): boolean {
 
 function formatToolResultText(result: ToolResult): string {
 	return result.content.map((item) => item.text).join("\n");
+}
+
+function formatWriteSourceBranchPlanFileCall(args: unknown, context: unknown): string {
+	const content = isRecord(args) && typeof args.content === "string" ? args.content : undefined;
+	const tokenEstimate = content === undefined ? "" : ` ${formatEstimatedTokenCount(content)}`;
+	if (isToolExecutionStarted(context)) {
+		return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — saving reviewed plan…${tokenEstimate}`;
+	}
+
+	return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — receiving saved-plan content from model…${tokenEstimate}`;
+}
+
+function isToolExecutionStarted(context: unknown): boolean {
+	return isRecord(context) && context.executionStarted === true;
+}
+
+const ESTIMATED_CHARS_PER_TOKEN = 4;
+
+function formatEstimatedTokenCount(text: string): string {
+	return `${formatCount(Math.ceil(text.length / ESTIMATED_CHARS_PER_TOKEN))} tokens (est.)`;
+}
+
+function formatCount(count: number): string {
+	if (count < 1_000) {
+		return `${count}`;
+	}
+	if (count < 1_000_000) {
+		return `${formatCompactNumber(count / 1_000)}k`;
+	}
+	return `${formatCompactNumber(count / 1_000_000)}m`;
+}
+
+function formatCompactNumber(value: number): string {
+	const formatted = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+	return formatted.replace(/\.0$/, "");
 }
 
 function parseWriteSourceBranchPlanFileToolParams(params: unknown): WriteSourceBranchPlanFileToolParams {
