@@ -272,7 +272,7 @@
     "skill-management": {
       "source": "skills/skill-management",
       "sourceType": "local",
-      "computedHash": "7d508bccf884cc18fbf047566b6689dfd13150f53de8a1cf3e463c7be3a8d4ac"
+      "computedHash": "43db9517fc43c0ec732d2269c579389cf227ca882201bb76b66ebd3fde1606dd"
     },
     "skillx": {
       "source": "skills/skillx",
