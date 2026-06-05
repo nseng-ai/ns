@@ -11,6 +11,36 @@ from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_slots.cli.slot.cleanup_rendering import (
+    SlotCleanupResult,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_by_slot as _cleanup_by_slot,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_error_count as _cleanup_error_count,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_failure_text as _cleanup_failure_text,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_preview_line as _cleanup_preview_line,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_result_line as _cleanup_result_line,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_skipped_text as _cleanup_skipped_text,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_success_text as _cleanup_success_text,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    cleanup_to_result as _cleanup_to_result,
+)
+from asdl_slots.cli.slot.cleanup_rendering import (
+    plain_cleanup_preview_line as _plain_cleanup_preview_line,
+)
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.cli.slot.selectors import (
     SelectorOk,
@@ -32,14 +62,12 @@ from asdl_slots.lifecycle.outcomes import (
     FreedSlot as LifecycleFreedSlot,
 )
 from asdl_slots.lifecycle.outcomes import (
-    SlotFreeCleanupAction,
-    SlotFreeCleanupStatus,
+    SlotFreeCleanupResult as LifecycleCleanupResult,
+)
+from asdl_slots.lifecycle.outcomes import (
     SlotFreeOutcome,
     SlotFreePlan,
     SlotLifecycleFailure,
-)
-from asdl_slots.lifecycle.outcomes import (
-    SlotFreeCleanupResult as LifecycleCleanupResult,
 )
 from asdl_slots.repo_context import NoRepoSentinel
 
@@ -90,19 +118,10 @@ class FreedSlot(ClinkrModel):
     worktree_path: str
 
 
-class SlotFreeCleanupResult(ClinkrModel):
-    slot_name: str
-    branch_name: str
-    action: SlotFreeCleanupAction
-    status: SlotFreeCleanupStatus
-    pr_number: int | None = None
-    message: str | None = None
-
-
 class SlotFreeResult(ClinkrModel):
     freed: tuple[FreedSlot, ...]
     would_free: tuple[FreedSlot, ...] = ()
-    cleanup: tuple[SlotFreeCleanupResult, ...] = ()
+    cleanup: tuple[SlotCleanupResult, ...] = ()
     skipped: tuple[str, ...] = ()
     dry_run: bool = False
     cancelled: bool = False
@@ -325,35 +344,6 @@ def _freed_to_result(entries: Sequence[LifecycleFreedSlot]) -> tuple[FreedSlot, 
     )
 
 
-def _cleanup_to_result(
-    entries: Sequence[LifecycleCleanupResult],
-) -> tuple[SlotFreeCleanupResult, ...]:
-    return tuple(
-        SlotFreeCleanupResult(
-            slot_name=entry.slot_name,
-            branch_name=entry.branch_name,
-            action=entry.action,
-            status=entry.status,
-            pr_number=entry.pr_number,
-            message=entry.message,
-        )
-        for entry in entries
-    )
-
-
-def _cleanup_error_count(entries: Sequence[SlotFreeCleanupResult]) -> int:
-    return sum(1 for entry in entries if entry.status == "error")
-
-
-def _cleanup_by_slot(
-    entries: Sequence[SlotFreeCleanupResult],
-) -> dict[str, tuple[SlotFreeCleanupResult, ...]]:
-    grouped: dict[str, list[SlotFreeCleanupResult]] = {}
-    for entry in entries:
-        grouped.setdefault(entry.slot_name, []).append(entry)
-    return {slot_name: tuple(slot_entries) for slot_name, slot_entries in grouped.items()}
-
-
 def _render_confirmation_preview(
     plan: SlotFreePlan,
     cleanup: Sequence[LifecycleCleanupResult],
@@ -368,30 +358,6 @@ def _render_confirmation_preview(
         click.echo("  slot: detach HEAD at trunk", err=True)
         for entry in cleanup_by_slot.get(target.slot_name, ()):  # pragma: no branch
             click.echo(f"  {_plain_cleanup_preview_line(entry)}", err=True)
-
-
-def _cleanup_preview_line(entry: SlotFreeCleanupResult) -> str:
-    if entry.status == "planned":
-        if entry.action == "pr":
-            return f"PR: close #{entry.pr_number}"
-        return f"local branch: force-delete {entry.branch_name}"
-    if entry.status == "skipped":
-        return f"{_cleanup_subject(entry)}: skipped ({entry.message or 'already complete'})"
-    return f"{_cleanup_subject(entry)}: error: {entry.message or 'failed'}"
-
-
-def _plain_cleanup_preview_line(entry: SlotFreeCleanupResult) -> str:
-    return _cleanup_preview_line(entry)
-
-
-def _cleanup_result_line(entry: SlotFreeCleanupResult) -> str:
-    if entry.status == "success":
-        return f"[green]✓[/green] {_cleanup_success_text(entry)}"
-    if entry.status == "skipped":
-        return f"[yellow]-[/yellow] {_cleanup_skipped_text(entry)}"
-    if entry.status == "planned":
-        return _cleanup_preview_line(entry)
-    return f"[red]✗[/red] {_cleanup_failure_text(entry)}"
 
 
 def _cleanup_error_message(result: SlotFreeResult) -> str:
@@ -415,33 +381,3 @@ def _cleanup_error_message(result: SlotFreeResult) -> str:
     if not lines:
         return "Cleanup failed."
     return "\n".join(lines)
-
-
-def _cleanup_subject(entry: SlotFreeCleanupResult) -> str:
-    if entry.action == "pr":
-        if entry.pr_number is not None:
-            return f"PR #{entry.pr_number}"
-        return "PR"
-    return f"local branch {entry.branch_name}"
-
-
-def _cleanup_success_text(entry: SlotFreeCleanupResult) -> str:
-    if entry.action == "pr":
-        return f"Closed PR #{entry.pr_number}"
-    return f"Force-deleted local branch {entry.branch_name}"
-
-
-def _cleanup_skipped_text(entry: SlotFreeCleanupResult) -> str:
-    if entry.action == "pr":
-        subject = f"PR #{entry.pr_number}" if entry.pr_number is not None else "PR"
-        return f"Skipped {subject}: {entry.message or 'already complete'}"
-    return f"Skipped {_cleanup_subject(entry)}: {entry.message or 'already complete'}"
-
-
-def _cleanup_failure_text(entry: SlotFreeCleanupResult) -> str:
-    message = entry.message or "failed"
-    if entry.action == "pr":
-        if entry.pr_number is not None:
-            return f"Failed to close PR #{entry.pr_number}: {message}"
-        return f"Failed to close PR: {message}"
-    return f"Failed to force-delete local branch {entry.branch_name}: {message}"
