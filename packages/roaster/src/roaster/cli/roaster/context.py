@@ -7,7 +7,9 @@ from pathlib import Path
 import click
 
 from asdl_core.gh.pr_gateway import RealPRGateway
+from brmem.real import RealBranchMemoryGateway
 from roaster.context import RoasterCliContext
+from roaster.gateways.agent_runner.real import RealAgentRunnerGateway
 from roaster.gateways.local_diff.real import RealLocalDiffGateway
 from roaster.gateways.review_catalog.real import RealReviewCatalogGateway
 from roaster.harness.invocation import HarnessRuntime
@@ -26,4 +28,6 @@ def build_roaster_context() -> RoasterCliContext:
         harness_runtime=HarnessRuntime(progress_writer=_stderr_progress),
         pr_gateway=RealPRGateway(),
         cwd=cwd,
+        branch_memory=RealBranchMemoryGateway(cwd=cwd),
+        agent_runner=RealAgentRunnerGateway(),
     )

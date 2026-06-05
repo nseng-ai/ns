@@ -10,6 +10,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.context import RoasterCliContext
+from roaster.stack_models import StackWorkflowRequest
 from roaster.stack_profile import (
     StackProfile,
     StackProfileInvalidSlug,
@@ -18,6 +19,11 @@ from roaster.stack_profile import (
     StackProfileReadFailed,
     StackProfileResolutionFailed,
     resolve_stack_profile,
+)
+from roaster.stack_workflow import (
+    StackDryRunResult,
+    StackWorkflowFailure,
+    run_stack_workflow_dry_run,
 )
 
 
@@ -114,28 +120,9 @@ class StackRunRequest(ClinkrModel):
     ] = None
 
 
-class StackRunResult(ClinkrModel):
-    profile_slug: str
-    profile_path: str
-    guidance_char_count: int
-    target_branch: str | None
-    target_pr: str | None
-    reviewers: tuple[str, ...]
-    model: str | None
-    agent_model: str | None
-    harness: str | None
-    base_ref: str | None
-    dry_run: bool
-    new_run: bool
-    run_slug: str | None
-    triage_prompt: str | None
-    resolver_prompt: str | None
-    graphite_commands_run: int = 0
-
-
-def render_stack_run(result: StackRunResult) -> None:
-    """Render the stack run skeleton for the human CLI."""
-    click.echo("Roaster Graphite stack run")
+def render_stack_run(result: StackDryRunResult) -> None:
+    """Render deterministic stack dry-run planning for the human CLI."""
+    click.echo("Roaster Graphite stack run (dry run)")
     click.echo(f"Profile: {result.profile_slug} ({result.profile_path})")
     click.echo(f"Profile guidance: {result.guidance_char_count} raw markdown characters")
     click.echo(
@@ -146,16 +133,56 @@ def render_stack_run(result: StackRunResult) -> None:
     )
     click.echo(f"Dry run: {_yes_no(result.dry_run)}")
     click.echo(f"New run: {_yes_no(result.new_run)}")
-    click.echo(f"Target branch: {_value_or_dash(result.target_branch)}")
+    click.echo(f"Target branch: {result.target_branch}")
+    click.echo(f"Target implementation branch slug: {result.impl_branch_slug}")
     click.echo(f"Target PR: {_value_or_dash(result.target_pr)}")
     click.echo(f"Base ref: {_value_or_dash(result.base_ref)}")
-    click.echo(f"Reviewers: {_tuple_or_dash(result.reviewers)}")
+    click.echo(f"Run slug: {result.run_slug}")
+    click.echo(f"Resumes existing run: {_yes_no(result.resumes_existing_run)}")
+    click.echo(f"Reviewers requested: {_tuple_or_dash(result.reviewers)}")
+    click.echo(f"Reviewers run: {result.reviewer_run_count}")
+    click.echo(f"Reviewer failures: {result.reviewer_failure_count}")
+    click.echo(f"Findings collected: {result.finding_count}")
+    click.echo(
+        "Triage counts: "
+        f"accepted {result.accepted_count}, rejected {result.rejected_count}, "
+        f"superseded {result.superseded_count}"
+    )
     click.echo(f"Model: {_value_or_dash(result.model)}")
     click.echo(f"Agent model: {_value_or_dash(result.agent_model)}")
     click.echo(f"Harness: {_value_or_dash(result.harness)}")
-    click.echo(f"Run slug: {_value_or_dash(result.run_slug)}")
     click.echo(f"Triage prompt: {_value_or_dash(result.triage_prompt)}")
     click.echo(f"Resolver prompt: {_value_or_dash(result.resolver_prompt)}")
+    click.echo(f"Triage summary: {_value_or_dash(result.triage_summary)}")
+
+    click.echo("Planned batches:")
+    if not result.batches:
+        click.echo("- none")
+    for batch in result.batches:
+        click.echo(
+            f"- {batch.slug}: {batch.title} "
+            f"({len(batch.finding_ids)} findings, {batch.confidence}/{batch.risk})"
+        )
+
+    click.echo("Planned actions:")
+    for action in result.actions:
+        suffix = f" [{action.batch_slug}]" if action.batch_slug is not None else ""
+        click.echo(f"- {action.action_type}{suffix}: {action.description}")
+
+    click.echo("Locators:")
+    for locator in result.locators:
+        if locator.kind == "dashboard":
+            click.echo(
+                f"- dashboard: target PR {_value_or_dash(locator.target_pr)}, "
+                f"marker {_value_or_dash(locator.marker)}"
+            )
+        else:
+            click.echo(
+                f"- {locator.kind}: Branch Memory `{locator.namespace}` / "
+                f"`{locator.key}` on `{locator.branch}`"
+            )
+
+    click.echo("Mutations: Branch Memory puts 0, dashboard writes 0, Graphite commands 0")
 
 
 @clinkr_operation(
@@ -166,7 +193,7 @@ def render_stack_run(result: StackRunResult) -> None:
 def run_stack_command(
     ctx: click.Context,
     request: StackRunRequest,
-) -> ClinkrExit[StackRunResult]:
+) -> ClinkrExit[StackDryRunResult]:
     roaster_context = load_typed_context(ctx, RoasterCliContext)
     profile = resolve_stack_profile(cwd=roaster_context.cwd, slug=request.profile_slug)
     if not isinstance(profile, StackProfile):
@@ -175,10 +202,8 @@ def run_stack_command(
             message=profile.message,
         )
 
-    result = StackRunResult(
+    workflow_request = StackWorkflowRequest(
         profile_slug=profile.slug,
-        profile_path=str(profile.path),
-        guidance_char_count=len(profile.guidance),
         target_branch=request.target_branch,
         target_pr=request.target_pr,
         reviewers=request.reviewer,
@@ -192,6 +217,19 @@ def run_stack_command(
         triage_prompt=request.triage_prompt,
         resolver_prompt=request.resolver_prompt,
     )
+    result = run_stack_workflow_dry_run(
+        profile=profile,
+        request=workflow_request,
+        cwd=roaster_context.cwd,
+        catalog=roaster_context.catalog,
+        diff=roaster_context.diff,
+        harness_runtime=roaster_context.harness_runtime,
+        agent_runner=roaster_context.agent_runner,
+        branch_memory=roaster_context.branch_memory,
+        pr_gateway=roaster_context.pr_gateway,
+    )
+    if isinstance(result, StackWorkflowFailure):
+        raise ClinkrFailure(error_type=result.error_type, message=result.message)
     return ClinkrExit.ok(result)
 
 
