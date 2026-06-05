@@ -5,42 +5,13 @@ from typing import Annotated
 
 import click
 
+import asdl_slots.cli.slot.cleanup_rendering as cleanup_rendering
 import asdl_slots.inventory as slot_inventory
 from asdl_core import get_console
 from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_slots.cli.slot.cleanup_rendering import (
-    SlotCleanupResult,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_by_slot as _cleanup_by_slot,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_error_count as _cleanup_error_count,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_failure_text as _cleanup_failure_text,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_preview_line as _cleanup_preview_line,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_result_line as _cleanup_result_line,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_skipped_text as _cleanup_skipped_text,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_success_text as _cleanup_success_text,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    cleanup_to_result as _cleanup_to_result,
-)
-from asdl_slots.cli.slot.cleanup_rendering import (
-    plain_cleanup_preview_line as _plain_cleanup_preview_line,
-)
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.cli.slot.selectors import (
     SelectorOk,
@@ -121,7 +92,7 @@ class FreedSlot(ClinkrModel):
 class SlotFreeResult(ClinkrModel):
     freed: tuple[FreedSlot, ...]
     would_free: tuple[FreedSlot, ...] = ()
-    cleanup: tuple[SlotCleanupResult, ...] = ()
+    cleanup: tuple[cleanup_rendering.SlotCleanupResult, ...] = ()
     skipped: tuple[str, ...] = ()
     dry_run: bool = False
     cancelled: bool = False
@@ -133,7 +104,7 @@ def render_slot_free(result: SlotFreeResult) -> None:
     for message in result.skipped:
         console.print(f"[dim]{message}[/dim]")
 
-    cleanup_by_slot = _cleanup_by_slot(result.cleanup)
+    cleanup_by_slot = cleanup_rendering.cleanup_by_slot(result.cleanup)
 
     if result.cancelled:
         console.print("Cancelled; no changes made.")
@@ -147,7 +118,7 @@ def render_slot_free(result: SlotFreeResult) -> None:
             )
             console.print("  slot: detach HEAD at trunk")
             for cleanup in cleanup_by_slot.get(entry.slot_name, ()):  # pragma: no branch
-                console.print(f"  {_cleanup_preview_line(cleanup)}")
+                console.print(f"  {cleanup_rendering.cleanup_preview_line(cleanup)}")
         console.print("No changes made.")
         return
 
@@ -160,7 +131,7 @@ def render_slot_free(result: SlotFreeResult) -> None:
             f"  Worktree kept at [dim]{entry.worktree_path}[/dim]; detached HEAD at trunk"
         )
         for cleanup in cleanup_by_slot.get(entry.slot_name, ()):  # pragma: no branch
-            console.print(f"  {_cleanup_result_line(cleanup)}")
+            console.print(f"  {cleanup_rendering.cleanup_result_line(cleanup)}")
 
 
 def _resolve_targets(
@@ -219,12 +190,12 @@ def _outcome_to_result(
     skipped: tuple[str, ...],
     cleanup: Sequence[LifecycleCleanupResult] = (),
 ) -> SlotFreeResult:
-    cleanup_entries = _cleanup_to_result(cleanup)
+    cleanup_entries = cleanup_rendering.cleanup_to_result(cleanup)
     return SlotFreeResult(
         freed=_freed_to_result(outcome.freed),
         cleanup=cleanup_entries,
         skipped=skipped,
-        cleanup_error_count=_cleanup_error_count(cleanup_entries),
+        cleanup_error_count=cleanup_rendering.cleanup_error_count(cleanup_entries),
     )
 
 
@@ -273,14 +244,14 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             cleanup_actions,
             trunk_branch=free_plan.trunk_branch,
         )
-        cleanup_entries = _cleanup_to_result(cleanup_plan)
+        cleanup_entries = cleanup_rendering.cleanup_to_result(cleanup_plan)
         result = SlotFreeResult(
             freed=(),
             would_free=_freed_to_result(free_plan.targets),
             cleanup=cleanup_entries,
             skipped=skipped,
             dry_run=True,
-            cleanup_error_count=_cleanup_error_count(cleanup_entries),
+            cleanup_error_count=cleanup_rendering.cleanup_error_count(cleanup_entries),
         )
         if result.cleanup_error_count:
             return ClinkrExit.negative(result, message=_cleanup_error_message(result))
@@ -305,7 +276,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             default=False,
             err=True,
         ):
-            cleanup_entries = _cleanup_to_result(cleanup_preview)
+            cleanup_entries = cleanup_rendering.cleanup_to_result(cleanup_preview)
             return ClinkrExit.ok(
                 SlotFreeResult(
                     freed=(),
@@ -313,7 +284,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
                     cleanup=cleanup_entries,
                     skipped=skipped,
                     cancelled=True,
-                    cleanup_error_count=_cleanup_error_count(cleanup_entries),
+                    cleanup_error_count=cleanup_rendering.cleanup_error_count(cleanup_entries),
                 )
             )
 
@@ -349,19 +320,19 @@ def _render_confirmation_preview(
     cleanup: Sequence[LifecycleCleanupResult],
     skipped: Sequence[str],
 ) -> None:
-    cleanup_entries = _cleanup_to_result(cleanup)
-    cleanup_by_slot = _cleanup_by_slot(cleanup_entries)
+    cleanup_entries = cleanup_rendering.cleanup_to_result(cleanup)
+    cleanup_by_slot = cleanup_rendering.cleanup_by_slot(cleanup_entries)
     for message in skipped:
         click.echo(message, err=True)
     for target in plan.targets:
         click.echo(f"Will free {target.slot_name} ({target.branch_name})", err=True)
         click.echo("  slot: detach HEAD at trunk", err=True)
         for entry in cleanup_by_slot.get(target.slot_name, ()):  # pragma: no branch
-            click.echo(f"  {_plain_cleanup_preview_line(entry)}", err=True)
+            click.echo(f"  {cleanup_rendering.plain_cleanup_preview_line(entry)}", err=True)
 
 
 def _cleanup_error_message(result: SlotFreeResult) -> str:
-    cleanup_by_slot = _cleanup_by_slot(result.cleanup)
+    cleanup_by_slot = cleanup_rendering.cleanup_by_slot(result.cleanup)
     lines: list[str] = []
     entries = result.freed if result.freed else result.would_free
     for entry in entries:
@@ -373,11 +344,11 @@ def _cleanup_error_message(result: SlotFreeResult) -> str:
             lines.append(f"  Worktree kept at {entry.worktree_path}; detached HEAD at trunk")
         for cleanup in cleanup_by_slot.get(entry.slot_name, ()):  # pragma: no branch
             if cleanup.status == "success":
-                lines.append(f"  ✓ {_cleanup_success_text(cleanup)}")
+                lines.append(f"  ✓ {cleanup_rendering.cleanup_success_text(cleanup)}")
             elif cleanup.status == "skipped":
-                lines.append(f"  - {_cleanup_skipped_text(cleanup)}")
+                lines.append(f"  - {cleanup_rendering.cleanup_skipped_text(cleanup)}")
             elif cleanup.status == "error":
-                lines.append(f"  ✗ {_cleanup_failure_text(cleanup)}")
+                lines.append(f"  ✗ {cleanup_rendering.cleanup_failure_text(cleanup)}")
     if not lines:
         return "Cleanup failed."
     return "\n".join(lines)
