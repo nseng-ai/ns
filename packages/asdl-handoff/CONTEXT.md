@@ -44,6 +44,10 @@ _Avoid_: search query, namespace, lifecycle state.
 A handoff listing across branches that groups Handoff Summaries by branch and can optionally include deleted local branches.
 _Avoid_: global registry, hidden index, remote branch scan.
 
+**Handoff Deletion**:
+The explicit operation that removes one named Handoff Artifact from the current handoff inventory by exact Handoff Slug.
+_Avoid_: fuzzy pickup selection, archive, tombstone, soft delete, garbage collection.
+
 **Handoff Garbage Collection**:
 The explicit operation that previews or deletes Handoff Artifacts whose local branch is deleted.
 _Avoid_: automatic cleanup, archive, Objective Close.

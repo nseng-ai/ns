@@ -18,6 +18,16 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 
 Use this skill for the shared model the step skills assume, and for diagnostics, cleanup, and admin work the step skills do not cover.
 
+## Admin operations
+
+Beyond save/pickup/list, the deterministic `handoff` CLI covers inventory and cleanup directly — these have no step skill:
+
+- `handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
+- `handoff delete [--branch <branch>] [-f|--force] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
+- `handoff gc [--dry-run|-f]` — clean up handoffs whose local branch is deleted.
+
+See `references/diagnostics-admin.md` for copy/move, collision handling, and storage-layer (`brmem`) fallbacks.
+
 ## Do not use this skill for
 
 - In-session compaction or summarization with no durable handoff intent.
