@@ -6,7 +6,7 @@ The planned-branch-owned operation model for CMUX composition is implemented. `@
 
 ## Objective Impact
 
-This completes the roadmap row, "Planned-branch-owned operation model for CMUX composition." The implementation preserves the intended `/cmux-slot:dispatch-plan` behavior while reducing CMUX ownership of planned-branch internals:
+This completes the roadmap row, "Planned-branch-owned operation model for CMUX composition." The implementation preserves the intended `/cmux:workspace:dispatch-plan` behavior while reducing CMUX ownership of planned-branch internals:
 
 - branch, key, namespace, summary normalization, and create parameters are derived through `buildPlannedBranchCreateOperation`;
 - dry-run git/gt/brmem mutation-command preview text is rendered by `formatPlannedBranchCreatePreview` in the planned-branch package;

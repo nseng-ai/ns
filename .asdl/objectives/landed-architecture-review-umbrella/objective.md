@@ -64,7 +64,7 @@ The old `landed-architecture-review` Objective was snapshot-based. It captured a
 
 By the 2026-06-05 re-baseline, master had moved far enough that the original broad backlog was partly stale:
 
-- The cmux command-suite review is complete. The useful slice consolidated `/cmux-slot:dispatch-plan` onto shared slot-launch behavior in `cmux/slot.ts` and `cmux/worktree-description.ts`, with targeted TypeScript validation.
+- The cmux command-suite review is complete. The useful slice consolidated `/cmux:workspace:dispatch-plan` onto shared slot-launch behavior in `cmux/slot.ts` and `cmux/worktree-description.ts`, with targeted TypeScript validation.
 - Saved-plan / planned-branch / dispatch identity is superseded by `@asdl/planned-branch`, including shared content slug derivation, Branch Memory / git / Graphite gateways, and dispatch composition from the closed `planned-branch-ts-cli` and `planned-branch-quality-hardening` Objectives.
 - Agent resource / skill ontology is substantially superseded by `areg-review-remediation`, including typed skill lockfile parsing, lockfile consistency checks, skill-install hardening, and `SkillxWorkspaceInstaller` gateway work.
 - Source-control mutation UX and handoff artifacts were narrowed by landed work rather than left as broad original clusters.

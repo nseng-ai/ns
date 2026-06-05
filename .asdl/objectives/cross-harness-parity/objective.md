@@ -14,7 +14,7 @@ This Objective is the cross-harness parity **umbrella**. It owns a living parity
 - Close the **discoverability** gaps: author thin skills that surface the already-runnable `asdl-dev` commands (`preview-url`, `cp`, `submit`) to Claude/Codex, and reconcile the duplication between the `internal-code-checkpoint` skill and `asdl-dev cp`.
 - Close the **orphan orchestration** gaps by pushing the trapped logic down into shared CLIs (routing any model-text steps through the backend-neutral text-generation abstraction `asdl-dev` already uses) and adding thin skills, with Pi importing/mirroring the extracted core:
   - `land-stack` (Graphite stack landing) — highest risk, must be test-backed.
-  - cmux dispatch (`/cmux-slot:dispatch-plan`, `/cmux-dispatch`, and the thin `/cmux-slot:open-branch` pairing) — extract orchestration that takes explicit inputs instead of reading Pi session state.
+  - cmux dispatch (`/cmux:workspace:dispatch-plan`, `/cmux:workspace:dispatch-prompt`, and the thin `/cmux:workspace:open-branch` pairing) — extract orchestration that takes explicit inputs instead of reading Pi session state.
   - `autobranch` — `asdl-dev autobranch` for the stash→create→restore→commit transaction and branch-name selection.
 - Provide **skill-only** parity where there is nothing worth extracting: `/code:land` (document the `gh pr merge` contract, base-branch guard, and `--match-head-commit` pinning) and `/code:changes` (lightweight summary, or a recorded waiver if judged purely cosmetic).
 - Eliminate the `/handoff:list` duplication: point the Pi command at the dedicated `handoff list` CLI instead of re-deriving listing over raw `brmem list` in TypeScript, keeping only the card renderer Pi-side.

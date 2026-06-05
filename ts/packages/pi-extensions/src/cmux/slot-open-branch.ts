@@ -43,7 +43,7 @@ export interface HandleCmuxSlotOpenBranchOptions {
 	ctx: CommandContext;
 }
 
-const COMMAND_NAME = "cmux-slot:open-branch";
+const COMMAND_NAME = "cmux:workspace:open-branch";
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 
@@ -56,7 +56,7 @@ export function registerCmuxSlotOpenBranchCommand(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open a branch, or the latest planned branch when omitted, in a cmux slot.",
+		description: "Open a branch, or the latest planned branch when omitted, in a new cmux workspace.",
 		argumentHint: "[branch]",
 		getArgumentCompletions: async (argumentPrefix) => {
 			const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
@@ -86,13 +86,13 @@ export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranch
 	if (resolved.inferred) {
 		const confirmed = await confirmInferredBranch(ctx, resolved.selection);
 		if (!confirmed) {
-			ctx.ui.notify("Cancelled; no cmux slot was opened.", "info");
+			ctx.ui.notify("Cancelled; no cmux workspace was opened.", "info");
 			return;
 		}
 	}
 
 	const branch = resolved.branchName;
-	ctx.ui.notify(`Opening ${branch} in a cmux slot…`, "info");
+	ctx.ui.notify(`Opening cmux workspace for ${branch}…`, "info");
 
 	const launched = await openBranchInCmuxSlot({
 		pi,
@@ -181,7 +181,7 @@ async function confirmInferredBranch(
 	selection: PlannedBranchSelection,
 ): Promise<boolean> {
 	if (!ctx.hasUI || ctx.ui.confirm === undefined) {
-		ctx.ui.notify("Cannot infer /cmux-slot:open-branch branch without an interactive confirmation UI.", "error");
+		ctx.ui.notify(`Cannot infer /${COMMAND_NAME} branch without an interactive confirmation UI.`, "error");
 		return false;
 	}
 
@@ -191,7 +191,7 @@ async function confirmInferredBranch(
 
 function formatInferredBranchConfirmation(selection: PlannedBranchSelection): string {
 	return [
-		`Use branch "${selection.branchName}" from the latest [planned-branch-output] and open it in a cmux slot?`,
+		`Use branch "${selection.branchName}" from the latest [planned-branch-output] and open it in a new cmux workspace?`,
 		"",
 		selection.key ? `Key: ${selection.key}` : undefined,
 		selection.branchCreation ? `Branch creation: ${selection.branchCreation}` : undefined,

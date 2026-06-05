@@ -10,7 +10,7 @@ This Objective tracks the follow-up PR stack that turns the current working stee
 
 In scope:
 
-- Canonicalize saved-plan resolution and validation so `/planned-branch:create` and `/cmux-slot:dispatch-plan` share one validated model instead of maintaining parallel session-history parsing and boundary checks.
+- Canonicalize saved-plan resolution and validation so `/planned-branch:create` and `/cmux:workspace:dispatch-plan` share one validated model instead of maintaining parallel session-history parsing and boundary checks.
 - Reframe CMUX dispatch as composition over planned-branch-owned operations, so CMUX owns slot checkout/workspace launch and planned-branch owns branch/key/attachment preview, creation, dry-run, and evidence formatting.
 - Unify Branch Memory machine-envelope parsing for `put`, `list`, and `get`, with typed validators for each operation body.
 - Clean up CLI type contracts where optional bags and casts obscure real variants, especially plan resolution evidence and expected CLI parse errors.
