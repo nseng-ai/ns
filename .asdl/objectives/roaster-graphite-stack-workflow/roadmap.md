@@ -39,7 +39,7 @@
   - Policy: direct execution after preview; ask first if this would require changing Branch Memory package behavior rather than using existing gateway/key validation.
   - Evidence: tests prove index, manifest, triage, and resolver keys; writes target the implementation branch only; generated branches do not receive canonical manifests; resume reads latest run; dry-run does not write; invalid Branch Memory branch/key cases fail clearly.
 
-- [ ] Add stack dashboard rendering and PR issue-comment publication.
+- [x] Add stack dashboard rendering and PR issue-comment publication.
   - Thesis: each roaster stack run owns one persistent dashboard comment on the implementation PR, updated in place with run, batch, finding, validation, and generated PR status.
   - Expected implementation branch/PR: `roaster-stack/dashboard`.
   - Depends on: `roaster-stack/contracts`; may consume run-storage locators but should remain separately reviewable from Branch Memory writes.
