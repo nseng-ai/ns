@@ -122,6 +122,7 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 | `/objective:stack-impl`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes the portable Objective stack implementation skill.            |
 | `/planned-branch:write-plan` | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
 | `/planned-branch:create`     | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
+| `/planned-branch:start-impl` | `.pi/extensions/planned-branch.ts` | Creates a Graphite planned branch, runs `gt up`, starts a new session, and launches implementation. |
 | `/planned-branch:impl`       | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
 
 ## Project Pi custom tools
@@ -134,13 +135,13 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## Repo-owned workflow family dispositions
 
-| Family                | Disposition                                                                                                                                                                                                                                                       |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planned branches      | Final first-party surface: `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`, `/skill:planned-branch-write-plan`, `/skill:planned-branch-create`, and `/skill:planned-branch-impl` over the `planned-branch` CLI.                    |
-| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained.              |
-| Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                             |
-| Structured grill UI   | Retain `/grill-ui`, `/grill-with-docs-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` plus `/skill:pi-grill-with-docs-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills. |
-| Objective execution   | General Objective execution is folded into `objective-next` behind explicit Runner Policy and preview confirmation. `objective-stack-impl` remains the specialized stack implementation runner.                                                                   |
+| Family                | Disposition                                                                                                                                                                                                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planned branches      | Final first-party surface: `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:start-impl`, `/planned-branch:impl`, `/skill:planned-branch-write-plan`, `/skill:planned-branch-create`, and `/skill:planned-branch-impl` over the `planned-branch` CLI. |
+| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained.                         |
+| Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                                        |
+| Structured grill UI   | Retain `/grill-ui`, `/grill-with-docs-ui`, `grill_ask`, and internal `/skill:pi-grill-ui` plus `/skill:pi-grill-with-docs-ui` as a Pi-specific structured UI layer. Portable non-Pi grilling routes remain the installed `grill-me` and `grill-with-docs` skills.            |
+| Objective execution   | General Objective execution is folded into `objective-next` behind explicit Runner Policy and preview confirmation. `objective-stack-impl` remains the specialized stack implementation runner.                                                                              |
 
 ## Engineered TypeScript packages
 
