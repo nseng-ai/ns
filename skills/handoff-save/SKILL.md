@@ -11,7 +11,7 @@ allowed-tools:
 
 Use this skill to save a concise, directed Markdown handoff artifact for a future continuation. A handoff is saved work context for future-you, a future agent, a future worktree, or a teammate. It is not in-session compaction and not a generic session summary.
 
-This is the save/create step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, storage contract, diagnostics, and cleanup; keep this skill focused on writing one artifact.
+This is the save/create step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on writing one artifact.
 
 Normal user language is save/pick up/resume a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
@@ -167,3 +167,5 @@ Then include a compact technical locator when useful:
 ## Pick up later
 
 When a user asks to resume from an existing handoff, prefer the `handoff-load` skill. Picking up relies on the semantic slug rather than a separate summary or index.
+
+For handoff lifecycle vocabulary and non-save admin flows such as copy, move, delete, or garbage collection, load the `handoff` umbrella and its references rather than duplicating those recipes here.

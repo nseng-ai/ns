@@ -11,7 +11,7 @@ allowed-tools:
 
 Use this skill to pick up, choose, or list saved Markdown handoff artifacts and resume the future-continuation focus captured in one. A handoff is directed saved work context; it is not in-session compaction and not a generic session summary.
 
-This is the load/list/resume step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, storage contract, diagnostics, and cleanup; keep this skill focused on selecting and reading artifacts.
+This is the load/list/resume step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
 
 Normal user language is pick up/list/resume from a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
@@ -135,3 +135,5 @@ Include a compact technical locator when useful:
 ## If the artifact is stale or incomplete
 
 If the handoff references missing files, obsolete commands, or completed work, verify current repository state before acting. Tell the user what no longer matches and proceed from the present state rather than blindly following stale instructions.
+
+For copy, move, delete, garbage collection, or other administrative repair flows, load the `handoff` umbrella's diagnostics/admin reference instead of improvising broad Branch Memory operations.
