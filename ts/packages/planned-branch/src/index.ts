@@ -31,6 +31,13 @@ export {
 	type PlannedBranchGitGateway,
 } from "./git-gateway.ts";
 export {
+	RealPlannedBranchGraphiteGateway,
+	type GraphiteErrorInfo,
+	type GraphiteOperationResult,
+	type GraphiteTrackBranchParams,
+	type PlannedBranchGraphiteGateway,
+} from "./graphite-gateway.ts";
+export {
 	PLAN_BRANCH_NAMESPACE,
 	buildPlannedBranchCreateOperation,
 	createPlannedBranchFromFile,

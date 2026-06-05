@@ -3,14 +3,14 @@ import {
 	type BrmemPutData,
 	type PlannedBranchBrmemGateway,
 } from "./brmem-gateway.ts";
-import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { formatCommand } from "./command-runtime.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
-import { formatCommandFailure, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type ExecOptions, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
+import { normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
 
 export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 
-const GT_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 
 export type BranchCreationMethod = "plain-git" | "graphite";
@@ -28,6 +28,7 @@ export interface CreatePlannedBranchFromFileOptions {
 	signal?: AbortSignal | undefined;
 	git?: PlannedBranchGitGateway | undefined;
 	brmem?: PlannedBranchBrmemGateway | undefined;
+	graphite?: PlannedBranchGraphiteGateway | undefined;
 }
 
 export interface PlannedBranchEvidence {
@@ -59,11 +60,6 @@ export interface PlannedBranchCreatePreviewContext {
 	graphiteParentBranch?: string;
 }
 
-interface CommandRun {
-	result: ExecResult;
-	displayCommand: string;
-}
-
 export async function createPlannedBranchFromFile(
 	pi: PlanCommandExecApi,
 	rawParams: unknown,
@@ -72,13 +68,14 @@ export async function createPlannedBranchFromFile(
 	const operation = buildPlannedBranchCreateOperation(rawParams);
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
 	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
+	const graphite = options.graphite ?? new RealPlannedBranchGraphiteGateway(pi);
 	const sourceFile = await resolvePlanSourceFile(pi, { cwd: options.cwd, rawFilePath: operation.filePath, signal: options.signal, git });
 
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
 	await assertBrmemEntryAbsent(brmem, options.cwd, operation.branch, operation.key, options.signal);
-	await createPlanBranch(pi, git, {
+	await createPlanBranch(git, graphite, {
 		cwd: options.cwd,
 		method: operation.branchCreation,
 		branch: operation.branch,
@@ -397,9 +394,9 @@ interface CreatePlainGitBranchOptions {
 
 interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {}
 
-async function createPlanBranch(pi: PlanCommandExecApi, git: PlannedBranchGitGateway, options: CreatePlanBranchOptions): Promise<void> {
+async function createPlanBranch(git: PlannedBranchGitGateway, graphite: PlannedBranchGraphiteGateway, options: CreatePlanBranchOptions): Promise<void> {
 	if (options.method === "graphite") {
-		await createGraphiteBranch(pi, git, options);
+		await createGraphiteBranch(git, graphite, options);
 		return;
 	}
 	await createPlainGitBranch(git, options);
@@ -412,11 +409,11 @@ async function createPlainGitBranch(git: PlannedBranchGitGateway, options: Creat
 	}
 }
 
-async function createGraphiteBranch(pi: PlanCommandExecApi, git: PlannedBranchGitGateway, options: CreateGraphiteBranchOptions): Promise<void> {
+async function createGraphiteBranch(git: PlannedBranchGitGateway, graphite: PlannedBranchGraphiteGateway, options: CreateGraphiteBranchOptions): Promise<void> {
 	const parentBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
 	await createPlainGitBranch(git, options);
-	const track = await runGt(pi, { cwd: options.cwd, args: ["track", options.branch, "--parent", parentBranch, "--no-interactive"], signal: options.signal });
-	if (track.result.code !== 0 || track.result.killed) {
+	const track = await graphite.trackBranch({ cwd: options.cwd, branch: options.branch, parentBranch, signal: options.signal });
+	if (!track.ok) {
 		throw new Error(
 			[
 				"Created local Git branch but failed to track it with Graphite.",
@@ -424,7 +421,7 @@ async function createGraphiteBranch(pi: PlanCommandExecApi, git: PlannedBranchGi
 				"No attached plan was stored.",
 				"No cleanup was attempted; inspect the created branch manually.",
 				"",
-				formatCommandFailure("gt track failed", track.displayCommand, track.result),
+				track.error.message,
 			].join("\n"),
 		);
 	}
@@ -500,30 +497,6 @@ function partialFailureError(input: {
 			trimErrorText(input.cause),
 		].join("\n"),
 	);
-}
-
-interface RunCommandOptions {
-	cwd: string;
-	args: string[];
-	signal?: AbortSignal | undefined;
-}
-
-async function runGt(pi: PlanCommandExecApi, options: RunCommandOptions): Promise<CommandRun> {
-	const displayCommand = formatCommand("gt", options.args);
-	try {
-		const result = await pi.exec("gt", options.args, execOptions(options.cwd, GT_TIMEOUT_MS, options.signal));
-		return { result, displayCommand };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`gt command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`);
-	}
-}
-
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
 }
 
 function formatErrorMessage(error: unknown): string {

@@ -32,11 +32,12 @@
   - Evidence: direct slug tests cover the shared normalizer plus saved-plan-specific success and invalid-output failure text, with prompt/fallback distinctions preserved.
   - Verification: `cd ts/packages/pi-extensions && bun test`, `cd ts/packages/pi-extensions && bun run check`, `just ts-check`, and `just ts-test` passed.
 
-- [~] Semantic gateway boundary for planned-branch core
-  - Git facts/branch operations and Branch Memory attachment/loading now have planned-branch-owned semantic gateways in `@asdl/planned-branch`; Graphite tracking remains as the follow-up gateway slice.
+- [x] Semantic gateway boundary for planned-branch core
+  - Git facts/branch operations, Branch Memory attachment/loading, and Graphite branch tracking now have planned-branch-owned semantic gateways in `@asdl/planned-branch`.
   - Core planned-branch create, source-plan store, explicit/latest plan resolution, and attached-plan loading now consume semantic Git facts/operations instead of constructing and parsing raw Git commands inline.
   - Core planned-branch create and load-plan workflows now consume semantic Branch Memory operations for attachment presence, attach, list, and get instead of constructing raw `brmem check/put/list/get` command arguments or parsing Branch Memory machine envelopes inline.
-  - Evidence: planned-branch core/scenario tests use stateful semantic Git and Branch Memory fakes; real gateway tests preserve exact `git` and `brmem` command protocol expectations, exit-code conventions, timeout behavior, unavailable-command handling, and malformed/mismatched envelope handling.
+  - Graphite branch creation still keeps local Git branch creation and partial-failure policy in planned-branch core, while the real Graphite gateway owns the exact `gt track <branch> --parent <parent> --no-interactive` subprocess protocol, timeout, startup, nonzero, and killed-result mapping.
+  - Evidence: planned-branch core/scenario tests use stateful semantic Git, Branch Memory, and Graphite fakes; real gateway tests preserve exact `git`, `brmem`, and `gt` command protocol expectations, exit-code conventions, timeout behavior, unavailable-command handling, malformed/mismatched envelope handling, and Graphite startup/nonzero/killed failure mapping.
   - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/planned-branch && bun run check`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Public skills and docs accuracy pass

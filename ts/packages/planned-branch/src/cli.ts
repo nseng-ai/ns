@@ -198,7 +198,7 @@ async function runCreate(args: readonly string[], deps: RequiredCliDeps): Promis
 			...(options.branchCreation === undefined ? {} : { branchCreation: options.branchCreation }),
 			...(options.summary === undefined ? {} : { summary: options.summary }),
 		},
-		{ cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem },
+		{ cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem, graphite: deps.context.graphite },
 	);
 	if (options.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...plannedBranchJson(evidence) })}\n`);
