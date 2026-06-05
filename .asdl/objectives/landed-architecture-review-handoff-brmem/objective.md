@@ -40,9 +40,10 @@ This Objective is complete when:
 Assumptions:
 
 - Handoff artifacts should remain small UTF-8 text entries suitable for Branch Memory rather than checked-in files or remote comments.
-- A handoff workflow benefits from a named, explicit storage convention more than from freeform ad-hoc Base Namespace entries.
+- A handoff workflow benefits from a named, explicit storage convention more than from freeform ad-hoc Base Namespace entries; current evidence supports the workflow-owned `handoffs` Namespace as the durable handoff storage convention.
 - Existing handoff skills and `brmem` CLI operations are close enough that this Objective can tighten contracts without redesigning either subsystem.
 - Future agents can make safer resume decisions when branch, namespace, entry key, locator, and overwrite semantics are stated plainly.
+- In this repo, durable user-facing handoff work should consolidate on Branch-Memory-backed handoff artifacts; worker-protocol handoffs are separate terminology.
 
 Risks:
 
@@ -51,10 +52,9 @@ Risks:
 - Agents may overwrite useful handoff context accidentally; the mitigation is to require preflight or explicit overwrite behavior where preservation matters.
 - The Objective could drift into all Branch Memory improvements; the mitigation is to keep non-handoff brmem UX parked or split out.
 - The handoff contract may duplicate Objective or planned-branch context; the mitigation is to define handoff artifacts as directed resume context, not durable project truth.
+- Pi worktree status still normalizes `session-artifacts/handoffs/...` into the handoff display; the mitigation is to treat it as compatibility evidence until the contract-design slice decides whether to migrate, retain, or remove it.
 
 ## Open Questions
 
-- Should handoff artifacts use the Base Namespace or a named workflow-owned Namespace by default?
-- What entry-key convention best distinguishes active directed handoffs from archival or scratch notes?
-- When multiple candidate handoffs exist for a branch, should the loader require explicit selection or choose the latest deterministic candidate?
-- What exact evidence should count as sufficient for stale or ambiguous resume-path handling?
+- Should the currently implemented flat `<semantic-slug>.md` Entry Key shape become the final handoff contract, or should the contract allow another key shape?
+- Should `session-artifacts/handoffs/...` compatibility normalization be migrated, retained as display-only compatibility, or removed after consolidation?
