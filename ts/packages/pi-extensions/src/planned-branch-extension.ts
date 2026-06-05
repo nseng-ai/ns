@@ -13,12 +13,17 @@ import {
 	type BranchCreationMethod,
 	type ExecOptions,
 	type LoadedAttachedPlan,
-	type PlannedBranchEvidence,
 	type SelectedSavedPlanFile,
 	type SourceBranchPlanFileEvidence,
 } from "@asdl/planned-branch";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
+import {
+	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+	formatPlanBranchEvidence,
+	type PlannedBranchEvidence,
+	type PlannedBranchOutputDetails,
+} from "./planned-branch-output.ts";
 import type { ExecResult } from "./command-runtime.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
@@ -45,7 +50,6 @@ export type {
 	CreatePlannedBranchFromFileParams,
 	LatestSourceBranchPlanFileEvidence,
 	PlanStoreDirectoryEvidence,
-	PlannedBranchEvidence,
 	RepoIdentitySource,
 	SourceBranchPlanFileEvidence,
 	SourceBranchPlanFileOptions,
@@ -56,7 +60,6 @@ const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
 const START_IMPL_COMMAND_NAME = "planned-branch:start-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
-const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
 const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
 const START_IMPL_STATUS_KEY = "planned-branch:start-impl";
@@ -926,12 +929,9 @@ function formatSourceBranchPlanFileEvidenceWithSlugModel(
 	return `${formatSourceBranchPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
 
-interface PlannedBranchMessageDetails {
-	status: "usage" | "dry-run" | "success" | "failure";
+interface PlannedBranchMessageDetails extends PlannedBranchOutputDetails {
 	preview?: CreatePlannedBranchPreview;
-	evidence?: PlannedBranchEvidence;
 	loadedPlan?: LoadedAttachedPlan;
-	error?: string;
 }
 
 async function resolveSelectedSavedPlanFile(
@@ -1009,7 +1009,7 @@ function presentPlannedBranchMessage(
 ): void {
 	if (pi.sendMessage) {
 		pi.sendMessage({
-			customType: PLANNED_BRANCH_MESSAGE_TYPE,
+			customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 			content,
 			display: true,
 			details,
@@ -1027,24 +1027,6 @@ function presentPlannedBranchMessage(
 		return;
 	}
 	console.log(content);
-}
-
-export function formatPlanBranchEvidence(evidence: PlannedBranchEvidence): string {
-	const lines = [
-		"Created planned branch and attached plan.",
-		`Branch: ${evidence.branch}`,
-		`Branch creation: ${evidence.branchCreation}`,
-		`Start point: ${evidence.startPoint}`,
-		`Namespace: ${evidence.namespace}`,
-		`Key: ${evidence.key}`,
-		`Ref: ${evidence.refName}`,
-		`Commit: ${evidence.commit}`,
-		`Source file: ${evidence.sourceFile}`,
-	];
-	if (evidence.summary !== undefined) {
-		lines.push(`Summary: ${evidence.summary}`);
-	}
-	return lines.join("\n");
 }
 
 function formatSteeringBlock(steering: string): string {
