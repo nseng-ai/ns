@@ -28,6 +28,8 @@ import {
 	readRuntimeResultFile,
 	type RunnerSubagentRuntimeFiles,
 	type CreateRunnerSubagentRuntimeFilesInput,
+	type RuntimeFailureData,
+	type RuntimeResultReadResult,
 	type RuntimeResultV1,
 } from "./subagent-runtime.ts";
 import { emptyRunnerSubagentActivity } from "./activity.ts";
@@ -67,7 +69,7 @@ export type CreateRunnerSubagentRuntimeFiles = (
 	input: CreateRunnerSubagentRuntimeFilesInput,
 ) => RunnerSubagentRuntimeFiles | Promise<RunnerSubagentRuntimeFiles>;
 
-export type ReadRunnerSubagentRuntimeResult = (resultPath: string) => RuntimeResultV1 | undefined | Promise<RuntimeResultV1 | undefined>;
+export type ReadRunnerSubagentRuntimeResult = (resultPath: string) => RuntimeResultReadResult | Promise<RuntimeResultReadResult>;
 
 export interface RunnerSubagentDispatcherDependencies {
 	spawn?: SpawnChildProcess;
@@ -357,7 +359,7 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		return errorResult(title, progress, snapshot.error.message, snapshot.error);
 	}
 
-	const runtimeRead: { result?: RuntimeResultV1; error?: unknown } = input.runtimeFiles
+	const runtimeRead: RuntimeResultReadOutcome = input.runtimeFiles
 		? await readRuntimeResultOutcome(input.runtimeFiles.resultPath, input.readRuntimeResult)
 		: {};
 	if (runtimeRead.result?.kind === "runtime-error") {
@@ -377,16 +379,21 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		return errorResult(title, progress, nonzeroExitDiagnostic(input.code, input.closeSignal, input.stderr));
 	}
 
-	if (runtimeRead.error) {
+	if (runtimeRead.failure) {
 		if (snapshot.terminalAttempted) {
 			return protocolErrorResult(
 				title,
 				progress,
-				`Terminal tool was attempted, but the subagent runtime result sink was invalid: ${errorMessage(runtimeRead.error)}`,
-				runtimeRead.error,
+				`Terminal tool was attempted, but the subagent runtime result sink was invalid: ${runtimeRead.failure.message}`,
+				runtimeRead.failure,
 			);
 		}
-		return errorResult(title, progress, `Failed to read subagent terminal runtime result: ${errorMessage(runtimeRead.error)}`, runtimeRead.error);
+		return errorResult(
+			title,
+			progress,
+			`Failed to read subagent terminal runtime result: ${runtimeRead.failure.message}`,
+			runtimeRead.failure.cause,
+		);
 	}
 
 	if (runtimeRead.result?.kind === "terminal-capture") {
@@ -424,15 +431,24 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	return stoppedWithoutTerminalResult(title, progress, snapshot.stopReason);
 }
 
+interface RuntimeResultReadOutcome {
+	result?: RuntimeResultV1;
+	failure?: RuntimeFailureData;
+}
+
 async function readRuntimeResultOutcome(
 	resultPath: string,
 	readRuntimeResult: ReadRunnerSubagentRuntimeResult,
-): Promise<{ result?: RuntimeResultV1; error?: unknown }> {
-	try {
-		const result = await readRuntimeResult(resultPath);
-		return result === undefined ? {} : { result };
-	} catch (error) {
-		return { error };
+): Promise<RuntimeResultReadOutcome> {
+	const read = await readRuntimeResult(resultPath);
+	switch (read.type) {
+		case "missing":
+			return {};
+		case "loaded":
+			return { result: read.result };
+		case "invalid":
+		case "read-error":
+			return { failure: read.failure };
 	}
 }
 

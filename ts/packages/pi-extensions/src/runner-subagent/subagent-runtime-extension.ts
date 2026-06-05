@@ -79,11 +79,12 @@ export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRunt
 		let terminalCaptured = false;
 		let terminalToolNames = new Set<string>();
 
-		try {
-			config = readRuntimeConfigFileSync(options.configPath);
+		const configRead = readRuntimeConfigFileSync(options.configPath);
+		if (configRead.type === "loaded") {
+			config = configRead.config;
 			terminalToolNames = new Set(config.terminalTools.map((tool) => tool.name));
-		} catch (error) {
-			startupError = toError(error);
+		} else {
+			startupError = new Error(configRead.failure.message);
 			writeRuntimeError(options.resultPath, "config-error", `Invalid subagent terminal runtime config: ${startupError.message}`);
 		}
 
@@ -205,11 +206,6 @@ function writeRuntimeError(
 	} catch {
 		// The parent also observes subagent stderr/exit; avoid corrupting JSON stdout from inside the runtime.
 	}
-}
-
-function toError(error: unknown): Error {
-	if (error instanceof Error) return error;
-	return new Error(String(error));
 }
 
 function errorMessage(error: unknown): string {

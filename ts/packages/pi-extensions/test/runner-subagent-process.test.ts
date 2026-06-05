@@ -556,6 +556,48 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.diagnostic).toContain("complete_runner_subagent");
 	});
 
+	test("maps invalid runtime result data after terminal attempt to protocol-error", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			runtimeResultRead: {
+				type: "invalid",
+				failure: { message: "Invalid runner subagent runtime result JSON: Unexpected token b" },
+			},
+		});
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
+		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("protocol-error");
+		if (result.status !== "protocol-error") return;
+		expect(result.diagnostic).toContain("runtime result sink was invalid");
+		expect(result.diagnostic).toContain("Invalid runner subagent runtime result JSON");
+	});
+
+	test("maps invalid runtime result data without terminal attempt to error", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			runtimeResultRead: {
+				type: "read-error",
+				failure: { message: "EACCES: permission denied, open result.json" },
+			},
+		});
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain("Failed to read subagent terminal runtime result");
+		expect(result.diagnostic).toContain("permission denied");
+	});
+
 	test("returns protocol-error when terminal validation fails before the runtime writes a capture", async () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);

@@ -6,8 +6,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	createDefaultRunnerSubagentRuntimeFiles,
 	createRuntimeConfig,
-	parseRuntimeConfigJson,
-	parseRuntimeResultJson,
+	parseRuntimeConfigJsonResult,
+	parseRuntimeResultJsonResult,
 	readRuntimeResultFile,
 	writeRuntimeResultFileSync,
 	type RuntimeResultV1,
@@ -138,10 +138,13 @@ describe("runner subagent runtime config and result helpers", () => {
 	test("reads missing, malformed, and valid result sinks deterministically", async () => {
 		await withTempDir(async (dir) => {
 			const resultPath = join(dir, "result.json");
-			expect(await readRuntimeResultFile(resultPath)).toBeUndefined();
+			expect(await readRuntimeResultFile(resultPath)).toEqual({ type: "missing" });
 
 			await writeFile(resultPath, "{bad json", "utf8");
-			await expect(readRuntimeResultFile(resultPath)).rejects.toThrow("Invalid runner subagent runtime result JSON");
+			expect(await readRuntimeResultFile(resultPath)).toEqual({
+				type: "invalid",
+				failure: expect.objectContaining({ message: expect.stringContaining("Invalid runner subagent runtime result JSON") }),
+			});
 
 			const capture: RuntimeResultV1 = {
 				version: 1,
@@ -152,21 +155,25 @@ describe("runner subagent runtime config and result helpers", () => {
 				input: { summary: "done" },
 			};
 			await writeFile(resultPath, `${JSON.stringify(capture)}\n`, "utf8");
-			expect(await readRuntimeResultFile(resultPath)).toEqual(capture);
+			expect(await readRuntimeResultFile(resultPath)).toEqual({ type: "loaded", result: capture });
 		});
 	});
 
 	test("creates a private runtime config and generated extension shim", async () => {
 		const files = await createDefaultRunnerSubagentRuntimeFiles({ title: "Runner Subagent", terminalTools: [completionTool] });
 		try {
-			expect(parseRuntimeConfigJson(await readFile(files.configPath, "utf8"))).toEqual(
-				expect.objectContaining({ title: "Runner Subagent", terminalTools: [expect.objectContaining({ name: "complete_runner_subagent" })] }),
-			);
+			expect(parseRuntimeConfigJsonResult(await readFile(files.configPath, "utf8"))).toEqual({
+				type: "valid",
+				config: expect.objectContaining({
+					title: "Runner Subagent",
+					terminalTools: [expect.objectContaining({ name: "complete_runner_subagent" })],
+				}),
+			});
 			const shim = await readFile(files.extensionPath, "utf8");
 			expect(shim).toContain("createRunnerSubagentRuntimeExtension");
 			expect(shim).toContain(JSON.stringify(files.configPath));
 			expect(shim).toContain(JSON.stringify(files.resultPath));
-			expect(await readRuntimeResultFile(files.resultPath)).toBeUndefined();
+			expect(await readRuntimeResultFile(files.resultPath)).toEqual({ type: "missing" });
 		} finally {
 			await files.cleanup?.();
 		}
@@ -191,7 +198,7 @@ describe("runner subagent runtime config and result helpers", () => {
 
 			expect(writeRuntimeResultFileSync(resultPath, first)).toBe(true);
 			expect(writeRuntimeResultFileSync(resultPath, second)).toBe(false);
-			expect(parseRuntimeResultJson(await readFile(resultPath, "utf8"))).toEqual(first);
+			expect(parseRuntimeResultJsonResult(await readFile(resultPath, "utf8"))).toEqual({ type: "valid", result: first });
 		});
 	});
 });
@@ -220,12 +227,15 @@ describe("runner subagent runtime extension", () => {
 			expect(result.terminate).toBe(true);
 			expect(abortCount).toBe(1);
 			expect(await readRuntimeResultFile(resultPath)).toEqual({
-				version: 1,
-				kind: "terminal-capture",
-				toolName: "complete_runner_subagent",
-				toolCallId: "tool-1",
-				status: "completed",
-				input: { summary: "done" },
+				type: "loaded",
+				result: {
+					version: 1,
+					kind: "terminal-capture",
+					toolName: "complete_runner_subagent",
+					toolCallId: "tool-1",
+					status: "completed",
+					input: { summary: "done" },
+				},
 			});
 		});
 	});
@@ -242,11 +252,36 @@ describe("runner subagent runtime extension", () => {
 
 			expect(fakePi.tools).toEqual([]);
 			expect(await readRuntimeResultFile(resultPath)).toEqual({
-				version: 1,
-				kind: "runtime-error",
-				code: "tool-collision",
-				message: "Subagent terminal tool name collision: complete_runner_subagent.",
+				type: "loaded",
+				result: {
+					version: 1,
+					kind: "runtime-error",
+					code: "tool-collision",
+					message: "Subagent terminal tool name collision: complete_runner_subagent.",
+				},
 			});
+		});
+	});
+
+	test("writes a config startup failure for malformed config data", async () => {
+		await withTempDir(async (dir) => {
+			const configPath = join(dir, "config.json");
+			const resultPath = join(dir, "result.json");
+			await writeFile(configPath, "{bad json", "utf8");
+			const fakePi = new FakePi();
+
+			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
+
+			expect(await readRuntimeResultFile(resultPath)).toEqual({
+				type: "loaded",
+				result: {
+					version: 1,
+					kind: "runtime-error",
+					code: "config-error",
+					message: expect.stringContaining("Invalid subagent terminal runtime config"),
+				},
+			});
+			expect(fakePi.tools).toEqual([]);
 		});
 	});
 

@@ -8,6 +8,7 @@ import type {
 import {
 	createRuntimeConfig,
 	type RunnerSubagentRuntimeFiles,
+	type RuntimeResultReadResult,
 	type RuntimeResultV1,
 } from "../src/runner-subagent/subagent-runtime.ts";
 
@@ -71,6 +72,7 @@ export function createFakeRunnerSubagentDispatcher(
 		now?: () => number;
 		runtimeFiles?: RunnerSubagentRuntimeFiles;
 		runtimeResult?: RuntimeResultV1;
+		runtimeResultRead?: RuntimeResultReadResult;
 	} = {},
 ): {
 	dependencies: RunnerSubagentDispatcherDependencies;
@@ -93,7 +95,7 @@ export function createFakeRunnerSubagentDispatcher(
 			createRuntimeConfig(input);
 			return runtimeFiles;
 		},
-		readRuntimeResult: () => options.runtimeResult,
+		readRuntimeResult: () => options.runtimeResultRead ?? (options.runtimeResult ? { type: "loaded", result: options.runtimeResult } : { type: "missing" }),
 		processArgv: ["/usr/bin/node"],
 		processExecPath: "/usr/bin/node",
 		existsSync: () => false,
