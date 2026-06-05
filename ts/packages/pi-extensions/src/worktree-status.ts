@@ -597,13 +597,11 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 		if (run.type === "unavailable") continue;
 		if (run.result.killed || run.result.code !== 0) continue;
 
-		try {
-			const data = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
-			const status = formatBrmemScopes(parseBrmemEntries(data.entries));
-			return status.length > 0 ? status : undefined;
-		} catch {
-			// Try the next brmem CLI candidate.
-		}
+		const parsed = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
+		if (parsed.type === "invalid") continue;
+
+		const status = formatBrmemScopes(parseBrmemEntries(parsed.data.entries));
+		return status.length > 0 ? status : undefined;
 	}
 
 	return signal?.aborted ? undefined : "unavailable";

@@ -11,6 +11,7 @@ import handoffExtension, {
 	formatHandoffListPlain,
 	formatHandoffPickupCommand,
 	groupHandoffListItemsByBranch,
+	parseHandoffItemsFromBrmemList,
 	parseHandoffKeysFromBrmemList,
 	parseListHandoffArgs,
 	parsePickupHandoffArgs,
@@ -292,6 +293,18 @@ function taggedTheme(): { fg(color: string, text: string): string; bold(text: st
 
 function renderMessageText(message: CustomMessage, width = 120): string {
 	return renderHandoffListMessage(message, { expanded: false }, noopTheme()).render(width).join("\n");
+}
+
+interface InvalidHandoffParseResult {
+	type: "invalid" | "valid";
+	message?: string;
+}
+
+function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: RegExp): void {
+	expect(result.type).toBe("invalid");
+	if (result.type === "invalid") {
+		expect(result.message).toMatch(pattern);
+	}
 }
 
 async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Promise<T> {
@@ -620,22 +633,31 @@ describe("handoff extension", () => {
 describe("handoff pure helpers", () => {
 	test("parses pickup args", () => {
 		expect(parsePickupHandoffArgs("--branch feature/x foo.md")).toEqual({
-			help: false,
-			branch: "feature/x",
-			selector: ["foo.md"],
+			type: "valid",
+			args: {
+				help: false,
+				branch: "feature/x",
+				selector: ["foo.md"],
+			},
 		});
-		expect(parsePickupHandoffArgs("review feedback")).toEqual({ help: false, selector: ["review", "feedback"] });
-		expect(() => parsePickupHandoffArgs("handoffs/foo.md")).toThrow("cannot contain '/'");
+		expect(parsePickupHandoffArgs("review feedback")).toEqual({
+			type: "valid",
+			args: { help: false, selector: ["review", "feedback"] },
+		});
+		expectInvalidHandoffParse(parsePickupHandoffArgs("handoffs/foo.md"), /cannot contain '\/'/);
 	});
 
 	test("parses list args", () => {
 		expect(parseListHandoffArgs("--branch=feature/x")).toEqual({
-			help: false,
-			branch: "feature/x",
-			allBranches: false,
+			type: "valid",
+			args: {
+				help: false,
+				branch: "feature/x",
+				allBranches: false,
+			},
 		});
-		expect(parseListHandoffArgs("--all")).toEqual({ help: false, allBranches: true });
-		expect(() => parseListHandoffArgs("--branch feature/x --all")).toThrow("mutually exclusive");
+		expect(parseListHandoffArgs("--all")).toEqual({ type: "valid", args: { help: false, allBranches: true } });
+		expectInvalidHandoffParse(parseListHandoffArgs("--branch feature/x --all"), /mutually exclusive/);
 	});
 
 	test("filters brmem list output to flat handoff markdown keys", () => {
@@ -643,7 +665,15 @@ describe("handoff pure helpers", () => {
 			parseHandoffKeysFromBrmemList(
 				listJson(["bravo.md", "notes/ignore.md", "handoffs/old.md", "alpha.md", "bravo.md"]),
 			),
-		).toEqual(["alpha.md", "bravo.md"]);
+		).toEqual({ type: "valid", keys: ["alpha.md", "bravo.md"] });
+	});
+
+	test("rejects invalid brmem list JSON as data", () => {
+		expectInvalidHandoffParse(parseHandoffItemsFromBrmemList("{"), /Failed to parse brmem list JSON/);
+	});
+
+	test("rejects brmem list JSON without entries as data", () => {
+		expectInvalidHandoffParse(parseHandoffItemsFromBrmemList(JSON.stringify({ data: {} })), /did not contain an entries array/);
 	});
 
 	test("resolves exact keys normalized slugs search terms and ambiguity", () => {
