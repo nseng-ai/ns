@@ -1,8 +1,13 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute, resolve } from "node:path";
 
-import { PLAN_BRANCH_NAMESPACE, createPlannedBranchFromFile, type PlannedBranchEvidence } from "@asdl/planned-branch";
+import { PLAN_BRANCH_NAMESPACE, createPlannedBranchFromFile } from "@asdl/planned-branch";
 import { formatCommand, formatPlainOutputSection, formatShellArg, shellQuote, tailText } from "../command-runtime.ts";
+import {
+	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+	formatPlanBranchEvidence,
+	type PlannedBranchEvidence,
+} from "../planned-branch-output.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
@@ -14,7 +19,6 @@ import type { CommandContext, ExecResult, ExtensionAPI, NotifyLevel } from "./ty
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
 const STATUS_KEY = "cmux-slot:dispatch-plan";
 const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
-const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
 const BRANCH_CREATION = "graphite";
 
 const GIT_TIMEOUT_MS = 10_000;
@@ -448,7 +452,7 @@ function presentPlannedBranchMessage(
 ): void {
 	if (pi.sendMessage) {
 		pi.sendMessage({
-			customType: PLANNED_BRANCH_MESSAGE_TYPE,
+			customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 			content,
 			display: true,
 			details,
@@ -504,24 +508,6 @@ function formatDryRun(options: FormatDryRunOptions): string {
 			`--command ${formatShellArg(launchCommand)}`,
 		].join(" "),
 	].filter((line): line is string => line !== undefined).join("\n");
-}
-
-function formatPlanBranchEvidence(evidence: PlannedBranchEvidence): string {
-	const lines = [
-		"Created planned branch and attached plan.",
-		`Branch: ${evidence.branch}`,
-		`Branch creation: ${evidence.branchCreation}`,
-		`Start point: ${evidence.startPoint}`,
-		`Namespace: ${evidence.namespace}`,
-		`Key: ${evidence.key}`,
-		`Ref: ${evidence.refName}`,
-		`Commit: ${evidence.commit}`,
-		`Source file: ${evidence.sourceFile}`,
-	];
-	if (evidence.summary !== undefined) {
-		lines.push(`Summary: ${evidence.summary}`);
-	}
-	return lines.join("\n");
 }
 
 function formatCreatePlannedBranchFailure(targetBranch: string, key: string, sourceFile: string, error: unknown): string {

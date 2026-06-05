@@ -30,16 +30,17 @@
       GPT-nano slug/summary generation. Evidence: ts-test green; the verbatim helper copy is
       gone; `branch-slug` tests still pass.
 
-- [ ] Unify the `planned-branch-output` message contract. Create one module owning the
+- [x] Unify the `planned-branch-output` message contract. Create one module owning the
       customType constant, the `PlannedBranchEvidence` shape, `formatPlanBranchEvidence`, and a
       typed `extractPlannedBranchEvidence(details)`; have `slot-dispatch-plan.ts` and
       `planned-branch-extension.ts` use it instead of the duplicated formatter/constant; rewrite
       `slot-open-branch.ts` inference to read the structured contract only and delete
       `extractTextPlannedBranchSelection` plus its helper cluster
       (`parseLabeledLine`, `isCustomLikeMessage`, `hasNonSuccessStructuredStatus`,
-      `isClearNonSuccessPlannedBranchText`, `contentText`). One decision: structured
+      `isClearNonSuccessPlannedBranchText`, `contentText`). Decision: the contract lives in the
+      top-level pi-extensions module `planned-branch-output.ts`, and structured
       `details.evidence` is the single inference contract. Evidence: ts-test green;
-      `test/cmux.test.ts` text-path case rewritten to the structured contract;
+      `test/cmux.test.ts` text-path case covers the dropped inference path;
       `planned-branch-extension.test.ts` green.
 
 - [ ] Extract the `openBranchInCmuxSlot` orchestrator and unify the workspace description.

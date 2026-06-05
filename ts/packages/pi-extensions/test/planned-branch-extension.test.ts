@@ -11,7 +11,6 @@ import registerPlannedBranchExtension, {
 	encodeBranchForPlanPath,
 	findLatestSourceBranchPlanFile,
 	formatCreatePlannedBranchPreview,
-	formatPlanBranchEvidence,
 	formatSourceBranchPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
@@ -26,6 +25,7 @@ import registerPlannedBranchExtension, {
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
 import { buildPlanContentSlugPrompt } from "../src/planned-branch/plan-content-slug.ts";
+import { formatPlanBranchEvidence } from "../src/planned-branch-output.ts";
 import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
 import type { ExecOptions } from "@asdl/planned-branch";

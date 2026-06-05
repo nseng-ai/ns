@@ -332,6 +332,31 @@ describe("cmux extension", () => {
 		expect(ctx.notifications.at(-1)?.message).toBe("Cancelled; no CMUX slot was opened.");
 	});
 
+	test("cmux-slot:open-branch does not infer from text-only planned branch output", async () => {
+		const pi = new FakePi();
+		registerCmuxSlotOpenBranchCommand(pi);
+		const ctx = new FakeCommandContext({
+			branchEntries: [
+				{
+					message: {
+						customType: "planned-branch-output",
+						content: [
+							"Created planned branch and attached plan.",
+							"Branch: feature/latest",
+							"Key: feature/latest.md",
+						].join("\n"),
+						details: { status: "success" },
+					},
+				},
+			],
+		});
+
+		await pi.commands.get("cmux-slot:open-branch")?.handler("", ctx);
+
+		expect(pi.execCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toContain("No latest [planned-branch-output] branch found");
+	});
+
 	test("cmux-slot:dispatch-plan dry-run emits preview without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planDir = await makeTempDir();
@@ -538,8 +563,15 @@ function plannedBranchOutputEntry(branch: string): unknown {
 			details: {
 				status: "success",
 				evidence: {
+					slug: branch,
 					branch,
+					branchCreation: "graphite",
+					startPoint: START_POINT,
+					namespace: "planned-branch",
 					key: `${branch}.md`,
+					refName: `refs/brmem/ns/planned-branch/${branch}:${branch}.md`,
+					commit: START_POINT,
+					sourceFile: `/plans/${branch}.md`,
 				},
 			},
 		},

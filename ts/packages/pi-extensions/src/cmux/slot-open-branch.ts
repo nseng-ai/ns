@@ -1,4 +1,5 @@
-import { isRecord, stringField } from "./primitives.ts";
+import { PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE, extractPlannedBranchEvidence } from "../planned-branch-output.ts";
+import { isRecord } from "./primitives.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type {
@@ -146,64 +147,26 @@ function extractPlannedBranchSelection(entry: unknown): PlannedBranchSelection |
 		return undefined;
 	}
 
-	return extractStructuredPlannedBranchSelection(message) ?? extractTextPlannedBranchSelection(message);
+	return extractStructuredPlannedBranchSelection(message);
 }
 
-function extractStructuredPlannedBranchSelection(
-	message: Record<string, unknown>,
-): PlannedBranchSelection | undefined {
-	if (customTypeFromMessage(message) !== "planned-branch-output") {
+function extractStructuredPlannedBranchSelection(message: Record<string, unknown>): PlannedBranchSelection | undefined {
+	if (customTypeFromMessage(message) !== PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE) {
 		return undefined;
 	}
 
-	const details = isRecord(message.details) ? message.details : undefined;
-	if (!details || details.status !== "success") {
-		return undefined;
-	}
-
-	const evidence = isRecord(details.evidence) ? details.evidence : undefined;
-	const branchName = stringField(evidence, "branch")?.trim();
-	if (!branchName) {
+	const evidence = extractPlannedBranchEvidence(message.details);
+	if (evidence === undefined) {
 		return undefined;
 	}
 
 	return withoutUndefinedProperties({
-		branchName,
-		key: stringField(evidence, "key"),
-		commit: stringField(evidence, "commit"),
-		sourceFile: stringField(evidence, "sourceFile"),
-		branchCreation: stringField(evidence, "branchCreation"),
-		startPoint: stringField(evidence, "startPoint"),
-	});
-}
-
-function extractTextPlannedBranchSelection(message: Record<string, unknown>): PlannedBranchSelection | undefined {
-	if (hasNonSuccessStructuredStatus(message)) {
-		return undefined;
-	}
-
-	const text = contentText(message.content);
-	const customType = customTypeFromMessage(message);
-	const hasTextMarker =
-		text.includes("[planned-branch-output]") || text.includes("Created planned branch and attached plan.");
-	const hasPlannedBranchMarker =
-		customType === "planned-branch-output" || (isCustomLikeMessage(message) && hasTextMarker);
-	if (!hasPlannedBranchMarker || isClearNonSuccessPlannedBranchText(text)) {
-		return undefined;
-	}
-
-	const branchName = parseLabeledLine(text, "Branch");
-	if (!branchName) {
-		return undefined;
-	}
-
-	return withoutUndefinedProperties({
-		branchName,
-		key: parseLabeledLine(text, "Key"),
-		commit: parseLabeledLine(text, "Commit"),
-		sourceFile: parseLabeledLine(text, "Source file"),
-		branchCreation: parseLabeledLine(text, "Branch creation"),
-		startPoint: parseLabeledLine(text, "Start point"),
+		branchName: evidence.branch,
+		key: evidence.key,
+		commit: evidence.commit,
+		sourceFile: evidence.sourceFile,
+		branchCreation: evidence.branchCreation,
+		startPoint: evidence.startPoint,
 	});
 }
 
@@ -215,15 +178,6 @@ function withoutUndefinedProperties(selection: LoosePlannedBranchSelection): Pla
 	if (selection.branchCreation !== undefined) cleaned.branchCreation = selection.branchCreation;
 	if (selection.startPoint !== undefined) cleaned.startPoint = selection.startPoint;
 	return cleaned;
-}
-
-function hasNonSuccessStructuredStatus(message: Record<string, unknown>): boolean {
-	const details = isRecord(message.details) ? message.details : undefined;
-	return details?.status !== undefined && details.status !== "success";
-}
-
-function isClearNonSuccessPlannedBranchText(text: string): boolean {
-	return /^Dry run:\s*/m.test(text) || /Failed to create planned branch/i.test(text);
 }
 
 async function confirmInferredBranch(
@@ -274,36 +228,6 @@ function extractMessageFromEntry(entry: unknown): Record<string, unknown> | unde
 
 function customTypeFromMessage(message: Record<string, unknown>): string | undefined {
 	return typeof message.customType === "string" ? message.customType : undefined;
-}
-
-function isCustomLikeMessage(message: Record<string, unknown>): boolean {
-	return (
-		customTypeFromMessage(message) !== undefined ||
-		message.role === "custom" ||
-		message.display !== undefined
-	);
-}
-
-function contentText(value: unknown): string {
-	if (typeof value === "string") {
-		return value;
-	}
-	if (!Array.isArray(value)) {
-		return "";
-	}
-	return value
-		.map((block) => (isRecord(block) && block.type === "text" && typeof block.text === "string" ? block.text : ""))
-		.filter((text) => text.length > 0)
-		.join("\n");
-}
-
-function parseLabeledLine(text: string, label: string): string | undefined {
-	const match = text.match(new RegExp(`^${escapeRegExp(label)}:\\s*(.+?)\\s*$`, "m"));
-	return match?.[1]?.trim() || undefined;
-}
-
-function escapeRegExp(value: string): string {
-	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function createBranchAutocompleteProvider(
