@@ -82,31 +82,33 @@ export function parseCmuxCallerContext(stdout: string): CmuxCallerContext | unde
 	return windowId === undefined ? { workspaceId, paneId } : { workspaceId, paneId, windowId };
 }
 
-export async function createCmuxSurface(
-	host: CmuxExecHost,
-	cwd: string,
-	caller: CmuxCallerContext,
-	signal: AbortSignal | undefined,
-): Promise<{ type: "created"; surface: CmuxCreatedSurface } | { type: "failed"; message: string }> {
+export interface CreateCmuxSurfaceOptions {
+	host: CmuxExecHost;
+	cwd: string;
+	caller: CmuxCallerContext;
+	signal: AbortSignal | undefined;
+}
+
+export async function createCmuxSurface(options: CreateCmuxSurfaceOptions): Promise<{ type: "created"; surface: CmuxCreatedSurface } | { type: "failed"; message: string }> {
 	const commandArgs = [
 		"--json",
 		"new-surface",
 		"--type",
 		"terminal",
 		"--workspace",
-		caller.workspaceId,
+		options.caller.workspaceId,
 		"--pane",
-		caller.paneId,
+		options.caller.paneId,
 		"--focus",
 		"true",
 	];
-	if (caller.windowId !== undefined) {
-		commandArgs.push("--window", caller.windowId);
+	if (options.caller.windowId !== undefined) {
+		commandArgs.push("--window", options.caller.windowId);
 	}
 
 	let result: ExecResult;
 	try {
-		result = await host.exec("cmux", commandArgs, cmuxExecOptions(cwd, signal));
+		result = await options.host.exec("cmux", commandArgs, cmuxExecOptions(options.cwd, options.signal));
 	} catch (error) {
 		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
 	}
@@ -155,7 +157,7 @@ export async function renameCmuxTab(
 	if (options.windowId !== undefined) {
 		commandArgs.push("--window", options.windowId);
 	}
-	return runCmuxMutation(host, cwd, commandArgs, options.signal, "renamed");
+	return runCmuxMutation({ host, cwd, commandArgs, signal: options.signal, successType: "renamed" });
 }
 
 export async function sendCmuxText(
@@ -168,26 +170,28 @@ export async function sendCmuxText(
 		commandArgs.push("--window", options.windowId);
 	}
 	commandArgs.push("--", options.text);
-	return runCmuxMutation(host, cwd, commandArgs, options.signal, "sent");
+	return runCmuxMutation({ host, cwd, commandArgs, signal: options.signal, successType: "sent" });
 }
 
-async function runCmuxMutation<TType extends "renamed" | "sent">(
-	host: CmuxExecHost,
-	cwd: string,
-	commandArgs: string[],
-	signal: AbortSignal | undefined,
-	successType: TType,
-): Promise<{ type: TType } | { type: "failed"; message: string }> {
+interface RunCmuxMutationOptions<TType extends "renamed" | "sent"> {
+	host: CmuxExecHost;
+	cwd: string;
+	commandArgs: string[];
+	signal: AbortSignal | undefined;
+	successType: TType;
+}
+
+async function runCmuxMutation<TType extends "renamed" | "sent">(options: RunCmuxMutationOptions<TType>): Promise<{ type: TType } | { type: "failed"; message: string }> {
 	let result: ExecResult;
 	try {
-		result = await host.exec("cmux", commandArgs, cmuxExecOptions(cwd, signal));
+		result = await options.host.exec("cmux", options.commandArgs, cmuxExecOptions(options.cwd, options.signal));
 	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
+		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", options.commandArgs), error) };
 	}
 	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
+		return { type: "failed", message: formatExecFailure(formatCommand("cmux", options.commandArgs), result) };
 	}
-	return { type: successType };
+	return { type: options.successType };
 }
 
 function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExecOptions {

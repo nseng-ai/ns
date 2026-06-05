@@ -28,7 +28,7 @@ describe("handoff-tab extension", () => {
 
 	test("does not register handoff-tab when tool registration is unavailable", () => {
 		const pi = new FakePi();
-		(pi as unknown as { registerTool?: undefined }).registerTool = undefined;
+		Object.defineProperty(pi, "registerTool", { value: undefined });
 
 		handoffExtension(pi);
 
