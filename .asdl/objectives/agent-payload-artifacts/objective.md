@@ -106,12 +106,21 @@ Assumptions:
 
 Risks:
 
-- Deleting the old spec path can break stale links in historical records or branches; closure evidence should classify those as historical, not current guidance.
-- Over-aggressive search-and-replace could corrupt historical evidence or unrelated domains.
-- Leaving too many compatibility mentions could make the rename look incomplete; closure evidence needs a precise allowlist of intentional leftovers.
-- Active Objectives such as command-output summaries may drift if they continue to cite the old terminology as the architectural base.
+- Deleting the old spec path can break stale links in historical records or branches; final audit evidence classifies those as historical, not current guidance.
+- Over-aggressive search-and-replace could corrupt historical evidence or unrelated domains; cleanup preserved closed history and unrelated terminology instead of rewriting it.
+- Leaving too many compatibility mentions could make the rename look incomplete; final audit evidence uses a precise allowlist of selected-Objective legacy-boundary prose, closed historical Objective evidence, glossary rejected synonyms, and unrelated non-payload wording.
+- Active Objectives such as command-output summaries may drift if they continue to cite the old terminology as the architectural base; active guidance has been updated to cite `agent-payload-artifacts` and payload artifact terminology.
 
 ## Open Questions
 
-- Which historical files should be explicitly excluded from cleanup evidence: old Semantic Updates only, or closed Objective prose as well?
-- Should any public skill documentation mention the legacy name for migration, or should public docs only expose payload artifact terminology?
+No terminology-policy questions remain open. Closed Objective records, the selected Objective's own legacy-boundary prose, glossary `_Avoid_:` examples, and unrelated non-payload uses of old terms may remain as classified audit leftovers; current public guidance should expose payload artifact terminology rather than the legacy side-channel name.
+
+## Closure
+
+Outcome: completed.
+
+The remaining payload artifact terminology cleanup is complete. The stale standalone `docs/specs/agent-payload-sidechannels.md` path was deleted as a current entry point, and the implementation-relevant contract was carried forward in this Objective using payload artifact terminology. The repo-local subagent launch prompt and embedded fallback now describe artifact-backed inspection, payload artifact paths, locators, selected-detail lookup, fallback behavior, and fail-closed validation without hidden-channel framing.
+
+Current active guidance, including `command-output-summaries` and `landed-architecture-review`, now points to the `agent-payload-artifacts` carry-forward contract or uses payload artifact terminology directly. Final audit evidence found no unclassified stale architecture references in focused current-guidance searches; remaining old terms are classified as selected-Objective transition prose, closed historical Objective evidence, glossary rejected synonyms, or unrelated non-payload language.
+
+Validation: `just dprint-check` and `git diff --check` passed during closure preparation. No implementation work was reopened, and no historical Objective slug or update history was rewritten.

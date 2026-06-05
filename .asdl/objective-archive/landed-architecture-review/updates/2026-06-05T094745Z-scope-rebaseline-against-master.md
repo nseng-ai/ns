@@ -14,7 +14,7 @@ Re-snapshot disposition by cluster:
 - **Saved-plan / planned-branch / dispatch identity** → **Parked (superseded).** Built as `@asdl/planned-branch` (`deriveContentSlug`, brmem/git/graphite gateways, dispatch composition) by the now-closed `planned-branch-ts-cli` and `planned-branch-quality-hardening`.
 - **Agent resource / skill ontology** → **Parked (substantially superseded).** Typed `SkillsLockfile` + `LockfileConsistencyCheck` (12 `PENDING_REGEN` entries), skill-install hardening, and `SkillxWorkspaceInstaller` gateway landed via the now-closed `areg-review-remediation`.
 
-A new Work cluster was added: **cross-cutting failure-as-data + gateway-extraction conventions** — the dominant architecture trend in the window (throw → discriminated returned data across `land-stack`, handoff/objective parsers, runner runtime, `ResolvePlanEvidence`, `brmem` envelopes; semantic gateway extractions). The payload-artifact / sidecar architecture is explicitly excluded as owned by the `agent-payload-artifacts` Objective.
+A new Work cluster was added: **cross-cutting failure-as-data + gateway-extraction conventions** — the dominant architecture trend in the window (throw → discriminated returned data across `land-stack`, handoff/objective parsers, runner runtime, `ResolvePlanEvidence`, `brmem` envelopes; semantic gateway extractions). The payload artifact architecture is explicitly excluded as owned by the `agent-payload-artifacts` Objective.
 
 ## Objective Impact
 

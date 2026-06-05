@@ -29,7 +29,7 @@
 
 - [ ] Review cross-cutting failure-as-data and gateway-extraction conventions.
       Review mode: run `improve-codebase-architecture` first to name the shared error/boundary contract; add `thermo-nuclear-code-quality-review` only on a concrete code-heavy slice.
-      Evidence: the dominant architecture trend in the 2026-06-03 → 06-05 window was converting throw-based paths to discriminated returned data (`land-stack`, handoff/objective parsers, runner runtime, `ResolvePlanEvidence`, `brmem` envelope parsing; removal of `HandoffUsageError`/`CustomCliUsageError`/`RuntimeResultParseError`) and extracting semantic gateways (`AregEnvironment`, `SkillxWorkspaceInstaller`, `PlannedBranch{Git,Brmem,Graphite}Gateway`). Assess whether these share a contract worth naming as a convention/helper, or park with rationale. The payload-artifact / sidecar architecture is out of scope here — it is owned by the `agent-payload-artifacts` Objective.
+      Evidence: the dominant architecture trend in the 2026-06-03 → 06-05 window was converting throw-based paths to discriminated returned data (`land-stack`, handoff/objective parsers, runner runtime, `ResolvePlanEvidence`, `brmem` envelope parsing; removal of `HandoffUsageError`/`CustomCliUsageError`/`RuntimeResultParseError`) and extracting semantic gateways (`AregEnvironment`, `SkillxWorkspaceInstaller`, `PlannedBranch{Git,Brmem,Graphite}Gateway`). Assess whether these share a contract worth naming as a convention/helper, or park with rationale. The payload artifact architecture is out of scope here — it is owned by the `agent-payload-artifacts` Objective.
 
 ## Parked
 

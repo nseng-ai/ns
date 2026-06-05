@@ -62,7 +62,7 @@ _Avoid_: "response," "output," "payload" alone; "data" alone.
 
 **Payload artifact architecture**:
 The agent-workflow pattern where large command details are held in local artifacts while the main transcript receives compact references, counts, and locators.
-_Avoid_: raw transcript dump, automatic output spooling.
+_Avoid_: side-channel, hidden channel, raw transcript dump, automatic output spooling.
 
 **Payload artifact**:
 A local workflow artifact that carries command details too large or too specific for the main agent transcript.
