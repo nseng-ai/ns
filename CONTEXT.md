@@ -9,8 +9,8 @@ A checked-in documentation workstream for durable multi-session, multi-branch, o
 _Avoid_: hidden agent state, ticket
 
 **Synthesis Objective**:
-An **Objective** that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence.
-_Avoid_: Fire-and-forget umbrella, mirrored task tracker, hidden parent state
+A prose-only **Objective** pattern that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence.
+_Avoid_: Fire-and-forget umbrella, mirrored task tracker, hidden parent state, Objective CLI feature
 
 **Child Objective**:
 A narrower **Objective** created from a parent **Synthesis Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
