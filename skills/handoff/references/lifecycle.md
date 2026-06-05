@@ -18,10 +18,12 @@ Use this reference to keep handoff vocabulary, storage, branch scope, and workfl
 - **Handoff Key**: the Branch Memory entry key for a Handoff Artifact in the `handoffs` namespace.
 - **Handoffs Namespace**: the workflow-owned Branch Memory namespace named `handoffs` where Handoff Artifacts live.
 - **Handoff Summary**: the inventory record for a Handoff Artifact, including branch, Branch State, Handoff Slug, Handoff Key, Handoff Technical Locator, and updated timestamp.
+- **List Handoffs**: the public action that presents Handoff Artifacts in a List Scope so the user can choose what to Pick Up, inspect, or clean up.
 - **Handoff Technical Locator**: storage evidence for a Handoff Artifact: branch plus Branch Memory namespace, entry key, entry locator, and commit when available.
 - **Branch State**: whether the local Git branch named by a Handoff Summary is currently `active` or `deleted`.
 - **List Scope**: the branch range used when listing Handoff Artifacts: one branch, all active local branches, or all branches including deleted local branches.
 - **All-Branches Inventory**: a handoff listing across branches that groups Handoff Summaries by branch and can optionally include deleted local branches.
+- **Delete a Handoff**: the public CLI-only action that removes one named Handoff Artifact from the current handoff inventory by exact Handoff Slug.
 - **Handoff Garbage Collection**: the explicit operation that previews or deletes Handoff Artifacts whose local branch is deleted.
 
 ## Storage contract
