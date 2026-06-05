@@ -13,7 +13,7 @@
   - Policy: direct execution after preview.
   - Evidence: standalone roaster CLI scenario tests cover top-level help listing `stack`, `roaster stack -h` mentioning Graphite/`gt`, valid sample profile resolution, invalid profile slug, and missing-profile failure.
 
-- [ ] Add stack domain models, slug helpers, and authoritative agent-output frontmatter parsing.
+- [x] Add stack domain models, slug helpers, and authoritative agent-output frontmatter parsing.
   - Thesis: roaster has typed contracts for stack requests/results, triage/resolver outputs, run manifests, dashboard rows, markers, slugs, and failure cases before orchestration depends on them.
   - Expected implementation branch/PR: `roaster-stack/contracts`.
   - Depends on: `roaster-stack/cli-profile` for public request shape only; keep this slice pure and gateway-free.
