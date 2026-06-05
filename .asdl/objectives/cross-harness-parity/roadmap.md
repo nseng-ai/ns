@@ -2,7 +2,7 @@
 
 ## Work
 
-- [x] Seed the living parity table (`parity-table.md`) from the 2026-06-03 cross-harness audit: one row per Pi command/tool with shared CLI backing, driving skill, parity verdict (FULL/PARTIAL/NONE/WAIVED), and owning Objective. Evidence: `parity-table.md` exists and classifies all ~27 surfaces.
+- [x] Seed the living parity table (`parity-table.md`) from the 2026-06-03 cross-harness audit: one row per Pi command/tool with shared CLI backing, driving skill, parity verdict (FULL/PARTIAL/NONE/WAIVED), and owning Objective. Evidence: `parity-table.md` exists and classifies the audited current Pi surfaces; removed surfaces are deleted during refreshes rather than retained as stale FULL rows.
 
 - [ ] Close the `asdl-dev` discoverability gaps: author thin skills surfacing `asdl-dev preview-url`, `cp`, and `submit` to Claude/Codex (describing CLI operations only), and reconcile the `internal-code-checkpoint` vs `asdl-dev cp` duplication (decide whether the skill wraps the CLI or the two are explicitly distinct, and record the decision). Evidence: a Claude/Codex agent can run each command from a skill; the parity table's three `asdl-dev` rows move to FULL.
 
