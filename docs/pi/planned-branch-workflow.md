@@ -5,7 +5,9 @@
 The planned-branch workflow turns a reviewed implementation plan into an
 implementation branch that carries its canonical plan with it. The portable core
 is the `@asdl/planned-branch` package and its `planned-branch` bin;
-Pi commands and installed agent skills are thin workflow surfaces over that CLI contract.
+Pi commands and installed agent skills are thin workflow surfaces over that CLI
+contract. The `planned-branch` umbrella/reference skill is the shared
+agent-skill reference root for the bundled step skills.
 
 Branch Memory is the lower storage adapter for the attached plan. It stores plan
 text under an explicit namespace/key contract, but it does not own
@@ -22,6 +24,9 @@ The public workflow surface is:
    key `<planned-branch-slug>.md` on the implementation branch.
 4. `/planned-branch:impl [key-or-slug]` in Pi, or the `planned-branch-impl`
    skill, loads the canonical attached plan and starts implementation.
+
+The agent skills form a bundled planned-branch skill family: the `planned-branch`
+umbrella/reference skill plus write-plan, create, and implement step entrypoints.
 
 The deterministic CLI operations are hidden under `planned-branch exec` so
 agents can share one package contract without duplicating implementation details.
@@ -217,8 +222,9 @@ Related public surfaces:
 
 - Pi commands: `/planned-branch:write-plan`, `/planned-branch:create`, and
   `/planned-branch:impl`.
-- Agent skills: `planned-branch-write-plan`, `planned-branch-create`, and
-  `planned-branch-impl`.
+- Agent skills: `planned-branch` umbrella/reference skill, plus
+  `planned-branch-write-plan`, `planned-branch-create`, and
+  `planned-branch-impl` step skills.
 - Branch Memory documentation: `packages/brmem/README.md` for the generic
   storage CLI that planned-branch uses for attached plans.
 

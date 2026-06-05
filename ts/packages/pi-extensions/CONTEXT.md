@@ -76,6 +76,10 @@ _Avoid_: saved plan, local plan store file, prompt template.
 The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `planned-branch` namespace contract.
 _Avoid_: Branch Memory policy, brmem-owned workflow, package import edge.
 
+**Planned-branch skill family**:
+The shippable agent-skill capability made of the `planned-branch` umbrella/reference skill plus the installed write-plan, create, and implement step skills that use it as their shared planned-branch model.
+_Avoid_: one-off skill, internal docs dependency, hidden installation requirement.
+
 **Handoff artifact**:
 A directed, saved work-context artifact for a specific future continuation.
 _Avoid_: Branch Memory entry as the user model, generic session summary, compaction.
