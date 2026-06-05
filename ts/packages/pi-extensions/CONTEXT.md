@@ -101,8 +101,8 @@ The public action for presenting Handoff artifacts through `/handoff:list` on on
 _Avoid_: deleted-branch recovery surface, global registry, storage-key-first inventory.
 
 **Handoff technical locator**:
-Storage evidence for a handoff: branch plus Branch Memory namespace `handoffs` and key `<semantic-slug>.md`.
-_Avoid_: public command vocabulary, picker label, default success copy.
+Storage evidence for a handoff: branch plus Branch Memory namespace `handoff` and flat key `<semantic-slug>.md` after the singular-namespace migration.
+_Avoid_: public command vocabulary, picker label, default success copy, `handoffs` as the target namespace.
 
 **Branch creation method**:
 The selected planned-branch creation strategy, currently `plain-git` or `graphite`.

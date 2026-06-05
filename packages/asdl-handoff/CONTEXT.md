@@ -21,16 +21,16 @@ The public action that selects an existing Handoff Artifact and makes it active 
 _Avoid_: load a handoff, read a Branch Memory Entry as the user model, separate resume lifecycle term.
 
 **Handoff Slug**:
-The user-facing semantic name for a handoff, currently derived from the recognized Markdown Entry Key by removing the `.md` suffix.
+The user-facing semantic name for a handoff, derived from the flat Markdown **Handoff Key** by removing the `.md` suffix.
 _Avoid_: Entry Locator, branch name, hidden id.
 
 **Handoff Key**:
-The Branch Memory Entry Key for a Handoff Artifact in the `handoffs` Namespace.
-_Avoid_: Entry Locator, branch name, manifest record.
+The flat Branch Memory Entry Key for a **Handoff Artifact** in the **Handoff Namespace**, shaped as `<handoff-slug>.md` in the v1 contract.
+_Avoid_: Entry Locator, branch name, manifest record, nested path.
 
-**Handoffs Namespace**:
-The workflow-owned Branch Memory Namespace named `handoffs` where Handoff Artifacts live.
-_Avoid_: Base Namespace, ad-hoc Branch Memory, all handoff state.
+**Handoff Namespace**:
+The workflow-owned Branch Memory Namespace named `handoff` where Handoff Artifacts live after the singular-namespace migration.
+_Avoid_: `handoffs`, Base Namespace, ad-hoc Branch Memory, all handoff state.
 
 **Handoff Summary**:
 The inventory record for a Handoff Artifact, including its branch, Branch State, Handoff Slug, Handoff Key, Entry Locator, and updated timestamp.
@@ -41,7 +41,7 @@ The public action that presents Handoff Artifacts in a List Scope so the user ca
 _Avoid_: global registry, search query, storage-key-first inventory.
 
 **Handoff Technical Locator**:
-Storage evidence for a Handoff Artifact: branch plus Branch Memory Namespace, Entry Key, Entry Locator, and commit when available.
+Storage evidence for a Handoff Artifact: branch plus **Handoff Namespace**, Entry Key, Entry Locator, and commit when available.
 _Avoid_: public handoff name, picker label, default success copy.
 
 **Branch State**:
