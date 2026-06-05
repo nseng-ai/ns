@@ -56,9 +56,12 @@ CLI surfaces:
 
 ```text
 handoff list [--branch <branch>|--all] [--include-deleted] --format json
+handoff delete [--branch <branch>] [-f|--force] <slug>
 handoff gc [--dry-run|-f]
 brmem get|check|put|copy|delete ... --namespace handoffs
 ```
+
+There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only.
 
 `brmem` is the storage/recovery/admin layer. Do not make it the primary public UX when a handoff CLI or Pi surface exists.
 

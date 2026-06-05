@@ -83,6 +83,8 @@ or, when using `--include-deleted`:
 No saved handoffs found across branches.
 ```
 
+For explicit removal of one stale or unneeded handoff, use `handoff delete [--branch <branch>] <slug>` with the user-facing slug (no `.md`). Use `handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.
+
 ## Select the handoff
 
 Prefer selection by explicit identity before inference:

@@ -67,6 +67,7 @@ def test_handoff_help(cli_group: ClinkrGroup) -> None:
     assert "Work with directed handoff artifacts." in result.output
     assert "--version" in result.output
     assert "list" in result.output
+    assert "delete" in result.output
     assert "gc" in result.output
 
 
@@ -93,6 +94,195 @@ def test_handoff_gc_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: handoff gc" in result.output
     assert "--dry-run" in result.output
     assert "--force" in result.output
+
+
+def test_handoff_delete_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["delete", "-h"])
+
+    assert result.exit_code == 0
+    assert "Usage: handoff delete" in result.output
+    assert "--branch" in result.output
+    assert "--force" in result.output
+    assert "--dry-run" not in result.output
+
+
+def test_handoff_delete_force_deletes_current_branch_handoff(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "alpha.md", "feat/x", "alpha")
+    gateway.put("handoffs", "bravo.md", "feat/x", "bravo")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "--force", "alpha", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "branch": "feat/x",
+        "slug": "alpha",
+        "key": "alpha.md",
+        "entry_locator": "refs/brmem/ns/handoffs/feat---x:alpha.md",
+        "deleted": True,
+        "cancelled": False,
+        "commit": "fake-0003",
+    }
+    assert gateway.get("handoffs", "alpha.md", "feat/x") is None
+    assert gateway.get("handoffs", "bravo.md", "feat/x") == "bravo"
+
+
+def test_handoff_delete_explicit_deleted_branch(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "stale.md", "feat/deleted", "stale")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "--branch", "feat/deleted", "--force", "stale", "--format", "json"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead()),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["branch"] == "feat/deleted"
+    assert payload["data"]["slug"] == "stale"
+    assert payload["data"]["deleted"] is True
+    assert gateway.get("handoffs", "stale.md", "feat/deleted") is None
+
+
+def test_handoff_delete_prompts_and_accepts(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "alpha.md", "feat/x", "alpha")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "alpha"],
+        obj=_make_obj(gateway=gateway),
+        input="y\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Delete handoff `alpha` on branch `feat/x`? [y/N]" in result.output
+    assert "Deleted handoff `alpha` on branch `feat/x`." in result.output
+    assert "Entry Locator: refs/brmem/ns/handoffs/feat---x:alpha.md" in result.output
+    assert "Commit: fake-0002" in result.output
+    assert gateway.get("handoffs", "alpha.md", "feat/x") is None
+
+
+def test_handoff_delete_prompts_and_declines(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "alpha.md", "feat/x", "alpha")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "alpha"],
+        obj=_make_obj(gateway=gateway),
+        input="n\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Delete handoff `alpha` on branch `feat/x`? [y/N]" in result.output
+    assert "Cancelled — no handoff deleted." in result.output
+    assert gateway.get("handoffs", "alpha.md", "feat/x") == "alpha"
+
+
+def test_handoff_delete_json_interactive_decline_keeps_stdout_machine_readable(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "alpha.md", "feat/x", "alpha")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "alpha", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+        input="no\n",
+    )
+    payload = _json_output(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert "Delete handoff `alpha` on branch `feat/x`? [y/N]" in result.stderr
+    assert payload["data"]["cancelled"] is True
+    assert payload["data"]["deleted"] is False
+    assert payload["data"]["commit"] is None
+    assert gateway.get("handoffs", "alpha.md", "feat/x") == "alpha"
+
+
+def test_handoff_delete_rejects_md_suffix(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "alpha.md", "feat/x", "alpha")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "alpha.md", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "invalid_handoff_slug"
+    assert "Pass the handoff slug without `.md`" in payload["message"]
+    assert gateway.get("handoffs", "alpha.md", "feat/x") == "alpha"
+
+
+def test_handoff_delete_not_found_is_exact_branch_error(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("handoffs", "missing.md", "feat/y", "other branch")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "--force", "missing", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "handoff_not_found"
+    assert "No handoff `missing` found on branch `feat/x`." in payload["message"]
+    assert gateway.get("handoffs", "missing.md", "feat/y") == "other branch"
+
+
+def test_handoff_delete_rejects_detached_head_when_branch_omitted(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "alpha", "--format", "json"],
+        obj=_make_obj(branch=DetachedHead()),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "detached_head"
+    assert "Cannot delete handoff in detached HEAD" in payload["message"]
+    assert "--branch <branch>" in payload["message"]
+
+
+def test_handoff_delete_rejects_invalid_branch(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "--branch", "feat---x", "alpha", "--format", "json"],
+        obj=_make_obj(),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "invalid_branch_name"
+    assert "feat---x" in payload["message"]
+
+
+def test_handoff_delete_rejects_slash_in_slug(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "nested/alpha", "--format", "json"],
+        obj=_make_obj(),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "invalid_handoff_slug"
+    assert "flat handoff slug" in payload["message"]
 
 
 def test_handoff_list_defaults_to_current_branch(cli_group: ClinkrGroup) -> None:

@@ -81,6 +81,14 @@ Report the destination branch, source branch, namespace, key, entry locator/ref,
 
 Only delete one explicit handoff that the user or workflow has identified. Preflight with `brmem check` unless the current command already verified it.
 
+Prefer the first-party CLI, which deletes one exact-slug handoff (pass the slug without `.md`):
+
+```bash
+handoff delete [--branch <branch>] [-f|--force] <slug>
+```
+
+There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only. Use the storage layer directly only when no `handoff delete` helper is available:
+
 ```bash
 brmem delete <semantic-slug>.md --namespace handoffs --branch <branch> --format json
 ```
