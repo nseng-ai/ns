@@ -1,7 +1,6 @@
 import { PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE, extractPlannedBranchEvidence } from "../planned-branch-output.ts";
 import { isRecord } from "./primitives.ts";
-import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
-import { getWorktreeDescription } from "./worktree-description.ts";
+import { openBranchInCmuxSlot } from "./slot.ts";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -95,24 +94,15 @@ export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranch
 	const branch = resolved.branchName;
 	ctx.ui.notify(`Opening ${branch} in a CMUX slot…`, "info");
 
-	const target = await checkoutSlot(pi, ctx.cwd, branch);
-	if ("error" in target) {
-		ctx.ui.notify(target.error, "error");
-		return;
-	}
-
-	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
-	const launched = await openCmuxWorkspace(pi, target, {
-		description,
-		failureHeading: "Checked out the branch into a slot, but failed to open the CMUX workspace.",
-		failureDetails: [`Worktree: ${target.worktreePath}`],
+	const launched = await openBranchInCmuxSlot({
+		pi,
+		cwd: ctx.cwd,
+		branchName: branch,
+		notify: (message, level) => ctx.ui.notify(message, level),
 	});
 	if ("error" in launched) {
-		ctx.ui.notify(launched.error, "error");
 		return;
 	}
-
-	ctx.ui.notify(`Opened branch in CMUX slot: ${target.branchName}`, "info");
 }
 
 async function resolveInferredPlannedBranch(ctx: {

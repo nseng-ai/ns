@@ -1,7 +1,8 @@
 import { formatCommand, formatOutputSection } from "../command-runtime.ts";
 import { parseMachineEnvelopeData } from "../machine-envelope.ts";
 import { isRecord } from "./primitives.ts";
-import type { ExecResult, ExtensionAPI } from "./types.ts";
+import { getWorktreeDescription } from "./worktree-description.ts";
+import type { ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const SLOT_TIMEOUT_MS = 30_000;
 const CMUX_TIMEOUT_MS = 10_000;
@@ -34,11 +35,52 @@ export interface SlotCheckoutTarget {
 	isAlreadyAssigned: boolean;
 }
 
+export interface OpenBranchInCmuxSlotOptions {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	branchName: string;
+	command?: string;
+	notify: (message: string, level: NotifyLevel) => void;
+	onStatus?: (message: string) => void;
+	successMessage?: (target: SlotCheckoutTarget) => string;
+}
+
 export interface OpenCmuxWorkspaceOptions {
 	description: string;
 	command?: string;
 	failureHeading?: string;
 	failureDetails?: readonly string[];
+}
+
+export async function openBranchInCmuxSlot(
+	options: OpenBranchInCmuxSlotOptions,
+): Promise<SlotCheckoutTarget | { error: string }> {
+	const { pi, cwd, branchName, command, notify, onStatus, successMessage } = options;
+	onStatus?.("checking out CMUX slot…");
+	const target = await checkoutSlot(pi, cwd, branchName);
+	if ("error" in target) {
+		notify(formatSlotCheckoutFailure(branchName, target.error), "error");
+		return target;
+	}
+
+	onStatus?.("opening CMUX slot workspace…");
+	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
+	const workspaceOptions: OpenCmuxWorkspaceOptions = {
+		description,
+		failureHeading: "Checked out branch into a CMUX slot, but failed to open the CMUX workspace.",
+		failureDetails: [`Branch: ${target.branchName}`, `Worktree: ${target.worktreePath}`],
+	};
+	if (command !== undefined) {
+		workspaceOptions.command = command;
+	}
+	const launched = await openCmuxWorkspace(pi, target, workspaceOptions);
+	if ("error" in launched) {
+		notify(launched.error, "error");
+		return launched;
+	}
+
+	notify(successMessage?.(target) ?? `Opened branch in CMUX slot: ${target.branchName}`, "info");
+	return target;
 }
 
 export async function checkoutSlot(
@@ -128,6 +170,10 @@ export function parseSlotCheckoutEnvelope(stdout: string): SlotCheckoutEnvelope 
 		return success;
 	}
 	return parseSlotCheckoutFailureEnvelope(stdout);
+}
+
+function formatSlotCheckoutFailure(branchName: string, cause: string): string {
+	return ["Failed to check out branch into a CMUX slot.", `Branch: ${branchName}`, "", cause].join("\n");
 }
 
 function parseSlotCheckoutSuccessEnvelope(stdout: string): SlotCheckoutSuccessEnvelope | undefined {

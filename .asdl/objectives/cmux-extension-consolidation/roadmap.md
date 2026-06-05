@@ -43,7 +43,7 @@
       `test/cmux.test.ts` text-path case covers the dropped inference path;
       `planned-branch-extension.test.ts` green.
 
-- [ ] Extract the `openBranchInCmuxSlot` orchestrator and unify the workspace description.
+- [x] Extract the `openBranchInCmuxSlot` orchestrator and unify the workspace description.
       Move the shared tail (checkout slot → `getWorktreeDescription` → `openCmuxWorkspace` →
       notify, with unified failure formatting) into one helper; reduce `cmux-dispatch`,
       `cmux-slot:open-branch`, and `cmux-slot:dispatch-plan` to "produce branch + optional
