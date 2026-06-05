@@ -1358,7 +1358,7 @@ async function launchHandoffTab(
 	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
 	onUpdate?.({ content: [{ type: "text", text: "Naming cmux tab…" }] });
 	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "naming cmux tab…");
-	const renameOptions: { workspaceId: string; surfaceId: string; windowId?: string; tabTitle: string; signal: AbortSignal | undefined } = {
+	const renameOptions: CmuxTabOptions = {
 		workspaceId,
 		surfaceId: created.surface.surfaceId,
 		tabTitle,
@@ -1379,14 +1379,14 @@ async function launchHandoffTab(
 		};
 	}
 
-	const launchOptions: { model?: ModelInfo; thinkingLevel: ThinkingLevel } = { thinkingLevel: currentThinkingLevel(pi) };
-	if (ctx.model !== undefined) {
-		launchOptions.model = ctx.model;
-	}
-	const command = buildPiLaunchCommand(`/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${params.branch} ${params.slug}`, launchOptions);
+	const thinkingLevel = currentThinkingLevel(pi);
+	const command = buildPiLaunchCommand(
+		`/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${params.branch} ${params.slug}`,
+		ctx.model === undefined ? { thinkingLevel } : { model: ctx.model, thinkingLevel },
+	);
 	onUpdate?.({ content: [{ type: "text", text: "Launching pickup Pi…" }] });
 	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "launching pickup Pi…");
-	const sendOptions: { workspaceId: string; surfaceId: string; windowId?: string; text: string; signal: AbortSignal | undefined } = {
+	const sendOptions: CmuxSendOptions = {
 		workspaceId,
 		surfaceId: created.surface.surfaceId,
 		text: `${command}\n`,
@@ -1418,6 +1418,28 @@ async function launchHandoffTab(
 	};
 }
 
+interface CmuxTabOptions {
+	workspaceId: string;
+	surfaceId: string;
+	windowId?: string;
+	tabTitle: string;
+	signal: AbortSignal | undefined;
+}
+
+interface CmuxSendOptions {
+	workspaceId: string;
+	surfaceId: string;
+	windowId?: string;
+	text: string;
+	signal: AbortSignal | undefined;
+}
+
+interface CmuxExecOptions {
+	cwd: string;
+	timeout: number;
+	signal?: AbortSignal;
+}
+
 async function createCmuxSurface(
 	pi: ExtensionAPI,
 	cwd: string,
@@ -1441,12 +1463,8 @@ async function createCmuxSurface(
 	}
 
 	let result: ExecResult;
-	const execOptions: { cwd: string; timeout: number; signal?: AbortSignal } = { cwd, timeout: CMUX_TIMEOUT_MS };
-	if (signal !== undefined) {
-		execOptions.signal = signal;
-	}
 	try {
-		result = await pi.exec("cmux", commandArgs, execOptions);
+		result = await pi.exec("cmux", commandArgs, cmuxExecOptions(cwd, signal));
 	} catch (error) {
 		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
 	}
@@ -1463,7 +1481,7 @@ async function createCmuxSurface(
 async function renameCmuxTab(
 	pi: ExtensionAPI,
 	cwd: string,
-	options: { workspaceId: string; surfaceId: string; windowId?: string; tabTitle: string; signal: AbortSignal | undefined },
+	options: CmuxTabOptions,
 ): Promise<{ type: "renamed" } | { type: "failed"; message: string }> {
 	const commandArgs = [
 		"rename-tab",
@@ -1483,7 +1501,7 @@ async function renameCmuxTab(
 async function sendCmuxText(
 	pi: ExtensionAPI,
 	cwd: string,
-	options: { workspaceId: string; surfaceId: string; windowId?: string; text: string; signal: AbortSignal | undefined },
+	options: CmuxSendOptions,
 ): Promise<{ type: "sent" } | { type: "failed"; message: string }> {
 	const commandArgs = ["send", "--workspace", options.workspaceId, "--surface", options.surfaceId];
 	if (options.windowId !== undefined) {
@@ -1501,12 +1519,8 @@ async function runCmuxMutation<TType extends "renamed" | "sent">(
 	successType: TType,
 ): Promise<{ type: TType } | { type: "failed"; message: string }> {
 	let result: ExecResult;
-	const execOptions: { cwd: string; timeout: number; signal?: AbortSignal } = { cwd, timeout: CMUX_TIMEOUT_MS };
-	if (signal !== undefined) {
-		execOptions.signal = signal;
-	}
 	try {
-		result = await pi.exec("cmux", commandArgs, execOptions);
+		result = await pi.exec("cmux", commandArgs, cmuxExecOptions(cwd, signal));
 	} catch (error) {
 		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
 	}
@@ -1514,6 +1528,13 @@ async function runCmuxMutation<TType extends "renamed" | "sent">(
 		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
 	}
 	return { type: successType };
+}
+
+function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExecOptions {
+	if (signal === undefined) {
+		return { cwd, timeout: CMUX_TIMEOUT_MS };
+	}
+	return { cwd, timeout: CMUX_TIMEOUT_MS, signal };
 }
 
 function parseHandoffTabLaunchParams(params: unknown): { type: "valid"; params: HandoffTabLaunchParams } | { type: "invalid"; message: string } {
