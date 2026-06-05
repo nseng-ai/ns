@@ -98,6 +98,57 @@ Treat these as requirements unless the user explicitly reopens them:
 14. Zero accepted batches publish/update dashboard, store manifest, and exit successfully without generated PRs.
 15. Matching batch slugs on rerun update existing generated PR branches in place; attempt history belongs in Branch Memory/dashboard, not in one follow-up PR per attempt.
 
+### Expected implementation PR stack
+
+The expected implementation decomposition is a nine-PR Graphite stack. These are review slices for implementing this Objective, not roaster-generated resolution PRs. Keep this decomposition unless a later Semantic Update records a better reason to split or merge slices. If an orchestrator previews only a subset at once, it should use contiguous windows of this stack and must not collapse unrelated theses into one PR merely for speed.
+
+1. `roaster-stack/cli-profile`
+   - Thesis: establish the visible `roaster stack run <profile-slug>` surface, profile resolver, and checked-in sample profile.
+   - Depends on: current roaster CLI/plugin conventions only.
+   - Validation focus: standalone roaster scenario tests and light plugin smoke for command mounting.
+
+2. `roaster-stack/contracts`
+   - Thesis: add pure stack domain contracts: slugs, models, authoritative triage/resolver frontmatter parsing, generated branch/marker data shapes, and deterministic failure cases.
+   - Depends on: `cli-profile` only for public request shape; should avoid external gateways.
+   - Validation focus: unit tests for parser/slug rejection cases and body-is-non-authoritative behavior.
+
+3. `roaster-stack/run-storage`
+   - Thesis: centralize Branch Memory run lineage under namespace `roaster-runs` on the original implementation branch scope.
+   - Depends on: `contracts` for run/profile/batch identity shapes.
+   - Validation focus: fake Branch Memory tests for index/manifest/triage/resolver keys, resume behavior, invalid branch/key failures, and no generated-branch canonical writes.
+
+4. `roaster-stack/dashboard`
+   - Thesis: render and publish one persistent implementation-PR dashboard issue comment, with markers and batch/finding/run status rows.
+   - Depends on: `contracts` and may use run-storage key locators.
+   - Validation focus: pure rendering tests and `FakePRGateway` create/update tests proving no inline review/thread mutation.
+
+5. `roaster-stack/triage-runner`
+   - Thesis: collect findings from explicit or matching roaster reviewers and feed them, plus loose profile guidance, through a fake-driven triage agent boundary.
+   - Depends on: `contracts`; integrates existing `run_review_by_key(..., requested_format="findings")` and `list_matching_reviews(...)`.
+   - Validation focus: workflow tests for explicit/default/no reviewers, reviewer failure behavior, prompt override threading, and fake triage handling.
+
+6. `roaster-stack/dry-run`
+   - Thesis: wire profile, target, review collection, triage planning, run identity, and deterministic human/JSON rendering into `--dry-run` with no external mutations.
+   - Depends on: `cli-profile`, `contracts`, `run-storage`, `dashboard`, and `triage-runner` data shapes; should not require Graphite mutation.
+   - Validation focus: scenario/workflow tests proving no Branch Memory writes, dashboard mutations, branch mutations, Graphite submit, or generated PR body edits in dry-run.
+
+7. `roaster-stack/graphite-gateway`
+   - Thesis: isolate Graphite-specific target stack reads, generated branch create/update/submit operations, and generated PR body/marker publication behind fakeable gateway boundaries.
+   - Depends on: `contracts` and run-storage/dashboard marker shapes.
+   - Validation focus: fake gateway tests for stack-tip resolution, generated branch naming, branch exists/update behavior, dependency/confidence/risk ordering, marker rendering/parsing, and Graphite failure propagation.
+
+8. `roaster-stack/resolver-loop`
+   - Thesis: implement non-dry-run mutation orchestration: persist triage, publish dashboard, run one resolver per accepted batch, enforce validation/safety gates, create/update generated branches, update lineage/dashboard, and submit the generated stack.
+   - Depends on: all prior orchestration/gateway slices.
+   - Validation focus: fake-driven workflow tests for zero accepted batches, rejected-only triage, resolver completed/failed/blocked, failed/missing validation, safety flags, dashboard/manifest phases, submit invocation/failure, existing batch update, and superseded batch recording where implemented.
+
+9. `roaster-stack/docs-closeout`
+   - Thesis: make the steelthread inspectable and usable with guarded real adapters/prompts, README documentation, plugin smoke coverage, and closeout validation.
+   - Depends on: all prior slices.
+   - Validation focus: targeted roaster tests, roaster plugin smoke, prompt resource checks, README coverage, unavailable-tool paths, and broader checks when practical.
+
+Reviewability rule: each PR should carry one human-legible thesis and its own focused tests or documented validation. Diff size is secondary; do not merge adjacent slices just because they touch the same files, especially `stack_workflow.py`.
+
 ### Existing roaster package facts to rely on
 
 Relevant files and behavior:
@@ -436,7 +487,7 @@ The second command should only run on an intentionally disposable Graphite branc
 
 This Objective is designed for autonomous pursuit by `objective-stack-impl` after the parent agent presents and the user confirms an execution preview.
 
-- Direct execution is allowed when: the preview covers 1-3 Graphite PR slices at a time, each slice has one clear thesis, the worktree is safe, and the slice stays within the steelthread MVP scope above.
+- Direct execution is allowed when: the preview follows the expected nine-PR stack or a contiguous subset/window of it, each slice has one clear thesis, the worktree is safe, and the slice stays within the steelthread MVP scope above. Prefer the full nine-PR structure when the user explicitly asks to flesh out or execute the entire stack; otherwise a 1-3 PR execution window is acceptable only if it preserves the durable branch order and does not collapse unrelated theses.
 - The parent agent may create or amend local Graphite branches, dispatch one runner subagent at a time, edit repo source/tests/docs, run local validation, and record Objective updates when meaningful progress is made.
 - Steer or ask first when: the implementation would expand beyond the steelthread MVP, require live GitHub/Graphite mutation smoke tests, submit this Objective's implementation PRs, change the public contract away from `roaster stack run <profile-slug>`, introduce deterministic profile-prose parsing, remove existing roaster review behavior, or choose between materially different real agent runner designs.
 - How work may be left: completed slices should be committed/amended through the repo Graphite workflow after parent-side validation. Blocked slices may leave inspected local changes only if the parent reports the blocker, validation state, and recommended recovery path.

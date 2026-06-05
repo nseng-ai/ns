@@ -4,6 +4,8 @@
 
 - [ ] Add the visible stack CLI skeleton, profile resolver, and sample profile.
   - Thesis: `roaster stack run <profile-slug>` becomes a discoverable, Graphite-explicit user-facing surface with safe profile lookup and no deterministic markdown-profile parsing.
+  - Expected implementation branch/PR: `roaster-stack/cli-profile`.
+  - Depends on: existing roaster CLI/plugin conventions only; this should not introduce Graphite, GitHub, Branch Memory, or agent mutation gateways beyond help text and request shape.
   - Likely files: `packages/roaster/src/roaster/cli/roaster/group.py`, `packages/roaster/src/roaster/cli/roaster/stack/__init__.py`, `packages/roaster/src/roaster/cli/roaster/stack/group.py`, `packages/roaster/src/roaster/cli/roaster/stack/run.py`, `packages/roaster/src/roaster/stack_profile.py`, `.roaster/profiles/thermonuclear-stack.md`, and `packages/roaster/tests/scenario/test_stack_cli.py`.
   - Request shape to consider: profile slug, `--target-branch`, `--target-pr`, repeated `--reviewer`, `--model`, `--harness`, `--base-ref`, `--dry-run`, `--new-run`, optional `--run-slug`, `--triage-prompt`, `--resolver-prompt`, and agent model control if supported.
   - Profile rules: slug is a single safe path segment; read `.roaster/profiles/<slug>.md` relative to repo root/cwd; return raw markdown path/content; do not parse headings or prose.
@@ -13,6 +15,8 @@
 
 - [ ] Add stack domain models, slug helpers, and authoritative agent-output frontmatter parsing.
   - Thesis: roaster has typed contracts for stack requests/results, triage/resolver outputs, run manifests, dashboard rows, markers, slugs, and failure cases before orchestration depends on them.
+  - Expected implementation branch/PR: `roaster-stack/contracts`.
+  - Depends on: `roaster-stack/cli-profile` for public request shape only; keep this slice pure and gateway-free.
   - Likely files: `packages/roaster/src/roaster/stack_models.py`, `packages/roaster/src/roaster/stack_agent_output.py`, `packages/roaster/src/roaster/stack_slugs.py`, `packages/roaster/tests/unit/test_stack_agent_output.py`, and `packages/roaster/tests/unit/test_stack_slugs.py`.
   - Triage frontmatter schema should include `schema_version: roaster.stack.triage.v1`, summary, findings with `id`, `source_review`, path/line/severity/summary/details, `status: accepted | rejected | merged`, rationale, optional `merged_into`, `confidence: high | medium | low`, and `risk: mechanical | behavioral | architectural | speculative`; batches with slug/title/summary/finding IDs/dependencies/confidence/risk/resolver mandate/validation requirements.
   - Resolver frontmatter schema should include `schema_version: roaster.stack.resolver.v1`, `batch_slug`, `status: completed | failed | blocked`, summary, files changed, validation entries with command/status/output summary, and safety flags for unresolved conflicts, destructive changes, secrets/security sensitivity, validation evidence missing, and notes.
@@ -23,6 +27,8 @@
 
 - [ ] Add Branch Memory run storage for roaster stack lineage.
   - Thesis: canonical run lineage is persisted under namespace `roaster-runs` on the original implementation branch, with centralized key construction and resume index behavior.
+  - Expected implementation branch/PR: `roaster-stack/run-storage`.
+  - Depends on: `roaster-stack/contracts` for profile/run/batch identities and Branch Memory-safe key segments.
   - Likely files: `packages/roaster/pyproject.toml`, optional `packages/roaster/src/roaster/gateways/roaster_runs/{gateway.py,real.py,fake.py}`, `packages/roaster/src/roaster/stack_workflow.py`, and focused run-storage tests using `FakeBranchMemoryGateway`.
   - Namespace: `roaster-runs`.
   - Canonical branch scope: original implementation branch, never generated roaster branches.
@@ -35,6 +41,8 @@
 
 - [ ] Add stack dashboard rendering and PR issue-comment publication.
   - Thesis: each roaster stack run owns one persistent dashboard comment on the implementation PR, updated in place with run, batch, finding, validation, and generated PR status.
+  - Expected implementation branch/PR: `roaster-stack/dashboard`.
+  - Depends on: `roaster-stack/contracts`; may consume run-storage locators but should remain separately reviewable from Branch Memory writes.
   - Likely files: `packages/roaster/src/roaster/stack_dashboard.py`, `packages/roaster/src/roaster/stack_markers.py`, dashboard unit tests, and possibly a small publication helper wrapping existing `PRGateway` comment methods.
   - Dashboard marker recommendation: `<!-- roaster-stack-dashboard {"version":1,"profile_slug":"thermonuclear-stack"} -->`.
   - Dashboard content: heading `## roaster stack · <profile-slug>`, target implementation branch/PR, run slug, Branch Memory namespace/key pointer, reviewers run, accepted/rejected/superseded/submitted/failed/blocked counts, batch table with slug/title/summary/confidence/risk/finding IDs/generated branch/generated PR/resolver-validation status, rejected findings summary, and capped activity log if implemented.
@@ -45,6 +53,8 @@
 
 - [ ] Add review collection and the triage agent-runner boundary.
   - Thesis: the workflow can collect findings from explicit or matching roaster reviewers and feed them, with profile guidance, into a fake-driven triage/verifier agent boundary.
+  - Expected implementation branch/PR: `roaster-stack/triage-runner`.
+  - Depends on: `roaster-stack/contracts`; integrates existing review workflow behavior but should not implement resolver mutation yet.
   - Likely files: `packages/roaster/src/roaster/stack_workflow.py`, `packages/roaster/src/roaster/gateways/agent_runner/{gateway.py,real.py,fake.py}`, `packages/roaster/src/roaster/prompts/stack_triage.md`, and fake-agent tests.
   - Reviewer behavior: repeated `--reviewer` runs exactly those keys; otherwise call `list_matching_reviews(...)` and run selected keys with `requested_format="findings"`; preserve reviewer usage metadata in manifest when available.
   - Recommended zero-reviewer behavior: if no explicit reviewer was requested and matching selects none, return/publish zero-finding success with clear manifest/dashboard text; explicit missing/failing reviewers are non-ideal failures.
@@ -56,6 +66,8 @@
 
 - [ ] Implement dry-run stack orchestration and CLI rendering.
   - Thesis: `roaster stack run ... --dry-run` exercises profile resolution, target resolution, reviewer collection, triage planning, manifest/action shaping, and deterministic human/JSON rendering without mutating Branch Memory, GitHub, Graphite, branches, or external systems.
+  - Expected implementation branch/PR: `roaster-stack/dry-run`.
+  - Depends on: prior CLI/profile, contract, run-storage, dashboard, and triage-runner data shapes; it should prove orchestration without enabling mutation.
   - Likely files: `packages/roaster/src/roaster/stack_workflow.py`, `packages/roaster/src/roaster/cli/roaster/stack/run.py`, result renderers, and `packages/roaster/tests/scenario/test_stack_cli.py`.
   - Dry-run may run reviewers and the triage agent because those are non-mutating in this design.
   - Dry-run must not call Branch Memory `put`, PR dashboard add/update, Graphite checkout/create/modify/submit, generated PR body editing, or external write operations.
@@ -66,6 +78,8 @@
 
 - [ ] Add the Graphite stack gateway and generated branch/PR marker support.
   - Thesis: all Graphite-specific stack reads and mutations sit behind a roaster-specific gateway that can attach generated resolution branches above the target implementation stack while preserving lineage to the original target branch/PR.
+  - Expected implementation branch/PR: `roaster-stack/graphite-gateway`.
+  - Depends on: `roaster-stack/contracts` plus marker/run-storage shapes; do not wire the full resolver loop in this slice.
   - Likely files: `packages/roaster/src/roaster/gateways/graphite_stack/{gateway.py,real.py,fake.py}`, `packages/roaster/src/roaster/stack_markers.py`, generated branch name helpers, PR marker/body helpers, gateway fake tests, and possibly a narrow PR body publication gateway.
   - Graphite gateway operations should cover reading current/target stack, checking out target branch/tip, creating generated branches with `gt create <branch> -m "roaster: <batch title>"`, updating existing generated branches with `gt modify ...`, and submitting via `gt submit --no-interactive`.
   - Target logic: default to current Graphite branch/PR; allow `--target-branch` and/or `--target-pr`; if target implementation is itself a Graphite stack, attach generated resolution PRs above the topmost descendant while storing lineage against the originally targeted branch/PR.
@@ -76,6 +90,8 @@
 
 - [ ] Implement resolver-loop mutation orchestration and hard safety stops.
   - Thesis: non-dry-run orchestration persists triage, publishes the dashboard, runs one resolver agent per accepted batch at the current stack tip, enforces structured validation/safety reports, creates or updates generated branches, updates manifest/dashboard status, submits the generated stack, and stops safely on failure.
+  - Expected implementation branch/PR: `roaster-stack/resolver-loop`.
+  - Depends on: all prior stack workflow/gateway slices; this is where the mutation steelthread is connected end-to-end behind fakes.
   - Likely files: `packages/roaster/src/roaster/stack_workflow.py`, `packages/roaster/src/roaster/prompts/stack_resolver.md`, agent runner fake, Branch Memory storage, dashboard publication, Graphite stack gateway fake.
   - Suggested phases: load profile; resolve target PR/branch; resolve attach tip; resolve/reuse/create run slug; run reviewers; run triage; parse/order batches; dry-run return if requested; persist triage/manifest; publish dashboard; if zero batches mark complete-no-batches; checkout stack tip; for each batch run resolver, parse resolver frontmatter, enforce validation/safety, create/update generated branch, persist resolver/manifest, update dashboard; submit generated stack; update manifest/dashboard final status.
   - Hard stops: invalid profile/slug/key/branch; unresolved target; Graphite stack read/untracked failure; explicit reviewer missing/failing; invalid triage; duplicate/unknown/cyclic finding or batch references; resolver status not completed; failed/skipped/absent validation when evidence is required; safety flags; Graphite create/modify/submit failure; dashboard failure before mutation.
@@ -85,6 +101,8 @@
 
 - [ ] Add guarded real adapters, README documentation, plugin smoke coverage, and closeout validation.
   - Thesis: the steelthread is usable and inspectable: default prompts are packaged, real adapters fail clearly or run through guarded boundaries, docs explain behavior and safety limits, and plugin/package checks show the feature is integrated.
+  - Expected implementation branch/PR: `roaster-stack/docs-closeout`.
+  - Depends on: all prior slices; this should not add new core workflow semantics except guarded real-adapter/documentation details discovered during implementation.
   - Likely files: `packages/roaster/src/roaster/gateways/agent_runner/real.py`, `packages/roaster/src/roaster/gateways/graphite_stack/real.py`, `packages/roaster/README.md`, `packages/roaster/pyproject.toml`, prompt package resources, and `tests/scenario/test_plugins.py`.
   - README should cover quickstart, Graphite requirement and generated auto-submit behavior, loose `.roaster/profiles/<slug>.md` guidance, default and override prompt files, Branch Memory namespace/keys, dashboard-only MVP, no inline comments/thread resolution, rerun/resume/default behavior, `--new-run`, `--dry-run`, safety stops, manual dry-run smoke, and real mutation smoke only on disposable branches/PRs.
   - Package resources should include `stack_triage.md` and `stack_resolver.md` and tests/importlib checks should ensure they are packaged.
