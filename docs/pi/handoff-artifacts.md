@@ -5,10 +5,10 @@ A handoff is a directed, durable work-context artifact for a specific future con
 The public model is:
 
 - **Create a handoff** when pausing or transferring focused work.
-- **Pick up a handoff** when resuming from an existing artifact.
+- **Pick up a handoff** when selecting an existing artifact, including when the user asks to resume from it.
 - **List handoffs** when choosing what to resume.
 - **Delete a handoff** when explicitly removing one artifact by exact slug through the Python CLI.
-- **Resume from a handoff** after it has been picked up.
+- Continue the recorded work after the handoff has been picked up.
 
 Branch Memory may store the artifact, but Branch Memory namespaces, keys, refs, and commits are technical locators. They should not be the default user model.
 
@@ -68,6 +68,8 @@ Compaction is an in-session context-management mechanism. It is not a named dura
 A generic session summary can be useful, but it is usually organized around what happened. A handoff is organized around what a future continuation must do next.
 
 ## Create flow implications
+
+Requests to write or stash durable handoff context route to the create flow, but normal success copy and glossary language should still say create a handoff.
 
 A create flow should make the continuation focus first-class. If the user says only "create a handoff" without enough focus, ask a cheap clarifying question rather than producing an undirected summary.
 
@@ -165,6 +167,8 @@ Portable first-party skills:
 - `handoff-create`
 - `handoff-pickup`
 
+There are no `handoff-save` or `handoff-load` skill aliases; those names are rejected handoff terminology, not compatibility entrypoints.
+
 `/handoff:create` requires a meaningful continuation focus. If the user omits it, the command asks:
 
 ```text
@@ -183,7 +187,7 @@ key:       <semantic-slug>.md
 branch:    <branch carrying the handoff>
 ```
 
-Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public create/pick-up/list UX should hide those details until the user needs technical evidence.
+Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public create, pick up, and list UX should hide those details until the user needs technical evidence.
 
 Useful recovery commands:
 

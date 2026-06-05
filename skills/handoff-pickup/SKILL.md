@@ -13,7 +13,7 @@ Use this skill to pick up, choose, or list Markdown handoff artifacts and resume
 
 This is the pickup/list/resume step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
 
-Normal user language is pick up / list / resume from a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
+Normal pickup/list intent uses pick up / choose / list / continue from / resume from a handoff. Treat resume-from wording as pickup intent, not a separate lifecycle action. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
 ## Storage contract
 

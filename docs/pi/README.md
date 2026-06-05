@@ -180,7 +180,7 @@ See [Planned Branch Workflow](./planned-branch-workflow.md).
 
 ## Handoff artifacts
 
-A handoff is a directed, durable work-context artifact for a specific future continuation. Use create/pick-up/list/resume language in normal user-facing copy; Branch Memory is the current technical storage layer, not the public model. The project-local Pi command surface remains `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; explicit single-handoff deletion is currently available through the Python CLI as `handoff delete [--branch <branch>] [-f|--force] <slug>`.
+A handoff is a directed, durable work-context artifact for a specific future continuation. Use create, pick up, list, and continue language in normal user-facing copy; Branch Memory is the current technical storage layer, not the public model. The project-local Pi command surface remains `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; explicit single-handoff deletion is currently available through the Python CLI as `handoff delete [--branch <branch>] [-f|--force] <slug>`.
 
 See [Handoff Artifacts](./handoff-artifacts.md).
 

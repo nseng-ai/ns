@@ -96,6 +96,10 @@ _Avoid_: save a handoff, Branch Memory write as the user model.
 The public action for selecting an existing Handoff artifact through `/handoff:pickup` and injecting it as active session context.
 _Avoid_: load a handoff, read a Branch Memory entry as the user model.
 
+**List handoffs**:
+The public action for presenting Handoff artifacts through `/handoff:list` on one branch or across active local branches.
+_Avoid_: deleted-branch recovery surface, global registry, storage-key-first inventory.
+
 **Handoff technical locator**:
 Storage evidence for a handoff: branch plus Branch Memory namespace `handoffs` and key `<semantic-slug>.md`.
 _Avoid_: public command vocabulary, picker label, default success copy.

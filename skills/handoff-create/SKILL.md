@@ -13,7 +13,7 @@ Use this skill to create a concise, directed Markdown handoff artifact for a fut
 
 This is the create step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on writing one artifact.
 
-Normal user language is create / pick up / resume from a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
+Normal create intent uses create / write / stash a handoff. Pick up, continue-from, or resume-from intent belongs to `handoff-pickup`. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
 ## Direction first
 
