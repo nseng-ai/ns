@@ -181,11 +181,16 @@ supported and otherwise defaults to `zsh`.
 `slot gt` is the explicit opt-in Graphite-dependent surface. Everything outside
 this subgroup works from plain Git worktrees.
 
-| Command              | Description                                                            |
-| -------------------- | ---------------------------------------------------------------------- |
-| `slot gt up`         | Print/copy a `cd` command for the immediate upstack Graphite branch.   |
-| `slot gt down`       | Print/copy a `cd` command for the immediate downstack Graphite branch. |
-| `slot gt free-stack` | Free every slot in the current stack except current branch and trunk.  |
+| Command              | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| `slot gt up`         | Navigate to the immediate upstack Graphite branch.                    |
+| `slot gt down`       | Navigate to the immediate downstack Graphite branch.                  |
+| `slot gt free-stack` | Free every slot in the current stack except current branch and trunk. |
+
+`slot gt up` and `slot gt down` navigate to an already checked-out target branch
+when possible; otherwise they check out the target branch into an available clean
+slot from the existing pool before navigating. They do not create slots on
+demand.
 
 ## What slot does not do
 

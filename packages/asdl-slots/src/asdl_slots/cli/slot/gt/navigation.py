@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -8,6 +9,8 @@ from asdl_core import get_console
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.clipboard import ClipboardCopyFailure, ClipboardCopySuccess
+from asdl_slots.lifecycle.checkout import checkout_branch
+from asdl_slots.lifecycle.outcomes import SlotLifecycleFailure
 from asdl_slots.naming import extract_slot_number
 from asdl_slots.shell_integration import write_cd_directive_if_active
 
@@ -23,10 +26,17 @@ class GtNavigationTarget(ClinkrModel):
     branch_name: str
     worktree_path: str
     cd_command: str
+    already_assigned: bool
     clipboard_copied: bool
     clipboard_skipped: bool
     clipboard_failure_reason: str | None
     clipboard_failure_detail: str | None
+
+
+@dataclass(frozen=True)
+class WorktreeResolution:
+    target: WorktreeTarget
+    already_assigned: bool
 
 
 def find_worktree_for_branch(slots_ctx: SlotsCliContext, branch: str) -> WorktreeTarget | None:
@@ -42,12 +52,35 @@ def find_worktree_for_branch(slots_ctx: SlotsCliContext, branch: str) -> Worktre
     return None
 
 
+def resolve_or_checkout_worktree_for_branch(
+    slots_ctx: SlotsCliContext,
+    branch: str,
+) -> WorktreeResolution | SlotLifecycleFailure:
+    existing = find_worktree_for_branch(slots_ctx, branch)
+    if existing is not None:
+        return WorktreeResolution(target=existing, already_assigned=True)
+
+    outcome = checkout_branch(slots_ctx, branch, new_branch=False, base=None)
+    if isinstance(outcome, SlotLifecycleFailure):
+        return outcome
+
+    return WorktreeResolution(
+        target=WorktreeTarget(
+            slot_name=outcome.slot_name or None,
+            branch_name=outcome.branch_name,
+            worktree_path=outcome.worktree_path,
+        ),
+        already_assigned=outcome.already_assigned,
+    )
+
+
 def build_navigation_result(
     slots_ctx: SlotsCliContext,
     target: WorktreeTarget,
     no_clipboard: bool,
     *,
     write_cd_directive: bool = True,
+    already_assigned: bool = True,
 ) -> GtNavigationTarget:
     worktree_path = str(target.worktree_path)
     write_cd_directive_if_active(worktree_path, enabled=write_cd_directive)
@@ -67,6 +100,7 @@ def build_navigation_result(
         branch_name=target.branch_name,
         worktree_path=worktree_path,
         cd_command=cd_command,
+        already_assigned=already_assigned,
         clipboard_copied=clipboard_copied,
         clipboard_skipped=no_clipboard,
         clipboard_failure_reason=clipboard_failure_reason,
@@ -81,9 +115,14 @@ def render_gt_navigation(result: GtNavigationTarget) -> None:
             f"[green]{result.branch_name}[/green] is checked out at "
             f"[bold cyan]{result.worktree_path}[/bold cyan]"
         )
-    else:
+    elif result.already_assigned:
         console.print(
             f"[bold cyan]{result.slot_name}[/bold cyan] -> [green]{result.branch_name}[/green]"
+        )
+    else:
+        console.print(
+            f"Checked out [bold cyan]{result.slot_name}[/bold cyan] -> "
+            f"[green]{result.branch_name}[/green]"
         )
     click.echo(result.cd_command)
     if result.clipboard_skipped:

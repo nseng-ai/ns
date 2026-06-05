@@ -16,9 +16,10 @@ from asdl_slots.cli.slot.gt.context import load_slot_gt_context
 from asdl_slots.cli.slot.gt.navigation import (
     GtNavigationTarget,
     build_navigation_result,
-    find_worktree_for_branch,
     render_gt_navigation,
+    resolve_or_checkout_worktree_for_branch,
 )
+from asdl_slots.lifecycle.outcomes import SlotLifecycleFailure
 from asdl_slots.repo_context import NoRepoSentinel
 
 
@@ -77,19 +78,15 @@ def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavi
 
     (child,) = children
 
-    target = find_worktree_for_branch(slots_ctx, child)
-    if target is None:
-        raise ClinkrExit.negative(
-            message=(
-                f"Upstack branch '{child}' is not checked out in any worktree. "
-                f"Run `slot checkout {child}`."
-            )
-        )
+    resolution = resolve_or_checkout_worktree_for_branch(slots_ctx, child)
+    if isinstance(resolution, SlotLifecycleFailure):
+        return ClinkrExit.failure(error_type=resolution.error_type, message=resolution.message)
     return ClinkrExit.ok(
         build_navigation_result(
             slots_ctx,
-            target,
+            resolution.target,
             request.no_clipboard,
             write_cd_directive=not is_machine_mode(ctx),
+            already_assigned=resolution.already_assigned,
         )
     )

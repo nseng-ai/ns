@@ -194,6 +194,44 @@ def test_slot_gt_up_navigates_to_single_child_slot(
     assert directive_path.read_text(encoding="utf-8") == str(slot_path)
 
 
+def test_slot_gt_up_checks_out_child_into_available_slot_when_unassigned(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    main_path = (tmp_path / "repo").resolve()
+    target_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
+    fakes = _make_fakes(
+        tmp_path,
+        branches=("main", "feat/base", "feat/child"),
+        worktrees=(
+            WorktreeInfo(path=main_path, branch="feat/base", is_bare=False),
+            WorktreeInfo(path=target_path, branch=None, is_bare=False),
+        ),
+        current_branch_by_path={main_path: "feat/base", target_path: DetachedHead()},
+        gt=FakeGtGateway(
+            branch_by_cwd={main_path: "feat/base"},
+            children_by_branch={"feat/base": ("feat/child",)},
+        ),
+    )
+    directive_path = tmp_path / "cd-directive"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "up"],
+        obj=_obj(fakes.ctx),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Checked out" in result.output
+    assert "slot-01" in result.output
+    assert "feat/child" in result.output
+    assert f"cd {target_path}" in result.output
+    assert fakes.clipboard.last_copied == f"cd {target_path}"
+    assert directive_path.read_text(encoding="utf-8") == str(target_path)
+    assert fakes.git._checkout_calls == [(target_path, "feat/child")]
+
+
 def test_slot_gt_up_multiple_children_is_negative(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -247,6 +285,86 @@ def test_slot_gt_down_navigates_to_parent_main_worktree(
     assert f"cd {main_path}" in result.output
     assert fakes.clipboard.last_copied == f"cd {main_path}"
     assert directive_path.read_text(encoding="utf-8") == str(main_path)
+
+
+def test_slot_gt_down_checks_out_parent_into_available_slot_when_unassigned(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    main_path = (tmp_path / "repo").resolve()
+    current_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-04"
+    target_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-03"
+    fakes = _make_fakes(
+        tmp_path,
+        current_path_name="slot-04",
+        current_branch="feat/child",
+        branches=("main", "feat/parent", "feat/child"),
+        worktrees=(
+            WorktreeInfo(path=main_path, branch="main", is_bare=False),
+            WorktreeInfo(path=target_path, branch=None, is_bare=False),
+            WorktreeInfo(path=current_path, branch="feat/child", is_bare=False),
+        ),
+        current_branch_by_path={
+            main_path: "main",
+            target_path: DetachedHead(),
+            current_path: "feat/child",
+        },
+        gt=FakeGtGateway(
+            branch_by_cwd={current_path: "feat/child"},
+            parent_by_branch={"feat/child": "feat/parent"},
+        ),
+    )
+    directive_path = tmp_path / "cd-directive"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "down"],
+        obj=_obj(fakes.ctx),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Checked out" in result.output
+    assert "slot-03" in result.output
+    assert "feat/parent" in result.output
+    assert f"cd {target_path}" in result.output
+    assert fakes.clipboard.last_copied == f"cd {target_path}"
+    assert directive_path.read_text(encoding="utf-8") == str(target_path)
+    assert fakes.git._checkout_calls == [(target_path, "feat/parent")]
+
+
+def test_slot_gt_down_pool_full_when_target_unassigned_and_no_clean_detached_slot(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    main_path = (tmp_path / "repo").resolve()
+    slot_01 = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
+    slot_02 = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-02"
+    fakes = _make_fakes(
+        tmp_path,
+        branches=("main", "feat/base", "feat/parent", "feat/other"),
+        worktrees=(
+            WorktreeInfo(path=main_path, branch="feat/base", is_bare=False),
+            WorktreeInfo(path=slot_01, branch="main", is_bare=False),
+            WorktreeInfo(path=slot_02, branch="feat/other", is_bare=False),
+        ),
+        current_branch_by_path={
+            main_path: "feat/base",
+            slot_01: "main",
+            slot_02: "feat/other",
+        },
+        gt=FakeGtGateway(
+            branch_by_cwd={main_path: "feat/base"},
+            parent_by_branch={"feat/base": "feat/parent"},
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["gt", "down"], obj=_obj(fakes.ctx))
+
+    assert result.exit_code != 0
+    assert "Pool is full" in result.output
+    assert "Free a slot" in result.output
+    assert fakes.git._checkout_calls == []
 
 
 def test_slot_gt_down_untracked_branch_failure(
