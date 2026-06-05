@@ -124,16 +124,21 @@ function grillAskToolResult(details: unknown): unknown {
 }
 
 function commandContext(
-	options: { hasUI?: boolean; editorResult?: string; editorTitles?: string[]; notifications?: Notification[] } = {},
+	options: {
+		hasUI?: boolean;
+		editorResult?: string;
+		onEditorTitle?: (title: string) => void;
+		onNotification?: (notification: Notification) => void;
+	} = {},
 ): GrillUiCommandContext {
 	return {
 		hasUI: options.hasUI ?? true,
 		ui: {
 			editor: async (title) => {
-				options.editorTitles?.push(title);
+				options.onEditorTitle?.(title);
 				return options.editorResult;
 			},
-			notify: (message, level) => options.notifications?.push({ message, level }),
+			notify: (message, level) => options.onNotification?.({ message, level }),
 		},
 		waitForIdle: async () => {},
 	};
@@ -243,7 +248,13 @@ describe("/grill-ui command", () => {
 		const { pi, command } = register();
 		const notifications: Notification[] = [];
 
-		await command.handler("", commandContext({ editorResult: "   ", notifications }));
+		await command.handler(
+			"",
+			commandContext({
+				editorResult: "   ",
+				onNotification: (notification) => notifications.push(notification),
+			}),
+		);
 
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(notifications).toEqual([{ message: "No plan/design provided for /grill-ui.", level: "warning" }]);
@@ -300,7 +311,13 @@ describe("/grill-with-docs-ui command", () => {
 		const { pi, docsCommand } = register();
 		const editorTitles: string[] = [];
 
-		await docsCommand.handler("", commandContext({ editorResult: "Edited docs plan text", editorTitles }));
+		await docsCommand.handler(
+			"",
+			commandContext({
+				editorResult: "Edited docs plan text",
+				onEditorTitle: (title) => editorTitles.push(title),
+			}),
+		);
 
 		expect(editorTitles).toEqual(["What plan or design should be grilled against docs?"]);
 		expect(pi.sentUserMessages).toHaveLength(1);
@@ -311,7 +328,13 @@ describe("/grill-with-docs-ui command", () => {
 		const { pi, docsCommand } = register();
 		const notifications: Notification[] = [];
 
-		await docsCommand.handler("", commandContext({ editorResult: "   ", notifications }));
+		await docsCommand.handler(
+			"",
+			commandContext({
+				editorResult: "   ",
+				onNotification: (notification) => notifications.push(notification),
+			}),
+		);
 
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(notifications).toEqual([{ message: "No plan/design provided for /grill-with-docs-ui.", level: "warning" }]);
