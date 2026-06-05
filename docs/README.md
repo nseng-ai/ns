@@ -9,7 +9,8 @@ Start here before broad documentation searches. This directory collects cross-pa
 - `packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
 - `skills/<name>/SKILL.md`: user-facing agent procedure. Public skills should describe CLI operations and avoid implementation internals.
 - `.asdl/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
-- `docs/adr/`: future home for durable architecture decisions if/when ADRs are introduced.
+- `.asdl/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
+- `docs/adr/`: durable architecture decision records.
 
 ## Index
 
@@ -19,7 +20,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
 - [asdl exec commands](asdl-exec/README.md): deterministic command boundaries for skills and agents.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
-- [Slot co-autocomplete plan](slot-co-autocomplete-plan.md): slot autocomplete design notes.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 
