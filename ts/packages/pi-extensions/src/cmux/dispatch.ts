@@ -10,7 +10,7 @@ import {
 } from "./branch-slug.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import { formatErrorMessage, type TextResult } from "./primitives.ts";
-import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
+import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "cmux-dispatch";
@@ -70,13 +70,6 @@ export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Pr
 		return;
 	}
 
-	ctx.ui.notify(`Checking out ${branch.branchName} into a slot…`, "info");
-	const target = await checkoutSlot(pi, ctx.cwd, branch.branchName);
-	if ("error" in target) {
-		ctx.ui.notify(target.error, "error");
-		return;
-	}
-
 	let promptFile: string;
 	try {
 		promptFile = await writePromptFile(dispatchOptions, branch.branchName, prompt);
@@ -86,25 +79,22 @@ export async function handleCmuxDispatch(options: HandleCmuxDispatchOptions): Pr
 	}
 
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launched = await openCmuxWorkspace(pi, target, {
-		description: target.slotName,
+	const launched = await openBranchInCmuxSlot({
+		pi,
+		cwd: ctx.cwd,
+		branchName: branch.branchName,
 		command: buildPiLaunchCommand(`@${promptFile}`, launchOptions),
-		failureHeading: "Created tracked branch and slot worktree, but failed to open cmux workspace.",
-		failureDetails: [`Branch: ${target.branchName}`, `Worktree: ${target.worktreePath}`],
+		notify: (message, level) => ctx.ui.notify(message, level),
+		successMessage: (target) =>
+			[
+				`Opened cmux workspace: ${target.branchName}`,
+				`Parent: ${branch.parentBranch}`,
+				`Start point: ${branch.startPoint}`,
+			].join("\n"),
 	});
 	if ("error" in launched) {
-		ctx.ui.notify(launched.error, "error");
 		return;
 	}
-
-	ctx.ui.notify(
-		[
-			`Opened cmux workspace: ${target.branchName}`,
-			`Parent: ${branch.parentBranch}`,
-			`Start point: ${branch.startPoint}`,
-		].join("\n"),
-		"info",
-	);
 }
 
 export async function createTrackedBranchForPrompt(
