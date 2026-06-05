@@ -1,30 +1,40 @@
-import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
-
-import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
-import { buildPiLaunchCommand } from "./cmux/pi-launch.ts";
-import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
+import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { isRecord } from "./cmux/primitives.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";
+import { buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
+import {
+	BRMEM_TIMEOUT_MS,
+	CREATE_HANDOFF_COMMAND_NAME,
+	HANDOFF_TIMEOUT_MS,
+	HANDOFF_TAB_COMMAND_NAME,
+	LIST_HANDOFF_COMMAND_NAME,
+	PICKUP_HANDOFF_COMMAND_NAME,
+	SAVE_HANDOFF_FALLBACK,
+	SAVE_HANDOFF_SKILL_NAME,
+	currentBranch,
+	errorMessage,
+	expandHandoffSkill,
+	fencedBlock,
+	formatExecFailure,
+	formatStartupFailure,
+	resolveSaveFocus,
+	setStatus,
+} from "./handoff/shared.ts";
+import type {
+	CommandContext,
+	CustomMessage,
+	ExtensionAPI,
+	RenderComponent,
+	RenderTheme,
+} from "./handoff/runtime-types.ts";
 
-export type { ExecResult } from "./command-runtime.ts";
+export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";
+export type { HandoffTabLaunchResult } from "./handoff/tab.ts";
+export { buildHandoffTabPrompt, deriveSemanticHandoffSlug };
 
-const HANDOFF_NAMESPACE = "handoffs";
-const HANDOFF_KEY_SUFFIX = ".md";
-const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
-const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
-const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
-const HANDOFF_TAB_COMMAND_NAME = "handoff-tab";
-const HANDOFF_TAB_LAUNCH_TOOL_NAME = "handoff_tab_launch";
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
-const SAVE_HANDOFF_SKILL_NAME = "handoff-save";
-const HANDOFF_TIMEOUT_MS = 30_000;
-const BRMEM_TIMEOUT_MS = 30_000;
-const GIT_TIMEOUT_MS = 10_000;
-const CMUX_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
 const MAX_PREVIEW_CHARS = 240;
-const SAVE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
-const HANDOFF_TAB_STATUS_KEY = HANDOFF_TAB_COMMAND_NAME;
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
 
@@ -44,117 +54,6 @@ Options:
   --branch <branch>  List handoffs from an explicit branch instead of the current branch.
   --all              List handoffs across every branch.
   --help, -h         Show this help.`;
-
-const SAVE_HANDOFF_FALLBACK = `Use the handoff-save workflow to save a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
-
-Storage contract:
-- Namespace: \`${HANDOFF_NAMESPACE}\`
-- Entry key shape: \`<semantic-slug>${HANDOFF_KEY_SUFFIX}\`
-- Check for an existing artifact with \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\`.
-- Store final Markdown directly with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
-
-If review or editing is needed before saving, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
-
-Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the saved handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
-
-type NotifyLevel = "info" | "warning" | "error";
-
-interface AutocompleteItem {
-	value: string;
-	label?: string;
-	description?: string;
-}
-
-interface CommandInfo {
-	name: string;
-	source: string;
-	sourceInfo: {
-		path: string;
-		source?: string;
-		scope?: string;
-		origin?: string;
-		baseDir?: string;
-	};
-}
-
-interface CustomMessage {
-	customType: string;
-	content: string;
-	display: boolean;
-	details?: unknown;
-}
-
-interface RenderTheme {
-	fg(color: string, text: string): string;
-	bold?(text: string): string;
-}
-
-interface RenderComponent {
-	render(width: number): string[];
-	invalidate(): void;
-}
-
-interface ToolResult<Details = unknown> {
-	content: Array<{ type: "text"; text: string }>;
-	details?: Details;
-	isError?: boolean;
-}
-
-interface ToolDefinition {
-	name: string;
-	label: string;
-	description: string;
-	promptSnippet?: string;
-	promptGuidelines?: string[];
-	parameters: Record<string, unknown>;
-	execute(
-		toolCallId: string,
-		params: unknown,
-		signal: AbortSignal | undefined,
-		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
-		ctx: ToolContext,
-	): Promise<ToolResult> | ToolResult;
-}
-
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
-
-interface BaseRuntimeContext {
-	cwd: string;
-	hasUI: boolean;
-	model?: ModelInfo;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
-		setStatus?(key: string, value: string | undefined): void;
-	};
-}
-
-export interface CommandContext extends BaseRuntimeContext {
-	ui: BaseRuntimeContext["ui"] & {
-		select?(title: string, items: string[]): Promise<string | undefined>;
-		input?(title: string, placeholder?: string): Promise<string | undefined>;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-export interface ToolContext extends BaseRuntimeContext {}
-
-export interface ExtensionAPI {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	): void;
-	registerTool?(definition: ToolDefinition): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
-	getCommands?(): CommandInfo[];
-	getThinkingLevel?(): ThinkingLevel;
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(message: CustomMessage): void;
-	sendUserMessage(content: string): void;
-}
 
 export interface PickupHandoffArgs {
 	help: boolean;
@@ -202,29 +101,7 @@ export type HandoffItemsParseResult = { type: "valid"; items: HandoffListItem[] 
 
 export type HandoffKeysParseResult = { type: "valid"; keys: string[] } | { type: "invalid"; message: string };
 
-export type HandoffTabLaunchResult =
-	| { type: "launched"; branch: string; slug: string; tabTitle: string; surfaceId: string; workspaceId: string; command: string }
-	| { type: "failed"; message: string; branch?: string; slug?: string; surfaceId?: string; workspaceId?: string };
-
-interface HandoffTabLaunchParams {
-	branch: string;
-	slug: string;
-}
-
-interface CmuxCallerContext {
-	workspaceId: string;
-	paneId: string;
-	windowId?: string;
-}
-
-interface CmuxCreatedSurface {
-	surfaceId: string;
-	workspaceId?: string;
-}
-
 type HandoffItemsLoadResult = { type: "loaded"; items: HandoffListItem[] } | { type: "failed"; message: string };
-
-type HandoffExistsResult = { type: "exists" } | { type: "missing" } | { type: "failed"; message: string };
 
 export function parsePickupHandoffArgs(rawArgs: string): HandoffArgsParseResult<PickupHandoffArgs> {
 	const parsed: PickupHandoffArgs = { help: false, selector: [] };
@@ -486,57 +363,6 @@ HANDOFF_EOF`,
 Report the saved handoff first. Include Branch Memory details only as technical storage evidence.`;
 }
 
-export function deriveSemanticHandoffSlug(focus: string): string | undefined {
-	const slug = focus
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "");
-	if (slug.length === 0) {
-		return undefined;
-	}
-	return slug.split("-").slice(0, 8).join("-");
-}
-
-export function buildHandoffTabPrompt(options: {
-	skillBlock: string | undefined;
-	focus: string;
-	branch: string;
-	slug: string;
-}): string {
-	const { skillBlock, focus, branch, slug } = options;
-	const key = `${slug}${HANDOFF_KEY_SUFFIX}`;
-	return `${skillBlock ?? SAVE_HANDOFF_FALLBACK}
-
-This is a /${HANDOFF_TAB_COMMAND_NAME} request. Save a directed handoff artifact for the current session, then launch a pickup Pi in a new cmux tab.
-
-Continuation focus:
-
-${fencedBlock("text", focus.trim())}
-
-Use exactly this handoff identity:
-
-- Branch: ${branch}
-- Namespace: ${HANDOFF_NAMESPACE}
-- Entry: ${key}
-- Slug: ${slug}
-
-Hard requirements:
-
-1. Write the handoff artifact using the existing handoff-save workflow and the exact branch/key above.
-2. Check for an existing artifact first. If it exists, stop; do not overwrite and do not open a cmux tab.
-3. Store the final Markdown directly through /dev/stdin; do not create a temporary artifact file.
-4. After the \`brmem put\` succeeds, call the ${HANDOFF_TAB_LAUNCH_TOOL_NAME} tool with exactly:
-
-${fencedBlock("json", JSON.stringify({ branch, slug }, null, 2))}
-
-5. Do not call ${HANDOFF_TAB_LAUNCH_TOOL_NAME} before the handoff is saved successfully.
-
-The pickup tab will run this command:
-
-${fencedBlock("text", `/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${branch} ${slug}`)}`;
-}
-
 export function deriveHandoffPreview(artifact: string): string {
 	const lines = artifact.replace(/\r/g, "\n").split("\n");
 
@@ -589,83 +415,6 @@ function handoffKeyTokens(key: string): string[] {
 	return splitSelectorTerms([handoffSlug(key)]);
 }
 
-function handoffSlug(key: string): string {
-	return key.slice(0, -HANDOFF_KEY_SUFFIX.length);
-}
-
-function isHandoffKey(key: string): boolean {
-	return key.endsWith(HANDOFF_KEY_SUFFIX) && !key.includes("/") && key.length > HANDOFF_KEY_SUFFIX.length;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function fencedBlock(language: string, content: string): string {
-	let fence = "```";
-	while (content.includes(fence)) {
-		fence += "`";
-	}
-	return `${fence}${language}\n${content.trimEnd()}\n${fence}`;
-}
-
-async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
-	await ctx.waitForIdle();
-	const focus = await resolveSaveFocus(pi, args, ctx);
-	if (focus === undefined) {
-		return;
-	}
-
-	let branch: string;
-	try {
-		branch = await currentBranch(pi, ctx, "save");
-	} catch (error) {
-		ctx.ui.notify(errorMessage(error), "error");
-		return;
-	}
-
-	const slug = deriveSemanticHandoffSlug(focus);
-	if (slug === undefined) {
-		ctx.ui.notify("Continuation focus must contain at least one letter or number to derive a handoff slug.", "error");
-		return;
-	}
-
-	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "checking handoff and cmux context…");
-	try {
-		const existing = await checkHandoffExists(pi, ctx.cwd, branch, `${slug}${HANDOFF_KEY_SUFFIX}`);
-		if (existing.type === "exists") {
-			ctx.ui.notify(
-				`Handoff ${slug} already exists on branch ${branch}. Rerun /${HANDOFF_TAB_COMMAND_NAME} with a more specific focus so a different slug is derived.`,
-				"error",
-			);
-			return;
-		}
-		if (existing.type === "failed") {
-			ctx.ui.notify(existing.message, "error");
-			return;
-		}
-
-		const caller = await identifyCmuxCaller(pi, ctx.cwd);
-		if (caller.type === "failed") {
-			ctx.ui.notify(caller.message, "error");
-			return;
-		}
-	} finally {
-		setStatus(ctx, HANDOFF_TAB_STATUS_KEY, undefined);
-	}
-
-	let skill: Awaited<ReturnType<typeof expandSkill>>;
-	let skillReadError: string | undefined;
-	try {
-		skill = await expandSkill(pi, SAVE_HANDOFF_SKILL_NAME);
-	} catch (error) {
-		skillReadError = errorMessage(error);
-	}
-
-	ctx.ui.notify(saveHandoffTabStartMessage(skill, skillReadError, slug), skill ? "info" : "warning");
-	pi.sendUserMessage(buildHandoffTabPrompt({ skillBlock: skill?.block, focus, branch, slug }));
-}
-
 async function handleSaveHandoffCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
 	const focus = await resolveSaveFocus(pi, args, ctx);
@@ -673,10 +422,10 @@ async function handleSaveHandoffCommand(pi: ExtensionAPI, args: string, ctx: Com
 		return;
 	}
 
-	let skill: Awaited<ReturnType<typeof expandSkill>>;
+	let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
 	let skillReadError: string | undefined;
 	try {
-		skill = await expandSkill(pi, SAVE_HANDOFF_SKILL_NAME);
+		skill = await expandHandoffSkill(pi, SAVE_HANDOFF_SKILL_NAME);
 	} catch (error) {
 		skillReadError = errorMessage(error);
 	}
@@ -685,26 +434,6 @@ async function handleSaveHandoffCommand(pi: ExtensionAPI, args: string, ctx: Com
 		ctx.ui.notify(saveHandoffStartMessage(skill, skillReadError), skill ? "info" : "warning");
 	}
 	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
-}
-
-async function resolveSaveFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<string | undefined> {
-	const focus = rawArgs.trim();
-	if (focus.length > 0) {
-		return focus;
-	}
-
-	if (ctx.hasUI && ctx.ui.input !== undefined) {
-		const response = await ctx.ui.input(SAVE_FOCUS_QUESTION);
-		const promptedFocus = response?.trim() ?? "";
-		if (promptedFocus.length > 0) {
-			return promptedFocus;
-		}
-		ctx.ui.notify("Continuation focus is required to save a handoff.", "warning");
-		return undefined;
-	}
-
-	pi.sendUserMessage(`Ask the user exactly this question before saving a handoff: ${SAVE_FOCUS_QUESTION}\n\nDo not save a handoff until the user answers with a meaningful continuation focus.`);
-	return undefined;
 }
 
 async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
@@ -841,7 +570,7 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	emitHandoffList(pi, ctx, details);
 }
 
-function saveHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>, skillReadError: string | undefined): string {
+function saveHandoffStartMessage(skill: Awaited<ReturnType<typeof expandHandoffSkill>>, skillReadError: string | undefined): string {
 	if (skill !== undefined) {
 		return "Starting handoff save workflow…";
 	}
@@ -849,59 +578,6 @@ function saveHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>,
 		return `Could not read handoff-save skill; using fallback handoff-save workflow prompt. ${skillReadError}`;
 	}
 	return "handoff-save skill was not found; using fallback handoff-save workflow prompt.";
-}
-
-function saveHandoffTabStartMessage(
-	skill: Awaited<ReturnType<typeof expandSkill>>,
-	skillReadError: string | undefined,
-	slug: string,
-): string {
-	if (skill !== undefined) {
-		return `Starting handoff-tab workflow for ${slug}…`;
-	}
-	if (skillReadError !== undefined) {
-		return `Could not read handoff-save skill; using fallback handoff-tab workflow prompt for ${slug}. ${skillReadError}`;
-	}
-	return `handoff-save skill was not found; using fallback handoff-tab workflow prompt for ${slug}.`;
-}
-
-async function expandSkill(pi: ExtensionAPI, skillName: string): Promise<{ name: string; block: string } | undefined> {
-	const command = pi.getCommands?.().find((candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`);
-	if (command === undefined) {
-		return undefined;
-	}
-
-	const skillPath = command.sourceInfo.path;
-	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
-	const body = stripFrontmatter(await readFile(skillPath, "utf8"));
-	return {
-		name: skillName,
-		block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
-	};
-}
-
-function stripFrontmatter(markdown: string): string {
-	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
-}
-
-async function currentBranch(pi: ExtensionAPI, ctx: Pick<CommandContext, "cwd">, action: "pick up" | "list" | "save"): Promise<string> {
-	const commandArgs = ["branch", "--show-current"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("git", commandArgs, { cwd: ctx.cwd, timeout: GIT_TIMEOUT_MS });
-	} catch (error) {
-		throw new Error(formatStartupFailure(formatCommand("git", commandArgs), error));
-	}
-	if (result.code !== 0 || result.killed) {
-		throw new Error(formatExecFailure(formatCommand("git", commandArgs), result));
-	}
-
-	const branch = result.stdout.trim();
-	if (branch.length === 0) {
-		const recovery = action === "list" ? "pass --branch <branch> or --all" : "pass --branch <branch>";
-		throw new Error(`Cannot ${action} handoffs in detached HEAD; ${recovery}.`);
-	}
-	return branch;
 }
 
 async function listHandoffItems(
@@ -941,92 +617,6 @@ async function readHandoff(pi: ExtensionAPI, ctx: Pick<CommandContext, "cwd">, b
 		throw new Error(formatExecFailure(formatCommand("brmem", commandArgs), result));
 	}
 	return result.stdout;
-}
-
-async function checkHandoffExists(
-	pi: ExtensionAPI,
-	cwd: string,
-	branch: string,
-	key: string,
-): Promise<HandoffExistsResult> {
-	const commandArgs = ["check", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("brmem", commandArgs, { cwd, timeout: BRMEM_TIMEOUT_MS });
-	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("brmem", commandArgs), error) };
-	}
-	if (result.code === 0 && !result.killed) {
-		return { type: "exists" };
-	}
-	if (result.code === 1 && !result.killed) {
-		return { type: "missing" };
-	}
-	return { type: "failed", message: formatExecFailure(formatCommand("brmem", commandArgs), result) };
-}
-
-async function identifyCmuxCaller(
-	pi: ExtensionAPI,
-	cwd: string,
-): Promise<{ type: "identified"; caller: CmuxCallerContext } | { type: "failed"; message: string }> {
-	const commandArgs = ["identify", "--json", "--id-format", "both"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("cmux", commandArgs, { cwd, timeout: CMUX_TIMEOUT_MS });
-	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
-	}
-	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
-	}
-
-	const parsed = parseCmuxCallerContext(result.stdout);
-	if (parsed === undefined) {
-		return { type: "failed", message: "cmux identify did not return a caller workspace and pane; are you running inside cmux?" };
-	}
-	return { type: "identified", caller: parsed };
-}
-
-function parseCmuxCallerContext(stdout: string): CmuxCallerContext | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed) || !isRecord(parsed.caller)) {
-		return undefined;
-	}
-	const workspaceId = readString(parsed.caller, "workspace_id");
-	const paneId = readString(parsed.caller, "pane_id");
-	if (workspaceId === undefined || paneId === undefined) {
-		return undefined;
-	}
-	const windowId = readString(parsed.caller, "window_id");
-	return windowId === undefined ? { workspaceId, paneId } : { workspaceId, paneId, windowId };
-}
-
-function parseCreatedCmuxSurface(stdout: string): CmuxCreatedSurface | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed)) {
-		return undefined;
-	}
-	const surfaceId = readString(parsed, "surface_id") ?? readString(parsed, "id");
-	if (surfaceId === undefined) {
-		return undefined;
-	}
-	const workspaceId = readString(parsed, "workspace_id");
-	return workspaceId === undefined ? { surfaceId } : { surfaceId, workspaceId };
-}
-
-function readString(record: Record<string, unknown>, key: string): string | undefined {
-	const value = record[key];
-	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 async function chooseHandoff(
@@ -1244,349 +834,16 @@ function compactPreview(preview: string): string {
 	return `${compacted.slice(0, MAX_PREVIEW_CHARS - 1)}…`;
 }
 
-function setStatus(ctx: BaseRuntimeContext, key: string, value: string | undefined): void {
-	if (ctx.hasUI) {
-		ctx.ui.setStatus?.(key, value);
-	}
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
-}
-
-function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${errorMessage(error)}`);
-}
-
-function truncateError(message: string): string {
-	return tailText(message, { maxChars: MAX_ERROR_CHARS });
-}
-
-function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
-	return {
-		name: HANDOFF_TAB_LAUNCH_TOOL_NAME,
-		label: "Launch Handoff Tab",
-		description:
-			"Verify a saved handoff exists, then open a focused cmux terminal tab in the current workspace and launch Pi to pick up that handoff.",
-		promptSnippet: "Open a focused cmux tab to pick up a saved handoff after the handoff has been saved successfully.",
-		promptGuidelines: [
-			`Use ${HANDOFF_TAB_LAUNCH_TOOL_NAME} only after a /${HANDOFF_TAB_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
-			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before brmem put succeeds.`,
-		],
-		parameters: {
-			type: "object",
-			additionalProperties: false,
-			properties: {
-				branch: {
-					type: "string",
-					description: "Git branch where the handoff was saved.",
-				},
-				slug: {
-					type: "string",
-					description: "Flat semantic handoff slug without .md.",
-				},
-			},
-			required: ["branch", "slug"],
-		},
-		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			const parsed = parseHandoffTabLaunchParams(params);
-			if (parsed.type === "invalid") {
-				return handoffTabToolFailure(parsed.message);
-			}
-
-			onUpdate?.({ content: [{ type: "text", text: "Verifying saved handoff…" }] });
-			setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "verifying saved handoff…");
-			try {
-				const launched = await launchHandoffTab(pi, ctx, parsed.params, signal, onUpdate);
-				if (launched.type === "failed") {
-					return handoffTabToolFailure(launched.message, launched);
-				}
-				return {
-					content: [{ type: "text", text: formatHandoffTabLaunchSuccess(launched) }],
-					details: launched,
-				};
-			} finally {
-				setStatus(ctx, HANDOFF_TAB_STATUS_KEY, undefined);
-			}
-		},
-	};
-}
-
-async function launchHandoffTab(
-	pi: ExtensionAPI,
-	ctx: ToolContext,
-	params: HandoffTabLaunchParams,
-	signal: AbortSignal | undefined,
-	onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
-): Promise<HandoffTabLaunchResult> {
-	const key = `${params.slug}${HANDOFF_KEY_SUFFIX}`;
-	const exists = await checkHandoffExists(pi, ctx.cwd, params.branch, key);
-	if (exists.type === "missing") {
-		return {
-			type: "failed",
-			branch: params.branch,
-			slug: params.slug,
-			message: `No handoff ${params.slug} found on branch ${params.branch}; no cmux tab was opened.`,
-		};
-	}
-	if (exists.type === "failed") {
-		return { type: "failed", branch: params.branch, slug: params.slug, message: exists.message };
-	}
-
-	onUpdate?.({ content: [{ type: "text", text: "Resolving cmux caller context…" }] });
-	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "resolving cmux caller…");
-	const identified = await identifyCmuxCaller(pi, ctx.cwd);
-	if (identified.type === "failed") {
-		return { type: "failed", branch: params.branch, slug: params.slug, message: identified.message };
-	}
-
-	onUpdate?.({ content: [{ type: "text", text: "Creating focused cmux tab…" }] });
-	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "creating cmux tab…");
-	const created = await createCmuxSurface(pi, ctx.cwd, identified.caller, signal);
-	if (created.type === "failed") {
-		return { type: "failed", branch: params.branch, slug: params.slug, message: created.message };
-	}
-
-	const tabTitle = `handoff: ${params.slug}`;
-	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
-	onUpdate?.({ content: [{ type: "text", text: "Naming cmux tab…" }] });
-	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "naming cmux tab…");
-	const renameOptions: CmuxTabOptions = {
-		workspaceId,
-		surfaceId: created.surface.surfaceId,
-		tabTitle,
-		signal,
-	};
-	if (identified.caller.windowId !== undefined) {
-		renameOptions.windowId = identified.caller.windowId;
-	}
-	const renamed = await renameCmuxTab(pi, ctx.cwd, renameOptions);
-	if (renamed.type === "failed") {
-		return {
-			type: "failed",
-			branch: params.branch,
-			slug: params.slug,
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			message: `${renamed.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: /${PICKUP_HANDOFF_COMMAND_NAME} --branch ${params.branch} ${params.slug}`,
-		};
-	}
-
-	const thinkingLevel = currentThinkingLevel(pi);
-	const command = buildPiLaunchCommand(
-		`/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${params.branch} ${params.slug}`,
-		ctx.model === undefined ? { thinkingLevel } : { model: ctx.model, thinkingLevel },
-	);
-	onUpdate?.({ content: [{ type: "text", text: "Launching pickup Pi…" }] });
-	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "launching pickup Pi…");
-	const sendOptions: CmuxSendOptions = {
-		workspaceId,
-		surfaceId: created.surface.surfaceId,
-		text: `${command}\n`,
-		signal,
-	};
-	if (identified.caller.windowId !== undefined) {
-		sendOptions.windowId = identified.caller.windowId;
-	}
-	const sent = await sendCmuxText(pi, ctx.cwd, sendOptions);
-	if (sent.type === "failed") {
-		return {
-			type: "failed",
-			branch: params.branch,
-			slug: params.slug,
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			message: `${sent.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: run ${command}`,
-		};
-	}
-
-	return {
-		type: "launched",
-		branch: params.branch,
-		slug: params.slug,
-		tabTitle,
-		surfaceId: created.surface.surfaceId,
-		workspaceId,
-		command,
-	};
-}
-
-interface CmuxTabOptions {
-	workspaceId: string;
-	surfaceId: string;
-	windowId?: string;
-	tabTitle: string;
-	signal: AbortSignal | undefined;
-}
-
-interface CmuxSendOptions {
-	workspaceId: string;
-	surfaceId: string;
-	windowId?: string;
-	text: string;
-	signal: AbortSignal | undefined;
-}
-
-interface CmuxExecOptions {
-	cwd: string;
-	timeout: number;
-	signal?: AbortSignal;
-}
-
-async function createCmuxSurface(
-	pi: ExtensionAPI,
-	cwd: string,
-	caller: CmuxCallerContext,
-	signal: AbortSignal | undefined,
-): Promise<{ type: "created"; surface: CmuxCreatedSurface } | { type: "failed"; message: string }> {
-	const commandArgs = [
-		"--json",
-		"new-surface",
-		"--type",
-		"terminal",
-		"--workspace",
-		caller.workspaceId,
-		"--pane",
-		caller.paneId,
-		"--focus",
-		"true",
-	];
-	if (caller.windowId !== undefined) {
-		commandArgs.push("--window", caller.windowId);
-	}
-
-	let result: ExecResult;
-	try {
-		result = await pi.exec("cmux", commandArgs, cmuxExecOptions(cwd, signal));
-	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
-	}
-	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
-	}
-	const surface = parseCreatedCmuxSurface(result.stdout);
-	if (surface === undefined) {
-		return { type: "failed", message: "cmux new-surface did not return a surface_id; no launch command was sent." };
-	}
-	return { type: "created", surface };
-}
-
-async function renameCmuxTab(
-	pi: ExtensionAPI,
-	cwd: string,
-	options: CmuxTabOptions,
-): Promise<{ type: "renamed" } | { type: "failed"; message: string }> {
-	const commandArgs = [
-		"rename-tab",
-		"--workspace",
-		options.workspaceId,
-		"--surface",
-		options.surfaceId,
-		"--title",
-		options.tabTitle,
-	];
-	if (options.windowId !== undefined) {
-		commandArgs.push("--window", options.windowId);
-	}
-	return runCmuxMutation(pi, cwd, commandArgs, options.signal, "renamed");
-}
-
-async function sendCmuxText(
-	pi: ExtensionAPI,
-	cwd: string,
-	options: CmuxSendOptions,
-): Promise<{ type: "sent" } | { type: "failed"; message: string }> {
-	const commandArgs = ["send", "--workspace", options.workspaceId, "--surface", options.surfaceId];
-	if (options.windowId !== undefined) {
-		commandArgs.push("--window", options.windowId);
-	}
-	commandArgs.push("--", options.text);
-	return runCmuxMutation(pi, cwd, commandArgs, options.signal, "sent");
-}
-
-async function runCmuxMutation<TType extends "renamed" | "sent">(
-	pi: ExtensionAPI,
-	cwd: string,
-	commandArgs: string[],
-	signal: AbortSignal | undefined,
-	successType: TType,
-): Promise<{ type: TType } | { type: "failed"; message: string }> {
-	let result: ExecResult;
-	try {
-		result = await pi.exec("cmux", commandArgs, cmuxExecOptions(cwd, signal));
-	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
-	}
-	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
-	}
-	return { type: successType };
-}
-
-function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout: CMUX_TIMEOUT_MS };
-	}
-	return { cwd, timeout: CMUX_TIMEOUT_MS, signal };
-}
-
-function parseHandoffTabLaunchParams(params: unknown): { type: "valid"; params: HandoffTabLaunchParams } | { type: "invalid"; message: string } {
-	if (!isRecord(params)) {
-		return { type: "invalid", message: "handoff_tab_launch parameters must be an object." };
-	}
-	const branch = readString(params, "branch");
-	const slug = readString(params, "slug");
-	if (branch === undefined) {
-		return { type: "invalid", message: "handoff_tab_launch requires a non-empty branch." };
-	}
-	if (slug === undefined) {
-		return { type: "invalid", message: "handoff_tab_launch requires a non-empty slug." };
-	}
-	if (slug.endsWith(HANDOFF_KEY_SUFFIX) || slug.includes("/")) {
-		return { type: "invalid", message: "handoff_tab_launch slug must be flat and must not include .md." };
-	}
-	return { type: "valid", params: { branch, slug } };
-}
-
-function currentThinkingLevel(pi: ExtensionAPI): ThinkingLevel {
-	return pi.getThinkingLevel?.() ?? "medium";
-}
-
-function handoffTabToolFailure(message: string, details?: unknown): ToolResult {
-	return {
-		content: [{ type: "text", text: message }],
-		details,
-		isError: true,
-	};
-}
-
-function formatHandoffTabLaunchSuccess(result: Extract<HandoffTabLaunchResult, { type: "launched" }>): string {
-	return [
-		"Opened handoff pickup tab.",
-		`Handoff: ${result.slug}`,
-		`Branch: ${result.branch}`,
-		`Tab title: ${result.tabTitle}`,
-		`Surface: ${result.surfaceId}`,
-		`Workspace: ${result.workspaceId}`,
-		`Command: ${result.command}`,
-	].join("\n");
-}
-
 export default function handoffExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
-	pi.registerTool?.(buildHandoffTabLaunchTool(pi));
 
-	pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
-		description: "Create a handoff and open a focused cmux tab to pick it up.",
-		handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
-	});
+	if (pi.registerTool !== undefined) {
+		pi.registerTool(buildHandoffTabLaunchTool(pi));
+		pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
+			description: "Create a handoff and open a focused cmux tab to pick it up.",
+			handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
+		});
+	}
 
 	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
 		description: "Create a directed handoff artifact for a future continuation.",
