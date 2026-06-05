@@ -3,10 +3,8 @@ import { mkdir, open, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { formatCommand, type ExecResult } from "./command-runtime.ts";
-import { formatCommandFailure, normalizeSummary, validatePlanSlug, type PlanCommandExecApi, type ExecOptions } from "./plan-persistence.ts";
-
-const GIT_TIMEOUT_MS = 10_000;
+import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
+import { normalizeSummary, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
 const MAX_SEGMENT_LENGTH = 120;
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
@@ -21,6 +19,7 @@ export interface SourceBranchPlanFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
+	git?: PlannedBranchGitGateway | undefined;
 }
 
 export interface PlanStoreDirectoryEvidence {
@@ -48,11 +47,6 @@ export interface SourceBranchPlanFileEvidence {
 	branchKey: string;
 	filePath: string;
 	summary?: string;
-}
-
-interface CommandRun {
-	result: ExecResult;
-	displayCommand: string;
 }
 
 interface RepoIdentity {
@@ -145,9 +139,10 @@ export async function resolvePlanStoreDirectory(
 	pi: PlanCommandExecApi,
 	options: SourceBranchPlanFileOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
-	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
-	const sourceBranch = await resolveCurrentBranch(pi, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(pi, { cwd: options.cwd, repoRoot, signal: options.signal });
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
+	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
+	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
 	const planStoreRoot = options.planStoreRoot ?? defaultPlanStoreRoot();
@@ -265,34 +260,23 @@ function parseSourceBranchPlanFileParams(params: unknown): SourceBranchPlanFileP
 	return { slug, content, summary };
 }
 
-async function resolveRequiredGitRepoRoot(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	signal: AbortSignal | undefined,
-): Promise<string> {
-	const root = await runGit(pi, { cwd, args: ["rev-parse", "--show-toplevel"], signal });
-	if (root.result.code !== 0 || root.result.killed) {
-		throw new Error(formatCommandFailure("git rev-parse --show-toplevel failed", root.displayCommand, root.result));
+async function resolveRequiredGitRepoRoot(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const root = await git.repoRoot({ cwd, signal });
+	if (!root.ok) {
+		throw new Error(root.error.message);
 	}
-
-	const repoRoot = firstNonEmptyLine(root.result.stdout);
-	if (repoRoot === undefined) {
-		throw new Error(`git rev-parse --show-toplevel returned no repo root.\nCommand: ${root.displayCommand}`);
-	}
-	return realpathIfPossible(repoRoot);
+	return realpathIfPossible(root.value);
 }
 
-async function resolveCurrentBranch(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
-	const branch = await runGit(pi, { cwd, args: ["branch", "--show-current"], signal });
-	if (branch.result.code !== 0 || branch.result.killed) {
-		throw new Error(formatCommandFailure("git branch --show-current failed", branch.displayCommand, branch.result));
+async function resolveCurrentBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const branch = await git.sourceBranch({ cwd, signal });
+	if (!branch.ok) {
+		if (branch.error.code === "detached_head") {
+			throw new Error("Current git checkout is detached or unnamed; check out a named branch before creating a source-branch plan file.");
+		}
+		throw new Error(branch.error.message);
 	}
-
-	const currentBranch = firstNonEmptyLine(branch.result.stdout);
-	if (currentBranch === undefined) {
-		throw new Error("Current git checkout is detached or unnamed; check out a named branch before creating a source-branch plan file.");
-	}
-	return currentBranch;
+	return branch.value;
 }
 
 interface RepoIdentityOptions {
@@ -301,25 +285,20 @@ interface RepoIdentityOptions {
 	signal?: AbortSignal | undefined;
 }
 
-async function resolveRepoIdentity(pi: PlanCommandExecApi, options: RepoIdentityOptions): Promise<RepoIdentity> {
-	const origin = await runGit(pi, { cwd: options.cwd, args: ["config", "--get", "remote.origin.url"], signal: options.signal });
-	if (origin.result.killed) {
-		throw new Error(formatCommandFailure("git config --get remote.origin.url was killed", origin.displayCommand, origin.result));
+async function resolveRepoIdentity(git: PlannedBranchGitGateway, options: RepoIdentityOptions): Promise<RepoIdentity> {
+	const origin = await git.originUrl({ cwd: options.cwd, signal: options.signal });
+	if (origin.type === "error") {
+		throw new Error(origin.error.message);
 	}
 
-	if (origin.result.code === 0) {
-		const normalized = normalizeRepoOriginUrl(origin.result.stdout);
+	if (origin.type === "found") {
+		const normalized = normalizeRepoOriginUrl(origin.value);
 		if (normalized.length > 0) {
 			return { source: "origin-url", identity: normalized };
 		}
-		return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
 	}
 
-	if (origin.result.code === 1) {
-		return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
-	}
-
-	throw new Error(formatCommandFailure("git config --get remote.origin.url failed", origin.displayCommand, origin.result));
+	return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
 }
 
 async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Promise<Dirent[]> {
@@ -367,30 +346,6 @@ async function writeExclusiveFile(filePath: string, content: string): Promise<vo
 	} finally {
 		await file?.close();
 	}
-}
-
-interface RunGitOptions {
-	cwd: string;
-	args: string[];
-	signal?: AbortSignal | undefined;
-}
-
-async function runGit(pi: PlanCommandExecApi, options: RunGitOptions): Promise<CommandRun> {
-	const displayCommand = formatCommand("git", options.args);
-	try {
-		const result = await pi.exec("git", options.args, execOptions(options.cwd, GIT_TIMEOUT_MS, options.signal));
-		return { result, displayCommand };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`git command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`);
-	}
-}
-
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
 }
 
 function normalizeAsUrl(value: string): string | undefined {
@@ -479,9 +434,3 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 	return typeof error === "object" && error !== null && "code" in error;
 }
 
-function firstNonEmptyLine(value: string): string | undefined {
-	return value
-		.split(/\r?\n/)
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
-}

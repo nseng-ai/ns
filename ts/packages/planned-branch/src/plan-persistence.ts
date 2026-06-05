@@ -8,10 +8,10 @@ import {
 	type UnavailableBrmemRun,
 } from "./brmem-cli.ts";
 import { formatOutputSection, tailText, type ExecResult } from "./command-runtime.ts";
+import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 
 const BRMEM_TIMEOUT_MS = 30_000;
-const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 
 const GENERIC_SLUG_WORDS = new Set([
@@ -114,13 +114,22 @@ export function isPathInside(parent: string, child: string): boolean {
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
-export async function resolvePlanSourceFile(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	rawFilePath: string,
-	signal: AbortSignal | undefined,
-): Promise<string> {
-	const normalizedPath = normalizePlanFilePath(rawFilePath);
+export interface ResolvePlanSourceFileOptions {
+	cwd: string;
+	rawFilePath: string;
+	signal?: AbortSignal | undefined;
+	git?: PlannedBranchGitGateway | undefined;
+}
+
+export interface ResolveGitRepoRootOptions {
+	cwd: string;
+	signal?: AbortSignal | undefined;
+	git?: PlannedBranchGitGateway | undefined;
+}
+
+export async function resolvePlanSourceFile(pi: PlanCommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
 		throw new Error(`Plan file path must be absolute or home-relative; got ${normalizedPath || "(empty)"}.`);
 	}
@@ -136,7 +145,7 @@ export async function resolvePlanSourceFile(
 	}
 
 	const realFilePath = await realpathIfPossible(normalizedPath);
-	const repoRoot = await resolveGitRepoRoot(pi, cwd, signal);
+	const repoRoot = await resolveGitRepoRoot(pi, { cwd: options.cwd, signal: options.signal, git });
 	if (repoRoot !== undefined) {
 		const realRepoRoot = await realpathIfPossible(repoRoot);
 		if (isPathInside(realRepoRoot, realFilePath)) {
@@ -147,24 +156,10 @@ export async function resolvePlanSourceFile(
 	return realFilePath;
 }
 
-export async function resolveGitRepoRoot(
-	pi: PlanCommandExecApi,
-	cwd: string,
-	signal: AbortSignal | undefined,
-): Promise<string | undefined> {
-	let result: ExecResult;
-	try {
-		result = await pi.exec("git", ["rev-parse", "--show-toplevel"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	} catch {
-		return undefined;
-	}
-
-	if (result.code !== 0 || result.killed) {
-		return undefined;
-	}
-
-	const root = firstNonEmptyLine(result.stdout);
-	return root ? resolve(root) : undefined;
+export async function resolveGitRepoRoot(pi: PlanCommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
+	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const root = await git.optionalRepoRoot({ cwd: options.cwd, signal: options.signal });
+	return root.type === "found" ? resolve(root.value) : undefined;
 }
 
 export interface RunBrmemOptions {
@@ -245,13 +240,6 @@ function malformedBrmemPutData(stdout: string, reason: string): Error {
 	return new Error(`Malformed brmem put JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
-}
-
 async function realpathIfPossible(path: string): Promise<string> {
 	try {
 		return await realpath(path);
@@ -264,9 +252,3 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function firstNonEmptyLine(value: string): string | undefined {
-	return value
-		.split(/\r?\n/)
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
-}

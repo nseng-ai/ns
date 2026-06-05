@@ -46,11 +46,11 @@ Assumptions:
 - The existing behavior and tests from the planned-branch TS CLI stack are a valid baseline; the cleanup should preserve observable behavior except where tests intentionally tighten invalid-boundary rejection.
 - The planned-branch package is the canonical owner of branch creation, Branch Memory attachment, saved-plan evidence, and attached-plan loading semantics.
 - CMUX should remain a composition layer: after planned-branch creates/attaches, CMUX checks out a slot and opens a workspace.
-- Semantic gateways can be introduced incrementally without blocking the smaller boundary fixes; the saved-plan resolver, CMUX operation model, Branch Memory envelope cleanup, CLI type-contract cleanup, and shared content-slug derivation have now landed as independent slices.
+- Semantic gateways can be introduced incrementally without blocking the smaller boundary fixes; the saved-plan resolver, CMUX operation model, Branch Memory envelope cleanup, CLI type-contract cleanup, shared content-slug derivation, and Git semantic gateway slice have now landed as independent slices.
 
 Risks:
 
-- Gateway extraction may grow the diff if it attempts to redesign all command execution at once. Mitigate by limiting the gateway PR to planned-branch Git/Branch Memory/Graphite semantics and preserving adapter protocol tests.
+- Gateway extraction may grow the diff if it attempts to redesign all command execution at once. The Git gateway slice de-risked the seam shape by preserving adapter protocol tests and keeping Branch Memory and Graphite extraction out of scope; the remaining mitigation is to apply the same narrow-slice discipline to those later gateways.
 - Tightening saved-plan validation may reveal tests or workflows that relied on arbitrary external `.md` files. Mitigate by keeping explicit plan-file behavior where intended and only requiring session/latest evidence to match the local plan-store contract. The canonical resolver slice de-risked this for Pi create and CMUX dispatch: valid local plan-store session evidence still works, missing session files remain stale where intended, and unsafe session evidence is rejected consistently.
 - CMUX dry-run output may be coupled to exact command text in tests or user expectations. Mitigate by preserving useful evidence while moving command sequencing behind a planned operation model. The operation-model slice de-risked this for CMUX dispatch by moving exact planned-branch command assertions into package tests and keeping CMUX tests focused on composition and dry-run no-mutation behavior.
 - Branch Memory machine-envelope drift between `put`, `list`, and `get` may produce inconsistent failure semantics. The unified envelope parsing slice de-risked this by routing all three operations through one strict parser while keeping operation-specific body validators focused.
@@ -59,6 +59,6 @@ Risks:
 
 ## Open Questions
 
-- Semantic gateway extraction is now the next structural implementation question after the smaller boundary fixes landed. Keep it limited to planned-branch Git, Branch Memory, and Graphite semantics unless implementation evidence shows a narrower slice is safer.
+- Git semantic gateway extraction has landed as the first seam. The remaining structural question is how narrowly to extract Branch Memory attachment/loading and Graphite tracking gateways without redesigning all command execution at once.
 - Should the portable `planned-branch` CLI eventually expose a dry-run/preview operation directly, or is an internal operation model sufficient for Pi/CMUX composition?
 - Should public docs keep any developer source-file map, or should implementation references move to package-level developer documentation only?
