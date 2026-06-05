@@ -14,7 +14,7 @@ This completes the roadmap row, "Semantic gateway boundary for planned-branch co
 - planned-branch CLI scenario tests use semantic Git, Branch Memory, and Graphite fakes for Graphite create behavior, including the failure path that keeps the local branch and skips Branch Memory attachment;
 - real gateway tests preserve the exact `gt` command protocol and structured failure codes for successful, nonzero, killed, and startup-failure outcomes.
 
-Evidence considered: local uncommitted branch diff on `graphite-gateway-planned-branch-create` with Graphite parent `planned-branch-brmem-semantic-gateway`. The diff is limited to `ts/packages/planned-branch` source/tests plus this Objective update, with no Objective slug-directory moves. No PR exists for this branch yet; PR evidence was unavailable and not required.
+Evidence considered: local committed branch diff on `graphite-gateway-planned-branch-create` with Graphite parent `planned-branch-brmem-semantic-gateway`. The diff is limited to `ts/packages/planned-branch` source/tests plus this Objective update, with no Objective slug-directory moves. PR #898 corroborates the same file set and completion evidence.
 
 Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/planned-branch && bun run check`, `just ts-check`, and `just ts-test` passed.
 
