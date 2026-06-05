@@ -1,3 +1,4 @@
+import { isRecord, stringField } from "./primitives.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type {
@@ -301,17 +302,8 @@ function parseLabeledLine(text: string, label: string): string | undefined {
 	return match?.[1]?.trim() || undefined;
 }
 
-function stringField(record: Record<string, unknown> | undefined, key: string): string | undefined {
-	const value = record?.[key];
-	return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function createBranchAutocompleteProvider(

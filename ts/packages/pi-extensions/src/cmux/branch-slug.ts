@@ -1,6 +1,14 @@
+import {
+	finalizeBranchSlug,
+	MAX_BRANCH_SLUG_LENGTH,
+	sanitizeBranchName,
+	trimBranchSlugToLength,
+} from "../branch-slug.ts";
+import type { TextResult } from "./primitives.ts";
 import type { ExtensionAPI } from "./types.ts";
 
-export const MAX_BRANCH_SLUG_LENGTH = 50;
+export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
+
 const GPT_NANO_PROVIDER = "openai";
 const GPT_NANO_MODEL = "gpt-5.4-nano";
 const SLUG_PROMPT_TIMEOUT_MS = 60_000;
@@ -9,16 +17,6 @@ const MAX_SLUG_INPUT_CHARS = 12_000;
 const MAX_SUMMARY_INPUT_CHARS = 16_000;
 
 export type BranchSlugContentKind = "task" | "plan";
-
-export type TextResult =
-	| {
-			ok: true;
-			text: string;
-	  }
-	| {
-			ok: false;
-			message: string;
-	  };
 
 type BranchSlugRuntime = Pick<ExtensionAPI, "exec">;
 
@@ -145,46 +143,6 @@ function buildPlanSummaryPrompt(input: { content: string; sourceLabel?: string }
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
-}
-
-export function sanitizeBranchName(value: string): string | undefined {
-	const firstLine = value
-		.replace(/```[\s\S]*?```/g, (match) => match.replace(/```[a-zA-Z]*\n?|```/g, ""))
-		.split("\n")
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
-	if (!firstLine) {
-		return undefined;
-	}
-
-	const slug = firstLine
-		.toLowerCase()
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "");
-
-	return finalizeBranchSlug(slug);
-}
-
-function finalizeBranchSlug(value: string): string | undefined {
-	const withoutPlanSuffix = value.replace(/(?:-plan)+$/g, "").replace(/^-|-$/g, "");
-	if (!withoutPlanSuffix) {
-		return undefined;
-	}
-
-	const trimmed = trimBranchSlugToLength(withoutPlanSuffix, MAX_BRANCH_SLUG_LENGTH)
-		.replace(/(?:-plan)+$/g, "")
-		.replace(/^-|-$/g, "");
-	return trimmed || undefined;
-}
-
-export function trimBranchSlugToLength(value: string, maxLength: number): string {
-	if (value.length <= maxLength) {
-		return value;
-	}
-	return value.slice(0, maxLength).replace(/[-/]+$/g, "");
 }
 
 function truncateForSlugPrompt(text: string): string {

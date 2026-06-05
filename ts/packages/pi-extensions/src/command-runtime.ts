@@ -31,14 +31,18 @@ export function normalizeExecResult(result: PiExecResultLike): ExecResult {
 }
 
 export function formatCommand(command: string, args: readonly string[]): string {
-	return [command, ...args].map(shellQuoteForDisplay).join(" ");
+	return [command, ...args].map(formatShellArg).join(" ");
 }
 
-function shellQuoteForDisplay(value: string): string {
+export function formatShellArg(value: string): string {
 	if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) {
 		return value;
 	}
 
+	return shellQuote(value);
+}
+
+export function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
@@ -83,4 +87,9 @@ export function formatOutputSection(name: "stdout" | "stderr", output: string, o
 	const normalizedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n").trimEnd();
 	const tail = normalizedOutput ? tailText(normalizedOutput, options) : "";
 	return [`----- ${name} tail -----`, tail || "(empty)"].join("\n");
+}
+
+export function formatPlainOutputSection(name: string, output: string, options: TailTextOptions): string {
+	const trimmed = output.trim();
+	return trimmed.length > 0 ? `${name}:\n${tailText(trimmed, options)}` : "";
 }
