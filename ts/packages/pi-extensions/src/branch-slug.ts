@@ -28,7 +28,7 @@ export function trimBranchSlugToLength(value: string, maxLength: number): string
 	return value.slice(0, maxLength).replace(/[-/]+$/g, "");
 }
 
-function finalizeBranchSlug(value: string): string | undefined {
+export function finalizeBranchSlug(value: string): string | undefined {
 	const withoutPlanSuffix = value.replace(/(?:-plan)+$/g, "").replace(/^-|-$/g, "");
 	if (!withoutPlanSuffix) {
 		return undefined;

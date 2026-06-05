@@ -9,6 +9,7 @@ import {
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
+import { formatErrorMessage, type TextResult } from "./primitives.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
@@ -20,16 +21,6 @@ interface BranchCreateResult {
 	parentBranch: string;
 	startPoint: string;
 }
-
-type TextResult =
-	| {
-			ok: true;
-			text: string;
-	  }
-	| {
-			ok: false;
-			message: string;
-	  };
 
 export interface CmuxDispatchOptions {
 	promptDir?: string;
@@ -233,8 +224,4 @@ async function runText(
 		ok: false,
 		message: result.stderr.trim() || result.stdout.trim() || `${command} exited with ${result.code}`,
 	};
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

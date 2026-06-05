@@ -2,11 +2,13 @@ import { realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute, resolve } from "node:path";
 
 import { PLAN_BRANCH_NAMESPACE, createPlannedBranchFromFile, type PlannedBranchEvidence } from "@asdl/planned-branch";
+import { formatCommand, formatPlainOutputSection, formatShellArg, shellQuote, tailText } from "../command-runtime.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
 import { getWorktreeDescription, repositoryNameFromPath } from "./worktree-description.ts";
+import { formatErrorMessage, isRecord, stringField, type TextResult } from "./primitives.ts";
 import type { CommandContext, ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
@@ -81,16 +83,6 @@ interface FormatFinalSuccessOptions {
 	target: SlotCheckoutTarget;
 	launchOptions: PiLaunchOptions;
 }
-
-type TextResult =
-	| {
-			ok: true;
-			text: string;
-	  }
-	| {
-			ok: false;
-			message: string;
-	  };
 
 export function registerCmuxSlotDispatchPlanCommand(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
@@ -506,10 +498,10 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		formatCommand("slot", ["checkout", targetBranch, "--format", "json", "--no-clipboard"]),
 		[
 			"cmux new-workspace",
-			`--name ${formatArg(targetBranch)}`,
-			`--description ${formatArg(description)}`,
+			`--name ${formatShellArg(targetBranch)}`,
+			`--description ${formatShellArg(description)}`,
 			"--cwd <slot-worktree-path>",
-			`--command ${formatArg(launchCommand)}`,
+			`--command ${formatShellArg(launchCommand)}`,
 		].join(" "),
 	].filter((line): line is string => line !== undefined).join("\n");
 }
@@ -552,7 +544,7 @@ function formatSlotFailure(targetBranch: string, key: string, cause: string): st
 		`Branch: ${targetBranch}`,
 		`Key: ${key}`,
 		`Recovery: free or resize slots, then run /cmux-slot:open-branch ${targetBranch}.`,
-		`Alternative: slot checkout ${formatArg(targetBranch)}`,
+		`Alternative: slot checkout ${formatShellArg(targetBranch)}`,
 		"",
 		cause,
 	].join("\n");
@@ -592,34 +584,10 @@ function formatCommandFailure(title: string, command: string, args: string[], re
 	const sections = [
 		`${title} (${status})`,
 		`Command: ${formatCommand(command, args)}`,
-		formatOutputSection("stdout", result.stdout),
-		formatOutputSection("stderr", result.stderr),
+		formatPlainOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS }),
+		formatPlainOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS }),
 	];
-	return tailText(sections.filter((section) => section.length > 0).join("\n\n"));
-}
-
-function formatOutputSection(label: string, value: string): string {
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? `${label}:\n${tailText(trimmed)}` : "";
-}
-
-function formatCommand(command: string, args: string[]): string {
-	return [command, ...args.map(formatArg)].join(" ");
-}
-
-function formatArg(value: string): string {
-	return /^[A-Za-z0-9_./:=@%+,-]+$/.test(value) ? value : shellQuote(value);
-}
-
-function shellQuote(value: string): string {
-	return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
-
-function tailText(value: string): string {
-	if (value.length <= MAX_ERROR_CHARS) {
-		return value;
-	}
-	return `…${value.slice(-MAX_ERROR_CHARS)}`;
+	return tailText(sections.filter((section) => section.length > 0).join("\n\n"), { maxChars: MAX_ERROR_CHARS });
 }
 
 async function normalizePathForComparison(path: string): Promise<string> {
@@ -631,19 +599,6 @@ async function normalizePathForComparison(path: string): Promise<string> {
 	}
 }
 
-function stringField(record: Record<string, unknown>, key: string): string | undefined {
-	const value = record[key];
-	return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 function formatUnexpectedError(error: unknown): string {
 	return [`/${COMMAND_NAME} failed unexpectedly.`, formatErrorMessage(error)].join("\n");
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
