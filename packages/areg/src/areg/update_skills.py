@@ -27,7 +27,7 @@ from pathlib import Path
 
 import click
 
-from areg.check.context import read_lockfile
+from areg.check.lockfile import read_lockfile
 from areg.context import AregContext
 from areg.gateways.npx_skills.gateway import NpxSkillsError
 from areg.preconditions import requires_npx
@@ -80,13 +80,10 @@ def update_skills_cmd(
     lockfile = read_lockfile(project_dir)
 
     github_entries: dict[str, str] = {}
-    for name, raw in lockfile.items():
-        if raw.get("sourceType") != "github":
+    for entry in lockfile.skills:
+        if entry.source_type != "github":
             continue
-        source = raw.get("source")
-        if not isinstance(source, str):
-            continue
-        github_entries[name] = source
+        github_entries[entry.name] = entry.source
 
     if skill_filter:
         unknown = [s for s in skill_filter if s not in github_entries]

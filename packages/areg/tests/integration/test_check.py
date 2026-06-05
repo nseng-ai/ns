@@ -10,6 +10,9 @@ from areg.check.checks import pairing
 from areg.check.context import locally_excluded_skills
 from areg.cli import main
 
+_VALID_LOCAL_HASH = "a" * 64
+_VALID_REMOTE_HASH = "b" * 64
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -64,11 +67,11 @@ def _make_github_skill(project: Path, name: str) -> None:
 
 
 def _local_lock_entry(name: str) -> dict:
-    return {"source": f"skills/{name}", "sourceType": "local", "computedHash": "abc123"}
+    return {"source": f"skills/{name}", "sourceType": "local", "computedHash": _VALID_LOCAL_HASH}
 
 
 def _github_lock_entry(owner_repo: str) -> dict:
-    return {"source": owner_repo, "sourceType": "github", "computedHash": "def456"}
+    return {"source": owner_repo, "sourceType": "github", "computedHash": _VALID_REMOTE_HASH}
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +168,7 @@ def test_check_local_lock_source_must_be_repo_relative(
             "my-skill": {
                 "source": bad_source,
                 "sourceType": "local",
-                "computedHash": "abc123",
+                "computedHash": _VALID_LOCAL_HASH,
             }
         },
     )
@@ -460,6 +463,79 @@ def test_check_edge_invalid_json(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
     assert result.exit_code != 0
     assert "Invalid JSON" in result.output
+
+
+@pytest.mark.parametrize(
+    ("raw_lockfile", "expected"),
+    [
+        ([], "root must be an object"),
+        ({"version": 1}, "$.skills is required"),
+        ({"version": 1, "skills": []}, "$.skills must be an object"),
+        ({"version": 1, "skills": {"pytest": []}}, "$.skills.pytest must be an object"),
+        (
+            {
+                "version": 1,
+                "skills": {"pytest": {"sourceType": "github", "computedHash": _VALID_REMOTE_HASH}},
+            },
+            "$.skills.pytest.source is required",
+        ),
+    ],
+)
+def test_check_edge_malformed_lockfile_shape_errors_cleanly(
+    tmp_path: Path,
+    raw_lockfile: object,
+    expected: str,
+) -> None:
+    (tmp_path / "skills-lock.json").write_text(json.dumps(raw_lockfile), encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code != 0
+    assert "Invalid skills-lock.json" in result.output
+    assert expected in result.output
+    assert "Traceback" not in result.output
+
+
+def test_check_reports_pending_regen_hash_as_lockfile_issue(tmp_path: Path) -> None:
+    _make_local_skill(tmp_path, "my-skill")
+    _make_lockfile(
+        tmp_path,
+        {
+            "my-skill": {
+                "source": "skills/my-skill",
+                "sourceType": "local",
+                "computedHash": "PENDING_REGEN",
+            }
+        },
+    )
+    _make_agents_md(tmp_path, ["my-skill"])
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "placeholder computedHash PENDING_REGEN" in result.output
+    assert "my-skill" in result.output
+
+
+def test_check_reports_invalid_short_hash_as_lockfile_issue(tmp_path: Path) -> None:
+    _make_local_skill(tmp_path, "my-skill")
+    _make_lockfile(
+        tmp_path,
+        {
+            "my-skill": {
+                "source": "skills/my-skill",
+                "sourceType": "local",
+                "computedHash": "abc123",
+            }
+        },
+    )
+    _make_agents_md(tmp_path, ["my-skill"])
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "invalid computedHash 'abc123'" in result.output
+    assert "expected 64 lowercase hex characters" in result.output
 
 
 def test_check_edge_no_agents_md(tmp_path: Path) -> None:
