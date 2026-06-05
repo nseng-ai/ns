@@ -40,11 +40,12 @@
   - Evidence: planned-branch core/scenario tests use stateful semantic Git, Branch Memory, and Graphite fakes; real gateway tests preserve exact `git`, `brmem`, and `gt` command protocol expectations, exit-code conventions, timeout behavior, unavailable-command handling, malformed/mismatched envelope handling, and Graphite startup/nonzero/killed failure mapping.
   - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/planned-branch && bun run check`, `just ts-check`, and `just ts-test` passed.
 
-- [ ] Public skills and docs accuracy pass
-  - Correct `planned-branch-create` branch-creation wording so omission means the CLI default `plain-git`, while Graphite requires `--branch-creation graphite` unless a Pi adapter explicitly owns a different default.
-  - Make public skill frontmatter harness-neutral.
-  - Remove or demote internal implementation sequencing from user-facing docs where command-contract wording is enough.
-  - Evidence: docs and skills describe observable behavior and recovery paths without misleading defaults or unnecessary TS internals.
+- [x] Public skills and docs accuracy pass
+  - `planned-branch-create` now states that omitting `--branch-creation` uses the portable CLI default, `plain-git`, while Graphite requires `--branch-creation graphite` unless a wrapper explicitly owns a different default.
+  - Public planned-branch skill frontmatter now describes agent use without Claude Code-specific trigger wording.
+  - User-facing planned-branch docs now emphasize command-contract surfaces, portable CLI defaults, cross-harness interoperability, and recovery paths instead of detailed TypeScript implementation file maps.
+  - Evidence: public skills and docs describe observable behavior and recovery paths without misleading Graphite defaults or unnecessary implementation internals.
+  - Verification: `just dprint-check`, `git diff --check`, `just`, and `just ts-test` passed.
 
 ## Parked
 

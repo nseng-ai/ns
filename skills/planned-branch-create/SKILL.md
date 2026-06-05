@@ -1,6 +1,6 @@
 ---
 name: planned-branch-create
-description: Use when a Claude Code user wants to create a planned implementation branch from a saved plan and attach that plan as branch-scoped context. Triggers on requests like "create a planned branch", "branch this saved plan", "attach this plan to a branch", or cross-harness handoff from Pi `/planned-branch:create`. Uses `planned-branch exec create` and `resolve-plan`.
+description: Use when a user wants an agent to create a planned implementation branch from a saved plan and attach that plan as branch-scoped context. Triggers on requests like "create a planned branch", "branch this saved plan", "attach this plan to a branch", or cross-harness handoff from Pi `/planned-branch:create`. Uses `planned-branch exec create` and `resolve-plan`.
 ---
 
 # planned-branch-create
@@ -37,9 +37,9 @@ The attachment is stored under Branch Memory namespace `planned-branch` with key
 2. Read the selected plan if needed to understand the work and derive a slug.
 3. Derive `<planned-branch-slug>` yourself from the plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This slug becomes the default target branch name and attached-plan key.
 4. Choose branch creation:
-   - use `--branch-creation graphite` when the user wants Graphite stack tracking;
-   - use `--branch-creation plain-git` for plain Git;
-   - omit the flag only when the project default is acceptable.
+   - omit `--branch-creation` to use the CLI default, `plain-git`;
+   - pass `--branch-creation graphite` only when the user or workflow explicitly wants Graphite stack tracking;
+   - pass `--branch-creation plain-git` when overriding a wrapper/project default back to plain Git.
 5. Pass `--branch` only when the user requested a specific target branch. The attached-plan key still comes from `--slug`.
 6. Run `planned-branch exec create ... --format json`.
 7. Report `branch`, `branch_creation`, `namespace`, `key`, `ref_name`, `commit`, `source_file`, and `slug`.

@@ -142,15 +142,15 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## Engineered TypeScript packages
 
-| Artifact                                  | Description                                                                                                                                   |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ts/packages/planned-branch/package.json` | Defines the `@asdl/planned-branch` package and `planned-branch` bin used by Pi and Claude skills for saved-plan and attached-plan operations. |
-| `ts/packages/planned-branch/src/`         | Contains the hidden `planned-branch exec` CLI operations, local plan store helpers, branch creation, and attached-plan loading.               |
-| `ts/packages/planned-branch/test/`        | Contains Bun scenario tests for the `planned-branch` CLI contract.                                                                            |
-| `ts/packages/pi-extensions/package.json`  | Defines the private TypeScript workspace package that holds tested implementations for project-local Pi behavior.                             |
-| `ts/packages/pi-extensions/CONTEXT.md`    | Defines the package's domain language for discovery adapters, engineered behavior, planned branches, checkpoints, and runner subagents.       |
-| `ts/packages/pi-extensions/src/`          | Contains the tested implementation modules used by the thin `.pi/extensions/*.ts` discovery adapters.                                         |
-| `ts/packages/pi-extensions/test/`         | Contains Bun tests for the engineered Pi extension package and its promoted workflows.                                                        |
+| Artifact                                  | Description                                                                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ts/packages/planned-branch/package.json` | Defines the `@asdl/planned-branch` package and `planned-branch` bin used by Pi and installed agent skills for saved-plan and attached-plan operations. |
+| `ts/packages/planned-branch/src/`         | Contains the hidden `planned-branch exec` CLI operations, local plan store helpers, branch creation, and attached-plan loading.                        |
+| `ts/packages/planned-branch/test/`        | Contains Bun scenario tests for the `planned-branch` CLI contract.                                                                                     |
+| `ts/packages/pi-extensions/package.json`  | Defines the private TypeScript workspace package that holds tested implementations for project-local Pi behavior.                                      |
+| `ts/packages/pi-extensions/CONTEXT.md`    | Defines the package's domain language for discovery adapters, engineered behavior, planned branches, checkpoints, and runner subagents.                |
+| `ts/packages/pi-extensions/src/`          | Contains the tested implementation modules used by the thin `.pi/extensions/*.ts` discovery adapters.                                                  |
+| `ts/packages/pi-extensions/test/`         | Contains Bun tests for the engineered Pi extension package and its promoted workflows.                                                                 |
 
 ## Claude workflow artifacts
 
@@ -180,19 +180,19 @@ Projects initialized with `areg init` install only `skill-management` and `skill
 
 ## Harness-facing documentation and specs
 
-| Artifact                                                | Description                                                                                                                                       |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance.                         |
-| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored under domain-specific Pi namespaces.                              |
-| `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                                               |
-| `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.                                |
-| `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                                                    |
-| `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow, `@asdl/planned-branch` CLI operations, Pi commands, Claude skills, local store, and Branch Memory attachments. |
-| `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                                            |
-| `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                                                |
-| `docs/internal-code-gh-skill-trim-plan.md`              | Historical plan for trimming the GitHub CLI skill; current skill name is `internal-code-gh`.                                                      |
-| `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                                                    |
-| `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                                            |
+| Artifact                                                | Description                                                                                                                                                |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance.                                  |
+| `docs/pi/exposing-pi-commands-through-asdl-dev.md`      | Guides promotion of headless Pi workflows into `asdl-dev` CLI commands mirrored under domain-specific Pi namespaces.                                       |
+| `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                                                        |
+| `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.                                         |
+| `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                                                             |
+| `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow, `@asdl/planned-branch` CLI operations, Pi commands, installed agent skills, local store, and Branch Memory attachments. |
+| `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                                                     |
+| `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                                                         |
+| `docs/internal-code-gh-skill-trim-plan.md`              | Historical plan for trimming the GitHub CLI skill; current skill name is `internal-code-gh`.                                                               |
+| `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                                                             |
+| `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                                                     |
 
 ## Absent first-party surfaces
 

@@ -4,8 +4,8 @@
 
 The planned-branch workflow turns a reviewed implementation plan into an
 implementation branch that carries its canonical plan with it. The portable core
-is the `@asdl/planned-branch` TypeScript package and its `planned-branch` bin;
-Pi and Claude skills are thin workflow surfaces over that CLI contract.
+is the `@asdl/planned-branch` package and its `planned-branch` bin;
+Pi commands and installed agent skills are thin workflow surfaces over that CLI contract.
 
 Branch Memory is the lower storage adapter for the attached plan. It stores plan
 text under an explicit namespace/key contract, but it does not own
@@ -13,25 +13,24 @@ planned-branch policy.
 
 The public workflow surface is:
 
-1. `/planned-branch:write-plan` in Pi, or the `planned-branch-write-plan` skill
-   in Claude Code, saves a reviewed plan in the local plan store.
-2. `/planned-branch:create` in Pi, or the `planned-branch-create` skill in
-   Claude Code, selects a saved plan, chooses a planned-branch slug, creates the
+1. `/planned-branch:write-plan` in Pi, or the `planned-branch-write-plan` skill,
+   saves a reviewed plan in the local plan store.
+2. `/planned-branch:create` in Pi, or the `planned-branch-create` skill,
+   selects a saved plan, chooses a planned-branch slug, creates the
    implementation branch, and attaches the plan.
 3. The attachment is written to Branch Memory namespace `planned-branch` with
    key `<planned-branch-slug>.md` on the implementation branch.
 4. `/planned-branch:impl [key-or-slug]` in Pi, or the `planned-branch-impl`
-   skill in Claude Code, loads the canonical attached plan and starts
-   implementation.
+   skill, loads the canonical attached plan and starts implementation.
 
 The deterministic CLI operations are hidden under `planned-branch exec` so
-agents can share one package contract without duplicating TypeScript internals.
+agents can share one package contract without duplicating implementation details.
 
 ## Command Flow
 
 ### Save a source-branch plan
 
-Pi users run `/planned-branch:write-plan`. Claude Code users use the
+Pi users run `/planned-branch:write-plan`. Other agents use the
 `planned-branch-write-plan` skill, which shells out to:
 
 ```text
@@ -54,7 +53,7 @@ Saving a source-branch plan creates no implementation branch, writes no Branch
 Memory, and checks in no plan artifact. The local plan store is the pre-branch
 handoff point between planning and branch creation.
 
-Pi derives the saved-plan filename slug inside the planning turn. Claude skills
+Pi derives the saved-plan filename slug inside the planning turn. Agent skills
 derive the slug in the skill layer before calling the CLI, because the shared CLI
 operation intentionally receives an explicit slug.
 
@@ -73,7 +72,7 @@ absolute or current-user home-relative and must point to Markdown files.
 
 ### Create a planned branch
 
-Pi users run `/planned-branch:create`. Claude Code users use the
+Pi users run `/planned-branch:create`. Other agents use the
 `planned-branch-create` skill, which shells out to:
 
 ```text
@@ -85,10 +84,11 @@ surface. It drives the default target branch and the attached-plan key. An
 explicit `--branch` overrides only the target branch name; the Branch Memory key
 remains derived from `--slug`.
 
-In this repo, Pi defaults branch creation to Graphite through the project-local
-extension configuration. The CLI supports both `plain-git` and `graphite`, and
-Claude skills should pass `--branch-creation` when the user or workflow requires
-a specific mode.
+The CLI default branch-creation mode is `plain-git` when `--branch-creation` is
+omitted. The CLI also supports `graphite`; pass `--branch-creation graphite`
+when the user or workflow explicitly requires Graphite stack tracking. In this
+repo, the project-local Pi adapter owns a different `/planned-branch:create`
+default and requests Graphite creation for Pi users.
 
 The attached plan contract is:
 
@@ -100,7 +100,7 @@ Branch: <target-implementation-branch>
 
 ### Load and implement an attached plan
 
-Pi users run `/planned-branch:impl [key-or-slug]`. Claude Code users use the
+Pi users run `/planned-branch:impl [key-or-slug]`. Other agents use the
 `planned-branch-impl` skill, which shells out to:
 
 ```text
@@ -134,16 +134,16 @@ Memory use remains generic branch-scoped text storage.
 
 ## Cross-harness Flow
 
-Pi and Claude Code interoperate through the same filesystem and Branch Memory
-contracts:
+Pi commands and installed agent skills interoperate through the same filesystem
+and Branch Memory contracts:
 
 - A plan saved by `/planned-branch:write-plan` can be resolved by
   `planned-branch exec resolve-plan` or used by the `planned-branch-create`
   skill.
 - A plan saved by `planned-branch-write-plan` can be passed to
   `/planned-branch:create <path>`.
-- A branch created by either Pi or Claude Code stores the attached plan in
-  namespace `planned-branch`, so `/planned-branch:impl` and
+- A branch created by either Pi or an installed agent skill stores the attached
+  plan in namespace `planned-branch`, so `/planned-branch:impl` and
   `planned-branch-impl` can both load it.
 
 No compatibility aliases or alternate storage namespaces are part of the active
@@ -151,12 +151,14 @@ contract.
 
 ## Branch Creation Policy
 
-Branch creation policy is selected by the workflow surface. In this repo, the
-project-local Pi adapter configures `/planned-branch:create` to default to
-Graphite branch creation and to use the planned-branch slug as the target branch
-name unless the user passes an explicit branch.
+Branch creation policy is selected by the workflow surface. The portable CLI
+uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a
+project-local default; in this repo, the Pi adapter configures
+`/planned-branch:create` to request Graphite branch creation and to use the
+planned-branch slug as the target branch name unless the user passes an explicit
+branch.
 
-Graphite creation creates the local Git branch first:
+Graphite creation still creates the local Git branch first:
 
 ```text
 git branch <target> HEAD
@@ -205,29 +207,20 @@ brmem list --namespace planned-branch --branch <branch>
 brmem get <key> --namespace planned-branch --branch <branch>
 ```
 
-## Validation and Related Files
+## Validation and Related Surfaces
 
-The portable package lives under `ts/packages/planned-branch/` and exposes the
-`planned-branch` bin. Pi wiring lives in the engineered Pi extension package
-under `ts/packages/pi-extensions/`; the checked-in project-local discovery
-adapter is `.pi/extensions/planned-branch.ts`.
+The portable package exposes the `planned-branch` bin. Pi commands and installed
+agent skills should treat the hidden `planned-branch exec` commands as the
+shared contract rather than duplicating package internals.
 
-Useful related files:
+Related public surfaces:
 
-- `ts/packages/planned-branch/src/cli.ts`: `planned-branch exec` operation
-  parsing and JSON output.
-- `ts/packages/planned-branch/src/`: local plan store, branch creation, and
-  attached-plan helpers.
-- `ts/packages/planned-branch/src/prompts/planned-branch-impl.md`:
-  implementation prompt text returned by `planned-branch exec load-plan`.
-- `ts/packages/pi-extensions/src/planned-branch-extension.ts`: Pi command and
-  tool wiring for `/planned-branch:write-plan`, `/planned-branch:create`, and
+- Pi commands: `/planned-branch:write-plan`, `/planned-branch:create`, and
   `/planned-branch:impl`.
-- `skills/planned-branch-write-plan/SKILL.md`,
-  `skills/planned-branch-create/SKILL.md`, and
-  `skills/planned-branch-impl/SKILL.md`: Claude Code public workflow skills.
-- `packages/brmem/README.md`: generic Branch Memory CLI documentation with a
-  pointer back to this workflow.
+- Agent skills: `planned-branch-write-plan`, `planned-branch-create`, and
+  `planned-branch-impl`.
+- Branch Memory documentation: `packages/brmem/README.md` for the generic
+  storage CLI that planned-branch uses for attached plans.
 
 For docs-only changes, run `just dprint-check` or `dprint check`. If TypeScript
 behavior changes, validate with `just ts-check` and `just ts-test`. The

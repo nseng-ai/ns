@@ -46,7 +46,7 @@ Assumptions:
 - The existing behavior and tests from the planned-branch TS CLI stack are a valid baseline; the cleanup should preserve observable behavior except where tests intentionally tighten invalid-boundary rejection.
 - The planned-branch package is the canonical owner of branch creation, Branch Memory attachment, saved-plan evidence, and attached-plan loading semantics.
 - CMUX should remain a composition layer: after planned-branch creates/attaches, CMUX checks out a slot and opens a workspace.
-- Semantic gateways can be introduced incrementally without blocking the smaller boundary fixes; the saved-plan resolver, CMUX operation model, Branch Memory envelope cleanup, CLI type-contract cleanup, shared content-slug derivation, Git semantic gateway slice, Branch Memory semantic gateway slice, and Graphite semantic gateway slice have now landed as independent slices.
+- Semantic gateways could be introduced incrementally without blocking the smaller boundary fixes; the saved-plan resolver, CMUX operation model, Branch Memory envelope cleanup, CLI type-contract cleanup, shared content-slug derivation, Git semantic gateway slice, Branch Memory semantic gateway slice, Graphite semantic gateway slice, and public skills/docs accuracy pass have now landed as independent slices.
 
 Risks:
 
@@ -55,9 +55,19 @@ Risks:
 - CMUX dry-run output may be coupled to exact command text in tests or user expectations. Mitigate by preserving useful evidence while moving command sequencing behind a planned operation model. The operation-model slice de-risked this for CMUX dispatch by moving exact planned-branch command assertions into package tests and keeping CMUX tests focused on composition and dry-run no-mutation behavior.
 - Branch Memory machine-envelope drift between `put`, `list`, and `get` may produce inconsistent failure semantics. The unified envelope parsing slice de-risked this by routing all three operations through one strict parser while keeping operation-specific body validators focused.
 - CLI parse/evidence contracts may obscure invalid states if optional bags and exception-driven user-input failures remain. The CLI type-contract slice de-risked this for resolve-plan evidence and expected parse failures by using discriminated evidence variants and returned parser errors with scenario coverage for human and JSON failures.
-- Docs and skills may drift again if they duplicate CLI defaults. Mitigate by wording them around command contracts and explicit flags instead of project-local adapter defaults.
+- Docs and skills may drift again if they duplicate CLI defaults. The public accuracy pass de-risked the current drift by stating the portable CLI default (`plain-git`), naming Graphite as an explicit `--branch-creation graphite` choice unless a wrapper owns a different default, making public skill descriptions harness-neutral, and demoting user-facing implementation file maps to command-contract surfaces.
 
 ## Open Questions
 
 - Should the portable `planned-branch` CLI eventually expose a dry-run/preview operation directly, or is an internal operation model sufficient for Pi/CMUX composition?
-- Should public docs keep any developer source-file map, or should implementation references move to package-level developer documentation only?
+- Resolved for the public workflow docs: keep command-contract surfaces and recovery guidance in user-facing docs; detailed implementation source maps belong in package-level or developer-facing references when needed.
+
+## Closure
+
+Outcome: completed.
+
+The hardening stack completed the planned-branch cleanup findings while preserving the intended write-plan, create, attach, and load-plan workflow. The shipped slices added canonical saved-plan resolution for Pi create and CMUX dispatch, moved CMUX dispatch to a planned-branch-owned operation model, unified Branch Memory envelope parsing, cleaned up CLI parse/evidence contracts, shared content-slug derivation, introduced semantic Git/Branch Memory/Graphite gateways for planned-branch core behavior, and corrected public skills/docs to describe portable CLI defaults and command contracts accurately.
+
+Evidence: the roadmap rows are complete; PRs through #901 record the final Graphite gateway and public skills/docs slices; `just`, `just ts-test`, `just dprint-check`, and `git diff --check` passed on the closing branch.
+
+Caveats and follow-ups: the parked preview-command and file-splitting ideas remain optional future work, not blockers for this Objective. If multiple non-Pi callers later need planned-branch dry-run evidence without package imports, consider a portable `planned-branch exec preview-create` command as new work.
