@@ -2,11 +2,11 @@
 
 ## Work
 
-- [ ] Inventory current handoff and Branch Memory usage.
-  - Identify the handoff-save/load skills, any CLI helpers they call, and the exact `brmem` operations or assumptions involved.
-  - Evidence: concise map of current branch, namespace/base, entry-key, overwrite, and resume behavior.
+- [x] Inventory current handoff and Branch Memory usage.
+  - Identified the handoff-save/load skills, Pi `/handoff:*` extension, `asdl-handoff` list/gc CLI, `brmem` primitives, tests, and local non-authoritative Branch Memory examples.
+  - Evidence: `updates/2026-06-05-handoff-inventory.md` records the layered map of branch scope, namespace/base behavior, entry-key handling, overwrite preflight, resume selection, stale/deleted handling, consolidation gaps, and focused test results.
 - [ ] Define the handoff artifact contract over Branch Memory.
-  - Decide the default storage convention, what metadata must be visible in artifact text, how stale or ambiguous handoffs are handled, and what belongs outside handoff artifacts.
+  - Decide whether the current flat `<semantic-slug>.md` Entry Key shape becomes the final contract, whether `session-artifacts/handoffs/...` compatibility normalization should migrate/retire/remain display-only, what metadata must be visible in artifact text, how stale or ambiguous handoffs are handled, and what belongs outside handoff artifacts.
   - Evidence: contract captured in the user-facing skill/docs or implementation boundary where agents will rely on it.
 - [ ] Align the smallest necessary implementation, skill, or test surface with the contract.
   - Prefer tightening existing handoff/brmem interactions over introducing new workflow state.
