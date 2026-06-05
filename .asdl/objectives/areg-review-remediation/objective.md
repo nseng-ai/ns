@@ -54,3 +54,11 @@ Risks:
 - ~~Should tool availability and Git-root discovery be separate gateways, methods on an existing context, or part of a broader project environment boundary?~~ Resolved for the current slice: they live on an injectable `AregEnvironment` carried by `AregContext` (commit `0470dc19`). Broader project skill-state ownership remains open under the boundary-model roadmap row.
 - ~~Should `NpxSkills.add` continue to model side-effectful installation, or should it return an installed skill tree while a separate store owns filesystem application?~~ Resolved for the current areg surfaces: production `NpxSkills.add` remains a side-effectful external-command boundary, the default fake records invocations without filesystem mutation, and inspectable transient skill trees are modeled by the skillx workspace gateway.
 - ~~Should existing `areg.json` unknown keys be preserved by default, or should replacement require an explicit force/yes path?~~ Resolved: unknown keys are preserved by default; `init` merges the managed `agents` field into the existing object instead of overwriting it (landed commit `a2086b45`).
+
+## Closure
+
+Outcome: completed.
+
+The areg review-remediation work is complete: every non-parked roadmap row is `[x]`, the original structural findings have been fixed or intentionally left out of scope, and the final strict closeout review completed cleanly after its actionable follow-up findings were resolved. Key evidence includes the safer `areg init` write-plan flow, symlink/path hardening for managed writes and `skillx cleanup`, injectable areg environment and skillx workspace boundaries, typed/user-facing lockfile validation with real local-skill hashes, reconciled skill docs/templates, and the strict closeout review recorded in `updates/2026-06-05T092147Z-strict-closeout-review-clean.md`.
+
+Remaining caveats are intentionally parked rather than active Objective work: broader redesign of upstream `npx skills` install/update semantics, a full content audit of every migrated skill outside the concrete review findings, and future policy work if real users need symlinked project config directories. These caveats do not block considering this Objective complete.
