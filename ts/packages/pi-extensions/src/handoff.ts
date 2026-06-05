@@ -13,6 +13,7 @@ const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
 const SAVE_HANDOFF_SKILL_NAME = "handoff-save";
+const HANDOFF_TIMEOUT_MS = 30_000;
 const BRMEM_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -267,16 +268,46 @@ export function parseHandoffItemsFromBrmemList(stdout: string): HandoffItemsPars
 		parsed = JSON.parse(stdout);
 	} catch (error) {
 		const detail = error instanceof Error ? error.message : String(error);
-		return { type: "invalid", message: `Failed to parse brmem list JSON: ${detail}` };
+		return { type: "invalid", message: `Failed to parse handoff list JSON: ${detail}` };
 	}
 
 	const data = isRecord(parsed) && isRecord(parsed.data) ? parsed.data : parsed;
-	const entries = isRecord(data) ? data.entries : undefined;
-	if (!Array.isArray(entries)) {
-		return { type: "invalid", message: "brmem list JSON did not contain an entries array." };
+	if (!isRecord(data)) {
+		return { type: "invalid", message: "handoff list JSON did not contain handoffs or entries array." };
 	}
 
-	const resultBranch = isRecord(data) && typeof data.branch === "string" ? data.branch : undefined;
+	if (Array.isArray(data.handoffs)) {
+		return parseHandoffSummaryItems(data.handoffs);
+	}
+
+	if (Array.isArray(data.entries)) {
+		const resultBranch = typeof data.branch === "string" ? data.branch : undefined;
+		return parseLegacyBrmemEntryItems(data.entries, resultBranch);
+	}
+
+	return { type: "invalid", message: "handoff list JSON did not contain handoffs or entries array." };
+}
+
+function parseHandoffSummaryItems(handoffs: unknown[]): HandoffItemsParseResult {
+	const seen = new Set<string>();
+	const items: HandoffListItem[] = [];
+
+	for (const handoff of handoffs) {
+		if (!isRecord(handoff) || typeof handoff.branch !== "string" || typeof handoff.key !== "string" || !isHandoffKey(handoff.key)) {
+			continue;
+		}
+		const identity = `${handoff.branch}\0${handoff.key}`;
+		if (seen.has(identity)) {
+			continue;
+		}
+		seen.add(identity);
+		items.push({ branch: handoff.branch, key: handoff.key, slug: handoffSlug(handoff.key) });
+	}
+
+	return { type: "valid", items };
+}
+
+function parseLegacyBrmemEntryItems(entries: unknown[], resultBranch: string | undefined): HandoffItemsParseResult {
 	const seen = new Set<string>();
 	const items: HandoffListItem[] = [];
 
@@ -698,16 +729,16 @@ async function listHandoffItems(
 ): Promise<HandoffItemsLoadResult> {
 	const commandArgs =
 		"allBranches" in options
-			? ["list", "--namespace", HANDOFF_NAMESPACE, "--all-branches", "--format", "json"]
-			: ["list", "--namespace", HANDOFF_NAMESPACE, "--branch", options.branch, "--format", "json"];
+			? ["list", "--all", "--format", "json"]
+			: ["list", "--branch", options.branch, "--format", "json"];
 	let result: ExecResult;
 	try {
-		result = await pi.exec("brmem", commandArgs, { cwd: ctx.cwd, timeout: BRMEM_TIMEOUT_MS });
+		result = await pi.exec("handoff", commandArgs, { cwd: ctx.cwd, timeout: HANDOFF_TIMEOUT_MS });
 	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("brmem", commandArgs), error) };
+		return { type: "failed", message: formatStartupFailure(formatCommand("handoff", commandArgs), error) };
 	}
 	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("brmem", commandArgs), result) };
+		return { type: "failed", message: formatExecFailure(formatCommand("handoff", commandArgs), result) };
 	}
 	const parsedItems = parseHandoffItemsFromBrmemList(result.stdout);
 	if (parsedItems.type === "invalid") {
