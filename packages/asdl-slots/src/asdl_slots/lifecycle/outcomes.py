@@ -96,6 +96,7 @@ class SlotGcEntry:
     pr_state: PRState | None
     pr_url: str | None
     message: str | None
+    cleanup: tuple[SlotFreeCleanupResult, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -116,3 +117,4 @@ class SlotGcOutcome:
     skipped_count: int
     error_count: int
     dry_run: bool
+    cleanup_error_count: int = 0

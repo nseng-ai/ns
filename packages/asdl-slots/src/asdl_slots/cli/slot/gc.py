@@ -15,14 +15,43 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRState
 from asdl_slots.cli.slot.context import load_slots_context
-from asdl_slots.lifecycle.gc import execute_gc_plan, outcome_from_gc_plan, plan_gc
-from asdl_slots.lifecycle.outcomes import SlotGcAction, SlotGcOutcome, SlotLifecycleFailure
+from asdl_slots.lifecycle.gc import (
+    GC_DELETE_BRANCH_CLEANUP_ACTIONS,
+    execute_gc_plan,
+    outcome_from_gc_plan,
+    plan_gc,
+)
+from asdl_slots.lifecycle.outcomes import (
+    SlotFreeCleanupAction,
+    SlotFreeCleanupStatus,
+    SlotGcAction,
+    SlotGcOutcome,
+    SlotLifecycleFailure,
+)
 from asdl_slots.repo_context import NoRepoSentinel
 
 
 class SlotGcRequest(ClinkrModel):
     dry_run: Annotated[bool, click.Option(["--dry-run"], is_flag=True, default=False)] = False
     force: Annotated[bool, click.Option(["-f", "--force"], is_flag=True, default=False)] = False
+    delete_branches: Annotated[
+        bool,
+        click.Option(
+            ["--delete-branches"],
+            is_flag=True,
+            default=False,
+            help="Force-delete local branches after successfully freeing eligible slots.",
+        ),
+    ] = False
+
+
+class SlotGcCleanupResult(ClinkrModel):
+    slot_name: str
+    branch_name: str
+    action: SlotFreeCleanupAction
+    status: SlotFreeCleanupStatus
+    pr_number: int | None = None
+    message: str | None = None
 
 
 class SlotGcResultEntry(ClinkrModel):
@@ -34,6 +63,7 @@ class SlotGcResultEntry(ClinkrModel):
     pr_state: PRState | None
     pr_url: str | None
     message: str | None
+    cleanup: tuple[SlotGcCleanupResult, ...] = ()
 
 
 class SlotGcResult(ClinkrModel):
@@ -42,6 +72,7 @@ class SlotGcResult(ClinkrModel):
     kept_count: int
     skipped_count: int
     error_count: int
+    cleanup_error_count: int = 0
     dry_run: bool
     cancelled: bool = False
 
@@ -83,20 +114,67 @@ def render_slot_gc(result: SlotGcResult, *, err: bool = False) -> None:
         )
         if entry.message:
             console.print(f"    [dim]{entry.message}[/dim]")
+        for cleanup in entry.cleanup:
+            if result.dry_run:
+                console.print(f"    {_cleanup_preview_line(cleanup)}")
+            else:
+                console.print(f"    {_cleanup_result_line(cleanup)}")
 
     verb = "Would free" if result.dry_run else "Freed"
-    console.print(
+    summary = (
         f"\n[bold]{verb} {result.freed_count}[/bold]; "
         f"kept {result.kept_count}; "
         f"skipped {result.skipped_count}; "
         f"errors {result.error_count}"
     )
+    if result.cleanup_error_count:
+        summary = f"{summary}; cleanup errors {result.cleanup_error_count}"
+    console.print(summary)
 
 
-def _confirm_free_slots(count: int) -> bool:
+def _cleanup_preview_line(entry: SlotGcCleanupResult) -> str:
+    if entry.status == "planned":
+        return f"local branch: force-delete {entry.branch_name}"
+    if entry.status == "skipped":
+        return f"{_cleanup_subject(entry)}: skipped ({entry.message or 'already complete'})"
+    return f"{_cleanup_subject(entry)}: error: {entry.message or 'failed'}"
+
+
+def _cleanup_result_line(entry: SlotGcCleanupResult) -> str:
+    if entry.status == "success":
+        return f"[green]✓[/green] {_cleanup_success_text(entry)}"
+    if entry.status == "skipped":
+        return f"[yellow]-[/yellow] {_cleanup_skipped_text(entry)}"
+    if entry.status == "planned":
+        return _cleanup_preview_line(entry)
+    return f"[red]✗[/red] {_cleanup_failure_text(entry)}"
+
+
+def _cleanup_subject(entry: SlotGcCleanupResult) -> str:
+    return f"local branch {entry.branch_name}"
+
+
+def _cleanup_success_text(entry: SlotGcCleanupResult) -> str:
+    return f"Force-deleted local branch {entry.branch_name}"
+
+
+def _cleanup_skipped_text(entry: SlotGcCleanupResult) -> str:
+    return f"Skipped {_cleanup_subject(entry)}: {entry.message or 'already complete'}"
+
+
+def _cleanup_failure_text(entry: SlotGcCleanupResult) -> str:
+    return f"Failed to force-delete local branch {entry.branch_name}: {entry.message or 'failed'}"
+
+
+def _confirm_free_slots(count: int, *, delete_branches: bool = False) -> bool:
     """Confirm on stderr without leaking echoed test input into stdout."""
     while True:
-        click.echo(f"Free {count} slot(s)? [Y/n]: ", err=True, nl=False)
+        prompt = (
+            f"Free {count} slot(s) and delete local branches? [Y/n]: "
+            if delete_branches
+            else f"Free {count} slot(s)? [Y/n]: "
+        )
+        click.echo(prompt, err=True, nl=False)
         sys.stderr.flush()
         raw_value = sys.stdin.readline()
         if raw_value == "":
@@ -121,6 +199,17 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
                 pr_state=e.pr_state,
                 pr_url=e.pr_url,
                 message=e.message,
+                cleanup=tuple(
+                    SlotGcCleanupResult(
+                        slot_name=cleanup.slot_name,
+                        branch_name=cleanup.branch_name,
+                        action=cleanup.action,
+                        status=cleanup.status,
+                        pr_number=cleanup.pr_number,
+                        message=cleanup.message,
+                    )
+                    for cleanup in e.cleanup
+                ),
             )
             for e in outcome.entries
         ),
@@ -128,9 +217,38 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
         kept_count=outcome.kept_count,
         skipped_count=outcome.skipped_count,
         error_count=outcome.error_count,
+        cleanup_error_count=outcome.cleanup_error_count,
         dry_run=outcome.dry_run,
         cancelled=cancelled,
     )
+
+
+def _cleanup_error_message(result: SlotGcResult) -> str:
+    lines: list[str] = []
+    for entry in result.entries:
+        if not any(cleanup.status == "error" for cleanup in entry.cleanup):
+            continue
+        if result.dry_run:
+            lines.append(f"Would free {entry.slot_name} ({entry.branch_name})")
+        else:
+            lines.append(f"✓ Freed {entry.slot_name} ({entry.branch_name})")
+            lines.append(f"  Worktree kept at {entry.worktree_path}; detached HEAD at trunk")
+        for cleanup in entry.cleanup:
+            if cleanup.status == "success":
+                lines.append(f"  ✓ {_cleanup_success_text(cleanup)}")
+            elif cleanup.status == "skipped":
+                lines.append(f"  - {_cleanup_skipped_text(cleanup)}")
+            elif cleanup.status == "error":
+                lines.append(f"  ✗ {_cleanup_failure_text(cleanup)}")
+    if not lines:
+        return "Cleanup failed."
+    return "\n".join(lines)
+
+
+def _exit_for_result(result: SlotGcResult) -> ClinkrExit[SlotGcResult]:
+    if result.cleanup_error_count:
+        return ClinkrExit.negative(result, message=_cleanup_error_message(result))
+    return ClinkrExit.ok(result)
 
 
 @clinkr_operation(
@@ -149,25 +267,50 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
         message="--dry-run and --force are mutually exclusive.",
     )
 
+    cleanup_actions = GC_DELETE_BRANCH_CLEANUP_ACTIONS if request.delete_branches else ()
+
     plan = plan_gc(slots_ctx)
     if isinstance(plan, SlotLifecycleFailure):
         return ClinkrExit.failure(error_type=plan.error_type, message=plan.message)
 
     if request.dry_run:
-        return ClinkrExit.ok(_result_from_outcome(outcome_from_gc_plan(plan, dry_run=True)))
+        result = _result_from_outcome(
+            outcome_from_gc_plan(slots_ctx, plan, dry_run=True, cleanup_actions=cleanup_actions)
+        )
+        return _exit_for_result(result)
 
     if plan.would_free_count == 0:
-        return ClinkrExit.ok(_result_from_outcome(outcome_from_gc_plan(plan, dry_run=False)))
+        return ClinkrExit.ok(
+            _result_from_outcome(
+                outcome_from_gc_plan(
+                    slots_ctx,
+                    plan,
+                    dry_run=False,
+                    cleanup_actions=cleanup_actions,
+                )
+            )
+        )
 
     if request.force:
-        return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
+        result = _result_from_outcome(
+            execute_gc_plan(slots_ctx, plan, cleanup_actions=cleanup_actions)
+        )
+        return _exit_for_result(result)
 
-    preview = _result_from_outcome(outcome_from_gc_plan(plan, dry_run=True))
+    preview = _result_from_outcome(
+        outcome_from_gc_plan(slots_ctx, plan, dry_run=True, cleanup_actions=cleanup_actions)
+    )
     render_slot_gc(preview, err=True)
     sys.stderr.flush()
-    proceed = _confirm_free_slots(plan.would_free_count)
+    proceed = _confirm_free_slots(plan.would_free_count, delete_branches=request.delete_branches)
     if proceed:
-        return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
+        result = _result_from_outcome(
+            execute_gc_plan(slots_ctx, plan, cleanup_actions=cleanup_actions)
+        )
+        return _exit_for_result(result)
     return ClinkrExit.ok(
-        _result_from_outcome(outcome_from_gc_plan(plan, dry_run=False), cancelled=True)
+        _result_from_outcome(
+            outcome_from_gc_plan(slots_ctx, plan, dry_run=False, cleanup_actions=cleanup_actions),
+            cancelled=True,
+        )
     )
