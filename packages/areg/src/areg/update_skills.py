@@ -113,7 +113,7 @@ def update_skills_cmd(
     )
 
     if not dry_run:
-        requires_npx()
+        requires_npx(ctx.environment)
 
     failures: list[tuple[str, str]] = []
     for name in sorted(github_entries):

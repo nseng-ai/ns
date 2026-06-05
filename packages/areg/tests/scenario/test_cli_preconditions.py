@@ -1,36 +1,61 @@
-"""End-to-end coverage for the per-command host-tool preconditions.
-
-Each Click command that shells out to `gh` or `npx` calls
-`requires_gh()` / `requires_npx()` from `areg.preconditions` as its
-first statement. These tests patch `shutil.which` in that module to
-return `None` and verify the friendly error reaches the user. Every
-test passes an explicit `obj=_ctx()` so the only thing exercised is the
-precondition call inside each command.
-"""
+"""End-to-end coverage for per-command host-tool preconditions over fakes."""
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import json
+from pathlib import Path
 
 from click.testing import CliRunner
 
 from areg.cli import main
 from areg.context import AregContext
+from areg.gateways.environment.fake import FakeAregEnvironment
+from areg.gateways.environment.gateway import ToolName
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
 
 
-def _ctx() -> AregContext:
-    return AregContext(gh=FakeGhCli(), npx_skills=FakeNpxSkills())
+def _ctx(
+    *,
+    missing_tool: ToolName | None = None,
+    npx: FakeNpxSkills | None = None,
+) -> AregContext:
+    available_tools: set[ToolName] = {"gh", "npx"}
+    if missing_tool is not None:
+        available_tools.remove(missing_tool)
+    return AregContext(
+        gh=FakeGhCli(),
+        npx_skills=npx or FakeNpxSkills(),
+        environment=FakeAregEnvironment(available_tools=available_tools),
+    )
 
 
-def test_init_requires_npx(tmp_path) -> None:
-    with patch("areg.preconditions.shutil.which", autospec=True, return_value=None):
-        result = CliRunner().invoke(
-            main,
-            ["init", str(tmp_path)],
-            obj=_ctx(),
-        )
+def _write_lockfile(project_dir: Path) -> None:
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "skills-lock.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "skills": {
+                    "skillx": {
+                        "source": "dagster-io/asdl-tools",
+                        "sourceType": "github",
+                        "computedHash": "abc",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_init_requires_npx(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path)],
+        obj=_ctx(missing_tool="npx"),
+    )
+
     assert result.exit_code != 0
     assert "npx is required" in result.output
     # Fail-fast: no initialization files were created.
@@ -39,22 +64,54 @@ def test_init_requires_npx(tmp_path) -> None:
 
 
 def test_skillx_list_requires_gh() -> None:
-    with patch("areg.preconditions.shutil.which", autospec=True, return_value=None):
-        result = CliRunner().invoke(
-            main,
-            ["exec", "skillx", "list", "--repo", "owner/repo"],
-            obj=_ctx(),
-        )
+    result = CliRunner().invoke(
+        main,
+        ["exec", "skillx", "list", "--repo", "owner/repo"],
+        obj=_ctx(missing_tool="gh"),
+    )
+
     assert result.exit_code != 0
     assert "gh CLI is required" in result.output
 
 
 def test_skillx_fetch_requires_npx() -> None:
-    with patch("areg.preconditions.shutil.which", autospec=True, return_value=None):
-        result = CliRunner().invoke(
-            main,
-            ["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "my-skill"],
-            obj=_ctx(),
-        )
+    result = CliRunner().invoke(
+        main,
+        ["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "my-skill"],
+        obj=_ctx(missing_tool="npx"),
+    )
+
     assert result.exit_code != 0
     assert "npx is required" in result.output
+
+
+def test_update_skills_requires_npx_before_invoking_gateway(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    _write_lockfile(project)
+    fake_npx = FakeNpxSkills()
+
+    result = CliRunner().invoke(
+        main,
+        ["update-skills", "--path", str(project)],
+        obj=_ctx(missing_tool="npx", npx=fake_npx),
+    )
+
+    assert result.exit_code != 0
+    assert "npx is required" in result.output
+    assert fake_npx.invocations == []
+
+
+def test_update_skills_dry_run_does_not_require_npx(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    _write_lockfile(project)
+    fake_npx = FakeNpxSkills()
+
+    result = CliRunner().invoke(
+        main,
+        ["update-skills", "--path", str(project), "--dry-run"],
+        obj=_ctx(missing_tool="npx", npx=fake_npx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fake_npx.invocations == []
+    assert "dry-run" in result.output

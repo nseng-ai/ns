@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import tomllib
 from pathlib import Path
 
@@ -10,6 +9,7 @@ from click.testing import CliRunner
 
 from areg.cli import main
 from areg.context import AregContext
+from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
 from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
@@ -30,10 +30,20 @@ def _default_npx() -> FakeNpxSkills:
     )
 
 
-def _ctx(*, npx: FakeNpxSkills | None = None) -> AregContext:
+def _ctx(
+    *,
+    npx: FakeNpxSkills | None = None,
+    project_dir: Path | None = None,
+    git_roots: dict[Path, Path] | None = None,
+) -> AregContext:
+    configured_git_roots = dict(git_roots or {})
+    if project_dir is not None:
+        resolved_project_dir = project_dir.resolve()
+        configured_git_roots[resolved_project_dir] = resolved_project_dir
     return AregContext(
         gh=FakeGhCli(),
         npx_skills=npx or _default_npx(),
+        environment=FakeAregEnvironment(git_roots=configured_git_roots),
     )
 
 
@@ -65,17 +75,6 @@ class _SymlinkClaudeDirAfterAdd(FakeNpxSkills):
         (cwd / ".claude").symlink_to(self._outside, target_is_directory=True)
 
 
-def _git_init(project_dir: Path) -> None:
-    project_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["git", "init"],
-        cwd=project_dir,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
 def _read_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
@@ -86,7 +85,9 @@ def _assert_init_error_before_install(
     fake_npx: FakeNpxSkills,
     expected_output: str,
 ) -> None:
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert expected_output in result.output
@@ -96,9 +97,8 @@ def _assert_init_error_before_install(
 
 
 def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
-    _git_init(tmp_path)
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path))
 
     assert result.exit_code == 0, result.output
     assert (tmp_path / ".agents" / "skills" / "skill-management").is_dir()
@@ -124,10 +124,9 @@ def test_init_defaults_to_current_directory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _git_init(tmp_path)
     monkeypatch.chdir(tmp_path)
 
-    result = CliRunner().invoke(main, ["init"], obj=_ctx())
+    result = CliRunner().invoke(main, ["init"], obj=_ctx(project_dir=tmp_path))
 
     assert result.exit_code == 0, result.output
     assert (tmp_path / "AGENTS.md").is_file()
@@ -136,13 +135,12 @@ def test_init_defaults_to_current_directory(
 
 
 def test_init_uses_custom_agents(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     fake_npx = _default_npx()
 
     result = CliRunner().invoke(
         main,
         ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
-        obj=_ctx(npx=fake_npx),
+        obj=_ctx(npx=fake_npx, project_dir=tmp_path),
     )
 
     assert result.exit_code == 0, result.output
@@ -157,7 +155,6 @@ def test_init_uses_custom_agents(tmp_path: Path) -> None:
 
 
 def test_init_preserves_other_asdl_toml_sections_when_updating_areg(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / "asdl.toml").write_text(
         '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n\n[areg]\nagents = ["old"]\n',
         encoding="utf-8",
@@ -166,7 +163,7 @@ def test_init_preserves_other_asdl_toml_sections_when_updating_areg(tmp_path: Pa
     result = CliRunner().invoke(
         main,
         ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
-        obj=_ctx(),
+        obj=_ctx(project_dir=tmp_path),
     )
 
     assert result.exit_code == 0, result.output
@@ -177,13 +174,12 @@ def test_init_preserves_other_asdl_toml_sections_when_updating_areg(tmp_path: Pa
 
 
 def test_init_appends_areg_section_to_existing_asdl_toml(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / "asdl.toml").write_text(
         '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path))
 
     assert result.exit_code == 0, result.output
     assert _read_toml(tmp_path / "asdl.toml") == {
@@ -193,12 +189,13 @@ def test_init_appends_areg_section_to_existing_asdl_toml(tmp_path: Path) -> None
 
 
 def test_init_migrates_agents_from_legacy_areg_json(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     legacy_content = json.dumps({"agents": ["codex", "cursor"]})
     (tmp_path / "areg.json").write_text(legacy_content, encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "cursor"]}}
@@ -207,25 +204,25 @@ def test_init_migrates_agents_from_legacy_areg_json(tmp_path: Path) -> None:
 
 
 def test_init_leaves_existing_claude_settings_unchanged(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     settings = tmp_path / ".claude" / "settings.local.json"
     settings.parent.mkdir()
     settings.write_text("custom settings\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path))
 
     assert result.exit_code == 0, result.output
     assert settings.read_text(encoding="utf-8") == "custom settings\n"
 
 
 def test_init_rejects_agents_md_symlink_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     outside = tmp_path / "outside-agents.md"
     outside.write_text("external agents\n", encoding="utf-8")
     (tmp_path / "AGENTS.md").symlink_to(outside)
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "symlink" in result.output
@@ -237,13 +234,14 @@ def test_init_rejects_agents_md_symlink_before_install(tmp_path: Path) -> None:
 
 
 def test_init_rejects_claude_md_symlink_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     outside = tmp_path / "outside-claude.md"
     outside.write_text("external claude\n", encoding="utf-8")
     (tmp_path / "CLAUDE.md").symlink_to(outside)
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "symlink" in result.output
@@ -255,13 +253,14 @@ def test_init_rejects_claude_md_symlink_before_install(tmp_path: Path) -> None:
 
 
 def test_init_rejects_asdl_toml_symlink_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     outside = tmp_path / "outside-asdl.toml"
     outside.write_text("[areg]\nagents = ['external']\n", encoding="utf-8")
     (tmp_path / "asdl.toml").symlink_to(outside)
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "symlink" in result.output
@@ -273,13 +272,14 @@ def test_init_rejects_asdl_toml_symlink_before_install(tmp_path: Path) -> None:
 
 
 def test_init_rejects_claude_dir_symlink_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     outside = tmp_path / "outside-claude-dir"
     outside.mkdir()
     (tmp_path / ".claude").symlink_to(outside, target_is_directory=True)
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "symlink" in result.output
@@ -291,7 +291,6 @@ def test_init_rejects_claude_dir_symlink_before_install(tmp_path: Path) -> None:
 
 
 def test_init_rejects_claude_settings_symlink_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir()
     outside = tmp_path / "outside-settings.local.json"
@@ -299,7 +298,9 @@ def test_init_rejects_claude_settings_symlink_before_install(tmp_path: Path) -> 
     (claude_dir / "settings.local.json").symlink_to(outside)
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "symlink" in result.output
@@ -311,11 +312,12 @@ def test_init_rejects_claude_settings_symlink_before_install(tmp_path: Path) -> 
 
 
 def test_init_revalidates_settings_parent_after_npx_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     outside = tmp_path / "outside-claude-after-install"
     fake_npx = _SymlinkClaudeDirAfterAdd(outside=outside)
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "symlink" in result.output
@@ -325,7 +327,6 @@ def test_init_revalidates_settings_parent_after_npx_install(tmp_path: Path) -> N
 
 
 def test_init_asdl_toml_directory_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / "asdl.toml").mkdir()
     fake_npx = _default_npx()
 
@@ -337,7 +338,6 @@ def test_init_asdl_toml_directory_errors_before_install(tmp_path: Path) -> None:
 
 
 def test_init_agents_md_directory_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / "AGENTS.md").mkdir()
     fake_npx = _default_npx()
 
@@ -349,7 +349,6 @@ def test_init_agents_md_directory_errors_before_install(tmp_path: Path) -> None:
 
 
 def test_init_claude_md_directory_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / "CLAUDE.md").mkdir()
     fake_npx = _default_npx()
 
@@ -361,7 +360,6 @@ def test_init_claude_md_directory_errors_before_install(tmp_path: Path) -> None:
 
 
 def test_init_claude_path_file_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / ".claude").write_text("not a directory\n", encoding="utf-8")
     fake_npx = _default_npx()
 
@@ -373,7 +371,6 @@ def test_init_claude_path_file_errors_before_install(tmp_path: Path) -> None:
 
 
 def test_init_claude_settings_directory_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     settings = tmp_path / ".claude" / "settings.local.json"
     settings.mkdir(parents=True)
     fake_npx = _default_npx()
@@ -386,7 +383,9 @@ def test_init_claude_settings_directory_errors_before_install(tmp_path: Path) ->
 
 
 def test_init_rejects_nonexistent_target(tmp_path: Path) -> None:
-    result = CliRunner().invoke(main, ["init", str(tmp_path / "missing")], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path / "missing")], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "does not exist" in result.output
@@ -401,11 +400,14 @@ def test_init_rejects_non_git_directory(tmp_path: Path) -> None:
 
 
 def test_init_rejects_git_subdirectory(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     subdir = tmp_path / "subdir"
     subdir.mkdir()
 
-    result = CliRunner().invoke(main, ["init", str(subdir)], obj=_ctx())
+    result = CliRunner().invoke(
+        main,
+        ["init", str(subdir)],
+        obj=_ctx(git_roots={subdir.resolve(): tmp_path.resolve()}),
+    )
 
     assert result.exit_code != 0
     assert "is inside a Git worktree but is not the root" in result.output
@@ -413,22 +415,24 @@ def test_init_rejects_git_subdirectory(tmp_path: Path) -> None:
 
 
 def test_init_existing_agents_md_prompt_no_leaves_file_unchanged(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text("# Existing instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="n\n")
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path), input="n\n"
+    )
 
     assert result.exit_code == 0, result.output
     assert agents.read_text(encoding="utf-8") == "# Existing instructions\n"
 
 
 def test_init_existing_agents_md_prompt_yes_appends_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text("# Existing instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="y\n")
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path), input="y\n"
+    )
 
     assert result.exit_code == 0, result.output
     content = agents.read_text(encoding="utf-8")
@@ -437,22 +441,24 @@ def test_init_existing_agents_md_prompt_yes_appends_block(tmp_path: Path) -> Non
 
 
 def test_init_existing_agents_md_yes_flag_appends_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text("# Existing instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--yes"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert "<!-- areg:skills:start -->" in agents.read_text(encoding="utf-8")
 
 
 def test_init_existing_agents_md_no_append_skips_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text("# Existing instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--no-append"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--no-append"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert agents.read_text(encoding="utf-8") == "# Existing instructions\n"
@@ -460,22 +466,24 @@ def test_init_existing_agents_md_no_append_skips_block(tmp_path: Path) -> None:
 
 
 def test_init_existing_claude_md_prompt_no_leaves_file_unchanged(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="n\n")
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path), input="n\n"
+    )
 
     assert result.exit_code == 0, result.output
     assert claude.read_text(encoding="utf-8") == "# Existing Claude instructions\n"
 
 
 def test_init_existing_claude_md_prompt_yes_appends_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="y\n")
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path), input="y\n"
+    )
 
     assert result.exit_code == 0, result.output
     content = claude.read_text(encoding="utf-8")
@@ -485,22 +493,24 @@ def test_init_existing_claude_md_prompt_yes_appends_block(tmp_path: Path) -> Non
 
 
 def test_init_existing_claude_md_yes_flag_appends_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--yes"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert "<!-- areg:claude-skills:start -->" in claude.read_text(encoding="utf-8")
 
 
 def test_init_existing_claude_md_no_append_skips_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--no-append"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--no-append"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert claude.read_text(encoding="utf-8") == "# Existing Claude instructions\n"
@@ -508,11 +518,12 @@ def test_init_existing_claude_md_no_append_skips_block(tmp_path: Path) -> None:
 
 
 def test_init_claude_md_does_not_duplicate_existing_agents_include(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     claude.write_text("# Existing Claude instructions\n\n@AGENTS.md\n", encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--yes"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     content = claude.read_text(encoding="utf-8")
@@ -521,26 +532,28 @@ def test_init_claude_md_does_not_duplicate_existing_agents_include(tmp_path: Pat
 
 
 def test_init_existing_marked_agents_block_prompt_no_leaves_old_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     original = "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n"
     agents.write_text(original, encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="n\n")
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path), input="n\n"
+    )
 
     assert result.exit_code == 0, result.output
     assert agents.read_text(encoding="utf-8") == original
 
 
 def test_init_existing_marked_agents_block_prompt_yes_replaces_old_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text(
         "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n",
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="y\n")
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(project_dir=tmp_path), input="y\n"
+    )
 
     assert result.exit_code == 0, result.output
     content = agents.read_text(encoding="utf-8")
@@ -549,39 +562,42 @@ def test_init_existing_marked_agents_block_prompt_yes_replaces_old_block(tmp_pat
 
 
 def test_init_existing_marked_agents_block_yes_flag_replaces_old_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text(
         "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n",
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--yes"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert "old" not in agents.read_text(encoding="utf-8")
 
 
 def test_init_existing_marked_agents_block_no_append_leaves_old_block(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     original = "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n"
     agents.write_text(original, encoding="utf-8")
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--no-append"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--no-append"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert agents.read_text(encoding="utf-8") == original
 
 
 def test_init_malformed_agents_marker_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     agents = tmp_path / "AGENTS.md"
     original = "<!-- areg:skills:start -->\nold\n"
     agents.write_text(original, encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "malformed areg-managed block" in result.output
@@ -594,13 +610,14 @@ def test_init_malformed_agents_marker_errors_before_install(tmp_path: Path) -> N
 
 
 def test_init_malformed_claude_marker_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     original = "<!-- areg:claude-skills:start -->\nold\n"
     claude.write_text(original, encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "malformed areg-managed block" in result.output
@@ -637,7 +654,6 @@ def test_init_malformed_marker_variants_error_before_install(
     path_name: str,
     content: str,
 ) -> None:
-    _git_init(tmp_path)
     path = tmp_path / path_name
     path.write_text(content, encoding="utf-8")
     fake_npx = _default_npx()
@@ -653,13 +669,14 @@ def test_init_malformed_marker_variants_error_before_install(
 
 
 def test_init_invalid_areg_json_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     areg_json = tmp_path / "areg.json"
     original = "{not json\n"
     areg_json.write_text(original, encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "Invalid JSON in areg.json" in result.output
@@ -671,12 +688,13 @@ def test_init_invalid_areg_json_errors_before_install(tmp_path: Path) -> None:
 
 
 def test_init_non_object_areg_json_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     areg_json = tmp_path / "areg.json"
     areg_json.write_text("[]\n", encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "areg.json must contain a JSON object" in result.output
@@ -688,7 +706,6 @@ def test_init_non_object_areg_json_errors_before_install(tmp_path: Path) -> None
 
 
 def test_init_explicit_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     areg_json = tmp_path / "areg.json"
     original = "{not json\n"
     areg_json.write_text(original, encoding="utf-8")
@@ -697,7 +714,7 @@ def test_init_explicit_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) ->
     result = CliRunner().invoke(
         main,
         ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
-        obj=_ctx(npx=fake_npx),
+        obj=_ctx(npx=fake_npx, project_dir=tmp_path),
     )
 
     assert result.exit_code == 0, result.output
@@ -707,14 +724,15 @@ def test_init_explicit_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) ->
 
 
 def test_init_asdl_toml_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     (tmp_path / "asdl.toml").write_text('[areg]\nagents = ["codex", "cursor"]\n', encoding="utf-8")
     areg_json = tmp_path / "areg.json"
     original = "{not json\n"
     areg_json.write_text(original, encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code == 0, result.output
     assert _read_toml(tmp_path / "asdl.toml") == {"areg": {"agents": ["codex", "cursor"]}}
@@ -723,13 +741,14 @@ def test_init_asdl_toml_agents_ignore_invalid_legacy_areg_json(tmp_path: Path) -
 
 
 def test_init_invalid_asdl_toml_errors_before_install(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     asdl_toml = tmp_path / "asdl.toml"
     original = "[areg\n"
     asdl_toml.write_text(original, encoding="utf-8")
     fake_npx = _default_npx()
 
-    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx))
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path)], obj=_ctx(npx=fake_npx, project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "Invalid TOML" in result.output
@@ -740,21 +759,22 @@ def test_init_invalid_asdl_toml_errors_before_install(tmp_path: Path) -> None:
 
 
 def test_init_rejects_yes_with_no_append(tmp_path: Path) -> None:
-    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes", "--no-append"], obj=_ctx())
+    result = CliRunner().invoke(
+        main, ["init", str(tmp_path), "--yes", "--no-append"], obj=_ctx(project_dir=tmp_path)
+    )
 
     assert result.exit_code != 0
     assert "--yes and --no-append cannot be used together" in result.output
 
 
 def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     readme = tmp_path / "README.md"
     readme.write_text("keep me\n", encoding="utf-8")
 
     result = CliRunner().invoke(
         main,
         ["init", str(tmp_path)],
-        obj=_ctx(npx=FakeNpxSkills(raise_on_add=NpxSkillsError("boom"))),
+        obj=_ctx(npx=FakeNpxSkills(raise_on_add=NpxSkillsError("boom")), project_dir=tmp_path),
     )
 
     assert result.exit_code != 0
@@ -769,7 +789,6 @@ def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
 
 
 def test_init_npx_failure_preserves_existing_planned_files(tmp_path: Path) -> None:
-    _git_init(tmp_path)
     asdl_toml = tmp_path / "asdl.toml"
     agents = tmp_path / "AGENTS.md"
     claude = tmp_path / "CLAUDE.md"
@@ -791,7 +810,7 @@ def test_init_npx_failure_preserves_existing_planned_files(tmp_path: Path) -> No
     result = CliRunner().invoke(
         main,
         ["init", str(tmp_path), "--yes"],
-        obj=_ctx(npx=fake_npx),
+        obj=_ctx(npx=fake_npx, project_dir=tmp_path),
     )
 
     assert result.exit_code != 0

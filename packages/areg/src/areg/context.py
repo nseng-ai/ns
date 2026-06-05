@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from areg.gateways.environment.gateway import AregEnvironment
 from areg.gateways.gh.gateway import GhCli
 from areg.gateways.npx_skills.gateway import NpxSkills
 
 
 @dataclass
 class AregContext:
-    """Container for areg's external-tool gateways.
+    """Container for areg's external-tool and environment gateways.
 
     Production code constructs this with real gateways in ``cli.main``.
     Tests construct it with fake gateways and pass it to
@@ -19,3 +20,4 @@ class AregContext:
 
     gh: GhCli
     npx_skills: NpxSkills
+    environment: AregEnvironment

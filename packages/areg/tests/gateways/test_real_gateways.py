@@ -1,9 +1,9 @@
-"""Layer 2 real-sanity tests for RealGhCli and RealNpxSkills.
+"""Layer 2 real-sanity tests for areg real gateway implementations.
 
-These are the only tests in the repo allowed to mock `subprocess.run`.
-They verify that the real gateway implementations build the right command
-and parse the right output. They do not exercise real external systems —
-that's what `tests/integration/` is for.
+These are the only tests in the repo allowed to mock `subprocess.run` or
+`shutil.which` for areg gateway behavior. They verify that real gateway
+implementations build the right command and parse the right output. They do
+not exercise real external systems — that's what `tests/integration/` is for.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from unittest.mock import patch
 
 import pytest
 
+from areg.gateways.environment.gateway import GitRootDiscoveryError, ToolMissingError
+from areg.gateways.environment.real import RealAregEnvironment
 from areg.gateways.gh.gateway import (
     GhAuthError,
     GhError,
@@ -22,6 +24,97 @@ from areg.gateways.gh.gateway import (
 from areg.gateways.gh.real import RealGhCli
 from areg.gateways.npx_skills.gateway import NpxSkillsError
 from areg.gateways.npx_skills.real import RealNpxSkills
+
+# ---------------------------------------------------------------------------
+# RealAregEnvironment
+# ---------------------------------------------------------------------------
+
+
+def test_real_environment_missing_gh_raises_friendly_error() -> None:
+    with patch(
+        "areg.gateways.environment.real.shutil.which",
+        autospec=True,
+        return_value=None,
+    ):
+        with pytest.raises(ToolMissingError, match="gh CLI is required"):
+            RealAregEnvironment().require_tool("gh")
+
+
+def test_real_environment_missing_npx_raises_friendly_error() -> None:
+    with patch(
+        "areg.gateways.environment.real.shutil.which",
+        autospec=True,
+        return_value=None,
+    ):
+        with pytest.raises(ToolMissingError, match="npx is required"):
+            RealAregEnvironment().require_tool("npx")
+
+
+def test_real_environment_present_tool_does_not_raise() -> None:
+    with patch(
+        "areg.gateways.environment.real.shutil.which",
+        autospec=True,
+        return_value="/usr/bin/gh",
+    ) as mock_which:
+        RealAregEnvironment().require_tool("gh")
+
+    mock_which.assert_called_once_with("gh")
+
+
+def test_real_environment_git_root_success(tmp_path: Path) -> None:
+    proc = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout=f"{tmp_path}\n",
+        stderr="",
+    )
+    with patch(
+        "areg.gateways.environment.real.subprocess.run",
+        autospec=True,
+        return_value=proc,
+    ) as mock_run:
+        root = RealAregEnvironment().require_git_root(tmp_path)
+
+    assert root == tmp_path.resolve()
+    mock_run.assert_called_once_with(
+        ["git", "-C", str(tmp_path), "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_real_environment_missing_git_raises_git_root_error(tmp_path: Path) -> None:
+    with patch(
+        "areg.gateways.environment.real.subprocess.run",
+        autospec=True,
+        side_effect=FileNotFoundError,
+    ):
+        with pytest.raises(GitRootDiscoveryError, match="git is required"):
+            RealAregEnvironment().require_git_root(tmp_path)
+
+
+def test_real_environment_git_command_failure_raises_git_root_error(tmp_path: Path) -> None:
+    err = subprocess.CalledProcessError(1, [], stderr="not a git repo")
+    with patch(
+        "areg.gateways.environment.real.subprocess.run",
+        autospec=True,
+        side_effect=err,
+    ):
+        with pytest.raises(GitRootDiscoveryError, match="must be a Git worktree root"):
+            RealAregEnvironment().require_git_root(tmp_path)
+
+
+def test_real_environment_empty_git_root_output_raises_git_root_error(tmp_path: Path) -> None:
+    proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+    with patch(
+        "areg.gateways.environment.real.subprocess.run",
+        autospec=True,
+        return_value=proc,
+    ):
+        with pytest.raises(GitRootDiscoveryError, match="must be a Git worktree root"):
+            RealAregEnvironment().require_git_root(tmp_path)
+
 
 # ---------------------------------------------------------------------------
 # RealGhCli
