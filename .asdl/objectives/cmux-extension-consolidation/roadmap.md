@@ -53,14 +53,16 @@
       success→info downgrade. Evidence: ts-test green; `test/cmux.test.ts` updated for the
       uniform `cmux-dispatch` description; behavior otherwise unchanged.
 
-- [ ] Naming normalization (final isolated slice). Rename `cmux-dispatch` →
-      `cmux-slot:dispatch-prompt`; standardize one user-facing noun for the sidebar feature and
-      rename the TS `workspace-summary`/`summary` symbols to match; normalize `CMUX`→`cmux` in
-      user-facing copy; fix the crossed `cmux:sidebar` (Pi status pill) / `pi-summary` (cmux
-      pill) keys. Update `docs/pi/cmux-extension-pattern.md`, `ts/packages/pi-extensions/CONTEXT.md`,
-      the `.pi/extensions/cmux.ts` adapter references, and `skills/cmux-sidebar/SKILL.md`.
-      Evidence: ts-test and `just dprint-check` green; `grep` finds no `cmux-dispatch` or `CMUX`
-      residue in the suite or docs.
+- [x] Naming normalization (final isolated slice). Renamed `cmux-dispatch` →
+      `cmux-slot:dispatch-prompt` with no legacy alias; standardized the TS sidebar module/symbols
+      on the sidebar noun; normalized standalone user-facing `CMUX` prose to `cmux`; changed the
+      Pi transient sidebar status key to `pi:cmux-sidebar` while keeping `pi-summary` documented as
+      the legacy cmux status key cleared by `asdl exec cmux-workspace-summary`. Updated
+      `docs/pi/cmux-extension-pattern.md`, `docs/pi/README.md`,
+      `ts/packages/pi-extensions/CONTEXT.md`, `docs/asdl-exec/cmux-workspace-summary.md`, and
+      `skills/cmux-sidebar/SKILL.md`. Evidence: `just ts-check`, `just ts-test`,
+      `just dprint-check`, and `git diff --check` green; targeted `rg` found no `cmux-dispatch` or
+      standalone `CMUX` residue in the scoped suite/docs.
 
 ## Parked
 

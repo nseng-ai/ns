@@ -14,15 +14,15 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                               | Responsibility                                                                 |
-| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| Pi discovery adapter   | `.pi/extensions/cmux.ts`                     | Thin adapter that registers the repo cmux command suite                        |
-| Engineered TS package  | `ts/packages/pi-extensions/src/cmux.ts`      | Wires shared cmux controllers and command modules                              |
+| Layer                  | Path / command                               | Responsibility                                                                             |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Pi discovery adapter   | `.pi/extensions/cmux.ts`                     | Thin adapter that registers the repo cmux command suite                                    |
+| Engineered TS package  | `ts/packages/pi-extensions/src/cmux.ts`      | Wires shared cmux controllers and command modules                                          |
 | cmux command modules   | `ts/packages/pi-extensions/src/cmux/`        | Implements `/cmux:*`, `/cmux-slot:*`, and `/cmux-slot:dispatch-prompt` behavior with tests |
-| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what sidebar fields to generate                                |
-| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the legacy cmux status key   |
-| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                               |
-| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                             |
+| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what sidebar fields to generate                                            |
+| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the legacy cmux status key               |
+| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                                           |
+| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                                         |
 
 Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable cmux command behavior under `ts/packages/pi-extensions/src/cmux/` with Bun tests.
 
@@ -53,9 +53,9 @@ find /Users/schrockn/.pi/agent/extensions -maxdepth 2 \
 
 Remove stale user-local cmux files only after confirming the project adapter registers the command suite. Do not run a broad home-directory search for duplicate Pi resources.
 
-## Automatic sidebar summaries are disabled
+## Automatic sidebar updates are disabled
 
-Workspace-opening commands currently do not auto-run sidebar summaries after success:
+Workspace-opening commands currently do not auto-run sidebar updates after success:
 
 - `/cmux-slot:dispatch-plan`
 - `/cmux-slot:open-branch`
@@ -79,7 +79,7 @@ The manual sidebar skill does not pass `--workspace`; `asdl exec cmux-workspace-
 
 ## Model choice and speed
 
-Sidebar summaries are low-stakes semantic compression. The controller temporarily switches the follow-up turn to a faster model and minimal thinking:
+Sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up turn to a faster model and minimal thinking:
 
 - env override: `ASDL_CMUX_SIDEBAR_MODEL=provider/model`
 - default: `openai-codex/gpt-5.4-mini`

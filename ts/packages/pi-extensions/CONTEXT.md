@@ -30,14 +30,14 @@ _Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone.
 
 **cmux workspace-opening command**:
 A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch or slot: `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, or `/cmux-slot:dispatch-prompt`.
-_Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
+_Avoid_: workspace metadata refresh, sidebar-only command, current workspace rename.
 
 **cmux sidebar command**:
 An explicit manual command, `/cmux:pr-sidebar` or `/cmux:objective-sidebar [objective-slug-or-path]`, that queues a model-assisted summary for the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies it through deterministic `asdl exec cmux-workspace-summary` guidance.
 _Avoid_: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation.
 
-**Parked cmux automatic sidebar summary**:
-A removed post-success behavior for cmux workspace-opening commands. Automatic summaries are intentionally parked until cmux extension consolidation clarifies the target workspace and deterministic apply path.
+**Parked cmux automatic sidebar update**:
+A removed post-success behavior for cmux workspace-opening commands. Automatic sidebar updates are intentionally parked until cmux extension consolidation clarifies the target workspace and deterministic apply path.
 _Avoid_: current command behavior, workspace-opening sidebar automation, workspace-ref inference.
 
 **Saved plan**:
