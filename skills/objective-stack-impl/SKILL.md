@@ -3,9 +3,13 @@ name: objective-stack-impl
 description: Implement one asdl Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /objective:stack-impl picker, or when a wrapper injects an explicit slug.
 ---
 
-# Objective Stack Implementation Orchestrator
+# objective-stack-impl
+
+Objective Stack Implementation Orchestrator.
 
 You are the current parent agent session. Orchestrate implementation of one asdl Objective as a small Graphite stack from this session.
+
+Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
 ## Non-goals and hard boundaries
 

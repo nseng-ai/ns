@@ -7,7 +7,7 @@ description: "Command: objective-next"
 
 Recommend the next useful work for an active Objective. When explicit Objective policy allows it, route to confirmed-execution guidance before offering execution. If stale tracking blocks the recommendation, request an explicit `objective-update` handoff for the same Objective before continuing.
 
-For shared vocabulary and system-wide rules, use the `objective` skill when available; this command remains self-contained.
+Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
 ## Required shape
 

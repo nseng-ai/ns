@@ -2,7 +2,7 @@
 
 Load this reference when the user asks for execution-friendly Objectives, runner policy, `objective-next` execution, autonomous pursuit, direct execution after preview, `## Definition of Progress`, `## Runner Policy`, or row-level `Policy:` notes.
 
-This is shared policy guidance. Creation-specific interview/template guidance lives in `skills/objective-create/references/execution-friendly-create.md`. `objective-next` preview and confirmed-execution rules live in `skills/objective-next/references/confirmed-execution.md`.
+This is shared policy guidance. Creation-specific interview/template guidance lives in the `objective-create` skill's execution-friendly creation reference. `objective-next` preview and confirmed-execution rules live in the `objective-next` skill's confirmed-execution reference.
 
 ## Optional sections
 

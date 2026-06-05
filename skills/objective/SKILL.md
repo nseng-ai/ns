@@ -25,6 +25,21 @@ The archive root mirrors this layout under `.asdl/objective-archive/<slug>/`; th
 
 Archive state is represented by location. `objective archive <slug>` moves the whole record out of active discovery; `objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
 
+## Objective skill family
+
+`objective` is the umbrella/reference skill for shared Objective vocabulary, storage model, selection rules, status semantics, safety boundaries, and cross-cutting policy. Per-operation procedures stay in the step skills.
+
+Use these step skills for explicit workflow requests:
+
+- `objective-create`: create a new Objective record.
+- `objective-current`: read and summarize one Objective without mutation.
+- `objective-next`: recommend next semantic work and route confirmed execution when durable policy allows it.
+- `objective-update`: update durable Objective tracking for exactly one Objective.
+- `objective-close`: close an Objective without deleting its checked-in history.
+- `objective-stack-impl`: orchestrate implementation of one Objective as a small Graphite stack.
+
+When a step skill triggers, use this `objective` skill first for shared model and safety rules, then follow the self-contained step workflow.
+
 ## Conditional references
 
 - For standing / ongoing / no-natural-finish-line Objectives, read `references/standing-objectives.md`.
