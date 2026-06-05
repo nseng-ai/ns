@@ -331,6 +331,68 @@ class _NoopNpxSkills(NpxSkills):
         self.cwd = cwd
 
 
+class _SymlinkToFileSkillEntryNpxSkills(NpxSkills):
+    def __init__(self) -> None:
+        self.cwd: Path | None = None
+
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        self.cwd = cwd
+        skill_name = (skills or ["skill-a"])[0]
+        agents_skills = cwd / ".agents" / "skills"
+        agents_skills.mkdir(parents=True)
+        target_file = cwd / "not-a-skill.txt"
+        target_file.write_text("not a skill directory\n", encoding="utf-8")
+        (agents_skills / skill_name).symlink_to(target_file)
+
+
+class _MissingSkillMdNpxSkills(NpxSkills):
+    def __init__(self) -> None:
+        self.cwd: Path | None = None
+
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        self.cwd = cwd
+        skill_name = (skills or ["skill-a"])[0]
+        skill_dir = cwd / ".agents" / "skills" / skill_name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "notes.md").write_text("# Notes\n", encoding="utf-8")
+
+
+class _MixedValidAndMalformedSkillEntriesNpxSkills(NpxSkills):
+    def __init__(self) -> None:
+        self.cwd: Path | None = None
+
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        self.cwd = cwd
+        agents_skills = cwd / ".agents" / "skills"
+        valid_skill = agents_skills / "valid-skill"
+        valid_skill.mkdir(parents=True)
+        (valid_skill / "SKILL.md").write_text("---\nname: valid-skill\n---\n", encoding="utf-8")
+        target_file = cwd / "not-a-skill.txt"
+        target_file.write_text("not a skill directory\n", encoding="utf-8")
+        (agents_skills / "bad-skill").symlink_to(target_file)
+
+
 def test_real_skillx_workspace_installer_reads_installed_skill_tree() -> None:
     npx = _WritingNpxSkills()
     installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
@@ -362,6 +424,53 @@ def test_real_skillx_workspace_installer_errors_when_no_skills_installed() -> No
     installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
 
     with pytest.raises(SkillxWorkspaceError, match="No skills were installed"):
+        installer.install("owner/repo", skill=None)
+
+    assert npx.cwd is not None
+    assert not npx.cwd.exists()
+
+
+@pytest.mark.skipif(
+    not hasattr(Path, "symlink_to"),
+    reason="pathlib symlink support is required",
+)
+def test_real_skillx_workspace_installer_rejects_symlink_to_file_skill_entry() -> None:
+    npx = _SymlinkToFileSkillEntryNpxSkills()
+    installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
+
+    with pytest.raises(SkillxWorkspaceError, match="Installed skill 'my-skill' is not a directory"):
+        installer.install("owner/repo", skill="my-skill")
+
+    assert npx.cwd is not None
+    assert not npx.cwd.exists()
+
+
+def test_real_skillx_workspace_installer_rejects_missing_skill_md() -> None:
+    npx = _MissingSkillMdNpxSkills()
+    installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
+
+    with pytest.raises(
+        SkillxWorkspaceError,
+        match="Installed skill 'my-skill' is missing SKILL.md",
+    ):
+        installer.install("owner/repo", skill="my-skill")
+
+    assert npx.cwd is not None
+    assert not npx.cwd.exists()
+
+
+@pytest.mark.skipif(
+    not hasattr(Path, "symlink_to"),
+    reason="pathlib symlink support is required",
+)
+def test_real_skillx_workspace_installer_rejects_malformed_entry_when_listing_all() -> None:
+    npx = _MixedValidAndMalformedSkillEntriesNpxSkills()
+    installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
+
+    with pytest.raises(
+        SkillxWorkspaceError,
+        match="Installed skill 'bad-skill' is not a directory",
+    ):
         installer.install("owner/repo", skill=None)
 
     assert npx.cwd is not None

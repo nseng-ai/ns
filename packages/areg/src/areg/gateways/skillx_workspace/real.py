@@ -39,18 +39,41 @@ class RealSkillxWorkspaceInstaller(SkillxWorkspaceInstaller):
             shutil.rmtree(tmp_path, ignore_errors=True)
             raise SkillxWorkspaceError("No skills were installed")
 
-        installed_skills = tuple(
-            self._installed_skill(path)
-            for path in sorted(agents_skills.iterdir(), key=lambda p: p.name)
-            if path.is_dir() or path.is_symlink()
-        )
+        try:
+            installed_skills = self._installed_skills(agents_skills, skill=skill)
+        except SkillxWorkspaceError:
+            shutil.rmtree(tmp_path, ignore_errors=True)
+            raise
+
         if not installed_skills:
             shutil.rmtree(tmp_path, ignore_errors=True)
             raise SkillxWorkspaceError("No skills were installed")
 
         return SkillxWorkspace(tmp_dir=tmp_path, skills=installed_skills)
 
+    def _installed_skills(
+        self,
+        agents_skills: Path,
+        *,
+        skill: str | None,
+    ) -> tuple[SkillxInstalledSkill, ...]:
+        if skill is not None:
+            skill_dir = agents_skills / skill
+            return (self._installed_skill(skill_dir),)
+
+        return tuple(
+            self._installed_skill(path)
+            for path in sorted(agents_skills.iterdir(), key=lambda p: p.name)
+        )
+
     def _installed_skill(self, skill_dir: Path) -> SkillxInstalledSkill:
+        if not skill_dir.is_dir():
+            raise SkillxWorkspaceError(f"Installed skill {skill_dir.name!r} is not a directory")
+
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.is_file():
+            raise SkillxWorkspaceError(f"Installed skill {skill_dir.name!r} is missing SKILL.md")
+
         files = tuple(
             sorted(
                 str(path.relative_to(skill_dir)) for path in skill_dir.rglob("*") if path.is_file()
@@ -59,6 +82,6 @@ class RealSkillxWorkspaceInstaller(SkillxWorkspaceInstaller):
         return SkillxInstalledSkill(
             name=skill_dir.name,
             skill_dir=skill_dir,
-            skill_md=skill_dir / "SKILL.md",
+            skill_md=skill_md,
             files=files,
         )
