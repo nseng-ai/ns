@@ -13,8 +13,8 @@ import { formatErrorMessage, type TextResult } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
-const COMMAND_NAME = "cmux-slot:dispatch-prompt";
-const PROMPT_DIR = join(homedir(), ".pi", "agent", "cmux-slot-dispatch-prompts");
+const COMMAND_NAME = "cmux:workspace:dispatch-prompt";
+const PROMPT_DIR = join(homedir(), ".pi", "agent", "cmux-workspace-dispatch-prompt-files");
 
 interface BranchCreateResult {
 	branchName: string;
@@ -45,7 +45,7 @@ export function registerCmuxSlotDispatchPromptCommand(
 ): void {
 	const resolvedOptions = resolveCmuxSlotDispatchPromptOptions(options);
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Create a Graphite-tracked branch and run a prompt in a new cmux Pi slot",
+		description: "Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {
 			await handleCmuxSlotDispatchPrompt({ pi, dispatchOptions: resolvedOptions, args, ctx });

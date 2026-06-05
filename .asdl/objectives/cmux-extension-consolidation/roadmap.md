@@ -45,26 +45,27 @@
 
 - [x] Extract the `openBranchInCmuxSlot` orchestrator and unify the workspace description.
       Move the shared tail (checkout slot → `getWorktreeDescription` → `openCmuxWorkspace` →
-      notify, with unified failure formatting) into one helper; reduce `cmux-dispatch`,
-      `cmux-slot:open-branch`, and `cmux-slot:dispatch-plan` to "produce branch + optional
+      notify, with unified failure formatting) into one helper; reduce `cmux:workspace:dispatch-prompt`,
+      `cmux:workspace:open-branch`, and `cmux:workspace:dispatch-plan` to "produce branch + optional
       launch command, then call the orchestrator"; set the workspace description to `repo/branch`
-      for all three (changing `cmux-dispatch` from the raw slot name). Collapse the duplicate
+      for all three (changing `cmux:workspace:dispatch-prompt` from the raw slot name). Collapse the duplicate
       error blocks in `validateSavedPlanForCurrentCheckout` and drop the dead `present()`
       success→info downgrade. Evidence: ts-test green; `test/cmux.test.ts` updated for the
-      uniform `cmux-dispatch` description; behavior otherwise unchanged.
+      uniform `cmux:workspace:dispatch-prompt` description; behavior otherwise unchanged.
 
-- [x] Naming normalization (final isolated slice). Rename `cmux-dispatch` →
-      `cmux-slot:dispatch-prompt`; standardize one user-facing noun for the sidebar feature and
-      rename the TS `workspace-summary`/`summary` symbols to match; normalize `CMUX`→`cmux` in
-      user-facing copy; fix the crossed `cmux:sidebar` (Pi status pill) / `pi-summary` (cmux
-      pill) keys. Update `docs/pi/cmux-extension-pattern.md`, `ts/packages/pi-extensions/CONTEXT.md`,
-      the `.pi/extensions/cmux.ts` adapter references, and `skills/cmux-sidebar/SKILL.md`.
-      Evidence: `/cmux-slot:dispatch-prompt` is the only prompt-dispatch command in the cmux suite;
-      TS sidebar code now lives in `cmux/sidebar.ts` with `PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar"`,
-      while `asdl exec cmux-workspace-summary` continues to clear the legacy `pi-summary` cmux status
-      pill; docs/skill/context use sidebar terminology and lowercase user-facing cmux prose. Validation:
-      `just ts-check`, `just ts-test`, `just dprint-check`, and `git diff --check` passed. Scoped grep
-      found no `cmux-dispatch` or standalone user-facing `CMUX` residue in the suite, docs, or skill.
+- [x] Naming normalization (final isolated slice). Use the accepted public command families
+      `cmux:workspace:*` and `cmux:sidebar:*`; standardize one user-facing noun for the sidebar
+      feature and rename the TS `workspace-summary`/`summary` symbols to match; normalize
+      user-facing copy to lowercase `cmux`; fix the crossed `cmux:sidebar` (Pi status pill) /
+      `pi-summary` (cmux pill) keys. Update `docs/pi/cmux-extension-pattern.md`,
+      `ts/packages/pi-extensions/CONTEXT.md`, the `.pi/extensions/cmux.ts` adapter references, and
+      `skills/cmux-sidebar/SKILL.md`. Evidence: `/cmux:workspace:dispatch-prompt` is the only
+      prompt-dispatch command in the cmux suite; TS sidebar code now lives in `cmux/sidebar.ts` with
+      `PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar"`, while `asdl exec cmux-workspace-summary` continues
+      to clear the legacy `pi-summary` cmux status pill; docs/skill/context use sidebar terminology
+      and lowercase user-facing cmux prose. Validation: `just ts-check`, `just ts-test`,
+      `just dprint-check`, and `git diff --check` passed. Scoped grep found no stale legacy command
+      names or standalone user-facing `CMUX` residue in the suite, docs, or skill.
 
 ## Parked
 

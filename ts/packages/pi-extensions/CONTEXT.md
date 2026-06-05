@@ -29,15 +29,15 @@ The package helper layer for invoking external commands from Pi extensions with 
 _Avoid_: shell script, subprocess wrapper unqualified, test fake.
 
 **cmux command suite**:
-The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:pr-sidebar`, `/cmux:objective-sidebar`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, and `/cmux-slot:dispatch-prompt`.
+The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:sidebar:pr-summary`, `/cmux:sidebar:objective-summary`, `/cmux:workspace:dispatch-plan`, `/cmux:workspace:open-branch`, and `/cmux:workspace:dispatch-prompt`.
 _Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone.
 
 **cmux workspace-opening command**:
-A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch or slot: `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, or `/cmux-slot:dispatch-prompt`.
+A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch, plan, or prompt: `/cmux:workspace:open-branch`, `/cmux:workspace:dispatch-plan`, or `/cmux:workspace:dispatch-prompt`. `open` only opens a workspace; `dispatch` opens a workspace and starts child Pi execution immediately.
 _Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
 
 **cmux sidebar command**:
-An explicit manual command, `/cmux:pr-sidebar` or `/cmux:objective-sidebar [objective-slug-or-path]`, that queues a model-assisted sidebar update for the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies it through deterministic `asdl exec cmux-workspace-summary` guidance.
+An explicit manual command, `/cmux:sidebar:pr-summary` or `/cmux:sidebar:objective-summary [objective-slug-or-path]`, that queues a model-assisted summary for the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies it through deterministic `asdl exec cmux-workspace-summary` guidance.
 _Avoid_: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation.
 
 **Parked cmux automatic sidebar update**:

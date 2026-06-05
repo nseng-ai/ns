@@ -218,15 +218,15 @@ describe("cmux extension", () => {
 		registerCmuxExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual([
-			"cmux-slot:dispatch-plan",
-			"cmux-slot:dispatch-prompt",
-			"cmux-slot:open-branch",
-			"cmux:objective-sidebar",
-			"cmux:pr-sidebar",
+			"cmux:sidebar:objective-summary",
+			"cmux:sidebar:pr-summary",
+			"cmux:workspace:dispatch-plan",
+			"cmux:workspace:dispatch-prompt",
+			"cmux:workspace:open-branch",
 		]);
 	});
 
-	test("cmux:pr-sidebar queues expanded skill prompt and restores the previous model", async () => {
+	test("cmux:sidebar:pr-summary queues expanded skill prompt and restores the previous model", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const skillPath = await writeTempSkill("Use direct `--description` command shape.");
 		const pi = new FakePi({ skillCommands: [skillCommand("cmux-sidebar", skillPath)] });
@@ -234,7 +234,7 @@ describe("cmux extension", () => {
 		registerCmuxSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
 
-		await pi.commands.get("cmux:pr-sidebar")?.handler("", ctx);
+		await pi.commands.get("cmux:sidebar:pr-summary")?.handler("", ctx);
 
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.sentUserMessages).toHaveLength(1);
@@ -254,7 +254,7 @@ describe("cmux extension", () => {
 		expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
 	});
 
-	test("cmux:objective-sidebar includes supplied Objective selector", async () => {
+	test("cmux:sidebar:objective-summary includes supplied Objective selector", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const skillPath = await writeTempSkill("Use Objective sidebar variant.");
 		const pi = new FakePi({ skillCommands: [skillCommand("cmux-sidebar", skillPath)] });
@@ -262,7 +262,7 @@ describe("cmux extension", () => {
 		registerCmuxSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("cmux:objective-sidebar")?.handler("cmux-objective", ctx);
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler("cmux-objective", ctx);
 
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.sentUserMessages).toHaveLength(1);
@@ -278,7 +278,7 @@ describe("cmux extension", () => {
 		registerCmuxSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("cmux:pr-sidebar")?.handler("", ctx);
+		await pi.commands.get("cmux:sidebar:pr-summary")?.handler("", ctx);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("--description 'Goal: ...'");
@@ -289,13 +289,13 @@ describe("cmux extension", () => {
 		delete process.env.CMUX_WORKSPACE_ID;
 		delete process.env.CMUX_TAB_ID;
 		const noWorkspace = new FakeCommandContext();
-		await pi.commands.get("cmux:pr-sidebar")?.handler("", noWorkspace);
+		await pi.commands.get("cmux:sidebar:pr-summary")?.handler("", noWorkspace);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(noWorkspace.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
 	});
 
-	test("cmux-slot:open-branch opens explicit branch without queuing sidebar update", async () => {
+	test("cmux:workspace:open-branch opens explicit branch without queuing sidebar summary", async () => {
 		const pi = new FakePi({
 			script: [
 				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(BRANCH) }),
@@ -314,30 +314,30 @@ describe("cmux extension", () => {
 		registerCmuxSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("cmux-slot:open-branch")?.handler(BRANCH, ctx);
+		await pi.commands.get("cmux:workspace:open-branch")?.handler(BRANCH, ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
-		expect(notificationMessages(ctx)).toContain(`Opened branch in cmux slot: ${BRANCH}`);
+		expect(notificationMessages(ctx)).toContain(`Opened cmux workspace for branch: ${BRANCH}`);
 	});
 
-	test("cmux-slot:open-branch cancels inferred branch without opening workspace", async () => {
+	test("cmux:workspace:open-branch cancels inferred branch without opening workspace", async () => {
 		const pi = new FakePi();
 		registerCmuxSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext({ branchEntries: [plannedBranchOutputEntry("feature/latest")] });
 		ctx.shouldConfirm = false;
 
-		await pi.commands.get("cmux-slot:open-branch")?.handler("", ctx);
+		await pi.commands.get("cmux:workspace:open-branch")?.handler("", ctx);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.notifications.at(-1)?.message).toBe("Cancelled; no cmux slot was opened.");
+		expect(ctx.notifications.at(-1)?.message).toBe("Cancelled; no cmux workspace was opened.");
 	});
 
-	test("cmux-slot:open-branch does not infer from text-only planned branch output", async () => {
+	test("cmux:workspace:open-branch does not infer from text-only planned branch output", async () => {
 		const pi = new FakePi();
 		registerCmuxSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext({
@@ -356,13 +356,13 @@ describe("cmux extension", () => {
 			],
 		});
 
-		await pi.commands.get("cmux-slot:open-branch")?.handler("", ctx);
+		await pi.commands.get("cmux:workspace:open-branch")?.handler("", ctx);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("No latest [planned-branch-output] branch found");
 	});
 
-	test("cmux-slot:dispatch-plan dry-run emits preview without sidebar update", async () => {
+	test("cmux:workspace:dispatch-plan dry-run emits preview without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
@@ -377,14 +377,14 @@ describe("cmux extension", () => {
 		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
-		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "dry-run", targetBranch: PLAN_SLUG, key: PLAN_KEY });
 		const content = String(pi.sentMessages[0]?.content);
-		expect(content).toContain("Dry run: no branch was created, no plan was attached, and no cmux slot was opened.");
+		expect(content).toContain("Dry run: no branch was created, no plan was attached, and no cmux workspace was opened.");
 		expect(content).toContain(`Path: ${planFile}`);
 		expect(content).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(content).toContain(`Source branch: ${SOURCE_BRANCH}`);
@@ -395,7 +395,7 @@ describe("cmux extension", () => {
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 	});
 
-	test("cmux-slot:dispatch-plan full success opens cmux without sidebar update", async () => {
+	test("cmux:workspace:dispatch-plan full success opens cmux without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
@@ -434,17 +434,17 @@ describe("cmux extension", () => {
 		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, model: PREVIOUS_MODEL, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
-		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("", ctx);
+		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "success" });
-		expect(notificationMessages(ctx).some((message) => message.includes("Dispatched plan in cmux slot."))).toBe(true);
+		expect(notificationMessages(ctx).some((message) => message.includes("Dispatched plan in cmux workspace."))).toBe(true);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
 	});
 
-	test("cmux-slot:dispatch-plan rejects session plan outside local plan store", async () => {
+	test("cmux:workspace:dispatch-plan rejects session plan outside local plan store", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const outsideDir = await makeTempDir();
@@ -454,7 +454,7 @@ describe("cmux extension", () => {
 		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, outsidePlanFile)] });
 
-		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("outside the current local plan store directory");
@@ -462,7 +462,7 @@ describe("cmux extension", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("cmux-slot:dispatch-plan rejects wrong repo metadata", async () => {
+	test("cmux:workspace:dispatch-plan rejects wrong repo metadata", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
@@ -473,7 +473,7 @@ describe("cmux extension", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { repoKey: "gh--other--repo" })],
 		});
 
-		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("repoKey");
@@ -481,7 +481,7 @@ describe("cmux extension", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("cmux-slot:dispatch-plan rejects wrong source branch or branch key", async () => {
+	test("cmux:workspace:dispatch-plan rejects wrong source branch or branch key", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
@@ -492,7 +492,7 @@ describe("cmux extension", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { sourceBranch: "other-branch", branchKey: "other-branch" })],
 		});
 
-		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("sourceBranch");
@@ -501,7 +501,7 @@ describe("cmux extension", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("cmux-slot:dispatch-prompt opens cmux without sidebar update", async () => {
+	test("cmux:workspace:dispatch-prompt opens cmux without sidebar summary", async () => {
 		const promptDir = await makeTempDir();
 		const pi = new FakePi({
 			script: [
@@ -529,11 +529,11 @@ describe("cmux extension", () => {
 		registerCmuxSlotDispatchPromptCommand(pi, { promptDir, now: () => 123 });
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
-		await pi.commands.get("cmux-slot:dispatch-prompt")?.handler("Implement the cmux dispatch prompt flow", ctx);
+		await pi.commands.get("cmux:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);
 
 		pi.assertDone();
 		const promptText = await readFile(join(promptDir, `123-${BRANCH}.md`), "utf8");
-		expect(promptText).toContain("Implement the cmux dispatch prompt flow");
+		expect(promptText).toContain("Implement the cmux dispatch flow");
 		expect(promptText).toContain("!gt submit -nps --ai");
 		expect(notificationMessages(ctx).some((message) => message.includes(`Opened cmux workspace: ${BRANCH}`))).toBe(true);
 		expect(pi.sentUserMessages).toEqual([]);

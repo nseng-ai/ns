@@ -1,6 +1,6 @@
 ---
 name: cmux-sidebar
-description: Use when a Pi session should update the caller cmux sidebar/workspace card from either the current PR work or an explicit asdl Objective. Triggered by /cmux:pr-sidebar and /cmux:objective-sidebar; generate compact title and one-line Goal description, then run one asdl exec command.
+description: Use when a Pi session should update the caller cmux sidebar/workspace card from either the current PR work or an explicit asdl Objective. Triggered by /cmux:sidebar:pr-summary and /cmux:sidebar:objective-summary; generate compact title and one-line Goal description, then run one asdl exec command.
 metadata:
   internal: true
 ---

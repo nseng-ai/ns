@@ -7,8 +7,8 @@ has accreted significant duplication, a brittle self-serialize/self-parse contra
 three inconsistent naming schemes. The Python side (`src/asdl_tools/cmux/`,
 `exec/cmux_workspace_summary.py`) is already clean and well-layered and is not a target.
 
-Three workspace-opening commands (`cmux-dispatch`, `cmux-slot:open-branch`,
-`cmux-slot:dispatch-plan`) are the same pipeline — obtain a branch, check out a slot,
+Three workspace-opening commands (`cmux:workspace:dispatch-prompt`, `cmux:workspace:open-branch`,
+`cmux:workspace:dispatch-plan`) are the same pipeline — obtain a branch, check out a slot,
 describe the worktree, open a cmux workspace, notify — re-implemented three times, each
 with its own copy of `isRecord`, `formatErrorMessage`, `stringField`, `TextResult`,
 shell-quoting, and command-output formatting that already exist canonically in
@@ -47,11 +47,11 @@ both validated against the existing `test/cmux.test.ts`.
   three workspace-opening commands through it; unify the workspace description to
   `repo/branch`. Collapse the duplicate error blocks in
   `validateSavedPlanForCurrentCheckout` and remove the dead `present()` success→info level.
-- Naming normalization as a final isolated slice: rename `cmux-dispatch` →
-  `cmux-slot:dispatch-prompt`; settle one user-facing noun for the sidebar feature;
-  normalize `CMUX`→`cmux` casing in user copy; fix the crossed `cmux:sidebar` (Pi pill) /
-  `pi-summary` (cmux pill) status-key naming; update docs, CONTEXT.md vocabulary, and the
-  `cmux-sidebar` skill to match.
+- Naming normalization as a final isolated slice: use the accepted public command families
+  `cmux:workspace:*` and `cmux:sidebar:*`; settle one user-facing noun for the sidebar
+  feature; normalize user copy to lowercase `cmux`; fix the crossed `cmux:sidebar` (Pi
+  pill) / `pi-summary` (cmux pill) status-key naming; update docs, CONTEXT.md vocabulary,
+  and the `cmux-sidebar` skill to match.
 
 ## Non-Goals
 
@@ -79,11 +79,11 @@ both validated against the existing `test/cmux.test.ts`.
   path and its helper cluster are deleted.
 - One `openBranchInCmuxSlot` orchestrator exists; all three workspace-opening commands route
   through it; the workspace description is uniform across them.
-- `cmux-dispatch` is renamed to `cmux-slot:dispatch-prompt`; the sidebar feature uses one
-  consistent noun; user-facing copy uses lowercase `cmux`; status keys are no longer
-  crossed; `docs/pi/cmux-extension-pattern.md`, `ts/packages/pi-extensions/CONTEXT.md`, and
-  `skills/cmux-sidebar/SKILL.md` are updated. `grep` finds no `cmux-dispatch` or `CMUX`
-  residue in the suite.
+- The public cmux command suite uses only `cmux:workspace:*` and `cmux:sidebar:*` names; the
+  sidebar feature uses one consistent noun; user-facing copy uses lowercase `cmux`; status
+  keys are no longer crossed; `docs/pi/cmux-extension-pattern.md`,
+  `ts/packages/pi-extensions/CONTEXT.md`, and `skills/cmux-sidebar/SKILL.md` are updated.
+  `grep` finds no stale legacy command names in the suite.
 - `just ts-check`, `just ts-test`, and `just dprint-check` pass; `test/cmux.test.ts` (and
   `planned-branch-extension.test.ts` where touched) are updated for the two intentional
   behavior changes and pass.
@@ -105,12 +105,13 @@ Assumptions:
 
 Risks:
 
-- The orchestrator slice changes `cmux-dispatch`'s description from the raw slot name to
-  `repo/branch` — a real if minor behavior change. Not yet de-risked: confirm nothing
-  depends on slot-name-as-description before the slice; mitigated by updating the test.
-- The naming slice renames a user-typed slash command; in-repo references are updated but
-  any external muscle memory / personal notes referencing `/cmux-dispatch` break. Mitigated
-  by this being a single-user private tool.
+- The orchestrator slice changes the prompt-dispatch workspace description from the raw
+  slot name to `repo/branch` — a real if minor behavior change. Not yet de-risked: confirm
+  nothing depends on slot-name-as-description before the slice; mitigated by updating the
+  test.
+- The naming slice renames user-typed slash commands; in-repo references are updated but
+  external muscle memory or personal notes may break. Mitigated by this being a single-user
+  private tool.
 - Choosing a cmux-local shared module for the duplicate primitives may create a
   near-duplicate of a future package-wide guards module. Mitigated by preferring any
   existing canonical home and parking the package-wide consolidation.

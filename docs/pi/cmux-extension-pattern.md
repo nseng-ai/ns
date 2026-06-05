@@ -14,15 +14,15 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                               | Responsibility                                                                             |
-| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Pi discovery adapter   | `.pi/extensions/cmux.ts`                     | Thin adapter that registers the repo cmux command suite                                    |
-| Engineered TS package  | `ts/packages/pi-extensions/src/cmux.ts`      | Wires shared cmux controllers and command modules                                          |
-| cmux command modules   | `ts/packages/pi-extensions/src/cmux/`        | Implements `/cmux:*`, `/cmux-slot:*`, and `/cmux-slot:dispatch-prompt` behavior with tests |
-| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what sidebar fields to generate                                            |
-| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the legacy `pi-summary` cmux status pill |
-| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                                           |
-| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                                         |
+| Layer                  | Path / command                               | Responsibility                                                           |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| Pi discovery adapter   | `.pi/extensions/cmux.ts`                     | Thin adapter that registers the repo cmux command suite                  |
+| Engineered TS package  | `ts/packages/pi-extensions/src/cmux.ts`      | Wires shared cmux controllers and command modules                        |
+| cmux command modules   | `ts/packages/pi-extensions/src/cmux/`        | Implements `/cmux:workspace:*` and `/cmux:sidebar:*` behavior with tests |
+| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what sidebar fields to generate                          |
+| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the old status pill    |
+| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                         |
+| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                       |
 
 Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable cmux command behavior under `ts/packages/pi-extensions/src/cmux/` with Bun tests.
 
@@ -32,11 +32,13 @@ Do not put raw cmux mutation sequences in long skill bodies when a tested `asdl 
 
 The project-local adapter registers:
 
-- `/cmux:pr-sidebar`
-- `/cmux:objective-sidebar [objective-slug-or-path]`
-- `/cmux-slot:dispatch-plan`
-- `/cmux-slot:open-branch`
-- `/cmux-slot:dispatch-prompt`
+- `/cmux:sidebar:pr-summary`
+- `/cmux:sidebar:objective-summary [objective-slug-or-path]`
+- `/cmux:workspace:open-branch [branch]`
+- `/cmux:workspace:dispatch-plan [--dry-run]`
+- `/cmux:workspace:dispatch-prompt <prompt>`
+
+`open` commands only open a cmux workspace. `dispatch` commands open a cmux workspace and immediately start child Pi execution. There are no legacy aliases for the old cmux command names.
 
 There is no legacy `/cmux:set-workspace-summary` alias.
 
@@ -57,9 +59,9 @@ Remove stale user-local cmux files only after confirming the project adapter reg
 
 Workspace-opening commands currently do not auto-run sidebar updates after success:
 
-- `/cmux-slot:dispatch-plan`
-- `/cmux-slot:open-branch`
-- `/cmux-slot:dispatch-prompt`
+- `/cmux:workspace:dispatch-plan`
+- `/cmux:workspace:open-branch`
+- `/cmux:workspace:dispatch-prompt`
 
 The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during the future cmux extension consolidation pass rather than inferred from `cmux workspace list` in this slice.
 
@@ -104,9 +106,9 @@ Prompt-only length enforcement is intentional for now. Do not add deterministic 
 
 ## Variants
 
-`/cmux:pr-sidebar` summarizes current PR, branch, or active implementation work. The Goal line describes the PR outcome, not the cmux update itself.
+`/cmux:sidebar:pr-summary` summarizes current PR, branch, or active implementation work. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/cmux:objective-sidebar [objective-slug-or-path]` summarizes the selected asdl Objective. If no Objective slug or path is supplied, the queued model prompt must ask the user to provide or choose one and must not infer from branch, PR, or hidden context.
+`/cmux:sidebar:objective-summary [objective-slug-or-path]` summarizes the selected asdl Objective. If no Objective slug or path is supplied, the queued model prompt must ask the user to provide or choose one and must not infer from branch, PR, or hidden context.
 
 ## Apply through exec, not raw cmux
 
@@ -190,8 +192,9 @@ Then reload Pi:
 Finally smoke-test from inside cmux:
 
 ```text
-/cmux:pr-sidebar
-/cmux:objective-sidebar <objective-slug>
-/cmux-slot:dispatch-plan --dry-run
-/cmux-slot:open-branch <branch>
+/cmux:sidebar:pr-summary
+/cmux:sidebar:objective-summary <objective-slug>
+/cmux:workspace:dispatch-plan --dry-run
+/cmux:workspace:open-branch <branch>
+/cmux:workspace:dispatch-prompt <prompt>
 ```

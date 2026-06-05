@@ -1,8 +1,8 @@
 import { expandSkillBlock } from "../skill-expansion.ts";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
-const PR_SIDEBAR_COMMAND_NAME = "cmux:pr-sidebar";
-const OBJECTIVE_SIDEBAR_COMMAND_NAME = "cmux:objective-sidebar";
+const PR_SIDEBAR_COMMAND_NAME = "cmux:sidebar:pr-summary";
+const OBJECTIVE_SIDEBAR_COMMAND_NAME = "cmux:sidebar:objective-summary";
 const SKILL_NAME = "cmux-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar";
 const SIDEBAR_MODEL_ENV = "ASDL_CMUX_SIDEBAR_MODEL";
@@ -79,7 +79,7 @@ export function registerCmuxSidebarCommands(
 	controller: CmuxSidebarController,
 ): void {
 	pi.registerCommand(PR_SIDEBAR_COMMAND_NAME, {
-		description: "Summarize the current PR work into the caller cmux sidebar.",
+		description: "Summarize current PR work into the caller cmux sidebar.",
 		handler: async (_args, ctx) => controller.handlePrCommand(ctx),
 	});
 
@@ -210,7 +210,7 @@ async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): P
 }
 
 function formatInvokingMessage(request: SidebarPromptRequest): string {
-	return request.type === "pr" ? "Invoking cmux PR sidebar update." : "Invoking cmux Objective sidebar update.";
+	return request.type === "pr" ? "Invoking cmux PR summary." : "Invoking cmux Objective summary.";
 }
 
 function configuredSidebarModelRef(): string {
