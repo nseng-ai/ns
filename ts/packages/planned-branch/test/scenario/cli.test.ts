@@ -10,6 +10,7 @@ import type { ExecResult } from "../../src/command-runtime.ts";
 import type { ExecOptions, PlanCommandExecApi } from "../../src/plan-persistence.ts";
 import { InMemoryPlannedBranchBrmemGateway, type InMemoryBrmemGatewayState } from "../support/in-memory-brmem-gateway.ts";
 import { InMemoryPlannedBranchGitGateway, type InMemoryGitGatewayState } from "../support/in-memory-git-gateway.ts";
+import { InMemoryPlannedBranchGraphiteGateway, type InMemoryGraphiteGatewayState } from "../support/in-memory-graphite-gateway.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "branch-scoped-plan";
@@ -73,6 +74,7 @@ interface CliRun {
 	commands: FakeCommands;
 	git: InMemoryPlannedBranchGitGateway;
 	brmem: InMemoryPlannedBranchBrmemGateway;
+	graphite: InMemoryPlannedBranchGraphiteGateway;
 }
 
 interface RunWithFakesOptions {
@@ -81,6 +83,7 @@ interface RunWithFakesOptions {
 	planStoreRoot?: string;
 	git?: InMemoryGitGatewayState;
 	brmem?: InMemoryBrmemGatewayState;
+	graphite?: InMemoryGraphiteGatewayState;
 }
 
 const tempDirs: string[] = [];
@@ -107,14 +110,16 @@ function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] =
 		...(options.git ?? {}),
 	});
 	const brmem = new InMemoryPlannedBranchBrmemGateway(options.brmem);
+	const graphite = new InMemoryPlannedBranchGraphiteGateway(options.graphite);
 	return {
 		stdout,
 		stderr,
 		commands,
 		git,
 		brmem,
+		graphite,
 		exit: runCli(args, {
-			context: { commands, git, brmem },
+			context: { commands, git, brmem, graphite },
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
@@ -291,6 +296,7 @@ describe("planned-branch exec", () => {
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+		expect(run.graphite.trackBranchCalls).toEqual([]);
 		expect(run.brmem.attachedPlans).toContainEqual({
 			branch,
 			key: PLAN_KEY,
@@ -299,6 +305,89 @@ describe("planned-branch exec", () => {
 			commit: "abc123",
 			sourceFile: planFile,
 		});
+	});
+
+	test("create tracks Graphite branches through the semantic gateway", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(
+			[
+				"exec",
+				"create",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				planFile,
+				"--branch",
+				branch,
+				"--branch-creation",
+				"graphite",
+				"--format",
+				"json",
+			],
+			[],
+			{ cwd: repoRoot, git: { headCommit: START_POINT } },
+		);
+
+		expect(await run.exit).toBe(0);
+		run.commands.assertDone();
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			slug: PLAN_SLUG,
+			branch,
+			branch_creation: "graphite",
+			start_point: START_POINT,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			key: PLAN_KEY,
+			source_file: planFile,
+		});
+		expect(run.graphite.trackBranchCalls).toEqual([{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH }]);
+		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+	});
+
+	test("Graphite tracking failures keep the local branch and skip Branch Memory attach", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(
+			[
+				"exec",
+				"create",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				planFile,
+				"--branch",
+				branch,
+				"--branch-creation",
+				"graphite",
+				"--format",
+				"json",
+			],
+			[],
+			{
+				cwd: repoRoot,
+				git: { headCommit: START_POINT },
+				graphite: { trackFailure: { code: "graphite_track_failed", message: "gt track failed (exit code 2)." } },
+			},
+		);
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload.success).toBe(false);
+		expect(String((payload.error as { message: string }).message)).toContain("Created local Git branch but failed to track it with Graphite.");
+		expect(String((payload.error as { message: string }).message)).toContain(`Branch: ${branch}`);
+		expect(String((payload.error as { message: string }).message)).toContain("No attached plan was stored.");
+		expect(String((payload.error as { message: string }).message)).toContain("gt track failed");
+		expect(run.git.existingBranches).toContain(branch);
+		expect(run.graphite.trackBranchCalls).toEqual([{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH }]);
+		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
 	test("load-plan selects the attached plan and returns an implementation prompt", async () => {

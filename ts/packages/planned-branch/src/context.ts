@@ -3,6 +3,7 @@ import { spawn, type SpawnOptions } from "node:child_process";
 import { RealPlannedBranchBrmemGateway, type PlannedBranchBrmemGateway } from "./brmem-gateway.ts";
 import type { ExecResult } from "./command-runtime.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
+import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
 import type { ExecOptions, PlanCommandExecApi } from "./plan-persistence.ts";
 
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
@@ -12,11 +13,17 @@ export interface PlannedBranchContext {
 	commands: PlanCommandExecApi;
 	git: PlannedBranchGitGateway;
 	brmem?: PlannedBranchBrmemGateway | undefined;
+	graphite?: PlannedBranchGraphiteGateway | undefined;
 }
 
 export function createRealPlannedBranchContext(): PlannedBranchContext {
 	const commands = new RealCommandExecApi();
-	return { commands, git: new RealPlannedBranchGitGateway(commands), brmem: new RealPlannedBranchBrmemGateway(commands) };
+	return {
+		commands,
+		git: new RealPlannedBranchGitGateway(commands),
+		brmem: new RealPlannedBranchBrmemGateway(commands),
+		graphite: new RealPlannedBranchGraphiteGateway(commands),
+	};
 }
 
 export class RealCommandExecApi implements PlanCommandExecApi {
