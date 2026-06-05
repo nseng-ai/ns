@@ -8,6 +8,14 @@ This context captures project language for durable planning workflows in this re
 A checked-in documentation workstream for durable multi-session, multi-branch, or multi-PR work.
 _Avoid_: hidden agent state, ticket
 
+**Synthesis Objective**:
+An **Objective** that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence.
+_Avoid_: Fire-and-forget umbrella, mirrored task tracker, hidden parent state
+
+**Child Objective**:
+A narrower **Objective** created from a parent **Synthesis Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
+_Avoid_: Subticket, hidden task, third Objective status
+
 **Durable Narrative Roadmap Record**:
 The role of an **Objective** as human-readable context and ordered work guidance, without owning workflow-control semantics.
 _Avoid_: Workflow controller, state machine, task database

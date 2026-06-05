@@ -233,14 +233,21 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
     assert _assigned_worktrees(fakes) == {}
 
 
-def test_slot_gc_force_deletes_local_branch_for_merged_assignment(
+@pytest.mark.parametrize(
+    ("branch", "state", "pr_number"),
+    [("feat/done", "MERGED", 7), ("feat/closed", "CLOSED", 8)],
+)
+def test_slot_gc_force_deletes_local_branch_for_completed_assignment(
     cli_group: ClinkrGroup,
     tmp_path: Path,
+    branch: str,
+    state: PRState,
+    pr_number: int,
 ) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
-    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+    worktree_path = _seed_assigned(fakes, slots_root, branch=branch)
+    pr = FakePRGateway(prs_by_branch={branch: _make_pr(pr_number, state, branch)})
 
     result = CliRunner().invoke(
         cli_group,
@@ -249,33 +256,12 @@ def test_slot_gc_force_deletes_local_branch_for_merged_assignment(
     )
 
     assert result.exit_code == 0, result.output
-    assert "force-deleted local branch feat/done" in result.output.lower()
+    assert f"force-deleted local branch {branch}" in result.output.lower()
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
-    assert fakes.git.delete_local_branch_calls == (("feat/done", True),)
+    assert fakes.git.delete_local_branch_calls == ((branch, True),)
     assert fakes.git.delete_remote_branch_calls == ()
-    assert not fakes.git.branch_exists("feat/done")
+    assert not fakes.git.branch_exists(branch)
     assert _assigned_worktrees(fakes) == {}
-
-
-def test_slot_gc_force_deletes_local_branch_for_closed_assignment(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-) -> None:
-    slots_root = tmp_path / "slots"
-    fakes = _fake_for_repo(tmp_path)
-    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/closed")
-    pr = FakePRGateway(prs_by_branch={"feat/closed": _make_pr(8, "CLOSED", "feat/closed")})
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["gc", "-f", "--delete-branches"],
-        obj=_make_obj(fakes, slots_root, pr=pr),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
-    assert fakes.git.delete_local_branch_calls == (("feat/closed", True),)
-    assert not fakes.git.branch_exists("feat/closed")
 
 
 def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -689,6 +675,49 @@ def test_slot_gc_delete_branch_failure_is_negative_after_free(
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
     assert fakes.git.delete_local_branch_calls == (("feat/done", True),)
     assert fakes.git.branch_exists("feat/done")
+
+
+def test_slot_gc_delete_branch_failure_stops_later_cleanup(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    paths = _seed_pool(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/one"), ("slot-02", "feat/two")),
+    )
+    fakes.git._delete_local_branch_failure_by_branch["feat/one"] = GitCommandFailure(
+        message="cannot delete branch 'feat/one' checked out at '/repo-other'",
+        returncode=1,
+    )
+    pr = FakePRGateway(
+        prs_by_branch={
+            "feat/one": _make_pr(7, "MERGED", "feat/one"),
+            "feat/two": _make_pr(8, "MERGED", "feat/two"),
+        }
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f", "--delete-branches", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.stdout)
+    data = payload["data"]
+    assert data["freed_count"] == 2
+    assert data["cleanup_error_count"] == 1
+    entries_by_slot = {entry["slot_name"]: entry for entry in data["entries"]}
+    assert entries_by_slot["slot-01"]["action"] == "freed"
+    assert entries_by_slot["slot-01"]["cleanup"][0]["status"] == "error"
+    assert entries_by_slot["slot-02"]["action"] == "freed"
+    assert entries_by_slot["slot-02"]["cleanup"] == []
+    assert fakes.git._detach_head_calls == [(paths["slot-01"], "main"), (paths["slot-02"], "main")]
+    assert fakes.git.delete_local_branch_calls == (("feat/one", True),)
+    assert fakes.git.branch_exists("feat/two")
 
 
 def test_slot_gc_format_json_interactive_cancel_has_json_stdout(

@@ -33,6 +33,7 @@ from asdl_slots.lifecycle.gc import (
     garbage_collect_slots,
     outcome_from_gc_plan,
     plan_gc,
+    plan_gc_cleanup,
 )
 from asdl_slots.lifecycle.outcomes import (
     SlotCheckoutOutcome,
@@ -1503,11 +1504,34 @@ def test_outcome_from_gc_plan_preserves_dry_run_tally_semantics(tmp_path: Path) 
     plan = plan_gc(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
 
-    outcome = outcome_from_gc_plan(ctx, plan, dry_run=True)
+    outcome = outcome_from_gc_plan(plan, dry_run=True)
 
     assert [entry.action for entry in outcome.entries] == ["would_free"]
     assert outcome.freed_count == 1
     assert outcome.dry_run is True
+
+
+def test_plan_gc_cleanup_is_explicit_and_outcome_attachment_is_pure(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/done"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+
+    cleanup = plan_gc_cleanup(ctx, plan, ("local_branch",))
+    outcome = outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup)
+
+    assert [(entry.action, entry.status) for entry in outcome.entries[0].cleanup] == [
+        ("local_branch", "planned")
+    ]
+    assert outcome.cleanup_error_count == 0
+    assert git._detach_head_calls == []
+    assert git.delete_local_branch_calls == ()
+    assert git.branch_exists("feat/done")
 
 
 def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:

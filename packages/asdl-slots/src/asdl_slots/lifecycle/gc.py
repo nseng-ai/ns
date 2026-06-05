@@ -25,8 +25,6 @@ from asdl_slots.lifecycle.outcomes import (
     SlotLifecycleFailure,
 )
 
-GC_DELETE_BRANCH_CLEANUP_ACTIONS: tuple[SlotFreeCleanupAction, ...] = ("local_branch",)
-
 
 @dataclass(frozen=True)
 class _GcCounts:
@@ -101,6 +99,27 @@ def _freed_slot_from_gc_entry(entry: SlotGcEntry) -> FreedSlot:
         slot_name=entry.slot_name,
         branch_name=entry.branch_name,
         worktree_path=entry.worktree_path,
+    )
+
+
+def _gc_free_targets(entries: Sequence[SlotGcEntry]) -> tuple[FreedSlot, ...]:
+    return tuple(
+        _freed_slot_from_gc_entry(entry)
+        for entry in entries
+        if entry.action in ("would_free", "freed")
+    )
+
+
+def _with_cleanup_by_slot(
+    entries: Sequence[SlotGcEntry],
+    cleanup: Sequence[SlotFreeCleanupResult],
+) -> tuple[SlotGcEntry, ...]:
+    cleanup_by_target: dict[tuple[str, str], list[SlotFreeCleanupResult]] = {}
+    for result in cleanup:
+        cleanup_by_target.setdefault((result.slot_name, result.branch_name), []).append(result)
+    return tuple(
+        _with_cleanup(entry, cleanup_by_target.get((entry.slot_name, entry.branch_name), ()))
+        for entry in entries
     )
 
 
@@ -184,6 +203,24 @@ def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
     return SlotGcPlan(entries=tuple(entries), would_free_count=would_free_count)
 
 
+def plan_gc_cleanup(
+    slots_ctx: SlotsCliContext,
+    plan: SlotGcPlan,
+    cleanup_actions: Sequence[SlotFreeCleanupAction],
+) -> tuple[SlotFreeCleanupResult, ...]:
+    """Plan GC cleanup without freeing slots or deleting local branches."""
+    targets = _gc_free_targets(plan.entries)
+    if not targets or not cleanup_actions:
+        return ()
+    trunk_branch = slots_ctx.git.get_trunk_branch()
+    return plan_cleanup_for_free_targets(
+        slots_ctx,
+        targets,
+        cleanup_actions,
+        trunk_branch=trunk_branch,
+    )
+
+
 def execute_gc_plan(
     slots_ctx: SlotsCliContext,
     plan: SlotGcPlan,
@@ -197,6 +234,7 @@ def execute_gc_plan(
     )
     trunk = slots_ctx.git.get_trunk_branch()
     entries: list[SlotGcEntry] = []
+    freed_entries: list[SlotGcEntry] = []
 
     for entry in plan.entries:
         if entry.action != "would_free":
@@ -252,13 +290,18 @@ def execute_gc_plan(
             )
             continue
 
+        freed_entry = _with_action(entry, "freed")
+        entries.append(freed_entry)
+        freed_entries.append(freed_entry)
+
+    if cleanup_actions and freed_entries:
         cleanup = execute_cleanup_for_freed_slots(
             slots_ctx,
-            (_freed_slot_from_gc_entry(entry),),
+            _gc_free_targets(freed_entries),
             cleanup_actions,
             trunk_branch=trunk,
         )
-        entries.append(_with_cleanup(_with_action(entry, "freed"), cleanup))
+        entries = list(_with_cleanup_by_slot(entries, cleanup))
 
     counts = _count_gc_actions(entries)
     return SlotGcOutcome(
@@ -273,30 +316,13 @@ def execute_gc_plan(
 
 
 def outcome_from_gc_plan(
-    slots_ctx: SlotsCliContext,
     plan: SlotGcPlan,
     *,
     dry_run: bool,
-    cleanup_actions: Sequence[SlotFreeCleanupAction] = (),
+    cleanup: Sequence[SlotFreeCleanupResult] = (),
 ) -> SlotGcOutcome:
-    """Turn a GC plan into a non-mutating outcome."""
-    entries = plan.entries
-    if cleanup_actions:
-        trunk_branch = slots_ctx.git.get_trunk_branch()
-        planned_entries: list[SlotGcEntry] = []
-        for entry in plan.entries:
-            if entry.action != "would_free":
-                planned_entries.append(entry)
-                continue
-            cleanup = plan_cleanup_for_free_targets(
-                slots_ctx,
-                (_freed_slot_from_gc_entry(entry),),
-                cleanup_actions,
-                trunk_branch=trunk_branch,
-            )
-            planned_entries.append(_with_cleanup(entry, cleanup))
-        entries = tuple(planned_entries)
-
+    """Turn a GC plan and precomputed cleanup results into a renderable outcome."""
+    entries = _with_cleanup_by_slot(plan.entries, cleanup) if cleanup else plan.entries
     counts = _count_gc_actions(entries)
     return SlotGcOutcome(
         entries=entries,
@@ -319,5 +345,5 @@ def garbage_collect_slots(
     if isinstance(plan, SlotLifecycleFailure):
         return plan
     if dry_run:
-        return outcome_from_gc_plan(slots_ctx, plan, dry_run=True)
+        return outcome_from_gc_plan(plan, dry_run=True)
     return execute_gc_plan(slots_ctx, plan)
