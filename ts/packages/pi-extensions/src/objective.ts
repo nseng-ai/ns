@@ -113,10 +113,52 @@ export interface ObjectiveListParsedArgs {
 	help: boolean;
 }
 
+export type ObjectiveListArgsParseResult =
+	| { type: "valid"; args: ObjectiveListParsedArgs }
+	| { type: "invalid"; message: string };
+
 interface CustomCliParsedArgs {
 	args: string[];
 	help: boolean;
 }
+
+interface CustomCliArgsParseValid {
+	type: "valid";
+	args: CustomCliParsedArgs;
+}
+
+interface CustomCliArgsParseInvalid {
+	type: "invalid";
+	message: string;
+}
+
+type CustomCliArgsParseResult = CustomCliArgsParseValid | CustomCliArgsParseInvalid;
+
+type ForbiddenObjectiveListArgsParseResult = { type: "valid" } | CustomCliArgsParseInvalid;
+
+interface ActiveObjectiveListLoaded {
+	type: "loaded";
+	list: ObjectiveList;
+}
+
+interface ActiveObjectiveListFailed {
+	type: "failed";
+	message: string;
+}
+
+type ActiveObjectiveListLoadResult = ActiveObjectiveListLoaded | ActiveObjectiveListFailed;
+
+interface ObjectiveListStatusParseValid {
+	type: "valid";
+	value: (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
+}
+
+interface ObjectiveListStatusParseInvalid {
+	type: "invalid";
+	message: string;
+}
+
+type ObjectiveListStatusParseResult = ObjectiveListStatusParseValid | ObjectiveListStatusParseInvalid;
 
 interface CustomCliMessageDetails {
 	status: "success" | "failure" | "rejected";
@@ -134,16 +176,9 @@ interface CustomCliCommandSpec {
 	messageType: string;
 	timeoutMs: number;
 	usage: string;
-	parseArgs: (raw: string) => CustomCliParsedArgs;
+	parseArgs: (raw: string) => CustomCliArgsParseResult;
 	buildArgs: (parsed: CustomCliParsedArgs) => string[];
 	completer: (prefix: string) => AutocompleteItem[] | null;
-}
-
-class CustomCliUsageError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "CustomCliUsageError";
-	}
 }
 
 const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
@@ -221,7 +256,7 @@ async function listActiveObjectives(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveSelectionSpec,
-): Promise<ObjectiveList> {
+): Promise<ActiveObjectiveListLoadResult> {
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(spec.statusKey, "listing active Objectives…");
 	}
@@ -233,10 +268,16 @@ async function listActiveObjectives(
 			timeout: OBJECTIVE_LIST_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
-			throw new Error(formatExecFailure(formatCommand("objective", args), result));
+			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result) };
 		}
 
-		return parseObjectiveList(result.stdout);
+		const parsedList = parseObjectiveList(result.stdout);
+		if (parsedList.type === "invalid") {
+			return { type: "failed", message: parsedList.message };
+		}
+		return { type: "loaded", list: parsedList.list };
+	} catch (error) {
+		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error) };
 	} finally {
 		if (ctx.hasUI) {
 			ctx.ui.setStatus(spec.statusKey, undefined);
@@ -487,7 +528,15 @@ export async function chooseActiveObjectiveSlug(
 ): Promise<string | undefined> {
 	await ctx.waitForIdle();
 
-	const objectiveList = await listActiveObjectives(pi, ctx, spec);
+	const objectiveListResult = await listActiveObjectives(pi, ctx, spec);
+	if (objectiveListResult.type === "failed") {
+		if (ctx.hasUI) {
+			ctx.ui.notify(objectiveListResult.message, "error");
+		}
+		return undefined;
+	}
+
+	const objectiveList = objectiveListResult.list;
 	if (objectiveList.records.length === 0) {
 		if (ctx.hasUI) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
@@ -586,9 +635,12 @@ function tokenizeArgumentString(args: string): string[] {
 	return args.trim().split(/\s+/).filter(Boolean);
 }
 
-export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs {
+export function parseObjectiveListArgs(rawArgs: string): ObjectiveListArgsParseResult {
 	const tokens = tokenizeArgumentString(rawArgs);
-	assertNoForbiddenObjectiveListArgs(tokens);
+	const forbiddenArgsResult = findForbiddenObjectiveListArg(tokens);
+	if (forbiddenArgsResult.type === "invalid") {
+		return forbiddenArgsResult;
+	}
 
 	const args: string[] = [];
 	let help = false;
@@ -605,52 +657,67 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs
 		if (token === "--status") {
 			const value = tokens[index + 1];
 			if (!value || value.startsWith("--")) {
-				throw new CustomCliUsageError("--status requires one of: all, active, open, closed.");
+				return { type: "invalid", message: "--status requires one of: all, active, open, closed." };
 			}
-			args.push("--status", parseObjectiveListStatus(value));
+			const parsedStatus = parseObjectiveListStatus(value);
+			if (parsedStatus.type === "invalid") {
+				return parsedStatus;
+			}
+			args.push("--status", parsedStatus.value);
 			index += 1;
 			continue;
 		}
 		if (token.startsWith("--status=")) {
-			args.push("--status", parseObjectiveListStatus(token.slice("--status=".length)));
+			const parsedStatus = parseObjectiveListStatus(token.slice("--status=".length));
+			if (parsedStatus.type === "invalid") {
+				return parsedStatus;
+			}
+			args.push("--status", parsedStatus.value);
 			continue;
 		}
 		if (token === "--current" || token.startsWith("--current=")) {
-			throw new CustomCliUsageError(
-				"--current is no longer supported by the checkout-local Objective list command.",
-			);
+			return {
+				type: "invalid",
+				message: "--current is no longer supported by the checkout-local Objective list command.",
+			};
 		}
 		if (token === "--view" || token.startsWith("--view=")) {
-			throw new CustomCliUsageError(
-				"--view is no longer supported by the checkout-local Objective list command.",
-			);
+			return {
+				type: "invalid",
+				message: "--view is no longer supported by the checkout-local Objective list command.",
+			};
 		}
 
-		throw new CustomCliUsageError(`Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.`);
+		return { type: "invalid", message: `Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.` };
 	}
 
-	return { args, help };
+	return { type: "valid", args: { args, help } };
 }
 
-function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
+function findForbiddenObjectiveListArg(tokens: string[]): ForbiddenObjectiveListArgsParseResult {
 	for (const token of tokens) {
 		if (token === "--format" || token.startsWith("--format=")) {
-			throw new CustomCliUsageError("--format is controlled by the Pi extension and is not supported here.");
+			return {
+				type: "invalid",
+				message: "--format is controlled by the Pi extension and is not supported here.",
+			};
 		}
 		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			throw new CustomCliUsageError("--json-schema is not supported by /objective:list.");
+			return { type: "invalid", message: "--json-schema is not supported by /objective:list." };
 		}
 	}
+	return { type: "valid" };
 }
 
-function parseObjectiveListStatus(value: string): (typeof OBJECTIVE_LIST_STATUS_VALUES)[number] {
+function parseObjectiveListStatus(value: string): ObjectiveListStatusParseResult {
 	if ((OBJECTIVE_LIST_STATUS_VALUES as readonly string[]).includes(value)) {
-		return value as (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
+		return { type: "valid", value: value as (typeof OBJECTIVE_LIST_STATUS_VALUES)[number] };
 	}
 
-	throw new CustomCliUsageError(
-		`Unsupported --status value: ${value || "(empty)"}. Expected all, active, open, or closed.`,
-	);
+	return {
+		type: "invalid",
+		message: `Unsupported --status value: ${value || "(empty)"}. Expected all, active, open, or closed.`,
+	};
 }
 
 function customCliUsage(spec: CustomCliCommandSpec, error: string): string {
@@ -705,16 +772,13 @@ async function handleCustomCliCommand(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	let parsedArgs: CustomCliParsedArgs;
-	try {
-		parsedArgs = spec.parseArgs(rawArgs);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
+	const parsedArgs = spec.parseArgs(rawArgs);
+	if (parsedArgs.type === "invalid") {
 		presentCustomCliMessage(
 			pi,
 			ctx,
 			spec,
-			customCliUsage(spec, message),
+			customCliUsage(spec, parsedArgs.message),
 			{
 				status: "rejected",
 				command: spec.commandName,
@@ -726,7 +790,7 @@ async function handleCustomCliCommand(
 		return;
 	}
 
-	const commandArgs = spec.buildArgs(parsedArgs);
+	const commandArgs = spec.buildArgs(parsedArgs.args);
 	const commandDisplay = formatCommand("objective", commandArgs);
 
 	if (ctx.hasUI) {

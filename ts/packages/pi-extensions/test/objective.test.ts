@@ -356,6 +356,13 @@ function completionValues(prefix: string): string[] {
 	return completeObjectiveListArgs(prefix)?.map((item) => item.value) ?? [];
 }
 
+function expectInvalidObjectiveListArgs(result: ReturnType<typeof parseObjectiveListArgs>, pattern: RegExp): void {
+	expect(result.type).toBe("invalid");
+	if (result.type === "invalid") {
+		expect(result.message).toMatch(pattern);
+	}
+}
+
 describe("objective:list command", () => {
 	test("completions advertise checkout-local options and status values", () => {
 		expect(completionValues("")).toEqual(["--names", "--status", "--help", "-h"]);
@@ -368,22 +375,31 @@ describe("objective:list command", () => {
 
 	test("parses accepted checkout-local list arguments", () => {
 		expect(parseObjectiveListArgs("--names --status all")).toEqual({
-			args: ["--names", "--status", "all"],
-			help: false,
+			type: "valid",
+			args: {
+				args: ["--names", "--status", "all"],
+				help: false,
+			},
 		});
 		expect(parseObjectiveListArgs("--status=closed")).toEqual({
-			args: ["--status", "closed"],
-			help: false,
+			type: "valid",
+			args: {
+				args: ["--status", "closed"],
+				help: false,
+			},
 		});
-		expect(parseObjectiveListArgs("--help")).toEqual({ args: [], help: true });
+		expect(parseObjectiveListArgs("--help")).toEqual({ type: "valid", args: { args: [], help: true } });
 	});
 
 	test("rejects removed and unsupported list arguments", () => {
-		expect(() => parseObjectiveListArgs("--current")).toThrow(/--current is no longer supported/);
-		expect(() => parseObjectiveListArgs("--view detail")).toThrow(/--view is no longer supported/);
-		expect(() => parseObjectiveListArgs("--status in-flight")).toThrow(/Unsupported --status value: in-flight/);
-		expect(() => parseObjectiveListArgs("--format json")).toThrow(/--format is controlled/);
-		expect(() => parseObjectiveListArgs("--json-schema")).toThrow(/--json-schema is not supported/);
+		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--current"), /--current is no longer supported/);
+		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--view detail"), /--view is no longer supported/);
+		expectInvalidObjectiveListArgs(
+			parseObjectiveListArgs("--status in-flight"),
+			/Unsupported --status value: in-flight/,
+		);
+		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--format json"), /--format is controlled/);
+		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--json-schema"), /--json-schema is not supported/);
 	});
 
 	test("forwards accepted status arguments with markdown format controlled by the extension", async () => {
@@ -931,6 +947,20 @@ describe("objective command shared selection policy", () => {
 				expect(result.notifications).toEqual([
 					{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
 				]);
+				expect(result.selections).toEqual([]);
+				expect(result.pi.sentUserMessages).toEqual([]);
+			});
+
+			test("invalid objective list JSON notifies and sends no prompt", async () => {
+				const result = await runObjectiveCommand(commandName, "", [
+					step("objective", ["list", "--format", "json"], { stdout: "{" }),
+				]);
+
+				result.pi.assertDone();
+				expect(result.pi.execCalls).toHaveLength(1);
+				expectListActiveObjectivesCall(result);
+				expect(result.notifications[0]?.message).toContain("Malformed objective list JSON");
+				expect(result.notifications[0]?.level).toBe("error");
 				expect(result.selections).toEqual([]);
 				expect(result.pi.sentUserMessages).toEqual([]);
 			});

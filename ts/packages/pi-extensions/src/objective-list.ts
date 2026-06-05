@@ -14,13 +14,29 @@ export interface ObjectiveList {
 	records: ObjectiveListRecord[];
 }
 
+export interface ObjectiveListParseValid {
+	type: "valid";
+	list: ObjectiveList;
+}
+
+export interface ObjectiveListParseInvalid {
+	type: "invalid";
+	message: string;
+}
+
+export type ObjectiveListParseResult = ObjectiveListParseValid | ObjectiveListParseInvalid;
+
+type ObjectiveListRecordParseResult =
+	| { type: "valid"; record: ObjectiveListRecord }
+	| { type: "invalid"; message: string };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListRecord {
+function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListRecordParseResult {
 	if (!isRecord(value)) {
-		throw new Error(`Invalid Objective list record at index ${index}: expected an object.`);
+		return { type: "invalid", message: `Invalid Objective list record at index ${index}: expected an object.` };
 	}
 
 	const slug = value.slug;
@@ -31,17 +47,22 @@ function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListR
 		typeof status !== "string" ||
 		(latestUpdateIso !== null && typeof latestUpdateIso !== "string")
 	) {
-		throw new Error(
-			`Invalid Objective list record at index ${index}: expected slug, status, and latest_update_iso.`,
-		);
+		return {
+			type: "invalid",
+			message: `Invalid Objective list record at index ${index}: expected slug, status, and latest_update_iso.`,
+		};
 	}
 
-	return { slug, status, latestUpdateIso };
+	return { type: "valid", record: { slug, status, latestUpdateIso } };
 }
 
-export function parseObjectiveList(stdout: string): ObjectiveList {
-	const data = parseMachineEnvelopeData(stdout, { label: "objective list JSON" });
+export function parseObjectiveList(stdout: string): ObjectiveListParseResult {
+	const envelope = parseMachineEnvelopeData(stdout, { label: "objective list JSON" });
+	if (envelope.type === "invalid") {
+		return { type: "invalid", message: envelope.message };
+	}
 
+	const data = envelope.data;
 	const trunkBranch = data.trunk_branch;
 	const rootPath = data.root_path;
 	const statusFilter = data.status_filter;
@@ -54,16 +75,29 @@ export function parseObjectiveList(stdout: string): ObjectiveList {
 		typeof namesOnly !== "boolean" ||
 		!Array.isArray(records)
 	) {
-		throw new Error(
-			"Invalid objective list JSON: expected trunk_branch, root_path, status_filter, names_only, and records.",
-		);
+		return {
+			type: "invalid",
+			message: "Invalid objective list JSON: expected trunk_branch, root_path, status_filter, names_only, and records.",
+		};
+	}
+
+	const parsedRecords: ObjectiveListRecord[] = [];
+	for (let index = 0; index < records.length; index += 1) {
+		const parsedRecord = parseObjectiveListRecord(records[index], index);
+		if (parsedRecord.type === "invalid") {
+			return parsedRecord;
+		}
+		parsedRecords.push(parsedRecord.record);
 	}
 
 	return {
-		trunkBranch,
-		rootPath,
-		statusFilter,
-		namesOnly,
-		records: records.map(parseObjectiveListRecord),
+		type: "valid",
+		list: {
+			trunkBranch,
+			rootPath,
+			statusFilter,
+			namesOnly,
+			records: parsedRecords,
+		},
 	};
 }

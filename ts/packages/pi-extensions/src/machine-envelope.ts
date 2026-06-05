@@ -5,46 +5,62 @@ export interface MachineEnvelopeParseOptions {
 	stdoutTail?: TailTextOptions | false;
 }
 
+export interface MachineEnvelopeDataParseValid {
+	type: "valid";
+	data: Record<string, unknown>;
+}
+
+export interface MachineEnvelopeDataParseInvalid {
+	type: "invalid";
+	message: string;
+}
+
+export type MachineEnvelopeDataParseResult = MachineEnvelopeDataParseValid | MachineEnvelopeDataParseInvalid;
+
 export function parseMachineEnvelopeData(
 	stdout: string,
 	options: MachineEnvelopeParseOptions,
-): Record<string, unknown> {
+): MachineEnvelopeDataParseResult {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
 	} catch (error) {
-		throw malformedEnvelope(stdout, options, `invalid JSON: ${formatErrorMessage(error)}`);
+		return invalidMachineEnvelope(stdout, options, `invalid JSON: ${formatErrorMessage(error)}`);
 	}
 
 	if (!isRecord(parsed)) {
-		throw malformedEnvelope(stdout, options, "expected an envelope object");
+		return invalidMachineEnvelope(stdout, options, "expected an envelope object");
 	}
 
 	const envelopeExitCode = parsed.exit_code;
 	if (typeof envelopeExitCode !== "number" || !Number.isFinite(envelopeExitCode)) {
-		throw malformedEnvelope(stdout, options, "expected numeric exit_code 0");
+		return invalidMachineEnvelope(stdout, options, "expected numeric exit_code 0");
 	}
 
 	if (envelopeExitCode !== 0) {
 		const statusText = envelopeStatusText(parsed);
 		const suffix = statusText === undefined ? "" : `: ${statusText}`;
-		throw malformedEnvelope(stdout, options, `expected envelope exit_code 0, got exit_code ${envelopeExitCode}${suffix}`);
+		return invalidMachineEnvelope(stdout, options, `expected envelope exit_code 0, got exit_code ${envelopeExitCode}${suffix}`);
 	}
 
 	const data = parsed.data;
 	if (!isRecord(data)) {
-		throw malformedEnvelope(stdout, options, "expected a data object");
+		return invalidMachineEnvelope(stdout, options, "expected a data object");
 	}
 
-	return data;
+	return { type: "valid", data };
 }
 
-function malformedEnvelope(stdout: string, options: MachineEnvelopeParseOptions, reason: string): Error {
+function invalidMachineEnvelope(
+	stdout: string,
+	options: MachineEnvelopeParseOptions,
+	reason: string,
+): MachineEnvelopeDataParseInvalid {
 	const lines = [`Malformed ${options.label}: ${reason}.`];
 	if (options.stdoutTail !== undefined && options.stdoutTail !== false) {
 		lines.push("", "stdout tail:", tailText(stdout, options.stdoutTail));
 	}
-	return new Error(lines.join("\n"));
+	return { type: "invalid", message: lines.join("\n") };
 }
 
 function envelopeStatusText(envelope: Record<string, unknown>): string | undefined {

@@ -7,79 +7,79 @@ describe("parseObjectiveList", () => {
 		const parsed = parseObjectiveList(envelope());
 
 		expect(parsed).toEqual({
-			trunkBranch: "main",
-			rootPath: ".asdl/objectives",
-			statusFilter: "active",
-			namesOnly: false,
-			records: [
-				{
-					slug: "alpha",
-					status: "open",
-					latestUpdateIso: "2026-05-20T10:00:00Z",
-				},
-			],
+			type: "valid",
+			list: {
+				trunkBranch: "main",
+				rootPath: ".asdl/objectives",
+				statusFilter: "active",
+				namesOnly: false,
+				records: [
+					{
+						slug: "alpha",
+						status: "open",
+						latestUpdateIso: "2026-05-20T10:00:00Z",
+					},
+				],
+			},
 		});
 	});
 
 	test("parses null latest update timestamps", () => {
 		const parsed = parseObjectiveList(envelope({ records: [record({ latest_update_iso: null })] }));
 
-		expect(parsed.records[0]?.latestUpdateIso).toBeNull();
+		expect(parsed.type).toBe("valid");
+		if (parsed.type === "valid") {
+			expect(parsed.list.records[0]?.latestUpdateIso).toBeNull();
+		}
 	});
 
 	test("rejects invalid JSON", () => {
-		expect(() => parseObjectiveList("{")).toThrow(/objective list JSON/);
+		expectInvalid(parseObjectiveList("{"), /objective list JSON/);
 	});
 
 	test("rejects a non-object envelope", () => {
-		expect(() => parseObjectiveList("[]")).toThrow(/expected an envelope object/);
+		expectInvalid(parseObjectiveList("[]"), /expected an envelope object/);
 	});
 
 	test("rejects a nonzero envelope exit code", () => {
-		expect(() => parseObjectiveList(JSON.stringify({ exit_code: 2, data: {} }))).toThrow(/exit_code 2/);
+		expectInvalid(parseObjectiveList(JSON.stringify({ exit_code: 2, data: {} })), /exit_code 2/);
 	});
 
 	test("rejects missing data", () => {
-		expect(() => parseObjectiveList(JSON.stringify({ exit_code: 0 }))).toThrow(/expected a data object/);
+		expectInvalid(parseObjectiveList(JSON.stringify({ exit_code: 0 })), /expected a data object/);
 	});
 
 	test("rejects invalid top-level fields", () => {
-		expect(() => parseObjectiveList(envelope({ trunk_branch: 42 }))).toThrow(/expected trunk_branch/);
+		expectInvalid(parseObjectiveList(envelope({ trunk_branch: 42 })), /expected trunk_branch/);
 	});
 
 	test("rejects missing records", () => {
-		expect(() => parseObjectiveList(envelope({ records: undefined }))).toThrow(/expected trunk_branch/);
+		expectInvalid(parseObjectiveList(envelope({ records: undefined })), /expected trunk_branch/);
 	});
 
 	test("rejects missing or non-string slug", () => {
-		expect(() => parseObjectiveList(envelope({ records: [record({ slug: undefined })] }))).toThrow(
-			/Invalid Objective list record/,
-		);
-		expect(() => parseObjectiveList(envelope({ records: [record({ slug: 123 })] }))).toThrow(
-			/Invalid Objective list record/,
-		);
+		expectInvalid(parseObjectiveList(envelope({ records: [record({ slug: undefined })] })), /Invalid Objective list record/);
+		expectInvalid(parseObjectiveList(envelope({ records: [record({ slug: 123 })] })), /Invalid Objective list record/);
 	});
 
 	test("rejects missing or non-string status", () => {
-		expect(() => parseObjectiveList(envelope({ records: [record({ status: undefined })] }))).toThrow(
-			/Invalid Objective list record/,
-		);
-		expect(() => parseObjectiveList(envelope({ records: [record({ status: 123 })] }))).toThrow(
-			/Invalid Objective list record/,
-		);
+		expectInvalid(parseObjectiveList(envelope({ records: [record({ status: undefined })] })), /Invalid Objective list record/);
+		expectInvalid(parseObjectiveList(envelope({ records: [record({ status: 123 })] })), /Invalid Objective list record/);
 	});
 
 	test("rejects latest_update_iso values that are neither string nor null", () => {
-		expect(() => parseObjectiveList(envelope({ records: [record({ latest_update_iso: undefined })] }))).toThrow(
+		expectInvalid(
+			parseObjectiveList(envelope({ records: [record({ latest_update_iso: undefined })] })),
 			/Invalid Objective list record/,
 		);
-		expect(() => parseObjectiveList(envelope({ records: [record({ latest_update_iso: 123 })] }))).toThrow(
+		expectInvalid(
+			parseObjectiveList(envelope({ records: [record({ latest_update_iso: 123 })] })),
 			/Invalid Objective list record/,
 		);
 	});
 
 	test("rejects old branch-projection envelopes", () => {
-		expect(() =>
+		expectInvalid(
 			parseObjectiveList(
 				JSON.stringify({
 					exit_code: 0,
@@ -95,9 +95,19 @@ describe("parseObjectiveList", () => {
 					},
 				}),
 			),
-		).toThrow(/expected trunk_branch, root_path, status_filter, names_only, and records/);
+			/expected trunk_branch, root_path, status_filter, names_only, and records/,
+		);
 	});
 });
+
+type ObjectiveListResult = ReturnType<typeof parseObjectiveList>;
+
+function expectInvalid(result: ObjectiveListResult, pattern: RegExp): void {
+	expect(result.type).toBe("invalid");
+	if (result.type === "invalid") {
+		expect(result.message).toMatch(pattern);
+	}
+}
 
 function envelope(dataOverrides: Record<string, unknown> = {}): string {
 	return JSON.stringify({
