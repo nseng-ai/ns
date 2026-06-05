@@ -51,7 +51,7 @@ Assumptions:
 Risks:
 
 - Gateway extraction may grow the diff if it attempts to redesign all command execution at once. Mitigate by limiting the gateway PR to planned-branch Git/Branch Memory/Graphite semantics and preserving adapter protocol tests.
-- Tightening saved-plan validation may reveal tests or workflows that relied on arbitrary external `.md` files. Mitigate by keeping explicit plan-file behavior where intended and only requiring session/latest evidence to match the local plan-store contract.
+- Tightening saved-plan validation may reveal tests or workflows that relied on arbitrary external `.md` files. Mitigate by keeping explicit plan-file behavior where intended and only requiring session/latest evidence to match the local plan-store contract. The canonical resolver slice de-risked this for Pi create and CMUX dispatch: valid local plan-store session evidence still works, missing session files remain stale where intended, and unsafe session evidence is rejected consistently.
 - CMUX dry-run output may be coupled to exact command text in tests or user expectations. Mitigate by preserving useful evidence while moving command sequencing behind a planned operation model.
 - Docs and skills may drift again if they duplicate CLI defaults. Mitigate by wording them around command contracts and explicit flags instead of project-local adapter defaults.
 

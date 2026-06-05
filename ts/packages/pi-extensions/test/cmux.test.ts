@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { registerCmuxDispatchCommand } from "../src/cmux/dispatch.ts";
 import registerCmuxExtension from "../src/cmux.ts";
+import { buildRepoPlanStoreKey, encodeBranchForPlanPath, normalizeRepoOriginUrl } from "@asdl/planned-branch";
 import { registerCmuxSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCmuxSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
 import { createCmuxWorkspaceSummaryController, registerCmuxSidebarCommands } from "../src/cmux/workspace-summary.ts";
@@ -334,17 +335,17 @@ describe("cmux extension", () => {
 
 	test("cmux-slot:dispatch-plan dry-run emits preview without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
-		const planDir = await makeTempDir();
-		const planFile = join(planDir, `${PLAN_SLUG}.md`);
-		await writeFile(planFile, "# Plan\n", "utf8");
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
+				gitOriginStep(),
 				headStep(),
 			],
 		});
-		registerCmuxSlotDispatchPlanCommand(pi);
+		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
 		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
@@ -357,14 +358,14 @@ describe("cmux extension", () => {
 
 	test("cmux-slot:dispatch-plan full success opens cmux without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
-		const planDir = await makeTempDir();
-		const planFile = join(planDir, `${PLAN_SLUG}.md`);
-		await writeFile(planFile, "# Plan\n", "utf8");
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
 		const realPlanFile = await realpath(planFile);
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
+				gitOriginStep(),
 				headStep(),
 				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
@@ -392,7 +393,7 @@ describe("cmux extension", () => {
 				], {}),
 			],
 		});
-		registerCmuxSlotDispatchPlanCommand(pi);
+		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, model: PREVIOUS_MODEL, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
 		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("", ctx);
@@ -403,6 +404,63 @@ describe("cmux extension", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("cmux-slot:dispatch-plan rejects session plan outside local plan store", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const outsidePlanFile = join(outsideDir, PLAN_KEY);
+		await writeFile(outsidePlanFile, "# Outside Plan\n", "utf8");
+		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
+		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, outsidePlanFile)] });
+
+		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("outside the current local plan store directory");
+		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
+		expect(pi.sentMessages).toEqual([]);
+	});
+
+	test("cmux-slot:dispatch-plan rejects wrong repo metadata", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
+		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
+		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile, { repoKey: "gh--other--repo" })],
+		});
+
+		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("repoKey");
+		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
+		expect(pi.sentMessages).toEqual([]);
+	});
+
+	test("cmux-slot:dispatch-plan rejects wrong source branch or branch key", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
+		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
+		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile, { sourceBranch: "other-branch", branchKey: "other-branch" })],
+		});
+
+		await pi.commands.get("cmux-slot:dispatch-plan")?.handler("--dry-run", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("sourceBranch");
+		expect(notificationMessages(ctx).join("\n")).toContain("branchKey");
+		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
+		expect(pi.sentMessages).toEqual([]);
 	});
 
 	test("cmux-dispatch opens cmux without sidebar summary", async () => {
@@ -505,12 +563,16 @@ function gitCurrentBranchStep(): ScriptedExec {
 	return step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` });
 }
 
+function gitOriginStep(): ScriptedExec {
+	return step("git", ["config", "--get", "remote.origin.url"], { stdout: "git@github.com:owner/repo.git\n" });
+}
+
 function headStep(): ScriptedExec {
 	return step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` });
 }
 
 async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "cmux-extension-test-"));
+	const dir = await realpath(await mkdtemp(join(tmpdir(), "cmux-extension-test-")));
 	tempDirs.push(dir);
 	return dir;
 }
@@ -520,6 +582,28 @@ async function writeTempSkill(body: string): Promise<string> {
 	const path = join(dir, "SKILL.md");
 	await writeFile(path, `---\nname: cmux-sidebar\n---\n${body}\n`, "utf8");
 	return path;
+}
+
+async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string): Promise<string> {
+	const directoryPath = cmuxPlanStoreDirectory(planStoreRoot, repoRoot);
+	await mkdir(directoryPath, { recursive: true });
+	const planFile = join(directoryPath, PLAN_KEY);
+	await writeFile(planFile, "# Plan\n", "utf8");
+	return planFile;
+}
+
+function cmuxPlanStoreDirectory(planStoreRoot: string, repoRoot: string): string {
+	const repoKey = buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl("git@github.com:owner/repo.git"));
+	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
+	return join(planStoreRoot, repoKey, branchKey);
+}
+
+function dispatchValidationScript(repoRoot: string): ScriptedExec[] {
+	return [gitRootStep(repoRoot), gitCurrentBranchStep(), gitOriginStep(), headStep()];
+}
+
+function isDispatchMutationCommand(call: ExecCall): boolean {
+	return (call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current") || call.command === "gt" || call.command === "brmem" || call.command === "slot" || call.command === "cmux";
 }
 
 function skillCommand(skillName: string, path: string): SkillCommandInfo {
@@ -546,7 +630,7 @@ function plannedBranchOutputEntry(branch: string): unknown {
 	};
 }
 
-function savedPlanEntry(repoRoot: string, planFile: string): unknown {
+function savedPlanEntry(repoRoot: string, planFile: string, overrides: Record<string, unknown> = {}): unknown {
 	return {
 		type: "message",
 		message: {
@@ -556,12 +640,13 @@ function savedPlanEntry(repoRoot: string, planFile: string): unknown {
 			details: {
 				slug: PLAN_SLUG,
 				repoRoot,
-				repoKey: "gh--owner--repo",
+				repoKey: buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl("git@github.com:owner/repo.git")),
 				repoIdentitySource: "origin-url",
 				sourceBranch: SOURCE_BRANCH,
-				branchKey: SOURCE_BRANCH,
+				branchKey: encodeBranchForPlanPath(SOURCE_BRANCH),
 				filePath: planFile,
 				summary: "Test saved plan.",
+				...overrides,
 			},
 		},
 	};

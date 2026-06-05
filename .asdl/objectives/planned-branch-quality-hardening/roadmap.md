@@ -2,10 +2,11 @@
 
 ## Work
 
-- [ ] Canonical saved-plan resolver
-  - Extract one validated saved-plan/session/latest resolver for the current checkout.
-  - Use it from both `/planned-branch:create` and `/cmux-slot:dispatch-plan`.
-  - Evidence: tests reject outside-plan-store session evidence, wrong repo metadata, and wrong source branch/branch key where applicable.
+- [x] Canonical saved-plan resolver
+  - Extracted one validated saved-plan/session/latest resolver for the current checkout in `@asdl/planned-branch`.
+  - `/planned-branch:create` and `/cmux-slot:dispatch-plan` now use the shared session evidence parser/validator instead of parallel local implementations.
+  - Evidence: tests reject outside-plan-store session evidence, wrong repo metadata, wrong source branch/branch key, and basename/slug mismatches; missing session files remain stale/fallback behavior where intended.
+  - Verification: `cd ts/packages/planned-branch && bun test`, `cd ts/packages/pi-extensions && bun test`, `just ts-check`, and `just ts-test` passed.
 
 - [ ] Planned-branch-owned operation model for CMUX composition
   - Move branch/key derivation, dry-run/preview evidence, create parameters, and planned-branch evidence formatting behind planned-branch-owned helpers.

@@ -1122,29 +1122,18 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
 	});
 
-	test("planned-branch:create ignores wrong repo or branch session evidence", async () => {
+	test("planned-branch:create rejects wrong repo or branch session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
-		const diskSlug = "harden-cp-autobranch-validation";
-		const diskKey = `${diskSlug}.md`;
 		const sessionPath = await writePlanStoreFile(directoryPath, `${sessionSlug}.md`, 1_700_000_000_000);
-		const diskPath = await writePlanStoreFile(directoryPath, diskKey, 1_800_000_000_000);
 		const wrongBranchEvidence = {
 			...sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }),
 			sourceBranch: "other-branch",
 			branchKey: "other-branch",
 		};
-		const pi = new FakePi([
-			gitRootStep(),
-			gitCurrentBranchStep(sourceBranch),
-			gitOriginStep(),
-			gitRootStep(),
-			gitCurrentBranchStep(sourceBranch),
-			gitOriginStep(),
-			planSlugStep(savedPlanFileContent(diskKey), diskSlug),
-		]);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 		registerPlannedBranchExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("planned-branch:create");
 		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(wrongBranchEvidence)] });
@@ -1152,11 +1141,73 @@ describe("plan workflow commands", () => {
 		await command?.handler("--dry-run", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentMessages[0]?.content).toContain("Latest saved plan from local plan store:");
-		expect(pi.sentMessages[0]?.content).toContain(`Path: ${diskPath}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${diskSlug}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${diskSlug}`);
-		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
+		expect(pi.sentMessages[0]?.content).toContain("Failed to resolve saved plan file or derive branch slug.");
+		expect(pi.sentMessages[0]?.content).toContain("different repo or branch");
+		expect(pi.sentMessages[0]?.content).toContain("sourceBranch");
+		expect(pi.sentMessages[0]?.content).toContain("branchKey");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+	});
+
+	test("planned-branch:create rejects outside-plan-store session evidence", async () => {
+		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const sourceBranch = "main";
+		const outsidePath = await makeNamedPlanFile(`${PLAN_KEY}`);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("planned-branch:create");
+		const context = createContext([], {
+			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: PLAN_SLUG, filePath: outsidePath, sourceBranch }))],
+		});
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain("outside the current local plan store directory");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+	});
+
+	test("planned-branch:create rejects wrong branch key even when source branch matches", async () => {
+		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const sourceBranch = "main";
+		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
+		const sessionSlug = "submit-dirty-worktree-checkpoint";
+		const sessionPath = await writePlanStoreFile(directoryPath, `${sessionSlug}.md`, 1_700_000_000_000);
+		const wrongBranchKeyEvidence = {
+			...sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }),
+			branchKey: "wrong-branch-key",
+		};
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("planned-branch:create");
+		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(wrongBranchKeyEvidence)] });
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain("branchKey");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+	});
+
+	test("planned-branch:create rejects basename and slug mismatch in session evidence", async () => {
+		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const sourceBranch = "main";
+		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
+		const sessionPath = await writePlanStoreFile(directoryPath, `${PLAN_SLUG}.md`, 1_700_000_000_000);
+		const mismatchEvidence = sourcePlanEvidence({ slug: "submit-dirty-worktree-checkpoint", filePath: sessionPath, sourceBranch });
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("planned-branch:create");
+		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(mismatchEvidence)] });
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain("basename must match slug");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
 	test("planned-branch:create ignores stale cancellation output while using tool result evidence", async () => {
@@ -1410,7 +1461,7 @@ describe("plan workflow commands", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.command)).toEqual(["pi"]);
-		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("Failed to resolve saved plan file or derive branch slug.");

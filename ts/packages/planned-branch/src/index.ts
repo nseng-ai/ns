@@ -33,6 +33,18 @@ export {
 	type PlanCommandExecApi,
 } from "./plan-persistence.ts";
 export {
+	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
+	extractSourceBranchPlanFileEvidenceFromSessionEntry,
+	findLatestSessionSavedPlanFile,
+	resolveSelectedSavedPlanFile,
+	validateSessionSavedPlanCandidate,
+	type LatestSessionSavedPlanResult,
+	type ResolveSelectedSavedPlanFileOptions,
+	type SelectedSavedPlanFile,
+	type SessionSavedPlanValidation,
+	type ValidatedSessionSavedPlan,
+} from "./saved-plan-selection.ts";
+export {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
