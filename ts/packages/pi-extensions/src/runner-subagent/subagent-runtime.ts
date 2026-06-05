@@ -41,6 +41,30 @@ export type RuntimeResultV1 =
 			message: string;
 	  };
 
+export interface RuntimeFailureData {
+	message: string;
+	cause?: unknown;
+}
+
+export type RuntimeConfigParseResult =
+	| { type: "valid"; config: RuntimeConfigV1 }
+	| { type: "invalid"; failure: RuntimeFailureData };
+
+export type RuntimeConfigReadResult =
+	| { type: "loaded"; config: RuntimeConfigV1 }
+	| { type: "invalid"; failure: RuntimeFailureData }
+	| { type: "read-error"; failure: RuntimeFailureData };
+
+export type RuntimeResultParseResult =
+	| { type: "valid"; result: RuntimeResultV1 }
+	| { type: "invalid"; failure: RuntimeFailureData };
+
+export type RuntimeResultReadResult =
+	| { type: "missing" }
+	| { type: "loaded"; result: RuntimeResultV1 }
+	| { type: "invalid"; failure: RuntimeFailureData }
+	| { type: "read-error"; failure: RuntimeFailureData };
+
 export interface CreateRunnerSubagentRuntimeFilesInput {
 	title?: string;
 	terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
@@ -58,13 +82,6 @@ export class RuntimeConfigValidationError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "RuntimeConfigValidationError";
-	}
-}
-
-export class RuntimeResultParseError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "RuntimeResultParseError";
 	}
 }
 
@@ -113,23 +130,35 @@ export async function createDefaultRunnerSubagentRuntimeFiles(
 	};
 }
 
-export function readRuntimeConfigFileSync(configPath: string): RuntimeConfigV1 {
-	return parseRuntimeConfigJson(readFileSync(configPath, "utf8"));
+export function readRuntimeConfigFileSync(configPath: string): RuntimeConfigReadResult {
+	let raw: string;
+	try {
+		raw = readFileSync(configPath, "utf8");
+	} catch (error) {
+		return { type: "read-error", failure: { message: errorMessage(error), cause: error } };
+	}
+	const parsed = parseRuntimeConfigJsonResult(raw);
+	if (parsed.type === "invalid") return parsed;
+	return { type: "loaded", config: parsed.config };
 }
 
-export async function readRuntimeResultFile(resultPath: string): Promise<RuntimeResultV1 | undefined> {
+export async function readRuntimeResultFile(resultPath: string): Promise<RuntimeResultReadResult> {
 	let raw: string;
 	try {
 		raw = await readFile(resultPath, "utf8");
 	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return undefined;
-		throw error;
+		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
+		return { type: "read-error", failure: { message: errorMessage(error), cause: error } };
 	}
-	return parseRuntimeResultJson(raw);
+	const parsed = parseRuntimeResultJsonResult(raw);
+	if (parsed.type === "invalid") return parsed;
+	return { type: "loaded", result: parsed.result };
 }
 
 export function writeRuntimeResultFileSync(resultPath: string, result: RuntimeResultV1): boolean {
-	const raw = `${JSON.stringify(parseRuntimeResultValue(result))}\n`;
+	const parsed = parseRuntimeResultValueResult(result);
+	if (parsed.type === "invalid") throw new Error(parsed.failure.message);
+	const raw = `${JSON.stringify(parsed.result)}\n`;
 	let fd: number | undefined;
 	try {
 		fd = openSync(resultPath, "wx", 0o600);
@@ -143,90 +172,103 @@ export function writeRuntimeResultFileSync(resultPath: string, result: RuntimeRe
 	}
 }
 
-export function parseRuntimeConfigJson(raw: string): RuntimeConfigV1 {
+export function parseRuntimeConfigJsonResult(raw: string): RuntimeConfigParseResult {
 	let value: unknown;
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		throw new RuntimeConfigValidationError(`Invalid runner subagent runtime config JSON: ${errorMessage(error)}`);
+		return invalidConfig(`Invalid runner subagent runtime config JSON: ${errorMessage(error)}`, error);
 	}
-	return parseRuntimeConfigValue(value);
+	return parseRuntimeConfigValueResult(value);
 }
 
-export function parseRuntimeConfigValue(value: unknown): RuntimeConfigV1 {
+export function parseRuntimeConfigValueResult(value: unknown): RuntimeConfigParseResult {
 	if (!isRecord(value)) {
-		throw new RuntimeConfigValidationError("Runner subagent runtime config must be an object.");
+		return invalidConfig("Runner subagent runtime config must be an object.");
 	}
 	if (value.version !== RUNTIME_VERSION) {
-		throw new RuntimeConfigValidationError("Unsupported runner subagent runtime config version.");
+		return invalidConfig("Unsupported runner subagent runtime config version.");
 	}
 	if (value.title !== undefined && typeof value.title !== "string") {
-		throw new RuntimeConfigValidationError("Runner subagent runtime config title must be a string when present.");
+		return invalidConfig("Runner subagent runtime config title must be a string when present.");
 	}
 	if (!Array.isArray(value.terminalTools)) {
-		throw new RuntimeConfigValidationError("Runner subagent runtime config terminalTools must be an array.");
+		return invalidConfig("Runner subagent runtime config terminalTools must be an array.");
 	}
-	return {
-		version: RUNTIME_VERSION,
-		...(value.title === undefined ? {} : { title: value.title }),
-		terminalTools: validateTerminalToolDefinitions(value.terminalTools),
-	};
+	try {
+		return {
+			type: "valid",
+			config: {
+				version: RUNTIME_VERSION,
+				...(value.title === undefined ? {} : { title: value.title }),
+				terminalTools: validateTerminalToolDefinitions(value.terminalTools),
+			},
+		};
+	} catch (error) {
+		return invalidConfig(errorMessage(error), error);
+	}
 }
 
-export function parseRuntimeResultJson(raw: string): RuntimeResultV1 {
+export function parseRuntimeResultJsonResult(raw: string): RuntimeResultParseResult {
 	let value: unknown;
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		throw new RuntimeResultParseError(`Invalid runner subagent runtime result JSON: ${errorMessage(error)}`);
+		return invalidResult(`Invalid runner subagent runtime result JSON: ${errorMessage(error)}`, error);
 	}
-	return parseRuntimeResultValue(value);
+	return parseRuntimeResultValueResult(value);
 }
 
-export function parseRuntimeResultValue(value: unknown): RuntimeResultV1 {
+export function parseRuntimeResultValueResult(value: unknown): RuntimeResultParseResult {
 	if (!isRecord(value)) {
-		throw new RuntimeResultParseError("Runner subagent runtime result must be an object.");
+		return invalidResult("Runner subagent runtime result must be an object.");
 	}
 	if (value.version !== RUNTIME_VERSION) {
-		throw new RuntimeResultParseError("Unsupported runner subagent runtime result version.");
+		return invalidResult("Unsupported runner subagent runtime result version.");
 	}
 	if (value.kind === "terminal-capture") {
 		if (typeof value.toolName !== "string" || value.toolName.length === 0) {
-			throw new RuntimeResultParseError("Terminal capture result must include a toolName.");
+			return invalidResult("Terminal capture result must include a toolName.");
 		}
 		if (!isTerminalStatus(value.status)) {
-			throw new RuntimeResultParseError("Terminal capture result has an invalid status.");
+			return invalidResult("Terminal capture result has an invalid status.");
 		}
 		if (value.toolCallId !== undefined && typeof value.toolCallId !== "string") {
-			throw new RuntimeResultParseError("Terminal capture result toolCallId must be a string when present.");
+			return invalidResult("Terminal capture result toolCallId must be a string when present.");
 		}
 		if (!("input" in value)) {
-			throw new RuntimeResultParseError("Terminal capture result must include input.");
+			return invalidResult("Terminal capture result must include input.");
 		}
 		return {
-			version: RUNTIME_VERSION,
-			kind: "terminal-capture",
-			toolName: value.toolName,
-			...(value.toolCallId === undefined ? {} : { toolCallId: value.toolCallId }),
-			status: value.status,
-			input: value.input,
+			type: "valid",
+			result: {
+				version: RUNTIME_VERSION,
+				kind: "terminal-capture",
+				toolName: value.toolName,
+				...(value.toolCallId === undefined ? {} : { toolCallId: value.toolCallId }),
+				status: value.status,
+				input: value.input,
+			},
 		};
 	}
 	if (value.kind === "runtime-error") {
 		if (!isRuntimeErrorCode(value.code)) {
-			throw new RuntimeResultParseError("Runtime error result has an invalid code.");
+			return invalidResult("Runtime error result has an invalid code.");
 		}
 		if (typeof value.message !== "string" || value.message.length === 0) {
-			throw new RuntimeResultParseError("Runtime error result must include a message.");
+			return invalidResult("Runtime error result must include a message.");
 		}
 		return {
-			version: RUNTIME_VERSION,
-			kind: "runtime-error",
-			code: value.code,
-			message: value.message,
+			type: "valid",
+			result: {
+				version: RUNTIME_VERSION,
+				kind: "runtime-error",
+				code: value.code,
+				message: value.message,
+			},
 		};
 	}
-	throw new RuntimeResultParseError("Runner subagent runtime result has an invalid kind.");
+	return invalidResult("Runner subagent runtime result has an invalid kind.");
 }
 
 export function validateTerminalToolDefinitions(
@@ -270,6 +312,14 @@ export function validateTerminalToolDefinitions(
 			parameters,
 		};
 	});
+}
+
+function invalidConfig(message: string, cause?: unknown): RuntimeConfigParseResult {
+	return { type: "invalid", failure: { message, ...(cause === undefined ? {} : { cause }) } };
+}
+
+function invalidResult(message: string, cause?: unknown): RuntimeResultParseResult {
+	return { type: "invalid", failure: { message, ...(cause === undefined ? {} : { cause }) } };
 }
 
 function generatedRuntimeExtensionSource(runtimeFactoryPath: string, configPath: string, resultPath: string): string {
