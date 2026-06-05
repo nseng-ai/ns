@@ -1,19 +1,19 @@
 ---
-name: handoff-load
-description: "Pick up, choose, or list saved handoff artifacts and resume focused work. Use when the user says pick up handoff, load handoff, resume handoff, continue from handoff, choose a handoff, or list saved handoffs; use brmem only as storage/recovery machinery."
+name: handoff-pickup
+description: "Pick up, choose, or list handoff artifacts and resume focused work. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs; use brmem only as storage/recovery machinery."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(handoff *)"
   - "Bash(brmem *)"
 ---
 
-# handoff-load
+# handoff-pickup
 
-Use this skill to pick up, choose, or list saved Markdown handoff artifacts and resume the future-continuation focus captured in one. A handoff is directed saved work context; it is not in-session compaction and not a generic session summary.
+Use this skill to pick up, choose, or list Markdown handoff artifacts and resume the future-continuation focus captured in one. A handoff is directed durable work context; it is not in-session compaction and not a generic session summary.
 
-This is the load/list/resume step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
+This is the pickup/list/resume step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
 
-Normal user language is pick up/list/resume from a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
+Normal user language is pick up / list / resume from a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
 ## Storage contract
 
@@ -68,19 +68,19 @@ The JSON payload's `data.handoffs` list contains handoff records with `branch`, 
 If no handoffs exist, say so in public vocabulary:
 
 ```text
-No saved handoffs found on branch `<branch>`.
+No handoffs found on branch `<branch>`.
 ```
 
 or:
 
 ```text
-No saved handoffs found across active branches.
+No handoffs found across active branches.
 ```
 
 or, when using `--include-deleted`:
 
 ```text
-No saved handoffs found across branches.
+No handoffs found across branches.
 ```
 
 For explicit removal of one stale or unneeded handoff, use `handoff delete [--branch <branch>] <slug>` with the user-facing slug (no `.md`). Use `handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.

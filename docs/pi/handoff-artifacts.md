@@ -1,13 +1,13 @@
 # Handoff Artifacts
 
-A handoff is a directed, saved work-context artifact for a specific future continuation. It is written for future-you, a future agent, a future worktree, or a teammate who needs to resume one focused piece of work.
+A handoff is a directed, durable work-context artifact for a specific future continuation. It is written for future-you, a future agent, a future worktree, or a teammate who needs to resume one focused piece of work.
 
 The public model is:
 
-- **Save a handoff** when pausing or transferring focused work.
-- **Pick up a handoff** when resuming from a saved artifact.
+- **Create a handoff** when pausing or transferring focused work.
+- **Pick up a handoff** when resuming from an existing artifact.
 - **List handoffs** when choosing what to resume.
-- **Delete a handoff** when explicitly removing one saved artifact by exact slug through the Python CLI.
+- **Delete a handoff** when explicitly removing one artifact by exact slug through the Python CLI.
 - **Resume from a handoff** after it has been picked up.
 
 Branch Memory may store the artifact, but Branch Memory namespaces, keys, refs, and commits are technical locators. They should not be the default user model.
@@ -18,21 +18,23 @@ Use these terms in normal Pi commands, skills, docs, notifications, and prompts:
 
 | Term                         | Meaning                                                                                                    |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Handoff artifact, or handoff | A saved Markdown work-context artifact for a specific continuation.                                        |
+| Handoff artifact, or handoff | A durable Markdown work-context artifact for a specific continuation.                                      |
 | Continuation focus           | The future work the handoff prepares: what should the next session continue, decide, verify, or implement? |
-| Save a handoff               | Create the artifact and store it so another session can pick it up.                                        |
-| Pick up a handoff            | Select and inject a saved artifact as active context.                                                      |
+| Create a handoff             | Create the artifact and store it so another session can pick it up.                                        |
+| Pick up a handoff            | Select and inject an existing artifact as active context.                                                  |
 | Handoff slug                 | A semantic, user-recognizable selector such as `address-review-feedback`.                                  |
 | Technical locator            | Storage details such as branch, namespace, entry key, ref, and commit.                                     |
 
 Avoid these as the default user-facing model:
 
+- "save a handoff"
+- "load a handoff"
 - "write/read a Branch Memory entry"
 - "Branch Memory handoff" except when explaining the current storage implementation
 - namespace/key/ref-first instructions in success, picker, or prompt copy
 - undirected "session summary" language when the user asked for a handoff
 
-It is fine to show a compact technical locator after a successful save/pickup, on error, or in recovery documentation.
+It is fine to show a compact technical locator after a successful create/pickup, on error, or in recovery documentation.
 
 ## What makes a handoff directed
 
@@ -55,21 +57,21 @@ A useful handoff normally includes:
 
 ## Handoff vs. compaction vs. generic summary
 
-| Mechanism               | Trigger                                     | Persistence                                            | Direction                                                     | Use                                                            |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------- |
-| Compaction              | Automatic context pressure or `/compact`    | Pi session internals                                   | Usually preserves enough context for the current conversation | Keep the current session under the model context window.       |
-| Generic session summary | Explicit request to summarize what happened | Wherever the user asks to put it                       | Often retrospective and history-shaped                        | Explain or archive the session's history.                      |
-| Handoff artifact        | Explicit save/transfer/resume intent        | Saved artifact, currently stored through Branch Memory | Future-continuation focused                                   | Let another session pick up focused work context and continue. |
+| Mechanism               | Trigger                                     | Persistence                                              | Direction                                                     | Use                                                            |
+| ----------------------- | ------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Compaction              | Automatic context pressure or `/compact`    | Pi session internals                                     | Usually preserves enough context for the current conversation | Keep the current session under the model context window.       |
+| Generic session summary | Explicit request to summarize what happened | Wherever the user asks to put it                         | Often retrospective and history-shaped                        | Explain or archive the session's history.                      |
+| Handoff artifact        | Explicit create/transfer/resume intent      | Durable artifact, currently stored through Branch Memory | Future-continuation focused                                   | Let another session pick up focused work context and continue. |
 
-Compaction is an in-session context-management mechanism. It is not a named saved artifact and should not be treated as the durable resume surface.
+Compaction is an in-session context-management mechanism. It is not a named durable artifact and should not be treated as the durable resume surface.
 
 A generic session summary can be useful, but it is usually organized around what happened. A handoff is organized around what a future continuation must do next.
 
-## Save flow implications
+## Create flow implications
 
-A save flow should make the continuation focus first-class. If the user says only "save a handoff" without enough focus, ask a cheap clarifying question rather than producing an undirected summary.
+A create flow should make the continuation focus first-class. If the user says only "create a handoff" without enough focus, ask a cheap clarifying question rather than producing an undirected summary.
 
-Good save copy:
+Good create copy:
 
 ```text
 What should the future session continue from this handoff?
@@ -78,7 +80,7 @@ What should the future session continue from this handoff?
 Good success copy:
 
 ```text
-Saved handoff `address-review-feedback` on branch `feature/review`.
+Created handoff `address-review-feedback` on branch `feature/review`.
 ```
 
 Optional technical detail:
@@ -160,8 +162,8 @@ Examples:
 
 Portable first-party skills:
 
-- `handoff-save`
-- `handoff-load`
+- `handoff-create`
+- `handoff-pickup`
 
 `/handoff:create` requires a meaningful continuation focus. If the user omits it, the command asks:
 
@@ -169,7 +171,7 @@ Portable first-party skills:
 What should the future session continue from this handoff?
 ```
 
-and does not save until the user answers.
+and does not create the handoff until the user answers.
 
 ## Branch Memory boundary
 
@@ -181,7 +183,7 @@ key:       <semantic-slug>.md
 branch:    <branch carrying the handoff>
 ```
 
-Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public save/pickup/list UX should hide those details until the user needs technical evidence.
+Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public create/pick-up/list UX should hide those details until the user needs technical evidence.
 
 Useful recovery commands:
 
@@ -196,8 +198,8 @@ handoff gc --dry-run
 brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
 ```
 
-`handoff delete` removes exactly one saved handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--force` to skip the confirmation prompt.
+`handoff delete` removes exactly one handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--force` to skip the confirmation prompt.
 
-`handoff gc` deletes saved handoffs whose local branch no longer exists. Use `handoff gc --dry-run` to preview candidates and `handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
+`handoff gc` deletes handoffs whose local branch no longer exists. Use `handoff gc --dry-run` to preview candidates and `handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
 
 There is no backwards compatibility shim, alias, or migration for earlier handoff storage names because there are no users to preserve. Older design notes may mention previous names only as historical context.

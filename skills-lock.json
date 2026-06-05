@@ -89,17 +89,17 @@
     "handoff": {
       "source": "skills/handoff",
       "sourceType": "local",
-      "computedHash": "97bf8eda7e7475ca8c797ef64cae56c171aba8d7e46e36f33feb8b283af98718"
+      "computedHash": "938d0a92e4796cdc856baacd265679631611c574c04799f555582f64a5595044"
     },
-    "handoff-load": {
-      "source": "skills/handoff-load",
+    "handoff-create": {
+      "source": "skills/handoff-create",
       "sourceType": "local",
-      "computedHash": "ad729240203b844658c0dcfefedbff696500505a425e20fbe5feb3d42b4a8d0e"
+      "computedHash": "3e7b7a3581660b200756a96d3cf616992593211274f947310dfc5b10d9e136d6"
     },
-    "handoff-save": {
-      "source": "skills/handoff-save",
+    "handoff-pickup": {
+      "source": "skills/handoff-pickup",
       "sourceType": "local",
-      "computedHash": "24c468cc7c43a09a75894fdaf3f569ab67fcb2f71db1a4a5d34b32879a7d1537"
+      "computedHash": "b789200341ac60783dd9c4e4dbfa8056d3c905f20b6dc2695be5f275b8d35849"
     },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",

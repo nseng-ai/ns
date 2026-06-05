@@ -12,17 +12,17 @@ const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
 const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
-const SAVE_HANDOFF_SKILL_NAME = "handoff-save";
+const CREATE_HANDOFF_SKILL_NAME = "handoff-create";
 const HANDOFF_TIMEOUT_MS = 30_000;
 const BRMEM_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_PREVIEW_CHARS = 240;
-const SAVE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
+const CREATE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
 
-Pick up a saved handoff from this branch and continue from its content.
+Pick up an existing handoff from this branch and continue from its content.
 
 Options:
   --branch <branch>  Pick up handoffs from an explicit branch instead of the current branch.
@@ -32,14 +32,14 @@ With no selector, the command picks up the only handoff when exactly one exists,
 
 const LIST_HANDOFF_USAGE = `Usage: /${LIST_HANDOFF_COMMAND_NAME} [--branch <branch> | --all]
 
-List saved handoffs on this branch or across all branches.
+List handoffs on this branch or across active branches.
 
 Options:
   --branch <branch>  List handoffs from an explicit branch instead of the current branch.
-  --all              List handoffs across every branch.
+  --all              List handoffs across active branches.
   --help, -h         Show this help.`;
 
-const SAVE_HANDOFF_FALLBACK = `Use the handoff-save workflow to save a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
+const CREATE_HANDOFF_FALLBACK = `Use the handoff-create workflow to create a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
 
 Storage contract:
 - Namespace: \`${HANDOFF_NAMESPACE}\`
@@ -47,9 +47,9 @@ Storage contract:
 - Check for an existing artifact with \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\`.
 - Store final Markdown directly with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
 
-If review or editing is needed before saving, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
+If review or editing is needed before creating the handoff, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
 
-Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the saved handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
+Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the created handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -387,7 +387,7 @@ export function resolveHandoffKey(selector: string[], handoffKeys: string[]): { 
 }
 
 export function buildPickupHandoffPrompt(branch: string, key: string, artifact: string): string {
-	return `Pick up this saved handoff artifact as active context for the session.
+	return `Pick up this handoff artifact as active context for the session.
 
 Branch: ${branch}
 Handoff: ${handoffSlug(key)}
@@ -403,15 +403,15 @@ ${fencedBlock("markdown", artifact)}`;
 
 export function buildCreateHandoffPrompt(skillBlock: string | undefined, focus: string): string {
 	const focusText = focus.trim();
-	return `${skillBlock ?? SAVE_HANDOFF_FALLBACK}
+	return `${skillBlock ?? CREATE_HANDOFF_FALLBACK}
 
-Save a directed handoff artifact for this session.
+Create a directed handoff artifact for this session.
 
 Continuation focus:
 
 ${fencedBlock("text", focusText)}
 
-Treat this as an explicit request to run the handoff save workflow. The handoff must be directed toward the supplied continuation focus. Derive a semantic slug from that focus unless the user explicitly supplied one, avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on saving/picking up a handoff.
+Treat this as an explicit request to run the handoff create workflow. The handoff must be directed toward the supplied continuation focus. Derive a semantic slug from that focus unless the user explicitly supplied one, avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on creating/picking up a handoff.
 
 Before writing, confirm the branch unless the user explicitly named one and check for an existing key. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin:
 
@@ -423,7 +423,7 @@ brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} 
 HANDOFF_EOF`,
 	)}
 
-Report the saved handoff first. Include Branch Memory details only as technical storage evidence.`;
+Report the created handoff first. Include Branch Memory details only as technical storage evidence.`;
 }
 
 export function deriveHandoffPreview(artifact: string): string {
@@ -498,9 +498,9 @@ function fencedBlock(language: string, content: string): string {
 	return `${fence}${language}\n${content.trimEnd()}\n${fence}`;
 }
 
-async function handleSaveHandoffCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
-	const focus = await resolveSaveFocus(pi, args, ctx);
+	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
 		return;
 	}
@@ -508,34 +508,34 @@ async function handleSaveHandoffCommand(pi: ExtensionAPI, args: string, ctx: Com
 	let skill: Awaited<ReturnType<typeof expandSkill>>;
 	let skillReadError: string | undefined;
 	try {
-		skill = await expandSkill(pi, SAVE_HANDOFF_SKILL_NAME);
+		skill = await expandSkill(pi, CREATE_HANDOFF_SKILL_NAME);
 	} catch (error) {
 		skillReadError = errorMessage(error);
 	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(saveHandoffStartMessage(skill, skillReadError), skill ? "info" : "warning");
+		ctx.ui.notify(createHandoffStartMessage(skill, skillReadError), skill ? "info" : "warning");
 	}
 	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
 }
 
-async function resolveSaveFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<string | undefined> {
+async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<string | undefined> {
 	const focus = rawArgs.trim();
 	if (focus.length > 0) {
 		return focus;
 	}
 
 	if (ctx.hasUI && ctx.ui.input !== undefined) {
-		const response = await ctx.ui.input(SAVE_FOCUS_QUESTION);
+		const response = await ctx.ui.input(CREATE_FOCUS_QUESTION);
 		const promptedFocus = response?.trim() ?? "";
 		if (promptedFocus.length > 0) {
 			return promptedFocus;
 		}
-		ctx.ui.notify("Continuation focus is required to save a handoff.", "warning");
+		ctx.ui.notify("Continuation focus is required to create a handoff.", "warning");
 		return undefined;
 	}
 
-	pi.sendUserMessage(`Ask the user exactly this question before saving a handoff: ${SAVE_FOCUS_QUESTION}\n\nDo not save a handoff until the user answers with a meaningful continuation focus.`);
+	pi.sendUserMessage(`Ask the user exactly this question before creating a handoff: ${CREATE_FOCUS_QUESTION}\n\nDo not create a handoff until the user answers with a meaningful continuation focus.`);
 	return undefined;
 }
 
@@ -576,7 +576,7 @@ async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx
 	}
 
 	if (handoffItems.length === 0) {
-		ctx.ui.notify(`No saved handoffs found on branch ${branch}.`, "info");
+		ctx.ui.notify(`No handoffs found on branch ${branch}.`, "info");
 		return;
 	}
 
@@ -655,7 +655,7 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	}
 
 	if (handoffItems.length === 0) {
-		ctx.ui.notify(args.allBranches ? "No saved handoffs found across branches." : `No saved handoffs found on branch ${branch}.`, "info");
+		ctx.ui.notify(args.allBranches ? "No handoffs found across active branches." : `No handoffs found on branch ${branch}.`, "info");
 		return;
 	}
 
@@ -673,14 +673,14 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	emitHandoffList(pi, ctx, details);
 }
 
-function saveHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>, skillReadError: string | undefined): string {
+function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>, skillReadError: string | undefined): string {
 	if (skill !== undefined) {
-		return "Starting handoff save workflow…";
+		return "Starting handoff create workflow…";
 	}
 	if (skillReadError !== undefined) {
-		return `Could not read handoff-save skill; using fallback handoff-save workflow prompt. ${skillReadError}`;
+		return `Could not read handoff-create skill; using fallback handoff-create workflow prompt. ${skillReadError}`;
 	}
-	return "handoff-save skill was not found; using fallback handoff-save workflow prompt.";
+	return "handoff-create skill was not found; using fallback handoff-create workflow prompt.";
 }
 
 async function expandSkill(pi: ExtensionAPI, skillName: string): Promise<{ name: string; block: string } | undefined> {
@@ -877,7 +877,7 @@ export function groupHandoffListItemsByBranch(items: HandoffListMessageItem[]): 
 
 function formatHandoffListLines(details: HandoffListMessageDetails): string[] {
 	const branch = details.branch ?? details.items[0]?.branch ?? "current branch";
-	const lines = [details.mode === "all-branches" ? "Handoffs across branches" : `Handoffs on ${branch}`];
+	const lines = [details.mode === "all-branches" ? "Handoffs across active branches" : `Handoffs on ${branch}`];
 	if (details.items.length === 0) {
 		return lines;
 	}
@@ -1006,16 +1006,16 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
 		description: "Create a directed handoff artifact for a future continuation.",
-		handler: async (args, ctx) => handleSaveHandoffCommand(pi, args, ctx),
+		handler: async (args, ctx) => handleCreateHandoffCommand(pi, args, ctx),
 	});
 
 	pi.registerCommand(PICKUP_HANDOFF_COMMAND_NAME, {
-		description: "Pick up a saved handoff by slug, selector, or picker.",
+		description: "Pick up a handoff by slug, selector, or picker.",
 		handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
 	});
 
 	pi.registerCommand(LIST_HANDOFF_COMMAND_NAME, {
-		description: "List saved handoffs on this branch or across all branches.",
+		description: "List handoffs on this branch or across active branches.",
 		handler: async (args, ctx) => handleListHandoffCommand(pi, args, ctx),
 	});
 }

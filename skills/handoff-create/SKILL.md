@@ -1,19 +1,19 @@
 ---
-name: handoff-save
-description: "Save a directed handoff artifact for a future continuation. Use when the user asks to save, create, write, or stash a durable handoff, including future-you or future-agent resume context; use brmem only as the storage command."
+name: handoff-create
+description: "Create a directed handoff artifact for a future continuation. Use when the user asks to create, write, or stash a durable handoff, including future-you or future-agent resume context; use brmem only as the storage command."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git status *)"
   - "Bash(brmem *)"
 ---
 
-# handoff-save
+# handoff-create
 
-Use this skill to save a concise, directed Markdown handoff artifact for a future continuation. A handoff is saved work context for future-you, a future agent, a future worktree, or a teammate. It is not in-session compaction and not a generic session summary.
+Use this skill to create a concise, directed Markdown handoff artifact for a future continuation. A handoff is durable work context for future-you, a future agent, a future worktree, or a teammate. It is not in-session compaction and not a generic session summary.
 
-This is the save/create step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on writing one artifact.
+This is the create step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on writing one artifact.
 
-Normal user language is save/pick up/resume a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
+Normal user language is create / pick up / resume from a handoff. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
 ## Direction first
 
@@ -118,7 +118,7 @@ Continuation focus: <What the future session should continue, decide, verify, or
 
 Keep the artifact brief and factual. Avoid owners, due dates, task databases, hidden metadata, or workflow-state machinery.
 
-Do not create hidden temp/draft files for handoff-save. If the user needs review or editing before saving, present the proposed Markdown in chat or a structured UI and iterate there; then save the final content through `brmem put ... --file /dev/stdin`. If the user explicitly asks for a real file or path, treat that as a separate explicit file-writing request, not the default handoff-save path. If durable review state is needed, use a clearly named Branch Memory draft only with explicit user intent.
+Do not create hidden temp/draft files for handoff-create. If the user needs review or editing before creating it, present the proposed Markdown in chat or a structured UI and iterate there; then create the final artifact through `brmem put ... --file /dev/stdin`. If the user explicitly asks for a real file or path, treat that as a separate explicit file-writing request, not the default handoff-create path. If durable review state is needed, use a clearly named Branch Memory draft only with explicit user intent.
 
 ## Store and report
 
@@ -155,7 +155,7 @@ HANDOFF_EOF
 Report the result in handoff vocabulary first:
 
 ```text
-Saved handoff `<semantic-slug>` on branch `<branch>`.
+Created handoff `<semantic-slug>` on branch `<branch>`.
 ```
 
 Then include a compact technical locator when useful:
@@ -166,6 +166,6 @@ Then include a compact technical locator when useful:
 
 ## Pick up later
 
-When a user asks to resume from an existing handoff, prefer the `handoff-load` skill. Picking up relies on the semantic slug rather than a separate summary or index.
+When a user asks to resume from an existing handoff, prefer the `handoff-pickup` skill. Picking up relies on the semantic slug rather than a separate summary or index.
 
-For handoff lifecycle vocabulary and non-save admin flows such as copy, move, delete, or garbage collection, load the `handoff` umbrella and its references rather than duplicating those recipes here.
+For handoff lifecycle vocabulary and non-create admin flows such as copy, move, delete, or garbage collection, load the `handoff` umbrella and its references rather than duplicating those recipes here.

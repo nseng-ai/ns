@@ -87,7 +87,7 @@ def render_gc_handoffs(result: GcHandoffsResult, *, err: bool = False) -> None:
 
 @clinkr_operation(
     name="gc",
-    help="Delete saved handoffs whose local branch no longer exists.",
+    help="Delete handoffs whose local branch no longer exists.",
     human_renderer=render_gc_handoffs,
 )
 def run_gc_handoffs(ctx: click.Context, request: GcHandoffsRequest) -> ClinkrExit[GcHandoffsResult]:
