@@ -81,12 +81,20 @@ The shippable agent-skill capability made of the `planned-branch` umbrella/refer
 _Avoid_: one-off skill, internal docs dependency, hidden installation requirement.
 
 **Handoff artifact**:
-A directed, saved work-context artifact for a specific future continuation.
-_Avoid_: Branch Memory entry as the user model, generic session summary, compaction.
+A directed, durable work-context artifact for a specific future continuation.
+_Avoid_: Branch Memory entry as the user model, save/load operation language, generic session summary, compaction.
 
 **Continuation focus**:
 The future work a handoff prepares: what the next session should continue, decide, verify, or implement.
 _Avoid_: vague title, undirected summary, branch name as sufficient context.
+
+**Create a handoff**:
+The public action for producing a new Handoff artifact through `/handoff:create`.
+_Avoid_: save a handoff, Branch Memory write as the user model.
+
+**Pick up a handoff**:
+The public action for selecting an existing Handoff artifact through `/handoff:pickup` and injecting it as active session context.
+_Avoid_: load a handoff, read a Branch Memory entry as the user model.
 
 **Handoff technical locator**:
 Storage evidence for a handoff: branch plus Branch Memory namespace `handoffs` and key `<semantic-slug>.md`.

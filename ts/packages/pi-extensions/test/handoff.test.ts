@@ -331,11 +331,11 @@ function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: R
 }
 
 async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), "handoff-save-skill-"));
+	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
 	const skillPath = join(dir, "SKILL.md");
 	await writeFile(
 		skillPath,
-		`---\nname: handoff-save\ndescription: Test skill\n---\n\n# handoff-save\n\nStore a handoff from the skill body.`,
+		`---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`,
 		"utf8",
 	);
 	try {
@@ -347,7 +347,7 @@ async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Pr
 
 function skillCommandInfo(skillPath: string): CommandInfo {
 	return {
-		name: "skill:handoff-save",
+		name: "skill:handoff-create",
 		source: "skill",
 		sourceInfo: {
 			path: skillPath,
@@ -366,15 +366,16 @@ describe("handoff extension", () => {
 
 		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:pickup"]);
 		expect(pi.commands.has("handoff:load")).toBe(false);
+		expect(pi.commands.has("handoff:save")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
 		expect([...pi.renderers.keys()]).toEqual([HANDOFF_LIST_MESSAGE_TYPE]);
 		expect(pi.commands.get("handoff:create")?.description).toBe("Create a directed handoff artifact for a future continuation.");
-		expect(pi.commands.get("handoff:pickup")?.description).toBe("Pick up a saved handoff by slug, selector, or picker.");
-		expect(pi.commands.get("handoff:list")?.description).toBe("List saved handoffs on this branch or across all branches.");
+		expect(pi.commands.get("handoff:pickup")?.description).toBe("Pick up a handoff by slug, selector, or picker.");
+		expect(pi.commands.get("handoff:list")?.description).toBe("List handoffs on this branch or across active branches.");
 	});
 
-	test("create command expands the handoff-save skill when available", async () => {
+	test("create command expands the handoff-create skill when available", async () => {
 		await withTempSkill(async (skillPath) => {
 			const result = await runCommand("handoff:create", "resume extension frontend work", [], {}, [
 				skillCommandInfo(skillPath),
@@ -383,10 +384,10 @@ describe("handoff extension", () => {
 			result.pi.assertDone();
 			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="handoff-save" location="${skillPath}">`);
-			expect(result.pi.sentUserMessages[0]).toContain("Store a handoff from the skill body.");
+			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="handoff-create" location="${skillPath}">`);
+			expect(result.pi.sentUserMessages[0]).toContain("Create a handoff from the skill body.");
 			expect(result.pi.sentUserMessages[0]).toContain("resume extension frontend work");
-			expect(result.notifications).toEqual([{ message: "Starting handoff save workflow…", level: "info" }]);
+			expect(result.notifications).toEqual([{ message: "Starting handoff create workflow…", level: "info" }]);
 		});
 	});
 
@@ -406,7 +407,7 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
 		expect(result.pi.sentUserMessages[0]).not.toContain("handoffs/<semantic-slug>");
 		expect(result.notifications).toEqual([
-			{ message: "handoff-save skill was not found; using fallback handoff-save workflow prompt.", level: "warning" },
+			{ message: "handoff-create skill was not found; using fallback handoff-create workflow prompt.", level: "warning" },
 		]);
 	});
 
@@ -421,21 +422,21 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("continue the list command");
 	});
 
-	test("create with no args and cancelled input stops without save prompt", async () => {
+	test("create with no args and cancelled input stops without create prompt", async () => {
 		const result = await runCommand("handoff:create", "");
 
 		result.pi.assertDone();
 		expect(result.inputs).toHaveLength(1);
-		expect(result.notifications).toEqual([{ message: "Continuation focus is required to save a handoff.", level: "warning" }]);
+		expect(result.notifications).toEqual([{ message: "Continuation focus is required to create a handoff.", level: "warning" }]);
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
-	test("create with no input UI asks the assistant to request focus without saving", async () => {
+	test("create with no input UI asks the assistant to request focus without creating", async () => {
 		const result = await runCommand("handoff:create", "", [], { hasUI: false, inputUnavailable: true });
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages).toEqual([
-			"Ask the user exactly this question before saving a handoff: What should the future session continue from this handoff?\n\nDo not save a handoff until the user answers with a meaningful continuation focus.",
+			"Ask the user exactly this question before creating a handoff: What should the future session continue from this handoff?\n\nDo not create a handoff until the user answers with a meaningful continuation focus.",
 		]);
 		expect(result.notifications).toEqual([]);
 	});
@@ -600,7 +601,7 @@ describe("handoff extension", () => {
 			],
 		});
 		const rendered = renderMessageText(message);
-		expect(rendered).toContain("Handoffs across branches");
+		expect(rendered).toContain("Handoffs across active branches");
 		expect(rendered).toContain("feat/a\n  1. alpha");
 		expect(rendered).toContain("→ /handoff:pickup --branch feat/a alpha");
 		expect(rendered).toContain("feat/b\n  2. bravo");
@@ -648,8 +649,8 @@ describe("handoff extension", () => {
 
 		current.pi.assertDone();
 		all.pi.assertDone();
-		expect(current.notifications).toContainEqual({ message: `No saved handoffs found on branch ${BRANCH}.`, level: "info" });
-		expect(all.notifications).toContainEqual({ message: "No saved handoffs found across branches.", level: "info" });
+		expect(current.notifications).toContainEqual({ message: `No handoffs found on branch ${BRANCH}.`, level: "info" });
+		expect(all.notifications).toContainEqual({ message: "No handoffs found across active branches.", level: "info" });
 	});
 });
 
@@ -821,7 +822,7 @@ describe("handoff pure helpers", () => {
 		);
 
 		expect(component.render(120)).toEqual([
-			"<accent><bold>Handoffs across branches</bold></accent>",
+			"<accent><bold>Handoffs across active branches</bold></accent>",
 			"",
 			"<accent>feat/a</accent>",
 			"<dim>  1. </dim><accent><bold>alpha</bold></accent>",

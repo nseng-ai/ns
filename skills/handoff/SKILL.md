@@ -1,26 +1,26 @@
 ---
 name: handoff
-description: "Use for explicit handoff lifecycle, reference, diagnostics, administration, cleanup, or Pi command questions: handoff artifact, continuation focus, saved handoff, handoff namespace, copy handoff, move handoff, delete handoff, handoff gc, /handoff:create, /handoff:pickup, or /handoff:list. For save/create execution use handoff-save; for pickup/list/resume execution use handoff-load."
+description: "Use for explicit handoff lifecycle, reference, diagnostics, administration, cleanup, or Pi command questions: handoff artifact, continuation focus, create a handoff, pick up a handoff, handoff namespace, copy handoff, move handoff, delete handoff, handoff gc, /handoff:create, /handoff:pickup, or /handoff:list. For create execution use handoff-create; for pickup/list/resume execution use handoff-pickup."
 ---
 
 # handoff
 
 Shared lifecycle, terminology, storage contract, safety posture, diagnostics, and administration for the handoff skill family. Each operation's command contract lives in its step skill.
 
-A handoff is a directed, saved work-context artifact for a specific future continuation. It is not in-session compaction, not a generic transcript summary, and not a temp-file note.
+A handoff is a directed, durable work-context artifact for a specific future continuation. It is not in-session compaction, not a generic transcript summary, and not a temp-file note.
 
 ## Skill family
 
 Step entrypoints carry their own command and recovery and are runnable standalone:
 
-- `handoff-save` — save/create/write/stash a durable handoff.
-- `handoff-load` — pick up, choose, resume from, or list saved handoffs.
+- `handoff-create` — create/write/stash a durable handoff.
+- `handoff-pickup` — pick up, choose, resume from, or list handoffs.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, cleanup, and admin work the step skills do not cover.
 
 ## Admin operations
 
-Beyond save/pickup/list, the deterministic `handoff` CLI covers inventory and cleanup directly — these have no step skill:
+Beyond create/pickup/list, the deterministic `handoff` CLI covers inventory and cleanup directly — these have no step skill:
 
 - `handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
 - `handoff delete [--branch <branch>] [-f|--force] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
@@ -32,7 +32,7 @@ See `references/diagnostics-admin.md` for copy/move, collision handling, and sto
 
 - In-session compaction or summarization with no durable handoff intent.
 - Generic planning, task tracking, Objective records, or worker protocol handoffs.
-- Replacing the step skills for save/pickup/list execution; it is their shared reference, not a substitute.
+- Replacing the step skills for create/pickup/list execution; it is their shared reference, not a substitute.
 - Generic Branch Memory work unless it concerns namespace `handoffs` or handoff artifacts.
 
 ## Default safety posture

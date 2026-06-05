@@ -57,7 +57,7 @@ def render_list_handoffs(result: ListHandoffsResult) -> None:
         if result.scope == "all-branches":
             click.echo(_all_branches_empty_message(result))
             return
-        click.echo(f"No saved handoffs found on branch {result.branch}.")
+        click.echo(f"No handoffs found on branch {result.branch}.")
         return
 
     if result.scope == "all-branches":
@@ -76,7 +76,7 @@ def render_list_handoffs_markdown(result: ListHandoffsResult) -> None:
         if result.scope == "all-branches":
             click.echo(_all_branches_empty_message(result))
             return
-        click.echo(f"No saved handoffs found on branch {result.branch}.")
+        click.echo(f"No handoffs found on branch {result.branch}.")
         return
 
     if result.scope == "all-branches":
@@ -111,14 +111,14 @@ def _all_branches_title(result: ListHandoffsResult) -> str:
 
 def _all_branches_empty_message(result: ListHandoffsResult) -> str:
     if result.include_deleted:
-        return "No saved handoffs found across branches."
-    return "No saved handoffs found across active branches."
+        return "No handoffs found across branches."
+    return "No handoffs found across active branches."
 
 
 @clinkr_operation(
     name="list",
     help=(
-        "List saved handoffs. Defaults to the current branch. Pass --all to list "
+        "List handoffs. Defaults to the current branch. Pass --all to list "
         "across active branches or --include-deleted to include deleted local branches."
     ),
     human_renderer=render_list_handoffs,

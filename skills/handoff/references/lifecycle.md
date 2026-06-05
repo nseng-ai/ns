@@ -4,8 +4,8 @@ Use this reference to keep handoff vocabulary, storage, branch scope, and workfl
 
 ## Lifecycle overview
 
-1. Save a directed **Handoff Artifact** for a specific **Continuation Focus**.
-2. List or discover saved handoffs in a **List Scope**.
+1. Create a directed **Handoff Artifact** for a specific **Continuation Focus**.
+2. List or discover handoffs in a **List Scope**.
 3. Pick up one handoff by **Handoff Slug** or search terms.
 4. Treat the artifact content as active context and continue from the recorded next step.
 5. Optionally perform explicit admin/cleanup: inspect, copy, move, delete, or garbage-collect stale branch handoffs.
@@ -29,7 +29,7 @@ Use this reference to keep handoff vocabulary, storage, branch scope, and workfl
 ```text
 Branch Memory namespace: handoffs
 Entry key: <semantic-slug>.md
-Branch: branch that owns the saved continuation context
+Branch: branch that owns the durable continuation context
 ```
 
 Rules:

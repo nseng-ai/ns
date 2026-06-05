@@ -348,7 +348,7 @@ def test_handoff_list_explicit_deleted_branch_requires_include_deleted(
     )
 
     assert hidden.exit_code == 0, hidden.output
-    assert hidden.output == "No saved handoffs found on branch feat/deleted.\n"
+    assert hidden.output == "No handoffs found on branch feat/deleted.\n"
     assert shown.exit_code == 0, shown.output
     assert "Handoffs on feat/deleted" in shown.output
     assert "stale" in shown.output
@@ -601,11 +601,11 @@ def test_handoff_list_empty_returns_message(cli_group: ClinkrGroup) -> None:
     )
 
     assert current.exit_code == 0, current.output
-    assert current.output == "No saved handoffs found on branch feat/x.\n"
+    assert current.output == "No handoffs found on branch feat/x.\n"
     assert all_active_branches.exit_code == 0, all_active_branches.output
-    assert all_active_branches.output == "No saved handoffs found across active branches.\n"
+    assert all_active_branches.output == "No handoffs found across active branches.\n"
     assert all_branches.exit_code == 0, all_branches.output
-    assert all_branches.output == "No saved handoffs found across branches.\n"
+    assert all_branches.output == "No handoffs found across branches.\n"
 
 
 def test_handoff_list_rejects_detached_head_when_branch_omitted(

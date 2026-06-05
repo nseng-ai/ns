@@ -61,7 +61,7 @@ def render_delete_handoff(result: DeleteHandoffResult) -> None:
 
 @clinkr_operation(
     name="delete",
-    help="Delete one saved handoff by exact slug.",
+    help="Delete one handoff by exact slug.",
     human_renderer=render_delete_handoff,
 )
 def run_delete_handoff(
