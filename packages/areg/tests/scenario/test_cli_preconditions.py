@@ -13,6 +13,7 @@ from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.environment.gateway import ToolName
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
+from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
 
 
 def _ctx(
@@ -27,6 +28,7 @@ def _ctx(
         gh=FakeGhCli(),
         npx_skills=npx or FakeNpxSkills(),
         environment=FakeAregEnvironment(available_tools=available_tools),
+        skillx_workspace=FakeSkillxWorkspaceInstaller(),
     )
 
 

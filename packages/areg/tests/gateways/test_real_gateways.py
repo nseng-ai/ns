@@ -8,6 +8,7 @@ not exercise real external systems — that's what `tests/integration/` is for.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -22,8 +23,10 @@ from areg.gateways.gh.gateway import (
     GhNotFound,
 )
 from areg.gateways.gh.real import RealGhCli
-from areg.gateways.npx_skills.gateway import NpxSkillsError
+from areg.gateways.npx_skills.gateway import NpxSkills, NpxSkillsError
 from areg.gateways.npx_skills.real import RealNpxSkills
+from areg.gateways.skillx_workspace.gateway import SkillxWorkspaceError
+from areg.gateways.skillx_workspace.real import RealSkillxWorkspaceInstaller
 
 # ---------------------------------------------------------------------------
 # RealAregEnvironment
@@ -266,3 +269,100 @@ def test_real_npx_subprocess_error_raises_npx_skills_error(tmp_path: Path) -> No
     ):
         with pytest.raises(NpxSkillsError, match="boom"):
             RealNpxSkills().add("o/r", skills=None, agents=["codex"], cwd=tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# RealSkillxWorkspaceInstaller
+# ---------------------------------------------------------------------------
+
+
+class _WritingNpxSkills(NpxSkills):
+    def __init__(self) -> None:
+        self.invocations: list[tuple[str, tuple[str, ...] | None, tuple[str, ...], Path]] = []
+
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        self.invocations.append(
+            (repo, tuple(skills) if skills is not None else None, tuple(agents), cwd)
+        )
+        skill_names = skills or ["skill-a"]
+        for skill_name in skill_names:
+            skill_dir = cwd / ".agents" / "skills" / skill_name
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(
+                f"---\nname: {skill_name}\n---\n",
+                encoding="utf-8",
+            )
+            references = skill_dir / "references"
+            references.mkdir()
+            (references / "patterns.md").write_text("# Patterns\n", encoding="utf-8")
+
+
+class _FailingNpxSkills(NpxSkills):
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        raise NpxSkillsError("boom")
+
+
+class _NoopNpxSkills(NpxSkills):
+    def __init__(self) -> None:
+        self.cwd: Path | None = None
+
+    def add(
+        self,
+        repo: str,
+        *,
+        skills: list[str] | None,
+        agents: list[str],
+        cwd: Path,
+    ) -> None:
+        self.cwd = cwd
+
+
+def test_real_skillx_workspace_installer_reads_installed_skill_tree() -> None:
+    npx = _WritingNpxSkills()
+    installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
+
+    workspace = installer.install("owner/repo", skill="my-skill")
+
+    try:
+        assert npx.invocations == [("owner/repo", ("my-skill",), ("codex",), workspace.tmp_dir)]
+        assert workspace.tmp_dir.exists()
+        assert len(workspace.skills) == 1
+        installed = workspace.skills[0]
+        assert installed.name == "my-skill"
+        assert installed.skill_dir.is_dir()
+        assert installed.skill_md.is_file()
+        assert installed.files == ("SKILL.md", "references/patterns.md")
+    finally:
+        shutil.rmtree(workspace.tmp_dir, ignore_errors=True)
+
+
+def test_real_skillx_workspace_installer_wraps_npx_failure() -> None:
+    installer = RealSkillxWorkspaceInstaller(npx_skills=_FailingNpxSkills())
+
+    with pytest.raises(SkillxWorkspaceError, match="npx skills add failed: boom"):
+        installer.install("owner/repo", skill="my-skill")
+
+
+def test_real_skillx_workspace_installer_errors_when_no_skills_installed() -> None:
+    npx = _NoopNpxSkills()
+    installer = RealSkillxWorkspaceInstaller(npx_skills=npx)
+
+    with pytest.raises(SkillxWorkspaceError, match="No skills were installed"):
+        installer.install("owner/repo", skill=None)
+
+    assert npx.cwd is not None
+    assert not npx.cwd.exists()

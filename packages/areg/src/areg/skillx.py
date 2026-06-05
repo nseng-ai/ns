@@ -14,7 +14,7 @@ import click
 
 from areg.context import AregContext
 from areg.gateways.gh.gateway import GhAuthError, GhCli, GhError, GhNotFound
-from areg.gateways.npx_skills.gateway import NpxSkills, NpxSkillsError
+from areg.gateways.skillx_workspace.gateway import SkillxWorkspaceError, SkillxWorkspaceInstaller
 from areg.preconditions import requires_gh, requires_npx
 
 _DEFAULT_SKILL_REPO = "dagster-io/asdl-tools"
@@ -166,63 +166,51 @@ def list_skills(repo: str, *, gh: GhCli) -> ListResult:
     return ListResult(success=True, repo=repo, skills=sorted(entries))
 
 
-def fetch_skill(repo: str, skill: str | None, *, npx_skills: NpxSkills) -> FetchResult:
-    """Fetch a skill into a temp directory via the `npx skills` gateway."""
-    tmp_dir = tempfile.mkdtemp(prefix="skillx.")
-    tmp_path = Path(tmp_dir)
-
+def fetch_skill(
+    repo: str,
+    skill: str | None,
+    *,
+    workspace_installer: SkillxWorkspaceInstaller,
+) -> FetchResult:
+    """Fetch a skill into a transient workspace prepared for skillx."""
     try:
-        npx_skills.add(
-            repo,
-            skills=[skill] if skill else None,
-            agents=["codex"],
-            cwd=tmp_path,
-        )
-    except NpxSkillsError as e:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        return FetchResult(success=False, error=f"npx skills add failed: {e}")
+        workspace = workspace_installer.install(repo, skill=skill)
+    except SkillxWorkspaceError as e:
+        return FetchResult(success=False, error=str(e))
 
-    agents_skills = tmp_path / ".agents" / "skills"
-    if not agents_skills.is_dir():
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        return FetchResult(success=False, error="No skills were installed")
-
-    installed = sorted(p.name for p in agents_skills.iterdir() if p.is_dir() or p.is_symlink())
+    installed = sorted(workspace.skills, key=lambda installed_skill: installed_skill.name)
     if not installed:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
         return FetchResult(success=False, error="No skills were installed")
 
-    # Multiple skills installed and none was specified
     if not skill and len(installed) > 1:
         return FetchResult(
             success=True,
             repo=repo,
-            tmp_dir=tmp_dir,
+            tmp_dir=str(workspace.tmp_dir),
             needs_selection=True,
-            available_skills=installed,
+            available_skills=[installed_skill.name for installed_skill in installed],
         )
 
-    target_name = skill if skill else installed[0]
-    skill_dir = agents_skills / target_name
-    skill_md = skill_dir / "SKILL.md"
-
-    if not skill_dir.is_dir():
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    target_name = skill if skill else installed[0].name
+    target_skill = next(
+        (installed_skill for installed_skill in installed if installed_skill.name == target_name),
+        None,
+    )
+    if target_skill is None:
+        shutil.rmtree(workspace.tmp_dir, ignore_errors=True)
         return FetchResult(
             success=False,
             error=f"Skill {target_name!r} was not found in installed skills",
         )
 
-    files = sorted(str(p.relative_to(skill_dir)) for p in skill_dir.rglob("*") if p.is_file())
-
     return FetchResult(
         success=True,
         repo=repo,
         skill=target_name,
-        tmp_dir=tmp_dir,
-        skill_dir=str(skill_dir),
-        skill_md=str(skill_md),
-        files=files,
+        tmp_dir=str(workspace.tmp_dir),
+        skill_dir=str(target_skill.skill_dir),
+        skill_md=str(target_skill.skill_md),
+        files=list(target_skill.files),
     )
 
 
@@ -318,7 +306,7 @@ def skillx_list_cmd(ctx: AregContext, repo: str) -> None:
 def skillx_fetch_cmd(ctx: AregContext, repo: str, skill_name: str | None) -> None:
     """Fetch a skill into a temp directory."""
     requires_npx(ctx.environment)
-    result = fetch_skill(repo, skill_name, npx_skills=ctx.npx_skills)
+    result = fetch_skill(repo, skill_name, workspace_installer=ctx.skillx_workspace)
     _emit(result)
     if not result.success:
         raise SystemExit(1)

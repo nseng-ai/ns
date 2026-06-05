@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -13,6 +12,11 @@ from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.gh.gateway import GhAuthError, GhNotFound
 from areg.gateways.npx_skills.fake import FakeNpxSkills, NpxSkillsInvocation
 from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
+from areg.gateways.skillx_workspace.fake import (
+    FakeSkillxWorkspaceInstaller,
+    SkillxWorkspaceInvocation,
+)
+from areg.gateways.skillx_workspace.gateway import SkillxWorkspaceError
 
 # ---------------------------------------------------------------------------
 # FakeAregEnvironment
@@ -143,97 +147,8 @@ def test_fake_gh_default_empty_catalog_raises() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_fake_npx_writes_skill_files_into_cwd(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(
-        catalog={
-            "owner/repo": {
-                "my-skill": SkillFiles(
-                    files={
-                        "SKILL.md": "---\nname: my-skill\n---\n",
-                        "references/patterns.md": "# Patterns\n",
-                    }
-                ),
-            }
-        }
-    )
-    npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
-
-    skill_dir = tmp_path / ".agents" / "skills" / "my-skill"
-    assert (skill_dir / "SKILL.md").read_text() == "---\nname: my-skill\n---\n"
-    assert (skill_dir / "references" / "patterns.md").read_text() == "# Patterns\n"
-
-
-def test_fake_npx_writes_claude_symlinks_by_default(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(catalog={"owner/repo": {"my-skill": SkillFiles(files={"SKILL.md": "x"})}})
-    npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
-
-    link = tmp_path / ".claude" / "skills" / "my-skill"
-    assert link.is_symlink()
-
-
-def test_fake_npx_writes_lock_file_by_default(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(catalog={"owner/repo": {"my-skill": SkillFiles(files={"SKILL.md": "x"})}})
-    npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
-
-    lock = json.loads((tmp_path / "skills-lock.json").read_text())
-    assert lock["version"] == 1
-    assert "my-skill" in lock["skills"]
-    assert lock["skills"]["my-skill"]["source"] == "owner/repo"
-
-
-def test_fake_npx_merges_lock_file_entries(tmp_path: Path) -> None:
-    (tmp_path / "skills-lock.json").write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "skills": {
-                    "existing-skill": {
-                        "source": "someone/else",
-                        "sourceType": "github",
-                        "computedHash": "old",
-                    }
-                },
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-    npx = FakeNpxSkills(catalog={"owner/repo": {"my-skill": SkillFiles(files={"SKILL.md": "x"})}})
-
-    npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
-
-    lock = json.loads((tmp_path / "skills-lock.json").read_text(encoding="utf-8"))
-    assert lock["skills"]["existing-skill"]["source"] == "someone/else"
-    assert lock["skills"]["my-skill"]["source"] == "owner/repo"
-
-
-def test_fake_npx_skip_lock_and_symlinks_when_disabled(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(
-        catalog={"owner/repo": {"my-skill": SkillFiles(files={"SKILL.md": "x"})}},
-        write_lock=False,
-        write_claude_symlinks=False,
-    )
-    npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
-    assert not (tmp_path / "skills-lock.json").exists()
-    assert not (tmp_path / ".claude").exists()
-
-
-def test_fake_npx_skills_none_installs_all(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(
-        catalog={
-            "owner/repo": {
-                "a": SkillFiles(files={"SKILL.md": "a"}),
-                "b": SkillFiles(files={"SKILL.md": "b"}),
-            }
-        }
-    )
-    npx.add("owner/repo", skills=None, agents=["codex"], cwd=tmp_path)
-    assert (tmp_path / ".agents" / "skills" / "a" / "SKILL.md").exists()
-    assert (tmp_path / ".agents" / "skills" / "b" / "SKILL.md").exists()
-
-
 def test_fake_npx_records_invocations(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(catalog={"owner/repo": {"a": SkillFiles(files={"SKILL.md": "a"})}})
+    npx = FakeNpxSkills()
     npx.add("owner/repo", skills=["a"], agents=["codex", "claude-code"], cwd=tmp_path)
 
     assert npx.invocations == [
@@ -247,7 +162,7 @@ def test_fake_npx_records_invocations(tmp_path: Path) -> None:
 
 
 def test_fake_npx_invocations_property_returns_copy(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(catalog={"owner/repo": {"a": SkillFiles(files={"SKILL.md": "a"})}})
+    npx = FakeNpxSkills()
     npx.add("owner/repo", skills=["a"], agents=["codex"], cwd=tmp_path)
     snapshot = npx.invocations
     snapshot.clear()
@@ -260,13 +175,102 @@ def test_fake_npx_raise_on_add(tmp_path: Path) -> None:
         npx.add("owner/repo", skills=["a"], agents=["codex"], cwd=tmp_path)
 
 
-def test_fake_npx_unknown_repo_raises(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(catalog={"owner/repo": {"a": SkillFiles()}})
-    with pytest.raises(NpxSkillsError, match="unknown repo"):
-        npx.add("nope/missing", skills=["a"], agents=["codex"], cwd=tmp_path)
+def test_fake_npx_does_not_write_project_skill_state(tmp_path: Path) -> None:
+    npx = FakeNpxSkills()
+
+    npx.add("owner/repo", skills=["a"], agents=["codex"], cwd=tmp_path)
+
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / "skills-lock.json").exists()
 
 
-def test_fake_npx_unknown_skill_raises(tmp_path: Path) -> None:
-    npx = FakeNpxSkills(catalog={"owner/repo": {"a": SkillFiles()}})
-    with pytest.raises(NpxSkillsError, match="unknown skill"):
-        npx.add("owner/repo", skills=["b"], agents=["codex"], cwd=tmp_path)
+# ---------------------------------------------------------------------------
+# FakeSkillxWorkspaceInstaller
+# ---------------------------------------------------------------------------
+
+
+def test_fake_skillx_workspace_selected_skill_returns_virtual_paths() -> None:
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={
+            "owner/repo": {
+                "my-skill": SkillFiles(
+                    files={
+                        "SKILL.md": "---\nname: my-skill\n---\n",
+                        "references/patterns.md": "# Patterns\n",
+                    }
+                )
+            }
+        }
+    )
+
+    workspace = installer.install("owner/repo", skill="my-skill")
+
+    assert workspace.tmp_dir == Path("/tmp/skillx.fake-1")
+    assert len(workspace.skills) == 1
+    installed = workspace.skills[0]
+    assert installed.name == "my-skill"
+    assert installed.skill_dir == Path("/tmp/skillx.fake-1/.agents/skills/my-skill")
+    assert installed.skill_md == Path("/tmp/skillx.fake-1/.agents/skills/my-skill/SKILL.md")
+    assert installed.files == ("SKILL.md", "references/patterns.md")
+    assert installer.invocations == [SkillxWorkspaceInvocation(repo="owner/repo", skill="my-skill")]
+
+
+def test_fake_skillx_workspace_skill_none_returns_all_catalog_skills_sorted() -> None:
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={
+            "owner/repo": {
+                "skill-b": SkillFiles(files={"SKILL.md": "b"}),
+                "skill-a": SkillFiles(files={"SKILL.md": "a"}),
+            }
+        }
+    )
+
+    workspace = installer.install("owner/repo", skill=None)
+
+    assert [installed.name for installed in workspace.skills] == ["skill-a", "skill-b"]
+
+
+def test_fake_skillx_workspace_unknown_repo_raises() -> None:
+    installer = FakeSkillxWorkspaceInstaller(catalog={"owner/repo": {}})
+
+    with pytest.raises(SkillxWorkspaceError, match="unknown repo"):
+        installer.install("missing/repo", skill=None)
+
+
+def test_fake_skillx_workspace_unknown_skill_raises() -> None:
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={"owner/repo": {"known": SkillFiles(files={"SKILL.md": "known"})}}
+    )
+
+    with pytest.raises(SkillxWorkspaceError, match="unknown skill"):
+        installer.install("owner/repo", skill="missing")
+
+
+def test_fake_skillx_workspace_raise_on_install() -> None:
+    installer = FakeSkillxWorkspaceInstaller(
+        raise_on_install=SkillxWorkspaceError("install failed")
+    )
+
+    with pytest.raises(SkillxWorkspaceError, match="install failed"):
+        installer.install("owner/repo", skill="a")
+
+
+def test_fake_skillx_workspace_invocations_property_returns_copy() -> None:
+    installer = FakeSkillxWorkspaceInstaller(catalog={"owner/repo": {}})
+    installer.install("owner/repo", skill=None)
+
+    snapshot = installer.invocations
+    snapshot.clear()
+
+    assert installer.invocations == [SkillxWorkspaceInvocation(repo="owner/repo", skill=None)]
+
+
+def test_fake_skillx_workspace_does_not_write_files(tmp_path: Path) -> None:
+    installer = FakeSkillxWorkspaceInstaller(
+        catalog={"owner/repo": {"a": SkillFiles(files={"SKILL.md": "a"})}}
+    )
+
+    installer.install("owner/repo", skill="a")
+
+    assert list(tmp_path.iterdir()) == []
