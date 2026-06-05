@@ -7,15 +7,18 @@ import {
 	findLatestSessionSavedPlanFile,
 	formatPlannedBranchCreateFailure,
 	formatPlannedBranchCreatePreview,
-	formatPlannedBranchEvidence,
 	resolvePlanStoreDirectory,
 	resolvePlannedBranchCreatePreviewContext,
 	type PlanStoreDirectoryEvidence,
 	type PlannedBranchCreateOperation,
-	type PlannedBranchEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@asdl/planned-branch";
 import { formatCommand, formatShellArg, shellQuote } from "../command-runtime.ts";
+import {
+	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+	formatPlanBranchEvidence,
+	type PlannedBranchEvidence,
+} from "../planned-branch-output.ts";
 import { checkoutSlot, openCmuxWorkspace } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
@@ -26,7 +29,6 @@ import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
 const STATUS_KEY = "cmux-slot:dispatch-plan";
-const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
 const BRANCH_CREATION = "graphite";
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
@@ -234,7 +236,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		return;
 	}
 
-	presentPlannedBranchMessage(pi, ctx, formatPlannedBranchEvidence(evidence), { status: "success", evidence }, "info");
+	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", evidence }, "info");
 
 	setStatus(ctx, "checking out CMUX slot…");
 	const target = await checkoutSlot(pi, checkout.directory.repoRoot, operation.branch);
@@ -278,7 +280,7 @@ function presentPlannedBranchMessage(
 ): void {
 	if (pi.sendMessage) {
 		pi.sendMessage({
-			customType: PLANNED_BRANCH_MESSAGE_TYPE,
+			customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 			content,
 			display: true,
 			details,
