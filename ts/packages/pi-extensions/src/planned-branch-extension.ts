@@ -1,3 +1,4 @@
+import { Text, type Component } from "@earendil-works/pi-tui";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
@@ -55,6 +56,7 @@ const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
+const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 
@@ -144,6 +146,14 @@ export interface CreatePlannedBranchPreview {
 
 export interface ToolContext {
 	cwd: string;
+	hasUI?: boolean;
+	ui?: {
+		setStatus?(key: string, value: string | undefined): void;
+	};
+}
+
+export interface ToolRenderResultOptions {
+	isPartial: boolean;
 }
 
 export interface ToolDefinition {
@@ -160,6 +170,7 @@ export interface ToolDefinition {
 		onUpdate: ToolUpdateHandler | undefined,
 		ctx: ToolContext,
 	): Promise<ToolResult> | ToolResult;
+	renderResult?(result: ToolResult, options: ToolRenderResultOptions, theme: unknown, context: unknown): Component;
 }
 
 export interface CommandContext {
@@ -578,62 +589,95 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 			required: ["content"],
 		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			emitWriteSourcePlanProgress(onUpdate, "Validating saved plan input…", { phase: "validating" });
-			const toolParams = parseWriteSourceBranchPlanFileToolParams(params);
-			emitWriteSourcePlanProgress(onUpdate, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
-			const slugStartedAt = Date.now();
-			const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
-				onUpdate === undefined
-					? undefined
-					: setInterval(() => {
-							const elapsedSeconds = Math.round((Date.now() - slugStartedAt) / 1_000);
-							emitWriteSourcePlanProgress(
-								onUpdate,
-								`Deriving saved-plan filename slug with Codex… ${elapsedSeconds}s elapsed`,
-								{
-									phase: "deriving-slug",
-									elapsedSeconds,
-								},
-							);
-						}, 5_000);
-			let slugEvidence: SavedPlanContentSlugEvidence;
 			try {
-				slugEvidence = await deriveSavedPlanContentSlug(pi, {
-					content: toolParams.content,
-					cwd: ctx.cwd,
-					...(signal === undefined ? {} : { signal }),
-				});
-			} finally {
-				if (slugProgressInterval !== undefined) {
-					clearInterval(slugProgressInterval);
+				emitWriteSourcePlanProgress(onUpdate, ctx, "Validating saved plan input…", { phase: "validating" });
+				const toolParams = parseWriteSourceBranchPlanFileToolParams(params);
+				emitWriteSourcePlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
+				const slugStartedAt = Date.now();
+				const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
+					onUpdate === undefined && !canSetWriteSourcePlanStatus(ctx)
+						? undefined
+						: setInterval(() => {
+								const elapsedSeconds = Math.round((Date.now() - slugStartedAt) / 1_000);
+								emitWriteSourcePlanProgress(
+									onUpdate,
+									ctx,
+									`Deriving saved-plan filename slug with Codex… ${elapsedSeconds}s elapsed`,
+									{
+										phase: "deriving-slug",
+										elapsedSeconds,
+									},
+								);
+							}, 5_000);
+				let slugEvidence: SavedPlanContentSlugEvidence;
+				try {
+					slugEvidence = await deriveSavedPlanContentSlug(pi, {
+						content: toolParams.content,
+						cwd: ctx.cwd,
+						...(signal === undefined ? {} : { signal }),
+					});
+				} finally {
+					if (slugProgressInterval !== undefined) {
+						clearInterval(slugProgressInterval);
+					}
 				}
+				emitWriteSourcePlanProgress(
+					onUpdate,
+					ctx,
+					`Derived slug ${slugEvidence.slug}; resolving repo/branch and writing plan file…`,
+					{ phase: "writing-file", slug: slugEvidence.slug },
+				);
+				emitWriteSourcePlanProgress(onUpdate, ctx, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
+				const evidence = await writeSourceBranchPlanFilePrimitive(pi, buildSourceBranchPlanFileParams(toolParams, slugEvidence.slug), {
+					cwd: ctx.cwd,
+					signal,
+					planStoreRoot: resolvePlanStoreRootOption(options),
+				});
+				const details: WriteSourceBranchPlanFileToolDetails = { ...evidence, slugEvidence };
+				return {
+					content: [{ type: "text", text: formatSourceBranchPlanFileEvidenceWithSlugModel(evidence, slugEvidence) }],
+					details,
+				};
+			} finally {
+				setWriteSourcePlanStatus(ctx, undefined);
 			}
-			emitWriteSourcePlanProgress(
-				onUpdate,
-				`Derived slug ${slugEvidence.slug}; resolving repo/branch and writing plan file…`,
-				{ phase: "writing-file", slug: slugEvidence.slug },
-			);
-			emitWriteSourcePlanProgress(onUpdate, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
-			const evidence = await writeSourceBranchPlanFilePrimitive(pi, buildSourceBranchPlanFileParams(toolParams, slugEvidence.slug), {
-				cwd: ctx.cwd,
-				signal,
-				planStoreRoot: resolvePlanStoreRootOption(options),
-			});
-			const details: WriteSourceBranchPlanFileToolDetails = { ...evidence, slugEvidence };
-			return {
-				content: [{ type: "text", text: formatSourceBranchPlanFileEvidenceWithSlugModel(evidence, slugEvidence) }],
-				details,
-			};
+		},
+		renderResult(result, { isPartial }) {
+			const text = formatToolResultText(result);
+			if (isPartial) {
+				return new Text(`Saving planned-branch plan…\n${text}`, 0, 0);
+			}
+			return new Text(text, 0, 0);
 		},
 	};
 }
 
 function emitWriteSourcePlanProgress(
 	onUpdate: ToolUpdateHandler | undefined,
+	ctx: ToolContext,
 	text: string,
 	details: WriteSourceBranchPlanFileProgressDetails,
 ): void {
 	onUpdate?.({ content: [{ type: "text", text }], details });
+	setWriteSourcePlanStatus(ctx, text);
+}
+
+function setWriteSourcePlanStatus(ctx: ToolContext, value: string | undefined): void {
+	if (ctx.hasUI === false) {
+		return;
+	}
+	ctx.ui?.setStatus?.(WRITE_PLAN_TOOL_STATUS_KEY, value);
+}
+
+function canSetWriteSourcePlanStatus(ctx: ToolContext): boolean {
+	if (ctx.hasUI === false) {
+		return false;
+	}
+	return ctx.ui?.setStatus !== undefined;
+}
+
+function formatToolResultText(result: ToolResult): string {
+	return result.content.map((item) => item.text).join("\n");
 }
 
 function parseWriteSourceBranchPlanFileToolParams(params: unknown): WriteSourceBranchPlanFileToolParams {
