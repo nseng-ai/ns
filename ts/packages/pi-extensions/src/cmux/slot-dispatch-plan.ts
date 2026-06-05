@@ -2,10 +2,16 @@ import { basename } from "node:path";
 
 import {
 	PLAN_BRANCH_NAMESPACE,
+	buildPlannedBranchCreateOperation,
 	createPlannedBranchFromFile,
 	findLatestSessionSavedPlanFile,
+	formatPlannedBranchCreateFailure,
+	formatPlannedBranchCreatePreview,
+	formatPlannedBranchEvidence,
 	resolvePlanStoreDirectory,
+	resolvePlannedBranchCreatePreviewContext,
 	type PlanStoreDirectoryEvidence,
+	type PlannedBranchCreateOperation,
 	type PlannedBranchEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@asdl/planned-branch";
@@ -14,15 +20,12 @@ import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
 import { getWorktreeDescription, repositoryNameFromPath } from "./worktree-description.ts";
-import type { CommandContext, ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
+import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "cmux-slot:dispatch-plan";
 const STATUS_KEY = "cmux-slot:dispatch-plan";
 const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
 const BRANCH_CREATION = "graphite";
-
-const GIT_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
 
@@ -41,23 +44,20 @@ interface CommandArgs {
 
 interface CurrentCheckout {
 	directory: PlanStoreDirectoryEvidence;
-	startPoint: string;
 }
 
 interface AttachSlotAndLaunchOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
-	plan: ValidatedSessionSavedPlan;
 	checkout: CurrentCheckout;
-	targetBranch: string;
-	key: string;
+	operation: PlannedBranchCreateOperation;
 }
 
 interface FormatDryRunOptions {
 	plan: ValidatedSessionSavedPlan;
 	checkout: CurrentCheckout;
-	targetBranch: string;
-	key: string;
+	operation: PlannedBranchCreateOperation;
+	plannedBranchPreview: string;
 	launchOptions: PiLaunchOptions;
 }
 
@@ -75,16 +75,6 @@ interface FormatFinalSuccessOptions {
 	target: SlotCheckoutTarget;
 	launchOptions: PiLaunchOptions;
 }
-
-type TextResult =
-	| {
-			ok: true;
-			text: string;
-	  }
-	| {
-			ok: false;
-			message: string;
-	  };
 
 export interface CmuxSlotDispatchPlanOptions {
 	planStoreRoot?: string;
@@ -134,15 +124,24 @@ async function handleCommand(
 		}
 
 		const selectedPlan = selected.plan;
-		const targetBranch = selectedPlan.slug;
-		const key = `${selectedPlan.slug}.md`;
+		const operation = buildPlannedBranchCreateOperation({
+			slug: selectedPlan.slug,
+			filePath: selectedPlan.filePath,
+			branchCreation: BRANCH_CREATION,
+			summary: selectedPlan.summary,
+		});
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
+			const previewContext = await resolvePlannedBranchCreatePreviewContext(pi, { cwd: checkout.directory.repoRoot });
+			const plannedBranchPreview = formatPlannedBranchCreatePreview(operation, {
+				...previewContext,
+				graphiteParentBranch: checkout.directory.sourceBranch,
+			});
 			presentPlannedBranchMessage(
 				pi,
 				ctx,
-				formatDryRun({ plan: selectedPlan, checkout, targetBranch, key, launchOptions }),
-				{ status: "dry-run", selectedPlan, targetBranch, key },
+				formatDryRun({ plan: selectedPlan, checkout, operation, plannedBranchPreview, launchOptions }),
+				{ status: "dry-run", selectedPlan, targetBranch: operation.branch, key: operation.key, operation },
 				"info",
 			);
 			return;
@@ -151,10 +150,8 @@ async function handleCommand(
 		await createAttachSlotAndLaunch({
 			pi,
 			ctx,
-			plan: selectedPlan,
 			checkout,
-			targetBranch,
-			key,
+			operation,
 		});
 	} catch (error) {
 		present(ctx, formatUnexpectedError(error), "error");
@@ -220,45 +217,33 @@ async function resolveCurrentCheckout(
 		return { error: `Could not resolve current repository and source branch.\n${formatErrorMessage(error)}` };
 	}
 
-	const head = await runText(pi, directory.repoRoot, "git", ["rev-parse", "HEAD"], GIT_TIMEOUT_MS);
-	if (!head.ok) {
-		return { error: `Could not resolve HEAD.\n${head.message}` };
-	}
-	if (head.text.length === 0) {
-		return { error: "Could not resolve HEAD: git rev-parse returned no commit." };
-	}
-
-	return { directory, startPoint: head.text };
+	return { directory };
 }
 
 async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
-	const { pi, ctx, plan, checkout, targetBranch, key } = options;
-	present(ctx, `Creating Graphite-tracked planned branch ${targetBranch}…`, "info");
+	const { pi, ctx, checkout, operation } = options;
+	present(ctx, `Creating Graphite-tracked planned branch ${operation.branch}…`, "info");
 	setStatus(ctx, "creating branch and attaching plan…");
 	let evidence: PlannedBranchEvidence;
 	try {
-		evidence = await createPlannedBranchFromFile(
-			pi,
-			{ slug: plan.slug, filePath: plan.filePath, branchCreation: BRANCH_CREATION, summary: plan.summary },
-			{ cwd: checkout.directory.repoRoot },
-		);
+		evidence = await createPlannedBranchFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot });
 	} catch (error) {
-		present(ctx, formatCreatePlannedBranchFailure(targetBranch, key, plan.filePath, error), "error");
+		present(ctx, formatCmuxPlannedBranchCreateFailure(operation, error), "error");
 		return;
 	}
 
-	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", evidence }, "info");
+	presentPlannedBranchMessage(pi, ctx, formatPlannedBranchEvidence(evidence), { status: "success", evidence }, "info");
 
 	setStatus(ctx, "checking out CMUX slot…");
-	const target = await checkoutSlot(pi, checkout.directory.repoRoot, targetBranch);
+	const target = await checkoutSlot(pi, checkout.directory.repoRoot, operation.branch);
 	if ("error" in target) {
-		present(ctx, formatSlotFailure(targetBranch, key, target.error), "error");
+		present(ctx, formatSlotFailure(operation.branch, operation.key, target.error), "error");
 		return;
 	}
 
 	setStatus(ctx, "opening CMUX slot workspace…");
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launchCommand = formatPiLaunchCommand(key, launchOptions);
+	const launchCommand = formatPiLaunchCommand(operation.key, launchOptions);
 	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
 	const launched = await openCmuxWorkspace(pi, target, {
 		description,
@@ -268,8 +253,8 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		present(
 			ctx,
 			formatCmuxFailure({
-				targetBranch,
-				key,
+				targetBranch: operation.branch,
+				key: operation.key,
 				worktreePath: target.worktreePath,
 				cause: launched.error,
 				launchOptions,
@@ -279,40 +264,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		return;
 	}
 
-	present(ctx, formatFinalSuccess({ targetBranch, key, target, launchOptions }), "success");
-}
-
-async function runText(
-	pi: ExtensionAPI,
-	cwd: string,
-	command: string,
-	args: string[],
-	timeout: number,
-): Promise<TextResult> {
-	const result = await runCommand(pi, cwd, command, args, timeout);
-	if (result.code === 0 && !result.killed) {
-		return { ok: true, text: result.stdout.trim() };
-	}
-	return { ok: false, message: formatCommandFailure(`${command} command failed.`, command, args, result) };
-}
-
-async function runCommand(
-	pi: ExtensionAPI,
-	cwd: string,
-	command: string,
-	args: string[],
-	timeout: number,
-): Promise<ExecResult> {
-	try {
-		return await pi.exec(command, args, { cwd, timeout });
-	} catch (error) {
-		return {
-			code: 127,
-			stdout: "",
-			stderr: formatErrorMessage(error),
-			killed: false,
-		};
-	}
+	present(ctx, formatFinalSuccess({ targetBranch: operation.branch, key: operation.key, target, launchOptions }), "success");
 }
 
 function presentPlannedBranchMessage(
@@ -344,9 +296,9 @@ function setStatus(ctx: CommandContext, value: string | undefined): void {
 }
 
 function formatDryRun(options: FormatDryRunOptions): string {
-	const { plan, checkout, targetBranch, key, launchOptions } = options;
-	const launchCommand = formatPiLaunchCommand(key, launchOptions);
-	const description = `${repositoryNameFromPath(checkout.directory.repoRoot) ?? basename(checkout.directory.repoRoot)}/${targetBranch}`;
+	const { plan, checkout, operation, plannedBranchPreview, launchOptions } = options;
+	const launchCommand = formatPiLaunchCommand(operation.key, launchOptions);
+	const description = `${repositoryNameFromPath(checkout.directory.repoRoot) ?? basename(checkout.directory.repoRoot)}/${operation.branch}`;
 	return [
 		"Dry run: no branch was created, no plan was attached, and no CMUX slot was opened.",
 		"",
@@ -360,21 +312,11 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		`Branch path segment: ${plan.branchKey}`,
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		"",
-		"Target:",
-		`Branch: ${targetBranch}`,
-		`Branch creation: ${BRANCH_CREATION}`,
-		`Start point: ${checkout.startPoint}`,
-		`Branch Memory namespace: ${PLAN_BRANCH_NAMESPACE}`,
-		`Branch Memory key: ${key}`,
-		"",
-		"Commands that would run:",
-		formatCommand("git", ["branch", targetBranch, "HEAD"]),
-		formatCommand("gt", ["track", targetBranch, "--parent", checkout.directory.sourceBranch, "--no-interactive"]),
-		formatCommand("brmem", ["put", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--file", plan.filePath, "--format", "json"]),
-		formatCommand("slot", ["checkout", targetBranch, "--format", "json", "--no-clipboard"]),
+		plannedBranchPreview,
+		formatCommand("slot", ["checkout", operation.branch, "--format", "json", "--no-clipboard"]),
 		[
 			"cmux new-workspace",
-			`--name ${formatArg(targetBranch)}`,
+			`--name ${formatArg(operation.branch)}`,
 			`--description ${formatArg(description)}`,
 			"--cwd <slot-worktree-path>",
 			`--command ${formatArg(launchCommand)}`,
@@ -382,36 +324,9 @@ function formatDryRun(options: FormatDryRunOptions): string {
 	].filter((line): line is string => line !== undefined).join("\n");
 }
 
-function formatPlanBranchEvidence(evidence: PlannedBranchEvidence): string {
-	const lines = [
-		"Created planned branch and attached plan.",
-		`Branch: ${evidence.branch}`,
-		`Branch creation: ${evidence.branchCreation}`,
-		`Start point: ${evidence.startPoint}`,
-		`Namespace: ${evidence.namespace}`,
-		`Key: ${evidence.key}`,
-		`Ref: ${evidence.refName}`,
-		`Commit: ${evidence.commit}`,
-		`Source file: ${evidence.sourceFile}`,
-	];
-	if (evidence.summary !== undefined) {
-		lines.push(`Summary: ${evidence.summary}`);
-	}
-	return lines.join("\n");
-}
-
-function formatCreatePlannedBranchFailure(targetBranch: string, key: string, sourceFile: string, error: unknown): string {
-	return [
-		"Failed to create planned branch and attach plan.",
-		`Branch: ${targetBranch}`,
-		`Branch creation: ${BRANCH_CREATION}`,
-		`Namespace: ${PLAN_BRANCH_NAMESPACE}`,
-		`Key: ${key}`,
-		`Source file: ${sourceFile}`,
-		"No CMUX slot was opened.",
-		"",
-		formatErrorMessage(error),
-	].join("\n");
+function formatCmuxPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
+	const failure = formatPlannedBranchCreateFailure(operation, error);
+	return failure.replace("\n\n", "\nNo CMUX slot was opened.\n\n");
 }
 
 function formatSlotFailure(targetBranch: string, key: string, cause: string): string {
@@ -455,22 +370,6 @@ function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): str
 	return buildPiLaunchCommand(`/planned-branch:impl ${key}`, launchOptions);
 }
 
-function formatCommandFailure(title: string, command: string, args: string[], result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const sections = [
-		`${title} (${status})`,
-		`Command: ${formatCommand(command, args)}`,
-		formatOutputSection("stdout", result.stdout),
-		formatOutputSection("stderr", result.stderr),
-	];
-	return tailText(sections.filter((section) => section.length > 0).join("\n\n"));
-}
-
-function formatOutputSection(label: string, value: string): string {
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? `${label}:\n${tailText(trimmed)}` : "";
-}
-
 function formatCommand(command: string, args: string[]): string {
 	return [command, ...args.map(formatArg)].join(" ");
 }
@@ -481,13 +380,6 @@ function formatArg(value: string): string {
 
 function shellQuote(value: string): string {
 	return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
-
-function tailText(value: string): string {
-	if (value.length <= MAX_ERROR_CHARS) {
-		return value;
-	}
-	return `…${value.slice(-MAX_ERROR_CHARS)}`;
 }
 
 function formatUnexpectedError(error: unknown): string {

@@ -45,6 +45,22 @@ export interface PlannedBranchEvidence {
 	summary?: string;
 }
 
+export interface PlannedBranchCreateOperation {
+	slug: string;
+	filePath: string;
+	branch: string;
+	branchCreation: BranchCreationMethod;
+	namespace: string;
+	key: string;
+	params: CreatePlannedBranchFromFileParams;
+	summary?: string;
+}
+
+export interface PlannedBranchCreatePreviewContext {
+	startPoint: string;
+	graphiteParentBranch?: string;
+}
+
 interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
@@ -55,6 +71,68 @@ export async function createPlannedBranchFromFile(
 	rawParams: unknown,
 	options: CreatePlannedBranchFromFileOptions,
 ): Promise<PlannedBranchEvidence> {
+	const operation = buildPlannedBranchCreateOperation(rawParams);
+	const sourceFile = await resolvePlanSourceFile(pi, options.cwd, operation.filePath, options.signal);
+
+	await checkBranchRefFormat(pi, options.cwd, operation.branch, options.signal);
+	const startPoint = await resolveStartPoint(pi, options.cwd, options.signal);
+	await assertLocalBranchAbsent(pi, options.cwd, operation.branch, options.signal);
+	await assertBrmemEntryAbsent(pi, options.cwd, operation.branch, operation.key, options.signal);
+	await createPlanBranch(pi, options.cwd, {
+		method: operation.branchCreation,
+		branch: operation.branch,
+		signal: options.signal,
+	});
+
+	const put = await runBrmem(pi, {
+		cwd: options.cwd,
+		args: ["put", operation.key, "--namespace", operation.namespace, "--branch", operation.branch, "--file", sourceFile, "--format", "json"],
+		signal: options.signal,
+	});
+	if (put.type === "unavailable") {
+		throw partialFailureError({
+			title: "Created branch but no brmem command was available to attach the plan.",
+			branch: operation.branch,
+			branchCreation: operation.branchCreation,
+			startPoint,
+			namespace: operation.namespace,
+			key: operation.key,
+			sourceFile,
+			cause: put.message,
+		});
+	}
+	if (put.result.code !== 0 || put.result.killed) {
+		throw partialFailureError({
+			title: "Created branch but failed to attach the plan in Branch Memory.",
+			branch: operation.branch,
+			branchCreation: operation.branchCreation,
+			startPoint,
+			namespace: operation.namespace,
+			key: operation.key,
+			sourceFile,
+			cause: formatCommandFailure("brmem put failed", put.displayCommand, put.result),
+		});
+	}
+
+	try {
+		const data = parseBrmemPutData(put.result.stdout);
+		assertPutDataMatchesCommand(data, { branch: operation.branch, key: operation.key, sourceFile });
+		return buildEvidence({ data, slug: operation.slug, branchCreation: operation.branchCreation, startPoint, summary: operation.summary });
+	} catch (error) {
+		throw partialFailureError({
+			title: "Created branch but could not parse Branch Memory storage result.",
+			branch: operation.branch,
+			branchCreation: operation.branchCreation,
+			startPoint,
+			namespace: operation.namespace,
+			key: operation.key,
+			sourceFile,
+			cause: error instanceof Error ? error.message : String(error),
+		});
+	}
+}
+
+export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBranchCreateOperation {
 	const params = parseCreatePlannedBranchFromFileParams(rawParams);
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
@@ -63,72 +141,108 @@ export async function createPlannedBranchFromFile(
 	}
 
 	const branchCreation = params.branchCreation ?? "plain-git";
-	const targetBranch = deriveTargetBranch(params.branchName, slug);
-	const branchError = validateTargetBranchName(targetBranch);
+	const branch = deriveTargetBranch(params.branchName, slug);
+	const branchError = validateTargetBranchName(branch);
 	if (branchError !== undefined) {
 		throw new Error(`Invalid target branch name: ${branchError}`);
 	}
 
-	const sourceFile = await resolvePlanSourceFile(pi, options.cwd, params.filePath, options.signal);
-	const key = `${slug}.md`;
-
-	await checkBranchRefFormat(pi, options.cwd, targetBranch, options.signal);
-	const startPoint = await resolveStartPoint(pi, options.cwd, options.signal);
-	await assertLocalBranchAbsent(pi, options.cwd, targetBranch, options.signal);
-	await assertBrmemEntryAbsent(pi, options.cwd, targetBranch, key, options.signal);
-	await createPlanBranch(pi, options.cwd, {
-		method: branchCreation,
-		branch: targetBranch,
-		signal: options.signal,
-	});
-
-	const put = await runBrmem(pi, {
-		cwd: options.cwd,
-		args: ["put", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", targetBranch, "--file", sourceFile, "--format", "json"],
-		signal: options.signal,
-	});
-	if (put.type === "unavailable") {
-		throw partialFailureError({
-			title: "Created branch but no brmem command was available to attach the plan.",
-			branch: targetBranch,
-			branchCreation,
-			startPoint,
-			namespace: PLAN_BRANCH_NAMESPACE,
-			key,
-			sourceFile,
-			cause: put.message,
-		});
+	const summary = normalizeSummary(params.summary);
+	const operationParams: CreatePlannedBranchFromFileParams = { slug, filePath: params.filePath, branchCreation };
+	if (branch !== slug) {
+		operationParams.branchName = branch;
 	}
-	if (put.result.code !== 0 || put.result.killed) {
-		throw partialFailureError({
-			title: "Created branch but failed to attach the plan in Branch Memory.",
-			branch: targetBranch,
-			branchCreation,
-			startPoint,
-			namespace: PLAN_BRANCH_NAMESPACE,
-			key,
-			sourceFile,
-			cause: formatCommandFailure("brmem put failed", put.displayCommand, put.result),
-		});
+	if (summary !== undefined) {
+		operationParams.summary = summary;
 	}
 
-	try {
-		const data = parseBrmemPutData(put.result.stdout);
-		assertPutDataMatchesCommand(data, { branch: targetBranch, key, sourceFile });
-		const summary = normalizeSummary(params.summary);
-		return buildEvidence({ data, slug, branchCreation, startPoint, summary });
-	} catch (error) {
-		throw partialFailureError({
-			title: "Created branch but could not parse Branch Memory storage result.",
-			branch: targetBranch,
-			branchCreation,
-			startPoint,
-			namespace: PLAN_BRANCH_NAMESPACE,
-			key,
-			sourceFile,
-			cause: error instanceof Error ? error.message : String(error),
-		});
+	const operation = {
+		slug,
+		filePath: params.filePath,
+		branch,
+		branchCreation,
+		namespace: PLAN_BRANCH_NAMESPACE,
+		key: `${slug}.md`,
+		params: operationParams,
+	};
+	if (summary === undefined) {
+		return operation;
 	}
+	return { ...operation, summary };
+}
+
+export async function resolvePlannedBranchCreatePreviewContext(
+	pi: PlanCommandExecApi,
+	options: { cwd: string; signal?: AbortSignal | undefined },
+): Promise<PlannedBranchCreatePreviewContext> {
+	return { startPoint: await resolveStartPoint(pi, options.cwd, options.signal) };
+}
+
+export function formatPlannedBranchCreatePreview(
+	operation: PlannedBranchCreateOperation,
+	context: PlannedBranchCreatePreviewContext,
+): string {
+	const lines = [
+		"Target:",
+		`Branch: ${operation.branch}`,
+		`Branch creation: ${operation.branchCreation}`,
+		`Start point: ${context.startPoint}`,
+		`Branch Memory namespace: ${operation.namespace}`,
+		`Branch Memory key: ${operation.key}`,
+		"",
+		"Planned-branch commands that would run:",
+		formatCommand("git", ["branch", operation.branch, "HEAD"]),
+	];
+	if (operation.branchCreation === "graphite") {
+		lines.push(formatCommand("gt", ["track", operation.branch, "--parent", context.graphiteParentBranch ?? "<current-branch>", "--no-interactive"]));
+	}
+	lines.push(
+		formatCommand("brmem", [
+			"put",
+			operation.key,
+			"--namespace",
+			operation.namespace,
+			"--branch",
+			operation.branch,
+			"--file",
+			operation.filePath,
+			"--format",
+			"json",
+		]),
+	);
+	return lines.join("\n");
+}
+
+export function formatPlannedBranchEvidence(evidence: PlannedBranchEvidence): string {
+	const lines = [
+		"Created planned branch and attached plan.",
+		`Branch: ${evidence.branch}`,
+		`Branch creation: ${evidence.branchCreation}`,
+		`Start point: ${evidence.startPoint}`,
+		`Namespace: ${evidence.namespace}`,
+		`Key: ${evidence.key}`,
+		`Ref: ${evidence.refName}`,
+		`Commit: ${evidence.commit}`,
+		`Source file: ${evidence.sourceFile}`,
+		`Slug: ${evidence.slug}`,
+	];
+	if (evidence.summary !== undefined) {
+		lines.push(`Summary: ${evidence.summary}`);
+	}
+	return lines.join("\n");
+}
+
+export function formatPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
+	return [
+		"Failed to create planned branch and attach plan.",
+		`Branch: ${operation.branch}`,
+		`Branch creation: ${operation.branchCreation}`,
+		`Namespace: ${operation.namespace}`,
+		`Key: ${operation.key}`,
+		`Source file: ${operation.filePath}`,
+		"",
+		formatErrorMessage(error),
+	].join("\n");
 }
 
 export function parseCreatePlannedBranchFromFileParams(params: unknown): CreatePlannedBranchFromFileParams {
@@ -477,6 +591,10 @@ function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefin
 		return { cwd, timeout };
 	}
 	return { cwd, timeout, signal };
+}
+
+function formatErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function trimErrorText(value: string): string {

@@ -5,7 +5,12 @@ import process from "node:process";
 
 import { buildImplPlannedBranchPrompt, loadAttachedPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
 import { createRealPlannedBranchContext, type PlannedBranchContext } from "./context.ts";
-import { createPlannedBranchFromFile, type BranchCreationMethod, type PlannedBranchEvidence } from "./planned-branch-creation.ts";
+import {
+	createPlannedBranchFromFile,
+	formatPlannedBranchEvidence,
+	type BranchCreationMethod,
+	type PlannedBranchEvidence,
+} from "./planned-branch-creation.ts";
 import { normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 import {
 	findLatestSourceBranchPlanFile,
@@ -495,23 +500,6 @@ function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPl
 		`Slug: ${evidence.slug}`,
 		`Modified time ms: ${evidence.modifiedTimeMs}`,
 	].join("\n");
-}
-
-function formatPlannedBranchEvidence(evidence: PlannedBranchEvidence): string {
-	const lines = [
-		"Created planned branch and attached plan.",
-		`Branch: ${evidence.branch}`,
-		`Branch creation: ${evidence.branchCreation}`,
-		`Start point: ${evidence.startPoint}`,
-		`Namespace: ${evidence.namespace}`,
-		`Key: ${evidence.key}`,
-		`Ref: ${evidence.refName}`,
-		`Commit: ${evidence.commit}`,
-		`Source file: ${evidence.sourceFile}`,
-		`Slug: ${evidence.slug}`,
-	];
-	if (evidence.summary !== undefined) lines.push(`Summary: ${evidence.summary}`);
-	return lines.join("\n");
 }
 
 function formatLoadedPlan(plan: LoadedAttachedPlan): string {

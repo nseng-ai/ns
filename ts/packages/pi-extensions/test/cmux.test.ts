@@ -353,7 +353,17 @@ describe("cmux extension", () => {
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.sentMessages).toHaveLength(1);
-		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "dry-run", targetBranch: PLAN_SLUG });
+		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "dry-run", targetBranch: PLAN_SLUG, key: PLAN_KEY });
+		const content = String(pi.sentMessages[0]?.content);
+		expect(content).toContain("Dry run: no branch was created, no plan was attached, and no CMUX slot was opened.");
+		expect(content).toContain(`Path: ${planFile}`);
+		expect(content).toContain(`Slug: ${PLAN_SLUG}`);
+		expect(content).toContain(`Source branch: ${SOURCE_BRANCH}`);
+		expect(content).toContain(`Branch: ${PLAN_SLUG}`);
+		expect(content).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(content).toContain("slot checkout");
+		expect(content).toContain("cmux new-workspace");
+		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 	});
 
 	test("cmux-slot:dispatch-plan full success opens cmux without sidebar summary", async () => {
@@ -366,7 +376,6 @@ describe("cmux extension", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				headStep(),
 				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
@@ -599,7 +608,7 @@ function cmuxPlanStoreDirectory(planStoreRoot: string, repoRoot: string): string
 }
 
 function dispatchValidationScript(repoRoot: string): ScriptedExec[] {
-	return [gitRootStep(repoRoot), gitCurrentBranchStep(), gitOriginStep(), headStep()];
+	return [gitRootStep(repoRoot), gitCurrentBranchStep(), gitOriginStep()];
 }
 
 function isDispatchMutationCommand(call: ExecCall): boolean {
