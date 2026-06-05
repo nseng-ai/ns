@@ -2,6 +2,7 @@
 name: internal-code-gh-ci-debug
 description: "Debug a failing GitHub Actions run end-to-end from an Actions run URL/ID, PR URL/number, Graphite PR URL, or current branch. Uses `gh pr` to resolve PR checks to run/job URLs when needed, then `gh run view --log-failed` to diagnose failed steps and return a structured fix."
 allowed-tools:
+  - "Bash(gh repo *)"
   - "Bash(gh pr *)"
   - "Bash(gh run *)"
   - "Bash(gh api *)"
@@ -35,18 +36,21 @@ Defer to `internal-code-gh` for general `gh` questions (PRs, issues, API, auth).
 - **Bare run ID** → require the repo. Use `--repo <owner>/<repo>` explicitly on every `gh run` call rather than relying on the current directory's origin.
 - **GitHub PR URL / PR number** → resolve the PR with `gh pr view <pr> --repo <owner>/<repo> --json number,url,headRefName,statusCheckRollup`.
 - **Graphite PR URL** `https://app.graphite.com/github/pr/<owner>/<repo>/<n>` → treat `<n>` as the GitHub PR number and resolve it with the same `gh pr view` command.
-- **Current branch / no explicit run** → resolve the branch's PR first:
+- **Current branch / no explicit run** → derive repo and branch, then resolve the branch's PR:
 
   ```
-  gh pr view --repo <owner>/<repo> --json number,url,headRefName,statusCheckRollup
+  repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+  branch=$(git branch --show-current)
+  gh pr view "$branch" --repo "$repo" --json number,url,headRefName,statusCheckRollup
   ```
 
-  If that cannot infer the PR, get the branch name and look it up explicitly:
+  If the branch is empty (detached HEAD), ask for a PR/run URL. If `gh pr view` cannot infer the PR, list PRs whose head is the current branch:
 
   ```
-  git branch --show-current
-  gh pr list --repo <owner>/<repo> --head <branch> --json number,url,headRefName,statusCheckRollup
+  gh pr list --repo "$repo" --head "$branch" --json number,url,headRefName,statusCheckRollup
   ```
+
+  If exactly one PR is returned, use it. If zero are returned, report that no PR is associated with the current branch. If multiple are returned, ask the user to choose one.
 
 - **After resolving a PR** → inspect `statusCheckRollup` or run `gh pr checks <pr> --repo <owner>/<repo>`; choose failed check runs' `detailsUrl` values, extract their `run_id` and optional `job_id`, then continue with the run-summary workflow below.
 
@@ -70,7 +74,13 @@ Streams logs from **failed** steps only. If a specific job is of interest (e.g. 
 gh run view <run_id> --repo <owner>/<repo> --log-failed --job <job_id>
 ```
 
-Avoid plain `--log` — it dumps every step including successes and is often hundreds of MB.
+If `--log-failed` fails with a transport/stream error and a failed job ID is known, download that job's log via the Actions API:
+
+```
+gh api repos/<owner>/<repo>/actions/jobs/<job_id>/logs
+```
+
+This still targets the failed job only. Avoid plain `--log` — it dumps every step including successes and is often hundreds of MB.
 
 ### 4. Parse annotations and locate the step
 
@@ -146,6 +156,8 @@ If the root cause spans multiple files (e.g. a script + a workflow both need cha
 ## Notes
 
 - Prefer `--log-failed` over `--log`. Always.
+- For current-branch CI debugging, try `gh repo view` + `git branch --show-current` + `gh pr view "$branch" --repo "$repo"` before asking the user for a PR URL.
 - Always pass `--repo <owner>/<repo>` when the run might be in a different repo than the current directory's origin (common when debugging someone else's PR or a fork's run).
+- If `gh run view --log-failed` fails with a stream error, use `gh api repos/<owner>/<repo>/actions/jobs/<job_id>/logs` for the failed job.
 - `gh run view` returns a non-zero exit code when the run itself failed; this is expected and does not mean the `gh` call itself errored.
 - For a step that writes to `$GITHUB_OUTPUT`, the producer must emit single-line values or use the heredoc form — there is no middle ground, and the failure message is unhelpful.
