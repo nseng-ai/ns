@@ -23,6 +23,7 @@ import registerPlannedBranchExtension, {
 	type ExecResult,
 	type ExtensionAPI,
 	type SourceBranchPlanFileEvidence,
+	type ToolContext,
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
 import { buildPlanContentSlugPrompt } from "../src/planned-branch/plan-content-slug.ts";
@@ -467,6 +468,25 @@ function createContext(
 		};
 	}
 	return { ctx, notifications, statuses, waits: () => waitCount };
+}
+
+function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
+	ctx: ToolContext;
+	statuses: Array<{ key: string; value: string | undefined }>;
+} {
+	const statuses: Array<{ key: string; value: string | undefined }> = [];
+	return {
+		ctx: {
+			cwd: options.cwd ?? ROOT,
+			hasUI: options.hasUI ?? true,
+			ui: {
+				setStatus(key, value): void {
+					statuses.push({ key, value });
+				},
+			},
+		},
+		statuses,
+	};
 }
 
 function registeredTool(pi: FakePi, name = "write_source_branch_plan_file"): ToolDefinition {
@@ -1585,13 +1605,14 @@ describe("write_source_branch_plan_file tool", () => {
 		registerPlannedBranchExtension(pi, { planStoreRoot });
 		const tool = registeredTool(pi, "write_source_branch_plan_file");
 		const updates: ToolUpdate[] = [];
+		const toolContext = createToolContext({ hasUI: true });
 
 		const result = await tool.execute(
 			"tool-call",
 			{ content, summary: "Plan the local plan store file." },
 			undefined,
 			(update) => updates.push(update),
-			{ cwd: ROOT },
+			toolContext.ctx,
 		);
 
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
@@ -1610,6 +1631,14 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "validating" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "deriving-slug" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "writing-file", slug: PLAN_SLUG });
+		expect(toolContext.statuses).toContainEqual({ key: "planned-branch:write-plan", value: "Validating saved plan input…" });
+		expect(toolContext.statuses).toContainEqual({ key: "planned-branch:write-plan", value: "Deriving saved-plan filename slug with Codex…" });
+		expect(toolContext.statuses).toContainEqual({
+			key: "planned-branch:write-plan",
+			value: `Derived slug ${PLAN_SLUG}; resolving repo/branch and writing plan file…`,
+		});
+		expect(toolContext.statuses).toContainEqual({ key: "planned-branch:write-plan", value: "Writing plan file…" });
+		expect(toolContext.statuses.at(-1)).toEqual({ key: "planned-branch:write-plan", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(`Slug model: ${SLUG_MODEL_PROVIDER}/${SLUG_MODEL_MODEL}`);
 		expect(result.details).toMatchObject({
@@ -1629,6 +1658,47 @@ describe("write_source_branch_plan_file tool", () => {
 			tool.execute("tool-call", { slug: PLAN_SLUG, content: DEFAULT_PLAN_CONTENT }, undefined, undefined, { cwd: ROOT }),
 		).rejects.toThrow("derives `slug` from content through Codex");
 		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("clears write-plan status when validation fails", async () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const toolContext = createToolContext({ hasUI: true });
+
+		await expect(tool.execute("tool-call", { content: 42 }, undefined, undefined, toolContext.ctx)).rejects.toThrow(
+			"requires string parameter `content`",
+		);
+
+		expect(pi.execCalls).toEqual([]);
+		expect(toolContext.statuses).toEqual([
+			{ key: "planned-branch:write-plan", value: "Validating saved plan input…" },
+			{ key: "planned-branch:write-plan", value: undefined },
+		]);
+	});
+
+	test("renders partial write-plan progress with an in-progress heading", () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const renderResult = tool.renderResult;
+
+		expect(renderResult).toBeDefined();
+		if (renderResult === undefined) {
+			throw new Error("write_source_branch_plan_file renderResult was not registered");
+		}
+
+		const partial = renderResult(
+			{ content: [{ type: "text", text: "Deriving saved-plan filename slug with Codex…" }] },
+			{ isPartial: true },
+			undefined,
+			undefined,
+		);
+		const final = renderResult({ content: [{ type: "text", text: "Path: /tmp/plan.md" }] }, { isPartial: false }, undefined, undefined);
+
+		expect(partial.render(100).join("\n")).toContain("Saving planned-branch plan…");
+		expect(partial.render(100).join("\n")).toContain("Deriving saved-plan filename slug with Codex…");
+		expect(final.render(100).join("\n").trimEnd()).toBe("Path: /tmp/plan.md");
 	});
 });
 
