@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Add the visible stack CLI skeleton, profile resolver, and sample profile.
+- [x] Add the visible stack CLI skeleton, profile resolver, and sample profile.
   - Thesis: `roaster stack run <profile-slug>` becomes a discoverable, Graphite-explicit user-facing surface with safe profile lookup and no deterministic markdown-profile parsing.
   - Expected implementation branch/PR: `roaster-stack/cli-profile`.
   - Depends on: existing roaster CLI/plugin conventions only; this should not introduce Graphite, GitHub, Branch Memory, or agent mutation gateways beyond help text and request shape.
