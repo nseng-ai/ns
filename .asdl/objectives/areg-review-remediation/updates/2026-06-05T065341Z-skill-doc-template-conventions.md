@@ -14,7 +14,7 @@ The migrated skill docs/template remediation slice is complete in the current wo
 
 `skill-management` lockfile docs now say committed local lockfile hashes are generated metadata that must be real 64-character lowercase hex values, not placeholders such as `PENDING_REGEN`. `skills-lock.json` was refreshed only for the edited local skills and sources were normalized back to `skills/<name>`.
 
-Evidence basis: current working-tree diff on branch `reconcile-skill-docs-templates-conventions` against Graphite parent `typed-skills-lockfile-validation`. PR evidence was not required; local uncommitted diff plus validation was sufficient.
+Evidence basis: committed branch diff on `reconcile-skill-docs-templates-conventions` against Graphite parent `typed-skills-lockfile-validation`, via commit `1cdb6f69` (`[cp] Align skill docs with repo conventions`). PR #908 corroborates the same file set and completion evidence.
 
 Verification: `just dprint-check`, `uv run areg check --path .`, and `uv run pytest tests/integration/test_skills_management.py -q` passed.
 
