@@ -24,8 +24,10 @@ export {
 } from "./grill-ui/validate.ts";
 
 export const GRILL_UI_COMMAND_NAME = "grill-ui";
+export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "grill-with-docs-ui";
 export const GRILL_ASK_TOOL_NAME = "grill_ask";
 export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
+export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
 
 const UNKNOWN_SELECTION_MESSAGE =
 	"The structured grill question returned an unknown selection. Do not treat this as an answer; summarize what is known or ask whether to continue.";
@@ -153,6 +155,20 @@ Ask the questions one at a time.
 If a question can be answered by exploring the codebase, explore the codebase instead.
 </skill>`;
 
+export const FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK = `<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" fallback="true">
+This is the Pi structured-UI complement to grill-with-docs. Interview the user relentlessly about the plan or design while challenging it against the repository's documented domain language.
+
+Before the first user-facing question, do a bounded docs-first preflight: check CONTEXT-MAP.md if present, check root or relevant CONTEXT.md files, check relevant docs/adr/ records, and inspect code only when the target names a concrete area or a claim needs verification.
+
+Ask one question at a time. Use grill_ask for user-facing grill questions when available. Explore the codebase instead of asking when the answer can be discovered.
+
+Challenge glossary conflicts immediately, sharpen fuzzy terms into canonical project language, and update CONTEXT.md inline when a term is resolved. Keep CONTEXT.md as a glossary only, without implementation details.
+
+Offer ADRs sparingly only when all three are true: the decision is hard to reverse, surprising without context, and the result of a real trade-off.
+
+When reporting status, include a Documentation updates line summarizing CONTEXT.md edits, ADRs created or offered, or none yet.
+</skill>`;
+
 export const GRILL_UI_CONTRACT = `<structured-grill-question-ui-contract>
 Preserve the grill-me behavior and reasoning style. The structured UI is only the interaction primitive for user-facing questions.
 
@@ -173,14 +189,11 @@ When you need user input during this grill session:
 </structured-grill-question-ui-contract>`;
 
 export function buildGrillUiPrompt(skillBlock: string | undefined, target: string): string {
-	const instructions = skillBlock?.trim() || FALLBACK_GRILL_UI_SKILL_BLOCK;
-	return `${instructions}
+	return buildStructuredGrillPrompt(skillBlock, FALLBACK_GRILL_UI_SKILL_BLOCK, target);
+}
 
-${GRILL_UI_CONTRACT}
-
-<plan-or-design-to-grill>
-${target.trim()}
-</plan-or-design-to-grill>`;
+export function buildGrillWithDocsUiPrompt(skillBlock: string | undefined, target: string): string {
+	return buildStructuredGrillPrompt(skillBlock, FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK, target);
 }
 
 export function buildGrillAskSelectTitle(input: NormalizedGrillAskInput): string {
@@ -235,6 +248,11 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => handleGrillUiCommand(pi, args, ctx),
 	});
 
+	pi.registerCommand(GRILL_WITH_DOCS_UI_COMMAND_NAME, {
+		description: "Start a docs-aware grill-with-docs session that uses structured question UI.",
+		handler: async (args, ctx) => handleGrillWithDocsUiCommand(pi, args, ctx),
+	});
+
 	pi.registerTool({
 		name: GRILL_ASK_TOOL_NAME,
 		label: "Grill Ask",
@@ -255,26 +273,70 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 }
 
 export async function handleGrillUiCommand(pi: ExtensionAPI, args: string, ctx: GrillUiCommandContext): Promise<void> {
+	await handleStructuredGrillCommand(pi, args, ctx, {
+		skillName: GRILL_UI_SKILL_NAME,
+		emptyTargetMessage: "No plan/design provided for /grill-ui.",
+		expansionFailureMessage: "Could not expand pi-grill-ui skill; using fallback grill instructions.",
+		editorTitle: "What plan or design should be grilled?",
+		buildPrompt: buildGrillUiPrompt,
+	});
+}
+
+export async function handleGrillWithDocsUiCommand(pi: ExtensionAPI, args: string, ctx: GrillUiCommandContext): Promise<void> {
+	await handleStructuredGrillCommand(pi, args, ctx, {
+		skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
+		emptyTargetMessage: "No plan/design provided for /grill-with-docs-ui.",
+		expansionFailureMessage: "Could not expand pi-grill-with-docs-ui skill; using fallback docs-aware grill instructions.",
+		editorTitle: "What plan or design should be grilled against docs?",
+		buildPrompt: buildGrillWithDocsUiPrompt,
+	});
+}
+
+export default registerGrillUiExtension;
+
+interface StructuredGrillCommandOptions {
+	skillName: string;
+	emptyTargetMessage: string;
+	expansionFailureMessage: string;
+	editorTitle: string;
+	buildPrompt(skillBlock: string | undefined, target: string): string;
+}
+
+function buildStructuredGrillPrompt(skillBlock: string | undefined, fallbackSkillBlock: string, target: string): string {
+	const instructions = skillBlock?.trim() || fallbackSkillBlock;
+	return `${instructions}
+
+${GRILL_UI_CONTRACT}
+
+<plan-or-design-to-grill>
+${target.trim()}
+</plan-or-design-to-grill>`;
+}
+
+async function handleStructuredGrillCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: GrillUiCommandContext,
+	options: StructuredGrillCommandOptions,
+): Promise<void> {
 	await ctx.waitForIdle();
-	const target = await resolveGrillTarget(args, ctx);
+	const target = await resolveGrillTarget(args, ctx, options.editorTitle);
 	if (target.trim().length === 0) {
-		notify(ctx, "No plan/design provided for /grill-ui.", "warning");
+		notify(ctx, options.emptyTargetMessage, "warning");
 		return;
 	}
 
 	let skillBlock: string | undefined;
 	try {
-		skillBlock = (await expandSkillBlock(pi, GRILL_UI_SKILL_NAME))?.block;
+		skillBlock = (await expandSkillBlock(pi, options.skillName))?.block;
 	} catch {
-		notify(ctx, "Could not expand pi-grill-ui skill; using fallback grill instructions.", "warning");
+		notify(ctx, options.expansionFailureMessage, "warning");
 	}
 
-	pi.sendUserMessage(buildGrillUiPrompt(skillBlock, target));
+	pi.sendUserMessage(options.buildPrompt(skillBlock, target));
 }
 
-export default registerGrillUiExtension;
-
-async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext): Promise<string> {
+async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext, editorTitle: string): Promise<string> {
 	const trimmedArgs = args.trim();
 	if (trimmedArgs.length > 0) {
 		return trimmedArgs;
@@ -282,7 +344,7 @@ async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext): Pro
 	if (!ctx.hasUI || ctx.ui.editor === undefined) {
 		return "";
 	}
-	return (await ctx.ui.editor("What plan or design should be grilled?", "")) ?? "";
+	return (await ctx.ui.editor(editorTitle, "")) ?? "";
 }
 
 async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
