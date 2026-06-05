@@ -686,26 +686,32 @@ function formatToolResultText(result: ToolResult): string {
 
 function formatWriteSourceBranchPlanFileCall(args: unknown, context: unknown): string {
 	const content = isRecord(args) && typeof args.content === "string" ? args.content : undefined;
-	const characterCount = content === undefined ? "" : ` ${formatCharacterCount(content.length)}`;
+	const tokenEstimate = content === undefined ? "" : ` ${formatEstimatedTokenCount(content)}`;
 	if (isToolExecutionStarted(context)) {
-		return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — saving reviewed plan…${characterCount}`;
+		return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — saving reviewed plan…${tokenEstimate}`;
 	}
 
-	return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — receiving saved-plan content from model…${characterCount}`;
+	return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — receiving saved-plan content from model…${tokenEstimate}`;
 }
 
 function isToolExecutionStarted(context: unknown): boolean {
 	return isRecord(context) && context.executionStarted === true;
 }
 
-function formatCharacterCount(count: number): string {
+const ESTIMATED_CHARS_PER_TOKEN = 4;
+
+function formatEstimatedTokenCount(text: string): string {
+	return `${formatCount(Math.ceil(text.length / ESTIMATED_CHARS_PER_TOKEN))} tokens (est.)`;
+}
+
+function formatCount(count: number): string {
 	if (count < 1_000) {
-		return `${count} chars`;
+		return `${count}`;
 	}
 	if (count < 1_000_000) {
-		return `${formatCompactNumber(count / 1_000)}k chars`;
+		return `${formatCompactNumber(count / 1_000)}k`;
 	}
-	return `${formatCompactNumber(count / 1_000_000)}m chars`;
+	return `${formatCompactNumber(count / 1_000_000)}m`;
 }
 
 function formatCompactNumber(value: number): string {

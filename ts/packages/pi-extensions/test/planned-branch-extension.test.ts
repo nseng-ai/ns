@@ -1701,10 +1701,12 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(missingText).toContain("write_source_branch_plan_file");
 		expect(missingText).toContain("receiving saved-plan content from model");
 		expect(receivingText).toContain("receiving saved-plan content from model");
-		expect(receivingText).toMatch(/\d+(?:\.\d)?k chars/);
+		expect(receivingText).toMatch(/\d+(?:\.\d)?k tokens \(est\.\)/);
+		expect(receivingText).not.toContain("chars");
 		expect(receivingText).not.toContain(distinctivePlanBody);
 		expect(savingText).toContain("saving reviewed plan");
-		expect(savingText).toMatch(/\d+(?:\.\d)?k chars/);
+		expect(savingText).toMatch(/\d+(?:\.\d)?k tokens \(est\.\)/);
+		expect(savingText).not.toContain("chars");
 		expect(savingText).not.toContain(distinctivePlanBody);
 	});
 
