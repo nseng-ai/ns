@@ -92,6 +92,40 @@ For **GitHub-sourced** skills:
 
 GitHub-sourced skills do NOT get a `skills/<name>` entry.
 
+## Umbrella skill families
+
+Use an umbrella skill family when one capability has several explicit workflow
+steps that share terminology, safety rules, command contracts, or diagnostics.
+The umbrella is compact agent-facing documentation; step skills remain the
+invocable entrypoints.
+
+Umbrella skill:
+
+- Lives at `skills/<capability>/` and is installed like any other public local
+  skill.
+- Triggers only on explicit capability/reference/admin terms, not generic step
+  words.
+- Keeps `SKILL.md` as a concise reference root that routes to bundled
+  `references/` files for lifecycle, commands, safety, and diagnostics.
+- Contains enough shipped context for external agents to operate the capability
+  without relying on internal repo docs.
+
+Step skills:
+
+- Stay installed and discoverable for explicit workflow-step requests.
+- Say they are part of the family and instruct agents to use the umbrella skill
+  first by skill name, not by relative filesystem path.
+- Stay thin: step routing, boundaries, success evidence, and step-specific
+  failure stops only.
+- Do not duplicate full lifecycle or recovery prose from the umbrella.
+
+Avoid:
+
+- broad triggers like generic "write a plan" or "create a branch";
+- hidden installation dependencies where a step references an uninstalled
+  umbrella;
+- public skill prose that requires internal docs or implementation details.
+
 ## Workflow
 
 ### 1. Add a new local skill
