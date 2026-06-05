@@ -77,7 +77,6 @@ Derive these automatically:
 │   └── <PACKAGE_NAME>/
 │       └── __init__.py
 └── tests/
-    ├── __init__.py
     └── test_<PACKAGE_NAME>.py
 ```
 
@@ -141,14 +140,12 @@ just check
 ```
 ````
 
-````
 ### Step 7: Create source package and tests
 
 Use the templates from `templates/source-files.md` to create:
 
 - `src/<PACKAGE_NAME>/__init__.py` (empty file)
 - `src/<PACKAGE_NAME>/cli.py` (only if `HAS_CLI` is yes)
-- `tests/__init__.py` (empty file)
 - `tests/test_<PACKAGE_NAME>.py` (include CLI smoke test if `HAS_CLI` is yes)
 
 ### Step 8: Install dependencies and verify
@@ -156,7 +153,7 @@ Use the templates from `templates/source-files.md` to create:
 ```bash
 uv sync
 just check
-````
+```
 
 Both must succeed. If `just check` fails, fix the issue before
 considering scaffolding complete.

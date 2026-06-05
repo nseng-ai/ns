@@ -68,13 +68,13 @@ packages/<DEV_PROJECT_NAME>/
 │   ├── AGENTS.md
 │   ├── cli/
 │   │   ├── __init__.py
+│   │   ├── main.py
 │   │   └── output.py
 │   ├── context.py
 │   └── commands/
 │       └── clean_pyproject/
 │           └── command.py
 └── tests/
-    ├── __init__.py
     └── test_commands.py
 ```
 
@@ -106,7 +106,8 @@ Use the templates from `templates/source-files.md` to create:
 
 - `src/<DEV_PACKAGE_NAME>/__init__.py` (empty file)
 - `src/<DEV_PACKAGE_NAME>/__main__.py`
-- `src/<DEV_PACKAGE_NAME>/cli/__init__.py`
+- `src/<DEV_PACKAGE_NAME>/cli/__init__.py` (empty file)
+- `src/<DEV_PACKAGE_NAME>/cli/main.py`
 - `src/<DEV_PACKAGE_NAME>/cli/output.py`
 - `src/<DEV_PACKAGE_NAME>/context.py`
 - `src/<DEV_PACKAGE_NAME>/AGENTS.md`
@@ -132,7 +133,6 @@ mkdir -p packages/<DEV_PROJECT_NAME>/tests
 
 Use the templates from `templates/test-files.md` to create:
 
-- `tests/__init__.py` (empty file)
 - `tests/test_commands.py`
 
 ### Step 6: Update root `pyproject.toml`
@@ -218,5 +218,5 @@ Tell the user:
 1. The dev CLI is set up and `just check` passes.
 2. The `<DEV_PROJECT_NAME>` command is available via `uv run <DEV_PROJECT_NAME>`.
 3. To add a new command: create `commands/my_command/command.py`, import and
-   register in `cli/__init__.py`, add a help test in `tests/test_commands.py`.
+   register in `cli/main.py`, add a help test in `tests/test_commands.py`.
 4. The justfile `clean` target now delegates to `<DEV_PROJECT_NAME> clean-pyproject`.

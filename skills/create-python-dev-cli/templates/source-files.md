@@ -18,15 +18,19 @@ Create `src/<DEV_PACKAGE_NAME>/__init__.py` as an empty file.
 ```python
 """Development CLI entry point."""
 
-from <DEV_PACKAGE_NAME>.cli import cli
+from <DEV_PACKAGE_NAME>.cli.main import cli
 
 if __name__ == "__main__":
     cli()
 ```
 
+## CLI package init
+
+Create `src/<DEV_PACKAGE_NAME>/cli/__init__.py` as an empty file.
+
 ## CLI definition
 
-**Target path:** `packages/<DEV_PROJECT_NAME>/src/<DEV_PACKAGE_NAME>/cli/__init__.py`
+**Target path:** `packages/<DEV_PROJECT_NAME>/src/<DEV_PACKAGE_NAME>/cli/main.py`
 
 ```python
 """Static CLI definition for <DEV_PROJECT_NAME>.
@@ -144,7 +148,7 @@ commands/
 ## Critical: Function Naming Convention
 
 **The Click command function MUST be named `{command_name}_command`** to match
-the import in `cli/__init__.py`.
+the import in `cli/main.py`.
 
 - Command name: `my-command` (kebab-case in CLI)
 - Function name: `my_command_command` (snake_case with `_command` suffix)
@@ -152,7 +156,7 @@ the import in `cli/__init__.py`.
 
 ## Static Import Architecture
 
-The `cli/__init__.py` module uses **static imports** (not dynamic command
+The `cli/main.py` module uses **static imports** (not dynamic command
 discovery) to enable shell completion:
 
 ```python
@@ -166,7 +170,7 @@ time for inspection.
 ## Adding a New Command
 
 1. Create `commands/my_command/command.py`
-2. Import and register in `cli/__init__.py`
+2. Import and register in `cli/main.py`
 3. Add a help test in `tests/test_commands.py`
 
 ## Context Injection

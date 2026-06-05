@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-<DEV_PROJECT_NAME> = "<DEV_PACKAGE_NAME>.__main__:cli"
+<DEV_PROJECT_NAME> = "<DEV_PACKAGE_NAME>.cli.main:cli"
 
 [build-system]
 requires = ["hatchling"]

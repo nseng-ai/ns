@@ -30,8 +30,6 @@ if __name__ == "__main__":
 
 ## Tests
 
-Create `tests/__init__.py` as an empty file.
-
 **Target path:** `tests/test_<PACKAGE_NAME>.py`
 
 ```python

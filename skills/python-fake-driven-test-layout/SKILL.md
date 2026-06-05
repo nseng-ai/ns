@@ -41,10 +41,12 @@ same default subdirectories apply.
 Every gateway domain (`gh`, `git`, `storage`, `queue`, …) gets its own
 subpackage under `src/<package>/gateways/<domain>/` containing exactly three
 files: `gateway.py` (ABC + shared types), `real.py` (real impl), `fake.py`
-(in-memory fake). An optional `__init__.py` may re-export the three classes
-so callers can write either `from <package>.gateways.gh import FakeGhGateway`
-or `from <package>.gateways.gh.fake import FakeGhGateway` — both forms are
-fine.
+(in-memory fake). An optional `__init__.py` may exist for package mechanics,
+but it must be empty or docstring-only. Do not re-export gateway classes from
+it. Callers import from the canonical source modules instead:
+`from <package>.gateways.gh.gateway import GhGateway`,
+`from <package>.gateways.gh.real import RealGhGateway`, or
+`from <package>.gateways.gh.fake import FakeGhGateway`.
 
 **Rationale.** Fakes are imported across every test directory (`unit/`,
 `scenario/`, `gateways/`). Putting them in `tests/` forces a `sys.path` hack
@@ -52,7 +54,9 @@ in `conftest.py` so each subdirectory can find them; putting them in `src/`
 makes them importable via normal package distribution with no tricks.
 Grouping gateway/real/fake into one domain folder also keeps the three
 implementations in lockstep — when a method is added to the ABC or a
-signature changes, the real and fake are sitting right next to it.
+signature changes, the real and fake are sitting right next to it. Canonical
+module imports also keep package `__init__.py` files empty/docstring-only and
+avoid public re-export paths.
 
 **Forbidden.** `conftest.py` path manipulation, fakes anywhere under
 `tests/`, and splitting ABC/real/fake across unrelated folders (e.g.

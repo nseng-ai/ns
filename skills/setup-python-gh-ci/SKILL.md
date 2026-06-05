@@ -1,7 +1,7 @@
 ---
 name: setup-python-gh-ci
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
-# "Generate GitHub Actions CI workflow for Python projects using uv and just. Use when the user wants to set up CI, add GitHub Actions, create a CI workflow, configure continuous integration, or add automated testing to their project. Produces .github/workflows/python-ci.yml and .github/actions/setup-python-uv/action.yml with jobs for lint, format-check, ty, and test (with Python version matrix)."
+# "Generate GitHub Actions CI workflow for Python projects using uv and just. Use when the user wants to set up CI, add GitHub Actions, create a CI workflow, configure continuous integration, or add automated testing to their project. Produces .github/workflows/ci.yml and .github/actions/setup-python-uv/action.yml with jobs for lint, format-check, ty, and test (with Python version matrix)."
 description: "Command: setup-python-gh-ci"
 references:
   - templates/composite-action
@@ -12,6 +12,7 @@ allowed-tools:
   - "Bash(command -v *)"
   - "Bash(gh auth status*)"
   - "Bash(gh api *)"
+  - "Bash(git *)"
 ---
 
 # setup-python-gh-ci
@@ -22,7 +23,7 @@ uv, ruff, ty, pytest, and justfile.
 ## What it creates
 
 1. `.github/actions/setup-python-uv/action.yml` -- reusable composite action
-2. `.github/workflows/python-ci.yml` -- CI workflow with 4 jobs
+2. `.github/workflows/ci.yml` -- CI workflow with 4 jobs
 
 ## Preconditions
 
@@ -81,7 +82,24 @@ baking a stale SHA into the template.
 
 4. Show the resolved ref to the user before writing the file.
 
-### Step 3: Create the composite action
+### Step 3: Detect the default branch
+
+Detect the repository's default branch before writing the workflow so the
+`push` trigger follows the project instead of assuming `main`.
+
+1. Try local git metadata first:
+
+   ```bash
+   git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##'
+   ```
+
+2. If that is unavailable, check existing local branch/ref names and prefer
+   `master` when it exists, then `main`.
+3. If neither heuristic is conclusive, ask the user to confirm the default
+   branch name.
+4. Present the detected default branch to the user before writing the workflow.
+
+### Step 4: Create the composite action
 
 Create the directory first: `mkdir -p .github/actions/setup-python-uv`
 
@@ -96,20 +114,23 @@ the "SHA-pinned" comment block above the `- uses: astral-sh/setup-uv@...`
 line, since it no longer applies. Leave the cache-related comments in
 place.
 
-### Step 4: Create the CI workflow
+### Step 5: Create the CI workflow
 
 Create the directory first: `mkdir -p .github/workflows`
 
-Create `.github/workflows/python-ci.yml` using the template from
-`templates/ci-workflow.md`. Replace `<PYTHON_VERSIONS>` with the quoted,
-comma-separated version list from Step 1 (e.g., `"3.11", "3.12", "3.13", "3.14"`).
+Create `.github/workflows/ci.yml` using the template from
+`templates/ci-workflow.md`. Replace:
 
-### Step 5: Verify
+- `<PYTHON_VERSIONS>` with the quoted, comma-separated version list from Step 1
+  (e.g., `"3.11", "3.12", "3.13", "3.14"`).
+- `<DEFAULT_BRANCH>` with the default branch detected in Step 3.
+
+### Step 6: Verify
 
 Confirm both files were created:
 
 ```bash
-ls .github/workflows/python-ci.yml .github/actions/setup-python-uv/action.yml
+ls .github/workflows/ci.yml .github/actions/setup-python-uv/action.yml
 ```
 
 Report to the user that CI is set up and list the 4 jobs with the test
