@@ -311,7 +311,7 @@ describe("worktree status extension registration", () => {
 					stdout: JSON.stringify({
 						exit_code: 0,
 						data: {
-							entries: [{ namespace: "brmem-plans", key: "handoffs-graphite-footer-lines.md" }],
+							entries: [{ namespace: "pb-plan", key: "handoffs-graphite-footer-lines.md" }],
 						},
 					}),
 				}),
@@ -383,7 +383,7 @@ describe("worktree status extension registration", () => {
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
 			expect(footerLines.slice(-2)).toEqual([
-				"[brmem] (brmem-plans: handoffs-graphite-footer-lines.md)",
+				"[brmem] (pb-plan: handoffs-graphite-footer-lines.md)",
 				"[gt] (↓: main) (↑: -) (commits)",
 			]);
 			await pi.sessionShutdown?.();
