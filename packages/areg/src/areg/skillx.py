@@ -304,7 +304,7 @@ def skillx_parse_cmd(input_text: str) -> None:
 @click.pass_obj
 def skillx_list_cmd(ctx: AregContext, repo: str) -> None:
     """List available skills from a GitHub repo."""
-    requires_gh()
+    requires_gh(ctx.environment)
     result = list_skills(repo, gh=ctx.gh)
     _emit(result)
     if not result.success:
@@ -317,7 +317,7 @@ def skillx_list_cmd(ctx: AregContext, repo: str) -> None:
 @click.pass_obj
 def skillx_fetch_cmd(ctx: AregContext, repo: str, skill_name: str | None) -> None:
     """Fetch a skill into a temp directory."""
-    requires_npx()
+    requires_npx(ctx.environment)
     result = fetch_skill(repo, skill_name, npx_skills=ctx.npx_skills)
     _emit(result)
     if not result.success:

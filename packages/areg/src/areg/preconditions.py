@@ -7,20 +7,21 @@ helper as its first statement. On failure the helper raises
 
 from __future__ import annotations
 
-import shutil
-
 import click
 
-
-def requires_gh() -> None:
-    if not shutil.which("gh"):
-        raise click.ClickException(
-            "gh CLI is required but not found on PATH. Install GitHub CLI: https://cli.github.com/"
-        )
+from areg.gateways.environment.gateway import AregEnvironment, AregEnvironmentError, ToolName
 
 
-def requires_npx() -> None:
-    if not shutil.which("npx"):
-        raise click.ClickException(
-            "npx is required but not found on PATH. Install Node.js to continue."
-        )
+def require_tool(environment: AregEnvironment, tool: ToolName) -> None:
+    try:
+        environment.require_tool(tool)
+    except AregEnvironmentError as e:
+        raise click.ClickException(str(e)) from e
+
+
+def requires_gh(environment: AregEnvironment) -> None:
+    require_tool(environment, "gh")
+
+
+def requires_npx(environment: AregEnvironment) -> None:
+    require_tool(environment, "npx")

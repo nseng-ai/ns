@@ -4,6 +4,7 @@ import click
 
 from areg.check.runner import check_cmd
 from areg.context import AregContext
+from areg.gateways.environment.real import RealAregEnvironment
 from areg.gateways.gh.real import RealGhCli
 from areg.gateways.npx_skills.real import RealNpxSkills
 from areg.init_project import init_project_cmd
@@ -16,7 +17,11 @@ from areg.update_skills import update_skills_cmd
 def main(ctx: click.Context) -> None:
     """areg CLI."""
     if ctx.obj is None:
-        ctx.obj = AregContext(gh=RealGhCli(), npx_skills=RealNpxSkills())
+        ctx.obj = AregContext(
+            gh=RealGhCli(),
+            npx_skills=RealNpxSkills(),
+            environment=RealAregEnvironment(),
+        )
 
 
 main.add_command(init_project_cmd)

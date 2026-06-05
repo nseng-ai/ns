@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import importlib.resources
 import json
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
 from areg.context import AregContext
+from areg.gateways.environment.gateway import AregEnvironment, GitRootDiscoveryError
 from areg.gateways.npx_skills.gateway import NpxSkillsError
 from areg.preconditions import requires_npx
 from areg.project_agents import resolve_project_agents
@@ -95,28 +95,12 @@ def _resolve_target_dir(target: str) -> Path:
     return target_dir
 
 
-def _require_git_root(target_dir: Path) -> None:
+def _require_git_root(environment: AregEnvironment, target_dir: Path) -> None:
     try:
-        proc = subprocess.run(
-            ["git", "-C", str(target_dir), "rev-parse", "--show-toplevel"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as e:
-        raise click.ClickException("git is required but was not found on PATH.") from e
-    except subprocess.CalledProcessError as e:
-        raise click.ClickException(
-            f"Target {target_dir} must be a Git worktree root. Run git init first."
-        ) from e
+        root = environment.require_git_root(target_dir)
+    except GitRootDiscoveryError as e:
+        raise click.ClickException(str(e)) from e
 
-    root_raw = proc.stdout.strip()
-    if not root_raw:
-        raise click.ClickException(
-            f"Target {target_dir} must be a Git worktree root. Run git init first."
-        )
-
-    root = Path(root_raw).resolve()
     if root != target_dir:
         raise click.ClickException(
             f"Target {target_dir} is inside a Git worktree but is not the root. "
@@ -552,9 +536,9 @@ def init_project_cmd(
     if assume_yes and no_append:
         raise click.UsageError("--yes and --no-append cannot be used together.")
 
-    requires_npx()
+    requires_npx(ctx.environment)
     project_dir = _resolve_target_dir(target)
-    _require_git_root(project_dir)
+    _require_git_root(ctx.environment, project_dir)
     resolved_agents = resolve_project_agents(project_dir, agents)
     init_plan = _build_init_plan(
         project_dir,

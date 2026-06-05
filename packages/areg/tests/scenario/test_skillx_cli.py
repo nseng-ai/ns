@@ -8,6 +8,7 @@ from click.testing import CliRunner
 
 from areg.cli import main
 from areg.context import AregContext
+from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
 from areg.gateways.npx_skills.gateway import SkillFiles
@@ -17,6 +18,7 @@ def _ctx(*, gh: FakeGhCli | None = None, npx: FakeNpxSkills | None = None) -> Ar
     return AregContext(
         gh=gh or FakeGhCli(),
         npx_skills=npx or FakeNpxSkills(),
+        environment=FakeAregEnvironment(),
     )
 
 

@@ -7,10 +7,78 @@ from pathlib import Path
 
 import pytest
 
+from areg.gateways.environment.fake import FakeAregEnvironment
+from areg.gateways.environment.gateway import GitRootDiscoveryError, ToolMissingError
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.gh.gateway import GhAuthError, GhNotFound
 from areg.gateways.npx_skills.fake import FakeNpxSkills, NpxSkillsInvocation
 from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
+
+# ---------------------------------------------------------------------------
+# FakeAregEnvironment
+# ---------------------------------------------------------------------------
+
+
+def test_fake_environment_available_tools_succeed() -> None:
+    environment = FakeAregEnvironment()
+
+    environment.require_tool("gh")
+    environment.require_tool("npx")
+
+    assert environment.tool_checks == ["gh", "npx"]
+
+
+def test_fake_environment_missing_tools_raise_friendly_errors() -> None:
+    environment = FakeAregEnvironment(available_tools=set())
+
+    with pytest.raises(ToolMissingError, match="gh CLI is required"):
+        environment.require_tool("gh")
+    with pytest.raises(ToolMissingError, match="npx is required"):
+        environment.require_tool("npx")
+
+
+def test_fake_environment_tool_checks_property_returns_copy() -> None:
+    environment = FakeAregEnvironment()
+    environment.require_tool("gh")
+
+    snapshot = environment.tool_checks
+    snapshot.append("npx")
+
+    assert environment.tool_checks == ["gh"]
+
+
+def test_fake_environment_configured_git_root_returns_path(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    environment = FakeAregEnvironment(git_roots={project: project})
+
+    assert environment.require_git_root(project) == project
+    assert environment.git_root_checks == [project]
+
+
+def test_fake_environment_missing_git_root_mapping_raises_standard_error(tmp_path: Path) -> None:
+    with pytest.raises(GitRootDiscoveryError, match="must be a Git worktree root"):
+        FakeAregEnvironment().require_git_root(tmp_path)
+
+
+def test_fake_environment_git_root_checks_property_returns_copy(tmp_path: Path) -> None:
+    environment = FakeAregEnvironment(git_roots={tmp_path: tmp_path})
+    environment.require_git_root(tmp_path)
+
+    snapshot = environment.git_root_checks
+    snapshot.clear()
+
+    assert environment.git_root_checks == [tmp_path]
+
+
+def test_fake_environment_configured_git_root_error_overrides_root(tmp_path: Path) -> None:
+    environment = FakeAregEnvironment(
+        git_roots={tmp_path: tmp_path},
+        git_root_errors={tmp_path: GitRootDiscoveryError("boom")},
+    )
+
+    with pytest.raises(GitRootDiscoveryError, match="boom"):
+        environment.require_git_root(tmp_path)
+
 
 # ---------------------------------------------------------------------------
 # FakeGhCli
