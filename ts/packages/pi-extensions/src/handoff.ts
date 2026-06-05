@@ -1,24 +1,40 @@
-import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
-
-import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { isRecord } from "./cmux/primitives.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";
+import { buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
+import {
+	BRMEM_TIMEOUT_MS,
+	CREATE_HANDOFF_COMMAND_NAME,
+	HANDOFF_TIMEOUT_MS,
+	HANDOFF_TAB_COMMAND_NAME,
+	LIST_HANDOFF_COMMAND_NAME,
+	PICKUP_HANDOFF_COMMAND_NAME,
+	CREATE_HANDOFF_FALLBACK,
+	CREATE_HANDOFF_SKILL_NAME,
+	currentBranch,
+	errorMessage,
+	expandHandoffSkill,
+	fencedBlock,
+	formatExecFailure,
+	formatStartupFailure,
+	resolveCreateFocus,
+	setStatus,
+} from "./handoff/shared.ts";
+import type {
+	CommandContext,
+	CustomMessage,
+	ExtensionAPI,
+	RenderComponent,
+	RenderTheme,
+} from "./handoff/runtime-types.ts";
 
-export type { ExecResult } from "./command-runtime.ts";
+export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";
+export type { HandoffTabLaunchResult } from "./handoff/tab.ts";
+export { buildHandoffTabPrompt, deriveSemanticHandoffSlug };
 
-const HANDOFF_NAMESPACE = "handoffs";
-const HANDOFF_KEY_SUFFIX = ".md";
-const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
-const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
-const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
-const CREATE_HANDOFF_SKILL_NAME = "handoff-create";
-const HANDOFF_TIMEOUT_MS = 30_000;
-const BRMEM_TIMEOUT_MS = 30_000;
-const GIT_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
 const MAX_PREVIEW_CHARS = 240;
-const CREATE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
 
@@ -38,85 +54,6 @@ Options:
   --branch <branch>  List handoffs from an explicit branch instead of the current branch.
   --all              List handoffs across active branches.
   --help, -h         Show this help.`;
-
-const CREATE_HANDOFF_FALLBACK = `Use the handoff-create workflow to create a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
-
-Storage contract:
-- Namespace: \`${HANDOFF_NAMESPACE}\`
-- Entry key shape: \`<semantic-slug>${HANDOFF_KEY_SUFFIX}\`
-- Check for an existing artifact with \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\`.
-- Store final Markdown directly with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
-
-If review or editing is needed before creating the handoff, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
-
-Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the created handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
-
-type NotifyLevel = "info" | "warning" | "error";
-
-interface AutocompleteItem {
-	value: string;
-	label?: string;
-	description?: string;
-}
-
-interface CommandInfo {
-	name: string;
-	source: string;
-	sourceInfo: {
-		path: string;
-		source?: string;
-		scope?: string;
-		origin?: string;
-		baseDir?: string;
-	};
-}
-
-interface CustomMessage {
-	customType: string;
-	content: string;
-	display: boolean;
-	details?: unknown;
-}
-
-interface RenderTheme {
-	fg(color: string, text: string): string;
-	bold?(text: string): string;
-}
-
-interface RenderComponent {
-	render(width: number): string[];
-	invalidate(): void;
-}
-
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
-
-export interface CommandContext {
-	cwd: string;
-	hasUI: boolean;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
-		select?(title: string, items: string[]): Promise<string | undefined>;
-		input?(title: string, placeholder?: string): Promise<string | undefined>;
-		setStatus?(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-export interface ExtensionAPI {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
-	getCommands?(): CommandInfo[];
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(message: CustomMessage): void;
-	sendUserMessage(content: string): void;
-}
 
 export interface PickupHandoffArgs {
 	help: boolean;
@@ -478,26 +415,6 @@ function handoffKeyTokens(key: string): string[] {
 	return splitSelectorTerms([handoffSlug(key)]);
 }
 
-function handoffSlug(key: string): string {
-	return key.slice(0, -HANDOFF_KEY_SUFFIX.length);
-}
-
-function isHandoffKey(key: string): boolean {
-	return key.endsWith(HANDOFF_KEY_SUFFIX) && !key.includes("/") && key.length > HANDOFF_KEY_SUFFIX.length;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function fencedBlock(language: string, content: string): string {
-	let fence = "```";
-	while (content.includes(fence)) {
-		fence += "`";
-	}
-	return `${fence}${language}\n${content.trimEnd()}\n${fence}`;
-}
-
 async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
 	const focus = await resolveCreateFocus(pi, args, ctx);
@@ -505,10 +422,10 @@ async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: C
 		return;
 	}
 
-	let skill: Awaited<ReturnType<typeof expandSkill>>;
+	let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
 	let skillReadError: string | undefined;
 	try {
-		skill = await expandSkill(pi, CREATE_HANDOFF_SKILL_NAME);
+		skill = await expandHandoffSkill(pi, CREATE_HANDOFF_SKILL_NAME);
 	} catch (error) {
 		skillReadError = errorMessage(error);
 	}
@@ -517,26 +434,6 @@ async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: C
 		ctx.ui.notify(createHandoffStartMessage(skill, skillReadError), skill ? "info" : "warning");
 	}
 	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
-}
-
-async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<string | undefined> {
-	const focus = rawArgs.trim();
-	if (focus.length > 0) {
-		return focus;
-	}
-
-	if (ctx.hasUI && ctx.ui.input !== undefined) {
-		const response = await ctx.ui.input(CREATE_FOCUS_QUESTION);
-		const promptedFocus = response?.trim() ?? "";
-		if (promptedFocus.length > 0) {
-			return promptedFocus;
-		}
-		ctx.ui.notify("Continuation focus is required to create a handoff.", "warning");
-		return undefined;
-	}
-
-	pi.sendUserMessage(`Ask the user exactly this question before creating a handoff: ${CREATE_FOCUS_QUESTION}\n\nDo not create a handoff until the user answers with a meaningful continuation focus.`);
-	return undefined;
 }
 
 async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
@@ -673,7 +570,7 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	emitHandoffList(pi, ctx, details);
 }
 
-function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>, skillReadError: string | undefined): string {
+function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandHandoffSkill>>, skillReadError: string | undefined): string {
 	if (skill !== undefined) {
 		return "Starting handoff create workflow…";
 	}
@@ -681,45 +578,6 @@ function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>
 		return `Could not read handoff-create skill; using fallback handoff-create workflow prompt. ${skillReadError}`;
 	}
 	return "handoff-create skill was not found; using fallback handoff-create workflow prompt.";
-}
-
-async function expandSkill(pi: ExtensionAPI, skillName: string): Promise<{ name: string; block: string } | undefined> {
-	const command = pi.getCommands?.().find((candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`);
-	if (command === undefined) {
-		return undefined;
-	}
-
-	const skillPath = command.sourceInfo.path;
-	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
-	const body = stripFrontmatter(await readFile(skillPath, "utf8"));
-	return {
-		name: skillName,
-		block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
-	};
-}
-
-function stripFrontmatter(markdown: string): string {
-	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
-}
-
-async function currentBranch(pi: ExtensionAPI, ctx: CommandContext, action: "pick up" | "list"): Promise<string> {
-	const commandArgs = ["branch", "--show-current"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("git", commandArgs, { cwd: ctx.cwd, timeout: GIT_TIMEOUT_MS });
-	} catch (error) {
-		throw new Error(formatStartupFailure(formatCommand("git", commandArgs), error));
-	}
-	if (result.code !== 0 || result.killed) {
-		throw new Error(formatExecFailure(formatCommand("git", commandArgs), result));
-	}
-
-	const branch = result.stdout.trim();
-	if (branch.length === 0) {
-		const recovery = action === "list" ? "pass --branch <branch> or --all" : "pass --branch <branch>";
-		throw new Error(`Cannot ${action} handoffs in detached HEAD; ${recovery}.`);
-	}
-	return branch;
 }
 
 async function listHandoffItems(
@@ -747,7 +605,7 @@ async function listHandoffItems(
 	return { type: "loaded", items: parsedItems.items };
 }
 
-async function readHandoff(pi: ExtensionAPI, ctx: CommandContext, branch: string, key: string): Promise<string> {
+async function readHandoff(pi: ExtensionAPI, ctx: Pick<CommandContext, "cwd">, branch: string, key: string): Promise<string> {
 	const commandArgs = ["get", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch];
 	let result: ExecResult;
 	try {
@@ -877,7 +735,7 @@ export function groupHandoffListItemsByBranch(items: HandoffListMessageItem[]): 
 
 function formatHandoffListLines(details: HandoffListMessageDetails): string[] {
 	const branch = details.branch ?? details.items[0]?.branch ?? "current branch";
-	const lines = [details.mode === "all-branches" ? "Handoffs across active branches" : `Handoffs on ${branch}`];
+	const lines = [details.mode === "all-branches" ? "Handoffs across branches" : `Handoffs on ${branch}`];
 	if (details.items.length === 0) {
 		return lines;
 	}
@@ -976,33 +834,16 @@ function compactPreview(preview: string): string {
 	return `${compacted.slice(0, MAX_PREVIEW_CHARS - 1)}…`;
 }
 
-function setStatus(ctx: CommandContext, key: string, value: string | undefined): void {
-	if (ctx.hasUI) {
-		ctx.ui.setStatus?.(key, value);
-	}
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
-}
-
-function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${errorMessage(error)}`);
-}
-
-function truncateError(message: string): string {
-	return tailText(message, { maxChars: MAX_ERROR_CHARS });
-}
-
 export default function handoffExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
+
+	if (pi.registerTool !== undefined) {
+		pi.registerTool(buildHandoffTabLaunchTool(pi));
+		pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
+			description: "Create a handoff and open a focused cmux tab to pick it up.",
+			handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
+		});
+	}
 
 	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
 		description: "Create a directed handoff artifact for a future continuation.",

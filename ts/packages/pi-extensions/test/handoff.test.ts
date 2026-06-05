@@ -1,7 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 import handoffExtension, {
 	HANDOFF_LIST_MESSAGE_TYPE,
@@ -17,280 +14,23 @@ import handoffExtension, {
 	parsePickupHandoffArgs,
 	renderHandoffListMessage,
 	resolveHandoffKey,
-	type CommandContext,
-	type ExecResult,
-	type ExtensionAPI,
 	type HandoffListMessageDetails,
 	type HandoffListMessageItem,
 } from "../src/handoff.ts";
-
-const ROOT = "/repo";
-const BRANCH = "feature/handoff";
-
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type CommandInfo = NonNullable<ReturnType<NonNullable<ExtensionAPI["getCommands"]>>>[number];
-type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
-type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
-
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: { cwd?: string; timeout?: number } | undefined;
-}
-
-interface ScriptedExec {
-	command: string;
-	args: string[];
-	result: Partial<ExecResult> | undefined;
-}
-
-interface Notification {
-	message: string;
-	level: "info" | "warning" | "error" | undefined;
-}
-
-interface Selection {
-	title: string;
-	items: string[];
-}
-
-interface InputPrompt {
-	title: string;
-	placeholder: string | undefined;
-}
-
-class FakePi implements ExtensionAPI {
-	readonly commands = new Map<string, RegisteredCommand>();
-	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
-	readonly renderers = new Map<string, MessageRenderer>();
-	readonly sentMessages: CustomMessage[] = [];
-	readonly sentUserMessages: string[] = [];
-	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
-	readonly sendMessage?: (message: CustomMessage) => void;
-	private readonly script: ScriptedExec[];
-	private readonly commandInfos: CommandInfo[];
-
-	constructor(
-		script: ScriptedExec[] = [],
-		commandInfos: CommandInfo[] = [],
-		options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
-	) {
-		this.script = [...script];
-		this.commandInfos = [...commandInfos];
-		if (options.registerMessageRenderer ?? true) {
-			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
-				this.renderers.set(customType, renderer);
-			};
-		}
-		if (options.sendMessage ?? true) {
-			this.sendMessage = (message: CustomMessage): void => {
-				this.sentMessages.push(message);
-			};
-		}
-	}
-
-	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
-	}
-
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (expected === undefined) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		if (expected.command !== command || !sameArgs(expected.args, args)) {
-			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		return execResult(expected.result);
-	}
-
-	getCommands(): CommandInfo[] {
-		return this.commandInfos;
-	}
-
-	sendUserMessage(content: string): void {
-		this.sentUserMessages.push(content);
-	}
-
-	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
-	}
-}
-
-function sameArgs(left: string[], right: string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return {
-		stdout: overrides.stdout ?? "",
-		stderr: overrides.stderr ?? "",
-		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-	};
-}
-
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
-	return { command, args, result };
-}
-
-function createContext(
-	options: {
-		hasUI?: boolean;
-		cancelSelect?: boolean;
-		selectIndex?: number;
-		inputResponse?: string;
-		inputUnavailable?: boolean;
-	} = {},
-): {
-	ctx: CommandContext;
-	notifications: Notification[];
-	selections: Selection[];
-	inputs: InputPrompt[];
-	statuses: Array<string | undefined>;
-	waitForIdleCalls: () => number;
-} {
-	const notifications: Notification[] = [];
-	const selections: Selection[] = [];
-	const inputs: InputPrompt[] = [];
-	const statuses: Array<string | undefined> = [];
-	let waits = 0;
-
-	const ui: CommandContext["ui"] = {
-		notify(message: string, level?: "info" | "warning" | "error"): void {
-			notifications.push({ message, level });
-		},
-		async select(title: string, items: string[]): Promise<string | undefined> {
-			selections.push({ title, items: [...items] });
-			if (options.cancelSelect) {
-				return undefined;
-			}
-			return items[options.selectIndex ?? 0];
-		},
-		setStatus(_key: string, value: string | undefined): void {
-			statuses.push(value);
-		},
-	};
-
-	if (!options.inputUnavailable) {
-		ui.input = async (title: string, placeholder?: string): Promise<string | undefined> => {
-			inputs.push({ title, placeholder });
-			return options.inputResponse;
-		};
-	}
-
-	const ctx: CommandContext = {
-		cwd: ROOT,
-		hasUI: options.hasUI ?? true,
-		ui,
-		async waitForIdle(): Promise<void> {
-			waits += 1;
-		},
-	};
-
-	return { ctx, notifications, selections, inputs, statuses, waitForIdleCalls: () => waits };
-}
-
-async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list",
-	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: {
-		hasUI?: boolean;
-		cancelSelect?: boolean;
-		selectIndex?: number;
-		inputResponse?: string;
-		inputUnavailable?: boolean;
-	} = {},
-	commandInfos: CommandInfo[] = [],
-	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
-): Promise<{
-	pi: FakePi;
-	notifications: Notification[];
-	selections: Selection[];
-	inputs: InputPrompt[];
-	statuses: Array<string | undefined>;
-	waitForIdleCalls: () => number;
-}> {
-	const pi = new FakePi(script, commandInfos, piOptions);
-	handoffExtension(pi);
-	const command = pi.commands.get(commandName);
-	expect(command).toBeDefined();
-	if (command === undefined) {
-		throw new Error(`${commandName} was not registered`);
-	}
-	const context = createContext(contextOptions);
-	await command.handler(args, context.ctx);
-	return { pi, ...context };
-}
-
-function listJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			scope: branch === null ? "all-branches" : "branch",
-			branch,
-			include_deleted: false,
-			handoffs: entries.map((entry) => {
-				const key = typeof entry === "string" ? entry : entry.key;
-				const entryBranch = typeof entry === "string" ? (branch ?? BRANCH) : entry.branch;
-				return {
-					branch: entryBranch,
-					branch_state: "active",
-					slug: key.replace(/\.md$/, ""),
-					key,
-					entry_locator: `refs/brmem/ns/handoffs/${entryBranch}:${key}`,
-					updated_at: "2026-06-05T00:00:00Z",
-				};
-			}),
-		},
-	});
-}
-
-function brmemListJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			namespace: "handoffs",
-			key: null,
-			branch,
-			all_branches: branch === null,
-			entries: entries.map((entry) => {
-				if (typeof entry === "string") {
-					return { namespace: "handoffs", key: entry, branch: branch ?? BRANCH };
-				}
-				return { namespace: "handoffs", key: entry.key, branch: entry.branch };
-			}),
-		},
-	});
-}
-
-function branchStep(branch = BRANCH): ScriptedExec {
-	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n` });
-}
-
-function listStep(branch: string, keys: string[]): ScriptedExec {
-	return step("handoff", ["list", "--branch", branch, "--format", "json"], {
-		stdout: listJson(keys, branch),
-	});
-}
-
-function listAllStep(entries: Array<{ key: string; branch: string }>): ScriptedExec {
-	return step("handoff", ["list", "--all", "--format", "json"], {
-		stdout: listJson(entries, null),
-	});
-}
-
-function getStep(branch: string, key: string, artifact: string): ScriptedExec {
-	return step("brmem", ["get", key, "--namespace", "handoffs", "--branch", branch], { stdout: artifact });
-}
+import {
+	BRANCH,
+	FakePi,
+	ROOT,
+	branchStep,
+	brmemListJson,
+	getStep,
+	listAllStep,
+	listStep,
+	runCommand,
+	skillCommandInfo,
+	withTempSkill,
+	type CustomMessage,
+} from "./handoff-test-fakes.ts";
 
 function noopTheme(): { fg(_color: string, text: string): string; bold(text: string): string } {
 	return {
@@ -330,46 +70,20 @@ function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: R
 	}
 }
 
-async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
-	const skillPath = join(dir, "SKILL.md");
-	await writeFile(
-		skillPath,
-		`---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`,
-		"utf8",
-	);
-	try {
-		return await callback(skillPath);
-	} finally {
-		await rm(dir, { recursive: true, force: true });
-	}
-}
-
-function skillCommandInfo(skillPath: string): CommandInfo {
-	return {
-		name: "skill:handoff-create",
-		source: "skill",
-		sourceInfo: {
-			path: skillPath,
-			source: "project",
-			scope: "project",
-			origin: "top-level",
-		},
-	};
-}
-
 describe("handoff extension", () => {
-	test("registers only create pickup and list commands", () => {
+	test("registers core handoff commands and list renderer without tool support", () => {
 		const pi = new FakePi();
+		(pi as unknown as { registerTool?: undefined }).registerTool = undefined;
 
 		handoffExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:pickup"]);
+		expect(pi.commands.has("handoff-tab")).toBe(false);
 		expect(pi.commands.has("handoff:load")).toBe(false);
-		expect(pi.commands.has("handoff:save")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
 		expect([...pi.renderers.keys()]).toEqual([HANDOFF_LIST_MESSAGE_TYPE]);
+		expect([...pi.tools.keys()]).toEqual([]);
 		expect(pi.commands.get("handoff:create")?.description).toBe("Create a directed handoff artifact for a future continuation.");
 		expect(pi.commands.get("handoff:pickup")?.description).toBe("Pick up a handoff by slug, selector, or picker.");
 		expect(pi.commands.get("handoff:list")?.description).toBe("List handoffs on this branch or across active branches.");
@@ -601,7 +315,7 @@ describe("handoff extension", () => {
 			],
 		});
 		const rendered = renderMessageText(message);
-		expect(rendered).toContain("Handoffs across active branches");
+		expect(rendered).toContain("Handoffs across branches");
 		expect(rendered).toContain("feat/a\n  1. alpha");
 		expect(rendered).toContain("→ /handoff:pickup --branch feat/a alpha");
 		expect(rendered).toContain("feat/b\n  2. bravo");
@@ -822,7 +536,7 @@ describe("handoff pure helpers", () => {
 		);
 
 		expect(component.render(120)).toEqual([
-			"<accent><bold>Handoffs across active branches</bold></accent>",
+			"<accent><bold>Handoffs across branches</bold></accent>",
 			"",
 			"<accent>feat/a</accent>",
 			"<dim>  1. </dim><accent><bold>alpha</bold></accent>",
