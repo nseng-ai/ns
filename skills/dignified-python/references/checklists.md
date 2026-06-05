@@ -91,6 +91,19 @@ description: All decision checklists consolidated for final review before commit
 
 ---
 
+## Before Aliasing an Import
+
+- [ ] Is this a third-party convention the ecosystem expects (`numpy as np`, `pandas as pd`)?
+- [ ] Am I avoiding a collision with an external symbol I do not control?
+- [ ] Is the alias required by a documented third-party API idiom?
+- [ ] If this is first-party code, can I keep the canonical name visible instead?
+- [ ] Am I aliasing only to shorten a path or preserve an old local/private helper name? If yes,
+      do not alias; update call sites.
+
+**Default: Do not alias first-party imports. Keep canonical names grep-friendly.**
+
+---
+
 ## Before Declaring a Local Variable
 
 - [ ] Is this variable used more than once?

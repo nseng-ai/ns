@@ -160,6 +160,8 @@ content = path.read_text()  # Platform-dependent!
 2. **Use absolute imports only** (no relative imports)
 3. **Inline imports only for specific exceptions** (circular deps, TYPE_CHECKING, conditional
    features)
+4. **Do not alias first-party imports by default** — aliases hide canonical names, hurt grep,
+   and make agent reasoning worse.
 
 ```python
 # CORRECT: Module-level imports
@@ -181,6 +183,33 @@ from .config import load_config
 def my_function() -> None:
     import json  # NEVER do this
 ```
+
+### Import Aliases
+
+**Avoid aliases for first-party imports.** Use the real module or symbol name unless there is a
+strong reason not to.
+
+Aliases are acceptable only with strong justification, usually:
+
+- established third-party conventions (`import numpy as np`, `import pandas as pd`);
+- avoiding a collision with an external library symbol you do not control;
+- matching a documented third-party API idiom.
+
+```python
+# CORRECT: Canonical first-party names remain visible and grep-friendly
+from myapp.cleanup_rendering import cleanup_to_result
+import myapp.cleanup_rendering
+
+# WRONG: Aliasing first-party helpers to preserve old local/private names
+from myapp.cleanup_rendering import cleanup_to_result as _cleanup_to_result
+
+# WRONG: Convenience alias for a first-party module with no strong justification
+import myapp.cleanup_rendering as cleanup_rendering
+```
+
+When many helpers from one first-party module are used, either import the needed symbols without
+aliases or import the module namespace without `as` and qualify call sites. If the unaliased path is
+too long, reconsider module placement or naming instead of hiding it behind an alias.
 
 For detailed inline import patterns and when they're legitimate, see `references/module-design.md`.
 
