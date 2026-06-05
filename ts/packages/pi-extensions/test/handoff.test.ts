@@ -1,15 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 import handoffExtension, {
 	HANDOFF_LIST_MESSAGE_TYPE,
 	buildCreateHandoffPrompt,
-	buildHandoffTabPrompt,
 	buildPickupHandoffPrompt,
 	deriveHandoffPreview,
-	deriveSemanticHandoffSlug,
 	formatHandoffListPlain,
 	formatHandoffPickupCommand,
 	groupHandoffListItemsByBranch,
@@ -19,321 +14,23 @@ import handoffExtension, {
 	parsePickupHandoffArgs,
 	renderHandoffListMessage,
 	resolveHandoffKey,
-	type CommandContext,
-	type ExecResult,
-	type ExtensionAPI,
 	type HandoffListMessageDetails,
 	type HandoffListMessageItem,
 } from "../src/handoff.ts";
-
-const ROOT = "/repo";
-const BRANCH = "feature/handoff";
-
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type RegisteredTool = Parameters<NonNullable<ExtensionAPI["registerTool"]>>[0];
-type CommandInfo = NonNullable<ReturnType<NonNullable<ExtensionAPI["getCommands"]>>>[number];
-type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
-type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
-
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: { cwd?: string; timeout?: number; signal?: AbortSignal } | undefined;
-}
-
-interface ScriptedExec {
-	command: string;
-	args: string[];
-	result: Partial<ExecResult> | undefined;
-}
-
-interface Notification {
-	message: string;
-	level: "info" | "warning" | "error" | undefined;
-}
-
-interface Selection {
-	title: string;
-	items: string[];
-}
-
-interface InputPrompt {
-	title: string;
-	placeholder: string | undefined;
-}
-
-class FakePi implements ExtensionAPI {
-	readonly commands = new Map<string, RegisteredCommand>();
-	readonly tools = new Map<string, RegisteredTool>();
-	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
-	readonly renderers = new Map<string, MessageRenderer>();
-	readonly sentMessages: CustomMessage[] = [];
-	readonly sentUserMessages: string[] = [];
-	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
-	readonly sendMessage?: (message: CustomMessage) => void;
-	private readonly script: ScriptedExec[];
-	private readonly commandInfos: CommandInfo[];
-
-	constructor(
-		script: ScriptedExec[] = [],
-		commandInfos: CommandInfo[] = [],
-		options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
-	) {
-		this.script = [...script];
-		this.commandInfos = [...commandInfos];
-		if (options.registerMessageRenderer ?? true) {
-			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
-				this.renderers.set(customType, renderer);
-			};
-		}
-		if (options.sendMessage ?? true) {
-			this.sendMessage = (message: CustomMessage): void => {
-				this.sentMessages.push(message);
-			};
-		}
-	}
-
-	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
-	}
-
-	registerTool(tool: RegisteredTool): void {
-		this.tools.set(tool.name, tool);
-	}
-
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (expected === undefined) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		if (expected.command !== command || !sameArgs(expected.args, args)) {
-			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		return execResult(expected.result);
-	}
-
-	getCommands(): CommandInfo[] {
-		return this.commandInfos;
-	}
-
-	getThinkingLevel(): "medium" {
-		return "medium";
-	}
-
-	sendUserMessage(content: string): void {
-		this.sentUserMessages.push(content);
-	}
-
-	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
-	}
-}
-
-function sameArgs(left: string[], right: string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return {
-		stdout: overrides.stdout ?? "",
-		stderr: overrides.stderr ?? "",
-		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-	};
-}
-
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
-	return { command, args, result };
-}
-
-function createContext(
-	options: {
-		hasUI?: boolean;
-		cancelSelect?: boolean;
-		selectIndex?: number;
-		inputResponse?: string;
-		inputUnavailable?: boolean;
-	} = {},
-): {
-	ctx: CommandContext;
-	notifications: Notification[];
-	selections: Selection[];
-	inputs: InputPrompt[];
-	statuses: Array<string | undefined>;
-	waitForIdleCalls: () => number;
-} {
-	const notifications: Notification[] = [];
-	const selections: Selection[] = [];
-	const inputs: InputPrompt[] = [];
-	const statuses: Array<string | undefined> = [];
-	let waits = 0;
-
-	const ui: CommandContext["ui"] = {
-		notify(message: string, level?: "info" | "warning" | "error"): void {
-			notifications.push({ message, level });
-		},
-		async select(title: string, items: string[]): Promise<string | undefined> {
-			selections.push({ title, items: [...items] });
-			if (options.cancelSelect) {
-				return undefined;
-			}
-			return items[options.selectIndex ?? 0];
-		},
-		setStatus(_key: string, value: string | undefined): void {
-			statuses.push(value);
-		},
-	};
-
-	if (!options.inputUnavailable) {
-		ui.input = async (title: string, placeholder?: string): Promise<string | undefined> => {
-			inputs.push({ title, placeholder });
-			return options.inputResponse;
-		};
-	}
-
-	const ctx: CommandContext = {
-		cwd: ROOT,
-		hasUI: options.hasUI ?? true,
-		ui,
-		async waitForIdle(): Promise<void> {
-			waits += 1;
-		},
-	};
-
-	return { ctx, notifications, selections, inputs, statuses, waitForIdleCalls: () => waits };
-}
-
-async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "handoff-tab",
-	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: {
-		hasUI?: boolean;
-		cancelSelect?: boolean;
-		selectIndex?: number;
-		inputResponse?: string;
-		inputUnavailable?: boolean;
-	} = {},
-	commandInfos: CommandInfo[] = [],
-	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
-): Promise<{
-	pi: FakePi;
-	notifications: Notification[];
-	selections: Selection[];
-	inputs: InputPrompt[];
-	statuses: Array<string | undefined>;
-	waitForIdleCalls: () => number;
-}> {
-	const pi = new FakePi(script, commandInfos, piOptions);
-	handoffExtension(pi);
-	const command = pi.commands.get(commandName);
-	expect(command).toBeDefined();
-	if (command === undefined) {
-		throw new Error(`${commandName} was not registered`);
-	}
-	const context = createContext(contextOptions);
-	await command.handler(args, context.ctx);
-	return { pi, ...context };
-}
-
-function listJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			scope: branch === null ? "all-branches" : "branch",
-			branch,
-			include_deleted: false,
-			handoffs: entries.map((entry) => {
-				const key = typeof entry === "string" ? entry : entry.key;
-				const entryBranch = typeof entry === "string" ? (branch ?? BRANCH) : entry.branch;
-				return {
-					branch: entryBranch,
-					branch_state: "active",
-					slug: key.replace(/\.md$/, ""),
-					key,
-					entry_locator: `refs/brmem/ns/handoffs/${entryBranch}:${key}`,
-					updated_at: "2026-06-05T00:00:00Z",
-				};
-			}),
-		},
-	});
-}
-
-function brmemListJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			namespace: "handoffs",
-			key: null,
-			branch,
-			all_branches: branch === null,
-			entries: entries.map((entry) => {
-				if (typeof entry === "string") {
-					return { namespace: "handoffs", key: entry, branch: branch ?? BRANCH };
-				}
-				return { namespace: "handoffs", key: entry.key, branch: entry.branch };
-			}),
-		},
-	});
-}
-
-function branchStep(branch = BRANCH): ScriptedExec {
-	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n` });
-}
-
-function listStep(branch: string, keys: string[]): ScriptedExec {
-	return step("handoff", ["list", "--branch", branch, "--format", "json"], {
-		stdout: listJson(keys, branch),
-	});
-}
-
-function listAllStep(entries: Array<{ key: string; branch: string }>): ScriptedExec {
-	return step("handoff", ["list", "--all", "--format", "json"], {
-		stdout: listJson(entries, null),
-	});
-}
-
-function getStep(branch: string, key: string, artifact: string): ScriptedExec {
-	return step("brmem", ["get", key, "--namespace", "handoffs", "--branch", branch], { stdout: artifact });
-}
-
-function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
-	return step("brmem", ["check", key, "--namespace", "handoffs", "--branch", branch], { code: exists ? 0 : 1 });
-}
-
-function cmuxIdentifyStep(): ScriptedExec {
-	return step("cmux", ["identify", "--json", "--id-format", "both"], {
-		stdout: JSON.stringify({ caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" } }),
-	});
-}
-
-function cmuxCreateSurfaceStep(): ScriptedExec {
-	return step(
-		"cmux",
-		[
-			"--json",
-			"new-surface",
-			"--type",
-			"terminal",
-			"--workspace",
-			"workspace-1",
-			"--pane",
-			"pane-1",
-			"--focus",
-			"true",
-			"--window",
-			"window-1",
-		],
-		{ stdout: JSON.stringify({ surface_id: "surface-1", workspace_id: "workspace-1" }) },
-	);
-}
+import {
+	BRANCH,
+	FakePi,
+	ROOT,
+	branchStep,
+	brmemListJson,
+	getStep,
+	listAllStep,
+	listStep,
+	runCommand,
+	skillCommandInfo,
+	withTempSkill,
+	type CustomMessage,
+} from "./handoff-test-fakes.ts";
 
 function noopTheme(): { fg(_color: string, text: string): string; bold(text: string): string } {
 	return {
@@ -373,48 +70,20 @@ function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: R
 	}
 }
 
-async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
-	const skillPath = join(dir, "SKILL.md");
-	await writeFile(
-		skillPath,
-		`---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`,
-		"utf8",
-	);
-	try {
-		return await callback(skillPath);
-	} finally {
-		await rm(dir, { recursive: true, force: true });
-	}
-}
-
-function skillCommandInfo(skillPath: string): CommandInfo {
-	return {
-		name: "skill:handoff-create",
-		source: "skill",
-		sourceInfo: {
-			path: skillPath,
-			source: "project",
-			scope: "project",
-			origin: "top-level",
-		},
-	};
-}
-
 describe("handoff extension", () => {
-	test("registers handoff commands, list renderer, and handoff-tab launch tool", () => {
+	test("registers core handoff commands and list renderer without tool support", () => {
 		const pi = new FakePi();
+		(pi as unknown as { registerTool?: undefined }).registerTool = undefined;
 
 		handoffExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual(["handoff-tab", "handoff:create", "handoff:list", "handoff:pickup"]);
+		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:pickup"]);
+		expect(pi.commands.has("handoff-tab")).toBe(false);
 		expect(pi.commands.has("handoff:load")).toBe(false);
-		expect(pi.commands.has("handoff:save")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
 		expect([...pi.renderers.keys()]).toEqual([HANDOFF_LIST_MESSAGE_TYPE]);
-		expect([...pi.tools.keys()]).toEqual(["handoff_tab_launch"]);
-		expect(pi.commands.get("handoff-tab")?.description).toBe("Create a handoff and open a focused cmux tab to pick it up.");
+		expect([...pi.tools.keys()]).toEqual([]);
 		expect(pi.commands.get("handoff:create")?.description).toBe("Create a directed handoff artifact for a future continuation.");
 		expect(pi.commands.get("handoff:pickup")?.description).toBe("Pick up a handoff by slug, selector, or picker.");
 		expect(pi.commands.get("handoff:list")?.description).toBe("List handoffs on this branch or across active branches.");
@@ -484,218 +153,6 @@ describe("handoff extension", () => {
 			"Ask the user exactly this question before creating a handoff: What should the future session continue from this handoff?\n\nDo not create a handoff until the user answers with a meaningful continuation focus.",
 		]);
 		expect(result.notifications).toEqual([]);
-	});
-
-	test("handoff-tab command queues create prompt with exact branch slug and launch tool instruction", async () => {
-		await withTempSkill(async (skillPath) => {
-			const result = await runCommand(
-				"handoff-tab",
-				"finish handoff tab implementation",
-				[branchStep(), checkStep(BRANCH, "finish-handoff-tab-implementation.md", false), cmuxIdentifyStep()],
-				{},
-				[skillCommandInfo(skillPath)],
-			);
-
-			result.pi.assertDone();
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
-				["git", ["branch", "--show-current"]],
-				["brmem", ["check", "finish-handoff-tab-implementation.md", "--namespace", "handoffs", "--branch", BRANCH]],
-				["cmux", ["identify", "--json", "--id-format", "both"]],
-			]);
-			expect(result.notifications).toEqual([
-				{ message: "Starting handoff-tab workflow for finish-handoff-tab-implementation…", level: "info" },
-			]);
-			expect(result.statuses).toEqual(["checking handoff and cmux context…", undefined]);
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			const prompt = result.pi.sentUserMessages[0] ?? "";
-			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
-			expect(prompt).toContain("finish handoff tab implementation");
-			expect(prompt).toContain(`- Branch: ${BRANCH}`);
-			expect(prompt).toContain("- Namespace: handoffs");
-			expect(prompt).toContain("- Entry: finish-handoff-tab-implementation.md");
-			expect(prompt).toContain("- Slug: finish-handoff-tab-implementation");
-			expect(prompt).toContain("call the handoff_tab_launch tool with exactly");
-			expect(prompt).toContain(JSON.stringify({ branch: BRANCH, slug: "finish-handoff-tab-implementation" }, null, 2));
-			expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} finish-handoff-tab-implementation`);
-		});
-	});
-
-	test("handoff-tab command stops on slug collision before cmux or create prompt", async () => {
-		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [
-			branchStep(),
-			checkStep(BRANCH, "finish-handoff-tab-implementation.md", true),
-		]);
-
-		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "brmem"]);
-		expect(result.pi.sentUserMessages).toEqual([]);
-		expect(result.notifications).toEqual([
-			{
-				message: `Handoff finish-handoff-tab-implementation already exists on branch ${BRANCH}. Rerun /handoff-tab with a more specific focus so a different slug is derived.`,
-				level: "error",
-			},
-		]);
-	});
-
-	test("handoff-tab command fails clearly outside cmux before create prompt", async () => {
-		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [
-			branchStep(),
-			checkStep(BRANCH, "finish-handoff-tab-implementation.md", false),
-			step("cmux", ["identify", "--json", "--id-format", "both"], { code: 2, stderr: "not in cmux" }),
-		]);
-
-		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "brmem", "cmux"]);
-		expect(result.pi.sentUserMessages).toEqual([]);
-		expect(result.notifications).toHaveLength(1);
-		expect(result.notifications[0]?.level).toBe("error");
-		expect(result.notifications[0]?.message).toContain("not in cmux");
-	});
-
-	test("handoff-tab launch tool opens a focused pickup cmux tab", async () => {
-		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
-			cmuxIdentifyStep(),
-			cmuxCreateSurfaceStep(),
-			step("cmux", ["rename-tab", "--workspace", "workspace-1", "--surface", "surface-1", "--title", "handoff: finish-widget", "--window", "window-1"]),
-			step("cmux", [
-				"send",
-				"--workspace",
-				"workspace-1",
-				"--surface",
-				"surface-1",
-				"--window",
-				"window-1",
-				"--",
-				"pi --provider anthropic --model claude-sonnet --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'\n",
-			]),
-		]);
-		handoffExtension(pi);
-		const tool = pi.tools.get("handoff_tab_launch");
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error("handoff_tab_launch was not registered");
-		}
-		const context = createContext();
-		context.ctx.model = { provider: "anthropic", id: "claude-sonnet" };
-		const updates: unknown[] = [];
-
-		const result = await tool.execute(
-			"tool-call-1",
-			{ branch: BRANCH, slug: "finish-widget" },
-			undefined,
-			(update) => updates.push(update),
-			context.ctx,
-		);
-
-		pi.assertDone();
-		expect(result.isError).toBeUndefined();
-		expect(result.content[0]?.text).toContain("Opened handoff pickup tab.");
-		expect(result.content[0]?.text).toContain("Command: pi --provider anthropic --model claude-sonnet --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'");
-		expect(result.details).toEqual({
-			type: "launched",
-			branch: BRANCH,
-			slug: "finish-widget",
-			tabTitle: "handoff: finish-widget",
-			surfaceId: "surface-1",
-			workspaceId: "workspace-1",
-			command: "pi --provider anthropic --model claude-sonnet --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'",
-		});
-		expect(updates).toHaveLength(5);
-		expect(context.statuses).toEqual([
-			"verifying saved handoff…",
-			"resolving cmux caller…",
-			"creating cmux tab…",
-			"naming cmux tab…",
-			"launching pickup Pi…",
-			undefined,
-		]);
-	});
-
-	test("handoff-tab launch tool stops before cmux when handoff is missing", async () => {
-		const pi = new FakePi([checkStep(BRANCH, "missing.md", false)]);
-		handoffExtension(pi);
-		const tool = pi.tools.get("handoff_tab_launch");
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error("handoff_tab_launch was not registered");
-		}
-		const context = createContext();
-
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "missing" }, undefined, undefined, context.ctx);
-
-		pi.assertDone();
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem"]);
-		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toBe(`No handoff missing found on branch ${BRANCH}; no cmux tab was opened.`);
-	});
-
-	test("handoff-tab launch tool reports manual recovery when rename fails after surface creation", async () => {
-		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
-			cmuxIdentifyStep(),
-			cmuxCreateSurfaceStep(),
-			step("cmux", ["rename-tab", "--workspace", "workspace-1", "--surface", "surface-1", "--title", "handoff: finish-widget", "--window", "window-1"], {
-				code: 2,
-				stderr: "rename failed",
-			}),
-		]);
-		handoffExtension(pi);
-		const tool = pi.tools.get("handoff_tab_launch");
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error("handoff_tab_launch was not registered");
-		}
-		const context = createContext();
-
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget" }, undefined, undefined, context.ctx);
-
-		pi.assertDone();
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem", "cmux", "cmux", "cmux"]);
-		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain("rename failed");
-		expect(result.content[0]?.text).toContain("Created cmux surface: surface-1");
-		expect(result.content[0]?.text).toContain(`Manual recovery: /handoff:pickup --branch ${BRANCH} finish-widget`);
-	});
-
-	test("handoff-tab launch tool reports manual recovery when sending launch command fails", async () => {
-		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
-			cmuxIdentifyStep(),
-			cmuxCreateSurfaceStep(),
-			step("cmux", ["rename-tab", "--workspace", "workspace-1", "--surface", "surface-1", "--title", "handoff: finish-widget", "--window", "window-1"]),
-			step("cmux", [
-				"send",
-				"--workspace",
-				"workspace-1",
-				"--surface",
-				"surface-1",
-				"--window",
-				"window-1",
-				"--",
-				"pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'\n",
-			], {
-				code: 2,
-				stderr: "send failed",
-			}),
-		]);
-		handoffExtension(pi);
-		const tool = pi.tools.get("handoff_tab_launch");
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error("handoff_tab_launch was not registered");
-		}
-		const context = createContext();
-
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget" }, undefined, undefined, context.ctx);
-
-		pi.assertDone();
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem", "cmux", "cmux", "cmux", "cmux"]);
-		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain("send failed");
-		expect(result.content[0]?.text).toContain("Created cmux surface: surface-1");
-		expect(result.content[0]?.text).toContain("Manual recovery: run pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'");
 	});
 
 	test("pickup command picks up an explicit slug from the current branch", async () => {
@@ -858,7 +315,7 @@ describe("handoff extension", () => {
 			],
 		});
 		const rendered = renderMessageText(message);
-		expect(rendered).toContain("Handoffs across active branches");
+		expect(rendered).toContain("Handoffs across branches");
 		expect(rendered).toContain("feat/a\n  1. alpha");
 		expect(rendered).toContain("→ /handoff:pickup --branch feat/a alpha");
 		expect(rendered).toContain("feat/b\n  2. bravo");
@@ -994,29 +451,6 @@ describe("handoff pure helpers", () => {
 		expect(prompt).not.toContain("Create a temporary Markdown file");
 	});
 
-	test("derives concise flat semantic handoff slugs", () => {
-		expect(deriveSemanticHandoffSlug("Finish handoff tab implementation!!!")).toBe("finish-handoff-tab-implementation");
-		expect(deriveSemanticHandoffSlug("one two three four five six seven eight nine ten")).toBe("one-two-three-four-five-six-seven-eight");
-		expect(deriveSemanticHandoffSlug("!!!")).toBeUndefined();
-	});
-
-	test("handoff-tab prompt pins identity and launch tool ordering", () => {
-		const prompt = buildHandoffTabPrompt({
-			skillBlock: "# handoff-create skill",
-			focus: "finish the launch tool",
-			branch: BRANCH,
-			slug: "finish-launch-tool",
-		});
-
-		expect(prompt).toContain("# handoff-create skill");
-		expect(prompt).toContain("This is a /handoff-tab request.");
-		expect(prompt).toContain(`- Branch: ${BRANCH}`);
-		expect(prompt).toContain("- Entry: finish-launch-tool.md");
-		expect(prompt).toContain("After the `brmem put` succeeds, call the handoff_tab_launch tool");
-		expect(prompt).toContain(JSON.stringify({ branch: BRANCH, slug: "finish-launch-tool" }, null, 2));
-		expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} finish-launch-tool`);
-	});
-
 	test("preview prefers continuation focus and otherwise headings", () => {
 		expect(deriveHandoffPreview("Continuation focus: Finish the tests\n# Later")).toBe("Finish the tests");
 		expect(deriveHandoffPreview("# Handoff: Continue docs\n\nBody")).toBe("Handoff: Continue docs");
@@ -1102,7 +536,7 @@ describe("handoff pure helpers", () => {
 		);
 
 		expect(component.render(120)).toEqual([
-			"<accent><bold>Handoffs across active branches</bold></accent>",
+			"<accent><bold>Handoffs across branches</bold></accent>",
 			"",
 			"<accent>feat/a</accent>",
 			"<dim>  1. </dim><accent><bold>alpha</bold></accent>",
