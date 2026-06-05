@@ -204,6 +204,17 @@ errors are reported per-slot; dirty worktrees are skipped. Pass
 `--dry-run` to see the plan without freeing, or `-f/--force` to skip the
 interactive confirmation.
 
+### `slot gt up` / `slot gt down`
+
+Graphite-aware navigation. Each command resolves the immediate upstack
+or downstack Graphite branch. If that branch is already checked out in
+any worktree, `slot` prints/copies the `cd` command for that worktree.
+Otherwise, if the branch exists locally, `slot` checks it out into the
+lowest-numbered clean detached managed slot and then navigates there. A
+full pool still fails; run `slot free` or `slot resize` first. These
+commands reuse existing slot worktrees and do not create new slots on
+demand.
+
 ### `slot gt free-stack`
 
 Graphite-aware. Releases every slot in the current Graphite stack
