@@ -25,7 +25,7 @@
   - Policy: direct execution after preview.
   - Evidence: tests cover valid triage/resolver frontmatter, missing/invalid frontmatter, invalid enums, duplicate IDs/slugs, unknown references, dependency cycles, accepted finding not batched, validation omissions, safety flags, and proof that markdown body text/headings are non-authoritative.
 
-- [ ] Add Branch Memory run storage for roaster stack lineage.
+- [x] Add Branch Memory run storage for roaster stack lineage.
   - Thesis: canonical run lineage is persisted under namespace `roaster-runs` on the original implementation branch, with centralized key construction and resume index behavior.
   - Expected implementation branch/PR: `roaster-stack/run-storage`.
   - Depends on: `roaster-stack/contracts` for profile/run/batch identities and Branch Memory-safe key segments.

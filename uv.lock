@@ -555,6 +555,7 @@ version = "0.1.0"
 source = { editable = "packages/roaster" }
 dependencies = [
     { name = "asdl-core" },
+    { name = "brmem" },
     { name = "click" },
     { name = "pyyaml" },
 ]
@@ -562,6 +563,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "brmem", editable = "packages/brmem" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "pyyaml", specifier = ">=6" },
 ]
