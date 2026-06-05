@@ -56,18 +56,18 @@ export async function openBranchInCmuxSlot(
 	options: OpenBranchInCmuxSlotOptions,
 ): Promise<SlotCheckoutTarget | { error: string }> {
 	const { pi, cwd, branchName, command, notify, onStatus, successMessage } = options;
-	onStatus?.("checking out CMUX slot…");
+	onStatus?.("checking out cmux slot…");
 	const target = await checkoutSlot(pi, cwd, branchName);
 	if ("error" in target) {
 		notify(formatSlotCheckoutFailure(branchName, target.error), "error");
 		return target;
 	}
 
-	onStatus?.("opening CMUX slot workspace…");
+	onStatus?.("opening cmux slot workspace…");
 	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
 	const workspaceOptions: OpenCmuxWorkspaceOptions = {
 		description,
-		failureHeading: "Checked out branch into a CMUX slot, but failed to open the CMUX workspace.",
+		failureHeading: "Checked out branch into a cmux slot, but failed to open the cmux workspace.",
 		failureDetails: [`Branch: ${target.branchName}`, `Worktree: ${target.worktreePath}`],
 	};
 	if (command !== undefined) {
@@ -79,7 +79,7 @@ export async function openBranchInCmuxSlot(
 		return launched;
 	}
 
-	notify(successMessage?.(target) ?? `Opened branch in CMUX slot: ${target.branchName}`, "info");
+	notify(successMessage?.(target) ?? `Opened branch in cmux slot: ${target.branchName}`, "info");
 	return target;
 }
 
@@ -173,7 +173,7 @@ export function parseSlotCheckoutEnvelope(stdout: string): SlotCheckoutEnvelope 
 }
 
 function formatSlotCheckoutFailure(branchName: string, cause: string): string {
-	return ["Failed to check out branch into a CMUX slot.", `Branch: ${branchName}`, "", cause].join("\n");
+	return ["Failed to check out branch into a cmux slot.", `Branch: ${branchName}`, "", cause].join("\n");
 }
 
 function parseSlotCheckoutSuccessEnvelope(stdout: string): SlotCheckoutSuccessEnvelope | undefined {
