@@ -87,20 +87,19 @@
       "computedHash": "eb0e91e84277283dc2b23ed544399e53afd6b5287e5b6929f25fe8aa608e164b"
     },
     "handoff": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/productivity/handoff/SKILL.md",
-      "computedHash": "1a78d774f8a59db5daa6e65e20a6596872fa8cde769f9a6e3a09b678dd5ae8cc"
+      "source": "skills/handoff",
+      "sourceType": "local",
+      "computedHash": "97bf8eda7e7475ca8c797ef64cae56c171aba8d7e46e36f33feb8b283af98718"
     },
     "handoff-load": {
       "source": "skills/handoff-load",
       "sourceType": "local",
-      "computedHash": "02e9525fbf0101e3f336efb7ff3afd3afe90fd5a336bd2d4b9a2c1974ac5070d"
+      "computedHash": "ad729240203b844658c0dcfefedbff696500505a425e20fbe5feb3d42b4a8d0e"
     },
     "handoff-save": {
       "source": "skills/handoff-save",
       "sourceType": "local",
-      "computedHash": "f152cdf4b8c62ed1406b6ab8f1023cf47624ac8af1f4c2d3d4c42f7ab7cbd694"
+      "computedHash": "24c468cc7c43a09a75894fdaf3f569ab67fcb2f71db1a4a5d34b32879a7d1537"
     },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",

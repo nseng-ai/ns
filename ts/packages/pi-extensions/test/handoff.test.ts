@@ -235,6 +235,29 @@ function listJson(entries: Array<string | { key: string; branch: string }>, bran
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
+			scope: branch === null ? "all-branches" : "branch",
+			branch,
+			include_deleted: false,
+			handoffs: entries.map((entry) => {
+				const key = typeof entry === "string" ? entry : entry.key;
+				const entryBranch = typeof entry === "string" ? (branch ?? BRANCH) : entry.branch;
+				return {
+					branch: entryBranch,
+					branch_state: "active",
+					slug: key.replace(/\.md$/, ""),
+					key,
+					entry_locator: `refs/brmem/ns/handoffs/${entryBranch}:${key}`,
+					updated_at: "2026-06-05T00:00:00Z",
+				};
+			}),
+		},
+	});
+}
+
+function brmemListJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
 			namespace: "handoffs",
 			key: null,
 			branch,
@@ -254,13 +277,13 @@ function branchStep(branch = BRANCH): ScriptedExec {
 }
 
 function listStep(branch: string, keys: string[]): ScriptedExec {
-	return step("brmem", ["list", "--namespace", "handoffs", "--branch", branch, "--format", "json"], {
+	return step("handoff", ["list", "--branch", branch, "--format", "json"], {
 		stdout: listJson(keys, branch),
 	});
 }
 
 function listAllStep(entries: Array<{ key: string; branch: string }>): ScriptedExec {
-	return step("brmem", ["list", "--namespace", "handoffs", "--all-branches", "--format", "json"], {
+	return step("handoff", ["list", "--all", "--format", "json"], {
 		stdout: listJson(entries, null),
 	});
 }
@@ -429,8 +452,8 @@ describe("handoff extension", () => {
 		expect(result.pi.execCalls).toEqual([
 			{ command: "git", args: ["branch", "--show-current"], options: { cwd: ROOT, timeout: 10_000 } },
 			{
-				command: "brmem",
-				args: ["list", "--namespace", "handoffs", "--branch", BRANCH, "--format", "json"],
+				command: "handoff",
+				args: ["list", "--branch", BRANCH, "--format", "json"],
 				options: { cwd: ROOT, timeout: 30_000 },
 			},
 			{
@@ -455,7 +478,7 @@ describe("handoff extension", () => {
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["brmem", "brmem"]);
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["handoff", "brmem"]);
 		expect(result.pi.sentUserMessages[0]).toContain("Branch: other/branch");
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: foo.md");
 	});
@@ -512,7 +535,7 @@ describe("handoff extension", () => {
 		result.pi.assertDone();
 		expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
 			["git", ["branch", "--show-current"]],
-			["brmem", ["list", "--namespace", "handoffs", "--branch", BRANCH, "--format", "json"]],
+			["handoff", ["list", "--branch", BRANCH, "--format", "json"]],
 			["brmem", ["get", "address-review-feedback.md", "--namespace", "handoffs", "--branch", BRANCH]],
 		]);
 		expect(result.notifications).toEqual([]);
@@ -560,7 +583,7 @@ describe("handoff extension", () => {
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["brmem", "brmem", "brmem"]);
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["handoff", "brmem", "brmem"]);
 		expect(result.notifications).toEqual([]);
 		expect(result.pi.sentMessages).toHaveLength(1);
 
@@ -663,17 +686,17 @@ describe("handoff pure helpers", () => {
 	test("filters brmem list output to flat handoff markdown keys", () => {
 		expect(
 			parseHandoffKeysFromBrmemList(
-				listJson(["bravo.md", "notes/ignore.md", "handoffs/old.md", "alpha.md", "bravo.md"]),
+				brmemListJson(["bravo.md", "notes/ignore.md", "handoffs/old.md", "alpha.md", "bravo.md"]),
 			),
 		).toEqual({ type: "valid", keys: ["alpha.md", "bravo.md"] });
 	});
 
-	test("rejects invalid brmem list JSON as data", () => {
-		expectInvalidHandoffParse(parseHandoffItemsFromBrmemList("{"), /Failed to parse brmem list JSON/);
+	test("rejects invalid handoff list JSON as data", () => {
+		expectInvalidHandoffParse(parseHandoffItemsFromBrmemList("{"), /Failed to parse handoff list JSON/);
 	});
 
-	test("rejects brmem list JSON without entries as data", () => {
-		expectInvalidHandoffParse(parseHandoffItemsFromBrmemList(JSON.stringify({ data: {} })), /did not contain an entries array/);
+	test("rejects handoff list JSON without handoffs or entries as data", () => {
+		expectInvalidHandoffParse(parseHandoffItemsFromBrmemList(JSON.stringify({ data: {} })), /did not contain handoffs or entries array/);
 	});
 
 	test("resolves exact keys normalized slugs search terms and ambiguity", () => {
