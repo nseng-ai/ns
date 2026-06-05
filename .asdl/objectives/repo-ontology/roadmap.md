@@ -38,9 +38,12 @@ Phase 5 — `areg` context
 
 Phase 6 — `asdl-handoff` context
 
-- [ ] Create `packages/asdl-handoff/CONTEXT.md` for directed handoff artifact vocabulary: Handoff artifact, continuation focus, handoff slug/key, handoff namespace `handoffs`, `HandoffSummary`, branch state (`active`/`deleted`), list scope, all-branches inventory, garbage-collection preview/delete actions, Entry Locator, and updated-at ordering.
+- [x] Create `packages/asdl-handoff/CONTEXT.md` for directed handoff artifact vocabulary: Handoff artifact, continuation focus, handoff slug/key, handoff namespace `handoffs`, `HandoffSummary`, branch state (`active`/`deleted`), list scope, all-branches inventory, garbage-collection preview/delete actions, Entry Locator, and updated-at ordering.
+      Evidence: `packages/asdl-handoff/CONTEXT.md` exists and currently defines Handoff Artifact, Continuation Focus, Handoff Slug/Key, Handoffs Namespace, Handoff Summary, Handoff Technical Locator, Branch State, List Scope, All-Branches Inventory, Handoff Deletion, and Handoff Garbage Collection with `Avoid:` aliases.
 - [ ] Cross-reference `packages/brmem/CONTEXT.md` for Namespace, Entry, Entry Key, Snapshot, and Entry Locator instead of redefining Branch Memory, and cross-reference `asdl-core.git` branch facts plus Clinkr/console/format/plugin helpers.
-- [ ] Update map-level plan/attachment/handoff, branch/state, and Branch Memory relationship notes without collapsing handoff artifacts into generic Branch Memory entries.
+      Remaining evidence needed: the current `asdl-handoff` context is language-only; add explicit Relationships/cross-reference wording before marking this complete.
+- [x] Update map-level plan/attachment/handoff, branch/state, and Branch Memory relationship notes without collapsing handoff artifacts into generic Branch Memory entries.
+      Evidence: `CONTEXT-MAP.md` lists `asdl-handoff` as a present context, records the `asdl-handoff → brmem + asdl-core.git + asdl-core.clinkr/console/format/plugin` relationship candidate, and carries handoff branch-state plus plan/attachment/handoff ambiguity notes.
 
 Phase 7 — `asdl-pr-address` context
 
