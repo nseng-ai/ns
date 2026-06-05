@@ -31,13 +31,13 @@ Do not write an undirected session summary.
 
 ## Storage contract
 
-- Namespace: `handoffs`
+- Namespace: `handoff`
 - Entry key shape: `<semantic-slug>.md`
 - Store final Markdown directly from stdin through a file descriptor; do not create
   a hidden temp or draft file:
 
 ```bash
-brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF
 ```
@@ -75,7 +75,7 @@ For `<semantic-slug>`:
 Before writing, check for an existing artifact:
 
 ```bash
-brmem check <semantic-slug>.md --namespace handoffs --branch <branch>
+brmem check <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
 Interpret the result:
@@ -125,7 +125,7 @@ Do not create hidden temp/draft files for handoff-create. If the user needs revi
 Store the final artifact directly without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
-brmem put <semantic-slug>.md --namespace handoffs --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 # Handoff: <title>
 
 Continuation focus: <What the future session should continue, decide, verify, or implement.>
@@ -160,7 +160,7 @@ Created handoff `<semantic-slug>` on branch `<branch>`.
 
 Then include a compact technical locator when useful:
 
-- Namespace: `handoffs`
+- Namespace: `handoff`
 - Entry: `<semantic-slug>.md`
 - Locator/ref and commit printed by `brmem`
 

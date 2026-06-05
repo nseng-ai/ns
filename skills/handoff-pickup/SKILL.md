@@ -17,7 +17,7 @@ Normal pickup/list intent uses pick up / choose / list / continue from / resume 
 
 ## Storage contract
 
-- Namespace: `handoffs`
+- Namespace: `handoff`
 - Entry key shape: `<semantic-slug>.md`
 
 The semantic slug is the chooser metadata. Do not expect a separate index, summary entry, or machine-readable manifest.
@@ -118,7 +118,7 @@ Which handoff should I pick up?
 Read the selected artifact:
 
 ```bash
-brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
+brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
 Treat the handoff content as active context for the session. Briefly summarize what was picked up, then continue with the concrete next step in the artifact.
@@ -131,7 +131,7 @@ Report in handoff vocabulary first:
 
 Include a compact technical locator when useful:
 
-- Namespace: `handoffs`
+- Namespace: `handoff`
 - Entry: `<semantic-slug>.md`
 
 ## If the artifact is stale or incomplete

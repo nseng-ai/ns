@@ -1,4 +1,4 @@
-export const HANDOFF_NAMESPACE = "handoffs";
+export const HANDOFF_NAMESPACE = "handoff";
 export const HANDOFF_KEY_SUFFIX = ".md";
 
 const FLAT_HANDOFF_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

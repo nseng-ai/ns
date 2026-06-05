@@ -8,7 +8,7 @@ Use this reference for non-happy-path handoff work. Keep diagnostics narrow, ins
 - Prefer `handoff gc --dry-run` before deleting stale deleted-branch handoffs.
 - Use direct `brmem` commands only for storage/recovery/admin cases where no handoff CLI helper exists.
 - Always pass explicit branches in automation.
-- Always include `--namespace handoffs` for direct Branch Memory operations.
+- Always include `--namespace handoff` for direct Branch Memory operations.
 - For one-handoff copy/move, always include `--key-glob '<semantic-slug>.md'`; otherwise a namespace-level copy may copy or replace more than intended.
 - Refuse overwrites/collisions unless the user gives explicit replacement/destructive intent.
 - If wording is ambiguous between copy and move, ask before mutating.
@@ -20,8 +20,8 @@ Use this reference for non-happy-path handoff work. Keep diagnostics narrow, ins
 handoff list --branch <branch> --format json
 handoff list --all --format json
 handoff list --all --include-deleted --format json
-brmem check <semantic-slug>.md --namespace handoffs --branch <branch> --format json
-brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
+brmem check <semantic-slug>.md --namespace handoff --branch <branch> --format json
+brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
 Use inspection results in handoff vocabulary first. Mention namespace, key, entry locator/ref, or commit only as technical evidence or recovery detail.
@@ -34,7 +34,7 @@ Dry-run first when replacement risk matters:
 
 ```bash
 brmem copy \
-  --namespace handoffs \
+  --namespace handoff \
   --from-branch <source-branch> \
   --to-branch <destination-branch> \
   --key-glob '<semantic-slug>.md' \
@@ -46,7 +46,7 @@ Then run without `--dry-run`:
 
 ```bash
 brmem copy \
-  --namespace handoffs \
+  --namespace handoff \
   --from-branch <source-branch> \
   --to-branch <destination-branch> \
   --key-glob '<semantic-slug>.md' \
@@ -70,7 +70,7 @@ Final source removal:
 ```bash
 brmem delete \
   <semantic-slug>.md \
-  --namespace handoffs \
+  --namespace handoff \
   --branch <source-branch> \
   --format json
 ```
@@ -90,7 +90,7 @@ handoff delete [--branch <branch>] [-f|--force] <slug>
 There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only. Use the storage layer directly only when no `handoff delete` helper is available:
 
 ```bash
-brmem delete <semantic-slug>.md --namespace handoffs --branch <branch> --format json
+brmem delete <semantic-slug>.md --namespace handoff --branch <branch> --format json
 ```
 
 Report branch, namespace, key, locator/ref, and commit.
@@ -112,4 +112,4 @@ Do not confuse deleted-branch cleanup with deleting active-branch handoffs.
 
 ## Future deterministic helper
 
-If a future `handoff exec ...` admin helper exists for moving, copying, deleting, or repairing handoffs, prefer it over manual `brmem` operations. Until such a helper exists, use the narrow `brmem --namespace handoffs` recipes above.
+If a future `handoff exec ...` admin helper exists for moving, copying, deleting, or repairing handoffs, prefer it over manual `brmem` operations. Until such a helper exists, use the narrow `brmem --namespace handoff` recipes above.

@@ -148,7 +148,7 @@ def test_handoff_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     gateway = FakeBranchMemoryGateway()
-    gateway.put("handoffs", "resume-tests.md", "feat/handoff", "resume tests")
+    gateway.put("handoff", "resume-tests.md", "feat/handoff", "resume tests")
     ctx = HandoffCliContext(
         brmem_gateway=gateway,
         git_gateway=FakeGitGateway(branches=("feat/handoff",)),
@@ -169,7 +169,7 @@ def test_handoff_plugin_integration() -> None:
             "branch_state": "active",
             "slug": "resume-tests",
             "key": "resume-tests.md",
-            "entry_locator": "refs/brmem/ns/handoffs/feat---handoff:resume-tests.md",
+            "entry_locator": "refs/brmem/ns/handoff/feat---handoff:resume-tests.md",
             "updated_at": "2026-01-01T00:00:01+00:00",
         }
     ]
@@ -184,7 +184,7 @@ def test_discover_plugins_installs_context_on_root_for_json_mode(
         value="asdl_handoff.cli.plugin:build_handoff_plugin",
     )
     gateway = FakeBranchMemoryGateway()
-    gateway.put("handoffs", "root-json.md", "feat/handoff", "root json")
+    gateway.put("handoff", "root-json.md", "feat/handoff", "root json")
     ctx = HandoffCliContext(
         brmem_gateway=gateway,
         git_gateway=FakeGitGateway(branches=("feat/handoff",)),

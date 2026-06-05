@@ -33,14 +33,14 @@ See `references/diagnostics-admin.md` for copy/move, collision handling, and sto
 - In-session compaction or summarization with no durable handoff intent.
 - Generic planning, task tracking, Objective records, or worker protocol handoffs.
 - Replacing the step skills for create/pickup/list execution; it is their shared reference, not a substitute.
-- Generic Branch Memory work unless it concerns namespace `handoffs` or handoff artifacts.
+- Generic Branch Memory work unless it concerns namespace `handoff` or handoff artifacts.
 
 ## Default safety posture
 
 - Inspect before mutating.
 - Use handoff vocabulary first; mention Branch Memory locators only as technical evidence, diagnostics, or recovery detail.
 - Refuse collisions, overwrites, and destructive changes unless the user gives explicit replacement/destructive intent.
-- Prefer deterministic `handoff` CLI and Pi surfaces when they exist; use direct `brmem --namespace handoffs` only as the storage/recovery/admin layer.
+- Prefer deterministic `handoff` CLI and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
 - Verify stale artifacts against current repo state before acting.
 - Do not create nested keys, indexes, manifests, or old temp-directory handoff artifacts.
 
