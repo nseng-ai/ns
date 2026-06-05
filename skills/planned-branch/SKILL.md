@@ -1,6 +1,6 @@
 ---
 name: planned-branch
-description: "Use for explicit planned-branch lifecycle, reference, diagnostics, admin, or repair work: planned-branch, planned branch, saved planned-branch plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, Branch Memory attachment, or Pi commands `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless planned-branch intent is explicit."
+description: "Use for explicit planned-branch lifecycle, reference, diagnostics, admin, or repair work: planned-branch, planned branch, saved planned-branch plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair planned-branch metadata, or Pi commands `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless planned-branch intent is explicit."
 ---
 
 # planned-branch
@@ -16,6 +16,8 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 - `planned-branch-impl` — load and implement an attached plan.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
+
+Admin and repair requests include changing or retargeting a saved plan's source branch, moving or copying saved plans between Local plan store branch directories, inspecting the plan store, and repairing obvious planned-branch metadata.
 
 ## Do not use this skill for
 
