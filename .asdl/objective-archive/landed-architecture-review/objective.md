@@ -96,3 +96,9 @@ Risks:
 - Partially resolved 2026-06-05: clusters 6 and 7 were fully owned and resolved by other Objectives (`planned-branch-ts-cli`, `planned-branch-quality-hardening`, `areg-review-remediation`) and are parked here rather than re-reviewed; the handoff cluster should coordinate with `/handoff-tab` rather than duplicate it.
 - What is the smallest useful evidence standard for saying a cluster was reviewed and intentionally parked?
 - For each cluster, does the recommended skill route still hold after inspecting the first concrete files, or should the route be narrowed to architecture-only, thermo-only, or both?
+
+## Closure
+
+Outcome: superseded by `landed-architecture-review-umbrella`.
+
+This Objective is no longer the active architecture-review backlog. Its thesis, re-baseline, roadmap, and updates remain provenance for the new umbrella Objective, which preserves the why and uses a short checklist to create child Objectives. Do not continue active work here; use `landed-architecture-review-umbrella` for future child Objective creation.
