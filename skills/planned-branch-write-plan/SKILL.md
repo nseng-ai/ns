@@ -1,6 +1,6 @@
 ---
 name: planned-branch-write-plan
-description: Use when a Claude Code user wants to write, review, and save a planned-branch implementation plan for later branch creation. Triggers on requests like "write a plan", "save a planned-branch plan", "prepare a plan for a fresh implementation session", or cross-harness handoff from Pi `/planned-branch:write-plan`. Saves through the `planned-branch` CLI, not by writing ad-hoc repo files.
+description: Use when a user wants an agent to write, review, and save a planned-branch implementation plan for later branch creation. Triggers on requests like "write a plan", "save a planned-branch plan", "prepare a plan for a fresh implementation session", or cross-harness handoff from Pi `/planned-branch:write-plan`. Saves through the `planned-branch` CLI, not by writing ad-hoc repo files.
 ---
 
 # planned-branch-write-plan

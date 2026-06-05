@@ -1,6 +1,6 @@
 ---
 name: planned-branch-impl
-description: Use when a Claude Code user wants to implement from an attached planned-branch plan on the current branch. Triggers on requests like "implement the planned branch", "load the attached planned-branch plan", "continue from the planned branch plan", or cross-harness handoff from Pi `/planned-branch:impl`. Loads through `planned-branch exec load-plan` before editing code.
+description: Use when a user wants an agent to implement from an attached planned-branch plan on the current branch. Triggers on requests like "implement the planned branch", "load the attached planned-branch plan", "continue from the planned branch plan", or cross-harness handoff from Pi `/planned-branch:impl`. Loads through `planned-branch exec load-plan` before editing code.
 ---
 
 # planned-branch-impl
