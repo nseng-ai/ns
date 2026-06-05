@@ -3,6 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
+from roaster.gateways.agent_runner.fake import FakeAgentRunnerGateway
+from roaster.gateways.agent_runner.gateway import (
+    AgentRunCompleted,
+    AgentRunnerExecutionFailed,
+    AgentRunnerRequest,
+)
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
@@ -11,13 +17,27 @@ from roaster.models import (
     BaseRefUnavailable,
     FindingsReview,
     LocalDiff,
+    ReviewCatalog,
     ReviewDefinition,
     ReviewDefinitionNotFound,
     ReviewExecutionResponse,
     ReviewFinding,
     ReviewsDirMissing,
+    ReviewSource,
     RoasterFailure,
 )
+
+
+def _agent_request() -> AgentRunnerRequest:
+    return AgentRunnerRequest(
+        kind="triage",
+        prompt_resource="stack_triage.md",
+        prompt_override=None,
+        model="sonnet",
+        cwd=Path("/repo"),
+        input_markdown="# Input\n",
+        allowed_tools=("Read", "Bash"),
+    )
 
 
 def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
@@ -38,6 +58,27 @@ def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
     )
 
 
+def test_fake_agent_runner_returns_configured_response_and_records_requests() -> None:
+    response = AgentRunCompleted(output_markdown="---\nschema_version: roaster.stack.triage.v1\n")
+    gateway = FakeAgentRunnerGateway(responses=(response,))
+
+    result = gateway.run_agent(_agent_request())
+
+    assert result is response
+    assert gateway.requests == (_agent_request(),)
+    assert gateway.responses == (response,)
+
+
+def test_fake_agent_runner_returns_configured_error() -> None:
+    error = AgentRunnerExecutionFailed(message="runner failed")
+    gateway = FakeAgentRunnerGateway(errors=(error,))
+
+    result = gateway.run_agent(_agent_request())
+
+    assert result is error
+    assert gateway.errors == (error,)
+
+
 def test_fake_load_review_source_returns_configured_source() -> None:
     reviews_dir = Path("/repo/reviews")
     gateway = FakeReviewCatalogGateway(
@@ -47,6 +88,7 @@ def test_fake_load_review_source_returns_configured_source() -> None:
 
     result = gateway.load_review_source(key="standards/dignified-python")
 
+    assert isinstance(result, ReviewSource)
     assert result.key == "standards/dignified-python"
     assert result.path == reviews_dir / "standards" / "dignified-python.md"
     assert result.source == "# Dignified Python"
@@ -83,6 +125,7 @@ def test_fake_list_review_keys_infers_from_sources() -> None:
 
     catalog = gateway.list_review_keys()
 
+    assert isinstance(catalog, ReviewCatalog)
     assert catalog.keys == ("dignified-python", "python/typing")
     assert catalog.reviews_dir == Path("/repo/reviews")
 
@@ -95,6 +138,7 @@ def test_fake_list_review_keys_returns_configured_keys() -> None:
 
     catalog = gateway.list_review_keys()
 
+    assert isinstance(catalog, ReviewCatalog)
     assert catalog.keys == ("alpha", "python/typing")
 
 

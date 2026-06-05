@@ -51,7 +51,7 @@
   - Policy: direct execution after preview using fakes; ask first before adding broad GitHub gateway capabilities unrelated to issue-comment create/update/find or narrow PR body marker support.
   - Evidence: tests show marker rendering/parsing, new comment creation, existing comment update, zero-accepted-batch rendering, activity/log preservation if implemented, dashboard failure before branch mutation is fatal, and no inline review/thread mutation calls.
 
-- [ ] Add review collection and the triage agent-runner boundary.
+- [x] Add review collection and the triage agent-runner boundary.
   - Thesis: the workflow can collect findings from explicit or matching roaster reviewers and feed them, with profile guidance, into a fake-driven triage/verifier agent boundary.
   - Expected implementation branch/PR: `roaster-stack/triage-runner`.
   - Depends on: `roaster-stack/contracts`; integrates existing review workflow behavior but should not implement resolver mutation yet.
