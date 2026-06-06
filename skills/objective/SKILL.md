@@ -34,7 +34,7 @@ Use these step skills for explicit workflow requests:
 - `objective-create`: create a new Objective record.
 - `objective-current`: read and summarize one Objective without mutation.
 - `objective-next`: recommend next semantic work and route confirmed execution when durable policy allows it.
-- `objective-update`: update durable Objective tracking for exactly one Objective.
+- `objective-update`: update durable Objective tracking for exactly one Objective; when its Closure Gate is clearly ready, it closes the Objective inline without a separate confirmation.
 - `objective-close`: close an Objective without deleting its checked-in history.
 - `objective-stack-impl`: orchestrate implementation of one Objective as a small Graphite stack.
 
@@ -76,7 +76,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 
 Roadmap rows represent semantic Objective work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up. Size roadmap work by human-legible decision count and thesis clarity, not by diff size, file count, or line count. Routine validation/CI/CD checks such as `just`, tests, dprint, waiting for CI, or full repo validation are completion evidence; record them in roadmap notes, Semantic Updates, or closure context instead of standalone rows. Validation may be roadmap work only when validation/test/CI behavior, release qualification, or a non-routine validation investigation is the Objective deliverable. Execution policy notes in roadmap rows are prose, not machine state.
 
-`updates/` contains Semantic Updates: meaningful findings, decisions, blockers, assumption changes, risk de-risking or surfacing, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Required headings:
+`updates/` contains immutable Semantic Updates: meaningful findings, decisions, blockers, assumption changes, risk de-risking or surfacing, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Never edit, rewrite, amend, normalize, or delete an existing update file during Objective tracking. If later evidence supersedes, corrects, or contextualizes an older update, create a new update that references the historical record instead of modifying it. Required headings:
 
 - `# <Update Title>`
 - `## Summary`
