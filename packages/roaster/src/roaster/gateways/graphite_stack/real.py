@@ -27,8 +27,8 @@ class RealGraphiteStackGateway(GraphiteStackGateway):
             "read-current-stack",
             (
                 "Real roaster Graphite stack discovery is not wired to a stable "
-                "machine-readable `gt` API yet; pass --target-branch and --target-pr "
-                "to exercise the current guarded roaster stack boundary."
+                "machine-readable `gt` API yet; use --dry-run until real stack "
+                "discovery and attach-tip resolution are implemented."
             ),
         )
 
@@ -44,7 +44,8 @@ class RealGraphiteStackGateway(GraphiteStackGateway):
             "resolve-attach-tip",
             (
                 "Real roaster Graphite attach-tip resolution is not implemented yet; "
-                "pass an explicit target branch for current roaster stack runs."
+                "explicit --target-branch stack runs require attach-tip resolution before "
+                "mutating generated branches."
             ),
         )
 
