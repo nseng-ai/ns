@@ -126,6 +126,31 @@ def _stream_lines(
     return [json.dumps(event) + "\n" for event in events]
 
 
+def _json_result(
+    *,
+    structured_output: object | None = None,
+    result_text: str = "Findings produced.",
+    include_structured_output: bool = True,
+    include_usage: bool = True,
+    include_total_cost: bool = True,
+) -> list[str]:
+    result_event: dict[str, object] = {
+        "type": "result",
+        "result": result_text,
+        "num_turns": 1,
+        "duration_ms": 1234,
+    }
+    if include_total_cost:
+        result_event["total_cost_usd"] = 0.0123
+    if include_usage:
+        result_event["usage"] = dict(_DEFAULT_USAGE_PAYLOAD)
+    if include_structured_output:
+        if structured_output is None:
+            structured_output = {"findings": []}
+        result_event["structured_output"] = structured_output
+    return [json.dumps(result_event) + "\n"]
+
+
 def _run_with_process(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -137,12 +162,22 @@ def _run_with_process(
 ) -> tuple[ReviewExecutionResponse | RoasterFailure, dict[str, Any], _FakePopen]:
     captured: dict[str, Any] = {}
     fake_process: dict[str, _FakePopen] = {}
+    effective_request = request or _request()
+    effective_stdout_lines = stdout_lines
+    if effective_stdout_lines is None:
+        if effective_request.review_format == "findings":
+            effective_stdout_lines = _json_result()
+        else:
+            effective_stdout_lines = _stream_lines(
+                result_text="markdown body",
+                include_structured_output=False,
+            )
 
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         captured["cmd"] = cmd
         captured["kwargs"] = kwargs
         process = _FakePopen(
-            stdout_lines=stdout_lines or _stream_lines(),
+            stdout_lines=effective_stdout_lines,
             stderr_text=stderr_text,
             returncode=returncode,
         )
@@ -160,7 +195,7 @@ def _run_with_process(
         binary_locator=lambda binary: "/usr/local/bin/claude" if binary == "claude" else None,
     )
 
-    result = runtime.run_review(request or _request())
+    result = runtime.run_review(effective_request)
     return result, captured, fake_process["value"]
 
 
@@ -195,8 +230,8 @@ def test_findings_mode_builds_claude_argv(monkeypatch: pytest.MonkeyPatch) -> No
     cmd = captured["cmd"]
     assert cmd[0] == "claude"
     assert "-p" in cmd
-    assert cmd[cmd.index("--output-format") + 1] == "stream-json"
-    assert "--verbose" in cmd
+    assert cmd[cmd.index("--output-format") + 1] == "json"
+    assert "--verbose" not in cmd
     assert "--bare" in cmd
     assert cmd[cmd.index("--model") + 1] == "sonnet"
     system_prompt = cmd[cmd.index("--system-prompt") + 1]
@@ -228,6 +263,8 @@ def test_text_mode_omits_json_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(result.payload, ProseReview)
     assert result.payload.prose == "markdown body"
     cmd = captured["cmd"]
+    assert cmd[cmd.index("--output-format") + 1] == "stream-json"
+    assert "--verbose" in cmd
     assert "--json-schema" not in cmd
     system_prompt = cmd[cmd.index("--system-prompt") + 1]
     assert "markdown review" in system_prompt
@@ -245,7 +282,7 @@ def test_prompt_is_written_to_stdin_not_argv(
         review_format=review_format,
         local_diff=LocalDiff(base_ref="main", diff_text=large_diff),
     )
-    stdout_lines = _stream_lines()
+    stdout_lines = _json_result()
     if review_format == "text":
         stdout_lines = _stream_lines(result_text="markdown body", include_structured_output=False)
 
@@ -265,7 +302,7 @@ def test_tools_flag_is_followed_by_another_flag(
     monkeypatch: pytest.MonkeyPatch,
     review_format: ReviewFormat,
 ) -> None:
-    stdout_lines = _stream_lines()
+    stdout_lines = _json_result()
     if review_format == "text":
         stdout_lines = _stream_lines(result_text="markdown body", include_structured_output=False)
 
@@ -356,17 +393,24 @@ def test_progress_events_emit_session_assistant_and_result_messages(
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(result_text="hello world"),
+        request=_request(review_format="text"),
+        stdout_lines=_stream_lines(
+            result_text="hello world",
+            include_structured_output=False,
+        ),
         progress_messages=progress_messages,
     )
 
     assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, ProseReview)
     assert "session started (model=sonnet)" in progress_messages
     assert "assistant turn received (11 chars)" in progress_messages
     assert "result received (1 turn, 1.2s)" in progress_messages
 
 
-def test_parse_stdout_parses_structured_findings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_stdout_parses_structured_findings_from_json_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     structured = {
         "findings": [
             {
@@ -381,7 +425,7 @@ def test_parse_stdout_parses_structured_findings(monkeypatch: pytest.MonkeyPatch
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(structured_output=structured),
+        stdout_lines=_json_result(structured_output=structured),
     )
 
     assert isinstance(result, ReviewExecutionResponse)
@@ -400,11 +444,41 @@ def test_parse_stdout_parses_structured_findings(monkeypatch: pytest.MonkeyPatch
     assert result.usage.total_input_tokens == 115
 
 
-def test_parse_stdout_handles_empty_findings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_stdout_handles_empty_findings_from_json_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(structured_output={"findings": []}),
+        stdout_lines=_json_result(structured_output={"findings": []}),
     )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, FindingsReview)
+    assert result.payload.findings == ()
+
+
+def test_parse_stdout_handles_verbose_json_array_for_findings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stdout_lines = [
+        json.dumps(
+            [
+                {"type": "system", "subtype": "init", "model": "sonnet"},
+                {
+                    "type": "result",
+                    "result": "Findings produced.",
+                    "structured_output": {"findings": []},
+                    "num_turns": 1,
+                    "duration_ms": 1234,
+                    "total_cost_usd": 0.0123,
+                    "usage": dict(_DEFAULT_USAGE_PAYLOAD),
+                },
+            ]
+        )
+        + "\n"
+    ]
+
+    result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=stdout_lines)
 
     assert isinstance(result, ReviewExecutionResponse)
     assert isinstance(result.payload, FindingsReview)
@@ -461,21 +535,21 @@ def test_parse_stdout_fails_on_non_json_line(monkeypatch: pytest.MonkeyPatch) ->
 def test_parse_stdout_fails_on_missing_result_event(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(include_result=False),
+        stdout_lines=[json.dumps([{"type": "system", "subtype": "init"}]) + "\n"],
     )
 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_missing_result_event"
 
 
-def test_parse_stdout_fails_when_structured_output_missing_in_findings_mode(
+def test_parse_stdout_fails_when_structured_output_missing_in_findings_json_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     prose = "I thought about it and here is a prose answer."
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(result_text=prose, include_structured_output=False),
+        stdout_lines=_json_result(result_text=prose, include_structured_output=False),
     )
 
     assert isinstance(result, RoasterFailure)
@@ -489,7 +563,7 @@ def test_parse_stdout_truncates_long_prose_in_error(monkeypatch: pytest.MonkeyPa
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(result_text=prose, include_structured_output=False),
+        stdout_lines=_json_result(result_text=prose, include_structured_output=False),
     )
 
     assert isinstance(result, RoasterFailure)
@@ -502,7 +576,7 @@ def test_parse_stdout_truncates_long_prose_in_error(monkeypatch: pytest.MonkeyPa
 def test_parse_stdout_fails_on_missing_findings_key(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(structured_output={"something_else": []}),
+        stdout_lines=_json_result(structured_output={"something_else": []}),
     )
 
     assert isinstance(result, RoasterFailure)
@@ -512,7 +586,7 @@ def test_parse_stdout_fails_on_missing_findings_key(monkeypatch: pytest.MonkeyPa
 def test_parse_stdout_fails_on_malformed_finding(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(structured_output={"findings": [{"path": "app.py"}]}),
+        stdout_lines=_json_result(structured_output={"findings": [{"path": "app.py"}]}),
     )
 
     assert isinstance(result, RoasterFailure)
@@ -522,7 +596,7 @@ def test_parse_stdout_fails_on_malformed_finding(monkeypatch: pytest.MonkeyPatch
 def test_parse_stdout_usage_is_none_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=_stream_lines(
+        stdout_lines=_json_result(
             structured_output={"findings": []},
             include_usage=False,
             include_total_cost=False,
