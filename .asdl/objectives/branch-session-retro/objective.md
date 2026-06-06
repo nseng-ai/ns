@@ -83,4 +83,12 @@ Risks:
 - After the first aggregation pass, what additional harness-neutral facts are needed beyond source identity, source refs, conservative association, message counts, model/provider metadata, tool calls/results, command executions, usage counters, warnings, and bounded evidence items?
 - How should future sessions record explicit branch metadata so association can become high-confidence without heuristics?
 - Should a later PR add a local per-session summary cache, and if so should it live under Pi state, asdl state, or Branch Memory?
-- Are the initial thresholds for repeated reads, repeated commands, large outputs, and other evidence classes useful on real branch sessions, or should PR 8 tune them?
+- Are the initial thresholds for repeated reads, repeated commands, large outputs, and other evidence classes useful on real branch sessions, or should future end-to-end workflow validation tune them?
+
+## Closure
+
+Closed as completed for the v1 branch retrospective evidence CLI on 2026-06-06.
+
+The Objective delivered the standalone `aretro` CLI, hidden `exec collect-evidence` operation, reusable `asdl-core` session parsing and evidence aggregation, the Pi JSONL adapter, the standalone-only command surface, and the `branch-retro` skill that invokes deterministic collection while keeping semantic recommendations in the skill/agent boundary. Completion evidence is captured in the PR 1 through PR 7 Semantic Updates, including targeted tests and full repository `just` validation.
+
+The planned PR 8 real-session end-to-end validation/tuning is intentionally parked rather than required for this Objective's closure. Future end-to-ending on downstream workflows should validate payload sizes, thresholds, warning clarity, association confidence, and any skill guidance gaps in situ before adding caches, explicit branch metadata, non-Pi adapters, human-facing reports, or approved-action helpers.
