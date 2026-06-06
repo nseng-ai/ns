@@ -25,6 +25,39 @@ when_changed:
   - "**/*.tsx"
 ---
 
+<!--
+Provenance note (not part of the review instructions): this review is the
+roaster review-only port of Claude Code's bundled `/simplify` command. We
+recovered the original `/simplify` prompt by extracting the embedded prompt
+string literals from the shipped `claude` binary, discovered using this prompt:
+
+  "Extract the actual prompt text for a Claude Code bundled command/skill
+  (e.g. /simplify) directly from the shipped binary.
+  The npm package @anthropic-ai/claude-code is just a wrapper/installer;
+  the real binary lives in the platform-specific optional dep
+  (@anthropic-ai/claude-code-linux-x64@<version>), and the skill/command
+  prompts are embedded as plain JS string literals inside it.
+  Steps:
+  1. `npm pack @anthropic-ai/claude-code` — read package.json to get the
+     version and confirm the optionalDependencies platform packages.
+  2. `npm pack @anthropic-ai/claude-code-linux-x64@<version>`, extract, find
+     the large `claude` binary (~245MB).
+  3. Locate the command registration, not just the word "simplify" (which
+     collides with bundled syntax-highlighter wordlists and semver code).
+     Grep for the literal "/simplify" and for distinctive prompt phrases
+     like "parallel agents", "false positives", "Phase 0", "git diff HEAD".
+  4. The registration is a `getPromptForCommand` call with `name`,
+     `menuDescription`, `description`, `argumentHint`. The prompt body is a
+     nearby template-literal variable; the angle/section bodies are separate
+     variables interpolated via ${...}. Resolve all the interpolations
+     (Phase 0 diff block, the cleanup angles, etc.) to reconstruct the
+     fully-assembled prompt.
+  5. Dump the byte range with `dd`, decode with python, and unescape \n /
+     — / \` for readability.
+  Show me the final assembled prompt and note which ${vars} were resolved
+  and what `${OK}`-style tool references map to."
+-->
+
 Review only the supplied diff. Ignore existing code that the diff does not
 touch, except when reading nearby/shared code to confirm that a cleanup
 opportunity is real. You are improving the quality of the changed code, not
