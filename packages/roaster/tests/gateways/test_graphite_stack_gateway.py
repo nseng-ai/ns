@@ -255,4 +255,16 @@ def test_real_stack_reads_fail_closed_until_stable_read_support_exists() -> None
     assert isinstance(result, GraphiteStackFailure)
     assert result.error_type == "graphite_stack_operation_unsupported"
     assert result.operation == "read-current-stack"
-    assert "pass --target-branch and --target-pr" in result.message
+    assert "use --dry-run" in result.message
+
+
+def test_real_attach_tip_resolution_fails_closed_until_stable_support_exists() -> None:
+    result = RealGraphiteStackGateway().resolve_attach_tip(
+        cwd=Path("/repo"),
+        target_branch="feature/target",
+    )
+
+    assert isinstance(result, GraphiteStackFailure)
+    assert result.error_type == "graphite_stack_operation_unsupported"
+    assert result.operation == "resolve-attach-tip"
+    assert "explicit --target-branch stack runs require attach-tip resolution" in result.message

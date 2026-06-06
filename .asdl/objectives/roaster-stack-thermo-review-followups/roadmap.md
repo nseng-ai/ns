@@ -8,10 +8,10 @@
   - Remaining split points: workflow phase orchestration, run persistence, and any remaining value formatting tied to those concerns.
   - Evidence preserved: dry-run no-mutation assertions remain explicit, targeted resolver-input/workflow tests passed, adjacent roaster stack tests passed, broader roaster/plugin tests passed, full `just` validation passed for prior slices, and targeted workflow/dashboard/dashboard-projection tests plus ruff passed for the dashboard projection slice.
 
-- [ ] Fix or explicitly narrow Graphite attach-tip semantics for explicit target branches.
-  - Context: the gateway exposes `resolve_attach_tip(...)`, and fake tests cover attach-tip resolution, but `_resolve_attach_context` currently treats an explicit `--target-branch` as both the target branch and attach tip.
-  - Why this matters: generated resolver branches may attach directly to the named target branch instead of above the top of the implementation stack, undermining the stack-level contract.
-  - Preferred direction: call the attach-tip abstraction for explicit target branches if the stack contract requires that behavior; otherwise remove or rewrite the unused abstraction/tests/docs so the limited manual mode is honest.
+- [x] Fix or explicitly narrow Graphite attach-tip semantics for explicit target branches.
+  - Context: the gateway exposes `resolve_attach_tip(...)`, and fake tests cover attach-tip resolution, but `_resolve_attach_context` previously treated an explicit `--target-branch` as both the target branch and attach tip.
+  - Outcome: explicit target-branch mutating runs now call `GraphiteStackGateway.resolve_attach_tip(cwd=..., target_branch=...)`, use the returned attach tip for generated branch attachment, and propagate gateway failures. The real gateway fails closed until stable attach-tip support exists instead of pretending direct attachment is safe.
+  - Evidence: targeted stack workflow and Graphite gateway tests passed; ruff passed on the touched source/test files.
 
 - [ ] Resolve generated PR marker/body support so it is not misleading dead code.
   - Context: `render_generated_pr_body(...)` and generated PR marker parsing/rendering are implemented and tested, but no production workflow path calls them. The real/fake Graphite gateways create/update/submit branches but do not discover generated PR numbers, update PR bodies, or populate dashboard generated-PR links.

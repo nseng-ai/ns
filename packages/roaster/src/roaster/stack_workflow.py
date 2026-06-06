@@ -588,9 +588,13 @@ def _resolve_attach_context(
                 error_type="stack_target_pr_required",
                 message="roaster stack run needs --target-pr to publish the dashboard.",
             )
+        stack = graphite_stack.resolve_attach_tip(cwd=cwd, target_branch=target_branch)
+        if isinstance(stack, GraphiteStackFailure):
+            return StackWorkflowFailure(error_type=stack.error_type, message=stack.message)
+        assert isinstance(stack, GraphiteAttachTip)
         return StackAttachContext(
-            target_branch=target_branch,
-            attach_tip=target_branch,
+            target_branch=stack.target_branch,
+            attach_tip=stack.attach_tip,
             target_pr=target_pr,
         )
 
@@ -765,4 +769,3 @@ def _publish_dashboard(
         )
     assert isinstance(publication, StackDashboardPublication)
     return None
-

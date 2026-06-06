@@ -10,7 +10,7 @@ from brmem.fake import FakeBranchMemoryGateway
 from roaster.gateways.agent_runner.fake import FakeAgentRunnerGateway
 from roaster.gateways.agent_runner.gateway import AgentRunCompleted, AgentRunnerUnavailable
 from roaster.gateways.graphite_stack.fake import FakeGraphiteStackGateway
-from roaster.gateways.graphite_stack.gateway import GraphiteStackFailure
+from roaster.gateways.graphite_stack.gateway import GraphiteStackFailure, GraphiteTargetStack
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
@@ -304,6 +304,7 @@ def test_non_dry_run_rejected_only_persists_dashboard_and_skips_generated_stack(
     assert result.dashboard_rows == ()
     assert len(branch_memory.counted_puts) == 3
     assert len(pr_gateway.comments) == 1
+    assert graphite.resolve_attach_tip_calls == ((Path("/repo"), "feature/target"),)
     assert graphite.checkout_branch_calls == ()
     assert graphite.submit_generated_stack_calls == ()
 
@@ -311,7 +312,15 @@ def test_non_dry_run_rejected_only_persists_dashboard_and_skips_generated_stack(
 def test_non_dry_run_resolves_batch_creates_branch_and_submits() -> None:
     branch_memory = _CountingBranchMemoryGateway()
     pr_gateway = FakePRGateway()
-    graphite = FakeGraphiteStackGateway()
+    graphite = FakeGraphiteStackGateway(
+        stacks_by_target_branch={
+            "feature/target": GraphiteTargetStack(
+                target_branch="feature/target",
+                attach_tip="feature/target-top",
+                branches=("feature/target", "feature/target-top"),
+            )
+        }
+    )
     agent_runner = FakeAgentRunnerGateway(
         responses=(
             AgentRunCompleted(output_markdown=_valid_triage_output()),
@@ -341,7 +350,8 @@ def test_non_dry_run_resolves_batch_creates_branch_and_submits() -> None:
     assert agent_runner.requests[1].kind == "resolver"
     assert agent_runner.requests[1].prompt_resource == "stack_resolver.md"
     assert "Replace print with click.echo()." in agent_runner.requests[1].input_markdown
-    assert graphite.checkout_branch_calls == ((Path("/repo"), "feature/target"),)
+    assert graphite.resolve_attach_tip_calls == ((Path("/repo"), "feature/target"),)
+    assert graphite.checkout_branch_calls == ((Path("/repo"), "feature/target-top"),)
     assert graphite.create_generated_branch_calls == (
         (Path("/repo"), "feature-target/roaster/stack-run-1/avoid-print", "Avoid print"),
     )
@@ -350,6 +360,72 @@ def test_non_dry_run_resolves_batch_creates_branch_and_submits() -> None:
     assert len(branch_memory.counted_puts) == 5
     assert len(pr_gateway.comments) == 1
     assert len(pr_gateway.updated_comments) == 2
+
+
+def test_non_dry_run_uses_current_stack_when_target_branch_is_omitted() -> None:
+    graphite = FakeGraphiteStackGateway(
+        current_stack=GraphiteTargetStack(
+            target_branch="feature/current",
+            attach_tip="feature/current-top",
+            branches=("feature/current", "feature/current-top"),
+            implementation_pr="456",
+        )
+    )
+
+    result = run_stack_workflow_dry_run(
+        profile=_profile(),
+        request=_request(dry_run=False).model_copy(
+            update={"target_branch": None, "target_pr": None}
+        ),
+        cwd=Path("/repo"),
+        catalog=_catalog(),
+        diff=_diff(),
+        harness_runtime=_harness_runtime(),
+        agent_runner=FakeAgentRunnerGateway(
+            responses=(AgentRunCompleted(output_markdown=_rejected_triage_output()),)
+        ),
+        branch_memory=_CountingBranchMemoryGateway(),
+        pr_gateway=FakePRGateway(),
+        graphite_stack=graphite,
+    )
+
+    assert isinstance(result, StackWorkflowResult)
+    assert result.manifest.target_branch == "feature/current"
+    assert result.manifest.target_pr == "456"
+    assert graphite.read_current_stack_calls == (Path("/repo"),)
+    assert graphite.resolve_attach_tip_calls == ()
+    assert graphite.checkout_branch_calls == ()
+
+
+def test_non_dry_run_explicit_target_branch_propagates_attach_tip_failure() -> None:
+    failure = GraphiteStackFailure(
+        error_type="graphite_stack_operation_unsupported",
+        message="attach-tip unavailable",
+        operation="resolve-attach-tip",
+    )
+    graphite = FakeGraphiteStackGateway(failures_by_operation={"resolve-attach-tip": failure})
+
+    result = run_stack_workflow_dry_run(
+        profile=_profile(),
+        request=_request(dry_run=False),
+        cwd=Path("/repo"),
+        catalog=_catalog(),
+        diff=_diff(),
+        harness_runtime=_harness_runtime(),
+        agent_runner=FakeAgentRunnerGateway(
+            responses=(AgentRunCompleted(output_markdown=_valid_triage_output()),)
+        ),
+        branch_memory=_CountingBranchMemoryGateway(),
+        pr_gateway=FakePRGateway(),
+        graphite_stack=graphite,
+    )
+
+    assert isinstance(result, StackWorkflowFailure)
+    assert result.error_type == "graphite_stack_operation_unsupported"
+    assert result.message == "attach-tip unavailable"
+    assert graphite.resolve_attach_tip_calls == ((Path("/repo"), "feature/target"),)
+    assert graphite.read_current_stack_calls == ()
+    assert graphite.checkout_branch_calls == ()
 
 
 def test_non_dry_run_updates_existing_generated_branch() -> None:

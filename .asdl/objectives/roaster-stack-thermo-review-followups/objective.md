@@ -38,7 +38,7 @@ Assumptions:
 
 - The thermo-nuclear review evidence is current for branch `roaster-stack/docs-closeout`: `gt ls` showed the full submitted stack above `master`, targeted stack tests passed with `64 passed`, and the review inspected `master..HEAD` rather than only the top branch.
 - The most important structural issue is not correctness failure but maintainability debt: `stack_workflow.py` reached 1,198 lines and now owns too many concepts.
-- The attach-tip gateway abstraction is intended to represent where generated resolver branches attach above an implementation stack; if explicit `--target-branch` bypassing that behavior is actually desired, docs and tests need to say so plainly.
+- The attach-tip gateway abstraction is intended to represent where generated resolver branches attach above an implementation stack; explicit `--target-branch` mutating runs now use that abstraction and fail closed until real attach-tip resolution is implemented.
 - Generated PR marker/body helpers were intended as lineage support, but production code currently does not call them.
 - Branch Memory run artifacts are meant to be durable audit/resume state, not merely temporary scratch output.
 
@@ -46,12 +46,11 @@ Risks:
 
 - Decomposing `stack_workflow.py` could accidentally change safety ordering. In particular, Branch Memory/dashboard writes, resolver execution, branch mutation, and `gt submit` must retain their intended hard-stop behavior.
 - The first three decomposition slices de-risked behavior-preserving extraction paths: dry-run result contracts/projection helpers now live outside `stack_workflow.py`, shared triage views are pure helpers, resolver input rendering now lives in `roaster.stack_resolver_input`, dashboard projection now lives in `roaster.stack_dashboard_projection`, and targeted workflow/dashboard validation passed. Remaining decomposition slices still need the same safety-ordering guardrail.
-- Fixing attach-tip behavior may expose the absence of a stable real Graphite stack discovery API; the Objective should prefer a guarded/fake-covered boundary over speculative live Graphite parsing.
+- Fixing attach-tip behavior exposed the absence of a stable real Graphite attach-tip implementation; the workflow now prefers a guarded/fake-covered boundary and fails closed for real mutating explicit-target runs instead of speculative live Graphite parsing.
 - Wiring generated PR body support may require narrow GitHub/Graphite integration work. If that becomes broad, deletion/deferment may be the better MVP-quality move.
 - Richer manifest/run-state modeling can become overdesigned. The goal is enough durable state for safe audit/resume, not a workflow database.
 
 ## Open Questions
 
 - Should generated PR marker/body support be wired now, or should it be deleted/deferred until roaster can reliably discover generated PR numbers and edit PR bodies?
-- Should explicit `--target-branch` always resolve to a stack attach tip, or is direct attachment to that branch an intentional limited manual mode?
 - What is the minimum durable run-state shape needed to explain partial failure without making the manifest a second dashboard implementation?
