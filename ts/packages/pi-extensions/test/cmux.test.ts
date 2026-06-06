@@ -280,12 +280,11 @@ describe("cmux extension", () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
-		await writeObjectiveMarkdown(repoRoot, slug, "# cmux Extension Consolidation\n\n## Thesis\nDo not summarize this body.\n");
 		const expectedTitle = `obj:${slug}`;
 		const expectedDescription = objectiveSidebarDescription(repoRoot);
 		const pi = new FakePi({
 			script: [
-				objectiveReadStep(slug, { updateCount: 2 }),
+				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
 				cmuxSummaryStep(expectedTitle, expectedDescription),
 			],
@@ -338,7 +337,6 @@ describe("cmux extension", () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
-		await writeObjectiveMarkdown(repoRoot, slug, "# cmux Extension Consolidation\n");
 		const expectedTitle = `obj:${slug}`;
 		const expectedDescription = objectiveSidebarDescription(repoRoot);
 		const pi = new FakePi({
@@ -359,7 +357,6 @@ describe("cmux extension", () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
-		await writeObjectiveMarkdown(repoRoot, slug, "# Bravo Objective\n");
 		const expectedTitle = `obj:${slug}`;
 		const expectedDescription = objectiveSidebarDescription(repoRoot);
 		const pi = new FakePi({
@@ -473,7 +470,6 @@ describe("cmux extension", () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
-		await writeObjectiveMarkdown(repoRoot, slug, "# cmux Extension Consolidation\n");
 		const pi = new FakePi({
 			script: [
 				objectiveReadStep(slug),
@@ -857,24 +853,13 @@ function objectiveListStep(slugs: string[]): ScriptedExec {
 	});
 }
 
-function objectiveReadStep(slug: string, options: { updateCount?: number; hasObjectiveMarkdown?: boolean } = {}): ScriptedExec {
+function objectiveReadStep(slug: string): ScriptedExec {
 	return step("objective", ["exec", "read-objective", slug, "--format", "json"], {
 		stdout: JSON.stringify({
 			exit_code: 0,
 			data: {
 				status: "ok",
 				slug,
-				path: `.asdl/objectives/${slug}`,
-				exists: true,
-				closed: false,
-				files: {
-					objective_md: options.hasObjectiveMarkdown ?? true,
-					roadmap_md: true,
-					updates_dir: true,
-					closed_md: false,
-				},
-				updates: [],
-				update_count: options.updateCount ?? 0,
 			},
 		}),
 	});
@@ -952,12 +937,6 @@ async function writeTempSkill(body: string): Promise<string> {
 	const path = join(dir, "SKILL.md");
 	await writeFile(path, `---\nname: cmux-sidebar\n---\n${body}\n`, "utf8");
 	return path;
-}
-
-async function writeObjectiveMarkdown(repoRoot: string, slug: string, markdown: string): Promise<void> {
-	const objectiveDir = join(repoRoot, ".asdl", "objectives", slug);
-	await mkdir(objectiveDir, { recursive: true });
-	await writeFile(join(objectiveDir, "objective.md"), markdown, "utf8");
 }
 
 async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string): Promise<string> {

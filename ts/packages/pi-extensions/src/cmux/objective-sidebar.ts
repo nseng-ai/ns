@@ -1,9 +1,9 @@
 import * as path from "node:path";
 
-import { formatCommand, tailText, type ExecResult } from "../command-runtime.ts";
+import { formatCommand, formatPlainOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
 import { parseMachineEnvelopeData } from "../machine-envelope.ts";
 import { parseObjectiveList, type ObjectiveListRecord } from "../objective-list.ts";
-import { isRecord } from "./primitives.ts";
+import { formatErrorMessage } from "./primitives.ts";
 import type { ExtensionAPI } from "./types.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
@@ -26,10 +26,6 @@ export type ObjectiveSelectorParseResult =
 
 export interface ObjectiveSidebarFacts {
 	slug: string;
-	path: string;
-	closed: boolean;
-	hasObjectiveMarkdown: boolean;
-	updateCount: number;
 }
 
 export interface ObjectiveSidebarFormatInput {
@@ -307,42 +303,15 @@ function isValidObjectiveSlug(slug: string): boolean {
 }
 
 function parseObjectiveSidebarFacts(data: Record<string, unknown>): ObjectiveFactsReadResult {
-	const files = data.files;
-	if (!isRecord(files)) {
-		return { type: "failed", message: "Invalid objective read JSON: expected files object." };
-	}
-
 	const slug = data.slug;
-	const objectivePath = data.path;
-	const status = data.status;
-	const closed = data.closed;
-	const objectiveMarkdown = files.objective_md;
-	const updateCount = data.update_count;
-	if (
-		status !== "ok" ||
-		typeof slug !== "string" ||
-		typeof objectivePath !== "string" ||
-		typeof closed !== "boolean" ||
-		typeof objectiveMarkdown !== "boolean" ||
-		typeof updateCount !== "number" ||
-		!Number.isFinite(updateCount)
-	) {
+	if (data.status !== "ok" || typeof slug !== "string") {
 		return {
 			type: "failed",
-			message: "Invalid objective read JSON: expected status, slug, path, closed, files.objective_md, and update_count.",
+			message: "Invalid objective read JSON: expected status ok and slug.",
 		};
 	}
 
-	return {
-		type: "loaded",
-		facts: {
-			slug,
-			path: objectivePath,
-			closed,
-			hasObjectiveMarkdown: objectiveMarkdown,
-			updateCount,
-		},
-	};
+	return { type: "loaded", facts: { slug } };
 }
 
 function formatStartupFailure(summary: string, command: string, args: readonly string[], error: unknown): string {
@@ -366,15 +335,13 @@ function formatExecFailure(summary: string, commandDisplay: string, result: Exec
 		`Exit code: ${result.code}`,
 		`Killed: ${result.killed ? "yes" : "no"}`,
 	];
-	if (result.stdout.trim().length > 0) {
-		lines.push("stdout:", tailText(result.stdout.trim(), { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }));
+	const stdout = formatPlainOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
+	if (stdout.length > 0) {
+		lines.push(stdout);
 	}
-	if (result.stderr.trim().length > 0) {
-		lines.push("stderr:", tailText(result.stderr.trim(), { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }));
+	const stderr = formatPlainOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
+	if (stderr.length > 0) {
+		lines.push(stderr);
 	}
 	return tailText(lines.join("\n"), { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

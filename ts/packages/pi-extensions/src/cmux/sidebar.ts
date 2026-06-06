@@ -28,19 +28,9 @@ export interface CmuxSidebarController {
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
 
-interface QueueSidebarOptions {
-	request: SidebarPromptRequest;
-	shouldWaitForIdle: boolean;
-	shouldWarnWhenMissingWorkspace: boolean;
-}
-
 interface ParsedModelRef {
 	provider: string;
 	modelId: string;
-}
-
-interface SidebarPromptRequest {
-	type: "pr";
 }
 
 export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarController {
@@ -59,10 +49,6 @@ export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarContro
 		async handlePrCommand(ctx): Promise<void> {
 			await queueSidebar(pi, ctx, (state) => {
 				pendingRestore = state;
-			}, {
-				request: { type: "pr" },
-				shouldWaitForIdle: true,
-				shouldWarnWhenMissingWorkspace: true,
 			});
 		},
 
@@ -98,29 +84,22 @@ export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): stri
 export function buildCmuxSidebarPrompt(
 	skillBlock: string | undefined,
 	workspaceId: string,
-	request: SidebarPromptRequest,
 ): string {
 	return `${skillBlock ?? buildFallbackSkillPrompt()}
 
-Run the cmux sidebar workflow now for the caller workspace.
+Run the cmux PR sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-${formatVariantInstructions(request)}
+Requested variant: PR sidebar.
+Summarize the current PR, branch, or active implementation work.
+The Goal line should describe the PR outcome, not the cmux update itself.
 
-Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the requested source is resolved, then report the applied title briefly.`;
-}
-
-function formatVariantInstructions(_request: SidebarPromptRequest): string {
-	return [
-		"Requested variant: PR sidebar.",
-		"Summarize the current PR, branch, or active implementation work.",
-		"The Goal line should describe the PR outcome, not the cmux update itself.",
-	].join("\n");
+Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the PR source is resolved, then report the applied title briefly.`;
 }
 
 function buildFallbackSkillPrompt(): string {
-	return `The cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for the requested variant using exactly one deterministic command:
+	return `The cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for the current PR work using exactly one deterministic command:
 
 \`\`\`bash
 asdl exec cmux-workspace-summary \\
@@ -228,17 +207,12 @@ async function queueSidebar(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	setPendingRestore: (state: RestoreState) => void,
-	options: QueueSidebarOptions,
 ): Promise<void> {
-	if (options.shouldWaitForIdle) {
-		await ctx.waitForIdle();
-	}
+	await ctx.waitForIdle();
 
 	const workspaceId = getCallerWorkspaceId();
 	if (!workspaceId) {
-		if (options.shouldWarnWhenMissingWorkspace) {
-			notify(ctx, "Not running inside a cmux caller workspace.", "warning");
-		}
+		notify(ctx, "Not running inside a cmux caller workspace.", "warning");
 		return;
 	}
 
@@ -252,10 +226,10 @@ async function queueSidebar(
 		}
 		notify(
 			ctx,
-			skillBlock ? formatInvokingMessage(options.request) : "cmux sidebar skill not found; using fallback prompt.",
+			skillBlock ? "Invoking cmux PR summary." : "cmux sidebar skill not found; using fallback prompt.",
 			skillBlock ? "info" : "warning",
 		);
-		pi.sendUserMessage(buildCmuxSidebarPrompt(skillBlock, workspaceId, options.request));
+		pi.sendUserMessage(buildCmuxSidebarPrompt(skillBlock, workspaceId));
 	} catch (error) {
 		if (restoreState !== undefined) {
 			await restoreModelState(pi, ctx, restoreState);
@@ -273,10 +247,6 @@ async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): P
 		notify(ctx, `Could not read cmux sidebar skill; using fallback prompt: ${formatErrorMessage(error)}`, "warning");
 		return undefined;
 	}
-}
-
-function formatInvokingMessage(_request: SidebarPromptRequest): string {
-	return "Invoking cmux PR summary.";
 }
 
 function configuredSidebarModelRef(): string {
