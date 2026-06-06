@@ -164,16 +164,26 @@ def _claude_code_supports_model(model: str) -> bool:
     return any(model.startswith(prefix) for prefix in _CLAUDE_CODE_MODEL_PREFIXES)
 
 
+def _claude_code_output_format(review_format: ReviewFormat) -> str:
+    if review_format == "findings":
+        return "json"
+    return "stream-json"
+
+
 def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProcessInvocation:
     # The user prompt is fed via stdin, not argv, so a large diff can never
     # trigger E2BIG when claude is execve'd. `--tools` is variadic, so it must
     # always be followed by another flag; keep `--model` immediately after it.
+    output_format = _claude_code_output_format(request.review_format)
     argv = [
         CLAUDE_CODE_BINARY,
         "-p",
         "--output-format",
-        "stream-json",
-        "--verbose",
+        output_format,
+    ]
+    if output_format == "stream-json":
+        argv.append("--verbose")
+    argv += [
         "--bare",
         # Read-only exploration only. Edit/Write stay out so a review run
         # cannot mutate the repo. In findings mode --json-schema also injects
@@ -296,6 +306,19 @@ def _truncate_prose(text: str, limit: int = _PROSE_SNIPPET_MAX_CHARS) -> str:
     return text[:limit].rstrip() + "…"
 
 
+def _find_result_event(events: list[dict[str, Any]]) -> dict[str, Any] | RoasterFailure:
+    for event in events:
+        if event.get("type") == "result":
+            return event
+
+    return ClaudeCodeMissingResultEvent(
+        message=(
+            "Claude Code output did not include a terminal `result` event. "
+            "The harness may have been killed before finishing."
+        ),
+    )
+
+
 def _extract_result_event(stdout: str) -> dict[str, Any] | RoasterFailure:
     if not stdout.strip():
         return ClaudeCodeEmptyOutput(
@@ -306,15 +329,37 @@ def _extract_result_event(stdout: str) -> dict[str, Any] | RoasterFailure:
     if isinstance(events, RoasterFailure):
         return events
 
-    for event in events:
-        if event.get("type") == "result":
-            return event
+    return _find_result_event(events)
 
-    return ClaudeCodeMissingResultEvent(
-        message=(
-            "Claude Code stream-json output did not include a terminal "
-            "`result` event. The harness may have been killed before finishing."
-        ),
+
+def _extract_json_result(stdout: str) -> dict[str, Any] | RoasterFailure:
+    if not stdout.strip():
+        return ClaudeCodeEmptyOutput(
+            message="Claude Code returned no output.",
+        )
+
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        return ClaudeCodeInvalidJson(
+            message=f"Unable to parse Claude Code JSON output: {exc}",
+        )
+
+    if isinstance(payload, dict):
+        return payload
+
+    if isinstance(payload, list):
+        events: list[dict[str, Any]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                return ClaudeCodeInvalidResponse(
+                    message="Each Claude Code JSON event must be an object.",
+                )
+            events.append(item)
+        return _find_result_event(events)
+
+    return ClaudeCodeInvalidResponse(
+        message="Claude Code JSON output must be an object.",
     )
 
 
@@ -322,7 +367,10 @@ def _claude_code_parse_stdout(
     request: HarnessReviewRequest,
     stdout: str,
 ) -> ReviewExecutionResponse | RoasterFailure:
-    result_event = _extract_result_event(stdout)
+    if request.review_format == "findings":
+        result_event = _extract_json_result(stdout)
+    else:
+        result_event = _extract_result_event(stdout)
     if isinstance(result_event, RoasterFailure):
         return result_event
 
