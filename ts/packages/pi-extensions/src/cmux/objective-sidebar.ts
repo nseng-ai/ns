@@ -24,10 +24,6 @@ export type ObjectiveSelectorParseResult =
 			message: string;
 	  };
 
-export interface ObjectiveSidebarFacts {
-	slug: string;
-}
-
 export interface ObjectiveSidebarFormatInput {
 	objectiveSlug: string;
 	slotSlug: string;
@@ -39,10 +35,9 @@ export interface SidebarFields {
 	description: string;
 }
 
-export type ObjectiveFactsReadResult =
+export type ObjectiveSidebarValidationResult =
 	| {
-			type: "loaded";
-			facts: ObjectiveSidebarFacts;
+			type: "validated";
 	  }
 	| {
 			type: "failed";
@@ -130,11 +125,11 @@ export async function listObjectiveSidebarChoices(
 	return { type: "loaded", records: parsed.list.records };
 }
 
-export async function readObjectiveSidebarFacts(
+export async function validateObjectiveSidebarSlug(
 	pi: Pick<ExtensionAPI, "exec">,
 	cwd: string,
 	slug: string,
-): Promise<ObjectiveFactsReadResult> {
+): Promise<ObjectiveSidebarValidationResult> {
 	const args = ["exec", "read-objective", slug, "--format", "json"];
 	let result: ExecResult;
 	try {
@@ -159,7 +154,7 @@ export async function readObjectiveSidebarFacts(
 		return { type: "failed", message: parsed.message };
 	}
 
-	return parseObjectiveSidebarFacts(parsed.data);
+	return parseObjectiveSidebarValidation(parsed.data, slug);
 }
 
 export async function readCurrentBranchSlug(
@@ -302,16 +297,15 @@ function isValidObjectiveSlug(slug: string): boolean {
 	return slug.length > 0 && slug !== "." && slug !== ".." && !slug.includes("/") && !slug.includes("\\");
 }
 
-function parseObjectiveSidebarFacts(data: Record<string, unknown>): ObjectiveFactsReadResult {
-	const slug = data.slug;
-	if (data.status !== "ok" || typeof slug !== "string") {
+function parseObjectiveSidebarValidation(data: Record<string, unknown>, expectedSlug: string): ObjectiveSidebarValidationResult {
+	if (data.status !== "ok" || data.slug !== expectedSlug) {
 		return {
 			type: "failed",
-			message: "Invalid objective read JSON: expected status ok and slug.",
+			message: "Invalid objective read JSON: expected status ok and matching slug.",
 		};
 	}
 
-	return { type: "loaded", facts: { slug } };
+	return { type: "validated" };
 }
 
 function formatStartupFailure(summary: string, command: string, args: readonly string[], error: unknown): string {

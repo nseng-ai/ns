@@ -109,7 +109,7 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 `/cmux:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `cmux-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/cmux:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates structured Objective facts and applies fixed fields through `pi.exec("asdl", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `cmux-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/cmux:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("asdl", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `cmux-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
