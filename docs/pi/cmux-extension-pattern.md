@@ -8,7 +8,8 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 - A Pi command opens a new cmux workspace without automatically refreshing sidebar metadata.
 - A manual sidebar update must target the workspace that launched this terminal, not whatever cmux workspace is focused now.
 - The behavior is repo-local to `asdl-tools` and should not become a global Pi extension.
-- The workflow needs a short semantic model pass but deterministic cmux mutation.
+- The PR sidebar workflow needs a short semantic model pass but deterministic cmux mutation.
+- The Objective sidebar workflow needs deterministic formatting from an explicit Objective selector or UI picker selection.
 
 ## Layering
 
@@ -19,7 +20,7 @@ Current layers:
 | Pi discovery adapter   | `.pi/extensions/cmux.ts`                     | Thin adapter that registers the repo cmux command suite                  |
 | Engineered TS package  | `ts/packages/pi-extensions/src/cmux.ts`      | Wires shared cmux controllers and command modules                        |
 | cmux command modules   | `ts/packages/pi-extensions/src/cmux/`        | Implements `/cmux:workspace:*` and `/cmux:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what sidebar fields to generate                          |
+| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what PR sidebar fields to generate                       |
 | Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the old status pill    |
 | cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                         |
 | Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                       |
@@ -77,11 +78,11 @@ process.env.CMUX_WORKSPACE_ID ?? process.env.CMUX_TAB_ID
 
 If no caller workspace is available, notify and return. Do not fall back to the focused workspace because a background Pi session can be running while another cmux workspace is focused.
 
-The manual sidebar skill does not pass `--workspace`; `asdl exec cmux-workspace-summary` resolves the same caller workspace env itself.
+The PR sidebar skill and deterministic Objective sidebar extension do not pass `--workspace`; `asdl exec cmux-workspace-summary` resolves the same caller workspace env itself.
 
 ## Model choice and speed
 
-Sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up turn to a faster model and minimal thinking:
+PR sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up PR turn to a faster model and minimal thinking:
 
 - env override: `ASDL_CMUX_SIDEBAR_MODEL=provider/model`
 - default: `openai-codex/gpt-5.4-mini`
@@ -89,9 +90,9 @@ Sidebar updates are low-stakes semantic compression. The controller temporarily 
 
 The controller restores the previous model and thinking level on `agent_end`. If the fast model is missing or unavailable, it warns and uses the current model.
 
-## Prompt shape
+## PR prompt shape
 
-The model should generate only these fields:
+For `/cmux:sidebar:pr-summary`, the model should generate only these fields:
 
 - `title`
 - `description`
@@ -102,17 +103,17 @@ The description is exactly one short line:
 Goal: ...
 ```
 
-Prompt-only length enforcement is intentional for now. Do not add deterministic validation unless the design changes.
+Prompt-only length enforcement is intentional for PR sidebar for now. Do not add deterministic PR validation unless the design changes.
 
 ## Variants
 
-`/cmux:sidebar:pr-summary` summarizes current PR, branch, or active implementation work. The Goal line describes the PR outcome, not the cmux update itself.
+`/cmux:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `cmux-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/cmux:sidebar:objective-summary [objective-slug-or-path]` summarizes the selected asdl Objective. If no Objective slug or path is supplied, the queued model prompt must ask the user to provide or choose one and must not infer from branch, PR, or hidden context.
+`/cmux:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates structured Objective facts and applies fixed fields through `pi.exec("asdl", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `cmux-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
-The skill should tell the model to call exactly one deterministic command when the source is resolved:
+The PR sidebar skill should tell the model to call exactly one deterministic command when the source is resolved:
 
 ```bash
 asdl exec cmux-workspace-summary \
@@ -121,7 +122,7 @@ asdl exec cmux-workspace-summary \
   --format json
 ```
 
-Do not assign shell variables, do not write an env prelude, and do not pass `--workspace` from the skill. The command clears the legacy `pi-summary` cmux status pill. The JSON envelope must have `exit_code: 0` and `data.success: true`. The assistant should then reply only with the applied title.
+Do not assign shell variables, do not write an env prelude, and do not pass `--workspace` from the skill. The Objective sidebar extension calls the same command directly with argv rather than asking an agent to write shell. The command clears the legacy `pi-summary` cmux status pill. The JSON envelope must have `exit_code: 0` and `data.success: true`. The PR assistant should then reply only with the applied title.
 
 See [`../asdl-exec/cmux-workspace-summary.md`](../asdl-exec/cmux-workspace-summary.md) for the exec contract and [`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
 
@@ -151,20 +152,20 @@ Do not inspect or rely on `/Users/schrockn/code/githubs/manaflow-ai/cmux` for be
 
 ## Context pollution
 
-The manual sidebar implementation injects a normal follow-up user message with the expanded skill block. That means the control prompt, assistant response, and tool result can appear in future model context. Filtering those traces is intentionally not implemented in this pass.
+The PR sidebar implementation injects a normal follow-up user message with the expanded skill block. That means the control prompt, assistant response, and tool result can appear in future model context. Filtering those traces is intentionally not implemented for PR sidebar in this pass.
 
-If future sidebar updates start describing earlier sidebar refreshes, design a context-filtering extension hook or move the whole flow into direct extension code.
+The Objective sidebar implementation avoids this pollution by staying in direct extension code: no `pi.sendUserMessage`, no model switch, and no skill prompt.
 
-## Future “agent writes no bash” target
+## Future PR “agent writes no bash” target
 
-If the next iteration should require no model-authored shell at all, make the extension own the summary-and-apply loop:
+Objective sidebar already follows the direct extension apply path. If PR sidebar should require no model-authored shell in a future iteration, make the extension own the PR summary-and-apply loop:
 
 1. Use Pi model APIs or an existing fast-draft helper to generate a small JSON object for the fields.
 2. Validate and shorten fields in TypeScript.
 3. Call `pi.exec("asdl", ["exec", "cmux-workspace-summary", ...])` with argv.
 4. Display the resulting title directly.
 
-That design keeps semantic summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It also removes the skill-driven bash block from the conversation. Reintroducing automatic summaries should wait until that targeting and apply path are explicit.
+That design would keep semantic PR summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It would also remove the PR skill-driven bash block from the conversation. Reintroducing automatic summaries should wait until that targeting and apply path are explicit.
 
 ## Validation checklist
 
