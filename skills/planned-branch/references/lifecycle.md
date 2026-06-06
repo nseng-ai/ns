@@ -49,6 +49,7 @@ Pi surfaces:
 
 - `/planned-branch:write-plan`
 - `/planned-branch:create`
+- `/planned-branch:up-and-impl`
 - `/planned-branch:impl`
 
 CLI surfaces:

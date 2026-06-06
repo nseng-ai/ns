@@ -58,11 +58,11 @@ export type {
 
 const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
-const STACK_IMPL_COMMAND_NAME = "up-impl";
+const UP_AND_IMPL_COMMAND_NAME = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
-const STACK_IMPL_STATUS_KEY = "up-impl";
+const UP_AND_IMPL_STATUS_KEY = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -110,6 +110,22 @@ type SessionHistoryEntry = unknown;
 interface SessionManagerLike {
 	getBranch?(): SessionHistoryEntry[];
 	getEntries?(): SessionHistoryEntry[];
+	getSessionFile?(): string | undefined;
+}
+
+interface NewSessionResult {
+	cancelled: boolean;
+}
+
+interface ReplacedSessionContext extends CommandContext {
+	sendMessage(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): Promise<void> | void;
+	sendUserMessage(content: string): Promise<void> | void;
+}
+
+interface NewSessionOptions {
+	parentSession?: string;
+	setup?(sessionManager: SessionManagerLike): Promise<void> | void;
+	withSession?(ctx: ReplacedSessionContext): Promise<void> | void;
 }
 
 export interface PlannedBranchExtensionOptions {
@@ -188,6 +204,7 @@ export interface CommandContext {
 		confirm?(title: string, message?: string): Promise<boolean>;
 	};
 	waitForIdle(): Promise<void>;
+	newSession(options?: NewSessionOptions): Promise<NewSessionResult>;
 	sessionManager?: SessionManagerLike;
 }
 
@@ -221,9 +238,9 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const STACK_IMPL_USAGE = `Usage: /up-impl [options] [absolute-or-home-plan-file.md]
+export const UP_AND_IMPL_USAGE = `Usage: /planned-branch:up-and-impl [options] [absolute-or-home-plan-file.md]
 
-Create a planned branch, attach the saved plan, check out that branch with git, and launch /planned-branch:impl for the attached plan in the same Pi session.
+Create a planned branch, attach the saved plan, check out that branch with git, start a new Pi session, and launch /planned-branch:impl for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
@@ -233,7 +250,7 @@ Options:
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
-This command intentionally models the manual flow: /planned-branch:create, git checkout <branch>, then /planned-branch:impl <key> in the same Pi session.`;
+This command intentionally models the manual flow: /planned-branch:create, git checkout <branch>, /new, then /planned-branch:impl <key> in the new Pi session.`;
 
 export function buildWritePlanPrompt(steering: string): string {
 	return `This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.
@@ -469,9 +486,9 @@ export default function registerPlannedBranchExtension(
 		handler: async (args, ctx) => handleCreatePlannedBranchCommand(pi, args, ctx, options),
 	});
 
-	pi.registerCommand(STACK_IMPL_COMMAND_NAME, {
-		description: "Create a planned branch, check it out, and implement the attached plan in this Pi session.",
-		handler: async (args, ctx) => handleStackImplCommand(pi, args, ctx, options),
+	pi.registerCommand(UP_AND_IMPL_COMMAND_NAME, {
+		description: "Create a planned branch, check it out, and implement the attached plan in a new Pi session.",
+		handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
 	});
 
 	pi.registerCommand(IMPL_PLANNED_BRANCH_COMMAND_NAME, {
@@ -569,7 +586,7 @@ async function handleCreatePlannedBranchCommand(
 	}
 }
 
-async function handleStackImplCommand(
+async function handleUpAndImplCommand(
 	pi: ExtensionAPI,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -582,26 +599,26 @@ async function handleStackImplCommand(
 		args = parseCreatePlannedBranchArgs(rawArgs);
 	} catch (error) {
 		if (error instanceof CreatePlannedBranchUsageError) {
-			presentPlannedBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${STACK_IMPL_USAGE}`, { status: "usage" }, "error");
+			presentPlannedBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${UP_AND_IMPL_USAGE}`, { status: "usage" }, "error");
 			return;
 		}
 		throw error;
 	}
 
 	if (args.help) {
-		presentPlannedBranchMessage(pi, ctx, STACK_IMPL_USAGE, { status: "usage" }, "info");
+		presentPlannedBranchMessage(pi, ctx, UP_AND_IMPL_USAGE, { status: "usage" }, "info");
 		return;
 	}
 
 	let preview: CreatePlannedBranchPreview;
-	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, "finding saved plan…");
+	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
 		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, options);
 	} catch (error) {
 		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
 		return;
 	} finally {
-		ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
@@ -609,30 +626,30 @@ async function handleStackImplCommand(
 		presentPlannedBranchMessage(
 			pi,
 			ctx,
-			`Dry run: no branch was created, no checkout happened, and no implementation prompt was sent.\n\n${previewText}\n\nSame-session implementation flow:\n${formatStackImplFollowUpFlow(preview.targetBranch, preview.key)}`,
+			`Dry run: no branch was created, no checkout happened, no new session was started, and no implementation prompt was sent.\n\n${previewText}\n\nNew-session implementation flow:\n${formatUpAndImplFollowUpFlow(preview.targetBranch, preview.key)}`,
 			{ status: "dry-run", preview },
 			"info",
 		);
 		return;
 	}
 
-	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, "creating branch and attaching plan…");
+	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "creating branch and attaching plan…");
 	let evidence: PlannedBranchEvidence;
 	try {
 		evidence = await createPlannedBranchFromPreview(pi, preview, ctx);
 	} catch (error) {
-		ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
 		presentPlannedBranchFailure(pi, ctx, "Failed to create planned branch and attach the plan.", error, preview);
 		return;
 	}
 
 	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
 
-	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, "checking out planned branch…");
+	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "checking out planned branch…");
 	try {
 		await checkoutPlannedBranch(pi, ctx, evidence.branch);
 	} catch (error) {
-		ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
 		presentPlannedBranchFailure(
 			pi,
 			ctx,
@@ -643,8 +660,44 @@ async function handleStackImplCommand(
 		return;
 	}
 
-	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
-	pi.sendUserMessage(`/planned-branch:impl ${evidence.key}`);
+	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "starting implementation session…");
+	let isReplacementSessionActive = false;
+	try {
+		const parentSession = ctx.sessionManager?.getSessionFile?.();
+		const newSessionOptions: NewSessionOptions = {
+			withSession: async (newCtx) => {
+				isReplacementSessionActive = true;
+				await newCtx.sendUserMessage(`/planned-branch:impl ${evidence.key}`);
+			},
+		};
+		if (parentSession !== undefined) {
+			newSessionOptions.parentSession = parentSession;
+		}
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		const result = await ctx.newSession(newSessionOptions);
+		if (!result.cancelled) {
+			return;
+		}
+
+		presentPlannedBranchMessage(
+			pi,
+			ctx,
+			`Created planned branch, attached the plan, and checked out ${evidence.branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${evidence.key} to continue.`,
+			{ status: "cancelled", preview, evidence },
+			"warning",
+		);
+	} catch (error) {
+		if (isReplacementSessionActive) {
+			throw error;
+		}
+		presentPlannedBranchFailure(
+			pi,
+			ctx,
+			"Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.",
+			error,
+			preview,
+		);
+	}
 }
 
 async function createPlannedBranchFromPreview(
@@ -674,8 +727,8 @@ async function checkoutPlannedBranch(pi: ExtensionAPI, ctx: CommandContext, targ
 	}
 }
 
-function formatStackImplFollowUpFlow(targetBranch: string, key: string): string {
-	return [`git checkout ${targetBranch}`, `/planned-branch:impl ${key}`].join("\n");
+function formatUpAndImplFollowUpFlow(targetBranch: string, key: string): string {
+	return [`git checkout ${targetBranch}`, `/new`, `/planned-branch:impl ${key}`].join("\n");
 }
 
 function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {

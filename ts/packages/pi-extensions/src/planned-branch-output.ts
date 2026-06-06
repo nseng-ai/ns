@@ -2,7 +2,7 @@ import type { BranchCreationMethod } from "@asdl/planned-branch";
 
 export const PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE = "planned-branch-output";
 
-export type PlannedBranchOutputStatus = "usage" | "dry-run" | "success" | "failure";
+export type PlannedBranchOutputStatus = "usage" | "dry-run" | "success" | "failure" | "cancelled";
 
 export interface PlannedBranchEvidence {
 	slug: string;
