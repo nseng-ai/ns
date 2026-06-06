@@ -27,6 +27,7 @@ export interface ExtensionCommandContext {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
+		select?(title: string, options: string[]): Promise<string | undefined>;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 	};
@@ -50,6 +51,7 @@ export interface RoastOptions {
 	model?: string;
 	harness?: string;
 	reviewFormat: ReviewFormat;
+	reviewKeys: string[];
 }
 
 type RoastArgParseResult =
@@ -79,6 +81,11 @@ interface SkippedReview {
 	whenChanged: string[];
 	reason: string;
 }
+
+type ReviewChoiceResult =
+	| { type: "ok"; selection: MatchingSelectionData }
+	| { type: "cancelled" }
+	| { type: "error"; message: string };
 
 interface MatchingSelectionData {
 	baseRef: string;
@@ -178,7 +185,7 @@ interface RoastAggregate {
 
 export default function roastExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Run roaster reviewers whose when_changed globs match the current branch diff.",
+		description: "Choose and run roaster reviewers for the current branch diff.",
 		handler: async (rawArgs, ctx) => {
 			await runRoast(pi, ctx, rawArgs);
 		},
@@ -262,9 +269,40 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
-		aggregate.selection = selectionResult.data;
+		const reviewChoiceResult = await chooseReviewSelection({ ctx, options, selection: selectionResult.data });
+		if (reviewChoiceResult.type === "cancelled") {
+			emitRoastText({
+				pi,
+				ctx,
+				rawArgs,
+				args: parsed.args,
+				result: {
+					exitCode: 0,
+					level: "info",
+					stdout: "Roast cancelled before reviewers were run.\n",
+					stderr: "",
+				},
+			});
+			return;
+		}
+		if (reviewChoiceResult.type === "error") {
+			emitRoastText({
+				pi,
+				ctx,
+				rawArgs,
+				args: parsed.args,
+				result: {
+					exitCode: 2,
+					level: "error",
+					stdout: "",
+					stderr: `Error: ${reviewChoiceResult.message}\n`,
+				},
+			});
+			return;
+		}
+		aggregate.selection = reviewChoiceResult.selection;
 
-		if (selectionResult.data.selectedReviews.length === 0) {
+		if (reviewChoiceResult.selection.selectedReviews.length === 0) {
 			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
@@ -284,15 +322,15 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 		}
 		aggregate.harnessName = harnessResult.data.harnessName;
 
-		const missingModelReviews = findMissingModelReviews(selectionResult.data.selectedReviews, options);
+		const missingModelReviews = findMissingModelReviews(reviewChoiceResult.selection.selectedReviews, options);
 		if (missingModelReviews.length > 0) {
 			aggregate.missingModelReviews = missingModelReviews;
 			emitAggregate({ pi, ctx, rawArgs, args: parsed.args, aggregate });
 			return;
 		}
 
-		for (const [index, review] of selectionResult.data.selectedReviews.entries()) {
-			setRoastStatus(ctx, `running ${index + 1}/${selectionResult.data.selectedReviews.length} ${review.key}…`);
+		for (const [index, review] of reviewChoiceResult.selection.selectedReviews.entries()) {
+			setRoastStatus(ctx, `running ${index + 1}/${reviewChoiceResult.selection.selectedReviews.length} ${review.key}…`);
 			const runResult = await runRoasterJson({
 				pi,
 				ctx,
@@ -315,13 +353,13 @@ export async function runRoast(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, c
 
 export function parseRoastArgs(args: readonly string[]): RoastArgParseResult {
 	if (args.length === 0) {
-		return { type: "ok", options: { reviewFormat: DEFAULT_REVIEW_FORMAT } };
+		return { type: "ok", options: { reviewFormat: DEFAULT_REVIEW_FORMAT, reviewKeys: [] } };
 	}
 	if (args.length === 1 && args[0] === "--help") {
 		return { type: "help" };
 	}
 
-	const options: RoastOptions = { reviewFormat: DEFAULT_REVIEW_FORMAT };
+	const options: RoastOptions = { reviewFormat: DEFAULT_REVIEW_FORMAT, reviewKeys: [] };
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === undefined) {
@@ -331,7 +369,11 @@ export function parseRoastArgs(args: readonly string[]): RoastArgParseResult {
 			return { type: "error", message: `/${COMMAND_NAME} only accepts space-separated option values; got ${arg}.` };
 		}
 		if (!arg.startsWith("--")) {
-			return { type: "error", message: `Unexpected positional argument ${arg}. Use --help for usage.` };
+			if (arg.startsWith("-")) {
+				return { type: "error", message: `Unsupported /${COMMAND_NAME} option ${arg}. Use --help for usage.` };
+			}
+			options.reviewKeys.push(arg);
+			continue;
 		}
 		if (arg === "--help") {
 			return { type: "error", message: "--help must be used by itself." };
@@ -368,6 +410,89 @@ export function parseRoastArgs(args: readonly string[]): RoastArgParseResult {
 
 function isSupportedValueOption(arg: string): boolean {
 	return arg === "--base-ref" || arg === "--model" || arg === "--harness" || arg === "--review-format";
+}
+
+async function chooseReviewSelection(options: {
+	ctx: ExtensionCommandContext;
+	options: RoastOptions;
+	selection: MatchingSelectionData;
+}): Promise<ReviewChoiceResult> {
+	const { ctx, selection } = options;
+	const availableReviews = allReviewsFromSelection(selection);
+	if (availableReviews.length === 0) {
+		return { type: "ok", selection };
+	}
+
+	if (options.options.reviewKeys.length > 0) {
+		return selectionForExplicitReviewKeys(selection, availableReviews, options.options.reviewKeys);
+	}
+
+	if (!ctx.hasUI || ctx.ui.select === undefined) {
+		return { type: "ok", selection };
+	}
+
+	const choice = await ctx.ui.select("Which roast should I run?", [...availableReviews.map((review) => review.key), "all matching changed files", "all reviews"]);
+	if (choice === undefined) {
+		return { type: "cancelled" };
+	}
+	if (choice === "all matching changed files") {
+		return { type: "ok", selection };
+	}
+	if (choice === "all reviews") {
+		return { type: "ok", selection: selectionWithReviews(selection, availableReviews) };
+	}
+	return selectionForExplicitReviewKeys(selection, availableReviews, [choice]);
+}
+
+function selectionForExplicitReviewKeys(
+	selection: MatchingSelectionData,
+	availableReviews: readonly MatchingReview[],
+	reviewKeys: readonly string[],
+): ReviewChoiceResult {
+	const reviewsByKey = new Map(availableReviews.map((review) => [review.key, review]));
+	const selectedReviews: MatchingReview[] = [];
+	const unknownKeys: string[] = [];
+	for (const key of reviewKeys) {
+		const review = reviewsByKey.get(key);
+		if (review === undefined) {
+			unknownKeys.push(key);
+			continue;
+		}
+		if (!selectedReviews.some((selectedReview) => selectedReview.key === review.key)) {
+			selectedReviews.push(review);
+		}
+	}
+	if (unknownKeys.length > 0) {
+		return { type: "error", message: `Unknown review key(s): ${unknownKeys.join(", ")}. Available reviews: ${availableReviews.map((review) => review.key).join(", ")}.` };
+	}
+	return { type: "ok", selection: selectionWithReviews(selection, selectedReviews) };
+}
+
+function selectionWithReviews(selection: MatchingSelectionData, selectedReviews: readonly MatchingReview[]): MatchingSelectionData {
+	return {
+		...selection,
+		selectedReviews: [...selectedReviews],
+		selectedCount: selectedReviews.length,
+		skippedReviews: [],
+		skippedCount: 0,
+	};
+}
+
+function allReviewsFromSelection(selection: MatchingSelectionData): MatchingReview[] {
+	const reviews = new Map<string, MatchingReview>();
+	for (const review of selection.selectedReviews) {
+		reviews.set(review.key, review);
+	}
+	for (const review of selection.skippedReviews) {
+		reviews.set(review.key, {
+			key: review.key,
+			description: review.description,
+			defaultModel: review.defaultModel,
+			whenChanged: review.whenChanged,
+			matchedPaths: [],
+		});
+	}
+	return [...reviews.values()].sort((left, right) => left.key.localeCompare(right.key));
 }
 
 function buildSelectionArgs(options: RoastOptions): string[] {
@@ -847,13 +972,17 @@ function indentBlock(text: string, prefix: string): string {
 
 function roastHelpText(): string {
 	return [
-		"/roast runs roaster reviewers whose when_changed globs match the current branch diff.",
+		"/roast chooses and runs roaster reviewers for the current branch diff.",
 		"",
 		"Workflow:",
 		"  1. list matching reviewers with roaster review list-matching",
-		"  2. resolve the review harness",
-		"  3. run each selected reviewer sequentially",
-		"  4. render one aggregate Pi message",
+		"  2. if no reviewer key was supplied, prompt for a reviewer, all matching changed files, or all reviews",
+		"  3. resolve the review harness",
+		"  4. run each selected reviewer sequentially",
+		"  5. render one aggregate Pi message",
+		"",
+		"Arguments:",
+		"  REVIEW_KEY                 Run one or more explicit reviewers, e.g. /roast simplify.",
 		"",
 		"Options:",
 		"  --base-ref VALUE           Base branch/ref to diff against.",
