@@ -62,3 +62,15 @@ Resolved by the singular-namespace contract slice:
 
 - The flat `<semantic-slug>.md` Entry Key shape is the v1 handoff contract.
 - Worktree status should not normalize `session-artifacts/handoffs/...` into handoff display; normal handoff flows use only namespace `handoff`.
+
+## Closure
+
+Outcome: completed.
+
+The handoff-over-Branch-Memory contract is now documented and encoded where future agents and maintainers encounter it: `docs/pi/handoff-artifacts.md`, ADR 0002, handoff skills, `packages/asdl-handoff/CONTEXT.md`, `packages/brmem/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `CONTEXT-MAP.md`, and the Python/Pi tests all agree that normal Handoff Artifacts use Branch Memory namespace `handoff` with flat keys shaped `<semantic-slug>.md`.
+
+Completion evidence: the inventory update captured the previous behavior; the singular-namespace update recorded the final contract, implementation alignment, normal pickup evidence, and failure/legacy evidence; focused Python and Pi tests, TypeScript workspace check, and full `just` passed for the alignment slice.
+
+Final stale-reference sweep: ordinary plural `handoffs` remains valid for collections and UI/API records, while stale technical meanings are limited to explicit legacy/rejection/evidence contexts such as ADR 0002, tests for legacy namespace behavior, and the historical Objective updates. Historical Semantic Updates are preserved as evidence rather than rewritten. `docs-site` application docs were intentionally left out of this Objective's closure scope. The obsolete `docs/pi/objective-stack-subagent-rewrite-brief.md` was deleted because its runner/objective-stack handoff terminology is no longer relevant, and its `docs/pi/README.md` link was removed.
+
+Remaining caveats: old local `handoffs` Namespace entries, if any need preservation, are one-off operational migration work outside the normal command surface. Broader Branch Memory UX improvements remain out of scope for this Objective.
