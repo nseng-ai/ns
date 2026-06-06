@@ -2,11 +2,11 @@
 
 ## Work
 
-- [ ] Decompose the roaster stack workflow module around stable responsibilities.
+- [~] Decompose the roaster stack workflow module around stable responsibilities.
   - Context: the thermo-nuclear review flagged `packages/roaster/src/roaster/stack_workflow.py` at 1,198 lines, with dry-run orchestration, mutating orchestration, Branch Memory persistence, resolver input rendering, dashboard projection, Graphite sequencing, target resolution, and CLI-facing summary models all living together.
-  - Thesis: preserve behavior while making the core workflow read as a small orchestration layer over focused helpers/modules.
-  - Candidate split points: workflow phase orchestration, run persistence, dashboard projection, resolver input rendering, dry-run result shaping, and low-level value formatting.
-  - Evidence to preserve: targeted roaster stack tests should continue to pass, and dry-run no-mutation assertions must remain explicit.
+  - Progress: the first behavior-preserving slice extracted dry-run result contracts/projection helpers into `roaster.stack_dry_run` and shared triage accessors into `roaster.stack_triage_view`; CLI and workflow tests now import the dry-run result model from its canonical module.
+  - Remaining split points: workflow phase orchestration, run persistence, dashboard projection, resolver input rendering, and low-level value formatting.
+  - Evidence preserved: dry-run no-mutation assertions remain explicit, targeted roaster stack tests passed, broader roaster/plugin tests passed, and full `just` validation passed.
 
 - [ ] Fix or explicitly narrow Graphite attach-tip semantics for explicit target branches.
   - Context: the gateway exposes `resolve_attach_tip(...)`, and fake tests cover attach-tip resolution, but `_resolve_attach_context` currently treats an explicit `--target-branch` as both the target branch and attach tip.

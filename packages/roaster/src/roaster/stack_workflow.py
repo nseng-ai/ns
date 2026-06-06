@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.non_ideal_state import error_type_for
 from asdl_core.gh.pr_gateway import PRGateway
 from brmem.gateway import BranchMemoryGateway
@@ -37,6 +36,14 @@ from roaster.stack_dashboard import (
     publish_stack_dashboard,
     render_stack_dashboard,
 )
+from roaster.stack_dry_run import (
+    StackDryRunResult,
+    batch_summaries,
+    dry_run_actions,
+    dry_run_locators,
+    finding_summaries,
+    reviewer_summaries,
+)
 from roaster.stack_graphite import (
     StackBatchOrderingError,
     generated_branch_for_batch,
@@ -49,7 +56,6 @@ from roaster.stack_models import (
     StackResolverOutput,
     StackRunManifest,
     StackTriageBatch,
-    StackTriageFinding,
     StackWorkflowRequest,
     StackWorkflowResult,
 )
@@ -57,7 +63,6 @@ from roaster.stack_profile import StackProfile
 from roaster.stack_run_storage import (
     StackRunArtifactPlan,
     StackRunIndex,
-    StackRunLocator,
     StackRunStorageError,
     add_run_to_index,
     select_stack_run_slug,
@@ -69,6 +74,12 @@ from roaster.stack_run_storage import (
 )
 from roaster.stack_slugs import StackSlugError, validate_branch_memory_segment
 from roaster.stack_triage import StackTriageFailure, StackTriageResult, run_stack_triage
+from roaster.stack_triage_view import (
+    finding_status_count,
+    triage_batches,
+    triage_findings,
+    triage_summary,
+)
 
 STACK_RESOLVER_PROMPT_RESOURCE = "stack_resolver.md"
 RESOLVER_ALLOWED_TOOLS = ("Read", "Edit", "MultiEdit", "Write", "Bash")
@@ -82,67 +93,6 @@ class StackWorkflowFailure:
     message: str
 
 
-class StackDryRunLocator(ClinkrModel):
-    """Read-only preview of one Branch Memory or dashboard locator."""
-
-    kind: str
-    namespace: str | None = None
-    key: str | None = None
-    branch: str | None = None
-    target_pr: str | None = None
-    marker: str | None = None
-
-
-class StackDryRunReviewerSummary(ClinkrModel):
-    """Reviewer facts collected during a dry run."""
-
-    key: str
-    review_name: str
-    review_path: str
-    model: str
-    base_ref: str
-    finding_count: int
-
-
-class StackDryRunFindingSummary(ClinkrModel):
-    """Triaged finding fields surfaced in CLI/JSON output."""
-
-    id: str
-    source_review: str
-    status: str
-    severity: str
-    path: str | None
-    line: int | None
-    summary: str
-    rationale: str
-    merged_into: str | None
-    confidence: str
-    risk: str
-
-
-class StackDryRunBatchSummary(ClinkrModel):
-    """Planned resolver batch fields surfaced in CLI/JSON output."""
-
-    slug: str
-    title: str
-    summary: str
-    finding_ids: tuple[str, ...]
-    dependencies: tuple[str, ...]
-    confidence: str
-    risk: str
-    resolver_mandate: str
-    validation_requirements: tuple[str, ...]
-
-
-class StackDryRunAction(ClinkrModel):
-    """One deterministic action that would be considered after dry-run planning."""
-
-    action_type: str
-    batch_slug: str | None = None
-    mutating: bool
-    description: str
-
-
 @dataclass(frozen=True)
 class StackAttachContext:
     """Resolved target branch, attach tip, and dashboard PR for a mutating stack run."""
@@ -150,46 +100,6 @@ class StackAttachContext:
     target_branch: str
     attach_tip: str
     target_pr: str
-
-
-class StackDryRunResult(ClinkrModel):
-    """Deterministic dry-run result for a roaster stack run."""
-
-    profile_slug: str
-    profile_path: str
-    guidance_char_count: int
-    target_branch: str
-    target_pr: str | None
-    impl_branch_slug: str
-    base_ref: str | None
-    run_slug: str
-    resumes_existing_run: bool
-    dry_run: bool
-    new_run: bool
-    reviewers: tuple[str, ...]
-    reviewer_run_count: int
-    reviewer_failure_count: int
-    finding_count: int
-    accepted_count: int
-    rejected_count: int
-    superseded_count: int
-    model: str | None
-    agent_model: str | None
-    harness: str | None
-    triage_prompt: str | None
-    resolver_prompt: str | None
-    triage_summary: str | None
-    reviewer_runs: tuple[StackDryRunReviewerSummary, ...]
-    findings: tuple[StackDryRunFindingSummary, ...]
-    batches: tuple[StackDryRunBatchSummary, ...]
-    actions: tuple[StackDryRunAction, ...]
-    manifest: StackRunManifest
-    locators: tuple[StackDryRunLocator, ...]
-    dashboard_marker: str
-    dashboard_markdown_char_count: int
-    graphite_commands_run: int = 0
-    branch_memory_puts: int = 0
-    dashboard_mutations: int = 0
 
 
 def run_stack_workflow_dry_run(
@@ -283,7 +193,7 @@ def run_stack_workflow_dry_run(
         base_ref=request.base_ref,
         target_branch=target_branch,
         target_pr=request.target_pr,
-        batch_slugs=tuple(batch.slug for batch in _triage_batches(triage_result)),
+        batch_slugs=tuple(batch.slug for batch in triage_batches(triage_result)),
     )
     dashboard_markdown = render_stack_dashboard(
         _dashboard_state(
@@ -311,21 +221,21 @@ def run_stack_workflow_dry_run(
         reviewer_run_count=len(triage_result.collection.reviewer_runs),
         reviewer_failure_count=len(triage_result.collection.reviewer_failures),
         finding_count=triage_result.collection.finding_count,
-        accepted_count=_finding_status_count(triage_result, status="accepted"),
-        rejected_count=_finding_status_count(triage_result, status="rejected"),
-        superseded_count=_finding_status_count(triage_result, status="merged"),
+        accepted_count=finding_status_count(triage_result, status="accepted"),
+        rejected_count=finding_status_count(triage_result, status="rejected"),
+        superseded_count=finding_status_count(triage_result, status="merged"),
         model=request.model,
         agent_model=request.agent_model,
         harness=request.harness,
         triage_prompt=request.triage_prompt,
         resolver_prompt=request.resolver_prompt,
-        triage_summary=_triage_summary(triage_result),
-        reviewer_runs=_reviewer_summaries(triage_result),
-        findings=_finding_summaries(triage_result),
-        batches=_batch_summaries(triage_result),
-        actions=_actions(triage_result),
+        triage_summary=triage_summary(triage_result),
+        reviewer_runs=reviewer_summaries(triage_result),
+        findings=finding_summaries(triage_result),
+        batches=batch_summaries(triage_result),
+        actions=dry_run_actions(triage_result),
         manifest=manifest,
-        locators=_locators(
+        locators=dry_run_locators(
             artifact_plan=artifact_plan,
             batch_slugs=manifest.batch_slugs,
             target_pr=request.target_pr,
@@ -423,7 +333,7 @@ def _run_stack_workflow_mutating(
             message=triage_result.message,
         )
 
-    ordered_result = order_stack_triage_batches(_triage_batches(triage_result))
+    ordered_result = order_stack_triage_batches(triage_batches(triage_result))
     if isinstance(ordered_result, StackBatchOrderingError):
         return StackWorkflowFailure(
             error_type=ordered_result.error_type,
@@ -723,28 +633,6 @@ def _graphite_failure(
     return StackWorkflowFailure(error_type=result.error_type, message=result.message)
 
 
-def _triage_batches(result: StackTriageResult) -> tuple[StackTriageBatch, ...]:
-    if result.triage is None:
-        return ()
-    return result.triage.batches
-
-
-def _triage_findings(result: StackTriageResult) -> tuple[StackTriageFinding, ...]:
-    if result.triage is None:
-        return ()
-    return result.triage.findings
-
-
-def _finding_status_count(result: StackTriageResult, *, status: str) -> int:
-    return sum(1 for finding in _triage_findings(result) if finding.status == status)
-
-
-def _triage_summary(result: StackTriageResult) -> str | None:
-    if result.triage is None:
-        return None
-    return result.triage.summary
-
-
 def _persist_run_start(
     *,
     branch_memory: BranchMemoryGateway,
@@ -926,7 +814,7 @@ def _resolver_input_markdown(
     else:
         lines.append("- Choose and run the smallest relevant local validation.")
     lines.extend(["", "## Findings in This Batch", ""])
-    for finding in _triage_findings(triage_result):
+    for finding in triage_findings(triage_result):
         if finding.id in finding_ids:
             lines.extend(
                 [
@@ -977,117 +865,6 @@ def _validation_summary(output: StackResolverOutput) -> str:
     )
 
 
-def _reviewer_summaries(result: StackTriageResult) -> tuple[StackDryRunReviewerSummary, ...]:
-    return tuple(
-        StackDryRunReviewerSummary(
-            key=run.key,
-            review_name=run.review_name,
-            review_path=run.review_path,
-            model=run.model,
-            base_ref=run.base_ref,
-            finding_count=len(run.findings),
-        )
-        for run in result.collection.reviewer_runs
-    )
-
-
-def _finding_summaries(result: StackTriageResult) -> tuple[StackDryRunFindingSummary, ...]:
-    return tuple(
-        StackDryRunFindingSummary(
-            id=finding.id,
-            source_review=finding.source_review,
-            status=finding.status,
-            severity=finding.severity,
-            path=finding.path,
-            line=finding.line,
-            summary=finding.summary,
-            rationale=finding.rationale,
-            merged_into=finding.merged_into,
-            confidence=finding.confidence,
-            risk=finding.risk,
-        )
-        for finding in _triage_findings(result)
-    )
-
-
-def _batch_summaries(result: StackTriageResult) -> tuple[StackDryRunBatchSummary, ...]:
-    return tuple(
-        StackDryRunBatchSummary(
-            slug=batch.slug,
-            title=batch.title,
-            summary=batch.summary,
-            finding_ids=batch.finding_ids,
-            dependencies=batch.dependencies,
-            confidence=batch.confidence,
-            risk=batch.risk,
-            resolver_mandate=batch.resolver_mandate,
-            validation_requirements=batch.validation_requirements,
-        )
-        for batch in _triage_batches(result)
-    )
-
-
-def _actions(result: StackTriageResult) -> tuple[StackDryRunAction, ...]:
-    actions = [
-        StackDryRunAction(
-            action_type="preview-run-artifacts",
-            mutating=False,
-            description="Compute Branch Memory and dashboard locators without writing them.",
-        )
-    ]
-    for batch in _triage_batches(result):
-        actions.append(
-            StackDryRunAction(
-                action_type="plan-resolver-batch",
-                batch_slug=batch.slug,
-                mutating=False,
-                description=(
-                    "Plan resolver batch only; branch creation, resolver execution, and "
-                    "Graphite submission are intentionally not implemented in this dry-run slice."
-                ),
-            )
-        )
-    return tuple(actions)
-
-
-def _locators(
-    *,
-    artifact_plan: StackRunArtifactPlan,
-    batch_slugs: tuple[str, ...],
-    target_pr: str | None,
-    dashboard_marker: str,
-) -> tuple[StackDryRunLocator, ...]:
-    locators = [
-        _branch_memory_locator("index", artifact_plan.index),
-        _branch_memory_locator("manifest", artifact_plan.manifest),
-        _branch_memory_locator("triage", artifact_plan.triage),
-    ]
-    for batch_slug in batch_slugs:
-        locators.append(
-            _branch_memory_locator(
-                f"resolver:{batch_slug}",
-                artifact_plan.resolver(batch_slug=batch_slug),
-            )
-        )
-    locators.append(
-        StackDryRunLocator(
-            kind="dashboard",
-            target_pr=target_pr,
-            marker=dashboard_marker,
-        )
-    )
-    return tuple(locators)
-
-
-def _branch_memory_locator(kind: str, locator: StackRunLocator) -> StackDryRunLocator:
-    return StackDryRunLocator(
-        kind=kind,
-        namespace=locator.namespace,
-        key=locator.key,
-        branch=locator.branch,
-    )
-
-
 def _dashboard_batches(
     *,
     batches: tuple[StackTriageBatch, ...],
@@ -1130,7 +907,7 @@ def _dashboard_state(
     submitted_count: int = 0,
 ) -> StackDashboardState:
     dashboard_batches = _dashboard_batches(
-        batches=batches or _triage_batches(triage_result),
+        batches=batches or triage_batches(triage_result),
         resolver_outputs=resolver_outputs,
         generated_branches=generated_branches,
     )
@@ -1144,9 +921,9 @@ def _dashboard_state(
         reviewer_run_count=len(triage_result.collection.reviewer_runs),
         finding_count=triage_result.collection.finding_count,
         counts=StackDashboardCounts(
-            accepted=_finding_status_count(triage_result, status="accepted"),
-            rejected=_finding_status_count(triage_result, status="rejected"),
-            superseded=_finding_status_count(triage_result, status="merged"),
+            accepted=finding_status_count(triage_result, status="accepted"),
+            rejected=finding_status_count(triage_result, status="rejected"),
+            superseded=finding_status_count(triage_result, status="merged"),
             submitted=submitted_count,
             failed=0,
             blocked=0,
@@ -1158,7 +935,7 @@ def _dashboard_state(
                 summary=finding.summary,
                 rationale=finding.rationale,
             )
-            for finding in _triage_findings(triage_result)
+            for finding in triage_findings(triage_result)
             if finding.status == "rejected"
         ),
     )
