@@ -154,7 +154,7 @@ def test_parse_stack_dashboard_marker_rejects_unknown_version() -> None:
     assert "`version` must be 1" in parsed.message
 
 
-# -- generated PR markers and bodies ----------------------------------------
+# -- pure/deferred generated PR markers and bodies --------------------------
 
 
 def _generated_pr_locator() -> GeneratedPrBranchMemoryLocator:

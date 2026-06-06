@@ -4,28 +4,30 @@
 
 - [~] Decompose the roaster stack workflow module around stable responsibilities.
   - Context: the thermo-nuclear review flagged `packages/roaster/src/roaster/stack_workflow.py` at 1,198 lines, with dry-run orchestration, mutating orchestration, Branch Memory persistence, resolver input rendering, dashboard projection, Graphite sequencing, target resolution, and CLI-facing summary models all living together.
-  - Progress: the first behavior-preserving slice extracted dry-run result contracts/projection helpers into `roaster.stack_dry_run` and shared triage accessors into `roaster.stack_triage_view`; CLI and workflow tests now import the dry-run result model from its canonical module. The next slice extracted resolver-agent input Markdown rendering and its local missing-value formatting into `roaster.stack_resolver_input`; mutating workflow orchestration now calls `render_stack_resolver_input(...)` instead of owning `_resolver_input_markdown(...)` directly. The dashboard projection slice then extracted renderer-ready dashboard state and workflow dashboard rows into `roaster.stack_dashboard_projection`, leaving `stack_workflow.py` to call projection helpers without owning the projection details.
-  - Remaining split points: workflow phase orchestration, run persistence, and any remaining value formatting tied to those concerns.
-  - Evidence preserved: dry-run no-mutation assertions remain explicit, targeted resolver-input/workflow tests passed, adjacent roaster stack tests passed, broader roaster/plugin tests passed, full `just` validation passed for prior slices, and targeted workflow/dashboard/dashboard-projection tests plus ruff passed for the dashboard projection slice.
+  - Progress: the first behavior-preserving slice extracted dry-run result contracts/projection helpers into `roaster.stack_dry_run` and shared triage accessors into `roaster.stack_triage_view`; CLI and workflow tests now import the dry-run result model from its canonical module. The next slice extracted resolver-agent input Markdown rendering and its local missing-value formatting into `roaster.stack_resolver_input`; mutating workflow orchestration now calls `render_stack_resolver_input(...)` instead of owning `_resolver_input_markdown(...)` directly. The dashboard projection slice then extracted renderer-ready dashboard state and workflow dashboard rows into `roaster.stack_dashboard_projection`, leaving `stack_workflow.py` to call projection helpers without owning the projection details. The run-state slice enriched the manifest and added workflow writes at audit/resume checkpoints, but the orchestration module still owns the helper logic for sequencing those writes.
+  - Remaining split points: workflow phase orchestration and possible run-persistence helper extraction.
+  - Evidence preserved: dry-run no-mutation assertions remain explicit, targeted resolver-input/workflow tests passed, adjacent roaster stack tests passed, broader roaster/plugin tests passed, full `just` validation passed for prior slices, targeted workflow/dashboard/dashboard-projection tests plus ruff passed for the dashboard projection slice, and targeted run-storage/workflow/dashboard/CLI tests plus README formatting passed for the run-state/docs slice.
 
 - [x] Fix or explicitly narrow Graphite attach-tip semantics for explicit target branches.
   - Context: the gateway exposes `resolve_attach_tip(...)`, and fake tests cover attach-tip resolution, but `_resolve_attach_context` previously treated an explicit `--target-branch` as both the target branch and attach tip.
   - Outcome: explicit target-branch mutating runs now call `GraphiteStackGateway.resolve_attach_tip(cwd=..., target_branch=...)`, use the returned attach tip for generated branch attachment, and propagate gateway failures. The real gateway fails closed until stable attach-tip support exists instead of pretending direct attachment is safe.
   - Evidence: targeted stack workflow and Graphite gateway tests passed; ruff passed on the touched source/test files.
 
-- [ ] Resolve generated PR marker/body support so it is not misleading dead code.
+- [x] Resolve generated PR marker/body support so it is not misleading dead code.
   - Context: `render_generated_pr_body(...)` and generated PR marker parsing/rendering are implemented and tested, but no production workflow path calls them. The real/fake Graphite gateways create/update/submit branches but do not discover generated PR numbers, update PR bodies, or populate dashboard generated-PR links.
-  - Decision needed: either wire a narrow production path for generated PR body/lineage publication, or delete/defer the helpers and update docs/tests to avoid advertising unused behavior.
-  - Guardrail: if wiring requires broad GitHub/Graphite capabilities, prefer deferring over smuggling ad hoc integration into the workflow.
+  - Outcome: generated PR marker/body helpers remain pure/deferred rendering and parsing utilities only. README and test labels now state that production workflow publication does not discover or edit generated resolver PR bodies until an explicit PR discovery/body-update gateway contract exists.
+  - Evidence: dashboard marker/body tests still cover the helpers as pure utilities; README formatting passed.
 
-- [ ] Make Branch Memory run state a durable audit/resume source of truth.
-  - Context: current manifest state records basic identity and generated branches, while dashboard state and partial-failure context are mostly reconstructed from transient in-memory arguments.
-  - Desired outcome: persisted run artifacts can explain important outcomes after interruption or failure: batch statuses, generated branch names, resolver artifact locators, dashboard linkage, submission status/failure context, and superseded/removed batch handling where supported.
-  - Guardrail: keep this as a simple typed run-state model, not a task database or hidden workflow engine.
+- [x] Make Branch Memory run state a durable audit/resume source of truth.
+  - Context: prior manifest state recorded basic identity and generated branches, while dashboard state and partial-failure context were mostly reconstructed from transient in-memory arguments.
+  - Outcome: persisted manifests now record per-batch state, generated branch names/statuses, resolver artifact locators, resolver/failure summaries, dashboard comment linkage, and generated stack submission success/failure.
+  - Guardrail: the state remains a simple typed manifest shape, not a task database or hidden workflow engine.
+  - Evidence: stack run storage and workflow tests cover manifest round-tripping plus invalid-resolver and submit-failure audit state.
 
-- [ ] Reconcile README and tests with the cleaned contracts.
-  - Context: the original stack README intentionally documents guarded real adapters, dashboard-only behavior, dry-run safety, and disposable-branch-only mutation smoke guidance. The followups may change attach-tip behavior, generated PR body support, and manifest semantics.
-  - Expected evidence: tests cover the revised fake-driven contracts, prompt/resource packaging still works, plugin mounting still works, and documentation no longer claims behavior that production code does not perform.
+- [x] Reconcile README and tests with the cleaned contracts.
+  - Context: the original stack README intentionally documents guarded real adapters, dashboard-only behavior, dry-run safety, and disposable-branch-only mutation smoke guidance. The followups changed attach-tip behavior, generated PR body support, and manifest semantics.
+  - Outcome: README now documents attach-tip fail-closed semantics, dashboard-only publication, deferred generated PR body helpers, and the enriched run manifest contract.
+  - Evidence: targeted run-storage/workflow/dashboard/CLI tests passed, ruff passed on touched Python files, and `dprint check packages/roaster/README.md` passed.
 
 ## Parked
 

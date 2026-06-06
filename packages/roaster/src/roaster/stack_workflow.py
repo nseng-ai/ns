@@ -53,9 +53,16 @@ from roaster.stack_graphite import (
 from roaster.stack_markers import render_stack_dashboard_marker
 from roaster.stack_models import (
     GeneratedStackBranch,
+    StackBatchStatus,
     StackDashboardRow,
+    StackGeneratedBranchStatus,
     StackResolverOutput,
+    StackRunArtifactLocator,
+    StackRunBatchState,
+    StackRunDashboardPublication,
+    StackRunFailureContext,
     StackRunManifest,
+    StackRunSubmission,
     StackTriageBatch,
     StackWorkflowRequest,
     StackWorkflowResult,
@@ -65,6 +72,7 @@ from roaster.stack_resolver_input import render_stack_resolver_input
 from roaster.stack_run_storage import (
     StackRunArtifactPlan,
     StackRunIndex,
+    StackRunLocator,
     StackRunStorageError,
     add_run_to_index,
     select_stack_run_slug,
@@ -187,6 +195,7 @@ def run_stack_workflow_dry_run(
             message=triage_result.message,
         )
 
+    dry_run_batches = triage_batches(triage_result)
     manifest = StackRunManifest(
         profile_slug=profile.slug,
         run_slug=selection.run_slug,
@@ -194,7 +203,8 @@ def run_stack_workflow_dry_run(
         base_ref=request.base_ref,
         target_branch=target_branch,
         target_pr=request.target_pr,
-        batch_slugs=tuple(batch.slug for batch in triage_batches(triage_result)),
+        batch_slugs=tuple(batch.slug for batch in dry_run_batches),
+        batch_states=_initial_batch_states(dry_run_batches),
     )
     dashboard_markdown = render_stack_dashboard(
         build_stack_dashboard_state(
@@ -350,6 +360,7 @@ def _run_stack_workflow_mutating(
         target_branch=attach_context.target_branch,
         target_pr=attach_context.target_pr,
         batch_slugs=tuple(batch.slug for batch in ordered_batches),
+        batch_states=_initial_batch_states(ordered_batches),
     )
     storage_failure = _persist_run_start(
         branch_memory=branch_memory,
@@ -379,6 +390,19 @@ def _run_stack_workflow_mutating(
     )
     if isinstance(initial_dashboard, StackWorkflowFailure):
         return initial_dashboard
+    manifest = _manifest_with_dashboard_publication(
+        manifest,
+        publication=initial_dashboard,
+        target_pr=attach_context.target_pr,
+        profile_slug=profile.slug,
+    )
+    manifest_write_failure = _write_manifest(
+        branch_memory=branch_memory,
+        impl_branch=attach_context.target_branch,
+        manifest=manifest,
+    )
+    if manifest_write_failure is not None:
+        return manifest_write_failure
 
     if not ordered_batches:
         return StackWorkflowResult(
@@ -403,12 +427,36 @@ def _run_stack_workflow_mutating(
             run_slug=selection.run_slug,
             batch=batch,
         )
+        manifest = _manifest_with_batch_state(
+            manifest,
+            batch=batch,
+            status="running",
+            generated_branch=branch,
+            generated_branch_status="planned",
+        )
+        manifest_write_failure = _write_manifest(
+            branch_memory=branch_memory,
+            impl_branch=attach_context.target_branch,
+            manifest=manifest,
+        )
+        if manifest_write_failure is not None:
+            return manifest_write_failure
+
         exists_result = graphite_stack.branch_exists(cwd=cwd, branch_name=branch.branch_name)
         if isinstance(exists_result, GraphiteStackFailure):
-            return StackWorkflowFailure(
+            failure = StackWorkflowFailure(
                 error_type=exists_result.error_type,
                 message=exists_result.message,
             )
+            record_failure = _write_batch_failure(
+                branch_memory=branch_memory,
+                impl_branch=attach_context.target_branch,
+                manifest=manifest,
+                batch=batch,
+                failure=failure,
+                generated_branch=branch,
+            )
+            return record_failure or failure
         assert isinstance(exists_result, GraphiteBranchExists)
 
         if exists_result.exists:
@@ -418,7 +466,15 @@ def _run_stack_workflow_mutating(
             )
             checkout_failure = _graphite_failure(checkout_result)
             if checkout_failure is not None:
-                return checkout_failure
+                record_failure = _write_batch_failure(
+                    branch_memory=branch_memory,
+                    impl_branch=attach_context.target_branch,
+                    manifest=manifest,
+                    batch=batch,
+                    failure=checkout_failure,
+                    generated_branch=branch,
+                )
+                return record_failure or checkout_failure
 
         resolver_result = agent_runner.run_agent(
             AgentRunnerRequest(
@@ -440,25 +496,21 @@ def _run_stack_workflow_mutating(
             )
         )
         if not isinstance(resolver_result, AgentRunCompleted):
-            return StackWorkflowFailure(
+            failure = StackWorkflowFailure(
                 error_type=error_type_for(resolver_result),
                 message=resolver_result.message,
             )
-
-        resolver_output = parse_resolver_output_result(
-            resolver_result.output_markdown,
-            expected_batch_slug=batch.slug,
-        )
-        if isinstance(resolver_output, StackAgentOutputParseError):
-            return StackWorkflowFailure(
-                error_type="stack_resolver_invalid_output",
-                message=(
-                    f"Resolver agent output for {batch.slug!r} was invalid: "
-                    f"{resolver_output.message}"
-                ),
+            record_failure = _write_batch_failure(
+                branch_memory=branch_memory,
+                impl_branch=attach_context.target_branch,
+                manifest=manifest,
+                batch=batch,
+                failure=failure,
+                generated_branch=branch,
             )
+            return record_failure or failure
 
-        resolver_write_failure = _persist_resolver_output(
+        resolver_locator = _persist_resolver_output(
             branch_memory=branch_memory,
             impl_branch=attach_context.target_branch,
             impl_branch_slug=impl_branch_slug,
@@ -467,8 +519,46 @@ def _run_stack_workflow_mutating(
             batch_slug=batch.slug,
             output_markdown=resolver_result.output_markdown,
         )
-        if resolver_write_failure is not None:
-            return resolver_write_failure
+        if isinstance(resolver_locator, StackWorkflowFailure):
+            return resolver_locator
+        manifest = _manifest_with_batch_state(
+            manifest,
+            batch=batch,
+            status="running",
+            generated_branch=branch,
+            generated_branch_status="planned",
+            resolver_locator=resolver_locator,
+        )
+        manifest_write_failure = _write_manifest(
+            branch_memory=branch_memory,
+            impl_branch=attach_context.target_branch,
+            manifest=manifest,
+        )
+        if manifest_write_failure is not None:
+            return manifest_write_failure
+
+        resolver_output = parse_resolver_output_result(
+            resolver_result.output_markdown,
+            expected_batch_slug=batch.slug,
+        )
+        if isinstance(resolver_output, StackAgentOutputParseError):
+            failure = StackWorkflowFailure(
+                error_type="stack_resolver_invalid_output",
+                message=(
+                    f"Resolver agent output for {batch.slug!r} was invalid: "
+                    f"{resolver_output.message}"
+                ),
+            )
+            record_failure = _write_batch_failure(
+                branch_memory=branch_memory,
+                impl_branch=attach_context.target_branch,
+                manifest=manifest,
+                batch=batch,
+                failure=failure,
+                generated_branch=branch,
+                resolver_locator=resolver_locator,
+            )
+            return record_failure or failure
 
         if exists_result.exists:
             mutation_result = graphite_stack.update_generated_branch(
@@ -476,19 +566,39 @@ def _run_stack_workflow_mutating(
                 branch_name=branch.branch_name,
                 batch_title=batch.title,
             )
+            generated_branch_status: StackGeneratedBranchStatus = "updated"
         else:
             mutation_result = graphite_stack.create_generated_branch(
                 cwd=cwd,
                 branch_name=branch.branch_name,
                 batch_title=batch.title,
             )
+            generated_branch_status = "created"
         mutation_failure = _graphite_failure(mutation_result)
         if mutation_failure is not None:
-            return mutation_failure
+            record_failure = _write_batch_failure(
+                branch_memory=branch_memory,
+                impl_branch=attach_context.target_branch,
+                manifest=manifest,
+                batch=batch,
+                failure=mutation_failure,
+                generated_branch=branch,
+                resolver_locator=resolver_locator,
+            )
+            return record_failure or mutation_failure
 
         generated_branches.append(branch)
         resolver_outputs.append(resolver_output)
         manifest = manifest.model_copy(update={"generated_branches": tuple(generated_branches)})
+        manifest = _manifest_with_batch_state(
+            manifest,
+            batch=batch,
+            status="completed",
+            generated_branch=branch,
+            generated_branch_status=generated_branch_status,
+            resolver_locator=resolver_locator,
+            resolver_output=resolver_output,
+        )
         manifest_write_failure = _write_manifest(
             branch_memory=branch_memory,
             impl_branch=attach_context.target_branch,
@@ -517,11 +627,41 @@ def _run_stack_workflow_mutating(
         )
         if isinstance(batch_dashboard, StackWorkflowFailure):
             return batch_dashboard
+        manifest = _manifest_with_dashboard_publication(
+            manifest,
+            publication=batch_dashboard,
+            target_pr=attach_context.target_pr,
+            profile_slug=profile.slug,
+        )
+        manifest_write_failure = _write_manifest(
+            branch_memory=branch_memory,
+            impl_branch=attach_context.target_branch,
+            manifest=manifest,
+        )
+        if manifest_write_failure is not None:
+            return manifest_write_failure
 
     submit_result = graphite_stack.submit_generated_stack(cwd=cwd)
     submit_failure = _graphite_failure(submit_result)
     if submit_failure is not None:
+        manifest = _manifest_with_submission_failure(manifest, submit_failure)
+        manifest_write_failure = _write_manifest(
+            branch_memory=branch_memory,
+            impl_branch=attach_context.target_branch,
+            manifest=manifest,
+        )
+        if manifest_write_failure is not None:
+            return manifest_write_failure
         return submit_failure
+
+    manifest = manifest.model_copy(update={"submission": StackRunSubmission(status="submitted")})
+    manifest_write_failure = _write_manifest(
+        branch_memory=branch_memory,
+        impl_branch=attach_context.target_branch,
+        manifest=manifest,
+    )
+    if manifest_write_failure is not None:
+        return manifest_write_failure
 
     final_dashboard = _publish_dashboard(
         pr_gateway=pr_gateway,
@@ -539,6 +679,19 @@ def _run_stack_workflow_mutating(
     )
     if isinstance(final_dashboard, StackWorkflowFailure):
         return final_dashboard
+    manifest = _manifest_with_dashboard_publication(
+        manifest,
+        publication=final_dashboard,
+        target_pr=attach_context.target_pr,
+        profile_slug=profile.slug,
+    )
+    manifest_write_failure = _write_manifest(
+        branch_memory=branch_memory,
+        impl_branch=attach_context.target_branch,
+        manifest=manifest,
+    )
+    if manifest_write_failure is not None:
+        return manifest_write_failure
 
     return StackWorkflowResult(
         run_slug=selection.run_slug,
@@ -638,6 +791,130 @@ def _graphite_failure(
     return StackWorkflowFailure(error_type=result.error_type, message=result.message)
 
 
+def _initial_batch_states(batches: tuple[StackTriageBatch, ...]) -> tuple[StackRunBatchState, ...]:
+    return tuple(
+        StackRunBatchState(
+            batch_slug=batch.slug,
+            title=batch.title,
+            status="pending",
+            summary=batch.summary,
+        )
+        for batch in batches
+    )
+
+
+def _manifest_with_batch_state(
+    manifest: StackRunManifest,
+    *,
+    batch: StackTriageBatch,
+    status: StackBatchStatus,
+    generated_branch: GeneratedStackBranch | None = None,
+    generated_branch_status: StackGeneratedBranchStatus | None = None,
+    resolver_locator: StackRunArtifactLocator | None = None,
+    resolver_output: StackResolverOutput | None = None,
+    failure: StackWorkflowFailure | None = None,
+) -> StackRunManifest:
+    updated_state = StackRunBatchState(
+        batch_slug=batch.slug,
+        title=batch.title,
+        status=status,
+        generated_branch=generated_branch,
+        generated_branch_status=generated_branch_status,
+        resolver_locator=resolver_locator,
+        resolver_status=resolver_output.status if resolver_output is not None else None,
+        summary=resolver_output.summary if resolver_output is not None else batch.summary,
+        validation_summary=(
+            _validation_summary(resolver_output) if resolver_output is not None else None
+        ),
+        failure=_failure_context(failure),
+    )
+    states_by_slug = {state.batch_slug: state for state in manifest.batch_states}
+    states_by_slug[batch.slug] = updated_state
+    batch_states = tuple(states_by_slug[batch_slug] for batch_slug in manifest.batch_slugs)
+    return manifest.model_copy(update={"batch_states": batch_states})
+
+
+def _write_batch_failure(
+    *,
+    branch_memory: BranchMemoryGateway,
+    impl_branch: str,
+    manifest: StackRunManifest,
+    batch: StackTriageBatch,
+    failure: StackWorkflowFailure,
+    generated_branch: GeneratedStackBranch | None = None,
+    resolver_locator: StackRunArtifactLocator | None = None,
+) -> StackWorkflowFailure | None:
+    failed_manifest = _manifest_with_batch_state(
+        manifest,
+        batch=batch,
+        status="failed",
+        generated_branch=generated_branch,
+        generated_branch_status="planned" if generated_branch is not None else None,
+        resolver_locator=resolver_locator,
+        failure=failure,
+    )
+    return _write_manifest(
+        branch_memory=branch_memory,
+        impl_branch=impl_branch,
+        manifest=failed_manifest,
+    )
+
+
+def _manifest_with_dashboard_publication(
+    manifest: StackRunManifest,
+    *,
+    publication: StackDashboardPublication,
+    target_pr: str,
+    profile_slug: str,
+) -> StackRunManifest:
+    return manifest.model_copy(
+        update={
+            "dashboard_publication": StackRunDashboardPublication(
+                marker=render_stack_dashboard_marker(profile_slug),
+                target_pr=target_pr,
+                action=publication.action,
+                comment_id=publication.comment.id,
+                comment_url=publication.comment.url,
+            )
+        }
+    )
+
+
+def _manifest_with_submission_failure(
+    manifest: StackRunManifest,
+    failure: StackWorkflowFailure,
+) -> StackRunManifest:
+    return manifest.model_copy(
+        update={
+            "submission": StackRunSubmission(
+                status="failed",
+                failure=_failure_context(failure),
+            )
+        }
+    )
+
+
+def _failure_context(failure: StackWorkflowFailure | None) -> StackRunFailureContext | None:
+    if failure is None:
+        return None
+    return StackRunFailureContext(error_type=failure.error_type, message=failure.message)
+
+
+def _artifact_locator(locator: StackRunLocator) -> StackRunArtifactLocator:
+    return StackRunArtifactLocator(
+        namespace=locator.namespace,
+        key=locator.key,
+        branch=locator.branch,
+    )
+
+
+def _validation_summary(output: StackResolverOutput) -> str:
+    return "; ".join(
+        f"{validation.command}: {validation.status} ({validation.output_summary})"
+        for validation in output.validation
+    )
+
+
 def _persist_run_start(
     *,
     branch_memory: BranchMemoryGateway,
@@ -699,9 +976,9 @@ def _persist_resolver_output(
     run_slug: str,
     batch_slug: str,
     output_markdown: str,
-) -> StackWorkflowFailure | None:
+) -> StackRunArtifactLocator | StackWorkflowFailure:
     try:
-        write_stack_run_resolver(
+        locator = write_stack_run_resolver(
             branch_memory,
             impl_branch=impl_branch,
             impl_branch_slug=impl_branch_slug,
@@ -715,7 +992,7 @@ def _persist_resolver_output(
             error_type="stack_run_storage_write_failed",
             message=f"failed to persist resolver output for {batch_slug!r}: {exc}",
         )
-    return None
+    return _artifact_locator(locator)
 
 
 def _triage_artifact_content(result: StackTriageResult) -> str:
@@ -738,7 +1015,7 @@ def _publish_dashboard(
     generated_branches: tuple[GeneratedStackBranch, ...],
     submitted_count: int = 0,
     activity_entry: str | None = None,
-) -> StackWorkflowFailure | None:
+) -> StackDashboardPublication | StackWorkflowFailure:
     if implementation_pr_number is None:
         return StackWorkflowFailure(
             error_type="stack_target_pr_invalid",
@@ -768,4 +1045,4 @@ def _publish_dashboard(
             message=publication.message,
         )
     assert isinstance(publication, StackDashboardPublication)
-    return None
+    return publication
