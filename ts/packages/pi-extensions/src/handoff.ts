@@ -38,7 +38,7 @@ const MAX_PREVIEW_CHARS = 240;
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
 
-Pick up an existing handoff from this branch and continue from its content.
+Pick up an existing handoff from this branch, present its summary, and wait for user direction.
 
 Options:
   --branch <branch>  Pick up handoffs from an explicit branch instead of the current branch.
@@ -324,7 +324,7 @@ export function resolveHandoffKey(selector: string[], handoffKeys: string[]): { 
 }
 
 export function buildPickupHandoffPrompt(branch: string, key: string, artifact: string): string {
-	return `Pick up this handoff artifact as active context for the session.
+	return `Read this handoff artifact as active context for the session and present a concise handoff summary to the user.
 
 Branch: ${branch}
 Handoff: ${handoffSlug(key)}
@@ -333,7 +333,7 @@ Technical locator:
 - Namespace: ${HANDOFF_NAMESPACE}
 - Entry: ${key}
 
-Briefly report the branch and handoff slug picked up, then continue with the concrete next step identified by the artifact. If the artifact is stale or incomplete, verify the current repository state before acting and proceed from the present state.
+Report the branch and handoff slug picked up, summarize the continuation focus or current state, list proposed immediate next steps from the artifact, and call out any risks, stale assumptions, or verification needed. Then stop and wait for the user's instruction before running commands, editing files, or continuing implementation. If the artifact is stale or incomplete, do not proceed automatically; summarize what should be verified before work continues.
 
 ${fencedBlock("markdown", artifact)}`;
 }

@@ -93,7 +93,7 @@ The public action for producing a new Handoff artifact through `/handoff:create`
 _Avoid_: save a handoff, Branch Memory write as the user model.
 
 **Pick up a handoff**:
-The public action for selecting an existing Handoff artifact through `/handoff:pickup` and injecting it as active session context.
+The public action for selecting an existing Handoff artifact through `/handoff:pickup`, presenting its continuation summary, and waiting for user direction before further work.
 _Avoid_: load a handoff, read a Branch Memory entry as the user model.
 
 **List handoffs**:

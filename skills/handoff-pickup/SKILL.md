@@ -1,6 +1,6 @@
 ---
 name: handoff-pickup
-description: "Pick up, choose, or list handoff artifacts and resume focused work. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs; use brmem only as storage/recovery machinery."
+description: "Pick up, choose, or list handoff artifacts, present a handoff summary, and wait for user direction. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs; use brmem only as storage/recovery machinery."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(handoff *)"
@@ -9,9 +9,9 @@ allowed-tools:
 
 # handoff-pickup
 
-Use this skill to pick up, choose, or list Markdown handoff artifacts and resume the future-continuation focus captured in one. A handoff is directed durable work context; it is not in-session compaction and not a generic session summary.
+Use this skill to pick up, choose, or list Markdown handoff artifacts, present the selected handoff's summary, and wait for user direction before continuing work. A handoff is directed durable work context; it is not in-session compaction and not a generic session summary.
 
-This is the pickup/list/resume step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
+This is the pickup/list/review step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
 
 Normal pickup/list intent uses pick up / choose / list / continue from / resume from a handoff. Treat resume-from wording as pickup intent, not a separate lifecycle action. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
@@ -113,7 +113,7 @@ Found multiple handoffs on <branch>:
 Which handoff should I pick up?
 ```
 
-## Read and resume
+## Read and present summary
 
 Read the selected artifact:
 
@@ -121,21 +121,25 @@ Read the selected artifact:
 brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
-Treat the handoff content as active context for the session. Briefly summarize what was picked up, then continue with the concrete next step in the artifact.
+Treat the handoff content as active context for summarization. Present a concise handoff summary, then stop and wait for the user's explicit instruction before running commands, editing files, or continuing implementation.
 
 Report in handoff vocabulary first:
 
 - Branch
 - Handoff slug picked up
-- The immediate next step you will take, if the artifact identifies one
+- Continuation focus or current state, if the artifact identifies one
+- Proposed immediate next step(s) from the artifact, phrased as proposed work rather than work you will now take
+- Risks, stale assumptions, missing context, or verification needed before continuing
 
 Include a compact technical locator when useful:
 
 - Namespace: `handoff`
 - Entry: `<semantic-slug>.md`
 
+End with a short handoff-control question such as: `How would you like me to proceed?`
+
 ## If the artifact is stale or incomplete
 
-If the handoff references missing files, obsolete commands, or completed work, verify current repository state before acting. Tell the user what no longer matches and proceed from the present state rather than blindly following stale instructions.
+If the handoff references missing files, obsolete commands, or completed work, call that out in the summary when evident from the artifact or already-known context. Do not automatically inspect, verify, or mutate the repository after pickup unless the user asks. If verification is needed, list it as a recommended next step and wait.
 
 For copy, move, delete, garbage collection, or other administrative repair flows, load the `handoff` umbrella's diagnostics/admin reference instead of improvising broad Branch Memory operations.
