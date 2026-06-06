@@ -58,9 +58,9 @@ worktree) report their existing location instead of being moved.
 - `-b NEW [BASE]` creates `NEW` from `BASE` (or `HEAD` if omitted) before
   allocation.
 - `--current` redirects the branch on the current worktree into a slot;
-  it refuses if the current worktree is dirty or detached, and rebuilds
-  the inventory after the redirect so the moved branch can be assigned
-  from actual Git state.
+  it refuses if the current worktree is dirty or detached, preflights slot
+  availability before redirecting, then checks the moved branch out into
+  the selected slot.
 
 If the pool is full or has no clean detached slot, checkout fails with
 a `pool_full` error that lists the current assignments. Run
