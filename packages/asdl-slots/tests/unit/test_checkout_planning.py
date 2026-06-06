@@ -8,6 +8,7 @@ from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
     BranchInUse,
+    CheckoutCurrentWorktreeBranch,
     CurrentCheckoutPlan,
     PoolFull,
     ReuseAssignment,
@@ -238,9 +239,11 @@ def test_plan_current_checkout_already_in_slot_short_circuits() -> None:
     assert isinstance(result.plan, ReuseAssignment)
     assert result.plan.record.slot_name == "slot-01"
     assert result.branch_name == "feat/x"
-    assert result.current_wt_note is None
+    assert result.current_wt_redirect is None
     # Already-in-slot path doesn't redirect: cwd's branch is preserved.
     assert git.get_current_branch(cwd) == "feat/x"
+    assert git._checkout_calls == []
+    assert git._detach_head_calls == []
 
 
 def test_plan_current_checkout_dirty_main_worktree_refuses() -> None:
@@ -258,9 +261,11 @@ def test_plan_current_checkout_dirty_main_worktree_refuses() -> None:
     assert result.cwd == cwd
     # No redirect occurred.
     assert git.get_current_branch(cwd) == "feat/x"
+    assert git._checkout_calls == []
+    assert git._detach_head_calls == []
 
 
-def test_plan_current_checkout_redirects_to_previous_branch() -> None:
+def test_plan_current_checkout_plans_previous_branch_redirect_without_mutating() -> None:
     cwd = Path("/repo")
     git = FakeGitGateway(
         branches=("feat/x", "some-other"),
@@ -278,11 +283,15 @@ def test_plan_current_checkout_redirects_to_previous_branch() -> None:
     assert isinstance(result.plan, AssignToSlot)
     assert result.branch_name == "feat/x"
     assert result.plan.record.slot_name == "slot-01"
-    # Redirect happened: cwd is now on the previous branch.
-    assert git.get_current_branch(cwd) == "some-other"
+    assert result.current_wt_redirect == CheckoutCurrentWorktreeBranch(
+        branch_name="some-other",
+    )
+    assert git.get_current_branch(cwd) == "feat/x"
+    assert git._checkout_calls == []
+    assert git._detach_head_calls == []
 
 
-def test_plan_current_checkout_pool_full_propagates_redirect() -> None:
+def test_plan_current_checkout_pool_full_does_not_redirect() -> None:
     cwd = Path("/repo")
     git = FakeGitGateway(
         branches=("feat/x", "main"),
@@ -299,12 +308,16 @@ def test_plan_current_checkout_pool_full_propagates_redirect() -> None:
     assert isinstance(result, CurrentCheckoutPlan)
     assert isinstance(result.plan, PoolFull)
     assert result.branch_name == "feat/x"
+    assert result.current_wt_redirect == CheckoutCurrentWorktreeBranch(branch_name="main")
+    assert git.get_current_branch(cwd) == "feat/x"
+    assert git._checkout_calls == []
+    assert git._detach_head_calls == []
 
 
-def test_plan_current_checkout_branch_in_main_redirected_then_assigned() -> None:
-    """When the moving branch lives in the main worktree, the redirect moves
-    main off it; the post-redirect plan must see the slot pool, not surface a
-    BranchInMainWorktree match."""
+def test_plan_current_checkout_simulates_main_redirect_then_assigns() -> None:
+    """When the moving branch lives in the main worktree, pure planning simulates
+    moving main off it; the post-redirect plan must see the slot pool, not
+    surface a BranchInMainWorktree match."""
     cwd = Path("/repo")
     git = FakeGitGateway(
         branches=("feat/x", "main", "some-other"),
@@ -322,5 +335,9 @@ def test_plan_current_checkout_branch_in_main_redirected_then_assigned() -> None
     assert isinstance(result, CurrentCheckoutPlan)
     assert isinstance(result.plan, AssignToSlot)
     assert result.plan.record.slot_name == "slot-01"
-    # Main was redirected off feat/x.
-    assert git.get_current_branch(cwd) == "some-other"
+    assert result.current_wt_redirect == CheckoutCurrentWorktreeBranch(
+        branch_name="some-other",
+    )
+    assert git.get_current_branch(cwd) == "feat/x"
+    assert git._checkout_calls == []
+    assert git._detach_head_calls == []

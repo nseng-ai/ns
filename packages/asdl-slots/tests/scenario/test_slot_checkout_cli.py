@@ -687,6 +687,34 @@ def test_slot_checkout_current_pool_full(cli_group: ClinkrGroup, tmp_path: Path)
     assert result.exit_code == 2
     assert "Pool is full" in result.output
     assert "slot-01 -> feat/a" in result.output
+    assert fakes.git.get_current_branch(fakes.repo_root) == "feat/x"
+    assert fakes.git._checkout_calls == []
+    assert fakes.git._detach_head_calls == []
+
+
+def test_slot_checkout_current_no_slots_preserves_current_branch(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x", "main"),
+        main_branch="feat/x",
+        trunk_branch="main",
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "--current"],
+        obj=_make_obj(fakes),
+    )
+
+    assert result.exit_code == 2
+    assert "Pool is full" in result.output
+    assert "no slots available" in result.output
+    assert fakes.git.get_current_branch(fakes.repo_root) == "feat/x"
+    assert fakes.git._checkout_calls == []
+    assert fakes.git._detach_head_calls == []
 
 
 def test_slot_checkout_rejects_both_branch_and_current(

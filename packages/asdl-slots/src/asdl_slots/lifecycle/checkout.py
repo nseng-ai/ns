@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import subprocess
+
 from asdl_core.git.types import WorktreeOccupancy
 from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
     BranchInUse,
+    CheckoutCurrentWorktreeBranch,
     CurrentCheckoutPlan,
+    CurrentWorktreeRedirect,
+    DetachCurrentWorktreeHead,
     PoolFull,
     ReuseAssignment,
     plan_checkout,
@@ -128,13 +133,57 @@ def checkout_current(slots_ctx: SlotsCliContext) -> SlotCheckoutOutcome | SlotLi
         return _pool_full_failure(current_plan.plan)
     if isinstance(current_plan.plan, BranchInUse):
         return _branch_in_use_failure(current_plan.plan.occupancy)
+
+    redirect_result = _execute_current_wt_redirect(
+        current_plan.current_wt_redirect,
+        slots_ctx=slots_ctx,
+    )
+    if isinstance(redirect_result, SlotLifecycleFailure):
+        return redirect_result
+
     return _execute_plan(
         current_plan.plan,
         slots_ctx=slots_ctx,
         branch_name=current_plan.branch_name,
         created_branch=False,
-        current_wt_note=current_plan.current_wt_note,
+        current_wt_note=redirect_result,
     )
+
+
+def _execute_current_wt_redirect(
+    redirect: CurrentWorktreeRedirect | None,
+    *,
+    slots_ctx: SlotsCliContext,
+) -> str | SlotLifecycleFailure | None:
+    if redirect is None:
+        return None
+    if isinstance(redirect, CheckoutCurrentWorktreeBranch):
+        failure = slots_ctx.git.checkout_branch(slots_ctx.repo.root, redirect.branch_name)
+        if failure is not None:
+            return SlotLifecycleFailure(
+                error_type="slot_allocation_error",
+                message=(
+                    f"Failed to check out '{redirect.branch_name}' in "
+                    f"{slots_ctx.repo.root}: {failure.message}"
+                ),
+            )
+        return redirect.note
+
+    if isinstance(redirect, DetachCurrentWorktreeHead):
+        try:
+            slots_ctx.git.detach_head(slots_ctx.repo.root, redirect.ref)
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.strip() if isinstance(exc.stderr, str) and exc.stderr else str(exc)
+            return SlotLifecycleFailure(
+                error_type="slot_allocation_error",
+                message=(
+                    f"Failed to detach current worktree at {slots_ctx.repo.root} "
+                    f"to {redirect.ref}: {stderr}"
+                ),
+            )
+        return redirect.note
+
+    return None
 
 
 def _pool_full_failure(outcome: PoolFull) -> SlotLifecycleFailure:
