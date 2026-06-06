@@ -1,5 +1,7 @@
 # Roadmap
 
+Standalone tracking is closed as subsumed into `cross-harness-parity`. The unchecked rows below are preserved as historical source material; active command-output summary tracking now lives in `.asdl/objectives/cross-harness-parity/roadmap.md`.
+
 ## Work
 
 - [ ] Define the harness-neutral summarized-command contract and payload artifact manifest shape.

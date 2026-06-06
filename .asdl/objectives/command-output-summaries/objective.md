@@ -71,3 +71,11 @@ Risks:
 - Which concrete output formats should the first test/lint/typecheck parsers support beyond generic tails and failure excerpts?
 - Should Pi integration be a custom tool, a command wrapper, or only prompt guidance around invoking the harness-neutral helper?
 - What hard caps should apply to tails, failure excerpts, and final manifest text?
+
+## Closure
+
+Outcome: intentionally subsumed into `cross-harness-parity` as a parity-native shared primitive workstream.
+
+No command-output summary implementation shipped under this standalone Objective. The goal remains active, but the durable owner is now `cross-harness-parity` because the decisive architectural constraint is cross-harness parity: the first implementation must be a shared CLI/helper with skill guidance, with any Pi integration kept as an adapter over that canonical surface. The payload artifact relationship remains unchanged; the absorbed work still builds on the carry-forward contract in `agent-payload-artifacts` for private log artifacts, compact manifests, and locators.
+
+This closure prevents duplicate active Objective records from tracking the same future implementation. The original thesis, scope, risks, and open questions above are preserved as historical source material; active planning and completion tracking now belong to `.asdl/objectives/cross-harness-parity/`.

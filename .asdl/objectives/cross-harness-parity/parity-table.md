@@ -1,6 +1,6 @@
 # Cross-Harness Parity Table
 
-Living tracker for the `cross-harness-parity` Objective. One row per Pi extension command or custom tool. Seeded from the 2026-06-03 audit; refresh on every parity-relevant Objective update and via the parity-review skill's full-sweep mode.
+Living tracker for the `cross-harness-parity` Objective. One row per Pi extension command or custom tool. Seeded from the 2026-06-03 audit; refresh on every parity-relevant Objective update and via the parity-review skill's full-sweep mode. Shared primitive workstreams with no Pi command/tool yet, such as the subsumed command-output summaries work, stay in `objective.md` and `roadmap.md` until a Pi surface exists.
 
 **Parity legend**
 
