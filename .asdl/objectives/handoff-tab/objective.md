@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Implement `/handoff-tab` as a project-local Pi/cmux extension command that turns the current work into a directed handoff and immediately opens a new focused cmux tab where Pi picks up that handoff. This Objective is downstream of the current branch's handoff work: it should reuse the directed-handoff foundation rather than re-litigating the storage model.
+Implement `/handoff-tab` as a project-local Pi/cmux extension command that turns the current work into a directed handoff and immediately opens a new focused cmux tab where Pi picks up that handoff. This Objective is downstream of the handoff create/pickup work: it should reuse the directed-handoff foundation rather than re-litigating the storage model.
 
 ## Scope
 
@@ -27,8 +27,8 @@ If no focus is provided, the command prompts the user for one.
 ### Core flow
 
 1. User runs `/handoff-tab <focus>` from a Pi session inside cmux.
-2. The command handler resolves the current git branch, derives a semantic handoff slug from the focus, checks that `<slug>.md` does not already exist in Branch Memory namespace `handoffs` for that branch, and verifies a cmux caller context is present.
-3. The command handler queues a current-session Pi prompt that uses the existing `handoff-save` workflow with the exact branch and slug. The current Pi writes the directed handoff artifact; the command handler does not try to synthesize the artifact body deterministically.
+2. The command handler resolves the current git branch, derives a semantic handoff slug from the focus, checks that `<slug>.md` does not already exist in Branch Memory namespace `handoff` for that branch, and verifies a cmux caller context is present.
+3. The command handler queues a current-session Pi prompt that uses the existing `handoff-create` workflow with the exact branch and slug. The current Pi writes the directed handoff artifact; the command handler does not try to synthesize the artifact body deterministically.
 4. After `brmem put` succeeds, the current Pi calls a new deterministic extension tool with the exact branch and slug.
 5. The tool verifies the handoff exists before touching cmux. If verification fails, no tab opens.
 6. The tool creates a focused terminal surface in the current cmux workspace/pane, renames it to:
@@ -43,7 +43,7 @@ handoff: <slug>
 /handoff:pickup --branch <branch> <slug>
 ```
 
-8. The new Pi loads the handoff, summarizes what it loaded, then waits for user instruction.
+8. The new Pi picks up the handoff, summarizes the handoff content, then waits for user instruction.
 
 ### Handoff requirements
 
@@ -68,9 +68,9 @@ After launch, the original Pi session remains open and usable. It shows a concis
 ### Implementation decisions for v1
 
 - Register `/handoff-tab` from the existing project-local handoff extension surface, not as a separate global extension.
-- Reuse the existing `handoff-save` skill prompt expansion and Branch Memory contract (`handoffs/<slug>.md`) for artifact content and storage.
-- Add a deterministic launch tool, tentatively `handoff_tab_launch`, that is callable by the current Pi after the artifact is saved.
-- Derive the slug in the command handler before saving using the same public handoff slug rules: lowercase, punctuation/whitespace to `-`, remove non-alphanumeric except `-`, collapse runs, trim, and keep concise.
+- Reuse the existing `handoff-create` skill prompt expansion and Branch Memory contract (`handoff/<slug>.md`) for artifact content and storage.
+- Expose the deterministic launch tool as model-visible `handoff_tab_launch`, callable by the current Pi after the artifact is created.
+- Derive the slug in the command handler before creating the artifact using the same public handoff slug rules: lowercase, punctuation/whitespace to `-`, remove non-alphanumeric except `-`, collapse runs, trim, and keep concise.
 - Use existing cmux CLI primitives rather than adding cmux code:
   - `cmux identify --json --id-format both` to capture caller `workspace_id`, `pane_id`, `surface_id`, and `window_id`;
   - `cmux --json new-surface --type terminal --workspace <workspace_id> --pane <pane_id> --window <window_id> --focus true` to create the pickup tab;
@@ -92,15 +92,15 @@ After launch, the original Pi session remains open and usable. It shows a concis
 
 Fail closed with clear recovery guidance.
 
-Do not open the pickup tab unless the handoff was saved successfully.
+Do not open the pickup tab unless the handoff was created successfully.
 
 Failure cases include:
 
 - not running inside cmux or `cmux identify` cannot resolve the caller workspace/pane
 - no current git branch / detached HEAD
-- selected slug already exists before saving
-- current Pi does not save the requested handoff
-- launch tool cannot verify the handoff after save
+- selected slug already exists before artifact creation
+- current Pi does not create the requested handoff
+- launch tool cannot verify the handoff after creation
 - cmux surface creation failure
 - cmux tab-title rename failure
 - cmux send failure when requesting Pi launch
@@ -117,11 +117,11 @@ If the slug already exists, v1 aborts and asks the user to rerun with a differen
 
 ## Completion Criteria
 
-- `/handoff-tab finish X` saves a directed handoff for “finish X”.
+- `/handoff-tab finish X` creates a directed handoff for “finish X”.
 - A focused cmux tab opens in the same workspace.
 - The new tab is titled `handoff: <slug>`.
 - Pi starts in the same cwd.
-- New Pi loads the handoff, summarizes it, and waits.
+- New Pi picks up the handoff, summarizes it, and waits.
 - Original session remains open and confirms success with the handoff slug, branch, and new tab title.
 - Outside cmux, the command fails clearly without creating a tab.
 - Existing handoff slug collisions do not overwrite prior handoffs.
@@ -130,19 +130,19 @@ If the slug already exists, v1 aborts and asks the user to rerun with a differen
 
 Assumptions:
 
-- The prerequisite directed-handoff work provides a save/load path that can be invoked by the current Pi through the existing `handoff-save` skill and `brmem` commands without redesigning handoff persistence.
+- The prerequisite directed-handoff work provides a create/pickup path that can be invoked by the current Pi through the existing `handoff-create` skill and `brmem` commands without redesigning handoff persistence.
 - The active cmux context exposes enough information to open a focused terminal surface in the current workspace/pane and target it with later rename/send commands.
-- A semantic slug can be derived before saving, and the save path can fail closed on collisions.
+- A semantic slug can be derived before artifact creation, and the create path can fail closed on collisions.
 - Launching the pickup Pi by sending a command to a newly created cmux terminal surface is acceptable for v1; supervising process startup and pickup completion is out of scope.
 
 Risks:
 
-- The two-phase command/tool flow depends on the current Pi following the prompt: save the artifact first, then call the deterministic launch tool with the exact slug and branch. Mitigation: make the launch tool verify the handoff exists before opening a tab.
-- Capturing useful current-session context without leaking secrets or storing large/generated output remains a handoff-save prompt-quality risk rather than a deterministic extension concern.
+- The two-phase command/tool flow depends on the current Pi following the prompt: create the artifact first, then call the deterministic launch tool with the exact slug and branch. Mitigation: make the launch tool verify the handoff exists before opening a tab.
+- Capturing useful current-session context without leaking secrets or storing large/generated output remains a handoff-create prompt-quality risk rather than a deterministic extension concern.
 - cmux surface creation can succeed while later rename/send fails, leaving a manually recoverable extra tab. V1 should report the created surface context instead of pretending the whole operation was atomic.
-- The pickup Pi must reliably load one specific handoff and then wait. Mitigation: launch with an explicit `/handoff:pickup --branch <branch> <slug>` prompt rather than search terms.
+- The pickup Pi must reliably pick up one specific handoff and then wait. Mitigation: launch with an explicit `/handoff:pickup --branch <branch> <slug>` prompt rather than search terms.
 
 ## Open Questions
 
-- Should the deterministic launch tool be exposed as a normal model-visible custom tool name (`handoff_tab_launch`) or hidden behind command-scoped prompt guidance only? The implementation should choose the smallest prompt/tool surface that is testable in Pi extensions.
-- Should v1 create a fallback recovery command in the success/failure copy, such as `/handoff:pickup --branch <branch> <slug>`, for manual paste into an already-open cmux tab?
+- Resolved: `handoff_tab_launch` is exposed as a normal model-visible custom tool with command-scoped guidance that says to call it only after the handoff artifact exists.
+- Resolved: success and failure copy includes enough branch/slug context to manually run `/handoff:pickup --branch <branch> <slug>` in an already-open cmux tab when needed.
