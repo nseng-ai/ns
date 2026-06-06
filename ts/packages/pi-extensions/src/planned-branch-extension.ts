@@ -661,12 +661,12 @@ async function handleUpAndImplCommand(
 	}
 
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "starting implementation session…");
-	let replacementSessionActive = false;
+	let isReplacementSessionActive = false;
 	try {
 		const parentSession = ctx.sessionManager?.getSessionFile?.();
 		const newSessionOptions: NewSessionOptions = {
 			withSession: async (newCtx) => {
-				replacementSessionActive = true;
+				isReplacementSessionActive = true;
 				await newCtx.sendUserMessage(`/planned-branch:impl ${evidence.key}`);
 			},
 		};
@@ -687,7 +687,7 @@ async function handleUpAndImplCommand(
 			"warning",
 		);
 	} catch (error) {
-		if (replacementSessionActive) {
+		if (isReplacementSessionActive) {
 			throw error;
 		}
 		presentPlannedBranchFailure(
