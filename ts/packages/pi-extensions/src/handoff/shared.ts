@@ -7,6 +7,7 @@ export const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
 export const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 export const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 export const HANDOFF_TAB_COMMAND_NAME = "handoff-tab";
+export const DERIVE_HANDOFF_SLUG_TOOL_NAME = "derive_handoff_slug_from_content";
 export const HANDOFF_TAB_LAUNCH_TOOL_NAME = "handoff_tab_launch";
 export const CREATE_HANDOFF_SKILL_NAME = "handoff-create";
 export const HANDOFF_TIMEOUT_MS = 30_000;
@@ -22,12 +23,13 @@ export const CREATE_HANDOFF_FALLBACK = `Use the handoff-create workflow to creat
 Storage contract:
 - Namespace: \`${HANDOFF_NAMESPACE}\`
 - Entry key shape: \`<semantic-slug>${HANDOFF_KEY_SUFFIX}\`
+- Compose the final Markdown handoff content first, then derive \`<semantic-slug>\` from that final content unless the user provided an explicit specific slug/key.
 - Check for an existing artifact with \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\`.
 - Store final Markdown directly with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
 
 If review or editing is needed before creating, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
 
-Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the created handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
+Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug based on the final artifact body, check for an existing artifact before writing, report the created handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
 
 export type HandoffExistsResult = { type: "exists" } | { type: "missing" } | { type: "failed"; message: string };
 

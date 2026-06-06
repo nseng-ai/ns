@@ -57,8 +57,10 @@ Stop if the repo is in detached HEAD.
 
 For `<semantic-slug>`:
 
-- Use an explicit slug if the user provides one and it is specific enough to recognize later.
-- Otherwise derive it from the continuation focus or title. The slug is the future pickup hint, so include the subject and likely resume action when possible.
+- Use an explicit slug/key if the user provides one and it is specific enough to recognize later.
+- Otherwise compose the final directed Markdown handoff artifact first, then derive the slug from that final Markdown content.
+- Use the continuation focus/title as context inside the artifact, not as the direct slug source.
+- The slug should summarize the future continuation action and subject apparent in the artifact body.
 - Format it as:
   - lowercase
   - replace punctuation and whitespace with `-`
@@ -66,8 +68,8 @@ For `<semantic-slug>`:
   - collapse repeated `-`
   - trim leading/trailing `-`
   - keep it concise, usually 3-8 words
-- Avoid generic slugs like `handoff`, `session`, `work`, `follow-up`, or `continue`.
-- Prefer semantic slugs like `address-review-feedback`, `add-pickup-handoff-command`, or `resume-plan-implementation`.
+- Avoid generic-only slugs like `handoff`, `session`, `work`, `task`, `follow-up`, or `continue`, and avoid raw request preambles like `i-want-to-handoff`.
+- Prefer semantic slugs like `address-review-feedback`, `add-pickup-handoff-command`, `associate-sessions-with-branches`, or `resume-plan-implementation`.
 - Do not include `/` in the key; flat `<semantic-slug>.md` keys are the handoff contract.
 
 ## Prevent accidental overwrites
