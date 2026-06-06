@@ -10,18 +10,18 @@ Read-only audit: no tests run, no files edited.
 
 Distinct consuming packages per seam (import scan over `packages/*/src`). Two-plus consumers = a **real** shared seam. One consumer = a **hypothetical** shared seam — shared infrastructure with a single client (_"one adapter = hypothetical seam; two = real"_).
 
-| Seam | Consumers | Packages | Verdict |
-|---|---:|---|---|
-| `clinkr.*` (group, operation, models, exit, context, ensure, failure, serialization, non_ideal_state) | 8 | aretro, asdl-dispatcher, asdl-handoff, asdl-objectives, asdl-pr-address, asdl-slots, brmem, roaster | real, deep — but **wide interface** |
-| `git` (`real_git_gateway` + `git_gateway` + `types`) | 7 | aretro, asdl-handoff, asdl-objectives, asdl-pr-address, asdl-slots, brmem, roaster | real, deep — **construction leaks** |
-| `plugin` (`AsdlPluginSpec`, standalone CLI builder/invoker) | 7 | aretro, asdl-dispatcher, asdl-handoff, asdl-objectives, asdl-pr-address, asdl-slots, roaster | real, deep |
-| `gh` (`PRGateway`, `RealPRGateway`, `types`) | 3 | asdl-pr-address, asdl-slots, roaster | real — same construction leak as git |
-| `payloads.*` | 2 | aretro, asdl-pr-address | real |
-| `project_config` | 2 | areg, roaster | real |
-| `console` + `format` | 2 | asdl-handoff, asdl-objectives | real (plus asdl-slots via root re-export) |
-| `gt.*` | **1** | asdl-slots | **hypothetical** shared seam |
-| `sessions.*` | **1** | aretro | **hypothetical** shared seam |
-| root `asdl_core` re-export | **1** | asdl-slots | **shallow** pass-through |
+| Seam                                                                                                  | Consumers | Packages                                                                                            | Verdict                                   |
+| ----------------------------------------------------------------------------------------------------- | --------: | --------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `clinkr.*` (group, operation, models, exit, context, ensure, failure, serialization, non_ideal_state) |         8 | aretro, asdl-dispatcher, asdl-handoff, asdl-objectives, asdl-pr-address, asdl-slots, brmem, roaster | real, deep — but **wide interface**       |
+| `git` (`real_git_gateway` + `git_gateway` + `types`)                                                  |         7 | aretro, asdl-handoff, asdl-objectives, asdl-pr-address, asdl-slots, brmem, roaster                  | real, deep — **construction leaks**       |
+| `plugin` (`AsdlPluginSpec`, standalone CLI builder/invoker)                                           |         7 | aretro, asdl-dispatcher, asdl-handoff, asdl-objectives, asdl-pr-address, asdl-slots, roaster        | real, deep                                |
+| `gh` (`PRGateway`, `RealPRGateway`, `types`)                                                          |         3 | asdl-pr-address, asdl-slots, roaster                                                                | real — same construction leak as git      |
+| `payloads.*`                                                                                          |         2 | aretro, asdl-pr-address                                                                             | real                                      |
+| `project_config`                                                                                      |         2 | areg, roaster                                                                                       | real                                      |
+| `console` + `format`                                                                                  |         2 | asdl-handoff, asdl-objectives                                                                       | real (plus asdl-slots via root re-export) |
+| `gt.*`                                                                                                |     **1** | asdl-slots                                                                                          | **hypothetical** shared seam              |
+| `sessions.*`                                                                                          |     **1** | aretro                                                                                              | **hypothetical** shared seam              |
+| root `asdl_core` re-export                                                                            |     **1** | asdl-slots                                                                                          | **shallow** pass-through                  |
 
 ---
 

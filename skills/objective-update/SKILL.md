@@ -43,6 +43,8 @@ If update intent is ambiguous, ask the invocation-intent confirmation before any
 
 Never write a multi-Objective update. Never auto-select from candidate count, branch names, PR titles, package names, roadmap keywords, changed/touched files, or hidden attachment mechanisms.
 
+If the user explicitly asks to combine, merge, subsume, or consolidate Objectives, stop treating the request as ordinary `objective-update` and follow the `objective` skill's Objective consolidation guidance. Consolidation may intentionally edit a survivor record and close subsumed records, but it must still preserve slug directories and immutable historical updates.
+
 After selection, branch/Graphite/local-diff/PR facts may be evidence for that Objective only; they never participate in selection.
 
 ## Landed-state semantics
