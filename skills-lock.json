@@ -247,6 +247,11 @@
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
     },
+    "roast": {
+      "source": "skills/roast",
+      "sourceType": "local",
+      "computedHash": "69d41675c3fd93d8cfbe6fdf4c75d3abcfb882bd656876224c54e68939013e77"
+    },
     "setup-dprint": {
       "source": "skills/setup-dprint",
       "sourceType": "local",
