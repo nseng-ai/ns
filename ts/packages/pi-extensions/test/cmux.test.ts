@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { registerCmuxSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
 import registerCmuxExtension from "../src/cmux.ts";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, normalizeRepoOriginUrl } from "@asdl/planned-branch";
 import { registerCmuxSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
+import {
+	formatObjectiveSidebarFields,
+	resolveObjectiveSelector,
+} from "../src/cmux/objective-sidebar.ts";
 import { registerCmuxSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
 import { createCmuxSidebarController, registerCmuxSidebarCommands } from "../src/cmux/sidebar.ts";
 import type {
@@ -53,6 +57,11 @@ interface ScriptedExec {
 interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
+}
+
+interface Selection {
+	title: string;
+	items: string[];
 }
 
 class FakePi implements ExtensionAPI {
@@ -152,6 +161,7 @@ class FakeCommandContext implements CommandContext {
 	readonly hasUI = true;
 	readonly notifications: Notification[] = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
+	readonly selections: Selection[] = [];
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> = [];
 	readonly ui: CommandContext["ui"];
 	readonly modelRegistry: CommandContext["modelRegistry"];
@@ -159,12 +169,16 @@ class FakeCommandContext implements CommandContext {
 	model?: ModelInfo;
 	waitCount = 0;
 	shouldConfirm = true;
+	cancelSelect = false;
+	private readonly selectIndices: number[];
 
-	constructor(options: { cwd?: string; model?: ModelInfo; fastModel?: ModelInfo; branchEntries?: unknown[] } = {}) {
+	constructor(options: { cwd?: string; model?: ModelInfo; fastModel?: ModelInfo; branchEntries?: unknown[]; selectIndices?: number[]; cancelSelect?: boolean } = {}) {
 		this.cwd = options.cwd ?? ROOT;
 		if (options.model !== undefined) {
 			this.model = options.model;
 		}
+		this.selectIndices = [...(options.selectIndices ?? [0])];
+		this.cancelSelect = options.cancelSelect ?? false;
 		this.modelRegistry = {
 			find: (provider, modelId) => {
 				const fastModel = options.fastModel;
@@ -187,6 +201,14 @@ class FakeCommandContext implements CommandContext {
 				this.statuses.push({ key, value });
 			},
 			confirm: async () => this.shouldConfirm,
+			select: async (title, items) => {
+				this.selections.push({ title, items: [...items] });
+				if (this.cancelSelect) {
+					return undefined;
+				}
+				const index = this.selectIndices.shift() ?? 0;
+				return items[index];
+			},
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
 			},
@@ -254,10 +276,163 @@ describe("cmux extension", () => {
 		expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
 	});
 
-	test("cmux:sidebar:objective-summary includes supplied Objective selector", async () => {
+	test("cmux:sidebar:objective-summary applies deterministic Objective sidebar from explicit slug", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
-		const skillPath = await writeTempSkill("Use Objective sidebar variant.");
-		const pi = new FakePi({ skillCommands: [skillCommand("cmux-sidebar", skillPath)] });
+		const repoRoot = await makeTempDir();
+		const slug = "cmux-extension-consolidation";
+		await writeObjectiveMarkdown(repoRoot, slug, "# cmux Extension Consolidation\n\n## Thesis\nDo not summarize this body.\n");
+		const expectedTitle = `obj:${slug}`;
+		const expectedDescription = objectiveSidebarDescription(repoRoot);
+		const pi = new FakePi({
+			script: [
+				objectiveReadStep(slug, { updateCount: 2 }),
+				gitCurrentBranchStep(),
+				cmuxSummaryStep(expectedTitle, expectedDescription),
+			],
+		});
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd: repoRoot });
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler(slug, ctx);
+
+		pi.assertDone();
+		expect(ctx.waitCount).toBe(1);
+		expect(pi.execCalls).toEqual([
+			{
+				command: "objective",
+				args: ["exec", "read-objective", slug, "--format", "json"],
+				options: { cwd: repoRoot, timeout: 30_000 },
+			},
+			{
+				command: "git",
+				args: ["branch", "--show-current"],
+				options: { cwd: repoRoot, timeout: 30_000 },
+			},
+			{
+				command: "asdl",
+				args: [
+					"exec",
+					"cmux-workspace-summary",
+					"--title",
+					expectedTitle,
+					"--description",
+					expectedDescription,
+					"--format",
+					"json",
+				],
+				options: { cwd: repoRoot, timeout: 30_000 },
+			},
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.setModels).toEqual([]);
+		expect(pi.thinkingLevels).toEqual([]);
+		expect(ctx.statuses).toEqual([
+			{ key: "pi:cmux-sidebar", value: "preparing cmux Objective sidebar…" },
+			{ key: "pi:cmux-sidebar", value: undefined },
+		]);
+		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
+	});
+
+	test("cmux:sidebar:objective-summary resolves Objective path selector to slug", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const repoRoot = await makeTempDir();
+		const slug = "cmux-extension-consolidation";
+		await writeObjectiveMarkdown(repoRoot, slug, "# cmux Extension Consolidation\n");
+		const expectedTitle = `obj:${slug}`;
+		const expectedDescription = objectiveSidebarDescription(repoRoot);
+		const pi = new FakePi({
+			script: [objectiveReadStep(slug), gitCurrentBranchStep(), cmuxSummaryStep(expectedTitle, expectedDescription)],
+		});
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd: repoRoot });
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler(`.asdl/objectives/${slug}/objective.md`, ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls[0]).toMatchObject({ command: "objective", args: ["exec", "read-objective", slug, "--format", "json"] });
+		expect(pi.sentUserMessages).toEqual([]);
+	});
+
+	test("cmux:sidebar:objective-summary without selector opens Objective picker and applies selection", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const repoRoot = await makeTempDir();
+		const slug = "bravo-objective";
+		await writeObjectiveMarkdown(repoRoot, slug, "# Bravo Objective\n");
+		const expectedTitle = `obj:${slug}`;
+		const expectedDescription = objectiveSidebarDescription(repoRoot);
+		const pi = new FakePi({
+			script: [
+				objectiveListStep(["alpha-objective", slug]),
+				objectiveReadStep(slug),
+				gitCurrentBranchStep(),
+				cmuxSummaryStep(expectedTitle, expectedDescription),
+			],
+		});
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1] });
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(ctx.waitCount).toBe(1);
+		expect(ctx.selections).toEqual([
+			{
+				title: "Select an active Objective for cmux sidebar",
+				items: [
+					"alpha-objective — open — latest update 2026-01-01T00:00:00Z",
+					"bravo-objective — open — latest update 2026-01-02T00:00:00Z",
+				],
+			},
+		]);
+		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
+			["objective", ["list", "--format", "json"]],
+			["objective", ["exec", "read-objective", slug, "--format", "json"]],
+			["git", ["branch", "--show-current"]],
+			["asdl", ["exec", "cmux-workspace-summary", "--title", expectedTitle, "--description", expectedDescription, "--format", "json"]],
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.setModels).toEqual([]);
+		expect(pi.thinkingLevels).toEqual([]);
+		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
+	});
+
+	test("cmux:sidebar:objective-summary picker cancellation stops without model or apply", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const pi = new FakePi({ script: [objectiveListStep(["alpha-objective"])] });
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cancelSelect: true });
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls).toHaveLength(1);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({ message: "Objective selection cancelled.", level: "info" });
+	});
+
+	test("cmux:sidebar:objective-summary with no active Objectives stops without model or apply", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const pi = new FakePi({ script: [objectiveListStep([])] });
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext();
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(ctx.selections).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" });
+	});
+
+	test("cmux:sidebar:objective-summary missing workspace skips deterministic work", async () => {
+		delete process.env.CMUX_WORKSPACE_ID;
+		delete process.env.CMUX_TAB_ID;
+		const pi = new FakePi();
 		const controller = createCmuxSidebarController(pi);
 		registerCmuxSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
@@ -265,10 +440,70 @@ describe("cmux extension", () => {
 		await pi.commands.get("cmux:sidebar:objective-summary")?.handler("cmux-objective", ctx);
 
 		expect(ctx.waitCount).toBe(1);
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("Requested variant: Objective sidebar.");
-		expect(pi.sentUserMessages[0]).toContain("Objective selector from command args: cmux-objective");
-		expect(pi.sentUserMessages[0]).toContain("Summarize that asdl Objective, not the current PR.");
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
+	});
+
+	test("cmux:sidebar:objective-summary surfaces Objective read failure without applying cmux", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const slug = "ghost-objective";
+		const pi = new FakePi({
+			script: [
+				step("objective", ["exec", "read-objective", slug, "--format", "json"], {
+					code: 1,
+					stdout: JSON.stringify({ exit_code: 1, message: "Objective not found", data: { status: "not_found" } }),
+				}),
+			],
+		});
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext();
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler(slug, ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls).toHaveLength(1);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)?.level).toBe("error");
+		expect(ctx.notifications.at(-1)?.message).toContain("Objective not found");
+	});
+
+	test("cmux:sidebar:objective-summary surfaces cmux apply failure", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const repoRoot = await makeTempDir();
+		const slug = "cmux-extension-consolidation";
+		await writeObjectiveMarkdown(repoRoot, slug, "# cmux Extension Consolidation\n");
+		const pi = new FakePi({
+			script: [
+				objectiveReadStep(slug),
+				gitCurrentBranchStep(),
+				step("asdl", [
+					"exec",
+					"cmux-workspace-summary",
+					"--title",
+					`obj:${slug}`,
+					"--description",
+					objectiveSidebarDescription(repoRoot),
+					"--format",
+					"json",
+				], {
+					code: 1,
+					stdout: JSON.stringify({ exit_code: 1, message: "missing workspace", data: { success: false } }),
+				}),
+			],
+		});
+		const controller = createCmuxSidebarController(pi);
+		registerCmuxSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd: repoRoot });
+
+		await pi.commands.get("cmux:sidebar:objective-summary")?.handler(slug, ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls).toHaveLength(3);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)?.level).toBe("error");
+		expect(ctx.notifications.at(-1)?.message).toContain("missing workspace");
 	});
 
 	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
@@ -542,8 +777,48 @@ describe("cmux extension", () => {
 	});
 });
 
+describe("cmux Objective sidebar deterministic helpers", () => {
+	test("resolveObjectiveSelector accepts slugs and active Objective paths", () => {
+		const cwd = "/repo";
+
+		expect(resolveObjectiveSelector("cmux-objective", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
+		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective/objective.md", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
+		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
+		expect(resolveObjectiveSelector("/repo/.asdl/objectives/cmux-objective/roadmap.md", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
+	});
+
+	test("resolveObjectiveSelector rejects ambiguous or inactive selectors", () => {
+		const cwd = "/repo";
+		for (const selector of ["foo/bar", ".", "..", ".asdl/objective-archive/old/objective.md", "/tmp/outside/objective.md"]) {
+			expect(resolveObjectiveSelector(selector, cwd).type).toBe("invalid");
+		}
+	});
+
+	test("formatObjectiveSidebarFields uses Objective, slot, and branch slugs deterministically", () => {
+		const fields = formatObjectiveSidebarFields({
+			objectiveSlug: "make-cmux-sidebar-descriptions-deterministic",
+			slotSlug: "slot-05",
+			branchSlug: "deterministic-objective-sidebar-direct-extension",
+		});
+
+		expect(fields).toEqual({
+			title: "obj:make-cmux-sidebar-descriptions-deterministic",
+			description: "slot-05::deterministic-objective-sidebar-direct-extension",
+		});
+		expect(formatObjectiveSidebarFields({
+			objectiveSlug: "make-cmux-sidebar-descriptions-deterministic",
+			slotSlug: "slot-05",
+			branchSlug: "deterministic-objective-sidebar-direct-extension",
+		})).toEqual(fields);
+	});
+});
+
 function notificationMessages(ctx: FakeCommandContext): string[] {
 	return ctx.notifications.map((notification) => notification.message);
+}
+
+function objectiveSidebarDescription(repoRoot: string): string {
+	return `${basename(repoRoot)}::${SOURCE_BRANCH}`;
 }
 
 function sameArgs(left: string[], right: string[]): boolean {
@@ -561,6 +836,62 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 
 function step(command: string, args: string[] | undefined, result: Partial<ExecResult>): ScriptedExec {
 	return { command, ...(args === undefined ? {} : { args }), result };
+}
+
+function objectiveListStep(slugs: string[]): ScriptedExec {
+	return step("objective", ["list", "--format", "json"], {
+		stdout: JSON.stringify({
+			exit_code: 0,
+			data: {
+				trunk_branch: "master",
+				root_path: ".asdl/objectives",
+				status_filter: "active",
+				names_only: false,
+				records: slugs.map((slug, index) => ({
+					slug,
+					status: "open",
+					latest_update_iso: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+				})),
+			},
+		}),
+	});
+}
+
+function objectiveReadStep(slug: string, options: { updateCount?: number; hasObjectiveMarkdown?: boolean } = {}): ScriptedExec {
+	return step("objective", ["exec", "read-objective", slug, "--format", "json"], {
+		stdout: JSON.stringify({
+			exit_code: 0,
+			data: {
+				status: "ok",
+				slug,
+				path: `.asdl/objectives/${slug}`,
+				exists: true,
+				closed: false,
+				files: {
+					objective_md: options.hasObjectiveMarkdown ?? true,
+					roadmap_md: true,
+					updates_dir: true,
+					closed_md: false,
+				},
+				updates: [],
+				update_count: options.updateCount ?? 0,
+			},
+		}),
+	});
+}
+
+function cmuxSummaryStep(title: string, description: string): ScriptedExec {
+	return step("asdl", ["exec", "cmux-workspace-summary", "--title", title, "--description", description, "--format", "json"], {
+		stdout: JSON.stringify({
+			exit_code: 0,
+			data: {
+				success: true,
+				title,
+				description,
+				status_key: "pi-summary",
+			},
+		}),
+	});
 }
 
 function slotCheckoutJson(branch: string): string {
@@ -621,6 +952,12 @@ async function writeTempSkill(body: string): Promise<string> {
 	const path = join(dir, "SKILL.md");
 	await writeFile(path, `---\nname: cmux-sidebar\n---\n${body}\n`, "utf8");
 	return path;
+}
+
+async function writeObjectiveMarkdown(repoRoot: string, slug: string, markdown: string): Promise<void> {
+	const objectiveDir = join(repoRoot, ".asdl", "objectives", slug);
+	await mkdir(objectiveDir, { recursive: true });
+	await writeFile(join(objectiveDir, "objective.md"), markdown, "utf8");
 }
 
 async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string): Promise<string> {

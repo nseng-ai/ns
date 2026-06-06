@@ -1,4 +1,14 @@
+import { objectiveChoiceMap } from "../objective-picker.ts";
 import { expandSkillBlock } from "../skill-expansion.ts";
+import {
+	applyObjectiveSidebarFields,
+	formatObjectiveSidebarFields,
+	listObjectiveSidebarChoices,
+	readCurrentBranchSlug,
+	readObjectiveSidebarFacts,
+	resolveObjectiveSelector,
+	slotSlugFromCwd,
+} from "./objective-sidebar.ts";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
 const PR_SIDEBAR_COMMAND_NAME = "cmux:sidebar:pr-summary";
@@ -29,14 +39,9 @@ interface ParsedModelRef {
 	modelId: string;
 }
 
-type SidebarPromptRequest =
-	| {
-			type: "pr";
-	  }
-	| {
-			type: "objective";
-			objectiveSelector?: string;
-	  };
+interface SidebarPromptRequest {
+	type: "pr";
+}
 
 export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarController {
 	let pendingRestore: RestoreState | undefined;
@@ -62,13 +67,7 @@ export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarContro
 		},
 
 		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await queueSidebar(pi, ctx, (state) => {
-				pendingRestore = state;
-			}, {
-				request: buildObjectiveRequest(args),
-				shouldWaitForIdle: true,
-				shouldWarnWhenMissingWorkspace: true,
-			});
+			await handleDeterministicObjectiveSidebar(pi, args, ctx);
 		},
 
 	};
@@ -84,7 +83,7 @@ export function registerCmuxSidebarCommands(
 	});
 
 	pi.registerCommand(OBJECTIVE_SIDEBAR_COMMAND_NAME, {
-		description: "Summarize an asdl Objective into the caller cmux sidebar.",
+		description: "Pick or format an asdl Objective into the caller cmux sidebar.",
 		argumentHint: "[objective-slug-or-path]",
 		handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
 	});
@@ -112,36 +111,11 @@ ${formatVariantInstructions(request)}
 Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the requested source is resolved, then report the applied title briefly.`;
 }
 
-function buildObjectiveRequest(args: string): SidebarPromptRequest {
-	const objectiveSelector = args.trim();
-	if (objectiveSelector.length === 0) {
-		return { type: "objective" };
-	}
-	return { type: "objective", objectiveSelector };
-}
-
-function formatVariantInstructions(request: SidebarPromptRequest): string {
-	if (request.type === "pr") {
-		return [
-			"Requested variant: PR sidebar.",
-			"Summarize the current PR, branch, or active implementation work.",
-			"The Goal line should describe the PR outcome, not the cmux update itself.",
-		].join("\n");
-	}
-
-	if (request.objectiveSelector === undefined) {
-		return [
-			"Requested variant: Objective sidebar.",
-			"No Objective slug or path was supplied in the command arguments.",
-			"Do not infer an Objective from branch, PR, or hidden context.",
-			"Ask the user to provide or choose an Objective slug/path, then stop without running asdl exec.",
-		].join("\n");
-	}
-
+function formatVariantInstructions(_request: SidebarPromptRequest): string {
 	return [
-		"Requested variant: Objective sidebar.",
-		`Objective selector from command args: ${request.objectiveSelector}`,
-		"Summarize that asdl Objective, not the current PR.",
+		"Requested variant: PR sidebar.",
+		"Summarize the current PR, branch, or active implementation work.",
+		"The Goal line should describe the PR outcome, not the cmux update itself.",
 	].join("\n");
 }
 
@@ -155,7 +129,99 @@ asdl exec cmux-workspace-summary \\
   --format json
 \`\`\`
 
-The command clears the old cmux status pill. For Objective sidebar without an Objective slug or path, ask the user to choose one and do not run the command. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
+The command clears the old cmux status pill. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
+}
+
+async function handleDeterministicObjectiveSidebar(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+	await ctx.waitForIdle();
+
+	const workspaceId = getCallerWorkspaceId();
+	if (!workspaceId) {
+		notify(ctx, "Not running inside a cmux caller workspace.", "warning");
+		return;
+	}
+
+	const slug = await resolveObjectiveSidebarSlug(pi, args, ctx);
+	if (slug === undefined) {
+		return;
+	}
+
+	setStatus(ctx, "preparing cmux Objective sidebar…");
+	try {
+		const factsResult = await readObjectiveSidebarFacts(pi, ctx.cwd, slug);
+		if (factsResult.type === "failed") {
+			notify(ctx, factsResult.message, "error");
+			return;
+		}
+
+		const branchResult = await readCurrentBranchSlug(pi, ctx.cwd);
+		if (branchResult.type === "failed") {
+			notify(ctx, branchResult.message, "error");
+			return;
+		}
+
+		const fields = formatObjectiveSidebarFields({
+			objectiveSlug: factsResult.facts.slug,
+			slotSlug: slotSlugFromCwd(ctx.cwd),
+			branchSlug: branchResult.branchSlug,
+		});
+		const applyResult = await applyObjectiveSidebarFields(pi, ctx.cwd, fields);
+		if (applyResult.type === "failed") {
+			notify(ctx, applyResult.message, "error");
+			return;
+		}
+
+		notify(ctx, `Applied cmux Objective sidebar: ${fields.title}`, "success");
+	} finally {
+		setStatus(ctx, undefined);
+	}
+}
+
+async function resolveObjectiveSidebarSlug(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<string | undefined> {
+	if (args.trim().length > 0) {
+		const selector = resolveObjectiveSelector(args, ctx.cwd);
+		if (selector.type === "invalid") {
+			notify(ctx, selector.message, "warning");
+			return undefined;
+		}
+		return selector.slug;
+	}
+
+	if (ctx.hasUI === false || ctx.ui.select === undefined) {
+		notify(ctx, "Pass an Objective slug or .asdl/objectives/<slug> path.", "warning");
+		return undefined;
+	}
+
+	setStatus(ctx, "listing active Objectives…");
+	try {
+		const choicesResult = await listObjectiveSidebarChoices(pi, ctx.cwd);
+		if (choicesResult.type === "failed") {
+			notify(ctx, choicesResult.message, "error");
+			return undefined;
+		}
+
+		if (choicesResult.records.length === 0) {
+			notify(ctx, "No active Objectives. Create one with /skill:objective-create.", "info");
+			return undefined;
+		}
+
+		const choices = objectiveChoiceMap(choicesResult.records);
+		const selected = await ctx.ui.select("Select an active Objective for cmux sidebar", [...choices.keys()]);
+		if (!selected) {
+			notify(ctx, "Objective selection cancelled.", "info");
+			return undefined;
+		}
+
+		const slug = choices.get(selected);
+		if (slug === undefined) {
+			notify(ctx, "Objective selection could not be resolved.", "error");
+			return undefined;
+		}
+
+		return slug;
+	} finally {
+		setStatus(ctx, undefined);
+	}
 }
 
 async function queueSidebar(
@@ -209,8 +275,8 @@ async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): P
 	}
 }
 
-function formatInvokingMessage(request: SidebarPromptRequest): string {
-	return request.type === "pr" ? "Invoking cmux PR summary." : "Invoking cmux Objective summary.";
+function formatInvokingMessage(_request: SidebarPromptRequest): string {
+	return "Invoking cmux PR summary.";
 }
 
 function configuredSidebarModelRef(): string {

@@ -37,8 +37,16 @@ A cmux command suite entrypoint that creates a new cmux workspace after preparin
 _Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
 
 **cmux sidebar command**:
-An explicit manual command, `/cmux:sidebar:pr-summary` or `/cmux:sidebar:objective-summary [objective-slug-or-path]`, that queues a model-assisted summary for the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies it through deterministic `asdl exec cmux-workspace-summary` guidance.
-_Avoid_: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation.
+An explicit manual command that updates the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies through `asdl exec cmux-workspace-summary`. `/cmux:sidebar:pr-summary` is model-assisted; `/cmux:sidebar:objective-summary [objective-slug-or-path]` is a deterministic Objective picker/metadata formatter/apply command.
+_Avoid_: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation, assuming both sidebar variants use a model.
+
+**Objective selector**:
+A structured selector for an active Objective: either a single Objective slug, a repo-relative/absolute path below `.asdl/objectives/<slug>/`, or a user-chosen active Objective from a deterministic picker when a command intentionally supports no-arg selection. It is not prompt text and is not inferred from branch, PR, hidden context, or conversation prose.
+_Avoid_: Objective prompt, branch-derived Objective, archived Objective path.
+
+**Deterministic sidebar fields**:
+The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `asdl exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.
+_Avoid_: generated Objective summary, arbitrary prose compression, model draft.
 
 **Parked cmux automatic sidebar update**:
 A removed post-success behavior for cmux workspace-opening commands. Automatic sidebar updates are intentionally parked until cmux extension consolidation clarifies the target workspace and deterministic apply path.
