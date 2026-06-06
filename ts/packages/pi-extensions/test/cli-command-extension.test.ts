@@ -44,6 +44,10 @@ interface ConfirmationPrompt {
 
 interface CreateContextOptions {
 	confirm?: (title: string, message: string) => Promise<boolean> | boolean;
+	hasUI?: boolean;
+	setEditorText?: boolean;
+	setStatus?: boolean;
+	setWidget?: boolean;
 }
 
 interface RunCall {
@@ -97,16 +101,22 @@ function createContext(
 		notify(message, level) {
 			notifications.push({ message, level });
 		},
-		setEditorText(text) {
-			editorTexts.push(text);
-		},
-		setStatus(key, value) {
-			statuses.push({ key, value });
-		},
-		setWidget(key, lines, widgetOptions) {
-			widgets.push({ key, lines: lines === undefined ? undefined : [...lines], placement: widgetOptions?.placement });
-		},
 	};
+	if (options.setEditorText ?? true) {
+		ui.setEditorText = (text): void => {
+			editorTexts.push(text);
+		};
+	}
+	if (options.setStatus ?? true) {
+		ui.setStatus = (key, value): void => {
+			statuses.push({ key, value });
+		};
+	}
+	if (options.setWidget ?? true) {
+		ui.setWidget = (key, lines, widgetOptions): void => {
+			widgets.push({ key, lines: lines === undefined ? undefined : [...lines], placement: widgetOptions?.placement });
+		};
+	}
 	if (options.confirm !== undefined) {
 		const confirm = options.confirm;
 		ui.confirm = async (title: string, message: string): Promise<boolean> => {
@@ -122,7 +132,7 @@ function createContext(
 		confirmations,
 		ctx: {
 			cwd: "/repo",
-			hasUI: true,
+			hasUI: options.hasUI ?? true,
 			ui,
 			async waitForIdle(): Promise<void> {
 				order.push("wait");
@@ -183,6 +193,41 @@ function expectSingleCliOutputMessage(pi: FakePi, content: string, level: "info"
 		details: { level },
 	});
 	return message;
+}
+
+interface CapturedProcessWrites {
+	stdout: string;
+	stderr: string;
+}
+
+async function captureProcessWrites(callback: () => Promise<void>): Promise<CapturedProcessWrites> {
+	const stdoutChunks: string[] = [];
+	const stderrChunks: string[] = [];
+	const originalStdoutWrite = process.stdout.write;
+	const originalStderrWrite = process.stderr.write;
+	process.stdout.write = createCapturingWrite(stdoutChunks);
+	process.stderr.write = createCapturingWrite(stderrChunks);
+	try {
+		await callback();
+	} finally {
+		process.stdout.write = originalStdoutWrite;
+		process.stderr.write = originalStderrWrite;
+	}
+	return { stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
+}
+
+function createCapturingWrite(chunks: string[]): typeof process.stdout.write {
+	// Node's write method is overloaded; the test capture only needs the string/Uint8Array path.
+	return ((
+		chunk: string | Uint8Array,
+		encodingOrCallback?: BufferEncoding | ((error?: Error | null) => void),
+		callback?: (error?: Error | null) => void,
+	): boolean => {
+		chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
+		const writeCallback = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
+		writeCallback?.();
+		return true;
+	}) as typeof process.stdout.write;
 }
 
 function taggedTheme(): { fg(color: string, text: string): string; bold(text: string): string } {
@@ -469,6 +514,129 @@ describe("cli command extension helper", () => {
 
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "ok\n");
+	});
+
+	test("falls back to stdout for successful headless command output", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stdout("ok\n");
+				return 0;
+			},
+		});
+		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], { hasUI: false });
+
+		const writes = await captureProcessWrites(async () => {
+			await commandFor(pi, "dev:preview-url").handler("", ctx);
+		});
+
+		expect(writes).toEqual({ stdout: "ok\n", stderr: "" });
+		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
+		expect(editorTexts).toEqual([]);
+		expect(statuses).toEqual([]);
+		expect(widgets).toEqual([]);
+	});
+
+	test("falls back to stderr for error-level headless command output", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stderr("not found\n");
+				return 17;
+			},
+		});
+		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], { hasUI: false });
+
+		const writes = await captureProcessWrites(async () => {
+			await commandFor(pi, "dev:preview-url").handler("--json", ctx);
+		});
+
+		expect(writes).toEqual({
+			stdout: "",
+			stderr: "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n",
+		});
+		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
+		expect(editorTexts).toEqual([]);
+		expect(statuses).toEqual([]);
+		expect(widgets).toEqual([]);
+	});
+
+	test("emits headless positional-argument rejections instead of restoring editor text", async () => {
+		const pi = new FakePi();
+		const order: string[] = [];
+		let runnerCalled = false;
+		registerFakeCli(pi, {
+			runCli: () => {
+				runnerCalled = true;
+				return 0;
+			},
+		});
+		const { ctx, notifications, editorTexts, statuses, widgets } = createContext(order, { hasUI: false });
+
+		const writes = await captureProcessWrites(async () => {
+			await commandFor(pi, "dev:preview-url").handler("broke in this pr", ctx);
+		});
+
+		expect(runnerCalled).toBe(false);
+		expect(order).toEqual([]);
+		expect(writes).toEqual({
+			stdout: "",
+			stderr:
+				"fake-dev preview-url exited with code 2.\n\nstderr:\nError: /dev:preview-url only accepts option-style arguments here. Use --help for usage.\n",
+		});
+		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
+		expect(editorTexts).toEqual([]);
+		expect(statuses).toEqual([]);
+		expect(widgets).toEqual([]);
+	});
+
+	test("emits UI positional-argument rejections when editor restoration is unavailable", async () => {
+		const pi = new FakePi();
+		const order: string[] = [];
+		let runnerCalled = false;
+		registerFakeCli(pi, {
+			runCli: () => {
+				runnerCalled = true;
+				return 0;
+			},
+		});
+		const { ctx, notifications, editorTexts } = createContext(order, { setEditorText: false });
+
+		await commandFor(pi, "dev:preview-url").handler("broke in this pr", ctx);
+
+		expect(runnerCalled).toBe(false);
+		expect(order).toEqual([]);
+		expect(editorTexts).toEqual([]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-dev preview-url exited with code 2.\n\nstderr:\nError: /dev:preview-url only accepts option-style arguments here. Use --help for usage.\n",
+			"error",
+		);
+	});
+
+	test("does not restore UI usage errors when editor restoration is unavailable", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stderr("Error: Unexpected argument: words\n");
+				return 2;
+			},
+		});
+		const { ctx, notifications, editorTexts } = createContext([], { setEditorText: false });
+
+		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
+
+		expect(editorTexts).toEqual([]);
+		expect(notifications).toEqual([]);
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-dev preview-url exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n",
+			"error",
+		);
 	});
 
 	test("falls back to UI notifications when custom rendering is unavailable", async () => {
