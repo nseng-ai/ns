@@ -246,11 +246,10 @@ Global extensions live under:
 ~/.pi/agent/extensions/
 ```
 
-## Core subagent and Objective stack rewrite proposals
+## Core subagent proposal records
 
 - [Pi Core Subagent MVP Objective](../../.asdl/objective-archive/pi-core-subagent-mvp/objective.md): archived design record for the proposed Pi core foreground runner subagent primitive and terminal capture semantics.
 - [Pi Core Subagent MVP Roadmap](../../.asdl/objective-archive/pi-core-subagent-mvp/roadmap.md): archived review-slice plan for the primitive.
-- [Objective Stack Runner-Subagent Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on the repo-local runner subagent helper.
 
 ## Session `cwd` semantics
 
