@@ -26,15 +26,15 @@ Living tracker for the `cross-harness-parity` Objective. One row per Pi extensio
 | `/cmux:sidebar:pr-summary`        | Sidebar from current PR work | `asdl exec cmux-workspace-summary`                        | `cmux-sidebar`                        | FULL   | Mutation CLI is scenario-tested; Pi adds fast-model swap + auto-trigger.               |
 | `/cmux:sidebar:objective-summary` | Sidebar from an Objective    | `asdl exec cmux-workspace-summary`                        | `cmux-sidebar`                        | FULL   |                                                                                        |
 | `/just`                           | Run `just`, fix failures     | `just` + skill injection                                  | `internal-code-just-fix`              | FULL   | Claude/Codex get the same outcome by running `just` with the skill installed.          |
+| `/dev:preview-url`                | Vercel preview URL           | `asdl-dev preview-url`                                    | `dev-preview-url`                     | FULL   | Skill delegates to the shared CLI; Pi only mirrors it under the dev namespace.         |
+| `/code:cp`                        | Checkpoint commit            | `asdl-dev cp`                                             | `internal-code-checkpoint`            | FULL   | Skill now wraps the shared CLI instead of reimplementing checkpoint git logic.         |
 | `brmem` (internal helper)         | Branch-scoped memory         | `brmem` CLI (put/get/list/check/copy/...)                 | `brmem`                               | FULL   | TS file only resolves the binary path.                                                 |
 
 ## 🟡 Discoverability / dedup — orphan, owned here
 
-| Pi surface         | Workflow           | Shared CLI backing                           | Skill                                  | Parity          | Notes                                                                                                                     |
-| ------------------ | ------------------ | -------------------------------------------- | -------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `/dev:preview-url` | Vercel preview URL | `asdl-dev preview-url` (runnable headlessly) | _none yet_                             | PARTIAL         | CLI exists; no skill surfaces it to Claude/Codex.                                                                         |
-| `/code:cp`         | Checkpoint commit  | `asdl-dev cp`                                | `internal-code-checkpoint` (divergent) | PARTIAL         | Skill reimplements checkpointing with its own git logic instead of wrapping `asdl-dev cp`; reconcile.                     |
-| `/handoff:list`    | List handoffs      | `handoff list --format json` (skill path)    | `handoff-load`                         | PARTIAL (dedup) | Skill path is richer than the Pi command; Pi re-derives listing over raw `brmem list` in TS — point it at `handoff list`. |
+| Pi surface      | Workflow      | Shared CLI backing                        | Skill          | Parity          | Notes                                                                                                                     |
+| --------------- | ------------- | ----------------------------------------- | -------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `/handoff:list` | List handoffs | `handoff list --format json` (skill path) | `handoff-load` | PARTIAL (dedup) | Skill path is richer than the Pi command; Pi re-derives listing over raw `brmem list` in TS — point it at `handoff list`. |
 
 ## 🔴 Orphan orchestration gaps — owned here
 
@@ -58,10 +58,10 @@ Living tracker for the `cross-harness-parity` Objective. One row per Pi extensio
 
 ## 🔗 Sibling-owned — tracked, not closed here
 
-| Pi surface                             | Workflow                 | Owning Objective                | Parity    | Notes                                                                                             |
-| -------------------------------------- | ------------------------ | ------------------------------- | --------- | ------------------------------------------------------------------------------------------------- |
-| `/code:submit`                         | Submit a Graphite stack  | `asdl-dev-submit-consolidation` | PARTIAL   | `asdl-dev submit` is canonical; this Objective adds only a skill pointer if the sibling does not. |
-| `/write-plan`                          | Author a reviewed plan   | `planned-branch-ts-cli`         | PARTIAL → | Extracted into `@asdl/planned-branch` core + bin + skills by the sibling.                         |
-| `/create-planned-branch`               | Branch from a saved plan | `planned-branch-ts-cli`         | PARTIAL → |                                                                                                   |
-| `/impl-planned-branch`                 | Implement attached plan  | `planned-branch-ts-cli`         | PARTIAL → |                                                                                                   |
-| `write_source_branch_plan_file` (tool) | Write a plan file        | `planned-branch-ts-cli`         | PARTIAL → | Becomes a `planned-branch exec` op + skill.                                                       |
+| Pi surface                             | Workflow                 | Owning Objective                | Parity    | Notes                                                                                                                                      |
+| -------------------------------------- | ------------------------ | ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/code:submit`                         | Submit a Graphite stack  | `asdl-dev-submit-consolidation` | FULL      | `asdl-dev submit` is canonical and `internal-code-submit` now provides the skill pointer; sibling still owns broader submit consolidation. |
+| `/write-plan`                          | Author a reviewed plan   | `planned-branch-ts-cli`         | PARTIAL → | Extracted into `@asdl/planned-branch` core + bin + skills by the sibling.                                                                  |
+| `/create-planned-branch`               | Branch from a saved plan | `planned-branch-ts-cli`         | PARTIAL → |                                                                                                                                            |
+| `/impl-planned-branch`                 | Implement attached plan  | `planned-branch-ts-cli`         | PARTIAL → |                                                                                                                                            |
+| `write_source_branch_plan_file` (tool) | Write a plan file        | `planned-branch-ts-cli`         | PARTIAL → | Becomes a `planned-branch exec` op + skill.                                                                                                |

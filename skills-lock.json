@@ -57,6 +57,11 @@
       "sourceType": "local",
       "computedHash": "a1d58290263dcbee8b86f5305a0846708048dea8ca47e81595aa77390aaa6eb0"
     },
+    "dev-preview-url": {
+      "source": "skills/dev-preview-url",
+      "sourceType": "local",
+      "computedHash": "765ca2f5bcb9c47e02ec9b5160683350ab595397e32df13797a38ca2bdcabddd"
+    },
     "dignified-python": {
       "source": "skills/dignified-python",
       "sourceType": "local",
@@ -110,7 +115,7 @@
     "internal-code-checkpoint": {
       "source": "skills/internal-code-checkpoint",
       "sourceType": "local",
-      "computedHash": "90dd45393f7e29124e6ed3063ba014c3fc4030d4765f593275050867d1a5db2b"
+      "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
     },
     "internal-code-gh": {
       "source": "skills/internal-code-gh",
@@ -136,6 +141,11 @@
       "source": "skills/internal-code-stacker-agent",
       "sourceType": "local",
       "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
+    },
+    "internal-code-submit": {
+      "source": "skills/internal-code-submit",
+      "sourceType": "local",
+      "computedHash": "4e1c879f8eb21a576866358ff051f5979e32aee8c5b0112dbabbb5102e08b8b5"
     },
     "internal-pr-stack-address": {
       "source": "skills/internal-pr-stack-address",
