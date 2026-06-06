@@ -8,7 +8,14 @@ from typing import Any, TypeAlias, cast
 import yaml
 
 from brmem.gateway import BranchMemoryGateway
-from roaster.stack_models import StackRunManifest
+from roaster.stack_models import (
+    StackRunArtifactLocator,
+    StackRunBatchState,
+    StackRunDashboardPublication,
+    StackRunFailureContext,
+    StackRunManifest,
+    StackRunSubmission,
+)
 from roaster.stack_slugs import (
     StackSlugError,
     validate_batch_slug,
@@ -470,7 +477,83 @@ def validate_stack_run_manifest(manifest: StackRunManifest) -> StackRunManifest:
         batch_slugs=batch_slugs,
         generated_branches=manifest.generated_branches,
         markers=manifest.markers,
+        batch_states=_validate_manifest_batch_states(manifest.batch_states),
+        dashboard_publication=_validate_dashboard_publication(manifest.dashboard_publication),
+        submission=_validate_submission(manifest.submission),
     )
+
+
+def _validate_manifest_batch_states(
+    batch_states: tuple[StackRunBatchState, ...],
+) -> tuple[StackRunBatchState, ...]:
+    normalized_states: list[StackRunBatchState] = []
+    for state in batch_states:
+        normalized_states.append(
+            StackRunBatchState(
+                batch_slug=validate_batch_slug(state.batch_slug),
+                title=state.title,
+                status=state.status,
+                generated_branch=state.generated_branch,
+                generated_branch_status=state.generated_branch_status,
+                resolver_locator=_validate_artifact_locator(state.resolver_locator),
+                resolver_status=state.resolver_status,
+                summary=state.summary,
+                validation_summary=state.validation_summary,
+                failure=_validate_failure_context(state.failure),
+            )
+        )
+    return tuple(normalized_states)
+
+
+def _validate_dashboard_publication(
+    publication: StackRunDashboardPublication | None,
+) -> StackRunDashboardPublication | None:
+    if publication is None:
+        return None
+    return StackRunDashboardPublication(
+        marker=_validate_nonempty_string(publication.marker, label="dashboard marker"),
+        target_pr=_validate_nonempty_string(publication.target_pr, label="dashboard target PR"),
+        action=publication.action,
+        comment_id=publication.comment_id,
+        comment_url=publication.comment_url,
+    )
+
+
+def _validate_submission(submission: StackRunSubmission) -> StackRunSubmission:
+    return StackRunSubmission(
+        status=submission.status,
+        failure=_validate_failure_context(submission.failure),
+    )
+
+
+def _validate_artifact_locator(
+    locator: StackRunArtifactLocator | None,
+) -> StackRunArtifactLocator | None:
+    if locator is None:
+        return None
+    return StackRunArtifactLocator(
+        namespace=_validate_nonempty_string(locator.namespace, label="artifact namespace"),
+        key=_validate_nonempty_string(locator.key, label="artifact key"),
+        branch=_validate_impl_branch(locator.branch),
+    )
+
+
+def _validate_failure_context(
+    failure: StackRunFailureContext | None,
+) -> StackRunFailureContext | None:
+    if failure is None:
+        return None
+    return StackRunFailureContext(
+        error_type=_validate_nonempty_string(failure.error_type, label="failure error_type"),
+        message=_validate_nonempty_string(failure.message, label="failure message"),
+    )
+
+
+def _validate_nonempty_string(value: str, *, label: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise StackRunStorageError(f"stack run manifest {label} must be a non-empty string.")
+    return normalized
 
 
 def render_stack_run_index(index: StackRunIndex) -> str:

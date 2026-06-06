@@ -18,6 +18,7 @@ from roaster.models import FindingsReview, LocalDiff, ReviewExecutionResponse, R
 from roaster.stack_dry_run import StackDryRunResult
 from roaster.stack_models import StackWorkflowRequest, StackWorkflowResult
 from roaster.stack_profile import StackProfile
+from roaster.stack_run_storage import read_stack_run_manifest
 from roaster.stack_workflow import StackWorkflowFailure, run_stack_workflow_dry_run
 
 PYTHON_REVIEW_SOURCE = (
@@ -228,6 +229,7 @@ def test_dry_run_shapes_manifest_actions_and_locators_without_external_writes() 
     assert result.impl_branch_slug == "feature-target"
     assert result.run_slug == "stack-run-1"
     assert result.manifest.batch_slugs == ("avoid-print",)
+    assert result.manifest.batch_states[0].status == "pending"
     assert result.accepted_count == 1
     assert result.rejected_count == 0
     assert result.superseded_count == 0
@@ -302,7 +304,11 @@ def test_non_dry_run_rejected_only_persists_dashboard_and_skips_generated_stack(
     assert result.manifest.batch_slugs == ()
     assert result.manifest.generated_branches == ()
     assert result.dashboard_rows == ()
-    assert len(branch_memory.counted_puts) == 3
+    assert result.manifest.batch_states == ()
+    assert result.manifest.dashboard_publication is not None
+    assert result.manifest.dashboard_publication.comment_url is not None
+    assert result.manifest.submission.status == "not_started"
+    assert len(branch_memory.counted_puts) == 4
     assert len(pr_gateway.comments) == 1
     assert graphite.resolve_attach_tip_calls == ((Path("/repo"), "feature/target"),)
     assert graphite.checkout_branch_calls == ()
@@ -347,6 +353,11 @@ def test_non_dry_run_resolves_batch_creates_branch_and_submits() -> None:
     )
     assert result.dashboard_rows[0].status == "completed"
     assert result.dashboard_rows[0].validation_summary is not None
+    assert result.manifest.batch_states[0].status == "completed"
+    assert result.manifest.batch_states[0].generated_branch_status == "created"
+    assert result.manifest.batch_states[0].resolver_locator is not None
+    assert result.manifest.dashboard_publication is not None
+    assert result.manifest.submission.status == "submitted"
     assert agent_runner.requests[1].kind == "resolver"
     assert agent_runner.requests[1].prompt_resource == "stack_resolver.md"
     assert "Replace print with click.echo()." in agent_runner.requests[1].input_markdown
@@ -357,7 +368,7 @@ def test_non_dry_run_resolves_batch_creates_branch_and_submits() -> None:
     )
     assert graphite.update_generated_branch_calls == ()
     assert graphite.submit_generated_stack_calls == (Path("/repo"),)
-    assert len(branch_memory.counted_puts) == 5
+    assert len(branch_memory.counted_puts) == 11
     assert len(pr_gateway.comments) == 1
     assert len(pr_gateway.updated_comments) == 2
 
@@ -487,6 +498,7 @@ def test_non_dry_run_dashboard_failure_before_mutation_is_fatal() -> None:
 
 def test_non_dry_run_invalid_resolver_output_stops_before_branch_mutation() -> None:
     graphite = FakeGraphiteStackGateway()
+    branch_memory = _CountingBranchMemoryGateway()
 
     result = run_stack_workflow_dry_run(
         profile=_profile(),
@@ -501,7 +513,7 @@ def test_non_dry_run_invalid_resolver_output_stops_before_branch_mutation() -> N
                 AgentRunCompleted(output_markdown="not frontmatter\n"),
             )
         ),
-        branch_memory=_CountingBranchMemoryGateway(),
+        branch_memory=branch_memory,
         pr_gateway=FakePRGateway(),
         graphite_stack=graphite,
     )
@@ -509,6 +521,18 @@ def test_non_dry_run_invalid_resolver_output_stops_before_branch_mutation() -> N
     assert isinstance(result, StackWorkflowFailure)
     assert result.error_type == "stack_resolver_invalid_output"
     assert "must begin" in result.message
+    manifest = read_stack_run_manifest(
+        branch_memory,
+        impl_branch="feature/target",
+        impl_branch_slug="feature-target",
+        profile_slug="thermonuclear-stack",
+        run_slug="stack-run-1",
+    )
+    assert manifest is not None
+    assert manifest.batch_states[0].status == "failed"
+    assert manifest.batch_states[0].resolver_locator is not None
+    assert manifest.batch_states[0].failure is not None
+    assert manifest.batch_states[0].failure.error_type == "stack_resolver_invalid_output"
     assert graphite.create_generated_branch_calls == ()
     assert graphite.submit_generated_stack_calls == ()
 
@@ -564,6 +588,7 @@ def test_non_dry_run_branch_memory_write_failure_stops_before_dashboard_or_graph
 
 
 def test_non_dry_run_submit_failure_stops_after_resolver_branch() -> None:
+    branch_memory = _CountingBranchMemoryGateway()
     graphite = FakeGraphiteStackGateway(
         failures_by_operation={
             "submit-generated-stack": GraphiteStackFailure(
@@ -587,7 +612,7 @@ def test_non_dry_run_submit_failure_stops_after_resolver_branch() -> None:
                 AgentRunCompleted(output_markdown=_valid_resolver_output()),
             )
         ),
-        branch_memory=_CountingBranchMemoryGateway(),
+        branch_memory=branch_memory,
         pr_gateway=FakePRGateway(),
         graphite_stack=graphite,
     )
@@ -595,6 +620,17 @@ def test_non_dry_run_submit_failure_stops_after_resolver_branch() -> None:
     assert isinstance(result, StackWorkflowFailure)
     assert result.error_type == "graphite_stack_command_failed"
     assert result.message == "submit failed"
+    manifest = read_stack_run_manifest(
+        branch_memory,
+        impl_branch="feature/target",
+        impl_branch_slug="feature-target",
+        profile_slug="thermonuclear-stack",
+        run_slug="stack-run-1",
+    )
+    assert manifest is not None
+    assert manifest.submission.status == "failed"
+    assert manifest.submission.failure is not None
+    assert manifest.submission.failure.message == "submit failed"
     assert graphite.create_generated_branch_calls == (
         (Path("/repo"), "feature-target/roaster/stack-run-1/avoid-print", "Avoid print"),
     )

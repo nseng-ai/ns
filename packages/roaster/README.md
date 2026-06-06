@@ -85,10 +85,20 @@ By default, a rerun resumes the latest run recorded for the implementation
 branch/profile pair. Pass `--new-run` to allocate a fresh ordinal run slug, or
 `--run-slug <slug>` for an explicit stable slug.
 
+The run manifest is the durable audit/resume source of truth. In addition to
+run identity and batch slugs, it records per-batch status, generated branch
+names, resolver artifact locators, resolver/failure summaries when known,
+dashboard comment linkage, and generated stack submission success/failure. The
+raw triage and resolver markdown artifacts remain separate Branch Memory entries
+so a later agent can inspect exactly what was accepted and attempted.
+
 The current MVP publishes a persistent dashboard issue comment on the target PR
 and updates that marker comment on reruns. The dashboard is the durable review
-surface for the stack workflow. This path does not post inline comments and does
-not resolve review threads.
+surface for humans. This path does not post inline comments, does not resolve
+review threads, and does not discover or edit generated resolver PR bodies.
+Generated PR marker/body helpers are pure, deferred rendering/parsing utilities;
+they are not wired into production publication until an explicit PR discovery
+and PR body update gateway contract exists.
 
 ### Dry run and mutation boundaries
 
@@ -99,9 +109,11 @@ comments, creating branches, or invoking `gt`.
 
 A non-dry-run stack run is explicitly Graphite/`gt`-based. The product path
 requires Graphite, creates or updates generated resolver branches, and runs
-`gt submit --no-interactive` after generated branches are prepared. Before any
-generated branch mutation, roaster persists run artifacts and publishes the PR
-dashboard so the attempted mutation has an inspectable record.
+`gt submit --no-interactive` after generated branches are prepared. Explicit
+`--target-branch` runs fail closed unless Graphite can resolve the branch's
+attach tip and `--target-pr` supplies a dashboard PR. Before any generated
+branch mutation, roaster persists run artifacts and publishes the PR dashboard
+so the attempted mutation has an inspectable record.
 
 The real adapter surface is intentionally guarded. The real agent runner fails
 closed until a supported local runner is explicitly wired, and automatic real

@@ -4,7 +4,15 @@ import pytest
 
 from brmem.fake import FakeBranchMemoryGateway
 from brmem.gateway import BranchMemoryGateway
-from roaster.stack_models import StackRunManifest
+from roaster.stack_models import (
+    GeneratedStackBranch,
+    StackRunArtifactLocator,
+    StackRunBatchState,
+    StackRunDashboardPublication,
+    StackRunFailureContext,
+    StackRunManifest,
+    StackRunSubmission,
+)
 from roaster.stack_run_storage import (
     ROASTER_RUNS_NAMESPACE,
     StackRunIndex,
@@ -172,6 +180,85 @@ def test_write_and_read_stack_run_manifest_round_trips() -> None:
     )
 
     assert locator.key == "runs/thermonuclear/full-review/thermonuclear-stack/manifest.md"
+    assert loaded == manifest
+
+
+def test_stack_run_manifest_round_trips_durable_resume_state() -> None:
+    gateway = FakeBranchMemoryGateway()
+    manifest = StackRunManifest(
+        profile_slug="full-review",
+        run_slug="thermonuclear-stack",
+        impl_branch_slug="thermonuclear",
+        target_branch="feature/thermonuclear",
+        target_pr="123",
+        batch_slugs=("fix-tests",),
+        generated_branches=(
+            GeneratedStackBranch(
+                branch_name="thermonuclear/roaster/thermonuclear-stack/fix-tests",
+                impl_branch_slug="thermonuclear",
+                run_slug="thermonuclear-stack",
+                batch_slug="fix-tests",
+            ),
+        ),
+        batch_states=(
+            StackRunBatchState(
+                batch_slug="fix-tests",
+                title="Fix tests",
+                status="failed",
+                generated_branch=GeneratedStackBranch(
+                    branch_name="thermonuclear/roaster/thermonuclear-stack/fix-tests",
+                    impl_branch_slug="thermonuclear",
+                    run_slug="thermonuclear-stack",
+                    batch_slug="fix-tests",
+                ),
+                generated_branch_status="created",
+                resolver_locator=StackRunArtifactLocator(
+                    namespace=ROASTER_RUNS_NAMESPACE,
+                    key=(
+                        "runs/thermonuclear/full-review/thermonuclear-stack/"
+                        "batches/fix-tests/resolver.md"
+                    ),
+                    branch="feature/thermonuclear",
+                ),
+                resolver_status="completed",
+                summary="Resolved tests before submit failed.",
+                validation_summary="uv run pytest: passed (ok)",
+                failure=StackRunFailureContext(
+                    error_type="graphite_stack_command_failed",
+                    message="submit failed",
+                ),
+            ),
+        ),
+        dashboard_publication=StackRunDashboardPublication(
+            marker='<!-- roaster-stack-dashboard {"version":1,"profile_slug":"full-review"} -->',
+            target_pr="123",
+            action="updated",
+            comment_id=99,
+            comment_url="https://github.com/acme/widgets/pull/123#issuecomment-99",
+        ),
+        submission=StackRunSubmission(
+            status="failed",
+            failure=StackRunFailureContext(
+                error_type="graphite_stack_command_failed",
+                message="submit failed",
+            ),
+        ),
+    )
+
+    write_stack_run_manifest(
+        gateway,
+        impl_branch="feature/thermonuclear",
+        manifest=manifest,
+    )
+
+    loaded = read_stack_run_manifest(
+        gateway,
+        impl_branch="feature/thermonuclear",
+        impl_branch_slug="thermonuclear",
+        profile_slug="full-review",
+        run_slug="thermonuclear-stack",
+    )
+
     assert loaded == manifest
 
 

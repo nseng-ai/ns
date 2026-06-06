@@ -13,6 +13,9 @@ StackRisk = Literal["mechanical", "behavioral", "architectural", "speculative"]
 ResolverStatus = Literal["completed", "failed", "blocked"]
 ResolverValidationStatus = Literal["passed", "failed", "skipped"]
 StackBatchStatus = Literal["pending", "running", "completed", "failed", "blocked"]
+StackGeneratedBranchStatus = Literal["planned", "created", "updated"]
+StackRunSubmissionStatus = Literal["not_started", "submitted", "failed"]
+StackRunDashboardPublicationAction = Literal["created", "updated"]
 
 
 @dataclass(frozen=True)
@@ -127,8 +130,55 @@ class StackMarker(ClinkrModel):
     branch_name: str | None = None
 
 
+class StackRunArtifactLocator(ClinkrModel):
+    """Branch Memory locator persisted inside a stack run manifest."""
+
+    namespace: str
+    key: str
+    branch: str
+
+
+class StackRunFailureContext(ClinkrModel):
+    """Durable failure context for audit and resume decisions."""
+
+    error_type: str
+    message: str
+
+
+class StackRunDashboardPublication(ClinkrModel):
+    """Known dashboard comment linkage for a stack run."""
+
+    marker: str
+    target_pr: str
+    action: StackRunDashboardPublicationAction
+    comment_id: int | None = None
+    comment_url: str | None = None
+
+
+class StackRunSubmission(ClinkrModel):
+    """Durable submission outcome for generated stack publication."""
+
+    status: StackRunSubmissionStatus = "not_started"
+    failure: StackRunFailureContext | None = None
+
+
+class StackRunBatchState(ClinkrModel):
+    """Durable audit/resume state for one resolver batch."""
+
+    batch_slug: str
+    title: str = ""
+    status: StackBatchStatus = "pending"
+    generated_branch: GeneratedStackBranch | None = None
+    generated_branch_status: StackGeneratedBranchStatus | None = None
+    resolver_locator: StackRunArtifactLocator | None = None
+    resolver_status: ResolverStatus | None = None
+    summary: str = ""
+    validation_summary: str | None = None
+    failure: StackRunFailureContext | None = None
+
+
 class StackRunManifest(ClinkrModel):
-    """Manifest shape for a future persisted roaster stack run."""
+    """Persisted roaster stack run state for audit and resume."""
 
     schema_version: str = "roaster.stack.run-manifest.v1"
     profile_slug: str
@@ -140,6 +190,9 @@ class StackRunManifest(ClinkrModel):
     batch_slugs: tuple[str, ...]
     generated_branches: tuple[GeneratedStackBranch, ...] = ()
     markers: tuple[StackMarker, ...] = ()
+    batch_states: tuple[StackRunBatchState, ...] = ()
+    dashboard_publication: StackRunDashboardPublication | None = None
+    submission: StackRunSubmission = StackRunSubmission()
 
 
 class StackDashboardRow(ClinkrModel):
