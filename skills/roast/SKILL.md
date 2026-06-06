@@ -7,7 +7,7 @@ allowed-tools:
   - "Bash(git rev-parse*)"
   - "Bash(git branch*)"
   - "Bash(git diff*)"
-  - "Bash(gt *)"
+  - "Bash(gt branch info*)"
   - "Bash(find reviews*)"
   - "Read"
   - "Grep"
@@ -62,13 +62,12 @@ This skill is read-only by default.
      `find reviews -maxdepth 1 -type f -name '*.md' -print | sort`.
 3. If explicit keys were provided, validate that every key exists. If any key is
    unknown, show the available keys and ask for correction.
-4. If no review was specified, ask exactly one concise selection question using
-   the current harness's structured question tool when available, otherwise
-   normal prose. Include:
+4. If no review was specified, do not run a review until the user chooses. Ask
+   exactly one concise selection question using the current harness's structured
+   question tool when available, otherwise normal prose. Include:
    - one option per discovered review key, with concise descriptions when easy;
    - `all matching changed files`; and
    - `all reviews`.
-     Do not run a review until the user chooses.
 5. If the user chooses `all matching changed files`, use
    `uv run roaster review list-matching --base-ref <base-ref> --format json`.
    If matching cannot be computed, explain the failure and offer to run all
