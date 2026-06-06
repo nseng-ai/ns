@@ -103,7 +103,7 @@ class StackRunArtifactPlan:
             run_slug=_run_slug_from_manifest_key(self.manifest.key),
         )
         return StackRunLocator(
-            namespace=ROASTER_RUNS_NAMESPACE,
+            namespace=self.manifest.namespace,
             key=keys.resolver_key(batch_slug=batch_slug),
             branch=self.manifest.branch,
         )
@@ -130,6 +130,7 @@ def stack_run_artifact_plan(
     impl_branch_slug: str,
     profile_slug: str,
     run_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunArtifactPlan:
     """Compute Branch Memory locators for a run without writing anything."""
     normalized_impl_branch = _validate_impl_branch(impl_branch)
@@ -140,17 +141,17 @@ def stack_run_artifact_plan(
     )
     return StackRunArtifactPlan(
         index=StackRunLocator(
-            namespace=ROASTER_RUNS_NAMESPACE,
+            namespace=namespace,
             key=keys.index_key,
             branch=normalized_impl_branch,
         ),
         manifest=StackRunLocator(
-            namespace=ROASTER_RUNS_NAMESPACE,
+            namespace=namespace,
             key=keys.manifest_key,
             branch=normalized_impl_branch,
         ),
         triage=StackRunLocator(
-            namespace=ROASTER_RUNS_NAMESPACE,
+            namespace=namespace,
             key=keys.triage_key,
             branch=normalized_impl_branch,
         ),
@@ -164,6 +165,7 @@ def resolver_locator(
     profile_slug: str,
     run_slug: str,
     batch_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Compute the Branch Memory locator for one resolver artifact."""
     normalized_impl_branch = _validate_impl_branch(impl_branch)
@@ -172,7 +174,7 @@ def resolver_locator(
         profile_slug=profile_slug,
         run_slug=run_slug,
     ).resolver_key(batch_slug=batch_slug)
-    return StackRunLocator(namespace=ROASTER_RUNS_NAMESPACE, key=key, branch=normalized_impl_branch)
+    return StackRunLocator(namespace=namespace, key=key, branch=normalized_impl_branch)
 
 
 def read_stack_run_index(
@@ -181,12 +183,14 @@ def read_stack_run_index(
     impl_branch: str,
     impl_branch_slug: str,
     profile_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunIndex | None:
     """Read the persisted run index for an implementation branch/profile."""
     locator = _index_locator(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
+        namespace=namespace,
     )
     content = gateway.get(locator.namespace, locator.key, locator.branch)
     if content is None:
@@ -200,6 +204,7 @@ def write_stack_run_index(
     impl_branch: str,
     index: StackRunIndex,
     dry_run: bool = False,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Persist a run index unless ``dry_run`` is set; always return its locator."""
     normalized_index = validate_stack_run_index(index)
@@ -207,6 +212,7 @@ def write_stack_run_index(
         impl_branch=impl_branch,
         impl_branch_slug=normalized_index.impl_branch_slug,
         profile_slug=normalized_index.profile_slug,
+        namespace=namespace,
     )
     if not dry_run:
         gateway.put(
@@ -225,6 +231,7 @@ def read_stack_run_manifest(
     impl_branch_slug: str,
     profile_slug: str,
     run_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunManifest | None:
     """Read a persisted run manifest."""
     locator = stack_run_artifact_plan(
@@ -232,6 +239,7 @@ def read_stack_run_manifest(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
+        namespace=namespace,
     ).manifest
     content = gateway.get(locator.namespace, locator.key, locator.branch)
     if content is None:
@@ -245,6 +253,7 @@ def write_stack_run_manifest(
     impl_branch: str,
     manifest: StackRunManifest,
     dry_run: bool = False,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Persist a run manifest unless ``dry_run`` is set; always return its locator."""
     normalized_manifest = validate_stack_run_manifest(manifest)
@@ -253,6 +262,7 @@ def write_stack_run_manifest(
         impl_branch_slug=normalized_manifest.impl_branch_slug,
         profile_slug=normalized_manifest.profile_slug,
         run_slug=normalized_manifest.run_slug,
+        namespace=namespace,
     ).manifest
     if not dry_run:
         gateway.put(
@@ -271,6 +281,7 @@ def read_stack_run_triage(
     impl_branch_slug: str,
     profile_slug: str,
     run_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> str | None:
     """Read raw triage markdown for a run."""
     locator = stack_run_artifact_plan(
@@ -278,6 +289,7 @@ def read_stack_run_triage(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
+        namespace=namespace,
     ).triage
     return gateway.get(locator.namespace, locator.key, locator.branch)
 
@@ -291,6 +303,7 @@ def write_stack_run_triage(
     run_slug: str,
     content: str,
     dry_run: bool = False,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Persist raw triage markdown unless ``dry_run`` is set; always return its locator."""
     locator = stack_run_artifact_plan(
@@ -298,6 +311,7 @@ def write_stack_run_triage(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
+        namespace=namespace,
     ).triage
     if not dry_run:
         gateway.put(locator.namespace, locator.key, locator.branch, content)
@@ -312,6 +326,7 @@ def read_stack_run_resolver(
     profile_slug: str,
     run_slug: str,
     batch_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> str | None:
     """Read raw resolver markdown for one batch."""
     locator = resolver_locator(
@@ -320,6 +335,7 @@ def read_stack_run_resolver(
         profile_slug=profile_slug,
         run_slug=run_slug,
         batch_slug=batch_slug,
+        namespace=namespace,
     )
     return gateway.get(locator.namespace, locator.key, locator.branch)
 
@@ -334,6 +350,7 @@ def write_stack_run_resolver(
     batch_slug: str,
     content: str,
     dry_run: bool = False,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Persist raw resolver markdown unless ``dry_run`` is set; always return its locator."""
     locator = resolver_locator(
@@ -342,6 +359,7 @@ def write_stack_run_resolver(
         profile_slug=profile_slug,
         run_slug=run_slug,
         batch_slug=batch_slug,
+        namespace=namespace,
     )
     if not dry_run:
         gateway.put(locator.namespace, locator.key, locator.branch, content)
@@ -357,6 +375,7 @@ def select_stack_run_slug(
     run_slug_stem: str,
     new_run: bool = False,
     run_slug: str | None = None,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunSelection:
     """Resolve resume/default, explicit ``run_slug``, or ``new_run`` ordinal behavior.
 
@@ -369,6 +388,7 @@ def select_stack_run_slug(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
+        namespace=namespace,
     )
     existing_run_slugs = _index_run_slugs(index)
 
@@ -493,6 +513,13 @@ def _validate_manifest_batch_states(
                 batch_slug=validate_batch_slug(state.batch_slug),
                 title=state.title,
                 status=state.status,
+                finding_ids=tuple(state.finding_ids),
+                dependencies=tuple(validate_batch_slug(slug) for slug in state.dependencies),
+                confidence=state.confidence,
+                risk=state.risk,
+                resolver_mandate=state.resolver_mandate,
+                validation_requirements=tuple(state.validation_requirements),
+                expected_paths=tuple(state.expected_paths),
                 generated_branch=state.generated_branch,
                 generated_branch_status=state.generated_branch_status,
                 resolver_locator=_validate_artifact_locator(state.resolver_locator),
@@ -635,6 +662,7 @@ def _index_locator(
     impl_branch: str,
     impl_branch_slug: str,
     profile_slug: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     normalized_impl_branch = _validate_impl_branch(impl_branch)
     index_key = stack_run_keys(
@@ -643,7 +671,7 @@ def _index_locator(
         run_slug="placeholder-run",
     ).index_key
     return StackRunLocator(
-        namespace=ROASTER_RUNS_NAMESPACE,
+        namespace=namespace,
         key=index_key,
         branch=normalized_impl_branch,
     )

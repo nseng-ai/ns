@@ -21,6 +21,7 @@ from roaster.stack_models import (
     StackTriageBatch,
 )
 from roaster.stack_run_storage import (
+    ROASTER_RUNS_NAMESPACE,
     StackRunIndex,
     StackRunLocator,
     add_run_to_index,
@@ -47,6 +48,13 @@ def initial_batch_states(batches: tuple[StackTriageBatch, ...]) -> tuple[StackRu
             batch_slug=batch.slug,
             title=batch.title,
             status="pending",
+            finding_ids=batch.finding_ids,
+            dependencies=batch.dependencies,
+            confidence=batch.confidence,
+            risk=batch.risk,
+            resolver_mandate=batch.resolver_mandate,
+            validation_requirements=batch.validation_requirements,
+            expected_paths=batch.expected_paths,
             summary=batch.summary,
         )
         for batch in batches
@@ -69,6 +77,13 @@ def manifest_with_batch_state(
         batch_slug=batch.slug,
         title=batch.title,
         status=status,
+        finding_ids=batch.finding_ids,
+        dependencies=batch.dependencies,
+        confidence=batch.confidence,
+        risk=batch.risk,
+        resolver_mandate=batch.resolver_mandate,
+        validation_requirements=batch.validation_requirements,
+        expected_paths=batch.expected_paths,
         generated_branch=generated_branch,
         generated_branch_status=generated_branch_status,
         resolver_locator=resolver_locator,
@@ -171,6 +186,7 @@ def persist_run_start(
     index: StackRunIndex | None,
     triage_result: StackTriageResult,
     manifest: StackRunManifest,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunPersistenceFailure | None:
     """Persist the initial run index, manifest, and triage artifact checkpoint."""
     try:
@@ -180,8 +196,18 @@ def persist_run_start(
             profile_slug=profile_slug,
             run_slug=run_slug,
         )
-        write_stack_run_index(branch_memory, impl_branch=impl_branch, index=next_index)
-        write_stack_run_manifest(branch_memory, impl_branch=impl_branch, manifest=manifest)
+        write_stack_run_index(
+            branch_memory,
+            impl_branch=impl_branch,
+            index=next_index,
+            namespace=namespace,
+        )
+        write_stack_run_manifest(
+            branch_memory,
+            impl_branch=impl_branch,
+            manifest=manifest,
+            namespace=namespace,
+        )
         write_stack_run_triage(
             branch_memory,
             impl_branch=impl_branch,
@@ -189,6 +215,7 @@ def persist_run_start(
             profile_slug=profile_slug,
             run_slug=run_slug,
             content=triage_artifact_content(triage_result),
+            namespace=namespace,
         )
     except Exception as exc:
         return StackRunPersistenceFailure(
@@ -203,10 +230,16 @@ def write_manifest(
     branch_memory: BranchMemoryGateway,
     impl_branch: str,
     manifest: StackRunManifest,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunPersistenceFailure | None:
     """Persist one manifest checkpoint and return a workflow-shaped failure on error."""
     try:
-        write_stack_run_manifest(branch_memory, impl_branch=impl_branch, manifest=manifest)
+        write_stack_run_manifest(
+            branch_memory,
+            impl_branch=impl_branch,
+            manifest=manifest,
+            namespace=namespace,
+        )
     except Exception as exc:
         return StackRunPersistenceFailure(
             error_type="stack_run_storage_write_failed",
@@ -224,6 +257,7 @@ def persist_resolver_output(
     run_slug: str,
     batch_slug: str,
     output_markdown: str,
+    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunArtifactLocator | StackRunPersistenceFailure:
     """Persist one resolver artifact and return its manifest locator."""
     try:
@@ -235,6 +269,7 @@ def persist_resolver_output(
             run_slug=run_slug,
             batch_slug=batch_slug,
             content=output_markdown,
+            namespace=namespace,
         )
     except Exception as exc:
         return StackRunPersistenceFailure(
