@@ -26,7 +26,7 @@ This Objective is the cross-harness parity **umbrella**. It owns a living parity
 - A row is **FULL** only when a shared CLI carries the deterministic logic and a skill drives it so Claude/Codex reach the workflow standalone; the Pi part must be purely additive.
 - **WAIVED** rows are genuinely Pi-native primitives whose value _is_ the Pi UI/session behavior; they require a documented non-Pi fallback for any dependent workflow.
 - Rows owned by `planned-branch-ts-cli` or `asdl-dev-submit-consolidation` link to those Objectives and are not closed here.
-- The table is refreshed whenever this Objective is updated with parity-relevant findings, and the parity-review skill's full-sweep mode regenerates it.
+- The table is refreshed whenever this Objective is updated with parity-relevant findings, and `internal-code-parity-review` full-sweep mode checks it against live evidence and refreshes it with a Semantic Update when drift is found.
 
 ## Non-Goals
 
@@ -42,7 +42,7 @@ This Objective is the cross-harness parity **umbrella**. It owns a living parity
 - Every row in `parity-table.md` is either **FULL** (shared CLI + skill, Pi additive) or a recorded, justified **WAIVED** primitive with a documented agent-neutral fallback — except rows explicitly owned by `planned-branch-ts-cli` / `asdl-dev-submit-consolidation` (tracked, not closed here) and any consciously parked rows. No unexplained PARTIAL/NONE rows remain.
 - `land-stack`, the cmux dispatch family, and `autobranch` are backed by shared CLIs and driven by skills so Claude/Codex can run them; the Pi extensions import/mirror those cores with no duplicated orchestration. Model-text steps (slug, summary) run through the backend-neutral text-generation abstraction, not the Pi-only model harness.
 - `/code:land` and `/code:changes` have skills (or `/code:changes` is a recorded waiver), the `asdl-dev` commands are discoverable via skills, the `internal-code-checkpoint` / `asdl-dev cp` overlap is reconciled, and `/handoff:list` consumes the `handoff list` CLI rather than re-deriving listing in TypeScript.
-- The parity-review skill exists, runs both diff-scoped and full-sweep modes, encodes the waiver rule, and a full-sweep run reports no unwaived gaps.
+- The `internal-code-parity-review` skill exists, runs both diff-scoped and full-sweep modes, encodes the waiver rule, and a full-sweep run reports no unwaived gaps.
 - Evidence: targeted `just ts-check` / `just ts-test` and Python checks pass for changed areas; CLI scenario tests cover each new CLI's operations, help, and version; the parity-review full-sweep output is captured as closure evidence.
 
 ## Assumptions and Risks
@@ -65,6 +65,5 @@ Risks:
 ## Open Questions
 
 - For `land-stack`, should the shared CLI be Python (a new `asdl exec` op / package) or TypeScript (a bin, reusing the existing `land-stack/*` implementation like `planned-branch-ts-cli` does)? The existing TS implementation and Graphite-stack semantics argue for TS reuse; the `asdl exec` precedent argues for Python.
-- Should the parity-review skill be `internal-*` (repo-private — it references Pi-extension internals) or a public skill? Lean internal.
 - Does `/code:changes` deserve any parity, or should it be declared an accepted Pi-only cosmetic affordance (WAIVED) rather than getting a skill?
-- What is the severity rubric for the review skill — what distinguishes a "massive feature gap" it must flag from a minor note it merely records?
+- The initial parity-review skill now uses advisory labels (`major gap`, `discoverability gap`, `table drift`, `waiver check`, `note`, `covered`); future hardening may refine these thresholds as the remaining gaps are closed.
