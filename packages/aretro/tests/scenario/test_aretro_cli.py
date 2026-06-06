@@ -12,6 +12,7 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead
+from asdl_core.payloads.store import PayloadStore
 from asdl_core.sessions.adapters.pi_jsonl import PiJsonlSessionSource
 from asdl_core.sessions.testing import FakeSessionSource
 from asdl_core.sessions.types import (
@@ -57,6 +58,8 @@ def test_aretro_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: aretro exec" in result.output
     assert "Commands for use by branch retrospective skills." in result.output
+    assert "collect-evidence" in result.output
+    assert "read-evidence-detail" in result.output
 
 
 def test_aretro_exec_lists_collect_evidence_help(cli_group: ClinkrGroup) -> None:
@@ -64,7 +67,15 @@ def test_aretro_exec_lists_collect_evidence_help(cli_group: ClinkrGroup) -> None
 
     assert result.exit_code == 0
     assert "Usage: aretro exec collect-evidence" in result.output
-    for option in ("--repo", "--branch", "--session-root", "--max-sessions", "--format"):
+    for option in (
+        "--repo",
+        "--branch",
+        "--session-root",
+        "--max-sessions",
+        "--payload-mode",
+        "--payload-session-id",
+        "--format",
+    ):
         assert option in result.output
 
 
@@ -80,6 +91,7 @@ def test_collect_evidence_returns_json_from_fake_session_source(cli_group: Clink
         cli_group,
         ["exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
         obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
+        env={"ASDL_PAYLOAD_SESSION_ID": ""},
     )
 
     assert result.exit_code == 0, result.output
@@ -158,6 +170,227 @@ def test_collect_evidence_includes_factual_items_without_raw_outputs(
     assert failed_tool["metadata"] == {"error_message_count": 1}
     assert "SECRET_TOOL_OUTPUT_TEXT" not in json.dumps(data)
     assert "SECRET_COMMAND_OUTPUT_TEXT" not in json.dumps(data)
+
+
+def test_collect_evidence_payload_mode_writes_detail_artifact(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    data, raw_payload = _collect_payload_evidence(cli_group, tmp_path)
+
+    _assert_collect_evidence_payload_data_contract(data)
+    assert data["payload_mode"] == "payload"
+    payload_reference = data["payload_reference"]
+    assert payload_reference["role"] == "raw"
+    assert payload_reference["descriptor"] == "aretro-collect-evidence"
+    payload_path = Path(payload_reference["payload_path"])
+    assert payload_path.exists()
+    assert payload_path.name.endswith(".raw.json")
+    assert data["detail_locator_hints"]["sessions"] == "/data/sessions"
+    assert data["aggregate_metrics"]["session_count"] == 1
+    assert data["evidence_items"]
+
+    assert raw_payload["exit_code"] == 0
+    detail = raw_payload["data"]
+    assert detail["schema_version"] == 1
+    detail_session = detail["sessions"][0]
+    assert detail_session["session_id"] == "s2"
+    assert detail_session["tool_calls"][0]["tool_name"] == "read"
+    assert detail_session["tool_results"][0]["has_error_message"] is True
+    assert "error_message" not in detail_session["tool_results"][0]
+    assert detail_session["command_executions"][0]["command_subject"] == "just test"
+    assert "SECRET_TOOL_OUTPUT_TEXT" not in json.dumps(raw_payload)
+    assert "SECRET_COMMAND_OUTPUT_TEXT" not in json.dumps(raw_payload)
+
+
+def test_collect_evidence_payload_mode_missing_session_fails_before_query(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    repo_root = Path("/repo")
+    source = FakeSessionSource(sessions=(_evidence_session(repo_root),))
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        current_branch_by_path={repo_root: "feature/retro"},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "collect-evidence",
+            "--repo",
+            str(repo_root),
+            "--payload-mode",
+            "payload",
+            "--format",
+            "json",
+        ],
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
+        env={"ASDL_PAYLOAD_ROOT": str(tmp_path / "payload-root"), "ASDL_PAYLOAD_SESSION_ID": ""},
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "payload_session_required"
+    assert "data" not in payload
+    assert source.queries == ()
+
+
+def test_collect_evidence_payload_mode_invalid_session_fails_before_query(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    repo_root = Path("/repo")
+    source = FakeSessionSource(sessions=(_evidence_session(repo_root),))
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        current_branch_by_path={repo_root: "feature/retro"},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "collect-evidence",
+            "--repo",
+            str(repo_root),
+            "--payload-mode",
+            "payload",
+            "--payload-session-id",
+            "BadSession",
+            "--format",
+            "json",
+        ],
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
+        env={"ASDL_PAYLOAD_ROOT": str(tmp_path / "payload-root")},
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "payload_session_invalid"
+    assert "data" not in payload
+    assert source.queries == ()
+
+
+def test_read_evidence_detail_reads_selected_value(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    data, _raw_payload = _collect_payload_evidence(cli_group, tmp_path)
+    payload_path = data["payload_reference"]["payload_path"]
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "read-evidence-detail",
+            "--payload-path",
+            payload_path,
+            "--json-pointer",
+            "/data/sessions/0/tool_calls/0",
+            "--format",
+            "json",
+        ],
+        obj=_empty_obj(),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    assert payload["data"]["json_pointer"] == "/data/sessions/0/tool_calls/0"
+    assert payload["data"]["value"]["tool_name"] == "read"
+
+
+def test_read_evidence_detail_allows_data_root_and_rejects_outside_data(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    data, _raw_payload = _collect_payload_evidence(cli_group, tmp_path)
+    payload_path = data["payload_reference"]["payload_path"]
+
+    ok_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "read-evidence-detail",
+            "--payload-path",
+            payload_path,
+            "--json-pointer",
+            "/data",
+            "--format",
+            "json",
+        ],
+        obj=_empty_obj(),
+    )
+    assert ok_result.exit_code == 0, ok_result.output
+    assert json.loads(ok_result.output)["data"]["value"]["schema_version"] == 1
+
+    for invalid_pointer in ("", "/exit_code", "/message", "/datax"):
+        result = CliRunner().invoke(
+            cli_group,
+            [
+                "exec",
+                "read-evidence-detail",
+                "--payload-path",
+                payload_path,
+                "--json-pointer",
+                invalid_pointer,
+                "--format",
+                "json",
+            ],
+            obj=_empty_obj(),
+        )
+        assert result.exit_code == 2
+        payload = json.loads(result.output)
+        assert payload["exit_code"] == 2
+        assert payload["error_type"] == "invalid_request"
+
+
+def test_read_evidence_detail_rejects_malformed_non_success_and_non_raw_payloads(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    non_success_path = _write_payload_artifact(
+        tmp_path,
+        session_id="aretro-bad-session",
+        role="raw",
+        payload={"exit_code": 2, "data": {"schema_version": 1}},
+    )
+    summary_path = _write_payload_artifact(
+        tmp_path,
+        session_id="aretro-summary-session",
+        role="summary",
+        payload={"exit_code": 0, "data": {"schema_version": 1}},
+    )
+    unsupported_schema_path = _write_payload_artifact(
+        tmp_path,
+        session_id="aretro-unsupported-session",
+        role="raw",
+        payload={"exit_code": 0, "data": {"schema_version": 2}},
+    )
+
+    for payload_path in (non_success_path, summary_path, unsupported_schema_path):
+        result = CliRunner().invoke(
+            cli_group,
+            [
+                "exec",
+                "read-evidence-detail",
+                "--payload-path",
+                str(payload_path),
+                "--json-pointer",
+                "/data",
+                "--format",
+                "json",
+            ],
+            obj=_empty_obj(),
+        )
+        assert result.exit_code == 2
+        payload = json.loads(result.output)
+        assert payload["exit_code"] == 2
+        assert payload["error_type"] == "payload_lookup_failed"
 
 
 def test_collect_evidence_passes_query_to_session_source(
@@ -415,6 +648,33 @@ def _assert_collect_evidence_data_contract(data: object) -> None:
     assert isinstance(data["evidence_items"], list)
 
 
+def _assert_collect_evidence_payload_data_contract(data: object) -> None:
+    assert isinstance(data, dict)
+    assert set(data) == {
+        "success",
+        "error",
+        "repo",
+        "query",
+        "source",
+        "aggregate_metrics",
+        "sessions",
+        "warnings",
+        "evidence_items",
+        "payload_mode",
+        "payload_reference",
+        "detail_locator_hints",
+    }
+    _assert_repo_contract(data["repo"])
+    _assert_query_contract(data["query"])
+    _assert_source_contract(data["source"])
+    _assert_aggregate_metrics_contract(data["aggregate_metrics"])
+    assert isinstance(data["sessions"], list)
+    assert isinstance(data["warnings"], list)
+    assert isinstance(data["evidence_items"], list)
+    assert isinstance(data["payload_reference"], dict)
+    assert isinstance(data["detail_locator_hints"], dict)
+
+
 def _assert_repo_contract(repo: object) -> None:
     assert isinstance(repo, dict)
     assert set(repo) == {"repo_root", "cwd", "branch", "branch_source"}
@@ -510,6 +770,70 @@ def _assert_evidence_item_contract(evidence_item: object) -> None:
     for source_ref in evidence_item["source_refs"]:
         _assert_source_ref_contract(source_ref)
     assert isinstance(evidence_item["metadata"], dict)
+
+
+def _collect_payload_evidence(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    repo_root = Path("/repo")
+    source = FakeSessionSource(sessions=(_evidence_session(repo_root),))
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        current_branch_by_path={repo_root: "feature/retro"},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "collect-evidence",
+            "--repo",
+            str(repo_root),
+            "--branch",
+            "feature/retro",
+            "--payload-mode",
+            "payload",
+            "--payload-session-id",
+            "aretro-test-session",
+            "--format",
+            "json",
+        ],
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
+        env={"ASDL_PAYLOAD_ROOT": str(tmp_path / "payload-root")},
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert isinstance(data, dict)
+    payload_reference = data["payload_reference"]
+    assert isinstance(payload_reference, dict)
+    raw_payload = json.loads(Path(payload_reference["payload_path"]).read_text(encoding="utf-8"))
+    assert isinstance(raw_payload, dict)
+    return data, raw_payload
+
+
+def _write_payload_artifact(
+    tmp_path: Path,
+    *,
+    session_id: str,
+    role: str,
+    payload: object,
+) -> Path:
+    store = PayloadStore.open(root=tmp_path / "payload-root", session_id=session_id)
+    reference = store.write_json_artifact(descriptor="aretro-reader", role=role, payload=payload)
+    return Path(reference.payload_path)
+
+
+def _empty_obj() -> ClinkrContextObject:
+    return _obj(
+        AretroCliContext(
+            git_gateway=FakeGitGateway(repo_root=Path("/repo")),
+            session_source=FakeSessionSource(),
+        )
+    )
 
 
 def _obj(context: AretroCliContext) -> ClinkrContextObject:
