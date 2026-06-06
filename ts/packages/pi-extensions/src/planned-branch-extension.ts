@@ -58,11 +58,11 @@ export type {
 
 const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
-const START_IMPL_COMMAND_NAME = "planned-branch:start-impl";
+const STACK_IMPL_COMMAND_NAME = "planned-branch:stack-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
-const START_IMPL_STATUS_KEY = "planned-branch:start-impl";
+const STACK_IMPL_STATUS_KEY = "planned-branch:stack-impl";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -179,18 +179,6 @@ export interface ToolDefinition {
 	renderResult?(result: ToolResult, options: ToolRenderResultOptions, theme: unknown, context: unknown): Component;
 }
 
-interface ReplacedSessionContext {
-	sendUserMessage(content: string): Promise<void> | void;
-}
-
-interface NewSessionOptions {
-	withSession?(ctx: ReplacedSessionContext): Promise<void> | void;
-}
-
-interface NewSessionResult {
-	cancelled: boolean;
-}
-
 export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
@@ -200,7 +188,6 @@ export interface CommandContext {
 		confirm?(title: string, message?: string): Promise<boolean>;
 	};
 	waitForIdle(): Promise<void>;
-	newSession?(options?: NewSessionOptions): Promise<NewSessionResult> | NewSessionResult;
 	sessionManager?: SessionManagerLike;
 }
 
@@ -234,19 +221,19 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const START_IMPL_USAGE = `Usage: /planned-branch:start-impl [options] [absolute-or-home-plan-file.md]
+export const STACK_IMPL_USAGE = `Usage: /planned-branch:stack-impl [options] [absolute-or-home-plan-file.md]
 
-Create a Graphite-tracked planned branch, run gt up to move into it, start a new Pi session, and launch /planned-branch:impl for the attached plan.
+Create a planned branch, attach the saved plan, check out that branch with git, and launch /planned-branch:impl for the attached plan in the same Pi session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
   --yes, -y          Compatibility no-op; resolved planned branches create without confirmation.
-  --graphite         Compatibility no-op; this command always requires Graphite.
+  --graphite         Create the target branch with Graphite.
+  --plain-git        Create the target branch with plain Git.
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
-This command intentionally models the manual flow: /planned-branch:create, gt up, /new, then /planned-branch:impl.
-It does not support --plain-git because the navigation step is Graphite-specific.`;
+This command intentionally models the manual flow: /planned-branch:create, git checkout <branch>, then /planned-branch:impl <key> in the same Pi session.`;
 
 export function buildWritePlanPrompt(steering: string): string {
 	return `This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.
@@ -482,9 +469,9 @@ export default function registerPlannedBranchExtension(
 		handler: async (args, ctx) => handleCreatePlannedBranchCommand(pi, args, ctx, options),
 	});
 
-	pi.registerCommand(START_IMPL_COMMAND_NAME, {
-		description: "Create a Graphite planned branch, move up to it, start a new Pi session, and implement the attached plan.",
-		handler: async (args, ctx) => handleStartImplCommand(pi, args, ctx, options),
+	pi.registerCommand(STACK_IMPL_COMMAND_NAME, {
+		description: "Create a planned branch, check it out, and implement the attached plan in this Pi session.",
+		handler: async (args, ctx) => handleStackImplCommand(pi, args, ctx, options),
 	});
 
 	pi.registerCommand(IMPL_PLANNED_BRANCH_COMMAND_NAME, {
@@ -582,7 +569,7 @@ async function handleCreatePlannedBranchCommand(
 	}
 }
 
-async function handleStartImplCommand(
+async function handleStackImplCommand(
 	pi: ExtensionAPI,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -595,37 +582,26 @@ async function handleStartImplCommand(
 		args = parseCreatePlannedBranchArgs(rawArgs);
 	} catch (error) {
 		if (error instanceof CreatePlannedBranchUsageError) {
-			presentPlannedBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${START_IMPL_USAGE}`, { status: "usage" }, "error");
+			presentPlannedBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${STACK_IMPL_USAGE}`, { status: "usage" }, "error");
 			return;
 		}
 		throw error;
 	}
 
 	if (args.help) {
-		presentPlannedBranchMessage(pi, ctx, START_IMPL_USAGE, { status: "usage" }, "info");
+		presentPlannedBranchMessage(pi, ctx, STACK_IMPL_USAGE, { status: "usage" }, "info");
 		return;
 	}
-	if (args.branchCreation === "plain-git") {
-		presentPlannedBranchMessage(
-			pi,
-			ctx,
-			`Usage error: /${START_IMPL_COMMAND_NAME} requires Graphite and does not support --plain-git.\n\n${START_IMPL_USAGE}`,
-			{ status: "usage" },
-			"error",
-		);
-		return;
-	}
-	args.branchCreation = "graphite";
 
 	let preview: CreatePlannedBranchPreview;
-	ctx.ui.setStatus(START_IMPL_STATUS_KEY, "finding saved plan…");
+	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
 		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, options);
 	} catch (error) {
 		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
 		return;
 	} finally {
-		ctx.ui.setStatus(START_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
@@ -633,59 +609,42 @@ async function handleStartImplCommand(
 		presentPlannedBranchMessage(
 			pi,
 			ctx,
-			`Dry run: no branch was created, no Graphite navigation happened, no new Pi session was started, and no implementation prompt was sent.\n\n${previewText}\n\nNext session flow:\n${formatStartImplFollowUpFlow(preview.targetBranch, preview.key)}`,
+			`Dry run: no branch was created, no checkout happened, and no implementation prompt was sent.\n\n${previewText}\n\nSame-session implementation flow:\n${formatStackImplFollowUpFlow(preview.targetBranch, preview.key)}`,
 			{ status: "dry-run", preview },
 			"info",
 		);
 		return;
 	}
 
-	ctx.ui.setStatus(START_IMPL_STATUS_KEY, "creating branch and attaching plan…");
+	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, "creating branch and attaching plan…");
 	let evidence: PlannedBranchEvidence;
 	try {
 		evidence = await createPlannedBranchFromPreview(pi, preview, ctx);
 	} catch (error) {
-		ctx.ui.setStatus(START_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
 		presentPlannedBranchFailure(pi, ctx, "Failed to create planned branch and attach the plan.", error, preview);
 		return;
 	}
 
 	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
 
-	ctx.ui.setStatus(START_IMPL_STATUS_KEY, "navigating up the Graphite stack…");
+	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, "checking out planned branch…");
 	try {
-		await navigateUpGraphiteStack(pi, ctx);
+		await checkoutPlannedBranch(pi, ctx, evidence.branch);
 	} catch (error) {
-		ctx.ui.setStatus(START_IMPL_STATUS_KEY, undefined);
-		presentPlannedBranchFailure(pi, ctx, "Created planned branch and attached the plan, but failed to run gt up.", error, preview);
-		return;
-	}
-
-	const newSession = ctx.newSession;
-	if (newSession === undefined) {
-		ctx.ui.setStatus(START_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
 		presentPlannedBranchFailure(
 			pi,
 			ctx,
-			"Created planned branch, attached the plan, and ran gt up, but failed to start implementation.",
-			new Error(`This Pi runtime does not expose new-session control to extension commands. Recovery: run /new, then /planned-branch:impl ${evidence.key}.`),
+			"Created planned branch and attached the plan, but failed to check out the planned branch.",
+			error,
 			preview,
 		);
 		return;
 	}
 
-	ctx.ui.setStatus(START_IMPL_STATUS_KEY, "starting implementation session…");
-	ctx.ui.setStatus(START_IMPL_STATUS_KEY, undefined);
-	const result = await startNewImplementationSession(newSession, evidence.key);
-	if (result.cancelled) {
-		presentPlannedBranchFailure(
-			pi,
-			ctx,
-			"Created planned branch, attached the plan, and ran gt up, but failed to start implementation.",
-			new Error(`New session was cancelled. Recovery: run /new, then /planned-branch:impl ${evidence.key}.`),
-			preview,
-		);
-	}
+	ctx.ui.setStatus(STACK_IMPL_STATUS_KEY, undefined);
+	pi.sendUserMessage(`/planned-branch:impl ${evidence.key}`);
 }
 
 async function createPlannedBranchFromPreview(
@@ -708,23 +667,15 @@ async function createPlannedBranchFromPreview(
 	return createPlannedBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
 }
 
-async function navigateUpGraphiteStack(pi: ExtensionAPI, ctx: CommandContext): Promise<void> {
-	const result = await pi.exec("gt", ["up"], { cwd: ctx.cwd, timeout: 30_000 });
+async function checkoutPlannedBranch(pi: ExtensionAPI, ctx: CommandContext, targetBranch: string): Promise<void> {
+	const result = await pi.exec("git", ["checkout", targetBranch], { cwd: ctx.cwd, timeout: 30_000 });
 	if (result.code !== 0) {
-		throw new Error(`gt up failed with exit code ${result.code}: ${result.stderr || result.stdout || "(no output)"}`);
+		throw new Error(`git checkout ${targetBranch} failed with exit code ${result.code}: ${result.stderr || result.stdout || "(no output)"}`);
 	}
 }
 
-async function startNewImplementationSession(newSession: NonNullable<CommandContext["newSession"]>, key: string): Promise<NewSessionResult> {
-	return newSession({
-		withSession: async (newCtx) => {
-			await newCtx.sendUserMessage(`/planned-branch:impl ${key}`);
-		},
-	});
-}
-
-function formatStartImplFollowUpFlow(targetBranch: string, key: string): string {
-	return [`gt up  # to ${targetBranch}`, "/new", `/planned-branch:impl ${key}`].join("\n");
+function formatStackImplFollowUpFlow(targetBranch: string, key: string): string {
+	return [`git checkout ${targetBranch}`, `/planned-branch:impl ${key}`].join("\n");
 }
 
 function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {

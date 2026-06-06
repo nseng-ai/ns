@@ -230,8 +230,8 @@ function gtTrackStep(branch: string, parent: string = SOURCE_BRANCH, result: Par
 	return step("gt", ["track", branch, "--parent", parent, "--no-interactive"], result);
 }
 
-function gtUpStep(result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("gt", ["up"], result);
+function gitCheckoutStep(branch: string, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("git", ["checkout", branch], result);
 }
 
 function brmemPutStep(branch: string, key: string, filePath: string, result: Partial<ExecResult>): ScriptedExec {
@@ -434,7 +434,6 @@ function createContext(
 		cwd?: string;
 		confirm?: (title: string, message?: string) => Promise<boolean>;
 		sessionEntries?: unknown[];
-		newSession?: CommandContext["newSession"];
 	} = {},
 ): { ctx: CommandContext; notifications: Notification[]; statuses: Array<{ key: string; value: string | undefined }>; waits: () => number } {
 	const notifications: Notification[] = [];
@@ -466,9 +465,6 @@ function createContext(
 			waitCount += 1;
 		},
 	};
-	if (options.newSession !== undefined) {
-		ctx.newSession = options.newSession;
-	}
 	const sessionEntries = options.sessionEntries;
 	if (sessionEntries !== undefined) {
 		ctx.sessionManager = {
@@ -850,7 +846,7 @@ describe("plan workflow commands", () => {
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"planned-branch:create",
 			"planned-branch:impl",
-			"planned-branch:start-impl",
+			"planned-branch:stack-impl",
 			"planned-branch:write-plan",
 		]);
 		expect(pi.commands.has("create-plan-file")).toBe(false);

@@ -1,6 +1,6 @@
 ---
 name: branch-retro
-description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret `aretro` evidence. Collects deterministic evidence with `aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
+description: "Use when the user asks for `/aretro:branch-retro`, a branch/session retrospective, what would have made branch work faster/smaller/higher quality, or how to run/interpret `aretro` evidence. Collects deterministic evidence with `aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
 allowed-tools:
   - "Bash(*aretro-run *)"
   - "Bash(*aretro-run)"
@@ -15,15 +15,17 @@ allowed-tools:
 
 # branch-retro
 
-Produce a compact retrospective for a branch or session set. The skill collects
-factual evidence with `aretro`, then uses model judgment to write source-backed
-findings and actionable recommendations. Default mode is read-only.
+Produce a compact retrospective for a branch or session set. In Pi, the public
+command surface is `/aretro:branch-retro`; this portable skill is the shared
+agent workflow behind that command. The skill collects factual evidence with
+`aretro`, then uses model judgment to write source-backed findings and
+actionable recommendations. Default mode is read-only.
 
 ## When to use
 
-Use this skill when the user asks for a branch retro, branch/session
-retrospective, what slowed a branch down, what should improve after branch work,
-or how to interpret `aretro` evidence.
+Use this skill when the user asks for `/aretro:branch-retro`, a branch retro,
+branch/session retrospective, what slowed a branch down, what should improve
+after branch work, or how to interpret `aretro` evidence.
 
 If the user asks to implement recommendations, produce the retrospective first,
 then ask for confirmation and scope before editing anything.
