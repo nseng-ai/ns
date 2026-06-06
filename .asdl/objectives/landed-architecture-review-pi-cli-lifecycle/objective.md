@@ -42,14 +42,14 @@ Assumptions:
 - The Pi CLI lifecycle seam can be reviewed independently enough from source-control mutation UX to create useful local evidence.
 - `ts/packages/pi-extensions/src/cli-command-extension.ts` is the primary shared lifecycle surface, while files such as `ts/packages/asdl-dev/src/submit.ts` are evidence-bearing consumers rather than automatic targets for consolidation.
 - The right outcome may be either a small harness-neutral interface or an explicit decision to keep lifecycle behavior in the current module; implementation is not mandatory unless it improves locality or safety.
-- Existing TypeScript tests around CLI command extension behavior, command runtime, grill UI, planned-branch extension, and submit behavior should be enough to validate a focused slice.
+- Existing TypeScript tests around CLI command extension behavior, command runtime, grill UI, planned-branch extension, and submit behavior provide broad evidence for the lifecycle inventory. A focused explicit headless bridge test may still be useful if the decision step chooses a narrow deepening slice.
 
 Risks:
 
 - The review could drift into all Pi command UX or all source-control mutation policy; the mitigation is to keep this Objective anchored on execution/rendering/confirmation lifecycle phases.
 - A generic lifecycle abstraction could hide command-specific safety policy; the mitigation is to name the boundary between lifecycle mechanics and command semantics before refactoring.
 - The current implementation may have churned after the archived re-baseline; the mitigation is to re-read the concrete files and tests before naming the seam.
-- Headless behavior and UI confirmation behavior may need different evidence; the mitigation is to include both in the inventory before deciding whether to change code.
+- Headless behavior and UI confirmation behavior need different evidence. Inventory found strong UI confirmation/live-progress coverage and submit-level non-interactive guidance; explicit bridge-level `hasUI: false` output/restoration coverage remains a candidate gap for the decision step.
 - A narrow Markdown-only child Objective creation could accidentally pre-solve implementation details; the mitigation is to keep this record focused on scope, evidence standards, and first roadmap steps.
 
 ## Open Questions
