@@ -34,7 +34,7 @@ Use these step skills for explicit workflow requests:
 - `objective-create`: create a new Objective record.
 - `objective-current`: read and summarize one Objective without mutation.
 - `objective-next`: recommend next semantic work and route confirmed execution when durable policy allows it.
-- `objective-update`: update durable Objective tracking for exactly one Objective.
+- `objective-update`: update durable Objective tracking for exactly one Objective; when its Closure Gate is clearly ready, it closes the Objective inline without a separate confirmation.
 - `objective-close`: close an Objective without deleting its checked-in history.
 - `objective-stack-impl`: orchestrate implementation of one Objective as a small Graphite stack.
 
