@@ -45,11 +45,19 @@ Assumptions:
 Risks:
 
 - Decomposing `stack_workflow.py` could accidentally change safety ordering. In particular, Branch Memory/dashboard writes, resolver execution, branch mutation, and `gt submit` must retain their intended hard-stop behavior.
-- The first three decomposition slices de-risked behavior-preserving extraction paths: dry-run result contracts/projection helpers now live outside `stack_workflow.py`, shared triage views are pure helpers, resolver input rendering now lives in `roaster.stack_resolver_input`, dashboard projection now lives in `roaster.stack_dashboard_projection`, and targeted workflow/dashboard validation passed. Remaining decomposition slices still need the same safety-ordering guardrail.
+- The decomposition slices de-risked behavior-preserving extraction paths: dry-run result contracts/projection helpers now live outside `stack_workflow.py`, shared triage views are pure helpers, resolver input rendering now lives in `roaster.stack_resolver_input`, dashboard projection now lives in `roaster.stack_dashboard_projection`, and run manifest checkpoint/persistence helpers now live in `roaster.stack_run_persistence`. The remaining workflow ownership is accepted phase orchestration rather than an unresolved catch-all concern, with targeted and full validation preserving the safety-ordering guardrail.
 - Fixing attach-tip behavior exposed the absence of a stable real Graphite attach-tip implementation; the workflow now prefers a guarded/fake-covered boundary and fails closed for real mutating explicit-target runs instead of speculative live Graphite parsing.
 - Wiring generated PR body support requires broader GitHub/Graphite integration than this Objective should smuggle in; generated PR body publication is now explicitly deferred until PR discovery/body-update gateways exist.
 - Richer manifest/run-state modeling can become overdesigned. The implemented manifest state is intentionally limited to durable audit/resume facts: batch state, generated branches, resolver locators, dashboard linkage, submission status, and failure context.
 
 ## Open Questions
 
-- No active open questions remain for the completed attach-tip, generated PR body, or run-state followups. The remaining decomposition question is whether workflow phase orchestration and run-persistence helper extraction are worth another behavior-preserving slice before closure.
+- No active open questions remain. The final decomposition slice extracted run-persistence helpers and intentionally left workflow phase orchestration in `stack_workflow.py` as the accepted boundary for this Objective.
+
+## Closure
+
+Completed. The thermo-review followups are resolved as behavior-preserving structural cleanup: dry-run shaping, triage views, resolver input rendering, dashboard projection, and run manifest checkpoint/persistence helpers now live outside `stack_workflow.py`; explicit target-branch attach-tip behavior fails closed through the gateway boundary; generated PR marker/body support is documented as pure/deferred rather than misleading production publication behavior; durable Branch Memory run manifests carry batch, resolver, dashboard, submission, and failure context; and README/tests now describe the cleaned contracts.
+
+Evidence: local working-tree implementation on branch `roaster-run-persistence-checkpoint-extraction` extracts run persistence into `packages/roaster/src/roaster/stack_run_persistence.py`, adds focused unit coverage in `packages/roaster/tests/unit/test_stack_run_persistence.py`, and keeps `packages/roaster/src/roaster/stack_workflow.py` as orchestration rather than the catch-all home for every stack concern. Verification passed with targeted workflow/run-storage/persistence tests, adjacent roaster stack dashboard/resolver-input/CLI tests, focused type checking, and full `just` validation.
+
+Caveats and follow-ups: live disposable GitHub/Graphite mutation smoke tests, real Graphite attach-tip discovery, inline review-thread mutation, generated resolver PR body publication, and broader roaster quality hardening remain parked or out of scope unless future work explicitly takes them up.

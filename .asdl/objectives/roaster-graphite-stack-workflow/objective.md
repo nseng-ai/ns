@@ -525,3 +525,13 @@ Risks:
 - Should a later debug-only synthetic triage input be added to simplify manual mutation smoke tests without undermining prompt-driven production behavior?
 - How much of matching existing generated PR branches on rerun should the MVP implement before failing safely and asking for human intervention?
 - When no matching reviewers are found and no explicit reviewer was requested, should the command publish a zero-finding dashboard/manifest or return a non-ideal warning? The current recommendation is zero-finding success with clear dashboard/manifest text.
+
+## Closure
+
+Outcome: completed.
+
+The steelthread MVP for `roaster stack run <profile-slug>` was implemented across the planned nine-PR Graphite stack: CLI/profile, contracts, Branch Memory run storage, dashboard publication, triage runner, dry-run orchestration, Graphite gateway, resolver loop, and docs/closeout. All roadmap rows are marked complete.
+
+Key evidence is recorded in the Semantic Updates, especially `2026-06-05-docs-closeout-slice-complete.md`: targeted roaster stack CLI/workflow/prompt/gateway tests, roaster plugin smoke, prompt-resource inspection, targeted lint/format checks, `just dprint-check`, and full `just` passed for the closeout slice.
+
+Remaining caveats are intentionally outside this Objective's completion criteria: implementation PR submission remains a manual Graphite action, and live roaster mutation smoke remains optional, human-confirmed, and disposable-branch-only. Parked scope such as inline review comments, remote CI monitoring, deterministic profile parsing, rich profile schemas, and complex automatic rerun stack surgery remains deferred unless promoted into a future Objective.
