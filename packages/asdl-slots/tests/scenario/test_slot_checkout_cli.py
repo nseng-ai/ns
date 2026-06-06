@@ -687,6 +687,7 @@ def test_slot_checkout_current_pool_full(cli_group: ClinkrGroup, tmp_path: Path)
     assert result.exit_code == 2
     assert "Pool is full" in result.output
     assert "slot-01 -> feat/a" in result.output
+    assert fakes.git.get_current_branch(fakes.repo_root) == "feat/x"
 
 
 def test_slot_checkout_rejects_both_branch_and_current(
