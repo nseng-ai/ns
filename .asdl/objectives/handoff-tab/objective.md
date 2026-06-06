@@ -146,3 +146,19 @@ Risks:
 
 - Resolved: `handoff_tab_launch` is exposed as a normal model-visible custom tool with command-scoped guidance that says to call it only after the handoff artifact exists.
 - Resolved: success and failure copy includes enough branch/slug context to manually run `/handoff:pickup --branch <branch> <slug>` in an already-open cmux tab when needed.
+
+## Closure
+
+Outcome: completed for v1.
+
+Key evidence:
+
+- `/handoff-tab` v1 is implemented and validated as a project-local Pi/cmux extension command.
+- The implementation creates a directed handoff, verifies it, opens a focused cmux tab titled `handoff: <slug>`, launches Pi in the same cwd with `/handoff:pickup --branch <branch> <slug>`, and leaves the original session open with success context.
+- Regression coverage records the successful launch flow, outside-cmux failure, slug collision behavior, missing-handoff verification failure, and rename/send recovery paths.
+- Focused handoff tests, package typecheck, and full pi-extensions tests passed in the validation update.
+
+Remaining caveats:
+
+- Cross-repo, cross-branch, and new-worktree handoffs remain intentionally parked.
+- Managing or supervising the launched tab after sending the Pi launch command remains intentionally out of scope.
