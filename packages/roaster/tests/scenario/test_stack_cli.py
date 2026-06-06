@@ -154,10 +154,11 @@ def _write_profile(cwd: Path, slug: str, source: str = "Loose stack guidance.\n"
     return profile_path
 
 
-def test_roaster_help_lists_visible_stack_group(cli_group: ClinkrGroup) -> None:
+def test_roaster_help_lists_visible_profile_and_stack_groups(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["-h"])
 
     assert result.exit_code == 0, result.output
+    assert "profile" in result.output
     assert "stack" in result.output
     assert "Graphite" in result.output
 
@@ -168,11 +169,10 @@ def test_stack_help_mentions_graphite_and_run(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert "Graphite" in result.output
     assert "gt" in result.output
-    assert "list" in result.output
     assert "run" in result.output
 
 
-def test_stack_list_human_output_lists_profiles(
+def test_profile_list_human_output_lists_profiles(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -182,29 +182,29 @@ def test_stack_list_human_output_lists_profiles(
     (profiles_dir / "notes.txt").write_text("not a profile\n", encoding="utf-8")
     (profiles_dir / "bad slug.md").write_text("invalid slug\n", encoding="utf-8")
 
-    result = CliRunner().invoke(cli_group, ["stack", "list"], obj=_context(tmp_path))
+    result = CliRunner().invoke(cli_group, ["profile", "list"], obj=_context(tmp_path))
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == [
         f"Profiles directory: {profiles_dir}",
-        "Stack profiles: 2",
+        "Profiles: 2",
         "- alpha-stack",
         "- beta-stack",
     ]
 
 
-def test_stack_list_empty_profiles_is_success(
+def test_profile_list_empty_profiles_is_success(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    result = CliRunner().invoke(cli_group, ["stack", "list"], obj=_context(tmp_path))
+    result = CliRunner().invoke(cli_group, ["profile", "list"], obj=_context(tmp_path))
 
     assert result.exit_code == 0, result.output
-    assert "No stack profiles found." in result.output
+    assert "No profiles found." in result.output
     assert "roaster stack run <slug>" in result.output
 
 
-def test_stack_list_alias_ls_and_json_output(
+def test_profile_list_alias_ls_and_json_output(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
@@ -212,7 +212,7 @@ def test_stack_list_alias_ls_and_json_output(
 
     result = CliRunner().invoke(
         cli_group,
-        ["stack", "ls", "--format", "json"],
+        ["profile", "ls", "--format", "json"],
         obj=_context(tmp_path),
     )
 

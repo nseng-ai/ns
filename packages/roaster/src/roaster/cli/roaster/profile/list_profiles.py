@@ -14,11 +14,11 @@ from roaster.context import RoasterCliContext
 from roaster.stack_profile import StackProfileListFailed, list_stack_profiles
 
 
-class StackProfileListRequest(ClinkrModel):
+class ProfileListRequest(ClinkrModel):
     pass
 
 
-class StackProfileListResult(ClinkrModel):
+class ProfileListResult(ClinkrModel):
     profiles_dir: str
     profile_slugs: tuple[str, ...]
 
@@ -31,14 +31,14 @@ class StackProfileListResult(ClinkrModel):
         }
 
 
-def render_stack_profile_list(result: StackProfileListResult) -> None:
+def render_profile_list(result: ProfileListResult) -> None:
     click.echo(f"Profiles directory: {result.profiles_dir}")
     if not result.profile_slugs:
-        click.echo("No stack profiles found.")
+        click.echo("No profiles found.")
         click.echo("Create .roaster/profiles/<slug>.md, then run `roaster stack run <slug>`.")
         return
 
-    click.echo(f"Stack profiles: {len(result.profile_slugs)}")
+    click.echo(f"Profiles: {len(result.profile_slugs)}")
     for slug in result.profile_slugs:
         click.echo(f"- {slug}")
 
@@ -46,20 +46,20 @@ def render_stack_profile_list(result: StackProfileListResult) -> None:
 @clinkr_operation(
     name="list",
     aliases=("ls",),
-    help="List stack profiles discovered under .roaster/profiles/.",
-    human_renderer=render_stack_profile_list,
+    help="List profiles discovered under .roaster/profiles/.",
+    human_renderer=render_profile_list,
 )
-def run_stack_profile_list_command(
+def run_profile_list_command(
     ctx: click.Context,
-    request: StackProfileListRequest,
-) -> ClinkrExit[StackProfileListResult]:
+    request: ProfileListRequest,
+) -> ClinkrExit[ProfileListResult]:
     roaster_context = load_typed_context(ctx, RoasterCliContext)
     result = list_stack_profiles(cwd=roaster_context.cwd)
     if isinstance(result, StackProfileListFailed):
         raise ClinkrFailure(error_type=result.error_type, message=result.message)
 
     return ClinkrExit.ok(
-        StackProfileListResult(
+        ProfileListResult(
             profiles_dir=str(result.profiles_dir),
             profile_slugs=result.slugs,
         )
