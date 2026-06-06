@@ -149,15 +149,16 @@ def _valid_resolver_output() -> str:
 
 def _write_profile(cwd: Path, slug: str, source: str = "Loose stack guidance.\n") -> Path:
     profile_path = cwd / ".roaster" / "profiles" / f"{slug}.md"
-    profile_path.parent.mkdir(parents=True)
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(source, encoding="utf-8")
     return profile_path
 
 
-def test_roaster_help_lists_visible_stack_group(cli_group: ClinkrGroup) -> None:
+def test_roaster_help_lists_visible_profile_and_stack_groups(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["-h"])
 
     assert result.exit_code == 0, result.output
+    assert "profile" in result.output
     assert "stack" in result.output
     assert "Graphite" in result.output
 
@@ -169,6 +170,59 @@ def test_stack_help_mentions_graphite_and_run(cli_group: ClinkrGroup) -> None:
     assert "Graphite" in result.output
     assert "gt" in result.output
     assert "run" in result.output
+
+
+def test_profile_list_human_output_lists_profiles(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_profile(tmp_path, "beta-stack")
+    _write_profile(tmp_path, "alpha-stack")
+    profiles_dir = tmp_path / ".roaster" / "profiles"
+    (profiles_dir / "notes.txt").write_text("not a profile\n", encoding="utf-8")
+    (profiles_dir / "bad slug.md").write_text("invalid slug\n", encoding="utf-8")
+
+    result = CliRunner().invoke(cli_group, ["profile", "list"], obj=_context(tmp_path))
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [
+        f"Profiles directory: {profiles_dir}",
+        "Profiles: 2",
+        "- alpha-stack",
+        "- beta-stack",
+    ]
+
+
+def test_profile_list_empty_profiles_is_success(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    result = CliRunner().invoke(cli_group, ["profile", "list"], obj=_context(tmp_path))
+
+    assert result.exit_code == 0, result.output
+    assert "No profiles found." in result.output
+    assert "roaster stack run <slug>" in result.output
+
+
+def test_profile_list_alias_ls_and_json_output(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_profile(tmp_path, "thermonuclear-stack")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["profile", "ls", "--format", "json"],
+        obj=_context(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"] == {
+        "profiles_dir": str(tmp_path / ".roaster" / "profiles"),
+        "profile_slugs": ["thermonuclear-stack"],
+        "count": 1,
+    }
 
 
 def test_stack_run_help_shapes_future_contract(cli_group: ClinkrGroup) -> None:

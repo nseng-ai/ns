@@ -57,6 +57,22 @@ class StackProfileReadFailed:
     message: str
 
 
+@dataclass(frozen=True)
+class StackProfileList:
+    """Available loose markdown stack profile slugs."""
+
+    profiles_dir: Path
+    slugs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class StackProfileListFailed:
+    """Profiles could not be listed from disk."""
+
+    error_type: str
+    message: str
+
+
 StackProfileResolution = (
     StackProfile
     | StackProfileInvalidSlug
@@ -65,6 +81,34 @@ StackProfileResolution = (
     | StackProfileResolutionFailed
     | StackProfileReadFailed
 )
+StackProfileListResult = StackProfileList | StackProfileListFailed
+
+
+def list_stack_profiles(*, cwd: Path) -> StackProfileListResult:
+    profiles_dir = cwd / _PROFILES_DIR
+    if not profiles_dir.exists():
+        return StackProfileList(profiles_dir=profiles_dir, slugs=())
+    if not profiles_dir.is_dir():
+        return StackProfileListFailed(
+            error_type="stack_profiles_not_a_directory",
+            message=f"Roaster stack profiles path is not a directory: {profiles_dir}",
+        )
+
+    try:
+        slugs = tuple(
+            sorted(
+                path.stem
+                for path in profiles_dir.iterdir()
+                if path.is_file() and path.suffix == ".md" and _PROFILE_SLUG_RE.fullmatch(path.stem)
+            )
+        )
+    except OSError as exc:
+        return StackProfileListFailed(
+            error_type="stack_profiles_list_failed",
+            message=f"Unable to list roaster stack profiles at {profiles_dir}: {exc}",
+        )
+
+    return StackProfileList(profiles_dir=profiles_dir, slugs=slugs)
 
 
 def resolve_stack_profile(*, cwd: Path, slug: str) -> StackProfileResolution:
