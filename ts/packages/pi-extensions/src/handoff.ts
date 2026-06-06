@@ -2,7 +2,7 @@ import { formatCommand, type ExecResult } from "./command-runtime.ts";
 import { isRecord } from "./cmux/primitives.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";
-import { buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
+import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
 import {
 	BRMEM_TIMEOUT_MS,
 	CREATE_HANDOFF_COMMAND_NAME,
@@ -348,9 +348,9 @@ Continuation focus:
 
 ${fencedBlock("text", focusText)}
 
-Treat this as an explicit request to run the handoff create workflow. The handoff must be directed toward the supplied continuation focus. Derive a semantic slug from that focus unless the user explicitly supplied one, avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on creating/picking up a handoff.
+Treat this as an explicit request to run the handoff create workflow. The handoff must be directed toward the supplied continuation focus. Compose the final Markdown handoff artifact first, then derive a semantic slug from that final content unless the user explicitly supplied one. Avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on creating/picking up a handoff.
 
-Before writing, confirm the branch unless the user explicitly named one and check for an existing key. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin:
+Before writing, confirm the branch unless the user explicitly named one, derive the slug from the final artifact content, and check for an existing key. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin:
 
 ${fencedBlock(
 		"bash",
@@ -838,6 +838,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
 
 	if (pi.registerTool !== undefined) {
+		pi.registerTool(buildDeriveHandoffSlugTool(pi));
 		pi.registerTool(buildHandoffTabLaunchTool(pi));
 		pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
 			description: "Create a handoff and open a focused cmux tab to pick it up.",

@@ -99,7 +99,7 @@
     "handoff-create": {
       "source": "skills/handoff-create",
       "sourceType": "local",
-      "computedHash": "3e7b7a3581660b200756a96d3cf616992593211274f947310dfc5b10d9e136d6"
+      "computedHash": "a9a1069fdf2957a8128f41d1e8a94269691b9ef8669751c4b1167282746abf13"
     },
     "handoff-pickup": {
       "source": "skills/handoff-pickup",

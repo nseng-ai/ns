@@ -8,15 +8,10 @@ import {
 	type CmuxTabOptions,
 } from "../cmux/focused-terminal-tab.ts";
 import { isRecord, stringField } from "../cmux/primitives.ts";
+import { HANDOFF_NAMESPACE, formatPickupHandoffCommand, handoffSlugToKey, parseFlatHandoffSlug } from "./identity.ts";
+import { deriveHandoffContentSlug } from "./content-slug.ts";
 import {
-	HANDOFF_KEY_SUFFIX,
-	HANDOFF_NAMESPACE,
-	deriveSemanticHandoffSlug,
-	formatPickupHandoffCommand,
-	handoffSlugToKey,
-	parseFlatHandoffSlug,
-} from "./identity.ts";
-import {
+	DERIVE_HANDOFF_SLUG_TOOL_NAME,
 	HANDOFF_TAB_COMMAND_NAME,
 	HANDOFF_TAB_LAUNCH_TOOL_NAME,
 	HANDOFF_TAB_STATUS_KEY,
@@ -36,9 +31,6 @@ import type { CommandContext, ExtensionAPI, ToolContext, ToolDefinition, ToolRes
 export interface HandoffTabRequest {
 	branch: string;
 	focus: string;
-	slug: string;
-	key: string;
-	pickupCommand: string;
 }
 
 export type HandoffTabRequestBuildResult = { type: "valid"; request: HandoffTabRequest } | { type: "invalid"; message: string };
@@ -64,32 +56,20 @@ interface LaunchHandoffTabOptions {
 
 export function buildHandoffTabRequest(options: { branch: string; focus: string }): HandoffTabRequestBuildResult {
 	const focus = options.focus.trim();
-	const slug = deriveSemanticHandoffSlug(focus);
-	if (slug === undefined) {
-		return { type: "invalid", message: "Continuation focus must contain at least one letter or number to derive a handoff slug." };
-	}
-	const parsedSlug = parseFlatHandoffSlug(slug);
-	if (parsedSlug.type === "invalid") {
-		return { type: "invalid", message: parsedSlug.message };
+	if (!/[a-z0-9]/i.test(focus)) {
+		return { type: "invalid", message: "Continuation focus must contain at least one letter or number." };
 	}
 	return {
 		type: "valid",
 		request: {
 			branch: options.branch,
 			focus,
-			slug: parsedSlug.slug,
-			key: handoffSlugToKey(parsedSlug.slug),
-			pickupCommand: formatPickupHandoffCommand(options.branch, parsedSlug.slug),
 		},
 	};
 }
 
-export function buildHandoffTabPrompt(
-	options:
-		| { skillBlock: string | undefined; request: HandoffTabRequest }
-		| { skillBlock: string | undefined; focus: string; branch: string; slug: string },
-): string {
-	const request = "request" in options ? options.request : legacyHandoffTabRequest(options);
+export function buildHandoffTabPrompt(options: { skillBlock: string | undefined; request: HandoffTabRequest }): string {
+	const request = options.request;
 	return `${options.skillBlock ?? CREATE_HANDOFF_FALLBACK}
 
 This is a /${HANDOFF_TAB_COMMAND_NAME} request. Create a directed handoff artifact for the current session, then launch a pickup Pi in a new cmux tab.
@@ -98,27 +78,25 @@ Continuation focus:
 
 ${fencedBlock("text", request.focus)}
 
-Use exactly this handoff identity:
+Use this storage target:
 
 - Branch: ${request.branch}
 - Namespace: ${HANDOFF_NAMESPACE}
-- Entry: ${request.key}
-- Slug: ${request.slug}
+- Entry: derive from the final Markdown handoff content with ${DERIVE_HANDOFF_SLUG_TOOL_NAME}
 
 Hard requirements:
 
-1. Write the handoff artifact using the existing handoff-create workflow and the exact branch/key above.
-2. Check for an existing artifact first. If it exists, stop; do not overwrite and do not open a cmux tab.
-3. Store the final Markdown directly through /dev/stdin; do not create a temporary artifact file.
-4. After the \`brmem put\` succeeds, call the ${HANDOFF_TAB_LAUNCH_TOOL_NAME} tool with exactly:
+1. Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.
+2. Call ${DERIVE_HANDOFF_SLUG_TOOL_NAME} with exactly that final Markdown content.
+3. Use the returned slug/key. Do not derive the entry name from the raw continuation focus.
+4. Check for an existing artifact with \`brmem check <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch}\`. If it exists, stop; do not overwrite and do not open a cmux tab.
+5. If missing, store the exact final Markdown content directly through /dev/stdin with \`brmem put <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.
+6. After \`brmem put\` succeeds, call ${HANDOFF_TAB_LAUNCH_TOOL_NAME} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.
+7. Do not call ${HANDOFF_TAB_LAUNCH_TOOL_NAME} before the handoff is saved successfully.
 
-${fencedBlock("json", JSON.stringify({ branch: request.branch, slug: request.slug }, null, 2))}
+The pickup tab will run:
 
-5. Do not call ${HANDOFF_TAB_LAUNCH_TOOL_NAME} before the handoff is saved successfully.
-
-The pickup tab will run this command:
-
-${fencedBlock("text", request.pickupCommand)}`;
+${fencedBlock("text", `/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${request.branch} <returned-slug>`)}`;
 }
 
 export async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
@@ -143,21 +121,8 @@ export async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ct
 	}
 	const request = builtRequest.request;
 
-	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "checking handoff and cmux context…");
+	setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "checking cmux context…");
 	try {
-		const existing = await checkHandoffExists(pi, ctx.cwd, request.branch, request.key);
-		if (existing.type === "exists") {
-			ctx.ui.notify(
-				`Handoff ${request.slug} already exists on branch ${request.branch}. Rerun /${HANDOFF_TAB_COMMAND_NAME} with a more specific focus so a different slug is derived.`,
-				"error",
-			);
-			return;
-		}
-		if (existing.type === "failed") {
-			ctx.ui.notify(existing.message, "error");
-			return;
-		}
-
 		const caller = await identifyCmuxCaller(pi, ctx.cwd);
 		if (caller.type === "failed") {
 			ctx.ui.notify(caller.message, "error");
@@ -175,8 +140,59 @@ export async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ct
 		skillReadError = errorMessage(error);
 	}
 
-	ctx.ui.notify(createHandoffTabStartMessage(skill, skillReadError, request.slug), skill ? "info" : "warning");
+	ctx.ui.notify(createHandoffTabStartMessage(skill, skillReadError), skill ? "info" : "warning");
 	pi.sendUserMessage(buildHandoffTabPrompt({ skillBlock: skill?.block, request }));
+}
+
+export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
+	return {
+		name: DERIVE_HANDOFF_SLUG_TOOL_NAME,
+		label: "Derive Handoff Slug",
+		description: "Derive a flat semantic handoff slug from final Markdown handoff content.",
+		promptSnippet: "Derive a flat semantic handoff slug from the final Markdown handoff content before checking or writing Branch Memory.",
+		promptGuidelines: [
+			`Use ${DERIVE_HANDOFF_SLUG_TOOL_NAME} after composing the final Markdown handoff artifact content.`,
+			"Do not derive the handoff entry name from the raw continuation focus when this tool is available.",
+		],
+		parameters: {
+			type: "object",
+			additionalProperties: false,
+			properties: {
+				content: {
+					type: "string",
+					description: "Final Markdown handoff artifact content.",
+				},
+			},
+			required: ["content"],
+		},
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const content = parseDeriveHandoffSlugParams(params);
+			if (content.type === "invalid") {
+				return handoffTabToolFailure(content.message);
+			}
+
+			onUpdate?.({ content: [{ type: "text", text: "Deriving handoff slug from final artifact content…" }] });
+			setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "deriving handoff slug…");
+			try {
+				const evidence = await deriveHandoffContentSlug(pi, { content: content.content, cwd: ctx.cwd, signal });
+				const key = handoffSlugToKey(evidence.slug);
+				return {
+					content: [{ type: "text", text: [`Slug: ${evidence.slug}`, `Entry: ${key}`].join("\n") }],
+					details: {
+						type: "derived",
+						slug: evidence.slug,
+						key,
+						provider: evidence.provider,
+						model: evidence.model,
+					},
+				};
+			} catch (error) {
+				return handoffTabToolFailure(errorMessage(error));
+			} finally {
+				setStatus(ctx, HANDOFF_TAB_STATUS_KEY, undefined);
+			}
+		},
+	};
 }
 
 export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
@@ -317,6 +333,17 @@ async function launchHandoffTab(options: LaunchHandoffTabOptions): Promise<Hando
 	};
 }
 
+function parseDeriveHandoffSlugParams(params: unknown): { type: "valid"; content: string } | { type: "invalid"; message: string } {
+	if (!isRecord(params)) {
+		return { type: "invalid", message: `${DERIVE_HANDOFF_SLUG_TOOL_NAME} parameters must be an object.` };
+	}
+	const content = stringField(params, "content");
+	if (content === undefined || content.trim().length === 0) {
+		return { type: "invalid", message: `${DERIVE_HANDOFF_SLUG_TOOL_NAME} requires non-empty final Markdown content.` };
+	}
+	return { type: "valid", content };
+}
+
 function parseHandoffTabLaunchParams(params: unknown): { type: "valid"; params: HandoffTabLaunchParams } | { type: "invalid"; message: string } {
 	if (!isRecord(params)) {
 		return { type: "invalid", message: "handoff_tab_launch parameters must be an object." };
@@ -344,16 +371,6 @@ function parseHandoffTabLaunchParams(params: unknown): { type: "valid"; params: 
 	};
 }
 
-function legacyHandoffTabRequest(options: { focus: string; branch: string; slug: string }): HandoffTabRequest {
-	return {
-		branch: options.branch,
-		focus: options.focus.trim(),
-		slug: options.slug,
-		key: `${options.slug}${HANDOFF_KEY_SUFFIX}`,
-		pickupCommand: formatPickupHandoffCommand(options.branch, options.slug),
-	};
-}
-
 function piLaunchHost(pi: ExtensionAPI): { getThinkingLevel(): "off" | "minimal" | "low" | "medium" | "high" | "xhigh" } {
 	return {
 		getThinkingLevel(): "off" | "minimal" | "low" | "medium" | "high" | "xhigh" {
@@ -362,14 +379,14 @@ function piLaunchHost(pi: ExtensionAPI): { getThinkingLevel(): "off" | "minimal"
 	};
 }
 
-function createHandoffTabStartMessage(skill: Awaited<ReturnType<typeof expandHandoffSkill>>, skillReadError: string | undefined, slug: string): string {
+function createHandoffTabStartMessage(skill: Awaited<ReturnType<typeof expandHandoffSkill>>, skillReadError: string | undefined): string {
 	if (skill !== undefined) {
-		return `Starting handoff-tab workflow for ${slug}…`;
+		return "Starting handoff-tab workflow with content-derived slug…";
 	}
 	if (skillReadError !== undefined) {
-		return `Could not read handoff-create skill; using fallback handoff-tab workflow prompt for ${slug}. ${skillReadError}`;
+		return `Could not read handoff-create skill; using fallback handoff-tab workflow prompt for a content-derived slug. ${skillReadError}`;
 	}
-	return `handoff-create skill was not found; using fallback handoff-tab workflow prompt for ${slug}.`;
+	return "handoff-create skill was not found; using fallback handoff-tab workflow prompt for a content-derived slug.";
 }
 
 function handoffTabToolFailure(message: string, details?: unknown): ToolResult {

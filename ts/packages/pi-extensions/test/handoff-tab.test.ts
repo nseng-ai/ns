@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import handoffExtension, { buildHandoffTabPrompt, deriveSemanticHandoffSlug } from "../src/handoff.ts";
+import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
+import { buildHandoffContentSlugPrompt } from "../src/handoff/content-slug.ts";
 import {
 	BRANCH,
 	FakePi,
@@ -16,6 +18,15 @@ import {
 	withTempSkill,
 } from "./handoff-test-fakes.ts";
 
+const HANDOFF_CONTENT = `# Handoff: Associate Sessions With Branches
+
+Continuation focus: Explore how to associate sessions with git branches.
+
+## Next Steps
+
+Design a branch-session association model.
+`;
+
 describe("handoff-tab extension", () => {
 	test("registers handoff-tab command and launch tool when tool support exists", () => {
 		const pi = new FakePi();
@@ -23,7 +34,7 @@ describe("handoff-tab extension", () => {
 		handoffExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual(["handoff-tab", "handoff:create", "handoff:list", "handoff:pickup"]);
-		expect([...pi.tools.keys()]).toEqual(["handoff_tab_launch"]);
+		expect([...pi.tools.keys()]).toEqual(["derive_handoff_slug_from_content", "handoff_tab_launch"]);
 		expect(pi.commands.get("handoff-tab")?.description).toBe("Create a handoff and open a focused cmux tab to pick it up.");
 	});
 
@@ -38,12 +49,12 @@ describe("handoff-tab extension", () => {
 		expect([...pi.tools.keys()]).toEqual([]);
 	});
 
-	test("handoff-tab command queues create prompt with exact branch slug and launch tool instruction", async () => {
+	test("handoff-tab command queues create prompt with content-derived slug instructions", async () => {
 		await withTempSkill(async (skillPath) => {
 			const result = await runCommand(
 				"handoff-tab",
 				"finish handoff tab implementation",
-				[branchStep(), checkStep(BRANCH, "finish-handoff-tab-implementation.md", false), cmuxIdentifyStep()],
+				[branchStep(), cmuxIdentifyStep()],
 				{},
 				[skillCommandInfo(skillPath)],
 			);
@@ -52,57 +63,134 @@ describe("handoff-tab extension", () => {
 			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
 				["git", ["branch", "--show-current"]],
-				["brmem", ["check", "finish-handoff-tab-implementation.md", "--namespace", "handoff", "--branch", BRANCH]],
 				["cmux", ["identify", "--json", "--id-format", "both"]],
 			]);
 			expect(result.notifications).toEqual([
-				{ message: "Starting handoff-tab workflow for finish-handoff-tab-implementation…", level: "info" },
+				{ message: "Starting handoff-tab workflow with content-derived slug…", level: "info" },
 			]);
-			expect(result.statuses).toEqual(["checking handoff and cmux context…", undefined]);
+			expect(result.statuses).toEqual(["checking cmux context…", undefined]);
 			expect(result.pi.sentUserMessages).toHaveLength(1);
 			const prompt = result.pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
 			expect(prompt).toContain("finish handoff tab implementation");
 			expect(prompt).toContain(`- Branch: ${BRANCH}`);
 			expect(prompt).toContain("- Namespace: handoff");
-			expect(prompt).toContain("- Entry: finish-handoff-tab-implementation.md");
-			expect(prompt).toContain("- Slug: finish-handoff-tab-implementation");
-			expect(prompt).toContain("call the handoff_tab_launch tool with exactly");
-			expect(prompt).toContain(JSON.stringify({ branch: BRANCH, slug: "finish-handoff-tab-implementation" }, null, 2));
-			expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} finish-handoff-tab-implementation`);
+			expect(prompt).toContain("derive_handoff_slug_from_content");
+			expect(prompt).not.toContain("finish-handoff-tab-implementation.md");
+			expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");
+			expect(prompt).toContain(`brmem check <returned-key> --namespace handoff --branch ${BRANCH}`);
+			expect(prompt).toContain("After `brmem put` succeeds, call handoff_tab_launch with `branch` set");
+			expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 		});
 	});
 
-	test("handoff-tab command stops on slug collision before cmux or create prompt", async () => {
-		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [
-			branchStep(),
-			checkStep(BRANCH, "finish-handoff-tab-implementation.md", true),
-		]);
+	test("handoff-tab command delegates slug collision handling to generated prompt", async () => {
+		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [branchStep(), cmuxIdentifyStep()]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "brmem"]);
-		expect(result.pi.sentUserMessages).toEqual([]);
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "cmux"]);
 		expect(result.notifications).toEqual([
-			{
-				message: `Handoff finish-handoff-tab-implementation already exists on branch ${BRANCH}. Rerun /handoff-tab with a more specific focus so a different slug is derived.`,
-				level: "error",
-			},
+			{ message: "handoff-create skill was not found; using fallback handoff-tab workflow prompt for a content-derived slug.", level: "warning" },
 		]);
+		expect(result.pi.sentUserMessages).toHaveLength(1);
+		const prompt = result.pi.sentUserMessages[0] ?? "";
+		expect(prompt).toContain("Check for an existing artifact with `brmem check <returned-key> --namespace handoff");
+		expect(prompt).toContain("If it exists, stop; do not overwrite and do not open a cmux tab.");
 	});
 
 	test("handoff-tab command fails clearly outside cmux before create prompt", async () => {
 		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [
 			branchStep(),
-			checkStep(BRANCH, "finish-handoff-tab-implementation.md", false),
 			step("cmux", ["identify", "--json", "--id-format", "both"], { code: 2, stderr: "not in cmux" }),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "brmem", "cmux"]);
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "cmux"]);
 		expect(result.pi.sentUserMessages).toEqual([]);
 		expect(result.notifications).toHaveLength(1);
 		expect(result.notifications[0]?.level).toBe("error");
 		expect(result.notifications[0]?.message).toContain("not in cmux");
+	});
+
+	test("derive handoff slug tool returns slug and key details", async () => {
+		const pi = new FakePi([
+			step("pi", buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), { stdout: "associate-sessions-with-branches\n" }),
+		]);
+		handoffExtension(pi);
+		const tool = pi.tools.get("derive_handoff_slug_from_content");
+		expect(tool).toBeDefined();
+		if (tool === undefined) {
+			throw new Error("derive_handoff_slug_from_content was not registered");
+		}
+		const context = createContext();
+
+		const result = await tool.execute("tool-call-1", { content: HANDOFF_CONTENT }, undefined, undefined, context.ctx);
+
+		pi.assertDone();
+		expect(result.isError).toBeUndefined();
+		expect(result.content[0]?.text).toContain("Slug: associate-sessions-with-branches");
+		expect(result.content[0]?.text).toContain("Entry: associate-sessions-with-branches.md");
+		expect(result.details).toEqual({
+			type: "derived",
+			slug: "associate-sessions-with-branches",
+			key: "associate-sessions-with-branches.md",
+			provider: SLUG_MODEL_PROVIDER,
+			model: SLUG_MODEL_MODEL,
+		});
+		expect(context.statuses).toEqual(["deriving handoff slug…", undefined]);
+	});
+
+	test("derive handoff slug tool rejects invalid params before side effects", async () => {
+		const pi = new FakePi();
+		handoffExtension(pi);
+		const tool = pi.tools.get("derive_handoff_slug_from_content");
+		expect(tool).toBeDefined();
+		if (tool === undefined) {
+			throw new Error("derive_handoff_slug_from_content was not registered");
+		}
+
+		for (const params of [undefined, null, {}, { content: "" }, { content: "   " }, { content: 123 }]) {
+			const result = await tool.execute("tool-call-1", params, undefined, undefined, createContext().ctx);
+
+			expect(result.isError).toBe(true);
+		}
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("derive handoff slug tool reports slug-model failure without fallback", async () => {
+		const pi = new FakePi([step("pi", buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), { code: 1, stderr: "model unavailable" })]);
+		handoffExtension(pi);
+		const tool = pi.tools.get("derive_handoff_slug_from_content");
+		expect(tool).toBeDefined();
+		if (tool === undefined) {
+			throw new Error("derive_handoff_slug_from_content was not registered");
+		}
+
+		const result = await tool.execute("tool-call-1", { content: HANDOFF_CONTENT }, undefined, undefined, createContext().ctx);
+
+		pi.assertDone();
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toContain("Failed to derive handoff slug from final artifact content.");
+		expect(result.content[0]?.text).toContain("model unavailable");
+		expect(result.content[0]?.text).toContain("No continuation-focus or deterministic fallback was attempted.");
+	});
+
+	test("derive handoff slug tool threads cwd and abort signal into model command", async () => {
+		const pi = new FakePi([
+			step("pi", buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), { stdout: "associate-sessions-with-branches\n" }),
+		]);
+		handoffExtension(pi);
+		const tool = pi.tools.get("derive_handoff_slug_from_content");
+		expect(tool).toBeDefined();
+		if (tool === undefined) {
+			throw new Error("derive_handoff_slug_from_content was not registered");
+		}
+		const signal = new AbortController().signal;
+
+		await tool.execute("tool-call-1", { content: HANDOFF_CONTENT }, signal, undefined, createContext().ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: "/repo", timeout: 60_000, signal });
 	});
 
 	test("handoff-tab launch tool opens a focused pickup cmux tab", async () => {
@@ -312,26 +400,26 @@ describe("handoff-tab extension", () => {
 });
 
 describe("handoff-tab pure helpers", () => {
-	test("derives concise flat semantic handoff slugs", () => {
+	test("legacy focus slug helper remains deterministic but is not used by handoff-tab identity selection", () => {
 		expect(deriveSemanticHandoffSlug("Finish handoff tab implementation!!!")).toBe("finish-handoff-tab-implementation");
 		expect(deriveSemanticHandoffSlug("one two three four five six seven eight nine ten")).toBe("one-two-three-four-five-six-seven-eight");
 		expect(deriveSemanticHandoffSlug("!!!")).toBeUndefined();
 	});
 
-	test("handoff-tab prompt pins identity and launch tool ordering", () => {
+	test("handoff-tab prompt requires content-derived slug and launch tool ordering", () => {
 		const prompt = buildHandoffTabPrompt({
 			skillBlock: "# handoff-create skill",
-			focus: "finish the launch tool",
-			branch: BRANCH,
-			slug: "finish-launch-tool",
+			request: { focus: "finish the launch tool", branch: BRANCH },
 		});
 
 		expect(prompt).toContain("# handoff-create skill");
 		expect(prompt).toContain("This is a /handoff-tab request.");
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
-		expect(prompt).toContain("- Entry: finish-launch-tool.md");
-		expect(prompt).toContain("After the `brmem put` succeeds, call the handoff_tab_launch tool");
-		expect(prompt).toContain(JSON.stringify({ branch: BRANCH, slug: "finish-launch-tool" }, null, 2));
-		expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} finish-launch-tool`);
+		expect(prompt).toContain("- Entry: derive from the final Markdown handoff content with derive_handoff_slug_from_content");
+		expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");
+		expect(prompt).toContain("If it exists, stop; do not overwrite and do not open a cmux tab.");
+		expect(prompt).toContain("After `brmem put` succeeds, call handoff_tab_launch with `branch` set");
+		expect(prompt).toContain("`slug` set to the slug returned by derive_handoff_slug_from_content");
+		expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 	});
 });
