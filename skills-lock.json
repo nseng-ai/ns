@@ -137,6 +137,11 @@
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
+    "internal-code-parity-review": {
+      "source": "skills/internal-code-parity-review",
+      "sourceType": "local",
+      "computedHash": "d515dee6c70e662258ad6605607cb35e55d7673f49d6d2d96b17d4a74257f9c1"
+    },
     "internal-code-stacker-agent": {
       "source": "skills/internal-code-stacker-agent",
       "sourceType": "local",
