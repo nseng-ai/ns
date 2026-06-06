@@ -53,6 +53,11 @@ docs-check: docs-install
 
 js-test: ts-test
 
+# Link the planned-branch bin into ~/.bun/bin so `planned-branch` is on PATH.
+link-planned-branch: ts-install
+    cd {{justfile_directory()}}/ts/packages/planned-branch && bun link
+    @echo "linked: planned-branch (~/.bun/bin/planned-branch)"
+
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
 
