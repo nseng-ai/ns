@@ -25,9 +25,9 @@ The public workflow surface is:
 4. `/planned-branch:impl [key-or-slug]` in Pi, or the `planned-branch-impl`
    skill, loads the canonical attached plan and starts implementation.
 
-For Pi users on this repo's Graphite-backed adapter, `/planned-branch:stack-impl`
-combines branch creation, `git checkout <branch>`, and `/planned-branch:impl`
-in the same Pi session after a plan has been written.
+For Pi users on this repo's Graphite-backed adapter, `/planned-branch:up-and-impl`
+combines branch creation, `git checkout <branch>`, a fresh Pi session, and
+`/planned-branch:impl` after a plan has been written.
 
 The agent skills form a bundled planned-branch skill family: the `planned-branch`
 umbrella/reference skill plus write-plan, create, and implement step entrypoints.
@@ -109,22 +109,24 @@ Branch: <target-implementation-branch>
 
 ### Start implementation in one Pi command
 
-Pi users in this repo can run `/planned-branch:stack-impl` after
-`/planned-branch:write-plan` to perform the common stack implementation flow in
-one step:
+Pi users in this repo can run `/planned-branch:up-and-impl` after
+`/planned-branch:write-plan` to perform the common implementation flow in one
+step:
 
 ```text
 /planned-branch:create
 git checkout <branch>
+/new
 /planned-branch:impl <attached-plan-key>
 ```
 
 The command uses the same branch-creation options as `/planned-branch:create`;
 in this repo, the project-local adapter defaults to Graphite branch creation. It
-checks out the created branch by exact branch name with `git checkout <branch>`
-and sends `/planned-branch:impl <key>` in the same Pi session. `--dry-run`
-previews the selected saved plan and the follow-up flow without creating a
-branch, checking out a branch, or sending an implementation prompt.
+checks out the created branch by exact branch name with `git checkout <branch>`,
+starts a new Pi session, and sends `/planned-branch:impl <key>` in that new
+session. `--dry-run` previews the selected saved plan and the follow-up flow
+without creating a branch, checking out a branch, starting a new session, or
+sending an implementation prompt.
 
 ### Load and implement an attached plan
 
@@ -244,7 +246,7 @@ shared contract rather than duplicating package internals.
 Related public surfaces:
 
 - Pi commands: `/planned-branch:write-plan`, `/planned-branch:create`,
-  `/planned-branch:stack-impl`, and `/planned-branch:impl`.
+  `/planned-branch:up-and-impl`, and `/planned-branch:impl`.
 - Agent skills: `planned-branch` umbrella/reference skill, plus
   `planned-branch-write-plan`, `planned-branch-create`, and
   `planned-branch-impl` step skills.

@@ -434,8 +434,19 @@ function createContext(
 		cwd?: string;
 		confirm?: (title: string, message?: string) => Promise<boolean>;
 		sessionEntries?: unknown[];
+		sessionFile?: string;
+		cancelNewSession?: boolean;
 	} = {},
-): { ctx: CommandContext; notifications: Notification[]; statuses: Array<{ key: string; value: string | undefined }>; waits: () => number } {
+): {
+	ctx: CommandContext;
+	notifications: Notification[];
+	statuses: Array<{ key: string; value: string | undefined }>;
+	replacementUserMessages: string[];
+	newSessionParentSessions: Array<string | undefined>;
+	waits: () => number;
+} {
+	const replacementUserMessages: string[] = [];
+	const newSessionParentSessions: Array<string | undefined> = [];
 	const notifications: Notification[] = [];
 	const statuses: Array<{ key: string; value: string | undefined }> = [];
 	let waitCount = 0;
@@ -464,14 +475,33 @@ function createContext(
 			events.push("wait");
 			waitCount += 1;
 		},
+		async newSession(newSessionOptions): Promise<{ cancelled: boolean }> {
+			events.push("new-session");
+			newSessionParentSessions.push(newSessionOptions?.parentSession);
+			if (options.cancelNewSession === true) {
+				return { cancelled: true };
+			}
+			await newSessionOptions?.withSession?.({
+				...ctx,
+				async sendMessage(): Promise<void> {
+					events.push("replacement-message");
+				},
+				async sendUserMessage(content: string): Promise<void> {
+					events.push("replacement-send");
+					replacementUserMessages.push(content);
+				},
+			});
+			return { cancelled: false };
+		},
 	};
 	const sessionEntries = options.sessionEntries;
-	if (sessionEntries !== undefined) {
+	if (sessionEntries !== undefined || options.sessionFile !== undefined) {
 		ctx.sessionManager = {
-			getBranch: () => [...sessionEntries],
+			getBranch: () => [...(sessionEntries ?? [])],
+			getSessionFile: () => options.sessionFile,
 		};
 	}
-	return { ctx, notifications, statuses, waits: () => waitCount };
+	return { ctx, notifications, statuses, replacementUserMessages, newSessionParentSessions, waits: () => waitCount };
 }
 
 function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
@@ -846,9 +876,10 @@ describe("plan workflow commands", () => {
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"planned-branch:create",
 			"planned-branch:impl",
+			"planned-branch:up-and-impl",
 			"planned-branch:write-plan",
-			"up-impl",
 		]);
+		expect(pi.commands.has("up-impl")).toBe(false);
 		expect(pi.commands.has("create-plan-file")).toBe(false);
 		expect(pi.commands.has("create-brmem-plan-branch")).toBe(false);
 		expect(pi.commands.has("create-latest-plan-branch")).toBe(false);
@@ -1401,7 +1432,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("up-impl creates with Graphite, checks out the branch, and dispatches impl in-session", async () => {
+	test("planned-branch:up-and-impl creates with Graphite, checks out the branch, and dispatches impl in a new session", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi(
@@ -1409,8 +1440,8 @@ describe("plan workflow commands", () => {
 			events,
 		);
 		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "graphite" });
-		const command = pi.commands.get("up-impl");
-		const context = createContext(events);
+		const command = pi.commands.get("planned-branch:up-and-impl");
+		const context = createContext(events, { sessionFile: "/sessions/source.jsonl" });
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
 
@@ -1434,16 +1465,19 @@ describe("plan workflow commands", () => {
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Created planned branch and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
-		expect(pi.sentUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
-		expect(events).not.toContain("new-session");
-		expect(context.statuses.at(-1)).toEqual({ key: "up-impl", value: undefined });
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(context.replacementUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
+		expect(context.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
+		expect(events.indexOf("new-session")).toBeGreaterThan(events.indexOf("status"));
+		expect(events.indexOf("replacement-send")).toBeGreaterThan(events.indexOf("new-session"));
+		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:up-and-impl", value: undefined });
 	});
 
-	test("up-impl dry-run previews checkout and same-session implementation", async () => {
+	test("planned-branch:up-and-impl dry-run previews checkout and new-session implementation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "graphite" });
-		const command = pi.commands.get("up-impl");
+		const command = pi.commands.get("planned-branch:up-and-impl");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --dry-run`, context.ctx);
@@ -1454,25 +1488,27 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 		expect(pi.sentMessages[0]?.content).toContain(`git checkout ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).not.toContain("gt up");
-		expect(pi.sentMessages[0]?.content).not.toContain("/new");
+		expect(pi.sentMessages[0]?.content).toContain("/new");
 		expect(pi.sentMessages[0]?.content).toContain(`/planned-branch:impl ${PLAN_KEY}`);
 	});
 
-	test("up-impl supports plain Git creation before checkout", async () => {
+	test("planned-branch:up-and-impl supports plain Git creation before checkout", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), ...successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }), gitCheckoutStep(PLAN_SLUG)]);
 		registerPlannedBranchExtension(pi, {
 			plannedBranchDefaultCreation: "graphite",
 		});
-		const command = pi.commands.get("up-impl");
+		const command = pi.commands.get("planned-branch:up-and-impl");
+		const context = createContext();
 
-		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
+		await command?.handler(`${filePath} --yes --plain-git`, context.ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.command)).not.toContain("gt");
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({ command: "git", args: ["checkout", PLAN_SLUG] });
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
-		expect(pi.sentUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(context.replacementUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
 	});
 
 	test("planned-branch:create --plain-git override keeps the slug branch under the Graphite default", async () => {
