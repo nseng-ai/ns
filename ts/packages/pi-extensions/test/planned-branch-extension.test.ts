@@ -846,8 +846,8 @@ describe("plan workflow commands", () => {
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"planned-branch:create",
 			"planned-branch:impl",
-			"planned-branch:stack-impl",
 			"planned-branch:write-plan",
+			"up-impl",
 		]);
 		expect(pi.commands.has("create-plan-file")).toBe(false);
 		expect(pi.commands.has("create-brmem-plan-branch")).toBe(false);
@@ -1401,7 +1401,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("planned-branch:stack-impl creates with Graphite, checks out the branch, and dispatches impl in-session", async () => {
+	test("up-impl creates with Graphite, checks out the branch, and dispatches impl in-session", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi(
@@ -1409,7 +1409,7 @@ describe("plan workflow commands", () => {
 			events,
 		);
 		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "graphite" });
-		const command = pi.commands.get("planned-branch:stack-impl");
+		const command = pi.commands.get("up-impl");
 		const context = createContext(events);
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -1436,14 +1436,14 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
 		expect(events).not.toContain("new-session");
-		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:stack-impl", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({ key: "up-impl", value: undefined });
 	});
 
-	test("planned-branch:stack-impl dry-run previews checkout and same-session implementation", async () => {
+	test("up-impl dry-run previews checkout and same-session implementation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "graphite" });
-		const command = pi.commands.get("planned-branch:stack-impl");
+		const command = pi.commands.get("up-impl");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --dry-run`, context.ctx);
@@ -1458,13 +1458,13 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`/planned-branch:impl ${PLAN_KEY}`);
 	});
 
-	test("planned-branch:stack-impl supports plain Git creation before checkout", async () => {
+	test("up-impl supports plain Git creation before checkout", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), ...successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }), gitCheckoutStep(PLAN_SLUG)]);
 		registerPlannedBranchExtension(pi, {
 			plannedBranchDefaultCreation: "graphite",
 		});
-		const command = pi.commands.get("planned-branch:stack-impl");
+		const command = pi.commands.get("up-impl");
 
 		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
 
