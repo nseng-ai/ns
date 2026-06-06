@@ -6,6 +6,8 @@ Source-control mutation commands should make their safety policy, confirmation m
 
 The architecture-review value is to decide whether the remaining submit, land-stack, and cmux source-control-adjacent flows share a mutation-policy seam worth naming, or whether their policies are clearer when they stay command-local with consistent evidence standards. The Objective should leave behind either a small shared policy/deepening change with tests or a durable parked rationale that explains why the current command-local boundaries are acceptable.
 
+Decision: the shared seam is the **source-control mutation UX evidence standard**, not a shared orchestration engine. Commands that prepare, submit, land, or clean up source-control state should expose comparable evidence vocabulary: preview/readiness before mutation, explicit confirmation when a prompt is part of the safety contract, non-interactive refusal before unsafe mutation unless an explicit override is valid for that command, no mutation before gates pass, partial-progress evidence after any stop, suggested recovery, and postcondition verification when the command claims a source-control change completed. The policy decisions remain command-local because `asdl-dev submit`, `/code:land-stack`, and cmux/planned-branch preparation own materially different safety gates and recovery semantics.
+
 ## Scope
 
 This Objective covers source-control mutation UX across the already-narrowed landed architecture review cluster:
@@ -40,21 +42,27 @@ This Objective is complete when:
 
 Assumptions:
 
-- The source-control mutation UX seam can be reviewed independently from generic Pi command lifecycle mechanics because the completed Pi CLI lifecycle Objective already named the shared bridge boundary.
-- `asdl-dev submit` and `/code:land-stack` are the primary evidence-bearing flows; cmux dispatch/open-branch is included only where it prepares branch/workspace state or exposes comparable recovery policy.
-- The right outcome may be a shared vocabulary, small helper, documentation contract, or explicit decision to keep policy command-local; a code abstraction is not mandatory.
-- Existing tests around submit, land-stack, and cmux provide enough safety coverage to support an evidence-first review, though targeted gaps may appear after inventory.
+- Confirmed: the source-control mutation UX seam can be reviewed independently from generic Pi command lifecycle mechanics because the completed Pi CLI lifecycle Objective already named the shared bridge boundary.
+- Confirmed: `asdl-dev submit` and `/code:land-stack` are the primary evidence-bearing flows; cmux dispatch/open-branch matters only where it prepares branch/workspace state or exposes comparable recovery policy.
+- Resolved: the right outcome is a shared vocabulary/evidence standard plus command-local ownership, not a cross-command orchestration abstraction.
+- Confirmed: existing submit, land-stack, cmux, and planned-branch tests already cover the important evidence shape well enough for this review; future drift should be handled with targeted behavior tests near the command that owns the policy.
 
 Risks:
 
-- A shared policy module could hide command-specific safety decisions, especially around Graphite restack, landing, slot/worktree cleanup, or partial progress; the mitigation is to name command-specific boundaries before refactoring.
-- Leaving policies separate could allow confirmation copy, non-interactive guidance, or recovery instructions to drift; the mitigation is to record a durable vocabulary or evidence standard even if code stays separate.
-- The review could accidentally run write-capable git, Graphite, GitHub, or cmux operations; the mitigation is to use code inspection, fakes, existing tests, and dry-run-only commands unless a later execution plan explicitly authorizes writes.
-- The cluster may overlap with slot occupancy locality or failure-as-data conventions; the mitigation is to split concrete follow-ups to those child Objectives instead of expanding this one.
+- Accepted: a shared policy module would likely hide command-specific safety decisions, especially around Graphite restack, landing, slot/worktree cleanup, or partial progress. The durable mitigation is the source-control mutation UX evidence standard plus command-local tests.
+- Mitigated: leaving policies separate could allow confirmation copy, non-interactive guidance, or recovery instructions to drift. The named evidence standard gives future reviewers a shared checklist without centralizing behavior prematurely.
+- De-risked: this review used code inspection, fakes, existing tests, Objective tracking, and dry-run/read-only evidence; it did not run write-capable git, Graphite, GitHub, cmux, branch-creation, landing, or submission operations.
+- Parked: broader slot occupancy locality, generic Pi lifecycle behavior, planned-branch identity, and cross-cutting failure-as-data conventions remain outside this Objective unless a later Objective explicitly reopens them.
 
 ## Open Questions
 
-- Is there a real shared mutation-policy seam across submit, land-stack, and cmux dispatch/open-branch, or are they clearer as separate workflow Modules with common evidence standards?
-- Which phases are shared source-control mutation policy: preview/dry-run, confirmation, non-interactive refusal, restack/merge/landing sequencing, partial-progress reporting, failure typing, manual recovery instructions, or postcondition verification?
-- What is the smallest evidence standard for parking this cluster without creating a source change?
-- Which tests best prove that safe stops, partial progress, and recovery instructions remain understandable after any alignment change?
+- Resolved: the real shared seam is vocabulary and evidence standards; submit, land-stack, and cmux/planned-branch preparation are clearer as separate workflow modules with command-local policy.
+- Resolved: shared evidence phases are preview/readiness, explicit confirmation where applicable, non-interactive refusal before unsafe mutation, no-mutation-before-gate, partial-progress evidence, suggested recovery, and postcondition verification. Restack, merge, cleanup, branch attachment, slot checkout, and session launch sequencing remain command-specific.
+- Resolved: the smallest evidence standard for parking this cluster is the named source-control mutation UX evidence standard plus a parked rationale that command-local safety decisions are materially different.
+- Resolved: future alignment should use targeted behavior tests in the owning package when drift is found, not a generic helper module.
+
+## Closure
+
+Completed by parking shared orchestration and naming the source-control mutation UX evidence standard as the durable boundary. Inventory found the same evidence vocabulary across `asdl-dev submit`, `/code:land-stack`, and cmux/planned-branch preparation, but also found materially different safety policies: submit owns checkpoint-before-submit, Graphite readiness, restack, and current-PR verification; land-stack owns landing-plan presentation, merge/update/cleanup sequencing, PR merged verification, failure-as-data, landed-PR accumulation, and manual recovery; cmux/planned-branch preparation owns branch creation, Graphite tracking, Branch Memory attachment, slot checkout, cmux launch, and partial-failure evidence. A shared orchestration module is intentionally not warranted now. Future work should align docs or targeted tests only when a concrete command drifts from the evidence standard.
+
+Validation was documentation/objective-only: no source-control mutation commands, branch creation, submission, landing, Graphite writes, GitHub writes, or cmux workspace mutations were run. Broader Graphite workflow redesign, generic Pi lifecycle, slot occupancy, planned-branch identity, and cross-cutting failure-as-data conventions remain parked or owned by their separate Objectives.

@@ -2,15 +2,16 @@
 
 ## Work
 
-- [ ] Inventory current source-control mutation flows and tests.
-  - Evidence to gather: `asdl-dev submit` checkpoint/dry-run/restack/verification behavior, `/code:land-stack` dry-run/confirmation/partial-progress/recovery behavior, and cmux branch-preparation surfaces where they carry comparable mutation UX.
-- [ ] Name the mutation-policy boundary and decide whether to deepen or park.
-  - Decision points: which responsibilities are shared source-control mutation policy, which remain command-specific, and whether the useful outcome is code, docs, tests, or an explicit parked rationale.
-- [ ] Implement the smallest useful alignment slice, if warranted.
-  - Evidence: targeted submit, land-stack, or cmux tests should cover any changed confirmation, dry-run, non-interactive, failure, partial-progress, or recovery behavior.
-- [ ] Record completion evidence and route unrelated follow-ups.
-  - Evidence: final notes should state whether the seam was deepened or parked, list validation performed, and move slot-occupancy, generic Pi lifecycle, planned-branch identity, or failure-as-data follow-ups out of this Objective.
+- [x] Inventory current source-control mutation flows and tests.
+  - Evidence: reviewed `asdl-dev submit` checkpoint-before-submit, Graphite dry-run readiness, restack, non-interactive guidance, and post-submit verification; `/code:land-stack` dry-run, confirmation, merge/update/cleanup sequencing, partial-progress failure data, and recovery copy; and cmux/planned-branch branch-preparation surfaces for branch creation, plan attachment, slot checkout, cmux launch, dry-run, and partial-failure evidence.
+- [x] Name the mutation-policy boundary and decide whether to deepen or park.
+  - Decision: the boundary is the source-control mutation UX evidence standard: preview/readiness, explicit confirmation where applicable, non-interactive refusal before unsafe mutation, no-mutation-before-gate, partial-progress evidence, suggested recovery, and postcondition verification. Shared orchestration is parked because each command owns materially different safety decisions.
+- [x] Implement the smallest useful alignment slice, if warranted.
+  - Decision: no source/helper abstraction is warranted. The useful alignment is durable Objective prose plus future targeted command-local tests only if concrete drift appears in submit, land-stack, or cmux/planned-branch behavior.
+- [x] Record completion evidence and route unrelated follow-ups.
+  - Evidence: closure notes in `objective.md` record the parked abstraction rationale and validation scope. Broader Graphite workflow redesign, generic Pi lifecycle, slot occupancy, planned-branch identity, and cross-cutting failure-as-data conventions remain outside this Objective.
 
 ## Parked
 
-None yet. Park broader Graphite workflow redesign, generic Pi command lifecycle work, slot occupancy safety, planned-branch identity, or cross-cutting failure-as-data conventions here if discovered but not part of source-control mutation UX.
+- Shared source-control orchestration engine: parked. The reviewed flows share evidence vocabulary, not one safe execution sequence.
+- Broader Graphite workflow redesign, generic Pi command lifecycle work, slot occupancy safety, planned-branch identity, and cross-cutting failure-as-data conventions: parked for their owning Objectives or future explicitly scoped reviews.
