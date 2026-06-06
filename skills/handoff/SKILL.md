@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: "Use for explicit handoff lifecycle, reference, diagnostics, administration, cleanup, or Pi command questions: handoff artifact, continuation focus, create a handoff, pick up a handoff, handoff namespace, copy handoff, move handoff, delete handoff, handoff gc, /handoff:create, /handoff:pickup, or /handoff:list. For create execution use handoff-create; for pickup/list/resume execution use handoff-pickup."
+description: "Use for explicit handoff lifecycle, reference, diagnostics, administration, cleanup, or Pi command questions: handoff artifact, continuation focus, create a handoff, pick up a handoff, handoff namespace, copy handoff, move handoff, delete handoff, handoff gc, /handoff:create, /handoff:pickup, or /handoff:list. For create execution use handoff-create; for pickup/list/summary execution use handoff-pickup."
 ---
 
 # handoff
@@ -14,7 +14,7 @@ A handoff is a directed, durable work-context artifact for a specific future con
 Step entrypoints carry their own command and recovery and are runnable standalone:
 
 - `handoff-create` — create/write/stash a durable handoff.
-- `handoff-pickup` — pick up, choose, resume from, or list handoffs.
+- `handoff-pickup` — pick up, choose, summarize, or list handoffs; resume-from wording routes here but pickup stops after presenting the summary.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, cleanup, and admin work the step skills do not cover.
 
@@ -41,7 +41,7 @@ See `references/diagnostics-admin.md` for copy/move, collision handling, and sto
 - Use handoff vocabulary first; mention Branch Memory locators only as technical evidence, diagnostics, or recovery detail.
 - Refuse collisions, overwrites, and destructive changes unless the user gives explicit replacement/destructive intent.
 - Prefer deterministic `handoff` CLI and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
-- Verify stale artifacts against current repo state before acting.
+- Verify stale artifacts against current repo state only after the user asks to proceed from the pickup summary.
 - Do not create nested keys, indexes, manifests, or old temp-directory handoff artifacts.
 
 ## References

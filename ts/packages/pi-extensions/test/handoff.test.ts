@@ -182,7 +182,10 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain(`Branch: ${BRANCH}`);
 		expect(result.pi.sentUserMessages[0]).toContain("Namespace: handoff");
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: continue-tests.md");
+		expect(result.pi.sentUserMessages[0]).toContain("present a concise handoff summary");
+		expect(result.pi.sentUserMessages[0]).toContain("wait for the user's instruction");
 		expect(result.pi.sentUserMessages[0]).toContain(artifact);
+		expect(result.pi.sentUserMessages[0]).not.toContain("continue with the concrete next step");
 		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
 	});
 
@@ -437,6 +440,9 @@ describe("handoff pure helpers", () => {
 		expect(prompt).toContain("Technical locator:");
 		expect(prompt).toContain("Namespace: handoff");
 		expect(prompt).toContain("Entry: foo.md");
+		expect(prompt).toContain("present a concise handoff summary");
+		expect(prompt).toContain("wait for the user's instruction");
+		expect(prompt).not.toContain("continue with the concrete next step");
 	});
 
 	test("create prompt includes fallback and focus", () => {

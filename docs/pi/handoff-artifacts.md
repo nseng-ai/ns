@@ -6,9 +6,9 @@ The public model is:
 
 - **Create a handoff** when pausing or transferring focused work.
 - **Pick up a handoff** when selecting an existing artifact, including when the user asks to resume from it.
-- **List handoffs** when choosing what to resume.
+- **List handoffs** when choosing which handoff to pick up.
 - **Delete a handoff** when explicitly removing one artifact by exact slug through the Python CLI.
-- Continue the recorded work after the handoff has been picked up.
+- Continue the recorded work only after pickup has presented a summary and the user asks to proceed.
 
 Branch Memory may store the artifact, but Branch Memory namespaces, keys, refs, and commits are technical locators. They should not be the default user model.
 
@@ -21,7 +21,7 @@ Use these terms in normal Pi commands, skills, docs, notifications, and prompts:
 | Handoff artifact, or handoff | A durable Markdown work-context artifact for a specific continuation.                                      |
 | Continuation focus           | The future work the handoff prepares: what should the next session continue, decide, verify, or implement? |
 | Create a handoff             | Create the artifact and store it so another session can pick it up.                                        |
-| Pick up a handoff            | Select and inject an existing artifact as active context.                                                  |
+| Pick up a handoff            | Select an existing artifact, present its continuation summary, and wait for user direction.                |
 | Handoff slug                 | A semantic, user-recognizable selector such as `address-review-feedback`.                                  |
 | Technical locator            | Storage details such as branch, namespace, entry key, ref, and commit.                                     |
 
@@ -95,7 +95,7 @@ Entry: address-review-feedback.md
 
 ## Pickup and list flow implications
 
-A pickup flow should let the user choose by slug, picker, or search words without knowing storage keys. Normal pickup copy should say what handoff was picked up and from which branch.
+A pickup flow should let the user choose by slug, picker, or search words without knowing storage keys. Normal pickup copy should say what handoff was picked up and from which branch. After reading the selected artifact, pickup should present a concise summary of the continuation focus, proposed next steps, and verification risks, then wait for the user's next instruction rather than automatically executing the artifact's next step.
 
 Good pickup copy:
 
