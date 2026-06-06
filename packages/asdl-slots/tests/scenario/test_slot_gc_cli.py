@@ -459,21 +459,31 @@ def test_slot_gc_delete_branches_skips_dirty_worktree(
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/dirty"}
 
 
-def test_slot_gc_skips_operation_slot(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("operation", "recovery_fragment"),
+    [("rebase", "git rebase"), ("bisect", "git bisect reset")],
+)
+def test_slot_gc_skips_operation_slot(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    operation: str,
+    recovery_fragment: str,
+) -> None:
     slots_root = tmp_path / "slots"
     slot_path = _slot_path(slots_root, "slot-01")
+    branch = f"feat/{operation}"
     fakes = _fake_for_repo(
         tmp_path,
         operations_by_path={
             slot_path: WorktreeOccupancy(
                 path=slot_path,
-                branch="feat/rebase",
-                operation="rebase",
+                branch=branch,
+                operation=operation,
             ),
         },
     )
     _seed_pool(fakes, slots_root, assignments=(), pool_size=1)
-    pr = FakePRGateway(prs_by_branch={"feat/rebase": _make_pr(7, "MERGED", "feat/rebase")})
+    pr = FakePRGateway(prs_by_branch={branch: _make_pr(7, "MERGED", branch)})
 
     result = CliRunner().invoke(
         cli_group,
@@ -488,9 +498,10 @@ def test_slot_gc_skips_operation_slot(cli_group: ClinkrGroup, tmp_path: Path) ->
     assert data["skipped_count"] == 1
     entry = data["entries"][0]
     assert entry["slot_name"] == "slot-01"
-    assert entry["branch_name"] == "feat/rebase"
+    assert entry["branch_name"] == branch
     assert entry["action"] == "skipped_operation"
-    assert "rebase" in entry["message"]
+    assert operation in entry["message"]
+    assert recovery_fragment in entry["message"]
     assert fakes.git._detach_head_calls == []
 
 

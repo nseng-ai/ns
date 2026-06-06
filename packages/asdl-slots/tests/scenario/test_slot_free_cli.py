@@ -311,19 +311,26 @@ def test_slot_free_by_branch(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert _assigned_worktrees(fakes) == {}
 
 
+@pytest.mark.parametrize(
+    ("operation", "recovery_fragment"),
+    [("rebase", "git rebase"), ("bisect", "git bisect reset")],
+)
 def test_slot_free_refuses_operation_slot_by_wt(
     cli_group: ClinkrGroup,
     tmp_path: Path,
+    operation: str,
+    recovery_fragment: str,
 ) -> None:
     slots_root = tmp_path / "slots"
     slot_path = _slot_path(slots_root, "slot-01")
+    branch = f"feat/{operation}"
     fakes = _fake_for_repo(
         tmp_path,
         operations_by_path={
             slot_path: WorktreeOccupancy(
                 path=slot_path,
-                branch="feat/rebase",
-                operation="rebase",
+                branch=branch,
+                operation=operation,
             ),
         },
     )
@@ -337,9 +344,9 @@ def test_slot_free_refuses_operation_slot_by_wt(
 
     assert result.exit_code == 2
     assert "slot-01" in result.output
-    assert "feat/rebase" in result.output
-    assert "rebase" in result.output
-    assert "git rebase" in result.output
+    assert branch in result.output
+    assert operation in result.output
+    assert recovery_fragment in result.output
     assert fakes.git._detach_head_calls == []
 
 

@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotRecord, build_slot_inventory
+from asdl_slots.lifecycle.operation_state import (
+    operation_in_progress_detail,
+    slot_operation_in_progress_message,
+)
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
     SlotFreeCleanupAction,
@@ -25,8 +29,6 @@ from asdl_slots.lifecycle.release_cleanup import (
 )
 from asdl_slots.lifecycle.release_target import (
     ReleaseTargetFailure,
-    free_operation_in_progress_message,
-    gc_operation_in_progress_message,
     release_assigned_slot_target,
 )
 
@@ -59,7 +61,7 @@ def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
                 _entry_from_record(
                     record,
                     "skipped_operation",
-                    message=gc_operation_in_progress_message(
+                    message=_operation_in_progress_message(
                         record,
                         action="running slot gc",
                     ),
@@ -206,6 +208,16 @@ def _gc_pool_empty_failure() -> SlotLifecycleFailure:
     )
 
 
+def _operation_in_progress_message(record: SlotRecord, *, action: str) -> str:
+    assert record.operation is not None
+    return operation_in_progress_detail(
+        branch_name=record.branch,
+        worktree_path=record.path,
+        operation=record.operation,
+        action=action,
+    )
+
+
 def _entry_from_record(
     record: SlotRecord,
     action: SlotGcAction,
@@ -243,7 +255,7 @@ def _entry_from_release_failure(
         return _with_action(
             entry,
             "skipped_operation",
-            message=free_operation_in_progress_message(
+            message=slot_operation_in_progress_message(
                 slot_name=failure.slot_name,
                 branch_name=failure.branch_name,
                 worktree_path=failure.worktree_path,

@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotInventory, build_slot_inventory
+from asdl_slots.lifecycle.operation_state import slot_operation_in_progress_message
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
     SlotFreeOutcome,
@@ -14,7 +15,6 @@ from asdl_slots.lifecycle.outcomes import (
 )
 from asdl_slots.lifecycle.release_target import (
     ReleaseTargetFailure,
-    free_operation_in_progress_message,
     freed_slot_from_record,
     release_assigned_slot_target,
 )
@@ -113,7 +113,7 @@ def _validated_free_targets(
             continue
         if record.operation is not None:
             errors.append(
-                free_operation_in_progress_message(
+                slot_operation_in_progress_message(
                     slot_name=record.slot_name,
                     branch_name=record.branch,
                     worktree_path=record.path,
@@ -136,7 +136,7 @@ def _free_execution_failure_message(failure: ReleaseTargetFailure) -> str:
     if failure.reason == "slot_not_assigned":
         return f"{failure.slot_name} is not currently assigned (state changed during free)."
     if failure.reason == "operation_in_progress":
-        return free_operation_in_progress_message(
+        return slot_operation_in_progress_message(
             slot_name=failure.slot_name,
             branch_name=failure.branch_name,
             worktree_path=failure.worktree_path,
