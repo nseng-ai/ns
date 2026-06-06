@@ -2,7 +2,7 @@
 
 Subagent session: `/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/pi-runner-subagents/session-7nzpAg/64da767f-cf4a-4c48-8852-35208b9ed990.jsonl`
 
-Did: inspected `CONTEXT.md`, `CONTEXT-MAP.md`, `packages/asdl-core/CONTEXT.md`, and `packages/roaster/src` + tests. No edits.  
+Did: inspected `CONTEXT.md`, `CONTEXT-MAP.md`, `packages/asdl-core/CONTEXT.md`, and `packages/roaster/src` + tests. No edits.\
 Validation: no test suite run; this was a read-only evidence audit.
 
 ## 1. Package map

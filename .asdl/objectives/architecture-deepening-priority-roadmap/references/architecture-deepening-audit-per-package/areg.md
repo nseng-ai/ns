@@ -2,9 +2,9 @@
 
 Subagent session: `/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/pi-runner-subagents/session-d8yQjM/7877eeef-c564-4d08-b607-132f93347a2e.jsonl`
 
-**What I did:** inspected root context, context map, `packages/areg/src`, `packages/areg/tests`, README/pyproject, and package stats.  
-**Files changed:** none.  
-**Validation run:** no test suite run; only read/stat inspection.  
+**What I did:** inspected root context, context map, `packages/areg/src`, `packages/areg/tests`, README/pyproject, and package stats.\
+**Files changed:** none.\
+**Validation run:** no test suite run; only read/stat inspection.\
 **Blockers:** no `packages/areg/CONTEXT.md` exists yet; `CONTEXT-MAP.md` lists it as planned.
 
 ---
@@ -49,7 +49,7 @@ These are real seams: each has at least a real adapter and a fake adapter.
 
 - **Deep modules:** gateway interfaces/adapters, especially `SkillxWorkspaceInstaller`, hide true external behavior and tempdir cleanup behind small interfaces.
 - **Moderately deep:** `check_project` provides leverage by making the check interface the test surface.
-- **Shallow modules:** many `check/checks/*` leaf files are small single-class modules; their *check algorithms* are useful, but their file/module seams add little locality.
+- **Shallow modules:** many `check/checks/*` leaf files are small single-class modules; their _check algorithms_ are useful, but their file/module seams add little locality.
 - **High-locality but bulky:** `init_project.py` has good command-level depth but low internal locality: managed block, symlink safety, TOML section replacement, template writing, and command orchestration live in one 567-line module.
 
 ---

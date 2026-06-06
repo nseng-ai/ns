@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Use for conceptual questions about asdl Objectives, objective list, and as shared grounding with Objective command skills. Read-only."
+description: "Use for conceptual questions about asdl Objectives, objective list, explicit Objective consolidation/subsumption guidance, and as shared grounding with Objective command skills. Read-only."
 ---
 
 # objective
@@ -48,6 +48,20 @@ When a step skill triggers, use this `objective` skill first for shared model an
 ## Slug identity
 
 The `<slug>` directory name is the durable Objective identity. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate an Objective under a new slug unless the user explicitly asks for an Objective slug migration. Archive/unarchive is an explicit location move for the same slug identity, not a slug migration.
+
+## Objective consolidation
+
+When the user explicitly asks to combine, merge, subsume, or consolidate Objectives, treat it as an explicit lifecycle operation, not a normal `objective-update` for one selected Objective.
+
+Safe consolidation rules:
+
+- Choose one surviving canonical Objective. If survivor/subsumed roles are unclear, ask.
+- Keep every Objective slug directory in place. Do not move, delete, recreate, or merge slug directories unless the user separately asks for a slug migration.
+- Do not merge, rewrite, move, or delete historical `updates/` files. Existing Semantic Updates remain immutable provenance.
+- Edit the surviving Objective's `objective.md` and `roadmap.md` to absorb the active scope, roadmap rows, risks, and open questions that should remain live.
+- Close each subsumed Objective with `objective-close` semantics: add `## Closure` to its `objective.md`, write minimal `closed.md`, and put the subsumption rationale in closure prose.
+- Write new Semantic Updates in the survivor and each subsumed record explaining the consolidation decision, where active tracking moved, and any follow-ups.
+- Archive only if the user explicitly asks to retire the closed record from active-root status after closure.
 
 ## Files
 

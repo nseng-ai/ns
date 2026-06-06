@@ -20,21 +20,21 @@ Root context defines:
 
 ### Major modules
 
-| Module | Role | Depth assessment |
-| --- | --- | --- |
-| `objective_paths.py` | Constants/path helpers/slug validation for active/archive records (`objective_paths.py:7-19`) | Small but earns its keep as locality for path spelling. |
-| `context.py` | Builds `ObjectiveCliContext` with `GitGateway` and `RealGitGateway` (`context.py:12`, `context.py:27-43`) | Real seam already exists for git; tests use `FakeGitGateway`. |
-| `group.py`, `main.py`, `plugin.py`, `exec/group.py` | Clinkr registration and hidden `exec` group (`exec/group.py:10-15`) | Intentionally shallow wiring. |
-| `list.py` | Orchestrates checkout inventory, status filtering, git touches, dirty marker (`list.py:57-83`) | Moderate depth; interface is `ObjectiveListResult`. |
-| `list_inventory.py` | Discovers active Objective directories and `closed.md` status (`list_inventory.py:29-40`) | Shallow alone; strong candidate to fold into deeper storage module. |
-| `list_status.py` | Four-value status filter (`list_status.py:7-14`) | Micro-shallow; deletion makes complexity vanish into one caller. |
-| `list_models.py` | Clinkr/Pydantic request/result models (`list_models.py:14-66`) | Shallow but serves command interface/test surface. |
-| `list_render.py` | Human/Markdown rendering | Reasonable separation; renderer interface is `ObjectiveListResult`. |
-| `list_updates.py` | Timestamp parsing plus older branch-attribution model (`list_updates.py:13-89`) | Partly deep algorithm, partly likely vestigial. Current source only uses `touch_updated_iso`. |
-| `archive.py` | Safe active/archive directory move (`archive.py:111-177`) | Moderate depth; no storage seam. |
-| `exec/inventory.py` | File presence/update file facts (`exec/inventory.py:31-74`) | Storage-layout helper; belongs with storage candidate. |
-| `exec/read_objective.py` | Hidden exec reader; raw Markdown rendering (`read_objective.py:82-125`, `read_objective.py:166-197`) | Useful command, but filesystem knowledge is local to implementation and duplicated elsewhere. |
-| `exec/runner_subagent_usage.py` | Pi runner subagent JSONL usage summarizer (`runner_subagent_usage.py:152-203`, `runner_subagent_usage.py:271-352`) | Deep enough; large but honest extraction. |
+| Module                                              | Role                                                                                                               | Depth assessment                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `objective_paths.py`                                | Constants/path helpers/slug validation for active/archive records (`objective_paths.py:7-19`)                      | Small but earns its keep as locality for path spelling.                                       |
+| `context.py`                                        | Builds `ObjectiveCliContext` with `GitGateway` and `RealGitGateway` (`context.py:12`, `context.py:27-43`)          | Real seam already exists for git; tests use `FakeGitGateway`.                                 |
+| `group.py`, `main.py`, `plugin.py`, `exec/group.py` | Clinkr registration and hidden `exec` group (`exec/group.py:10-15`)                                                | Intentionally shallow wiring.                                                                 |
+| `list.py`                                           | Orchestrates checkout inventory, status filtering, git touches, dirty marker (`list.py:57-83`)                     | Moderate depth; interface is `ObjectiveListResult`.                                           |
+| `list_inventory.py`                                 | Discovers active Objective directories and `closed.md` status (`list_inventory.py:29-40`)                          | Shallow alone; strong candidate to fold into deeper storage module.                           |
+| `list_status.py`                                    | Four-value status filter (`list_status.py:7-14`)                                                                   | Micro-shallow; deletion makes complexity vanish into one caller.                              |
+| `list_models.py`                                    | Clinkr/Pydantic request/result models (`list_models.py:14-66`)                                                     | Shallow but serves command interface/test surface.                                            |
+| `list_render.py`                                    | Human/Markdown rendering                                                                                           | Reasonable separation; renderer interface is `ObjectiveListResult`.                           |
+| `list_updates.py`                                   | Timestamp parsing plus older branch-attribution model (`list_updates.py:13-89`)                                    | Partly deep algorithm, partly likely vestigial. Current source only uses `touch_updated_iso`. |
+| `archive.py`                                        | Safe active/archive directory move (`archive.py:111-177`)                                                          | Moderate depth; no storage seam.                                                              |
+| `exec/inventory.py`                                 | File presence/update file facts (`exec/inventory.py:31-74`)                                                        | Storage-layout helper; belongs with storage candidate.                                        |
+| `exec/read_objective.py`                            | Hidden exec reader; raw Markdown rendering (`read_objective.py:82-125`, `read_objective.py:166-197`)               | Useful command, but filesystem knowledge is local to implementation and duplicated elsewhere. |
+| `exec/runner_subagent_usage.py`                     | Pi runner subagent JSONL usage summarizer (`runner_subagent_usage.py:152-203`, `runner_subagent_usage.py:271-352`) | Deep enough; large but honest extraction.                                                     |
 
 ### Intended seams/adapters
 

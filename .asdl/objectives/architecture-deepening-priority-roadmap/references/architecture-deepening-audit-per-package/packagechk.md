@@ -2,26 +2,26 @@
 
 Subagent session: `/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/pi-runner-subagents/session-Uboqga/1f54d8e3-2322-4d31-a9bd-a66653d12770.jsonl`
 
-**What I did:** inspected `CONTEXT.md`, `CONTEXT-MAP.md`, and tracked source/tests under `packages/packagechk`.  
-**Files changed:** none.  
-**Validation run:** no test suite run; read-only inspection plus targeted `rg`/line-number scans.  
+**What I did:** inspected `CONTEXT.md`, `CONTEXT-MAP.md`, and tracked source/tests under `packages/packagechk`.\
+**Files changed:** none.\
+**Validation run:** no test suite run; read-only inspection plus targeted `rg`/line-number scans.\
 **Blockers:** none.
 
 ## 1. Package map
 
 `packagechk` is a standalone package-name availability/claimability CLI. It appears intentionally **no-asdl-core**: package deps are only Click (`packages/packagechk/pyproject.toml:6-8`) and the console script points directly to `packagechk.cli:main` (`packages/packagechk/pyproject.toml:10-11`).
 
-| Module | Domain concepts | Seam / adapter | Depth assessment |
-| --- | --- | --- | --- |
-| `cli.py` | CLI command, check command, PyPI/npm claim commands, legacy bare-name dispatch | `build_cli(...)` accepts registry/publish gateways (`cli.py:62-69`) | High leverage as composition root, but claim implementations are bulky and duplicated (`cli.py:223-391`). |
-| `models.py` | `Registry`, `CheckStatus`, `RegistryCheckResult`, `PackageCheckReport` | In-process domain model | Deep enough: status-to-exit-code and JSON shape centralize caller/test expectations (`models.py:142-160`). |
-| `check.py` | Registry selection, package-name check report | `PackageRegistryGateway` | Small but useful locality for default registries and parked Homebrew unsupported result (`check.py:6-35`). |
-| `pypi.py` / `npm.py` | Name normalization and validation | Pure in-process functions | Shallow but earned: same rules are used by real registry lookup and claim preflight. |
-| `output.py` | Human/JSON report rendering | CLI presentation seam | Shallow and appropriate; no new abstraction needed. |
-| `claim.py` | Claim project specs and placeholder project file writers | Filesystem-writing implementation | Useful locality for placeholder package manifests (`claim.py:11-60`, `claim.py:63-98`). |
-| `gateways/registries` | PyPI/npm availability lookup | `PackageRegistryGateway`; real + fake adapters | Real seam: ABC (`gateway.py:8-17`), real HTTP adapter (`real.py:34-141`), fake adapter (`fake.py:7-49`). |
-| `gateways/pypi_publish` | Build and publish PyPI placeholder package | `PypiPublishGateway`; real + fake adapters | Deep: hides `uv`, `uvx`, dist cleanup, artifact validation, failure mapping (`real.py:23-84`). |
-| `gateways/npm_publish` | Publish npm placeholder package | `NpmPublishGateway`; real + fake adapters | Real seam but thinner than PyPI; still justified by local command + remote publish side effect (`gateway.py:11-20`, `real.py:23-49`, `fake.py:8-36`). |
+| Module                  | Domain concepts                                                                | Seam / adapter                                                      | Depth assessment                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli.py`                | CLI command, check command, PyPI/npm claim commands, legacy bare-name dispatch | `build_cli(...)` accepts registry/publish gateways (`cli.py:62-69`) | High leverage as composition root, but claim implementations are bulky and duplicated (`cli.py:223-391`).                                             |
+| `models.py`             | `Registry`, `CheckStatus`, `RegistryCheckResult`, `PackageCheckReport`         | In-process domain model                                             | Deep enough: status-to-exit-code and JSON shape centralize caller/test expectations (`models.py:142-160`).                                            |
+| `check.py`              | Registry selection, package-name check report                                  | `PackageRegistryGateway`                                            | Small but useful locality for default registries and parked Homebrew unsupported result (`check.py:6-35`).                                            |
+| `pypi.py` / `npm.py`    | Name normalization and validation                                              | Pure in-process functions                                           | Shallow but earned: same rules are used by real registry lookup and claim preflight.                                                                  |
+| `output.py`             | Human/JSON report rendering                                                    | CLI presentation seam                                               | Shallow and appropriate; no new abstraction needed.                                                                                                   |
+| `claim.py`              | Claim project specs and placeholder project file writers                       | Filesystem-writing implementation                                   | Useful locality for placeholder package manifests (`claim.py:11-60`, `claim.py:63-98`).                                                               |
+| `gateways/registries`   | PyPI/npm availability lookup                                                   | `PackageRegistryGateway`; real + fake adapters                      | Real seam: ABC (`gateway.py:8-17`), real HTTP adapter (`real.py:34-141`), fake adapter (`fake.py:7-49`).                                              |
+| `gateways/pypi_publish` | Build and publish PyPI placeholder package                                     | `PypiPublishGateway`; real + fake adapters                          | Deep: hides `uv`, `uvx`, dist cleanup, artifact validation, failure mapping (`real.py:23-84`).                                                        |
+| `gateways/npm_publish`  | Publish npm placeholder package                                                | `NpmPublishGateway`; real + fake adapters                           | Real seam but thinner than PyPI; still justified by local command + remote publish side effect (`gateway.py:11-20`, `real.py:23-49`, `fake.py:8-36`). |
 
 Dependency categories:
 

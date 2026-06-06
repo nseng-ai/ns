@@ -201,5 +201,5 @@ What should move to deeper interfaces:
 
 The best architecture target is **deepening feedback snapshot / prepare-run policy** so package-specific behavior is tested through an in-process interface rather than mostly through Clinkr scenario tests. `feedback_classification.py` is already deep and well-tested. The shallow modules are mostly acceptable CLI adapters.
 
-**Confidence:** High.  
+**Confidence:** High.\
 **Blockers/follow-up:** None; read-only audit complete.

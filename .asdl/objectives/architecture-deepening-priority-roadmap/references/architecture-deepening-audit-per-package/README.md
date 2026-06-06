@@ -11,19 +11,19 @@ The audit intentionally covered the 11 substantive Python packages. `asdl-dispat
 
 ## Reports
 
-| Package | Report | Verdict | Primary recommendation |
-| --- | --- | --- | --- |
-| `asdl-slots` | [asdl-slots.md](./asdl-slots.md) | Top serious target | Deepen slot release/free/gc workflow; fix checkout planning-time mutation. |
-| `asdl-core` | [asdl-core.md](./asdl-core.md), [asdl-core-cross-package.md](./asdl-core-cross-package.md) | Highest cross-package leverage | Domain output converters for real Git/GH/GT adapters; reduce subprocess-test brittleness; localize production gateway construction. |
-| `asdl-objectives` | [asdl-objectives.md](./asdl-objectives.md) | Cleanest self-contained win | Deepen checked-in Objective Markdown storage. |
-| `roaster` | [roaster.md](./roaster.md) | Mostly healthy, two serious targets | Deepen inline findings publication; consider stack mutating workflow locality. |
-| `asdl-pr-address` | [asdl-pr-address.md](./asdl-pr-address.md) | Generally healthy | Deepen feedback snapshot / prepare-run policy. |
-| `areg` | [areg.md](./areg.md) | Sprawl cleanup plus one serious locality target | Extract init planning/managed-block behavior; collapse check leaf file seams. |
-| `vibechk` | [vibechk.md](./vibechk.md) | Both collapse and deepen | Collapse hypothetical GitGateway ABC; deepen run-store interface. |
-| `packagechk` | [packagechk.md](./packagechk.md) | Well-architected | Targeted claim orchestration deepening only. |
-| `asdl-handoff` | [asdl-handoff.md](./asdl-handoff.md) | Mostly cleanup | Concentrate handoff slug/key contract; optional inventory/branch resolver cleanup. |
-| `aretro` | [aretro.md](./aretro.md) | Mostly cleanup | Inline `gateway_access.py`; consolidate compact result conversion. |
-| `brmem` | [brmem.md](./brmem.md) | Negative control | Keep `BranchMemoryGateway` seam; optional Git snapshot-tree internal extraction. |
+| Package           | Report                                                                                     | Verdict                                         | Primary recommendation                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `asdl-slots`      | [asdl-slots.md](./asdl-slots.md)                                                           | Top serious target                              | Deepen slot release/free/gc workflow; fix checkout planning-time mutation.                                                          |
+| `asdl-core`       | [asdl-core.md](./asdl-core.md), [asdl-core-cross-package.md](./asdl-core-cross-package.md) | Highest cross-package leverage                  | Domain output converters for real Git/GH/GT adapters; reduce subprocess-test brittleness; localize production gateway construction. |
+| `asdl-objectives` | [asdl-objectives.md](./asdl-objectives.md)                                                 | Cleanest self-contained win                     | Deepen checked-in Objective Markdown storage.                                                                                       |
+| `roaster`         | [roaster.md](./roaster.md)                                                                 | Mostly healthy, two serious targets             | Deepen inline findings publication; consider stack mutating workflow locality.                                                      |
+| `asdl-pr-address` | [asdl-pr-address.md](./asdl-pr-address.md)                                                 | Generally healthy                               | Deepen feedback snapshot / prepare-run policy.                                                                                      |
+| `areg`            | [areg.md](./areg.md)                                                                       | Sprawl cleanup plus one serious locality target | Extract init planning/managed-block behavior; collapse check leaf file seams.                                                       |
+| `vibechk`         | [vibechk.md](./vibechk.md)                                                                 | Both collapse and deepen                        | Collapse hypothetical GitGateway ABC; deepen run-store interface.                                                                   |
+| `packagechk`      | [packagechk.md](./packagechk.md)                                                           | Well-architected                                | Targeted claim orchestration deepening only.                                                                                        |
+| `asdl-handoff`    | [asdl-handoff.md](./asdl-handoff.md)                                                       | Mostly cleanup                                  | Concentrate handoff slug/key contract; optional inventory/branch resolver cleanup.                                                  |
+| `aretro`          | [aretro.md](./aretro.md)                                                                   | Mostly cleanup                                  | Inline `gateway_access.py`; consolidate compact result conversion.                                                                  |
+| `brmem`           | [brmem.md](./brmem.md)                                                                     | Negative control                                | Keep `BranchMemoryGateway` seam; optional Git snapshot-tree internal extraction.                                                    |
 
 ## Cross-package ranking for the architecture skill report
 
