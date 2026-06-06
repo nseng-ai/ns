@@ -1,0 +1,137 @@
+---
+description: |
+  Review the supplied diff for cleanup opportunities: reuse existing helpers,
+  simplify unnecessary complexity, avoid wasted work, and move bandaids to the
+  right abstraction level. This is the roaster review-only form of `/simplify`:
+  it reports actionable findings for later fixing instead of hunting bugs.
+default_model: sonnet
+when_changed:
+  - "**/*.c"
+  - "**/*.cc"
+  - "**/*.cpp"
+  - "**/*.cs"
+  - "**/*.go"
+  - "**/*.java"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.kt"
+  - "**/*.mjs"
+  - "**/*.mts"
+  - "**/*.py"
+  - "**/*.rs"
+  - "**/*.sh"
+  - "**/*.swift"
+  - "**/*.ts"
+  - "**/*.tsx"
+---
+
+<!--
+Provenance note (not part of the review instructions): this review is the
+roaster review-only port of Claude Code's bundled `/simplify` command. We
+recovered the original `/simplify` prompt by extracting the embedded prompt
+string literals from the shipped `claude` binary, discovered using this prompt:
+
+  "Extract the actual prompt text for a Claude Code bundled command/skill
+  (e.g. /simplify) directly from the shipped binary.
+  The npm package @anthropic-ai/claude-code is just a wrapper/installer;
+  the real binary lives in the platform-specific optional dep
+  (@anthropic-ai/claude-code-linux-x64@<version>), and the skill/command
+  prompts are embedded as plain JS string literals inside it.
+  Steps:
+  1. `npm pack @anthropic-ai/claude-code` — read package.json to get the
+     version and confirm the optionalDependencies platform packages.
+  2. `npm pack @anthropic-ai/claude-code-linux-x64@<version>`, extract, find
+     the large `claude` binary (~245MB).
+  3. Locate the command registration, not just the word "simplify" (which
+     collides with bundled syntax-highlighter wordlists and semver code).
+     Grep for the literal "/simplify" and for distinctive prompt phrases
+     like "parallel agents", "false positives", "Phase 0", "git diff HEAD".
+  4. The registration is a `getPromptForCommand` call with `name`,
+     `menuDescription`, `description`, `argumentHint`. The prompt body is a
+     nearby template-literal variable; the angle/section bodies are separate
+     variables interpolated via ${...}. Resolve all the interpolations
+     (Phase 0 diff block, the cleanup angles, etc.) to reconstruct the
+     fully-assembled prompt.
+  5. Dump the byte range with `dd`, decode with python, and unescape \n /
+     — / \` for readability.
+  Show me the final assembled prompt and note which ${vars} were resolved
+  and what `${OK}`-style tool references map to."
+-->
+
+Review only the supplied diff. Ignore existing code that the diff does not
+touch, except when reading nearby/shared code to confirm that a cleanup
+opportunity is real. You are improving the quality of the changed code, not
+hunting for correctness bugs. Do not flag bug risks, missing tests, validation
+edge cases, or behavior questions unless they are also a concrete cleanup
+problem visible in the diff.
+
+This is a roaster review, so do **not** mutate files, apply fixes, launch
+subagents, or gather a different diff. Roaster has already supplied the review
+scope. Use read-only `Read`/`Bash` only when the diff alone is insufficient,
+especially to grep for existing helpers or adjacent patterns.
+
+Perform four independent cleanup passes, then deduplicate findings that point
+at the same line or underlying mechanism:
+
+## 1. Reuse
+
+Flag new code that re-implements something the codebase already has. Search
+shared/utility modules and files adjacent to the change before making the
+finding. Name the existing helper, module, class, command, or pattern that the
+changed code should call or follow instead.
+
+Do not flag speculative reuse. If you cannot name the existing thing to reuse,
+skip the finding.
+
+## 2. Simplification
+
+Flag unnecessary complexity added by the diff: redundant or derivable state,
+copy-paste with slight variation, deep nesting, dead code left behind, overly
+broad abstractions for one call site, or multi-step logic that can be a direct
+expression. Name the simpler form that does the same job.
+
+Skip findings where the simpler form might change intended behavior or depends
+on context outside the diff.
+
+## 3. Efficiency
+
+Flag wasted work introduced by the diff: redundant computation, repeated I/O,
+repeated subprocess/network calls, independent operations performed
+sequentially, work added to import/startup paths, or expensive hot-path work
+that could be cached, batched, deferred, or moved out of the loop. Name the
+cheaper alternative.
+
+Do not flag micro-optimizations. The cost must be concrete and explain what is
+being recomputed, reread, blocked on, or run too often.
+
+## 4. Altitude
+
+Check that each change is implemented at the right depth rather than as a
+fragile bandaid. Flag special cases layered onto callers when the shared
+infrastructure should be generalized, duplicated policy that belongs in a
+single boundary, or patches that solve one symptom while leaving the same
+mechanism to fail at the next call site. Name the deeper mechanism that should
+own the behavior.
+
+Skip any altitude finding whose fix would require broad redesign beyond the
+reviewed diff. Prefer a narrowly actionable generalization.
+
+## Finding format guidance
+
+Each finding must be actionable and grounded in a concrete changed line or
+small changed range. In the finding details, include:
+
+- the angle (`reuse`, `simplification`, `efficiency`, or `altitude`);
+- the concrete cost: what is duplicated, wasted, or harder to maintain;
+- the specific cleanup to make.
+
+Use severities this way:
+
+- `warning` for cleanup findings that should be fixed before merging;
+- `info` for low-cost polish that is clearly optional;
+- avoid `error` unless the cleanup issue is severe enough to block review even
+  though it is not a correctness bug.
+
+Keep the review focused. Prefer the best few high-signal cleanup findings over
+a long list of style nits. If there are no concrete cleanup opportunities in
+the supplied diff, return an empty findings list.

@@ -8,28 +8,59 @@ from roaster.review_definition import parse_review_definition
 
 _REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
+_SIMPLIFY_REVIEW = _REPO_ROOT / "reviews" / "simplify.md"
 _TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
 
 
-def test_parse_real_dignified_python_review() -> None:
-    source = _DIGNIFIED_PYTHON_REVIEW.read_text(encoding="utf-8")
-    definition = parse_review_definition(source, name="dignified-python")
+@pytest.mark.parametrize(
+    ("review_path", "name", "expected_model", "expected_when_changed"),
+    [
+        (_DIGNIFIED_PYTHON_REVIEW, "dignified-python", "haiku", ("**/*.py",)),
+        (
+            _TYPESCRIPT_STYLE_REVIEW,
+            "typescript-style",
+            "haiku",
+            ("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"),
+        ),
+        (
+            _SIMPLIFY_REVIEW,
+            "simplify",
+            "sonnet",
+            (
+                "**/*.c",
+                "**/*.cc",
+                "**/*.cpp",
+                "**/*.cs",
+                "**/*.go",
+                "**/*.java",
+                "**/*.js",
+                "**/*.jsx",
+                "**/*.kt",
+                "**/*.mjs",
+                "**/*.mts",
+                "**/*.py",
+                "**/*.rs",
+                "**/*.sh",
+                "**/*.swift",
+                "**/*.ts",
+                "**/*.tsx",
+            ),
+        ),
+    ],
+)
+def test_parse_real_review_definition(
+    review_path: Path,
+    name: str,
+    expected_model: str,
+    expected_when_changed: tuple[str, ...],
+) -> None:
+    source = review_path.read_text(encoding="utf-8")
+    definition = parse_review_definition(source, name=name)
 
-    assert definition.name == "dignified-python"
+    assert definition.name == name
     assert definition.description.strip()
-    assert definition.default_model == "haiku"
-    assert definition.when_changed == ("**/*.py",)
-    assert definition.instructions.strip()
-
-
-def test_parse_real_typescript_style_review() -> None:
-    source = _TYPESCRIPT_STYLE_REVIEW.read_text(encoding="utf-8")
-    definition = parse_review_definition(source, name="typescript-style")
-
-    assert definition.name == "typescript-style"
-    assert definition.description.strip()
-    assert definition.default_model == "haiku"
-    assert definition.when_changed == ("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts")
+    assert definition.default_model == expected_model
+    assert definition.when_changed == expected_when_changed
     assert definition.instructions.strip()
 
 
