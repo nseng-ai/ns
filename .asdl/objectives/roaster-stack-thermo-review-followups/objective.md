@@ -45,7 +45,7 @@ Assumptions:
 Risks:
 
 - Decomposing `stack_workflow.py` could accidentally change safety ordering. In particular, Branch Memory/dashboard writes, resolver execution, branch mutation, and `gt submit` must retain their intended hard-stop behavior.
-- The first two decomposition slices de-risked behavior-preserving extraction paths: dry-run result contracts/projection helpers now live outside `stack_workflow.py`, shared triage views are pure helpers, resolver input rendering now lives in `roaster.stack_resolver_input`, and full repo validation passed. Remaining decomposition slices still need the same safety-ordering guardrail.
+- The first three decomposition slices de-risked behavior-preserving extraction paths: dry-run result contracts/projection helpers now live outside `stack_workflow.py`, shared triage views are pure helpers, resolver input rendering now lives in `roaster.stack_resolver_input`, dashboard projection now lives in `roaster.stack_dashboard_projection`, and targeted workflow/dashboard validation passed. Remaining decomposition slices still need the same safety-ordering guardrail.
 - Fixing attach-tip behavior may expose the absence of a stable real Graphite stack discovery API; the Objective should prefer a guarded/fake-covered boundary over speculative live Graphite parsing.
 - Wiring generated PR body support may require narrow GitHub/Graphite integration work. If that becomes broad, deletion/deferment may be the better MVP-quality move.
 - Richer manifest/run-state modeling can become overdesigned. The goal is enough durable state for safe audit/resume, not a workflow database.
