@@ -21,20 +21,15 @@ Living tracker for the `cross-harness-parity` Objective. One row per Pi extensio
 | `/objective:update`               | Update tracking              | `objective list` + `objective exec read-objective`        | `objective-update`                    | FULL   |                                                                                        |
 | `/objective:stack-impl`           | Implement as a stack         | `objective list` + `objective exec runner-subagent-usage` | `objective-stack-impl`                | FULL   | Uses the WAIVED `dispatch_runner_subagent`; skill degrades (stop-and-ask) when absent. |
 | (no Pi command)                   | Create / close Objective     | `objective list` + `objective exec read-objective`        | `objective-create`, `objective-close` | FULL   | Pure skill + CLI, no Pi layer at all.                                                  |
-| `/handoff:create`                 | Save a directed handoff      | `brmem put --namespace handoffs --file /dev/stdin`        | `handoff-save`                        | FULL   | Pi adds only the focus prompt.                                                         |
-| `/handoff:pickup`                 | Resume a handoff             | `brmem get --namespace handoffs`                          | `handoff-load`                        | FULL   | Pi adds picker + fuzzy match (mirrored in skill prose).                                |
+| `/handoff:create`                 | Save a directed handoff      | `brmem put --namespace handoff --file /dev/stdin`         | `handoff-create`                      | FULL   | Pi adds only the focus prompt.                                                         |
+| `/handoff:pickup`                 | Resume a handoff             | `brmem get --namespace handoff`                           | `handoff-pickup`                      | FULL   | Pi adds picker + fuzzy match (mirrored in skill prose).                                |
+| `/handoff:list`                   | List handoffs                | `handoff list --format json`                              | `handoff-pickup`                      | FULL   | Pi now consumes the dedicated CLI and keeps only the card renderer.                    |
 | `/cmux:sidebar:pr-summary`        | Sidebar from current PR work | `asdl exec cmux-workspace-summary`                        | `cmux-sidebar`                        | FULL   | Mutation CLI is scenario-tested; Pi adds fast-model swap + auto-trigger.               |
 | `/cmux:sidebar:objective-summary` | Sidebar from an Objective    | `asdl exec cmux-workspace-summary`                        | `cmux-sidebar`                        | FULL   |                                                                                        |
 | `/just`                           | Run `just`, fix failures     | `just` + skill injection                                  | `internal-code-just-fix`              | FULL   | Claude/Codex get the same outcome by running `just` with the skill installed.          |
 | `/dev:preview-url`                | Vercel preview URL           | `asdl-dev preview-url`                                    | `dev-preview-url`                     | FULL   | Skill delegates to the shared CLI; Pi only mirrors it under the dev namespace.         |
 | `/code:cp`                        | Checkpoint commit            | `asdl-dev cp`                                             | `internal-code-checkpoint`            | FULL   | Skill now wraps the shared CLI instead of reimplementing checkpoint git logic.         |
 | `brmem` (internal helper)         | Branch-scoped memory         | `brmem` CLI (put/get/list/check/copy/...)                 | `brmem`                               | FULL   | TS file only resolves the binary path.                                                 |
-
-## 🟡 Discoverability / dedup — orphan, owned here
-
-| Pi surface      | Workflow      | Shared CLI backing                        | Skill          | Parity          | Notes                                                                                                                     |
-| --------------- | ------------- | ----------------------------------------- | -------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `/handoff:list` | List handoffs | `handoff list --format json` (skill path) | `handoff-load` | PARTIAL (dedup) | Skill path is richer than the Pi command; Pi re-derives listing over raw `brmem list` in TS — point it at `handoff list`. |
 
 ## 🔴 Orphan orchestration gaps — owned here
 
