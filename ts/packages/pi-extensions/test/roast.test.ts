@@ -49,10 +49,11 @@ class FakePi implements ExtensionAPI {
 	}
 }
 
-function createContext(): {
+function createContext(options: { selectResponse?: string } = {}): {
 	ctx: ExtensionCommandContext;
 	notifications: Notification[];
 	statuses: StatusUpdate[];
+	selectOptions: () => string[] | undefined;
 	waitForIdleCalls: () => number;
 	editorText: () => string | undefined;
 } {
@@ -60,26 +61,34 @@ function createContext(): {
 	const statuses: StatusUpdate[] = [];
 	let waits = 0;
 	let restoredEditorText: string | undefined;
+	let lastSelectOptions: string[] | undefined;
+	const ui: ExtensionCommandContext["ui"] = {
+		notify(message, level): void {
+			notifications.push({ message, level });
+		},
+		setStatus(key, value): void {
+			statuses.push({ key, value });
+		},
+		setEditorText(text): void {
+			restoredEditorText = text;
+		},
+	};
+	if ("selectResponse" in options) {
+		ui.select = async (_title, choices): Promise<string | undefined> => {
+			lastSelectOptions = [...choices];
+			return options.selectResponse;
+		};
+	}
 	const ctx: ExtensionCommandContext = {
 		cwd: ROOT,
 		hasUI: true,
-		ui: {
-			notify(message, level): void {
-				notifications.push({ message, level });
-			},
-			setStatus(key, value): void {
-				statuses.push({ key, value });
-			},
-			setEditorText(text): void {
-				restoredEditorText = text;
-			},
-		},
+		ui,
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
 	};
 
-	return { ctx, notifications, statuses, waitForIdleCalls: () => waits, editorText: () => restoredEditorText };
+	return { ctx, notifications, statuses, selectOptions: () => lastSelectOptions, waitForIdleCalls: () => waits, editorText: () => restoredEditorText };
 }
 
 function clinkrSuccess(data: unknown): ExecResult {
@@ -219,7 +228,7 @@ describe("roast extension", () => {
 		roastExtension(pi);
 
 		const command = pi.commands.get("roast");
-		expect(command?.description).toContain("when_changed");
+		expect(command?.description).toContain("Choose and run roaster reviewers");
 		if (!command) throw new Error("roast command was not registered");
 
 		const context = createContext();
@@ -323,6 +332,69 @@ describe("roast extension", () => {
 		expect(firstMessageDetails(pi).exitCode).toBe(0);
 	});
 
+	test("prompts with skill-equivalent reviewer options and runs the selected reviewer", async () => {
+		const pi = new FakePi([
+			clinkrSuccess(
+				selectionData({
+					selected: [],
+					skipped: [
+						skippedReview("dignified-python", ["**/*.py"]),
+						skippedReview("simplify", ["**/*.py", "**/*.ts"]),
+						skippedReview("typescript-style", ["**/*.ts"]),
+					],
+				}),
+			),
+			clinkrSuccess(harnessData()),
+			clinkrSuccess(findingsRunData("simplify", [])),
+		]);
+		roastExtension(pi);
+		const command = pi.commands.get("roast");
+		if (!command) throw new Error("roast command was not registered");
+
+		const context = createContext({ selectResponse: "simplify" });
+		await command.handler("", context.ctx);
+
+		expect(context.selectOptions()).toEqual(["dignified-python", "simplify", "typescript-style", "all matching changed files", "all reviews"]);
+		expect(pi.execCalls[2]?.args).toEqual([
+			"run",
+			"roaster",
+			"review",
+			"run",
+			"simplify",
+			"--review-format",
+			"findings",
+			"--harness",
+			"claude-code",
+			"--format",
+			"json",
+		]);
+		expect(firstMessageContent(pi)).toContain("Roast summary: base_ref=master, changed_paths=1, selected=1, skipped=0");
+		expect(firstMessageContent(pi)).toContain("- simplify");
+	});
+
+	test("runs explicit reviewer keys without prompting", async () => {
+		const pi = new FakePi([
+			clinkrSuccess(
+				selectionData({
+					selected: [],
+					skipped: [skippedReview("simplify", ["**/*.py", "**/*.ts"])],
+				}),
+			),
+			clinkrSuccess(harnessData()),
+			clinkrSuccess(findingsRunData("simplify", [])),
+		]);
+		roastExtension(pi);
+		const command = pi.commands.get("roast");
+		if (!command) throw new Error("roast command was not registered");
+
+		const context = createContext({ selectResponse: "typescript-style" });
+		await command.handler("simplify", context.ctx);
+
+		expect(context.selectOptions()).toBeUndefined();
+		expect(pi.execCalls[2]?.args).toContain("simplify");
+		expect(firstMessageContent(pi)).toContain("selected=1, skipped=0");
+	});
+
 	test("fails before reviewer runs when selected reviewers have no model", async () => {
 		const pi = new FakePi([
 			clinkrSuccess(selectionData({ selected: [selectedReview("missing-model", { defaultModel: null })] })),
@@ -413,18 +485,25 @@ describe("roast extension", () => {
 
 		expect(context.waitForIdleCalls()).toBe(0);
 		expect(pi.execCalls).toEqual([]);
-		expect(firstMessageContent(pi)).toContain("/roast runs roaster reviewers");
+		expect(firstMessageContent(pi)).toContain("/roast chooses and runs roaster reviewers");
 		expect(firstMessageContent(pi)).toContain("--review-format VALUE");
 	});
 });
 
 describe("parseRoastArgs", () => {
 	test("defaults to findings format", () => {
-		expect(parseRoastArgs([])).toEqual({ type: "ok", options: { reviewFormat: "findings" } });
+		expect(parseRoastArgs([])).toEqual({ type: "ok", options: { reviewFormat: "findings", reviewKeys: [] } });
+	});
+
+	test("accepts explicit reviewer keys", () => {
+		expect(parseRoastArgs(["simplify", "typescript-style"])).toEqual({
+			type: "ok",
+			options: { reviewFormat: "findings", reviewKeys: ["simplify", "typescript-style"] },
+		});
 	});
 
 	test("rejects unsupported argument forms", () => {
-		for (const args of [["--model=haiku"], ["--format", "json"], ["--unknown", "x"], ["reviewer"], ["-h"], ["--review-format", "markdown"]]) {
+		for (const args of [["--model=haiku"], ["--format", "json"], ["--unknown", "x"], ["-h"], ["--review-format", "markdown"]]) {
 			const result = parseRoastArgs(args);
 			expect(result.type).toBe("error");
 		}
