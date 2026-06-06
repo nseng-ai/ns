@@ -10,6 +10,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.context import RoasterCliContext
+from roaster.stack_dry_run import StackDryRunResult
 from roaster.stack_models import StackWorkflowRequest, StackWorkflowResult
 from roaster.stack_profile import (
     StackProfile,
@@ -20,11 +21,7 @@ from roaster.stack_profile import (
     StackProfileResolutionFailed,
     resolve_stack_profile,
 )
-from roaster.stack_workflow import (
-    StackDryRunResult,
-    StackWorkflowFailure,
-    run_stack_workflow_dry_run,
-)
+from roaster.stack_workflow import StackWorkflowFailure, run_stack_workflow_dry_run
 
 
 class StackRunRequest(ClinkrModel):

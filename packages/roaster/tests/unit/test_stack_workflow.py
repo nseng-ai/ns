@@ -15,13 +15,10 @@ from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import FindingsReview, LocalDiff, ReviewExecutionResponse, ReviewFinding
+from roaster.stack_dry_run import StackDryRunResult
 from roaster.stack_models import StackWorkflowRequest, StackWorkflowResult
 from roaster.stack_profile import StackProfile
-from roaster.stack_workflow import (
-    StackDryRunResult,
-    StackWorkflowFailure,
-    run_stack_workflow_dry_run,
-)
+from roaster.stack_workflow import StackWorkflowFailure, run_stack_workflow_dry_run
 
 PYTHON_REVIEW_SOURCE = (
     "---\n"
