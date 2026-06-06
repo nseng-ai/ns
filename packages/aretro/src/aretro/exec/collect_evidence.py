@@ -9,12 +9,16 @@ from typing import Annotated, Literal, TypeAlias
 
 import click
 
+from aretro.exec.evidence_payload import build_evidence_payload_data
 from aretro.gateway_access import get_git_gateway, get_session_source
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_core.payloads.clinkr import open_clinkr_payload_store, write_clinkr_raw_payload_artifact
+from asdl_core.payloads.models import PayloadReference
+from asdl_core.payloads.store import PayloadStore
 from asdl_core.sessions.evidence import SessionEvidenceItem, collect_session_evidence
 from asdl_core.sessions.types import (
     ParsedSession,
@@ -28,6 +32,7 @@ from asdl_core.sessions.types import (
 )
 
 BranchSource: TypeAlias = Literal["explicit", "git_current_branch", "detached", "unresolved"]
+PayloadMode: TypeAlias = Literal["inline", "payload"]
 
 
 class CollectEvidenceRequest(ClinkrModel):
@@ -70,6 +75,19 @@ class CollectEvidenceRequest(ClinkrModel):
             help="Maximum number of sessions to return.",
         ),
     ] = 20
+    payload_mode: Annotated[
+        PayloadMode,
+        click.Option(
+            ["--payload-mode"],
+            type=click.Choice(["inline", "payload"]),
+            default="inline",
+            help="Write sanitized detail evidence to a payload artifact when set to payload.",
+        ),
+    ] = "inline"
+    payload_session_id: Annotated[
+        str | None,
+        click.Option(["--payload-session-id"], type=click.STRING),
+    ] = None
 
 
 class CollectEvidenceError(ClinkrModel):
@@ -174,6 +192,24 @@ class CollectEvidenceResult(ClinkrModel):
     evidence_items: tuple[EvidenceItemDto, ...]
 
 
+class DetailLocatorHintsDto(ClinkrModel):
+    data_root: str = "/data"
+    sessions: str = "/data/sessions"
+    evidence_items: str = "/data/evidence_items"
+    examples: tuple[str, ...] = (
+        "/data/sessions/0/tool_calls/0",
+        "/data/sessions/0/tool_results/0",
+        "/data/sessions/0/command_executions/0",
+        "/data/evidence_items/0/supporting_event_pointers/0",
+    )
+
+
+class CollectEvidencePayloadResult(CollectEvidenceResult):
+    payload_mode: Literal["payload"] = "payload"
+    payload_reference: PayloadReference
+    detail_locator_hints: DetailLocatorHintsDto
+
+
 @dataclass(frozen=True)
 class _ResolvedBranch:
     branch: str | None
@@ -202,12 +238,16 @@ def render_collect_evidence(result: CollectEvidenceResult) -> None:
 def run_collect_evidence(
     ctx: click.Context,
     request: CollectEvidenceRequest,
-) -> ClinkrExit[CollectEvidenceResult]:
+) -> ClinkrExit[CollectEvidenceResult | CollectEvidencePayloadResult]:
     git_gateway = get_git_gateway(ctx)
     session_source = get_session_source(ctx)
     cwd = Path.cwd()
     repo_input = request.repo or cwd
     source_info = session_source.source_info
+
+    store: PayloadStore | None = None
+    if request.payload_mode == "payload":
+        store = open_clinkr_payload_store(request.payload_session_id)
 
     git_common_dir = _get_git_common_dir(git_gateway, repo_input)
     if isinstance(git_common_dir, CollectEvidenceError):
@@ -279,7 +319,28 @@ def run_collect_evidence(
         max_sessions=request.max_sessions,
     )
     query_result = session_source.query(query)
-    return ClinkrExit.ok(_result_from_query_result(request, repo, query_result))
+    compact_result = _result_from_query_result(request, repo, query_result)
+    if request.payload_mode == "inline":
+        return ClinkrExit.ok(compact_result)
+
+    if store is None:
+        raise AssertionError("payload artifact store must be opened before writing raw payload")
+    detail_payload_data = build_evidence_payload_data(
+        compact_result=compact_result,
+        sessions=query_result.sessions,
+    )
+    payload_reference = write_clinkr_raw_payload_artifact(
+        store=store,
+        descriptor="aretro-collect-evidence",
+        result=ClinkrExit.ok(detail_payload_data),
+    )
+    return ClinkrExit.ok(
+        CollectEvidencePayloadResult(
+            **compact_result.model_dump(),
+            payload_reference=payload_reference,
+            detail_locator_hints=DetailLocatorHintsDto(),
+        )
+    )
 
 
 def summarize_session(session: ParsedSession) -> SessionSummaryDto:

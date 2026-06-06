@@ -42,19 +42,24 @@ is the standalone `aretro exec collect-evidence`; do not use `asdl aretro`.
 2. Resolve the repository root with `git rev-parse --show-toplevel`.
 3. Resolve the branch with `git branch --show-current`, unless the user supplied
    a branch.
-4. If not in a git repository, or the branch is detached and the user did not
+4. Choose one safe payload session id for this invocation, using only lowercase
+   letters, digits, dots, underscores, and hyphens. Examples:
+   `aretro-20260604t120000z-a1` or `aretro-branch-retro-a1`.
+5. If not in a git repository, or the branch is detached and the user did not
    provide one, stop and report the prerequisite failure. Ask for `--repo` and
    `--branch` when needed.
 
 ## Evidence collection
 
-Run:
+Run payload mode by default:
 
 ```bash
 <aretro-runner> exec collect-evidence \
   --repo <repo-root> \
   --branch <branch> \
   --max-sessions 20 \
+  --payload-mode payload \
+  --payload-session-id <payload-session-id> \
   --format json
 ```
 
@@ -64,6 +69,26 @@ a fixture root.
 If the JSON envelope has nonzero `exit_code`, `success: false`, or an `error`,
 report the error and stop. Surface warnings, especially missing session roots or
 low-confidence association.
+
+The compact `data` object remains the primary evidence source. It includes
+counts, sessions, warnings, evidence items, source refs, and a `payload_reference`
+for sanitized local detail expansion. Payload artifacts are local files under the
+configured/default asdl temp payload root and the chosen payload session id;
+cleanup/list/GC is not part of this workflow.
+
+When compact evidence is insufficient to make or validate a recommendation, read
+one targeted detail value from the payload artifact:
+
+```bash
+<aretro-runner> exec read-evidence-detail \
+  --payload-path <payload-reference.payload_path> \
+  --json-pointer <detail-pointer-under-/data> \
+  --format json
+```
+
+Use locator hints from `detail_locator_hints` and supporting pointers from
+`evidence_items`. Do not paste full payload artifacts or raw session files into
+the transcript; targeted reads only.
 
 ## Interpretation rules
 
