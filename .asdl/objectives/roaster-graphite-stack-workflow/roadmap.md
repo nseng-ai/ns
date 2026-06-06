@@ -99,7 +99,7 @@
   - Policy: direct execution after preview; ask first before broadening rerun semantics beyond safe update/reuse/fail behavior.
   - Evidence: tests cover zero accepted batches, rejected-only triage, resolver completed/failed/blocked statuses, failed validation, missing validation evidence, safety flags, Branch Memory/dashboard update phases, submit gateway invocation after all successful batches, submit failure status, existing matching batch update, and removed/superseded batch recording where implemented.
 
-- [ ] Add guarded real adapters, README documentation, plugin smoke coverage, and closeout validation.
+- [x] Add guarded real adapters, README documentation, plugin smoke coverage, and closeout validation.
   - Thesis: the steelthread is usable and inspectable: default prompts are packaged, real adapters fail clearly or run through guarded boundaries, docs explain behavior and safety limits, and plugin/package checks show the feature is integrated.
   - Expected implementation branch/PR: `roaster-stack/docs-closeout`.
   - Depends on: all prior slices; this should not add new core workflow semantics except guarded real-adapter/documentation details discovered during implementation.

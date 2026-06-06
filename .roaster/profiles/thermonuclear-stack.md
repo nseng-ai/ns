@@ -1,14 +1,16 @@
 # Thermonuclear stack
 
-This is a sample loose profile for future `roaster stack run thermonuclear-stack` usage.
-The `roaster stack` workflow is Graphite/`gt`-explicit: it is meant to reason about a stack of PRs/branches, not a single isolated review.
+This is a sample loose profile for `roaster stack run thermonuclear-stack` dry-run usage.
+The `roaster stack` workflow is Graphite/`gt`-explicit: it is meant to reason
+about a stack of PRs/branches, not a single isolated review. Current real
+mutation boundaries are guarded; use dry-run for routine local smoke checks.
 
 ## Loose conventions
 
 - Use `--target-branch` when the stack target is known by branch name.
 - Use `--target-pr` when the stack target is known by pull request number or URL.
 - Pass one or more `--reviewer` options to suggest reviewers the future orchestration should consider.
-- Use `--triage-prompt` and `--resolver-prompt` to name or provide agent guidance for future phases.
+- Use `--triage-prompt` and `--resolver-prompt` to name or provide agent guidance for triage and resolver phases.
 
 ## Important parsing contract
 

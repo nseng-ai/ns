@@ -26,8 +26,9 @@ class RealGraphiteStackGateway(GraphiteStackGateway):
         return _unsupported(
             "read-current-stack",
             (
-                "Real roaster Graphite stack reads are not wired to a stable "
-                "machine-readable `gt` API."
+                "Real roaster Graphite stack discovery is not wired to a stable "
+                "machine-readable `gt` API yet; pass --target-branch and --target-pr "
+                "to exercise the current guarded roaster stack boundary."
             ),
         )
 
@@ -41,7 +42,10 @@ class RealGraphiteStackGateway(GraphiteStackGateway):
         _ = target_branch
         return _unsupported(
             "resolve-attach-tip",
-            "Real roaster Graphite attach-tip resolution is not implemented yet.",
+            (
+                "Real roaster Graphite attach-tip resolution is not implemented yet; "
+                "pass an explicit target branch for current roaster stack runs."
+            ),
         )
 
     def checkout_branch(self, *, cwd: Path, branch_name: str) -> GraphiteStackCommandResult:
@@ -121,12 +125,17 @@ def _run(argv: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
             capture_output=True,
             text=True,
         )
-    except FileNotFoundError as exc:
+    except FileNotFoundError:
+        command = argv[0]
         return subprocess.CompletedProcess(
             argv,
             127,
             stdout="",
-            stderr=str(exc),
+            stderr=(
+                f"Required command {command!r} was not found on PATH while running "
+                "the guarded roaster Graphite stack adapter. Install the tool or "
+                "use --dry-run for a no-mutation smoke check."
+            ),
         )
 
 

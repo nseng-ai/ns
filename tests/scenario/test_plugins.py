@@ -356,6 +356,11 @@ def test_roaster_plugin_integration() -> None:
 
     clinkr_obj = build_clinkr_context_object(lambda: obj)
 
+    result = runner.invoke(parent, ["roaster", "stack", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "Run Graphite (`gt`) stack workflows" in result.output
+    assert "run" in result.output
+
     result = runner.invoke(
         parent,
         ["roaster", "review", "run", "dignified-python"],
