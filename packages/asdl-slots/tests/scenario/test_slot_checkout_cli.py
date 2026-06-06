@@ -850,10 +850,17 @@ def test_slot_checkout_branch_in_main_worktree_redirects(
     assert fakes.git._add_worktree_calls == []
 
 
-def test_slot_checkout_branch_in_use_by_rebasing_slot(
-    cli_group: ClinkrGroup, tmp_path: Path
+@pytest.mark.parametrize(
+    ("operation", "recovery_fragment"),
+    [("rebase", "git rebase"), ("bisect", "git bisect reset")],
+)
+def test_slot_checkout_branch_in_use_by_operation_slot(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    operation: str,
+    recovery_fragment: str,
 ) -> None:
-    """`slot co feat/x` when feat/x is held by a slot mid-rebase (detached HEAD)
+    """`slot co feat/x` when feat/x is held by a slot mid-operation (detached HEAD)
     must print a clear branch-in-use message and exit 2 — not crash with a raw
     `subprocess.CalledProcessError` traceback."""
     slots_root = tmp_path / "slots"
@@ -863,7 +870,7 @@ def test_slot_checkout_branch_in_use_by_rebasing_slot(
         branches=("feat/x",),
         pool_worktrees=(_detached_slot(slots_root, 1),),
         operations_by_path={
-            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/x", operation="rebase"),
+            slot_path: WorktreeOccupancy(path=slot_path, branch="feat/x", operation=operation),
         },
     )
 
@@ -874,7 +881,8 @@ def test_slot_checkout_branch_in_use_by_rebasing_slot(
     )
 
     assert result.exit_code == 2
-    assert "rebase in progress" in result.output
+    assert f"{operation} in progress" in result.output
+    assert recovery_fragment in result.output
     assert str(slot_path) in result.output
     assert "Traceback" not in result.output
     # No checkout was attempted into any slot.

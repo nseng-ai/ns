@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Sequence
-from pathlib import Path
 
 from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotInventory, build_slot_inventory
+from asdl_slots.lifecycle.operation_state import slot_operation_in_progress_message
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
     SlotFreeCleanupAction,
@@ -23,28 +23,6 @@ SLOT_FREE_ALL_CLEANUP_ACTIONS: tuple[SlotFreeCleanupAction, ...] = (
     "pr",
     "local_branch",
 )
-
-
-def _operation_recovery_instruction(operation: str) -> str:
-    if operation == "rebase":
-        return "run `git rebase --continue`/`--abort` there"
-    if operation == "bisect":
-        return "run `git bisect reset` there"
-    return "finish or abort it there"
-
-
-def _operation_in_progress_message(
-    *,
-    slot_name: str,
-    branch_name: str,
-    worktree_path: Path,
-    operation: str,
-    action: str,
-) -> str:
-    return (
-        f"{slot_name} has a {operation} in progress for '{branch_name}' at {worktree_path}; "
-        f"{_operation_recovery_instruction(operation)} before {action}."
-    )
 
 
 def plan_free_slots(
@@ -80,7 +58,7 @@ def plan_free_slots(
         if record.operation is not None:
             return SlotLifecycleFailure(
                 error_type="operation_in_progress",
-                message=_operation_in_progress_message(
+                message=slot_operation_in_progress_message(
                     slot_name=record.slot_name,
                     branch_name=record.branch,
                     worktree_path=record.path,
@@ -127,7 +105,7 @@ def execute_free_plan(
             return SlotLifecycleFailure(
                 error_type="operation_in_progress",
                 message=_partial_failure_message(
-                    _operation_in_progress_message(
+                    slot_operation_in_progress_message(
                         slot_name=record.slot_name,
                         branch_name=record.branch,
                         worktree_path=record.path,
@@ -378,7 +356,7 @@ def _validate_assigned_and_clean(
             continue
         if record.operation is not None:
             errors.append(
-                _operation_in_progress_message(
+                slot_operation_in_progress_message(
                     slot_name=record.slot_name,
                     branch_name=record.branch,
                     worktree_path=record.path,

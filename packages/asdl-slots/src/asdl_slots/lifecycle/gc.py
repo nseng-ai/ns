@@ -14,6 +14,7 @@ from asdl_slots.lifecycle.free import (
     execute_cleanup_for_freed_slots,
     plan_cleanup_for_free_targets,
 )
+from asdl_slots.lifecycle.operation_state import operation_in_progress_detail
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
     SlotFreeCleanupAction,
@@ -41,20 +42,13 @@ def _gc_pool_empty_failure() -> SlotLifecycleFailure:
     )
 
 
-def _operation_recovery_instruction(operation: str) -> str:
-    if operation == "rebase":
-        return "run `git rebase --continue`/`--abort` there"
-    if operation == "bisect":
-        return "run `git bisect reset` there"
-    return "finish or abort it there"
-
-
 def _operation_in_progress_message(record: SlotRecord, *, action: str) -> str:
-    branch = record.branch or "unknown branch"
     assert record.operation is not None
-    return (
-        f"{record.operation} in progress for '{branch}' at {record.path}; "
-        f"{_operation_recovery_instruction(record.operation)} before {action}."
+    return operation_in_progress_detail(
+        branch_name=record.branch,
+        worktree_path=record.path,
+        operation=record.operation,
+        action=action,
     )
 
 

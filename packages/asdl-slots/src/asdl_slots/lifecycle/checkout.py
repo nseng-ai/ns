@@ -20,6 +20,7 @@ from asdl_slots.errors import (
     SlotAllocationError,
 )
 from asdl_slots.inventory import SlotRecord, build_slot_inventory
+from asdl_slots.lifecycle.operation_state import operation_recovery_sentence
 from asdl_slots.lifecycle.outcomes import SlotCheckoutOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
@@ -152,15 +153,10 @@ def _pool_full_failure(outcome: PoolFull) -> SlotLifecycleFailure:
 
 
 def _branch_in_use_failure(occupancy: WorktreeOccupancy) -> SlotLifecycleFailure:
-    if occupancy.operation == "rebase":
+    if occupancy.operation in ("rebase", "bisect"):
         message = (
-            f"Branch '{occupancy.branch}' has a rebase in progress at {occupancy.path}. "
-            "Run `git rebase --continue`/`--abort` there, then retry."
-        )
-    elif occupancy.operation == "bisect":
-        message = (
-            f"Branch '{occupancy.branch}' has a bisect in progress at {occupancy.path}. "
-            "Run `git bisect reset` there, then retry."
+            f"Branch '{occupancy.branch}' has a {occupancy.operation} in progress at "
+            f"{occupancy.path}. {operation_recovery_sentence(occupancy.operation)}, then retry."
         )
     else:
         message = f"Branch '{occupancy.branch}' is already checked out at {occupancy.path}."
