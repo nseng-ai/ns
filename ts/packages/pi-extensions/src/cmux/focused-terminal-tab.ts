@@ -117,7 +117,7 @@ export async function createCmuxSurface(options: CreateCmuxSurfaceOptions): Prom
 	}
 	const surface = parseCreatedCmuxSurface(result.stdout);
 	if (surface === undefined) {
-		return { type: "failed", message: "cmux new-surface did not return a surface_id; no launch command was sent." };
+		return { type: "failed", message: "cmux new-surface did not return a surface identifier; no launch command was sent." };
 	}
 	return { type: "created", surface };
 }
@@ -132,11 +132,11 @@ export function parseCreatedCmuxSurface(stdout: string): CmuxCreatedSurface | un
 	if (!isRecord(parsed)) {
 		return undefined;
 	}
-	const surfaceId = stringField(parsed, "surface_id") ?? stringField(parsed, "id");
+	const surfaceId = stringField(parsed, "surface_id") ?? stringField(parsed, "surface_ref") ?? stringField(parsed, "id");
 	if (surfaceId === undefined) {
 		return undefined;
 	}
-	const workspaceId = stringField(parsed, "workspace_id");
+	const workspaceId = stringField(parsed, "workspace_id") ?? stringField(parsed, "workspace_ref");
 	return workspaceId === undefined ? { surfaceId } : { surfaceId, workspaceId };
 }
 

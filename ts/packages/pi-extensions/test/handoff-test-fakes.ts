@@ -163,6 +163,35 @@ export function cmuxCreateSurfaceStep(): ScriptedExec {
 	);
 }
 
+export function cmuxCreateSurfaceRefStep(): ScriptedExec {
+	return step(
+		"cmux",
+		[
+			"--json",
+			"new-surface",
+			"--type",
+			"terminal",
+			"--workspace",
+			"workspace-1",
+			"--pane",
+			"pane-1",
+			"--focus",
+			"true",
+			"--window",
+			"window-1",
+		],
+		{
+			stdout: JSON.stringify({
+				pane_ref: "pane:1",
+				surface_ref: "surface:1",
+				type: "terminal",
+				window_ref: "window:1",
+				workspace_ref: "workspace:1",
+			}),
+		},
+	);
+}
+
 export function listStep(branch: string, keys: string[]): ScriptedExec {
 	return step("handoff", ["list", "--branch", branch, "--format", "json"], {
 		stdout: listJson(keys, branch),
