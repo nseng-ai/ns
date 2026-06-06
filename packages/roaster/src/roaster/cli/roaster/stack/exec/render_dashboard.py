@@ -10,21 +10,17 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from roaster.cli.roaster.stack.exec.common import (
-    SKILL_STACK_RUNS_NAMESPACE,
-    branch_memory_or_fail,
-    load_skill_manifest,
-)
+from roaster.cli.roaster.stack.exec.common import branch_memory_or_fail, load_skill_manifest
 from roaster.context import RoasterCliContext
-from roaster.stack_dashboard import (
-    StackDashboardBatch,
-    StackDashboardCounts,
-    StackDashboardState,
-    render_stack_dashboard,
+from roaster.stack.common.run_models import StackRunBatchState
+from roaster.stack.core.dashboard_pr import stack_dashboard_pr_number, stack_dashboard_pr_url
+from roaster.stack.skill.dashboard import (
+    StackSkillDashboardBatch,
+    StackSkillDashboardCounts,
+    StackSkillDashboardState,
+    render_stack_skill_dashboard,
 )
-from roaster.stack_dashboard_projection import stack_dashboard_pr_number, stack_dashboard_pr_url
-from roaster.stack_models import StackRunBatchState
-from roaster.stack_run_storage import stack_run_artifact_plan
+from roaster.stack.skill.storage import stack_run_artifact_plan
 
 
 class RenderDashboardRequest(ClinkrModel):
@@ -82,9 +78,8 @@ def render_dashboard_command(
         impl_branch_slug=request.impl_branch_slug,
         profile_slug=request.profile_slug,
         run_slug=request.run_slug,
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
-    state = StackDashboardState(
+    state = StackSkillDashboardState(
         profile_slug=request.profile_slug,
         run_slug=request.run_slug,
         implementation_branch=manifest.target_branch or request.impl_branch,
@@ -94,11 +89,11 @@ def render_dashboard_command(
         counts=_counts(manifest.batch_states),
         batches=tuple(_dashboard_batch(state) for state in manifest.batch_states),
     )
-    return ClinkrExit.ok(RenderDashboardResult(markdown=render_stack_dashboard(state)))
+    return ClinkrExit.ok(RenderDashboardResult(markdown=render_stack_skill_dashboard(state)))
 
 
-def _dashboard_batch(state: StackRunBatchState) -> StackDashboardBatch:
-    return StackDashboardBatch(
+def _dashboard_batch(state: StackRunBatchState) -> StackSkillDashboardBatch:
+    return StackSkillDashboardBatch(
         slug=state.batch_slug,
         title=state.title,
         finding_ids=state.finding_ids,
@@ -122,16 +117,13 @@ def _validation_status(state: StackRunBatchState) -> str | None:
     return "failed"
 
 
-def _counts(states: tuple[StackRunBatchState, ...]) -> StackDashboardCounts:
+def _counts(states: tuple[StackRunBatchState, ...]) -> StackSkillDashboardCounts:
     failed = sum(1 for state in states if state.status == "failed")
     blocked = sum(1 for state in states if state.status == "blocked")
     submitted = sum(1 for state in states if state.status == "completed")
-    return StackDashboardCounts(
+    return StackSkillDashboardCounts(
         accepted=len(states),
-        rejected=0,
-        superseded=0,
         submitted=submitted,
         failed=failed,
         blocked=blocked,
     )
-

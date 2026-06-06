@@ -11,7 +11,6 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.cli.roaster.stack.exec.common import (
-    SKILL_STACK_RUNS_NAMESPACE,
     batch_from_manifest,
     branch_memory_or_fail,
     cwd_from_context,
@@ -20,17 +19,17 @@ from roaster.cli.roaster.stack.exec.common import (
     resolver_output_from_input,
 )
 from roaster.context import RoasterCliContext
-from roaster.stack_models import GeneratedStackBranch, StackBatchStatus, StackRunArtifactLocator
-from roaster.stack_run_persistence import (
+from roaster.stack.common.run_models import StackRunArtifactLocator
+from roaster.stack.common.run_persistence import (
     StackRunPersistenceFailure,
     manifest_with_batch_state,
 )
-from roaster.stack_run_storage import (
-    StackRunLocator,
-    write_stack_run_manifest,
-    write_stack_run_resolver,
+from roaster.stack.common.run_storage import StackRunLocator
+from roaster.stack.core.contracts import (
+    GeneratedStackBranch,
+    StackBatchStatus,
 )
-from roaster.stack_skill_gate import (
+from roaster.stack.skill.gate import (
     StackSkillGateDecision,
     collect_conflict_marker_files,
     collect_deleted_files,
@@ -38,6 +37,7 @@ from roaster.stack_skill_gate import (
     evaluate_stack_skill_gate,
     run_validation_commands,
 )
+from roaster.stack.skill.storage import write_stack_run_manifest, write_stack_run_resolver
 
 
 class RecordBatchRequest(ClinkrModel):
@@ -124,7 +124,6 @@ def record_batch_command(
         run_slug=request.run_slug,
         batch_slug=request.batch_slug,
         content=resolver.model_dump_json(indent=2),
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
     status = _batch_status(resolver.status, gate)
     updated_manifest = manifest_with_batch_state(
@@ -141,7 +140,6 @@ def record_batch_command(
         branch_memory,
         impl_branch=request.impl_branch,
         manifest=updated_manifest,
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
     result = RecordBatchResult(
         run_slug=request.run_slug,

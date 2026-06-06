@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from roaster.stack_models import StackTriageBatch, StackTriageFinding
-from roaster.stack_triage import StackTriageResult
+from roaster.stack.command.triage import StackTriageResult
+from roaster.stack.core.contracts import (
+    StackTriageBatch,
+    StackTriageFinding,
+)
 
 
 def triage_batches(result: StackTriageResult) -> tuple[StackTriageBatch, ...]:

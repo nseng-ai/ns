@@ -11,7 +11,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.context import RoasterCliContext
-from roaster.stack_profile import StackProfileListFailed, list_stack_profiles
+from roaster.stack.core.profile import StackProfileListFailed, list_stack_profiles
 
 
 class ProfileListRequest(ClinkrModel):

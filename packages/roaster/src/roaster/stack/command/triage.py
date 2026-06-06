@@ -22,9 +22,13 @@ from roaster.models import (
     ReviewUsage,
     RoasterFailure,
 )
-from roaster.stack_agent_output import StackAgentOutputParseError, parse_triage_output_result
-from roaster.stack_models import StackTriageOutput, StackWorkflowRequest
-from roaster.stack_profile import StackProfile
+from roaster.stack.command.agent_output import (
+    StackAgentOutputParseError,
+    parse_triage_output_result,
+)
+from roaster.stack.common.run_models import StackWorkflowRequest
+from roaster.stack.core.contracts import StackTriageOutput
+from roaster.stack.core.profile import StackProfile
 from roaster.workflow import list_matching_reviews, run_review_by_key
 
 STACK_TRIAGE_PROMPT_RESOURCE = "stack_triage.md"

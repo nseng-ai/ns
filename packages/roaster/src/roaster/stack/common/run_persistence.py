@@ -5,23 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from brmem.gateway import BranchMemoryGateway
-from roaster.stack_dashboard import StackDashboardPublication
-from roaster.stack_markers import render_stack_dashboard_marker
-from roaster.stack_models import (
-    GeneratedStackBranch,
-    StackBatchStatus,
-    StackGeneratedBranchStatus,
-    StackResolverOutput,
+from roaster.stack.common.markers import render_stack_dashboard_marker
+from roaster.stack.common.run_models import (
     StackRunArtifactLocator,
     StackRunBatchState,
     StackRunDashboardPublication,
+    StackRunDashboardPublicationAction,
     StackRunFailureContext,
     StackRunManifest,
     StackRunSubmission,
-    StackTriageBatch,
 )
-from roaster.stack_run_storage import (
-    ROASTER_RUNS_NAMESPACE,
+from roaster.stack.common.run_storage import (
     StackRunIndex,
     StackRunLocator,
     add_run_to_index,
@@ -30,7 +24,13 @@ from roaster.stack_run_storage import (
     write_stack_run_resolver,
     write_stack_run_triage,
 )
-from roaster.stack_triage import StackTriageResult
+from roaster.stack.core.contracts import (
+    GeneratedStackBranch,
+    StackBatchStatus,
+    StackGeneratedBranchStatus,
+    StackResolverOutput,
+    StackTriageBatch,
+)
 
 
 @dataclass(frozen=True)
@@ -130,7 +130,9 @@ def write_batch_failure(
 def manifest_with_dashboard_publication(
     manifest: StackRunManifest,
     *,
-    publication: StackDashboardPublication,
+    action: StackRunDashboardPublicationAction,
+    comment_id: int,
+    comment_url: str | None,
     target_pr: str,
     profile_slug: str,
 ) -> StackRunManifest:
@@ -140,9 +142,9 @@ def manifest_with_dashboard_publication(
             "dashboard_publication": StackRunDashboardPublication(
                 marker=render_stack_dashboard_marker(profile_slug),
                 target_pr=target_pr,
-                action=publication.action,
-                comment_id=publication.comment.id,
-                comment_url=publication.comment.url,
+                action=action,
+                comment_id=comment_id,
+                comment_url=comment_url,
             )
         }
     )
@@ -184,9 +186,8 @@ def persist_run_start(
     profile_slug: str,
     run_slug: str,
     index: StackRunIndex | None,
-    triage_result: StackTriageResult,
+    triage_artifact_markdown: str,
     manifest: StackRunManifest,
-    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunPersistenceFailure | None:
     """Persist the initial run index, manifest, and triage artifact checkpoint."""
     try:
@@ -200,13 +201,11 @@ def persist_run_start(
             branch_memory,
             impl_branch=impl_branch,
             index=next_index,
-            namespace=namespace,
         )
         write_stack_run_manifest(
             branch_memory,
             impl_branch=impl_branch,
             manifest=manifest,
-            namespace=namespace,
         )
         write_stack_run_triage(
             branch_memory,
@@ -214,8 +213,7 @@ def persist_run_start(
             impl_branch_slug=impl_branch_slug,
             profile_slug=profile_slug,
             run_slug=run_slug,
-            content=triage_artifact_content(triage_result),
-            namespace=namespace,
+            content=triage_artifact_markdown,
         )
     except Exception as exc:
         return StackRunPersistenceFailure(
@@ -230,7 +228,6 @@ def write_manifest(
     branch_memory: BranchMemoryGateway,
     impl_branch: str,
     manifest: StackRunManifest,
-    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunPersistenceFailure | None:
     """Persist one manifest checkpoint and return a workflow-shaped failure on error."""
     try:
@@ -238,7 +235,6 @@ def write_manifest(
             branch_memory,
             impl_branch=impl_branch,
             manifest=manifest,
-            namespace=namespace,
         )
     except Exception as exc:
         return StackRunPersistenceFailure(
@@ -257,7 +253,6 @@ def persist_resolver_output(
     run_slug: str,
     batch_slug: str,
     output_markdown: str,
-    namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunArtifactLocator | StackRunPersistenceFailure:
     """Persist one resolver artifact and return its manifest locator."""
     try:
@@ -269,7 +264,6 @@ def persist_resolver_output(
             run_slug=run_slug,
             batch_slug=batch_slug,
             content=output_markdown,
-            namespace=namespace,
         )
     except Exception as exc:
         return StackRunPersistenceFailure(
@@ -279,10 +273,10 @@ def persist_resolver_output(
     return _artifact_locator(locator)
 
 
-def triage_artifact_content(result: StackTriageResult) -> str:
+def triage_artifact_content(agent_output_markdown: str | None) -> str:
     """Return persisted triage artifact content for a stack run."""
-    if result.agent_output_markdown is not None:
-        return result.agent_output_markdown
+    if agent_output_markdown is not None:
+        return agent_output_markdown
     return "# Roaster stack triage\n\nNo triage agent was run because no reviewers were selected.\n"
 
 

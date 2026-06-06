@@ -7,7 +7,7 @@ from typing import Any, TypeAlias, cast
 
 import yaml
 
-from roaster.stack_models import (
+from roaster.stack.core.contracts import (
     ResolverStatus,
     ResolverValidationStatus,
     StackConfidence,
@@ -20,7 +20,7 @@ from roaster.stack_models import (
     StackTriageOutput,
     TriageFindingStatus,
 )
-from roaster.stack_slugs import StackSlugError, validate_batch_slug
+from roaster.stack.core.slugs import StackSlugError, validate_batch_slug
 
 _FRONTMATTER_FENCE = "---"
 _TRIAGE_SCHEMA_VERSION = "roaster.stack.triage.v1"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from roaster.stack_slugs import (
+from roaster.stack.core.slugs import (
     StackSlugError,
     generated_batch_branch_name,
     validate_batch_slug,

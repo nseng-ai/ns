@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from asdl_core.clinkr.models import ClinkrModel
-from roaster.stack_models import (
+from roaster.stack.core.contracts import (
     ResolverStatus,
     ResolverValidationStatus,
     StackConfidence,

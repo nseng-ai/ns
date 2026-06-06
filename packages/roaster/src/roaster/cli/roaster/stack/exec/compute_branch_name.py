@@ -9,8 +9,8 @@ import click
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from roaster.stack_models import GeneratedStackBranch
-from roaster.stack_slugs import generated_batch_branch_name
+from roaster.stack.core.contracts import GeneratedStackBranch
+from roaster.stack.core.slugs import generated_batch_branch_name
 
 
 class ComputeBranchNameRequest(ClinkrModel):

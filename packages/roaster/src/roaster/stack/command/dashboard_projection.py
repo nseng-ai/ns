@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-import re
-
-from roaster.stack_dashboard import (
+from roaster.stack.command.dashboard import (
     RejectedStackFinding,
     StackDashboardBatch,
     StackDashboardCounts,
     StackDashboardState,
 )
-from roaster.stack_models import (
-    GeneratedStackBranch,
-    StackDashboardRow,
-    StackResolverOutput,
-    StackTriageBatch,
-    StackWorkflowRequest,
-)
-from roaster.stack_profile import StackProfile
-from roaster.stack_run_storage import StackRunArtifactPlan
-from roaster.stack_triage import StackTriageResult
-from roaster.stack_triage_view import finding_status_count, triage_batches, triage_findings
+from roaster.stack.command.triage import StackTriageResult
+from roaster.stack.command.triage_view import finding_status_count, triage_batches, triage_findings
+from roaster.stack.common.run_models import StackDashboardRow, StackWorkflowRequest
+from roaster.stack.common.run_storage import StackRunArtifactPlan
+from roaster.stack.core.contracts import GeneratedStackBranch, StackResolverOutput, StackTriageBatch
+from roaster.stack.core.dashboard_pr import stack_dashboard_pr_number, stack_dashboard_pr_url
+from roaster.stack.core.profile import StackProfile
 
 
 def build_stack_dashboard_rows(
@@ -96,27 +90,6 @@ def build_stack_dashboard_state(
             if finding.status == "rejected"
         ),
     )
-
-
-def stack_dashboard_pr_number(target_pr: str | None) -> int | None:
-    """Return a numeric PR identifier when ``target_pr`` can supply one."""
-    if target_pr is None:
-        return None
-    if target_pr.isdigit():
-        return int(target_pr)
-    match = re.search(r"/(?:pull|issues)/(\d+)(?:\D*)$", target_pr)
-    if match is None:
-        return None
-    return int(match.group(1))
-
-
-def stack_dashboard_pr_url(target_pr: str | None) -> str | None:
-    """Return the dashboard PR URL when ``target_pr`` is URL-shaped."""
-    if target_pr is None:
-        return None
-    if target_pr.startswith("http://") or target_pr.startswith("https://"):
-        return target_pr
-    return None
 
 
 def _dashboard_batches(

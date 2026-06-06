@@ -25,19 +25,21 @@ from roaster.gateways.graphite_stack.gateway import (
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
 from roaster.harness.invocation import HarnessRuntime
-from roaster.stack_agent_output import StackAgentOutputParseError, parse_resolver_output_result
-from roaster.stack_dashboard import (
+from roaster.stack.command.agent_output import (
+    StackAgentOutputParseError,
+    parse_resolver_output_result,
+)
+from roaster.stack.command.dashboard import (
     StackDashboardPublication,
     StackDashboardPublicationError,
     publish_stack_dashboard,
     render_stack_dashboard,
 )
-from roaster.stack_dashboard_projection import (
+from roaster.stack.command.dashboard_projection import (
     build_stack_dashboard_rows,
     build_stack_dashboard_state,
-    stack_dashboard_pr_number,
 )
-from roaster.stack_dry_run import (
+from roaster.stack.command.dry_run import (
     StackDryRunResult,
     batch_summaries,
     dry_run_actions,
@@ -45,25 +47,21 @@ from roaster.stack_dry_run import (
     finding_summaries,
     reviewer_summaries,
 )
-from roaster.stack_graphite import (
-    StackBatchOrderingError,
-    generated_branch_for_batch,
-    order_stack_triage_batches,
+from roaster.stack.command.resolver_input import render_stack_resolver_input
+from roaster.stack.command.triage import StackTriageFailure, StackTriageResult, run_stack_triage
+from roaster.stack.command.triage_view import (
+    finding_status_count,
+    triage_batches,
+    triage_summary,
 )
-from roaster.stack_markers import render_stack_dashboard_marker
-from roaster.stack_models import (
-    GeneratedStackBranch,
+from roaster.stack.common.markers import render_stack_dashboard_marker
+from roaster.stack.common.run_models import (
     StackDashboardRow,
-    StackGeneratedBranchStatus,
-    StackResolverOutput,
     StackRunManifest,
-    StackTriageBatch,
     StackWorkflowRequest,
     StackWorkflowResult,
 )
-from roaster.stack_profile import StackProfile
-from roaster.stack_resolver_input import render_stack_resolver_input
-from roaster.stack_run_persistence import (
+from roaster.stack.common.run_persistence import (
     StackRunPersistenceFailure,
     initial_batch_states,
     manifest_with_batch_state,
@@ -73,22 +71,30 @@ from roaster.stack_run_persistence import (
     manifest_with_submission_success,
     persist_resolver_output,
     persist_run_start,
+    triage_artifact_content,
     write_batch_failure,
     write_manifest,
 )
-from roaster.stack_run_storage import (
+from roaster.stack.common.run_storage import (
     StackRunArtifactPlan,
     StackRunStorageError,
     select_stack_run_slug,
     stack_run_artifact_plan,
 )
-from roaster.stack_slugs import StackSlugError, validate_branch_memory_segment
-from roaster.stack_triage import StackTriageFailure, StackTriageResult, run_stack_triage
-from roaster.stack_triage_view import (
-    finding_status_count,
-    triage_batches,
-    triage_summary,
+from roaster.stack.core.contracts import (
+    GeneratedStackBranch,
+    StackGeneratedBranchStatus,
+    StackResolverOutput,
+    StackTriageBatch,
 )
+from roaster.stack.core.dashboard_pr import stack_dashboard_pr_number
+from roaster.stack.core.graphite import (
+    StackBatchOrderingError,
+    generated_branch_for_batch,
+    order_stack_triage_batches,
+)
+from roaster.stack.core.profile import StackProfile
+from roaster.stack.core.slugs import StackSlugError, validate_branch_memory_segment
 
 STACK_RESOLVER_PROMPT_RESOURCE = "stack_resolver.md"
 RESOLVER_ALLOWED_TOOLS = ("Read", "Edit", "MultiEdit", "Write", "Bash")
@@ -369,7 +375,7 @@ def _run_stack_workflow_mutating(
         profile_slug=profile.slug,
         run_slug=selection.run_slug,
         index=selection.index,
-        triage_result=triage_result,
+        triage_artifact_markdown=triage_artifact_content(triage_result.agent_output_markdown),
         manifest=manifest,
     )
     if storage_failure is not None:
@@ -392,7 +398,9 @@ def _run_stack_workflow_mutating(
         return initial_dashboard
     manifest = manifest_with_dashboard_publication(
         manifest,
-        publication=initial_dashboard,
+        action=initial_dashboard.action,
+        comment_id=initial_dashboard.comment.id,
+        comment_url=initial_dashboard.comment.url,
         target_pr=attach_context.target_pr,
         profile_slug=profile.slug,
     )
@@ -629,7 +637,9 @@ def _run_stack_workflow_mutating(
             return batch_dashboard
         manifest = manifest_with_dashboard_publication(
             manifest,
-            publication=batch_dashboard,
+            action=batch_dashboard.action,
+            comment_id=batch_dashboard.comment.id,
+            comment_url=batch_dashboard.comment.url,
             target_pr=attach_context.target_pr,
             profile_slug=profile.slug,
         )
@@ -684,7 +694,9 @@ def _run_stack_workflow_mutating(
         return final_dashboard
     manifest = manifest_with_dashboard_publication(
         manifest,
-        publication=final_dashboard,
+        action=final_dashboard.action,
+        comment_id=final_dashboard.comment.id,
+        comment_url=final_dashboard.comment.url,
         target_pr=attach_context.target_pr,
         profile_slug=profile.slug,
     )
