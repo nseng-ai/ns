@@ -435,7 +435,7 @@ function createContext(
 		confirm?: (title: string, message?: string) => Promise<boolean>;
 		sessionEntries?: unknown[];
 		sessionFile?: string;
-		cancelNewSession?: boolean;
+		shouldCancelNewSession?: boolean;
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -478,7 +478,7 @@ function createContext(
 		async newSession(newSessionOptions): Promise<{ cancelled: boolean }> {
 			events.push("new-session");
 			newSessionParentSessions.push(newSessionOptions?.parentSession);
-			if (options.cancelNewSession === true) {
+			if (options.shouldCancelNewSession === true) {
 				return { cancelled: true };
 			}
 			await newSessionOptions?.withSession?.({
