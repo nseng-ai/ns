@@ -64,7 +64,7 @@
   - Policy: direct execution after preview; ask first if choosing a real mutating runner design becomes a blocking architectural decision.
   - Evidence: tests cover explicit reviewer selection, default matching reviewer selection, no matching reviewers, reviewer failure behavior, prompt override threading, profile guidance inclusion without parsing, fake triage output handling, and unavailable real runner failure messaging.
 
-- [ ] Implement dry-run stack orchestration and CLI rendering.
+- [x] Implement dry-run stack orchestration and CLI rendering.
   - Thesis: `roaster stack run ... --dry-run` exercises profile resolution, target resolution, reviewer collection, triage planning, manifest/action shaping, and deterministic human/JSON rendering without mutating Branch Memory, GitHub, Graphite, branches, or external systems.
   - Expected implementation branch/PR: `roaster-stack/dry-run`.
   - Depends on: prior CLI/profile, contract, run-storage, dashboard, and triage-runner data shapes; it should prove orchestration without enabling mutation.
