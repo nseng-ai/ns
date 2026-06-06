@@ -58,11 +58,11 @@ export type {
 
 const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
-const STACK_IMPL_COMMAND_NAME = "planned-branch:stack-impl";
+const STACK_IMPL_COMMAND_NAME = "up-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
-const STACK_IMPL_STATUS_KEY = "planned-branch:stack-impl";
+const STACK_IMPL_STATUS_KEY = "up-impl";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -221,7 +221,7 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const STACK_IMPL_USAGE = `Usage: /planned-branch:stack-impl [options] [absolute-or-home-plan-file.md]
+export const STACK_IMPL_USAGE = `Usage: /up-impl [options] [absolute-or-home-plan-file.md]
 
 Create a planned branch, attach the saved plan, check out that branch with git, and launch /planned-branch:impl for the attached plan in the same Pi session.
 
