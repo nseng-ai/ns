@@ -5,8 +5,9 @@ sidebar:
   order: 4
 ---
 
-`aretro` collects compact evidence about what happened on a branch so a skill can
-turn it into a focused retrospective recommendation.
+`aretro` collects compact evidence about what happened on a branch so
+`/aretro:branch-retro` and its backing skill can turn it into a focused
+retrospective recommendation.
 
 ```bash
 aretro exec collect-evidence --format json
@@ -23,7 +24,6 @@ skill, not in a raw log dump.
 ```bash
 uv tool install aretro
 aretro --help
-asdl aretro --help
 ```
 
 ## Common commands
@@ -31,10 +31,10 @@ asdl aretro --help
 | Goal                    | Command                        | Boundary  |
 | ----------------------- | ------------------------------ | --------- |
 | Collect branch evidence | `aretro exec collect-evidence` | Read-only |
-| Format recommendations  | paired `branch-retro` skill    | Read-only |
+| Format recommendations  | `/aretro:branch-retro` in Pi   | Read-only |
 
 ## Agent interface
 
-Use the [branch-retro skill](/skills/branch-retro/) to interpret evidence and
-keep recommendations semantic. See [CLI conventions](/concepts/conventions/) for
+Use `/aretro:branch-retro` in Pi, or the portable [branch-retro skill](/skills/branch-retro/) outside Pi, to interpret evidence and keep
+recommendations semantic. See [CLI conventions](/concepts/conventions/) for
 `exec` command behavior.
