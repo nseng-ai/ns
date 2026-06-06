@@ -922,7 +922,7 @@ function formatStatusSegment(text: string, theme: StatusTheme | undefined): stri
 function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const { ctx, footerData, theme, width } = options;
 	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
-	const branch = footerData.getGitBranch();
+	const branch = currentFooterBranch(cwd, footerData);
 	const sessionName = ctx.sessionManager?.getSessionName();
 	let pwd = formatFooterCwd(cwd, process.env.HOME || process.env.USERPROFILE);
 	if (branch) pwd = `${pwd} (${branch})`;
@@ -934,6 +934,15 @@ function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
 	return lines;
+}
+
+function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
+	const gitPaths = findGitPaths(cwd);
+	if (gitPaths !== undefined) {
+		const branch = currentBranchName(gitPaths);
+		if (branch !== undefined) return branch;
+	}
+	return footerData.getGitBranch();
 }
 
 function formatFooterCwd(cwd: string, home: string | undefined): string {
