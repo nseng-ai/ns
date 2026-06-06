@@ -5,8 +5,8 @@ import {
 	formatObjectiveSidebarFields,
 	listObjectiveSidebarChoices,
 	readCurrentBranchSlug,
-	readObjectiveSidebarFacts,
 	resolveObjectiveSelector,
+	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
@@ -127,9 +127,9 @@ async function handleDeterministicObjectiveSidebar(pi: ExtensionAPI, args: strin
 
 	setStatus(ctx, "preparing cmux Objective sidebar…");
 	try {
-		const factsResult = await readObjectiveSidebarFacts(pi, ctx.cwd, slug);
-		if (factsResult.type === "failed") {
-			notify(ctx, factsResult.message, "error");
+		const validationResult = await validateObjectiveSidebarSlug(pi, ctx.cwd, slug);
+		if (validationResult.type === "failed") {
+			notify(ctx, validationResult.message, "error");
 			return;
 		}
 
@@ -140,7 +140,7 @@ async function handleDeterministicObjectiveSidebar(pi: ExtensionAPI, args: strin
 		}
 
 		const fields = formatObjectiveSidebarFields({
-			objectiveSlug: factsResult.facts.slug,
+			objectiveSlug: slug,
 			slotSlug: slotSlugFromCwd(ctx.cwd),
 			branchSlug: branchResult.branchSlug,
 		});
