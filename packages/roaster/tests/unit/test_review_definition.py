@@ -8,6 +8,7 @@ from roaster.review_definition import parse_review_definition
 
 _REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
+_SIMPLIFY_REVIEW = _REPO_ROOT / "reviews" / "simplify.md"
 _TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
 
 
@@ -30,6 +31,18 @@ def test_parse_real_typescript_style_review() -> None:
     assert definition.description.strip()
     assert definition.default_model == "haiku"
     assert definition.when_changed == ("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts")
+    assert definition.instructions.strip()
+
+
+def test_parse_real_simplify_review() -> None:
+    source = _SIMPLIFY_REVIEW.read_text(encoding="utf-8")
+    definition = parse_review_definition(source, name="simplify")
+
+    assert definition.name == "simplify"
+    assert definition.description.strip()
+    assert definition.default_model == "sonnet"
+    assert "**/*.py" in definition.when_changed
+    assert "**/*.ts" in definition.when_changed
     assert definition.instructions.strip()
 
 
