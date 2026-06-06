@@ -6,6 +6,7 @@ import {
 	FakePi,
 	branchStep,
 	checkStep,
+	cmuxCreateSurfaceRefStep,
 	cmuxCreateSurfaceStep,
 	cmuxIdentifyStep,
 	createContext,
@@ -162,6 +163,49 @@ describe("handoff-tab extension", () => {
 			"launching pickup Pi…",
 			undefined,
 		]);
+	});
+
+	test("handoff-tab launch tool accepts current cmux surface ref output", async () => {
+		const pi = new FakePi([
+			checkStep(BRANCH, "finish-widget.md", true),
+			cmuxIdentifyStep(),
+			cmuxCreateSurfaceRefStep(),
+			step("cmux", ["rename-tab", "--workspace", "workspace:1", "--surface", "surface:1", "--title", "handoff: finish-widget", "--window", "window-1"]),
+			step("cmux", [
+				"send",
+				"--workspace",
+				"workspace:1",
+				"--surface",
+				"surface:1",
+				"--window",
+				"window-1",
+				"--",
+				"pi --provider anthropic --model claude-sonnet --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'\n",
+			]),
+		]);
+		handoffExtension(pi);
+		const tool = pi.tools.get("handoff_tab_launch");
+		expect(tool).toBeDefined();
+		if (tool === undefined) {
+			throw new Error("handoff_tab_launch was not registered");
+		}
+		const context = createContext();
+		context.ctx.model = { provider: "anthropic", id: "claude-sonnet" };
+
+		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget" }, undefined, undefined, context.ctx);
+
+		pi.assertDone();
+		expect(result.isError).toBeUndefined();
+		expect(result.content[0]?.text).toContain("Opened handoff pickup tab.");
+		expect(result.details).toEqual({
+			type: "launched",
+			branch: BRANCH,
+			slug: "finish-widget",
+			tabTitle: "handoff: finish-widget",
+			surfaceId: "surface:1",
+			workspaceId: "workspace:1",
+			command: "pi --provider anthropic --model claude-sonnet --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'",
+		});
 	});
 
 	test("handoff-tab launch tool stops before cmux when handoff is missing", async () => {
