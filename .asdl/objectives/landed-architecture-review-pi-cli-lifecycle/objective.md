@@ -58,3 +58,13 @@ Risks:
 - Which phases are truly shared lifecycle mechanics, and which belong to individual commands: confirmation text, mutation previews, usage-error restoration, live output, final rendering, or headless fallbacks?
 - What is the smallest evidence standard for parking this cluster without creating a code change?
 - Which tests best prove that confirmation, rendering, usage-error restoration, live output, and headless behavior remain safe after any deepening change?
+
+## Closure
+
+Closed 2026-06-06 as completed.
+
+The Objective established that the Pi CLI lifecycle seam should remain package-local in `@asdl/pi-extensions`, centered on `ts/packages/pi-extensions/src/cli-command-extension.ts`, rather than moving into a new harness-neutral package or public SDK surface. The shared lifecycle mechanics are parsing and shape rejection, idle wait, runner dependency wiring, confirmation bridging, live progress, final output routing/rendering, usage-error restoration, tracing, and headless fallback. Command-specific policy such as confirmation copy, mutation semantics, and Graphite/source-control sequencing remains with individual commands and CLIs such as `ts/packages/asdl-dev/src/submit.ts`.
+
+Completion evidence is recorded in the roadmap and Semantic Updates, especially `updates/2026-06-06-0147-cli-lifecycle-inventory.md` and `updates/2026-06-06-0213-package-local-cli-lifecycle-seam.md`. Targeted tests now cover headless stdout/stderr final-output fallback, absence of UI live progress/editor restoration without UI support, UI custom-message rendering, and usage/prose error restoration only when supported. Validation passed with `bun test ts/packages/pi-extensions/test/cli-command-extension.test.ts`, `bun run --cwd ts/packages/pi-extensions check`, `just ts-check`, and `just ts-test`.
+
+No remaining lifecycle-seam work is required for this Objective. Future reconsideration of a harness-neutral lifecycle package should require concrete multi-consumer evidence. Broader source-control mutation UX remains outside this Objective.
