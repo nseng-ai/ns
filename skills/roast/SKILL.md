@@ -7,6 +7,7 @@ allowed-tools:
   - "Bash(git rev-parse*)"
   - "Bash(git branch*)"
   - "Bash(git diff*)"
+  - "Bash(gt *)"
   - "Bash(find reviews*)"
   - "Read"
   - "Grep"
@@ -34,10 +35,6 @@ Common examples:
 - `roast this branch`
 - `run all matching roasts against master`
 - `which roaster reviews can I run?`
-
-If the user asks for a generic code review and there is no `reviews/` directory,
-ask whether they want a generic review instead of pretending roaster review
-definitions exist.
 
 ## Safety boundary
 
@@ -84,12 +81,17 @@ can become a valid review definition.
 ## Base ref
 
 1. If the user supplies a base ref, use it.
-2. Otherwise choose the first ref that verifies:
+2. Otherwise, prefer the Graphite parent from `gt branch info` when available;
+   stacked branches should review only the current frame, not the whole stack.
+3. If Graphite is unavailable or does not identify a parent, choose the first
+   ref that verifies:
+   - `git rev-parse --verify origin/master`
    - `git rev-parse --verify master`
+   - `git rev-parse --verify origin/main`
    - `git rev-parse --verify main`
-3. If neither exists, ask the user for a base ref before reviewing.
+4. If no base can be resolved, ask the user for a base ref before reviewing.
 
-Report the selected base ref in the final output.
+Report the selected base ref and how it was chosen in the final output.
 
 ## Preflight
 
