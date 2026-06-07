@@ -255,43 +255,6 @@ def _ref_exists(repo_root: Path, ref: str) -> bool:
     return result.returncode == 0
 
 
-def resolve_repo_root(cwd: Path) -> Path | None:
-    """Return the git working-tree root for ``cwd``; ``None`` outside a repo."""
-
-    result = _run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=cwd,
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-    raw = result.stdout.strip()
-    if not raw:
-        return None
-    return Path(raw)
-
-
-def resolve_trunk_branch(repo_root: Path) -> str | None:
-    """Resolve the trunk branch name for ``repo_root``; None if unresolvable."""
-
-    result = _run(
-        ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-        cwd=repo_root,
-        check=False,
-    )
-    if result.returncode == 0:
-        full = result.stdout.strip()
-        if full.startswith("origin/"):
-            candidate = full[len("origin/") :]
-            if candidate and _branch_exists(repo_root, candidate):
-                return candidate
-
-    for candidate in ("main", "master"):
-        if _branch_exists(repo_root, candidate):
-            return candidate
-    return None
-
-
 def parse_path_touch_output(stdout: str) -> PathTouch | None:
     """Parse one NUL-delimited ``git log`` path-touch row."""
 

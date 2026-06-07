@@ -9,7 +9,7 @@ from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.context import is_machine_mode, load_typed_context
+from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
@@ -19,7 +19,7 @@ from brmem.content_limits import (
     check_entry_not_binary,
     check_entry_size,
 )
-from brmem.context import BrmemCliContext
+from brmem.context import load_brmem_context
 from brmem.key_validation import check_key
 from brmem.ref_layout import (
     EntryRef,
@@ -99,7 +99,7 @@ def run_put(
     ctx: click.Context,
     request: PutRequest,
 ) -> ClinkrExit[PutResult]:
-    brmem_context = load_typed_context(ctx, BrmemCliContext)
+    brmem_context = load_brmem_context(ctx)
 
     Ensure.true(
         not (request.stdin and is_machine_mode(ctx)),

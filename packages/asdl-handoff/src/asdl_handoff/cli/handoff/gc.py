@@ -8,12 +8,11 @@ from typing import Annotated, Literal
 
 import click
 
-from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_handoff.cli.handoff.context import HandoffCliContext
+from asdl_handoff.cli.handoff.context import HandoffCliContext, load_handoff_context
 from asdl_handoff.cli.handoff.inventory import (
     HANDOFF_NAMESPACE,
     BranchState,
@@ -91,7 +90,7 @@ def render_gc_handoffs(result: GcHandoffsResult, *, err: bool = False) -> None:
     human_renderer=render_gc_handoffs,
 )
 def run_gc_handoffs(ctx: click.Context, request: GcHandoffsRequest) -> ClinkrExit[GcHandoffsResult]:
-    handoff_context = load_typed_context(ctx, HandoffCliContext)
+    handoff_context = load_handoff_context(ctx)
 
     Ensure.true(
         not (request.dry_run and request.force),

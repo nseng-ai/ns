@@ -8,8 +8,8 @@ from pathlib import Path
 import click
 
 from asdl_core.clinkr.context import load_clinkr_context_object
+from asdl_core.git.construction import GitUnavailable, build_git_context
 from asdl_core.git.git_gateway import GitGateway
-from asdl_core.git.real_git_gateway import RealGitGateway, resolve_repo_root, resolve_trunk_branch
 
 
 @dataclass(frozen=True)
@@ -26,21 +26,18 @@ class ObjectiveCliUnavailable:
 
 def build_objective_context() -> ObjectiveCliContext | ObjectiveCliUnavailable:
     """Build the real Objective CLI context from the current working directory."""
-    cwd = Path.cwd()
-    repo_root = resolve_repo_root(cwd)
-    if repo_root is None:
-        return ObjectiveCliUnavailable("Not inside a git repository.")
-
-    trunk = resolve_trunk_branch(repo_root)
-    if trunk is None:
+    git_context = build_git_context(Path.cwd())
+    if isinstance(git_context, GitUnavailable):
+        return ObjectiveCliUnavailable(git_context.message)
+    if git_context.trunk_branch is None:
         return ObjectiveCliUnavailable(
             "Cannot resolve trunk branch (origin/HEAD, main, or master)."
         )
 
     return ObjectiveCliContext(
-        repo_root=repo_root,
-        trunk_branch=trunk,
-        git=RealGitGateway(repo_root=repo_root, trunk_branch=trunk),
+        repo_root=git_context.repo_root,
+        trunk_branch=git_context.trunk_branch,
+        git=git_context.git,
     )
 
 

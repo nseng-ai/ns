@@ -8,14 +8,13 @@ from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
-from asdl_handoff.cli.handoff.context import HandoffCliContext
+from asdl_handoff.cli.handoff.context import HandoffCliContext, load_handoff_context
 from asdl_handoff.cli.handoff.inventory import HANDOFF_NAMESPACE
 from brmem.gateway import KeyNotFoundError
 from brmem.key_validation import check_key
@@ -68,7 +67,7 @@ def run_delete_handoff(
     ctx: click.Context,
     request: DeleteHandoffRequest,
 ) -> ClinkrExit[DeleteHandoffResult]:
-    handoff_context = load_typed_context(ctx, HandoffCliContext)
+    handoff_context = load_handoff_context(ctx)
     key = _handoff_key_from_slug(request.slug)
     branch = _resolve_branch(handoff_context, request.branch)
     entry_locator = ref_name_for_entry(HANDOFF_NAMESPACE, key, branch)

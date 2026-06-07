@@ -8,13 +8,12 @@ from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.context import BrmemCliContext
+from brmem.context import load_brmem_context
 from brmem.gateway import BranchMemoryGateway, BrmemCopyConflictError
 from brmem.ref_layout import (
     BASE_NAMESPACE,
@@ -131,7 +130,7 @@ def run_copy(
     ctx: click.Context,
     request: CopyRequest,
 ) -> ClinkrExit[CopyResult]:
-    brmem_context = load_typed_context(ctx, BrmemCliContext)
+    brmem_context = load_brmem_context(ctx)
 
     Ensure.true(
         not (request.base and request.namespace is not None),

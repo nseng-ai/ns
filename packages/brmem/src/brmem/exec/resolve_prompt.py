@@ -7,12 +7,11 @@ from typing import Annotated, Literal
 
 import click
 
-from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.context import BrmemCliContext
+from brmem.context import load_brmem_context
 
 
 class ResolvePromptRequest(ClinkrModel):
@@ -44,7 +43,7 @@ def run_resolve_prompt(
     ctx: click.Context,
     request: ResolvePromptRequest,
 ) -> ClinkrExit[ResolvePromptResult]:
-    brmem_context = load_typed_context(ctx, BrmemCliContext)
+    brmem_context = load_brmem_context(ctx)
     cwd = Path.cwd()
 
     Ensure.true(

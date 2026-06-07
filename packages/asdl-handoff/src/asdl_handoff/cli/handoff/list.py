@@ -6,7 +6,6 @@ from typing import Annotated, Literal
 
 import click
 
-from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
@@ -14,7 +13,7 @@ from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.console import get_console, make_table
 from asdl_core.format import format_relative_time
 from asdl_core.git.types import DetachedHead, GitCommandFailure
-from asdl_handoff.cli.handoff.context import HandoffCliContext
+from asdl_handoff.cli.handoff.context import HandoffCliContext, load_handoff_context
 from asdl_handoff.cli.handoff.inventory import (
     HANDOFF_NAMESPACE,
     HandoffSummary,
@@ -128,7 +127,7 @@ def run_list_handoffs(
     ctx: click.Context,
     request: ListHandoffsRequest,
 ) -> ClinkrExit[ListHandoffsResult]:
-    handoff_context = load_typed_context(ctx, HandoffCliContext)
+    handoff_context = load_handoff_context(ctx)
 
     Ensure.true(
         not (request.branch is not None and request.all_branches),
