@@ -691,6 +691,164 @@ def test_validate_feedback_classification_command_rejects_invalid_json(
     assert output["error_type"] == "invalid_json"
 
 
+def test_classification_template_command_builds_template_from_get_feedback_manifest(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    review_body = "REVIEW_TEMPLATE_SENTINEL please classify me"
+    thread_body = "THREAD_TEMPLATE_SENTINEL please classify this thread"
+    discussion_body = "DISCUSSION_TEMPLATE_SENTINEL please reply here"
+    fake = FakePRGateway(
+        reviews={
+            42: [
+                PRReview(
+                    id="PRR_1",
+                    author="reviewer",
+                    body=review_body,
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2025-01-01T00:00:00Z",
+                )
+            ]
+        },
+        review_threads={42: [_summary_thread("PRRT_1", comment_id=7, body=thread_body)]},
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=11,
+                    author="reviewer",
+                    body=discussion_body,
+                    url="https://example.com/11",
+                )
+            ]
+        },
+    )
+    runner = CliRunner()
+    get_result = runner.invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        env=_payload_env(tmp_path),
+    )
+    assert get_result.exit_code == 0, get_result.output
+    manifest = json.loads(get_result.output)["data"]
+
+    template_result = runner.invoke(
+        cli_group,
+        ["exec", "classification-template", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        input=json.dumps(manifest),
+    )
+
+    assert template_result.exit_code == 0, template_result.output
+    assert review_body not in template_result.output
+    assert thread_body not in template_result.output
+    assert discussion_body not in template_result.output
+    output = json.loads(template_result.output)
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["counts"] == {
+        "reviews": 1,
+        "review_threads": 1,
+        "resolved_review_threads_omitted": 0,
+        "thread_comments": 1,
+        "discussion_comments": 1,
+    }
+    template = data["classification_template"]
+    assert template["reviews"][0]["review_id"] == "PRR_1"
+    assert set(template["reviews"][0]["body_locator"]) == {"json_pointer", "item_pointer"}
+    assert template["review_threads"][0]["thread_id"] == "PRRT_1"
+    assert template["review_threads"][0]["covered_comments"][0]["comment_id"] == 7
+    assert template["discussion_comments"][0]["comment_id"] == 11
+    assert template["discussion_comments"][0]["needs_reply"] is False
+
+
+def test_classification_template_command_accepts_manifest_json_option(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway(review_threads={42: [_summary_thread("PRRT_1", comment_id=7)]})
+    get_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "get-feedback", "42", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        env=_payload_env(tmp_path),
+    )
+    assert get_result.exit_code == 0, get_result.output
+    manifest = json.loads(get_result.output)["data"]
+
+    template_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "classification-template",
+            "--manifest-json",
+            json.dumps(manifest),
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(fake)),
+    )
+
+    assert template_result.exit_code == 0, template_result.output
+    output = json.loads(template_result.output)
+    assert output["exit_code"] == 0
+    assert output["data"]["classification_template"]["review_threads"][0]["thread_id"] == "PRRT_1"
+
+
+def test_classification_template_command_rejects_invalid_json(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "classification-template", "--format", "json"],
+        obj=_obj(_ctx(FakePRGateway())),
+        input="{",
+    )
+
+    assert result.exit_code == 2, result.output
+    output = json.loads(result.output)
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_json"
+
+
+def test_classification_template_command_handles_prepare_run_found_false_manifest(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway()
+    prepare_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "prepare-run", "--format", "json"],
+        obj=_obj(
+            PrAddressCliContext(
+                pr_gateway=fake,
+                git_gateway=FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"}),
+            )
+        ),
+        env=_payload_env(tmp_path),
+    )
+    assert prepare_result.exit_code == 0, prepare_result.output
+    manifest = json.loads(prepare_result.output)["data"]
+
+    template_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "classification-template", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        input=json.dumps(manifest),
+    )
+
+    assert template_result.exit_code == 0, template_result.output
+    output = json.loads(template_result.output)
+    assert output["data"]["manifest_kind"] == "prepare_run"
+    assert output["data"]["pr_number"] is None
+    assert output["data"]["classification_template"] == {
+        "schema_version": 1,
+        "reviews": [],
+        "review_threads": [],
+        "discussion_comments": [],
+    }
+
+
 def test_get_feedback_default_payload_human_mode_omits_bodies(
     cli_group: ClinkrGroup,
     tmp_path: Path,
