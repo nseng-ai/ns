@@ -12,6 +12,7 @@ from asdl_core.clinkr.non_ideal_state import error_type_for
 from roaster.harness import invocation as harness_invocation
 from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from roaster.models import (
+    DiffLineLocation,
     DiffReviewTarget,
     DocumentReviewTarget,
     FindingsReview,
@@ -21,6 +22,7 @@ from roaster.models import (
     ReviewContextFragment,
     ReviewDefinition,
     ReviewExecutionResponse,
+    ReviewFinding,
     ReviewFormat,
     ReviewUsage,
     RoasterFailure,
@@ -303,6 +305,40 @@ def test_document_findings_mode_uses_document_schema_and_prompt(
     assert "Ship it safely." in stdin
 
 
+def test_prompt_fences_are_collision_safe_for_nested_document_and_context_fences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document = "# Plan\n\n```python\nprint('hello')\n```\n"
+    context = "Context includes ````\ninner\n````\n"
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(
+            kind="document",
+            content=document,
+            label="plan.md",
+            source_path="plan.md",
+        ),
+        context_fragments=(ReviewContextFragment(label="inline context 1", content=context),),
+        review_format="findings",
+    )
+
+    result, _captured, process = _run_with_process(monkeypatch, request=request)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    stdin = process.stdin.buffer
+    assert document in stdin
+    assert context in stdin
+    assert "````text\n# Plan" in stdin
+    assert "`````text\nContext includes" in stdin
+
+
 def test_text_mode_omits_json_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     result, captured, process = _run_with_process(
         monkeypatch,
@@ -457,6 +493,43 @@ def test_progress_events_emit_session_assistant_and_result_messages(
     assert "session started (model=sonnet)" in progress_messages
     assert "assistant turn received (11 chars)" in progress_messages
     assert "result received (1 turn, 1.2s)" in progress_messages
+
+
+def test_review_finding_legacy_diff_fields_normalize_to_diff_line_location() -> None:
+    finding = ReviewFinding.from_json_dict(
+        {
+            "path": "app.py",
+            "line": 12,
+            "severity": "warning",
+            "summary": "Avoid print",
+            "details": "Use click.echo() instead.",
+        }
+    )
+
+    assert isinstance(finding.location, DiffLineLocation)
+    assert finding.path == "app.py"
+    assert finding.line == 12
+    assert finding.to_json_dict() == {
+        "path": "app.py",
+        "line": 12,
+        "severity": "warning",
+        "summary": "Avoid print",
+        "details": "Use click.echo() instead.",
+    }
+
+
+def test_review_finding_rejects_conflicting_legacy_and_location_fields() -> None:
+    with pytest.raises(ValueError, match="legacy `path` conflicts"):
+        ReviewFinding.from_json_dict(
+            {
+                "path": "other.py",
+                "line": 12,
+                "location": {"kind": "diff_line", "path": "app.py", "line": 12},
+                "severity": "warning",
+                "summary": "Avoid print",
+                "details": "Use click.echo() instead.",
+            }
+        )
 
 
 def test_parse_stdout_parses_structured_findings_from_json_output(

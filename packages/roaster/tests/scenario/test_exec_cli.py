@@ -188,6 +188,20 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "Post-only steelthread" not in result.output
 
 
+def test_format_findings_comment_rejects_document_payload(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "format-findings-comment"],
+        input=json.dumps(_document_findings_payload()),
+    )
+
+    assert result.exit_code == 1
+    assert "local-output only" in result.output
+
+
 def test_format_findings_comment_fails_on_malformed_stdin(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -308,11 +322,53 @@ def _findings_payload(findings: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+def _document_findings_payload() -> dict[str, object]:
+    return {
+        "exit_code": 0,
+        "data": {
+            "review_name": "adversarial",
+            "base_ref": None,
+            "target": {"kind": "document", "label": "stdin"},
+            "format": "findings",
+            "count": 1,
+            "findings": [
+                {
+                    "location": {"kind": "global"},
+                    "severity": "warning",
+                    "summary": "Missing rollback",
+                    "details": "Add rollback steps.",
+                }
+            ],
+        },
+    }
+
+
 class _RejectingCreateReviewGateway(FakePRGateway):
     def create_pr_review(
         self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
     ) -> PRReview:
         raise RuntimeError("validation failed")
+
+
+def test_classify_inline_findings_rejects_document_payload(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        }
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "classify-inline-findings", "--pr-number", "47"],
+        input=json.dumps(_document_findings_payload()),
+        obj=_context_with_pr_gateway(fake),
+    )
+
+    assert result.exit_code != 0
+    assert "local-output only" in result.output
 
 
 def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
@@ -478,6 +534,28 @@ def test_post_inline_findings_handles_empty_findings_as_noop(
     data = json.loads(result.output)
     assert data["posted_count"] == 0
     assert data["fallback_only_count"] == 0
+    assert fake.created_reviews == ()
+
+
+def test_post_inline_findings_rejects_document_payload_without_posting(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        }
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(_document_findings_payload()),
+        obj=_context_with_pr_gateway(fake),
+    )
+
+    assert result.exit_code != 0
+    assert "local-output only" in result.output
     assert fake.created_reviews == ()
 
 

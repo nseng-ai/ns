@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, ValidationError, field_validator, model_serializer, model_validator
+from pydantic import Field, ValidationError, field_validator, model_serializer
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
@@ -387,27 +387,61 @@ DocumentReviewLocation: TypeAlias = Annotated[
 class ReviewFinding(ClinkrModel):
     """One actionable review finding emitted by the executor."""
 
-    path: str | None = None
-    line: int | None = None
+    location: ReviewLocation
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
-    location: ReviewLocation | None = None
 
-    @field_validator("path", "summary", "details")
+    @field_validator("summary", "details")
     @classmethod
-    def _reject_blank_strings(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("must be non-empty when provided")
+    def _reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must be non-empty")
         return value
 
-    @model_validator(mode="after")
-    def _fill_legacy_diff_fields_from_location(self) -> ReviewFinding:
+    @property
+    def path(self) -> str | None:
         if isinstance(self.location, DiffLineLocation):
-            path = self.path or self.location.path
-            line = self.line if self.line is not None else self.location.line
-            return self.model_copy(update={"path": path, "line": line})
-        return self
+            return self.location.path
+        return None
+
+    @property
+    def line(self) -> int | None:
+        if isinstance(self.location, DiffLineLocation):
+            return self.location.line
+        return None
+
+    @classmethod
+    def diff_line(
+        cls,
+        *,
+        path: str,
+        line: int | None,
+        severity: Severity,
+        summary: str,
+        details: str,
+    ) -> ReviewFinding:
+        return cls(
+            location=DiffLineLocation(kind="diff_line", path=path, line=line),
+            severity=severity,
+            summary=summary,
+            details=details,
+        )
+
+    @classmethod
+    def global_finding(
+        cls,
+        *,
+        severity: Severity,
+        summary: str,
+        details: str,
+    ) -> ReviewFinding:
+        return cls(
+            location=GlobalLocation(kind="global"),
+            severity=severity,
+            summary=summary,
+            details=details,
+        )
 
     @classmethod
     def from_json_dict(cls, data: dict[str, Any]) -> ReviewFinding:
@@ -424,6 +458,11 @@ class ReviewFinding(ClinkrModel):
             raise ValueError(f"Missing review-finding fields: {field_list}")
 
         _validate_finding_common_payload(data)
+        common_payload = {
+            "severity": data["severity"],
+            "summary": data["summary"],
+            "details": data["details"],
+        }
 
         if "location" not in data:
             missing_legacy_fields = sorted(field for field in ("path", "line") if field not in data)
@@ -433,20 +472,43 @@ class ReviewFinding(ClinkrModel):
                     "Review finding must include `location` or legacy diff fields; "
                     f"missing: {field_list}"
                 )
+            location_payload = {
+                "kind": "diff_line",
+                "path": data["path"],
+                "line": data["line"],
+            }
+        else:
+            location_payload = data["location"]
+
         try:
-            finding = cls.model_validate(data)
+            finding = cls.model_validate({"location": location_payload, **common_payload})
         except ValidationError as exc:
             raise ValueError(str(exc)) from exc
-        if finding.location is None and finding.path is None:
-            raise ValueError("Review finding field `path` must be a non-empty string.")
+
+        legacy_fields = sorted(field for field in ("path", "line") if field in data)
+        if legacy_fields and not isinstance(finding.location, DiffLineLocation):
+            field_list = ", ".join(legacy_fields)
+            raise ValueError(
+                "Review finding cannot combine document/global `location` with legacy fields: "
+                f"{field_list}"
+            )
+        if isinstance(finding.location, DiffLineLocation):
+            if "path" in data and data["path"] != finding.location.path:
+                raise ValueError("Review finding legacy `path` conflicts with `location.path`.")
+            if "line" in data and data["line"] != finding.location.line:
+                raise ValueError("Review finding legacy `line` conflicts with `location.line`.")
         return finding
 
     def to_json_dict(self) -> dict[str, Any]:
-        """Serialize while omitting absent generalized location metadata."""
-        data = self.model_dump(mode="json", exclude_none=False)
-        if self.location is None:
-            data.pop("location", None)
-        return data
+        """Serialize diff findings in legacy shape and document findings by location."""
+        common = {
+            "severity": self.severity,
+            "summary": self.summary,
+            "details": self.details,
+        }
+        if isinstance(self.location, DiffLineLocation):
+            return {"path": self.location.path, "line": self.location.line, **common}
+        return {"location": self.location.model_dump(mode="json"), **common}
 
 
 def _validate_finding_common_payload(data: dict[str, Any]) -> None:
@@ -469,7 +531,6 @@ class ClaudeDiffFinding(ClinkrModel):
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
-    location: DiffLineLocation | None = None
 
 
 class ClaudeDocumentFinding(ClinkrModel):
@@ -479,8 +540,6 @@ class ClaudeDocumentFinding(ClinkrModel):
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
-    path: str | None = Field(default=None, min_length=1)
-    line: int | None = None
 
 
 class ClaudeDiffFindingsOutput(ClinkrModel):
@@ -562,7 +621,6 @@ class LocalReviewResult(ClinkrModel):
     usage: ReviewUsage | None = None
     target_source_path: str | None = None
     context_fragments: tuple[ReviewContextFragment, ...] = ()
-    compatibility_warnings: tuple[str, ...] = ()
 
     @model_serializer
     def serialize_model(self) -> dict[str, Any]:
@@ -587,7 +645,6 @@ class LocalReviewResult(ClinkrModel):
                 "fragments": [{"label": fragment.label} for fragment in self.context_fragments],
                 "fragment_count": len(self.context_fragments),
             },
-            "compatibility_warnings": list(self.compatibility_warnings),
             "usage": serialize_to_json_dict(self.usage) if self.usage else None,
             **serialize_to_json_dict(self.payload),
         }
@@ -626,7 +683,6 @@ class ResolvedReviewRunPlan:
     changed_path_count: int | None
     target_kind: TargetKind = "diff"
     target_label: str | None = None
-    compatibility_warnings: tuple[str, ...] = ()
 
 
 class MatchingReviewSelectionResult(ClinkrModel):

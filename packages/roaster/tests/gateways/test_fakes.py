@@ -209,7 +209,7 @@ def test_fake_list_harnesses_reports_binary_absent() -> None:
 
 
 def test_fake_run_review_returns_configured_response() -> None:
-    finding = ReviewFinding(
+    finding = ReviewFinding.diff_line(
         path="app.py",
         line=1,
         severity="warning",

@@ -21,7 +21,7 @@ _PATCH = """@@ -10,4 +10,5 @@ def main():
 
 
 def _finding(path: str, line: int | None) -> ReviewFinding:
-    return ReviewFinding(
+    return ReviewFinding.diff_line(
         path=path,
         line=line,
         severity="warning",

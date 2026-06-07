@@ -30,7 +30,6 @@ from roaster.models import (
     ReviewTarget,
     RoasterFailure,
 )
-from roaster.review_compatibility import evaluate_review_compatibility
 from roaster.review_definition import parse_review_definition
 from roaster.review_selection import build_review_selection
 
@@ -94,11 +93,6 @@ def run_review_by_key(
     if isinstance(target, BaseRefUnavailable):
         return target
 
-    compatibility_warnings = _compatibility_warnings(
-        review_definition=review_definition,
-        target=target,
-    )
-
     if progress is not None:
         progress(
             _run_plan(
@@ -106,7 +100,6 @@ def run_review_by_key(
                 resolved_model=resolved_model,
                 resolved_harness=resolved_harness,
                 target=target,
-                compatibility_warnings=compatibility_warnings,
             )
         )
 
@@ -117,7 +110,6 @@ def run_review_by_key(
         resolved_harness=resolved_harness,
         target=target,
         context_fragments=context_fragments,
-        compatibility_warnings=compatibility_warnings,
         requested_format=requested_format,
         harness_runtime=harness_runtime,
     )
@@ -186,7 +178,6 @@ def _execute_loaded_review(
     resolved_harness: str,
     target: ReviewTarget,
     context_fragments: tuple[ReviewContextFragment, ...],
-    compatibility_warnings: tuple[str, ...],
     requested_format: ReviewFormat,
     harness_runtime: HarnessRuntime,
 ) -> LocalReviewResult | RoasterFailure:
@@ -212,7 +203,6 @@ def _execute_loaded_review(
         target_label=_target_label(target),
         target_source_path=_target_source_path(target),
         context_fragments=context_fragments,
-        compatibility_warnings=compatibility_warnings,
         payload=execution_response.payload,
         usage=execution_response.usage,
     )
@@ -233,27 +223,12 @@ def _resolve_review_target(
     return DiffReviewTarget(kind="diff", local_diff=local_diff)
 
 
-def _compatibility_warnings(
-    *,
-    review_definition: ReviewDefinition,
-    target: ReviewTarget,
-) -> tuple[str, ...]:
-    compatibility = evaluate_review_compatibility(
-        review_definition=review_definition,
-        target_kind=target.kind,
-    )
-    if compatibility.warning is None:
-        return ()
-    return (compatibility.warning,)
-
-
 def _run_plan(
     *,
     review_definition: ReviewDefinition,
     resolved_model: str,
     resolved_harness: str,
     target: ReviewTarget,
-    compatibility_warnings: tuple[str, ...],
 ) -> ResolvedReviewRunPlan:
     if isinstance(target, DiffReviewTarget):
         return ResolvedReviewRunPlan(
@@ -264,7 +239,6 @@ def _run_plan(
             changed_path_count=len(target.local_diff.changed_paths),
             target_kind="diff",
             target_label=_target_label(target),
-            compatibility_warnings=compatibility_warnings,
         )
     return ResolvedReviewRunPlan(
         review_name=review_definition.name,
@@ -274,7 +248,6 @@ def _run_plan(
         changed_path_count=None,
         target_kind="document",
         target_label=_target_label(target),
-        compatibility_warnings=compatibility_warnings,
     )
 
 

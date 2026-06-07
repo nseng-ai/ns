@@ -22,6 +22,7 @@ from roaster.models import (
     ClaudeCodeNonJsonResult,
     ClaudeDiffFindingsOutput,
     ClaudeDocumentFindingsOutput,
+    DiffLineLocation,
     DiffReviewTarget,
     DocumentReviewTarget,
     FindingsReview,
@@ -142,8 +143,7 @@ def _assemble_review_prompt(
             target_metadata=_target_metadata(target),
             additive_context=_additive_context(context_fragments),
             target_guidance=_target_guidance(target),
-            target_fence_language=_target_fence_language(target),
-            target_content=_target_content(target),
+            target_block=_target_block(target),
         )
         .strip()
     )
@@ -176,9 +176,7 @@ def _additive_context(context_fragments: tuple[ReviewContextFragment, ...]) -> s
             [
                 f"### {fragment.label}",
                 "",
-                "```text",
-                fragment.content,
-                "```",
+                _render_prompt_fence(fragment.content, language="text"),
             ]
         )
     return "\n".join(blocks)
@@ -203,16 +201,27 @@ def _target_guidance(target: ReviewTarget) -> str:
     )
 
 
-def _target_fence_language(target: ReviewTarget) -> str:
+def _target_block(target: ReviewTarget) -> str:
     if isinstance(target, DiffReviewTarget):
-        return "diff"
-    return "text"
+        return _render_prompt_fence(target.local_diff.diff_text, language="diff")
+    return _render_prompt_fence(target.content, language="text")
 
 
-def _target_content(target: ReviewTarget) -> str:
-    if isinstance(target, DiffReviewTarget):
-        return target.local_diff.diff_text
-    return target.content
+def _render_prompt_fence(content: str, *, language: str) -> str:
+    fence = _collision_free_backtick_fence(content)
+    return "\n".join((f"{fence}{language}", content, fence))
+
+
+def _collision_free_backtick_fence(content: str) -> str:
+    longest_run = 0
+    current_run = 0
+    for character in content:
+        if character == "`":
+            current_run += 1
+            longest_run = max(longest_run, current_run)
+        else:
+            current_run = 0
+    return "`" * max(3, longest_run + 1)
 
 
 def _claude_code_supports_model(model: str) -> bool:
@@ -307,9 +316,9 @@ def _parse_findings_payload(
                     "Document review findings must include a `global` or `text_anchor` location."
                 ),
             )
-        if isinstance(target, DiffReviewTarget) and isinstance(
+        if isinstance(target, DiffReviewTarget) and not isinstance(
             finding.location,
-            (GlobalLocation, TextAnchorLocation),
+            DiffLineLocation,
         ):
             return ClaudeCodeInvalidFindings(
                 message="Diff review findings must use legacy path/line or a `diff_line` location.",

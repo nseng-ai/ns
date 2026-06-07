@@ -62,7 +62,7 @@ def _context(cwd: Path) -> ClinkrContextObject:
             default_response=ReviewExecutionResponse(
                 payload=FindingsReview(
                     findings=(
-                        ReviewFinding(
+                        ReviewFinding.diff_line(
                             path="app.py",
                             line=12,
                             severity="warning",

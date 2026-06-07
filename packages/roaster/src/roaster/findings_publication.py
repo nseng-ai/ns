@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.models import ReviewFinding
+from roaster.models import ReviewFinding, TargetKind
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -53,6 +53,9 @@ class FindingsPayload:
     base_ref: str
     count: int
     findings: tuple[ReviewFinding, ...]
+    target_kind: TargetKind = "diff"
+    target_label: str | None = None
+    target_source_path: str | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -116,6 +119,10 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
     review_name = _coerce_str(inner.get("review_name"), default="unknown")
     base_ref = _coerce_str(inner.get("base_ref"), default="unknown")
+    target_metadata = _parse_target_metadata(inner)
+    if isinstance(target_metadata, FindingsPayloadParseError):
+        return target_metadata
+    target_kind, target_label, target_source_path = target_metadata
 
     raw_findings = inner.get("findings", [])
     if not isinstance(raw_findings, list):
@@ -137,6 +144,9 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
         base_ref=base_ref,
         count=count,
         findings=tuple(findings),
+        target_kind=target_kind,
+        target_label=target_label,
+        target_source_path=target_source_path,
     )
 
 
@@ -159,6 +169,20 @@ def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResu
             return InlinePostingStatusParseError(message="inline result `data` must be an object")
 
     return _parse_inline_posting_status_object(status_data)
+
+
+def ensure_publishable_diff_payload(
+    payload: FindingsPayload,
+) -> FindingsPayload | FindingsPayloadParseError:
+    """Reject local-only document review payloads before PR publication."""
+    if payload.target_kind != "diff":
+        return FindingsPayloadParseError(
+            message=(
+                "document review findings are local-output only "
+                "and cannot be published as PR comments"
+            )
+        )
+    return payload
 
 
 def render_findings_comment(
@@ -333,6 +357,49 @@ def _coerce_str(value: Any, *, default: str) -> str:
     if isinstance(value, str) and value:
         return value
     return default
+
+
+def _parse_target_metadata(
+    inner: dict[str, Any],
+) -> tuple[TargetKind, str | None, str | None] | FindingsPayloadParseError:
+    target = inner.get("target")
+    if target is not None:
+        if not isinstance(target, dict):
+            return FindingsPayloadParseError(message="`target` must be an object when present")
+        raw_kind = target.get("kind")
+        raw_label = target.get("label")
+        raw_source_path = target.get("source_path")
+    else:
+        raw_kind = inner.get("target_kind", "diff")
+        raw_label = inner.get("target_label")
+        raw_source_path = inner.get("target_source_path")
+
+    if raw_kind is None:
+        raw_kind = "diff"
+    if raw_kind == "diff":
+        target_kind: TargetKind = "diff"
+    elif raw_kind == "document":
+        target_kind = "document"
+    else:
+        return FindingsPayloadParseError(
+            message="target kind must be either `diff` or `document` when present"
+        )
+
+    target_label = _optional_str(raw_label, field_name="target label")
+    if isinstance(target_label, FindingsPayloadParseError):
+        return target_label
+    target_source_path = _optional_str(raw_source_path, field_name="target source_path")
+    if isinstance(target_source_path, FindingsPayloadParseError):
+        return target_source_path
+    return target_kind, target_label, target_source_path
+
+
+def _optional_str(value: Any, *, field_name: str) -> str | None | FindingsPayloadParseError:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value or None
+    return FindingsPayloadParseError(message=f"{field_name} must be a string when present")
 
 
 def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:

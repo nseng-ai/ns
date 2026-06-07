@@ -141,7 +141,7 @@ def test_roaster_version_option(cli_group: ClinkrGroup) -> None:
 
 
 def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
-    finding = ReviewFinding(
+    finding = ReviewFinding.diff_line(
         path="app.py",
         line=1,
         severity="warning",
@@ -349,7 +349,7 @@ def test_review_run_surfaces_no_harness_detected(cli_group: ClinkrGroup) -> None
 
 
 def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
-    finding = ReviewFinding(
+    finding = ReviewFinding.diff_line(
         path="app.py",
         line=1,
         severity="warning",

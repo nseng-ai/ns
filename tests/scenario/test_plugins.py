@@ -339,7 +339,7 @@ def test_roaster_plugin_integration() -> None:
             default_response=ReviewExecutionResponse(
                 payload=FindingsReview(
                     findings=(
-                        ReviewFinding(
+                        ReviewFinding.diff_line(
                             path="app.py",
                             line=1,
                             severity="warning",
