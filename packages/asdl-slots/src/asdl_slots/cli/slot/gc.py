@@ -24,17 +24,17 @@ from asdl_slots.cli.slot.cleanup_rendering import (
     cleanup_to_result,
 )
 from asdl_slots.cli.slot.context import load_slots_context
-from asdl_slots.lifecycle.gc import (
-    execute_gc_plan,
-    outcome_from_gc_plan,
-    plan_gc,
-    plan_gc_cleanup,
-)
 from asdl_slots.lifecycle.outcomes import (
     SlotFreeCleanupAction,
     SlotGcAction,
     SlotGcOutcome,
     SlotLifecycleFailure,
+)
+from asdl_slots.lifecycle.release import (
+    execute_gc_plan,
+    outcome_from_gc_plan,
+    plan_gc,
+    plan_gc_cleanup,
 )
 from asdl_slots.repo_context import NoRepoSentinel
 

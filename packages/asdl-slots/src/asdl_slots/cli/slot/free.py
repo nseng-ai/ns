@@ -22,13 +22,6 @@ from asdl_slots.cli.slot.selectors import (
 )
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch
-from asdl_slots.lifecycle.free import (
-    SLOT_FREE_ALL_CLEANUP_ACTIONS,
-    execute_cleanup_for_freed_slots,
-    execute_free_plan,
-    plan_cleanup_for_free_targets,
-    plan_free_slots,
-)
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot as LifecycleFreedSlot,
 )
@@ -39,6 +32,13 @@ from asdl_slots.lifecycle.outcomes import (
     SlotFreeOutcome,
     SlotFreePlan,
     SlotLifecycleFailure,
+)
+from asdl_slots.lifecycle.release import (
+    SLOT_FREE_ALL_CLEANUP_ACTIONS,
+    execute_cleanup_for_freed_slots,
+    execute_free_plan,
+    plan_cleanup_for_free_targets,
+    plan_free_slots,
 )
 from asdl_slots.repo_context import NoRepoSentinel
 
