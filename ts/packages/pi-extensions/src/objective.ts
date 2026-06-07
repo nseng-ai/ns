@@ -1,12 +1,7 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import {
-	chooseActiveObjectiveSlug,
-	formatExecFailure,
-	formatExecStartupFailure,
-	type ObjectiveSelectionSpec,
-} from "@asdl/pi-extension-runtime/objective-selection";
+import { chooseActiveObjectiveSlug, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
-import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
 
 export type { ExecResult } from "./command-runtime.ts";

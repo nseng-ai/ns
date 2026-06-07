@@ -61,11 +61,14 @@ interface InvokeObjectiveStackImplSkillOptions {
 	ctx: ObjectiveSelectionContext;
 	spec: ObjectiveStackImplCommandSpec;
 	objective: string;
+	waitForIdle?: boolean;
 }
 
 async function invokeObjectiveStackImplSkill(options: InvokeObjectiveStackImplSkillOptions): Promise<void> {
-	const { host, ctx, spec, objective } = options;
-	await ctx.waitForIdle();
+	const { host, ctx, spec, objective, waitForIdle = true } = options;
+	if (waitForIdle) {
+		await ctx.waitForIdle();
+	}
 
 	const skill = await expandSkillBlock(host, spec.skillName);
 	if (ctx.hasUI) {
@@ -101,7 +104,7 @@ async function handleObjectiveStackImplCommand(options: HandleObjectiveStackImpl
 			return;
 		}
 
-		await invokeObjectiveStackImplSkill({ host, ctx, spec, objective: slug });
+		await invokeObjectiveStackImplSkill({ host, ctx, spec, objective: slug, waitForIdle: false });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {

@@ -1,4 +1,4 @@
-import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
@@ -12,7 +12,6 @@ import {
 } from "./objective-picker.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
-const MAX_ERROR_CHARS = 4_000;
 
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
@@ -81,30 +80,6 @@ interface SelectChangedObjectivesOrOtherOptions {
 	spec: ObjectiveSelectionSpec;
 	objectiveList: ObjectiveList;
 	selection: ObjectiveDiffSelection;
-}
-
-export function truncateTail(text: string, maxChars: number): string {
-	const tail = tailText(text, { maxChars });
-	if (tail === text) {
-		return text;
-	}
-
-	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
-}
-
-export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateTail(
-		`objective command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-		MAX_ERROR_CHARS,
-	);
-}
-
-export function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
 async function listActiveObjectives(

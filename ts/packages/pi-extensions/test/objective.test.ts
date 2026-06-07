@@ -506,6 +506,7 @@ describe("objective:stack-impl command", () => {
 				args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
 				options: { cwd: ROOT, timeout: 30_000 },
 			});
+			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});
 	});

@@ -6,6 +6,8 @@ export {
 } from "./branch-slug.ts";
 export {
 	formatCommand,
+	formatExecFailure,
+	formatExecStartupFailure,
 	formatOutputSection,
 	formatPlainOutputSection,
 	formatShellArg,
@@ -13,6 +15,7 @@ export {
 	shellQuote,
 	stripTerminalEscapes,
 	tailText,
+	truncateTail,
 	type ExecResult,
 	type PiExecResultLike,
 	type TailTextOptions,
