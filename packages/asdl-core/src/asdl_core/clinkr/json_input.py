@@ -1,4 +1,4 @@
-"""Shared JSON input loading for pr-address CLI operations."""
+"""Shared JSON input loading for Clinkr CLI operations."""
 
 from __future__ import annotations
 
