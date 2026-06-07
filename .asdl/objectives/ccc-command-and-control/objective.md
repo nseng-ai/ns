@@ -169,7 +169,7 @@ Risks:
 
 - Move-heavy TypeScript refactors can create import churn and test fixture churn. Mitigate by moving one coherent slice per branch and preserving compatibility shims.
 - Creating `@asdl/ccc` before extracting neutral runtime/session-artifact modules may tempt generic helpers into CCC. Mitigate by explicitly parking helpers in neutral modules or leaving them lower until a second consumer forces extraction.
-- Moving `/planned-branch:up-and-impl` can blur planned-branch adapter ownership. Mitigate by keeping write/create/impl in planned-branch and moving only the orchestration that checks out or starts sessions.
+- Moving `/planned-branch:up-and-impl` can blur planned-branch adapter ownership. This is partially de-risked by the current CCC slice: checkout/new-session launch orchestration moved into CCC while write/create/impl, saved-plan resolution, Branch Memory attachment, and attached-plan loading stayed below.
 - Moving handoff-tab launch can blur handoff lifecycle ownership. Mitigate by keeping identity/storage/listing in handoff and moving only cmux/Pi launch orchestration.
 - Moving Objective stack implementation can blur Objective record ownership. Mitigate by keeping Objective selection/list/read/update mechanics below CCC and giving CCC only the orchestration entrypoint.
 - `worktree-status.ts` is large and mixed. Moving it wholesale would likely be wrong; split first.

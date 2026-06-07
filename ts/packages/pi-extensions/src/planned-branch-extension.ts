@@ -1,4 +1,5 @@
 import { Text, type Component } from "@earendil-works/pi-tui";
+import { formatPlannedBranchUpAndImplFollowUpFlow, runPlannedBranchUpAndImplLaunch } from "@asdl/ccc/planned-branch-up-and-impl";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
@@ -726,7 +727,7 @@ async function handleUpAndImplCommand(
 		presentPlannedBranchMessage(
 			pi,
 			ctx,
-			`Dry run: no branch was created, no checkout happened, no new session was started, and no implementation prompt was sent.\n\n${previewText}\n\nNew-session implementation flow:\n${formatUpAndImplFollowUpFlow(preview.targetBranch, preview.key)}`,
+			`Dry run: no branch was created, no checkout happened, no new session was started, and no implementation prompt was sent.\n\n${previewText}\n\nNew-session implementation flow:\n${formatPlannedBranchUpAndImplFollowUpFlow(preview.targetBranch, preview.key)}`,
 			{ status: "dry-run", preview },
 			"info",
 		);
@@ -745,59 +746,20 @@ async function handleUpAndImplCommand(
 
 	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
 
-	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "checking out planned branch…");
-	try {
-		await checkoutPlannedBranch(pi, ctx, evidence.branch);
-	} catch (error) {
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
-		presentPlannedBranchFailure(
-			pi,
-			ctx,
-			"Created planned branch and attached the plan, but failed to check out the planned branch.",
-			error,
-			preview,
-		);
+	const launchResult = await runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: UP_AND_IMPL_STATUS_KEY, evidence });
+	if (launchResult.type === "launched") {
+		return;
+	}
+	if (launchResult.type === "cancelled") {
+		presentPlannedBranchMessage(pi, ctx, launchResult.message, { status: "cancelled", preview, evidence }, "warning");
 		return;
 	}
 
-	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "starting implementation session…");
-	let isReplacementSessionActive = false;
-	try {
-		const parentSession = ctx.sessionManager?.getSessionFile?.();
-		const newSessionOptions: NewSessionOptions = {
-			withSession: async (newCtx) => {
-				isReplacementSessionActive = true;
-				await newCtx.sendUserMessage(`/planned-branch:impl ${evidence.key}`);
-			},
-		};
-		if (parentSession !== undefined) {
-			newSessionOptions.parentSession = parentSession;
-		}
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
-		const result = await ctx.newSession(newSessionOptions);
-		if (!result.cancelled) {
-			return;
-		}
-
-		presentPlannedBranchMessage(
-			pi,
-			ctx,
-			`Created planned branch, attached the plan, and checked out ${evidence.branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${evidence.key} to continue.`,
-			{ status: "cancelled", preview, evidence },
-			"warning",
-		);
-	} catch (error) {
-		if (isReplacementSessionActive) {
-			throw error;
-		}
-		presentPlannedBranchFailure(
-			pi,
-			ctx,
-			"Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.",
-			error,
-			preview,
-		);
-	}
+	const title =
+		launchResult.phase === "checkout"
+			? "Created planned branch and attached the plan, but failed to check out the planned branch."
+			: "Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.";
+	presentPlannedBranchFailure(pi, ctx, title, launchResult.message, preview);
 }
 
 async function createPlannedBranchFromPreview(
@@ -818,17 +780,6 @@ async function createPlannedBranchFromPreview(
 	}
 
 	return createPlannedBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
-}
-
-async function checkoutPlannedBranch(pi: ExtensionAPI, ctx: CommandContext, targetBranch: string): Promise<void> {
-	const result = await pi.exec("git", ["checkout", targetBranch], { cwd: ctx.cwd, timeout: 30_000 });
-	if (result.code !== 0) {
-		throw new Error(`git checkout ${targetBranch} failed with exit code ${result.code}: ${result.stderr || result.stdout || "(no output)"}`);
-	}
-}
-
-function formatUpAndImplFollowUpFlow(targetBranch: string, key: string): string {
-	return [`git checkout ${targetBranch}`, `/new`, `/planned-branch:impl ${key}`].join("\n");
 }
 
 function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {
