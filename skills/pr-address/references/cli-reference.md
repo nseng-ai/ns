@@ -199,6 +199,50 @@ pr-address exec read-feedback-detail \
   --format json
 ```
 
+### `classification-template`
+
+Build a deterministic fill-in classification scaffold from a compact
+`prepare-run` or `get-feedback` payload manifest. The helper uses only manifest
+IDs and body locators; it does not read raw payload bodies or decide whether
+feedback is actionable.
+
+**Invocation:** reads the bare compact manifest JSON from stdin by default.
+`--manifest-json` is also available for direct/manual invocation.
+
+```bash
+jq '.data' prepare.json \
+  | pr-address exec classification-template --format json
+```
+
+**Output fields (under `data`):**
+
+| Field                     | Description                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `manifest_kind`           | `prepare_run` or `get_feedback`                                                                                   |
+| `pr_number`               | PR number when present; `null` for a `prepare-run` no-PR manifest                                                 |
+| `payload_path`            | Raw payload path echoed from `manifest.payload_reference.payload_path`                                            |
+| `counts`                  | Counts for reviews, unresolved review threads, omitted resolved threads, covered thread comments, and discussions |
+| `classification_template` | Schema-versioned fill-in scaffold with deterministic IDs and minimal locator refs prefilled                       |
+
+`classification_template` uses the strict classification packet field names and
+contains only contract fields. Body locators include only `json_pointer` and
+`item_pointer`; context such as `path`, `line`, `author`, `domain`, and
+`body_chars` stays in the compact manifest, not in the classification packet.
+
+The raw template is intentionally not a valid completed classification. It uses
+`"<fill: actionable|informational>"` disposition placeholders, empty summaries,
+and `null` semantic fields so an agent/LLM must fill judgment fields before
+calling `validate-feedback-classification`.
+
+Deterministic coverage:
+
+- every PR-level review is included;
+- every unresolved review thread is included, with every thread comment listed
+  under `covered_comments`;
+- resolved review threads are omitted because current validation rejects them;
+- every PR discussion comment is included with `needs_reply: false` as the
+  default fill-in value.
+
 ### `validate-feedback-classification`
 
 Validate a strict PR feedback classification packet against a compact payload
@@ -521,6 +565,7 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get-feedback`                     | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
 | `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw payload artifact.                                                                                        |
+| `classification-template`          | Detailed above. Build a deterministic fill-in classification scaffold from a compact manifest.                                                                         |
 | `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
 | `get-pr-for-branch`                | Look up the open PR for a branch                                                                                                                                       |
