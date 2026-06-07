@@ -55,6 +55,17 @@ function jsonLine(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
 }
 
+function finalTextMessage(text: string, stopReason = "stop"): string {
+	return jsonLine({
+		type: "message_end",
+		message: {
+			role: "assistant",
+			content: [{ type: "text", text }],
+			stopReason,
+		},
+	});
+}
+
 describe("runner subagent process dispatcher", () => {
 	test("resolves a safely discoverable current Pi command before falling back to installed pi", () => {
 		const args = ["--mode", "json"];
@@ -111,9 +122,9 @@ describe("runner subagent process dispatcher", () => {
 			"--mode",
 			"json",
 			"-p",
-			"--no-extensions",
 			"--model",
 			"haiku",
+			"--no-extensions",
 			"--extension",
 			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
 			"--session",
@@ -125,6 +136,75 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.status).toBe("stopped-without-terminal");
+	});
+
+	test("passes inherited model and non-off thinking to child Pi and progress metadata", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(
+			{ getThinkingLevel: () => "medium" },
+			{ cwd: "/repo", model: { provider: "anthropic", id: "claude-sonnet-4-5" } },
+			finalTextOptions({ title: "Launch task" }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--provider",
+			"anthropic",
+			"--model",
+			"claude-sonnet-4-5",
+			"--thinking",
+			"medium",
+			"--no-extensions",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.progress.launch).toEqual({
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			thinkingLevel: "medium",
+			modelArgPassed: true,
+			thinkingArgPassed: true,
+		});
+	});
+
+	test("omits the thinking flag for off while preserving off launch metadata", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{ prompt: "Do the delegated task.", returnMode: "final-text", launch: { thinkingLevel: "off" } },
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.progress.launch).toEqual({
+			thinkingLevel: "off",
+			modelArgPassed: false,
+			thinkingArgPassed: false,
+		});
 	});
 
 	test("returns stopped-without-terminal for clean subagent completion", async () => {
@@ -172,9 +252,9 @@ describe("runner subagent process dispatcher", () => {
 			"--mode",
 			"json",
 			"-p",
-			"--no-extensions",
 			"--model",
 			"haiku",
+			"--no-extensions",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
 			"Do the delegated task.",

@@ -1,4 +1,4 @@
-import type { RunnerSubagentProgress } from "../runner-subagent.ts";
+import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
 import {
 	assistantVisibleTextFromMessage,
@@ -13,6 +13,7 @@ export interface RunnerSubagentJsonEventParserOptions {
 	now?: () => number;
 	startTimeMs?: number;
 	terminalToolNames?: Iterable<string>;
+	launch?: RunnerSubagentLaunchMetadata;
 }
 
 export interface RunnerSubagentJsonSessionHeader {
@@ -75,6 +76,7 @@ export class RunnerSubagentJsonEventParser {
 	private readonly now: () => number;
 	private readonly startTimeMs: number;
 	private readonly terminalToolNames: Set<string>;
+	private readonly launch: RunnerSubagentLaunchMetadata | undefined;
 	private buffer = "";
 	private state: ParserState = "starting";
 	private currentTool: string | undefined;
@@ -98,6 +100,7 @@ export class RunnerSubagentJsonEventParser {
 		this.now = options.now ?? Date.now;
 		this.startTimeMs = options.startTimeMs ?? this.now();
 		this.terminalToolNames = new Set(options.terminalToolNames ?? []);
+		this.launch = options.launch;
 		this.sessionFile = options.sessionFile;
 	}
 
@@ -156,6 +159,7 @@ export class RunnerSubagentJsonEventParser {
 			turnCount: this.turnCount,
 			elapsedMs: this.elapsedMs(),
 			...(this.sessionFile === undefined ? {} : { sessionFile: this.sessionFile }),
+			...(this.launch === undefined ? {} : { launch: this.launch }),
 		};
 	}
 

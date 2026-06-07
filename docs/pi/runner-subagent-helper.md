@@ -15,12 +15,14 @@ The helper API lives in `ts/packages/pi-extensions/src/runner-subagent.ts` as `d
 The process runner launches a subagent shaped like:
 
 ```text
-pi --mode json -p --no-extensions --extension <generated-runtime> --session <file> <prompt>
+pi --mode json -p [--provider <provider> --model <model>] [--thinking <level>] --no-extensions --extension <generated-runtime> --session <file> <prompt>
 ```
 
 Important details:
 
 - `--mode json -p` gives the parent JSONL session events to parse.
+- `--provider`/`--model` are passed when the parent context has an explicit model or the caller provides a launch override.
+- `--thinking <level>` is passed for non-off thinking levels; `off` is still recorded and displayed as the actual child thinking setting but does not need a CLI flag.
 - `--no-extensions` prevents ordinary project parent extensions from recursively loading in the subagent.
 - `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools when terminal mode is used.
 - `--session <file>` points at a parent-created runner subagent artifact. The returned `sessionFile` is inspectable after blocked/error/cancelled outcomes when Pi writes the session.
@@ -77,12 +79,13 @@ Mixed terminal-plus-sibling behavior is deterministic from the parent's perspect
 
 ## Progress and UI
 
-The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, and session path. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
+The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, session path, and optional launch metadata. Launch metadata records the model/provider and thinking level that the child process was asked to use, plus whether model/thinking CLI args were actually passed. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
 
 `RunnerSubagentProgress` remains metadata-only. Activity previews are for local display surfaces such as an above-editor `ctx.ui.setWidget(...)`, not parent tool content/details. Parent tools should keep partial `onUpdate(...)` text and final tool results minimal so child assistant/tool details do not enter the parent model context.
 
 The maintained generic integration surface is `dispatch_runner_subagent`. Its MVP widget can show:
 
+- actual child model and thinking launch metadata
 - streaming visible assistant text preview
 - current tool input preview
 - last completed tool result preview

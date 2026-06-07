@@ -1,6 +1,8 @@
+import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import { composePiAgentPrompt, loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import {
 	dispatchRunnerSubagent,
+	type RunnerSubagentLaunchMetadata,
 	type RunnerSubagentPi,
 	type RunnerSubagentProgress,
 	type RunnerSubagentResult,
@@ -43,6 +45,7 @@ export interface DispatchRunnerSubagentDetails {
 	elapsedMs: number;
 	sessionFile?: string;
 	progress: RunnerSubagentResult["progress"];
+	launch?: RunnerSubagentLaunchMetadata;
 	finalTextChars?: number;
 	finalTextTruncated?: boolean;
 	diagnostic?: string;
@@ -53,6 +56,7 @@ export interface DispatchRunnerSubagentDetails {
 
 export interface ExtensionContext {
 	cwd: string;
+	model?: ModelInfo;
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, text: string | undefined): void;
@@ -77,6 +81,7 @@ export interface ToolDefinition {
 }
 
 export interface ExtensionAPI extends RunnerSubagentPi {
+	getThinkingLevel?: () => ThinkingLevel;
 	registerTool(tool: ToolDefinition): void;
 }
 
@@ -127,31 +132,37 @@ export default function dispatchRunnerSubagentExtension(
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
 			const childPrompt = composePiAgentPrompt(runnerDefinition, input);
+			const launch = resolveDispatchRunnerSubagentLaunch(pi, ctx);
 			const initialUpdate: RunnerSubagentUpdate = {
-				progress: initialDispatchProgress(input.title),
+				progress: initialDispatchProgress(input.title, launch),
 				activity: emptyRunnerSubagentActivity(),
 			};
 			onUpdate?.({
 				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
-				details: { status: "starting", title: input.title, progress: initialUpdate.progress },
+				details: { status: "starting", title: input.title, progress: initialUpdate.progress, launch },
 			});
 			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
 
 			try {
-				const result = await dispatchRunnerSubagent(pi, { cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }) }, {
-					title: input.title,
-					prompt: childPrompt,
-					...(input.model === undefined ? {} : { model: input.model }),
-					returnMode: "final-text",
-					onProgress: (update) => {
-						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
-						onUpdate?.({
-							content: [{ type: "text", text: progressText }],
-							details: { status: "running", title: input.title, progress: update.progress },
-						});
-						setWidget(ctx, formatRunnerSubagentActivityWidgetLines(update));
+				const result = await dispatchRunnerSubagent(
+					pi,
+					{ cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }), ...(ctx.model === undefined ? {} : { model: ctx.model }) },
+					{
+						title: input.title,
+						prompt: childPrompt,
+						...(input.model === undefined ? {} : { model: input.model }),
+						returnMode: "final-text",
+						launch,
+						onProgress: (update) => {
+							const progressText = formatDispatchRunnerSubagentProgress(update.progress);
+							onUpdate?.({
+								content: [{ type: "text", text: progressText }],
+								details: { status: "running", title: input.title, progress: update.progress, launch: update.progress.launch },
+							});
+							setWidget(ctx, formatRunnerSubagentActivityWidgetLines(update));
+						},
 					},
-				});
+				);
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
@@ -207,6 +218,7 @@ export function dispatchRunnerSubagentDetails(
 		elapsedMs: result.elapsedMs,
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,
+		...(result.progress.launch === undefined ? {} : { launch: result.progress.launch }),
 	};
 
 	switch (result.status) {
@@ -294,13 +306,24 @@ export function resultDiagnostic(result: RunnerSubagentResult): string | undefin
 	}
 }
 
-function initialDispatchProgress(title: string): RunnerSubagentProgress {
+function initialDispatchProgress(title: string, launch: RunnerSubagentLaunchMetadata): RunnerSubagentProgress {
 	return {
 		title,
 		state: "starting",
 		toolCount: 0,
 		turnCount: 0,
 		elapsedMs: 0,
+		launch,
+	};
+}
+
+function resolveDispatchRunnerSubagentLaunch(pi: ExtensionAPI, ctx: ExtensionContext): RunnerSubagentLaunchMetadata {
+	const thinkingLevel = pi.getThinkingLevel?.() ?? "off";
+	return {
+		...(ctx.model === undefined ? {} : { model: ctx.model }),
+		thinkingLevel,
+		modelArgPassed: ctx.model !== undefined,
+		thinkingArgPassed: thinkingLevel !== "off",
 	};
 }
 
