@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
+import type { ThinkingLevel } from "../src/cmux/types.ts";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,
@@ -35,9 +36,15 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	readonly tools = new Map<string, ToolDefinition>();
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	[key: string]: unknown;
+	private readonly thinkingLevel: ThinkingLevel;
 
-	constructor(dependencies?: RunnerSubagentDispatcherDependencies) {
+	constructor(dependencies?: RunnerSubagentDispatcherDependencies, options: { thinkingLevel?: ThinkingLevel } = {}) {
 		if (dependencies) this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = dependencies;
+		this.thinkingLevel = options.thinkingLevel ?? "off";
+	}
+
+	getThinkingLevel(): ThinkingLevel {
+		return this.thinkingLevel;
 	}
 
 	registerTool(tool: ToolDefinition): void {
@@ -168,9 +175,9 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(pi.tools.size).toBe(0);
 	});
 
-	test("passes explicit title, composed prompt, and current cwd to dispatchRunnerSubagent without a runtime extension", async () => {
+	test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
-		const pi = new FakePi(runner.dependencies);
+		const pi = new FakePi(runner.dependencies, { thinkingLevel: "medium" });
 		const tool = registerTool({ pi });
 		const updates: ToolResult[] = [];
 
@@ -179,7 +186,7 @@ describe("dispatch_runner_subagent extension", () => {
 			{ title: "Slice subagent", prompt: "Do focused work." },
 			undefined,
 			(partial) => updates.push(partial),
-			{ cwd: ROOT },
+			{ cwd: ROOT, model: { provider: "anthropic", id: "claude-sonnet-4-5" } },
 		);
 		const call = await waitForSpawn(runner.calls);
 
@@ -189,12 +196,24 @@ describe("dispatch_runner_subagent extension", () => {
 			"--mode",
 			"json",
 			"-p",
+			"--provider",
+			"anthropic",
+			"--model",
+			"claude-sonnet-4-5",
+			"--thinking",
+			"medium",
 			"--no-extensions",
 			"--session",
 			SESSION_FILE,
 			composedFixturePrompt("Do focused work."),
 		]);
 		expect(call.args).not.toContain("--extension");
+		expect((updates[0]?.details as Record<string, unknown>).launch).toEqual({
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			thinkingLevel: "medium",
+			modelArgPassed: true,
+			thinkingArgPassed: true,
+		});
 
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
@@ -219,9 +238,9 @@ describe("dispatch_runner_subagent extension", () => {
 			"--mode",
 			"json",
 			"-p",
-			"--no-extensions",
 			"--model",
 			"haiku",
+			"--no-extensions",
 			"--session",
 			SESSION_FILE,
 			composedFixturePrompt("Classify feedback."),
@@ -298,6 +317,8 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(partialText).toContain("turns: 1");
 		expect(partialText).toContain("tools: 1");
 		expect(partialText).toContain(`Session file: ${SESSION_FILE}`);
+		expect(partialText).not.toContain("Model: default (not specified)");
+		expect(partialText).not.toContain("Thinking: off");
 		expect(partialText).not.toContain("Assistant preview unique.");
 		expect(partialText).not.toContain("secret-input.txt");
 		expect(partialText).not.toContain("tool result preview unique");
@@ -307,6 +328,8 @@ describe("dispatch_runner_subagent extension", () => {
 			expect(details.activity).toBeUndefined();
 		}
 		expect(statuses).toEqual([]);
+		expect(widgets.some((widget) => widget.value?.includes("Model: default (not specified)"))).toBe(true);
+		expect(widgets.some((widget) => widget.value?.includes("Thinking: off"))).toBe(true);
 		expect(widgets.some((widget) => widget.value?.includes("Assistant: Assistant preview unique."))).toBe(true);
 		expect(widgets.some((widget) => widget.value?.includes('Input: {"path":"secret-input.txt"}'))).toBe(true);
 		expect(widgets.some((widget) => widget.value?.includes("Last result (read): tool result preview unique"))).toBe(true);
@@ -324,6 +347,11 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(finalText).not.toContain("Assistant preview unique.");
 		expect(finalText).not.toContain("secret-input.txt");
 		expect(finalText).not.toContain("tool result preview unique");
+		expect((result.details as Record<string, unknown>).launch).toEqual({
+			thinkingLevel: "off",
+			modelArgPassed: false,
+			thinkingArgPassed: false,
+		});
 		expect((result.details as Record<string, unknown>).activity).toBeUndefined();
 	});
 

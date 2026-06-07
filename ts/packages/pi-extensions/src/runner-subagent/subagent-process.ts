@@ -12,6 +12,7 @@ import type {
 	RunnerSubagentContext,
 	RunnerSubagentErrorResult,
 	RunnerSubagentFinalTextResult,
+	RunnerSubagentLaunchMetadata,
 	RunnerSubagentOptions,
 	RunnerSubagentPi,
 	RunnerSubagentProgress,
@@ -43,6 +44,14 @@ const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Subagent Pi stopped without usef
 export interface PiInvocation {
 	command: string;
 	args: string[];
+}
+
+export interface BuildChildPiArgsInput {
+	prompt: string;
+	sessionFile: string;
+	runtimeExtensionPath?: string;
+	model?: string;
+	launch?: RunnerSubagentLaunchMetadata;
 }
 
 export interface SpawnChildProcessOptions {
@@ -92,16 +101,16 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	options: RunnerSubagentOptions,
 	dependencies: RunnerSubagentDispatcherDependencies = {},
 ): Promise<RunnerSubagentResult<TTerminalInput>> {
-	void pi;
 	const now = dependencies.now ?? Date.now;
 	const startTimeMs = now();
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
+	const launch = resolveRunnerSubagentLaunch(pi, ctx, options);
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
 	const updateEmitter = createUpdateEmitter(options.onProgress);
 
 	if (abortSignals.some((signal) => signal.aborted)) {
-		const progress = stoppedProgress({ title, now, startTimeMs });
+		const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return cancelledResult(title, progress, abortReason(abortSignals));
 	}
@@ -117,7 +126,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 				terminalTools,
 			});
 		} catch (error) {
-			const progress = stoppedProgress({ title, now, startTimeMs });
+			const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
 			updateEmitter.emit(updateFromProgress(progress), { force: true });
 			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${errorMessage(error)}`, error);
 		}
@@ -128,7 +137,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		sessionFile = await createSessionFile(cwd, title, dependencies);
 	} catch (error) {
 		await cleanupRuntimeFiles(runtimeFiles);
-		const progress = stoppedProgress({ title, now, startTimeMs });
+		const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return errorResult(title, progress, `Failed to create subagent session file: ${errorMessage(error)}`, error);
 	}
@@ -140,14 +149,16 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		now,
 		startTimeMs,
 		terminalToolNames,
+		...(launch === undefined ? {} : { launch }),
 	});
 	updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 	const stderr = new BoundedTextBuffer(dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES);
 	const childArgs = buildChildPiArgs({
 		prompt: options.prompt,
 		sessionFile,
-		runtimeExtensionPath: runtimeFiles?.extensionPath,
-		model: options.model,
+		...(runtimeFiles?.extensionPath === undefined ? {} : { runtimeExtensionPath: runtimeFiles.extensionPath }),
+		...(options.model === undefined ? {} : { model: options.model }),
+		...(launch === undefined ? {} : { launch }),
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawn = dependencies.spawn ?? defaultSpawnChildProcess;
@@ -259,16 +270,17 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	});
 }
 
-interface BuildChildPiArgsInput {
-	prompt: string;
-	sessionFile: string;
-	runtimeExtensionPath: string | undefined;
-	model: string | undefined;
-}
-
 export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
-	const args = ["--mode", "json", "-p", "--no-extensions"];
-	if (input.model !== undefined) args.push("--model", input.model);
+	const args = ["--mode", "json", "-p"];
+	if (input.model !== undefined) {
+		args.push("--model", input.model);
+	} else if (input.launch?.model !== undefined) {
+		args.push("--provider", input.launch.model.provider, "--model", input.launch.model.id);
+	}
+	if (input.launch !== undefined && input.launch.thinkingLevel !== "off") {
+		args.push("--thinking", input.launch.thinkingLevel);
+	}
+	args.push("--no-extensions");
 	if (input.runtimeExtensionPath !== undefined) args.push("--extension", input.runtimeExtensionPath);
 	args.push("--session", input.sessionFile, input.prompt);
 	return args;
@@ -280,6 +292,23 @@ function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagen
 
 function runnerSubagentTerminalTools(options: RunnerSubagentOptions): readonly RunnerSubagentTerminalToolDefinition[] {
 	return options.terminalTools ?? [];
+}
+
+function resolveRunnerSubagentLaunch(
+	pi: RunnerSubagentPi,
+	ctx: RunnerSubagentContext,
+	options: RunnerSubagentOptions,
+): RunnerSubagentLaunchMetadata | undefined {
+	const model = options.launch?.model ?? ctx.model;
+	const hasThinkingSource = options.launch?.thinkingLevel !== undefined || pi.getThinkingLevel !== undefined;
+	if (model === undefined && !hasThinkingSource) return undefined;
+	const thinkingLevel = options.launch?.thinkingLevel ?? pi.getThinkingLevel?.() ?? "off";
+	return {
+		...(model === undefined ? {} : { model }),
+		thinkingLevel,
+		modelArgPassed: model !== undefined,
+		thinkingArgPassed: thinkingLevel !== "off",
+	};
 }
 
 function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {
@@ -317,6 +346,11 @@ function updateSignature(update: RunnerSubagentUpdate): string {
 		String(update.progress.toolCount),
 		String(update.progress.turnCount),
 		update.progress.sessionFile ?? "",
+		update.progress.launch?.model?.provider ?? "",
+		update.progress.launch?.model?.id ?? "",
+		update.progress.launch?.thinkingLevel ?? "",
+		String(update.progress.launch?.modelArgPassed ?? false),
+		String(update.progress.launch?.thinkingArgPassed ?? false),
 		update.activity.assistantPreview ?? "",
 		update.activity.currentToolInputPreview ?? "",
 		update.activity.lastToolName ?? "",
@@ -642,6 +676,7 @@ function stoppedProgress(input: {
 	now: () => number;
 	startTimeMs: number;
 	sessionFile?: string;
+	launch?: RunnerSubagentLaunchMetadata;
 }): RunnerSubagentProgress {
 	const elapsedMs = Math.max(0, input.now() - input.startTimeMs);
 	return {
@@ -651,6 +686,7 @@ function stoppedProgress(input: {
 		turnCount: 0,
 		elapsedMs,
 		...(input.sessionFile === undefined ? {} : { sessionFile: input.sessionFile }),
+		...(input.launch === undefined ? {} : { launch: input.launch }),
 	};
 }
 

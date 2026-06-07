@@ -1,3 +1,4 @@
+import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import type { RunnerSubagentUpdate } from "./runner-subagent/activity.ts";
 import { dispatchRunnerSubagentProcess, type RunnerSubagentDispatcherDependencies } from "./runner-subagent/subagent-process.ts";
 
@@ -24,6 +25,18 @@ export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 	parameters: TypeBoxLikeSchema;
 }
 
+export interface RunnerSubagentLaunchMetadata {
+	model?: ModelInfo;
+	thinkingLevel: ThinkingLevel;
+	modelArgPassed: boolean;
+	thinkingArgPassed: boolean;
+}
+
+export interface RunnerSubagentLaunchOptions {
+	model?: ModelInfo;
+	thinkingLevel?: ThinkingLevel;
+}
+
 export interface RunnerSubagentProgress {
 	title?: string;
 	state: "starting" | "running" | "terminating" | "stopped";
@@ -32,6 +45,7 @@ export interface RunnerSubagentProgress {
 	turnCount: number;
 	elapsedMs: number;
 	sessionFile?: string;
+	launch?: RunnerSubagentLaunchMetadata;
 }
 
 export type RunnerSubagentProgressCallback = (update: RunnerSubagentUpdate) => void;
@@ -43,6 +57,7 @@ export type RunnerSubagentOptions = {
 	cwd?: string;
 	signal?: AbortSignal;
 	onProgress?: RunnerSubagentProgressCallback;
+	launch?: RunnerSubagentLaunchOptions;
 } & (
 	| {
 			returnMode?: "terminal";
@@ -130,12 +145,14 @@ export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol("dispatchRunnerSub
 
 export interface RunnerSubagentPi {
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
+	getThinkingLevel?: () => ThinkingLevel;
 	[key: string]: unknown;
 }
 
 export interface RunnerSubagentContext {
 	cwd: string;
 	signal?: AbortSignal;
+	model?: ModelInfo;
 }
 
 export async function dispatchRunnerSubagent<TTerminalInput = unknown>(

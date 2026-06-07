@@ -12,6 +12,12 @@ const METADATA_ONLY_UPDATE: RunnerSubagentUpdate = {
 		turnCount: 1,
 		elapsedMs: 1_250,
 		sessionFile: "/tmp/progress.jsonl",
+		launch: {
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			thinkingLevel: "medium",
+			modelArgPassed: true,
+			thinkingArgPassed: true,
+		},
 	},
 	activity: {},
 };
@@ -21,6 +27,8 @@ describe("runner subagent activity widget", () => {
 		expect(formatRunnerSubagentActivityWidgetLines(METADATA_ONLY_UPDATE)).toEqual([
 			"Subagent: Progress title",
 			"State: running",
+			"Model: anthropic/claude-sonnet-4-5",
+			"Thinking: medium",
 			"Tool: read",
 			"Turns/tools: 1/2",
 			"Elapsed: 1.3s",
@@ -42,6 +50,8 @@ describe("runner subagent activity widget", () => {
 		).toEqual([
 			"Subagent: Progress title",
 			"State: running",
+			"Model: anthropic/claude-sonnet-4-5",
+			"Thinking: medium",
 			"Assistant: Reading files now",
 			"Tool: read",
 			'Input: {"path":"README.md"}',
@@ -80,5 +90,27 @@ describe("runner subagent activity widget", () => {
 				{ fallbackTitle: "(untitled)", includeElapsed: false },
 			),
 		).toEqual(["Subagent: (untitled)", "State: starting", "Turns/tools: 0/0"]);
+	});
+
+	test("renders honest default model and off thinking metadata", () => {
+		expect(
+			formatRunnerSubagentActivityWidgetLines(
+				{
+					progress: {
+						state: "starting",
+						toolCount: 0,
+						turnCount: 0,
+						elapsedMs: 0,
+						launch: {
+							thinkingLevel: "off",
+							modelArgPassed: false,
+							thinkingArgPassed: false,
+						},
+					},
+					activity: {},
+				},
+				{ fallbackTitle: "(untitled)", includeElapsed: false },
+			),
+		).toEqual(["Subagent: (untitled)", "State: starting", "Model: default (not specified)", "Thinking: off", "Turns/tools: 0/0"]);
 	});
 });
