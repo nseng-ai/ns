@@ -35,7 +35,8 @@ const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 export function registerObjectiveStackImplCommand(host: ObjectiveStackImplHost): void {
 	host.registerCommand(OBJECTIVE_STACK_IMPL_COMMAND.commandName, {
 		description: OBJECTIVE_STACK_IMPL_COMMAND.description,
-		handler: async (args, ctx) => handleObjectiveStackImplCommand(host, OBJECTIVE_STACK_IMPL_COMMAND, args, ctx),
+		handler: async (args, ctx) =>
+			handleObjectiveStackImplCommand({ host, spec: OBJECTIVE_STACK_IMPL_COMMAND, args, ctx }),
 	});
 }
 
@@ -55,12 +56,15 @@ ${objective}
 Treat this as an explicit user selection. Do not auto-select a different Objective.`;
 }
 
-async function invokeObjectiveStackImplSkill(
-	host: ObjectiveStackImplHost,
-	ctx: ObjectiveSelectionContext,
-	spec: ObjectiveStackImplCommandSpec,
-	objective: string,
-): Promise<void> {
+interface InvokeObjectiveStackImplSkillOptions {
+	host: ObjectiveStackImplHost;
+	ctx: ObjectiveSelectionContext;
+	spec: ObjectiveStackImplCommandSpec;
+	objective: string;
+}
+
+async function invokeObjectiveStackImplSkill(options: InvokeObjectiveStackImplSkillOptions): Promise<void> {
+	const { host, ctx, spec, objective } = options;
 	await ctx.waitForIdle();
 
 	const skill = await expandSkillBlock(host, spec.skillName);
@@ -76,16 +80,19 @@ async function invokeObjectiveStackImplSkill(
 	host.sendUserMessage(buildObjectiveStackImplSkillPrompt(spec, skill?.block, objective));
 }
 
-async function handleObjectiveStackImplCommand(
-	host: ObjectiveStackImplHost,
-	spec: ObjectiveStackImplCommandSpec,
-	args: string,
-	ctx: ObjectiveSelectionContext,
-): Promise<void> {
+interface HandleObjectiveStackImplCommandOptions {
+	host: ObjectiveStackImplHost;
+	spec: ObjectiveStackImplCommandSpec;
+	args: string;
+	ctx: ObjectiveSelectionContext;
+}
+
+async function handleObjectiveStackImplCommand(options: HandleObjectiveStackImplCommandOptions): Promise<void> {
+	const { host, spec, args, ctx } = options;
 	const explicitObjective = args.trim();
 	try {
 		if (explicitObjective) {
-			await invokeObjectiveStackImplSkill(host, ctx, spec, explicitObjective);
+			await invokeObjectiveStackImplSkill({ host, ctx, spec, objective: explicitObjective });
 			return;
 		}
 
@@ -94,7 +101,7 @@ async function handleObjectiveStackImplCommand(
 			return;
 		}
 
-		await invokeObjectiveStackImplSkill(host, ctx, spec, slug);
+		await invokeObjectiveStackImplSkill({ host, ctx, spec, objective: slug });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {
