@@ -2,7 +2,8 @@
 
 ## Work
 
-- [ ] **Fix `asdl-slots` checkout planning-time mutation.** Make current-checkout planning pure and move redirect mutation into lifecycle execution after preflight. Evidence should show that failed post-preflight planning cannot leave the caller's worktree redirected.
+- [x] **Fix `asdl-slots` checkout planning-time mutation.** Make current-checkout planning pure and move redirect mutation into lifecycle execution after preflight. Evidence should show that failed post-preflight planning cannot leave the caller's worktree redirected.
+      Evidence: `slot checkout --current` planning no longer executes checkout/detach redirects before pool/occupancy preflight; targeted checkout planning and checkout CLI scenario tests passed, and the full `just` gate passed.
 - [ ] **Deepen `asdl-slots` release/free/gc workflow.** Introduce a release-focused module such as `SlotReleaseWorkflow` that owns free/gc target classification, dry-run/execute flow, cleanup policy, dirty/operation checks, PR lookup handling, cleanup result accounting, and partial failure behavior while keeping CLI confirmation/rendering outside the lifecycle interface.
 - [ ] **Localize `asdl-core` production gateway construction.** Concentrate production wiring for Git/GitHub/Graphite gateways, repo-root discovery, and trunk resolution so consuming packages receive built gateway interfaces instead of re-deriving real adapter construction at each context site.
 - [ ] **Deepen `asdl-objectives` checked-in Markdown storage.** Create an internal storage module for Objective roots, record facts, file reads, update listing, active/archive moves, and relative paths used by git-touch checks. Preserve checked-in Markdown storage and avoid reintroducing Branch Memory as the storage model.

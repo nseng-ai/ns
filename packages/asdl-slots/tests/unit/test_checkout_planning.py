@@ -8,7 +8,9 @@ from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
     BranchInUse,
+    CheckoutCurrentWorktreeBranch,
     CurrentCheckoutPlan,
+    DetachCurrentWorktree,
     PoolFull,
     ReuseAssignment,
     plan_checkout,
@@ -238,6 +240,7 @@ def test_plan_current_checkout_already_in_slot_short_circuits() -> None:
     assert isinstance(result.plan, ReuseAssignment)
     assert result.plan.record.slot_name == "slot-01"
     assert result.branch_name == "feat/x"
+    assert result.redirect is None
     assert result.current_wt_note is None
     # Already-in-slot path doesn't redirect: cwd's branch is preserved.
     assert git.get_current_branch(cwd) == "feat/x"
@@ -278,11 +281,15 @@ def test_plan_current_checkout_redirects_to_previous_branch() -> None:
     assert isinstance(result.plan, AssignToSlot)
     assert result.branch_name == "feat/x"
     assert result.plan.record.slot_name == "slot-01"
-    # Redirect happened: cwd is now on the previous branch.
-    assert git.get_current_branch(cwd) == "some-other"
+    assert result.redirect is not None
+    assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
+    assert result.redirect.action.branch == "some-other"
+    assert result.redirect.note is None
+    # Planning is pure: cwd remains on the moving branch.
+    assert git.get_current_branch(cwd) == "feat/x"
 
 
-def test_plan_current_checkout_pool_full_propagates_redirect() -> None:
+def test_plan_current_checkout_pool_full_preserves_caller_branch() -> None:
     cwd = Path("/repo")
     git = FakeGitGateway(
         branches=("feat/x", "main"),
@@ -299,12 +306,12 @@ def test_plan_current_checkout_pool_full_propagates_redirect() -> None:
     assert isinstance(result, CurrentCheckoutPlan)
     assert isinstance(result.plan, PoolFull)
     assert result.branch_name == "feat/x"
+    assert git.get_current_branch(cwd) == "feat/x"
 
 
-def test_plan_current_checkout_branch_in_main_redirected_then_assigned() -> None:
-    """When the moving branch lives in the main worktree, the redirect moves
-    main off it; the post-redirect plan must see the slot pool, not surface a
-    BranchInMainWorktree match."""
+def test_plan_current_checkout_branch_in_main_plans_redirect_then_assignment() -> None:
+    """When the moving branch lives in the main worktree, planning ignores the
+    caller worktree's own occupancy and plans a slot assignment without mutation."""
     cwd = Path("/repo")
     git = FakeGitGateway(
         branches=("feat/x", "main", "some-other"),
@@ -322,5 +329,58 @@ def test_plan_current_checkout_branch_in_main_redirected_then_assigned() -> None
     assert isinstance(result, CurrentCheckoutPlan)
     assert isinstance(result.plan, AssignToSlot)
     assert result.plan.record.slot_name == "slot-01"
-    # Main was redirected off feat/x.
-    assert git.get_current_branch(cwd) == "some-other"
+    assert result.redirect is not None
+    assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
+    assert result.redirect.action.branch == "some-other"
+    # Main remains on feat/x during pure planning.
+    assert git.get_current_branch(cwd) == "feat/x"
+
+
+def test_plan_current_checkout_plans_trunk_redirect_without_mutation() -> None:
+    cwd = Path("/repo")
+    git = FakeGitGateway(
+        branches=("feat/x", "main"),
+        trunk_branch="main",
+        current_branch_by_path={cwd: "feat/x"},
+        worktrees=(
+            WorktreeInfo(path=cwd, branch="feat/x", is_bare=False),
+            _slot_wt(1, None),
+        ),
+    )
+
+    result = plan_current_checkout(git, cwd=cwd, main_repo_root=cwd)
+
+    assert isinstance(result, CurrentCheckoutPlan)
+    assert isinstance(result.plan, AssignToSlot)
+    assert result.redirect is not None
+    assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
+    assert result.redirect.action.branch == "main"
+    assert result.redirect.note is None
+    assert git.get_current_branch(cwd) == "feat/x"
+
+
+def test_plan_current_checkout_plans_detach_when_trunk_busy_without_mutation() -> None:
+    cwd = Path("/repo")
+    sibling = Path("/wt/sibling")
+    git = FakeGitGateway(
+        branches=("feat/x", "main"),
+        trunk_branch="main",
+        current_branch_by_path={cwd: "feat/x"},
+        worktrees=(
+            WorktreeInfo(path=cwd, branch="feat/x", is_bare=False),
+            _slot_wt(1, None),
+            WorktreeInfo(path=sibling, branch="main", is_bare=False),
+        ),
+    )
+
+    result = plan_current_checkout(git, cwd=cwd, main_repo_root=cwd)
+
+    assert isinstance(result, CurrentCheckoutPlan)
+    assert isinstance(result.plan, AssignToSlot)
+    assert result.redirect is not None
+    assert isinstance(result.redirect.action, DetachCurrentWorktree)
+    assert result.redirect.action.ref == "feat/x"
+    assert result.redirect.note is not None
+    assert "checked out" in result.redirect.note
+    assert "detached HEAD" in result.redirect.note
+    assert git.get_current_branch(cwd) == "feat/x"

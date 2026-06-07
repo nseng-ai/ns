@@ -7,7 +7,10 @@ from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
     BranchInUse,
+    CheckoutCurrentWorktreeBranch,
     CurrentCheckoutPlan,
+    CurrentWorktreeRedirect,
+    DetachCurrentWorktree,
     PoolFull,
     ReuseAssignment,
     plan_checkout,
@@ -127,6 +130,13 @@ def checkout_current(slots_ctx: SlotsCliContext) -> SlotCheckoutOutcome | SlotLi
         return _pool_full_failure(current_plan.plan)
     if isinstance(current_plan.plan, BranchInUse):
         return _branch_in_use_failure(current_plan.plan.occupancy)
+    if current_plan.redirect is not None:
+        redirect_failure = _execute_current_worktree_redirect(
+            current_plan.redirect,
+            slots_ctx=slots_ctx,
+        )
+        if redirect_failure is not None:
+            return redirect_failure
     return _execute_plan(
         current_plan.plan,
         slots_ctx=slots_ctx,
@@ -165,6 +175,31 @@ def _branch_in_use_failure(occupancy: WorktreeOccupancy) -> SlotLifecycleFailure
     else:
         message = f"Branch '{occupancy.branch}' is already checked out at {occupancy.path}."
     return SlotLifecycleFailure(error_type="branch_in_use", message=message)
+
+
+def _execute_current_worktree_redirect(
+    redirect: CurrentWorktreeRedirect,
+    *,
+    slots_ctx: SlotsCliContext,
+) -> SlotLifecycleFailure | None:
+    action = redirect.action
+    if isinstance(action, CheckoutCurrentWorktreeBranch):
+        failure = slots_ctx.git.checkout_branch(slots_ctx.repo.root, action.branch)
+        if failure is not None:
+            subject = action.failure_subject
+            if subject is None:
+                subject = f"'{action.branch}'"
+            return SlotLifecycleFailure(
+                error_type="slot_allocation_error",
+                message=(
+                    f"Failed to check out {subject} in {slots_ctx.repo.root}: {failure.message}"
+                ),
+            )
+        return None
+    if isinstance(action, DetachCurrentWorktree):
+        slots_ctx.git.detach_head(slots_ctx.repo.root, action.ref)
+        return None
+    raise AssertionError(f"unknown current worktree redirect action: {action!r}")
 
 
 def _execute_plan(
