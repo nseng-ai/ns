@@ -32,6 +32,7 @@ In scope:
 
 - Make current-branch `pr-address` runs faster, less error-prone, and less transcript-heavy.
 - Add deterministic classification templates or equivalent schema guardrails so LLMs fill semantic judgments without inventing IDs, locators, or packet structure.
+- Add cost-aware model routing for bounded classification work: default cheap/fast where compact payloads, finite classifier rules, strict JSON, and deterministic validation make it safe; retry or escalate when validation fails, feedback is ambiguous, or complex cross-file reasoning is required.
 - Improve payload and selected-detail ergonomics so raw or selected feedback bodies remain in managed artifacts unless the human explicitly asks to see them.
 - Add file/path-based JSON input affordances or equivalent managed run-state helpers to eliminate confusing ad-hoc `/tmp/pr-address-*.json` scratch files for normal operation.
 - Add composite planning/finalization helpers where they reduce deterministic orchestration: batch grouping, approval gates, mutation skeletons, per-batch evidence, and final unresolved-feedback summary.
@@ -53,6 +54,7 @@ This Objective is complete when `pr-address` has a materially lower-orchestratio
 Required closure evidence:
 
 - A deterministic classification template or equivalent guardrail exists, and classification validation failures from locator/ID/schema-shape mistakes are materially harder to produce.
+- The classifier launch path can choose an appropriate cheap/fast model or profile for bounded initial classification and has a clear validator-driven escalation path for schema failures, omissions, unusually ambiguous comments, or complex cross-file code-context reasoning.
 - The normal workflow no longer requires agents to create ad-hoc JSON scratch files for validation wrappers or mutation payloads when using supported helper paths.
 - Selected feedback detail can be inspected in a payload/artifact-backed way that does not encourage dumping all selected bodies into the main transcript.
 - Planning output groups actionable work by batch, identifies approval gates, and provides exact thread/comment identities and mutation skeletons or follow-up commands.
@@ -67,6 +69,7 @@ Progress is keepable when it reduces agent-managed ceremony while preserving or 
 
 - A deterministic helper that replaces manual JSON construction, reference re-reading, or fragile shell quoting.
 - A schema/template change that makes invalid classification packets less likely while preserving LLM semantic judgment.
+- A cost-aware classifier dispatch change that uses a cheaper/faster model for bounded semantic classification while preserving deterministic validation and escalation to a stronger model when safety requires it.
 - A payload artifact improvement that keeps raw or selected feedback bodies out of the main transcript by default.
 - A small workflow helper that turns an implicit skill step into explicit machine-readable state or next-step evidence.
 - A skill/reference update that routes agents to a new tested helper and removes obsolete manual instructions.
@@ -74,6 +77,7 @@ Progress is keepable when it reduces agent-managed ceremony while preserving or 
 Do not keep changes that:
 
 - Bypass classification validation or GitHub mutation helpers.
+- Treat cheap-model output as trusted without validator coverage and an explicit escalation/retry path.
 - Hide unresolved feedback, skipped items, or failed mutations.
 - Encourage inline raw payload output as the normal path.
 - Collapse user approval gates for `cross_cutting`, `complex`, or informational-thread actions.
@@ -97,6 +101,7 @@ Assumptions:
 
 - The main bottleneck is not payload storage itself; payload mode worked. The bottleneck is the amount of deterministic state and JSON shape management left to the agent.
 - LLM classification remains valuable for review prose, but IDs, locators, counts, and packet skeletons should be deterministic.
+- Bounded pr-address classification is often suitable for a cheaper/faster model because the model reads compact feedback and payload locators, applies finite classifier guidance, emits strict JSON, and is followed by deterministic validation.
 - `prepare-run` or a nearby helper can emit a classification template without making the manifest too large or coupling too tightly to validator internals.
 - Agents will follow improved helpers when the `pr-address` skill and CLI reference make the happy path shorter than the manual path.
 - Representative tests can cover most safety regressions without requiring live GitHub mutation in CI.
@@ -108,10 +113,12 @@ Risks:
 - File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design.
 - Shared payload/platform changes could expand the Objective beyond `pr-address` and compete with unrelated agent infrastructure work. PR #1011 narrows this risk for JSON input handling by promoting only a generic Clinkr option/stdin loader while leaving pr-address-specific classification and mutation semantics in `pr-address` helpers; broader payload/platform lifecycle questions remain parked unless directly blocking.
 - Over-optimizing for speed could weaken the existing safety guarantees: validated classification, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no pushing.
+- The current subagent dispatch surface may not expose a per-launch model/profile knob. Adding one could touch cross-harness agent policy, so it needs a narrow pr-address-driven contract and a fallback path for harnesses that cannot choose models per dispatch.
 
 ## Open Questions
 
 - Should the classification template be emitted directly by `prepare-run`, by a separate `classification-template` helper, or by a validator-owned merge operation that accepts only semantic fills?
+- Where should per-dispatch model/profile selection live so `pr-address` can default bounded classifier launches to cheaper models without hard-coding provider-specific policy or weakening validator-driven escalation?
 - What is the right boundary between `plan-run` and smaller helpers so deterministic orchestration improves without hiding too much from the agent and user?
 - Should `resolve-thread-batch` gain `@file`/file-path input support, or should a higher-level batch checkpoint helper own mutation payload generation entirely?
 - What representative fixture or live-run protocol should count as closure evidence for the lower-orchestration happy path?
