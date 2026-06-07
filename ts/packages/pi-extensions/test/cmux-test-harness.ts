@@ -16,7 +16,7 @@ import type {
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
-} from "../src/cmux/types.ts";
+} from "../../ccc/src/cmux/types.ts";
 import type { SkillCommandInfo } from "../src/skill-expansion.ts";
 
 export const ROOT = "/repo";

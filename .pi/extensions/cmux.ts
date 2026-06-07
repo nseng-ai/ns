@@ -1,3 +1,3 @@
-import registerCmuxExtension from "../../ts/packages/pi-extensions/src/cmux.ts";
+import { registerCmuxExtension } from "../../ts/packages/ccc/src/index.ts";
 
 export default registerCmuxExtension;
