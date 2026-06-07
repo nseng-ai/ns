@@ -1,6 +1,7 @@
 import {
 	formatHandoffTabLaunchSuccess,
 	launchHandoffTab,
+	type HandoffTabLaunchParams,
 	type HandoffTabLaunchResult,
 } from "@asdl/ccc/handoff-tab";
 import { identifyCmuxCaller } from "../cmux/focused-terminal-tab.ts";
@@ -33,13 +34,6 @@ export interface HandoffTabRequest {
 }
 
 export type HandoffTabRequestBuildResult = { type: "valid"; request: HandoffTabRequest } | { type: "invalid"; message: string };
-
-interface HandoffTabLaunchParams {
-	branch: string;
-	slug: string;
-	key: string;
-	pickupCommand: string;
-}
 
 export function buildHandoffTabRequest(options: { branch: string; focus: string }): HandoffTabRequestBuildResult {
 	const focus = options.focus.trim();

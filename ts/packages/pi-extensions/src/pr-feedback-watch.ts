@@ -13,6 +13,7 @@ const MIN_INTERVAL_MS = 10_000;
 const HEAVY_FALLBACK_INTERVAL_MS = 60_000;
 const REST_FINGERPRINT_SKEW_MS = 2_000;
 const REST_FAILURES_BEFORE_HEAVY_FALLBACK = 3;
+const REST_FAILURE_STATUS = "PR watch: REST check failed; retrying";
 const COMMAND_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 5_000;
 const TOP_LEVEL_BOT_DISCUSSION_AUTHORS = new Set(["vercel[bot]"]);
@@ -161,6 +162,8 @@ interface GhApiJsonOptions {
 	jq: string;
 	signal?: AbortSignal | undefined;
 }
+
+type GhApiJsonResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
 
 interface CustomMessage {
 	customType: string;
@@ -504,7 +507,7 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 export function buildFeedbackFingerprint(items: readonly FeedbackFingerprintItem[], fetchedAt = new Date().toISOString()): FeedbackFingerprint {
 	const copied = [...items];
 	return {
-		key: fingerprintKeyFromItems(copied),
+		key: fingerprintKeyFromOwnedItems(copied),
 		items: copied,
 		latestTimestamp: maxFingerprintTimestamp(copied),
 		fetchedAt,
@@ -512,7 +515,11 @@ export function buildFeedbackFingerprint(items: readonly FeedbackFingerprintItem
 }
 
 export function fingerprintKeyFromItems(items: readonly FeedbackFingerprintItem[]): string {
-	return [...items]
+	return fingerprintKeyFromOwnedItems([...items]);
+}
+
+function fingerprintKeyFromOwnedItems(items: FeedbackFingerprintItem[]): string {
+	return items
 		.sort(compareFingerprintItems)
 		.map((item) => [
 			item.kind,
@@ -801,15 +808,7 @@ class PrFeedbackWatchController {
 			}
 			return;
 		}
-		this.hasNotifiedRestFailure = false;
-		this.state = {
-			...this.state,
-			mode: "rest_fingerprint",
-			restFailures: 0,
-			lastRestPollAt: result.fingerprint.fetchedAt,
-			lastPollAt: result.fingerprint.fetchedAt,
-			lastError: undefined,
-		};
+		this.markRestFingerprintSuccess(result.fingerprint);
 		if (result.fingerprint.key === this.lastRestFingerprintKey) {
 			this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped" };
 			this.renderStatus();
@@ -897,15 +896,14 @@ class PrFeedbackWatchController {
 	}
 
 	private recordRestFailure(session: ActiveSession, message: string): void {
-		const restFailures = this.state.restFailures + 1;
 		this.state = {
 			...this.state,
 			state: "error",
 			mode: "heavy_fallback",
-			restFailures,
+			restFailures: this.state.restFailures + 1,
 			lastError: message,
 		};
-		this.renderStatus("PR watch: REST check failed; retrying");
+		this.renderStatus(REST_FAILURE_STATUS);
 		if (!this.hasNotifiedRestFailure) {
 			this.hasNotifiedRestFailure = true;
 			notify(session.ctx, `PR feedback watch REST check failed; retrying: ${message}`, "warning");
@@ -919,12 +917,18 @@ class PrFeedbackWatchController {
 	private advanceRestFingerprint(fingerprint: FeedbackFingerprint): void {
 		this.lastRestFingerprintKey = fingerprint.key;
 		this.restSinceIso = skewIso(fingerprint.latestTimestamp ?? fingerprint.fetchedAt);
+		this.markRestFingerprintSuccess(fingerprint);
+	}
+
+	private markRestFingerprintSuccess(fingerprint: FeedbackFingerprint): void {
 		this.hasNotifiedRestFailure = false;
 		this.state = {
 			...this.state,
 			mode: "rest_fingerprint",
 			restFailures: 0,
 			lastRestPollAt: fingerprint.fetchedAt,
+			lastPollAt: fingerprint.fetchedAt,
+			lastError: undefined,
 		};
 	}
 
@@ -944,12 +948,16 @@ class PrFeedbackWatchController {
 		if (parsed.type === "invalid") return { type: "failed", message: parsed.message };
 		const dataResult = parsePrepareRunData(parsed.data);
 		if (dataResult.type === "invalid") return { type: "failed", message: dataResult.message };
-		if (this.currentUserLogin === undefined) this.currentUserLogin = await loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal);
+		const currentUserLoginPromise = this.currentUserLogin === undefined
+			? loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal)
+			: Promise.resolve(this.currentUserLogin);
+		const headRefOidPromise = dataResult.data.number === undefined
+			? Promise.resolve(undefined)
+			: loadHeadRefOid(this.pi, session.cwd, dataResult.data.number, session.abortController.signal);
+		const [currentUserLogin, headRefOid] = await Promise.all([currentUserLoginPromise, headRefOidPromise]);
+		this.currentUserLogin = currentUserLogin;
 		const feedbackItems = feedbackItemKeysFromPrepareRun(dataResult.data);
-		const filtered = filterIgnoredFeedback(feedbackItems, { currentUserLogin: this.currentUserLogin });
-		const headRefOid = dataResult.data.number === undefined
-			? undefined
-			: await loadHeadRefOid(this.pi, session.cwd, dataResult.data.number, session.abortController.signal);
+		const filtered = filterIgnoredFeedback(feedbackItems, { currentUserLogin });
 		return {
 			type: "loaded",
 			snapshot: {
@@ -1013,12 +1021,13 @@ class PrFeedbackWatchController {
 			this.seenKeys.add(item.key);
 		}
 		this.queuedItems = [...items];
+		const itemKeys = items.map((item) => item.key);
 		this.state = { ...this.state, state: "dispatching", queuedCount: items.length };
 		this.appendEvent("detected", {
 			branch: snapshot.data.currentBranch,
 			prNumber: snapshot.data.number,
 			headRefOid: snapshot.headRefOid,
-			itemKeys: items.map((item) => item.key),
+			itemKeys,
 		});
 		this.renderStatus(`PR watch: dispatching ${items.length} item(s)`);
 		const prompt = buildDetectedFeedbackPrompt({ data: snapshot.data, items, payloadPath: snapshot.data.payloadPath });
@@ -1026,7 +1035,7 @@ class PrFeedbackWatchController {
 			this.pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 		} else if (this.pi.sendMessage !== undefined) {
 			this.pi.sendMessage(
-				{ customType: PR_FEEDBACK_WATCH_MESSAGE_TYPE, content: prompt, display: true, details: { itemKeys: items.map((item) => item.key) } },
+				{ customType: PR_FEEDBACK_WATCH_MESSAGE_TYPE, content: prompt, display: true, details: { itemKeys } },
 				{ triggerTurn: true, deliverAs: "followUp" },
 			);
 		} else {
@@ -1037,7 +1046,7 @@ class PrFeedbackWatchController {
 			branch: snapshot.data.currentBranch,
 			prNumber: snapshot.data.number,
 			headRefOid: snapshot.headRefOid,
-			itemKeys: items.map((item) => item.key),
+			itemKeys,
 		});
 	}
 
@@ -1046,12 +1055,13 @@ class PrFeedbackWatchController {
 	}
 
 	private updateContextFromSnapshot(snapshot: FeedbackSnapshot): void {
+		const checkedAt = new Date().toISOString();
 		this.state = {
 			...this.state,
 			prNumber: snapshot.data.number,
 			branch: snapshot.data.currentBranch ?? snapshot.data.headRefName,
-			lastPollAt: new Date().toISOString(),
-			lastHeavyCheckAt: new Date().toISOString(),
+			lastPollAt: checkedAt,
+			lastHeavyCheckAt: checkedAt,
 			lastError: undefined,
 			seenCount: this.seenKeys.size,
 			attemptedCount: this.attemptedKeys.size,
@@ -1159,17 +1169,23 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 
 async function loadRestFingerprint(options: LoadRestFingerprintOptions): Promise<{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }> {
 	const { pi, cwd, identity, sinceIso, signal } = options;
-	const [discussion, reviews, reviewComments] = await Promise.all([
-		ghApiJson({ pi, cwd, endpoint: discussionCommentsEndpoint(identity, sinceIso), jq: "[.[] | {id, created_at, updated_at, author: .user.login}]", signal }),
-		ghApiJson({ pi, cwd, endpoint: reviewsEndpoint(identity), jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]", signal }),
+	const discussionEndpoint = discussionCommentsEndpoint(identity, sinceIso);
+	const reviewsEndpointValue = reviewsEndpoint(identity);
+	const reviewCommentsEndpointValue = reviewCommentsEndpoint(identity, sinceIso);
+	const [discussionResult, reviewsResult, reviewCommentsResult] = await Promise.allSettled([
+		ghApiJson({ pi, cwd, endpoint: discussionEndpoint, jq: "[.[] | {id, created_at, updated_at, author: .user.login}]", signal }),
+		ghApiJson({ pi, cwd, endpoint: reviewsEndpointValue, jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]", signal }),
 		ghApiJson({
 			pi,
 			cwd,
-			endpoint: reviewCommentsEndpoint(identity, sinceIso),
+			endpoint: reviewCommentsEndpointValue,
 			jq: "[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
 			signal,
 		}),
 	]);
+	const discussion = settledGhApiJsonResult(discussionResult, discussionEndpoint);
+	const reviews = settledGhApiJsonResult(reviewsResult, reviewsEndpointValue);
+	const reviewComments = settledGhApiJsonResult(reviewCommentsResult, reviewCommentsEndpointValue);
 	if (discussion.type === "failed") return discussion;
 	if (reviews.type === "failed") return reviews;
 	if (reviewComments.type === "failed") return reviewComments;
@@ -1183,7 +1199,12 @@ async function loadRestFingerprint(options: LoadRestFingerprintOptions): Promise
 	};
 }
 
-async function ghApiJson(options: GhApiJsonOptions): Promise<{ type: "loaded"; value: unknown } | { type: "failed"; message: string }> {
+function settledGhApiJsonResult(result: PromiseSettledResult<GhApiJsonResult>, endpoint: string): GhApiJsonResult {
+	if (result.status === "fulfilled") return result.value;
+	return { type: "failed", message: `gh api failed for ${endpoint}: ${formatUnknownError(result.reason)}` };
+}
+
+async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 	const { pi, cwd, endpoint, jq, signal } = options;
 	const result = await pi.exec("gh", ["api", "--method", "GET", endpoint, "--jq", jq], execOptions(cwd, GIT_TIMEOUT_MS, signal));
 	if (result.killed || result.code !== 0) {
@@ -1194,6 +1215,10 @@ async function ghApiJson(options: GhApiJsonOptions): Promise<{ type: "loaded"; v
 	} catch {
 		return { type: "failed", message: `gh api returned malformed JSON for ${endpoint}.` };
 	}
+}
+
+function formatUnknownError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function discussionCommentsEndpoint(identity: GithubPrIdentity, sinceIso: string | undefined): string {
@@ -1223,7 +1248,7 @@ function skewIso(iso: string): string {
 }
 
 function execOptions(cwd: string, timeout: number, signal?: AbortSignal): ExecOptions {
-	return signal === undefined ? { cwd, timeout } : { cwd, timeout, signal };
+	return { cwd, timeout, ...(signal === undefined ? {} : { signal }) };
 }
 
 function isExecutable(path: string): boolean {
@@ -1261,7 +1286,7 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (!status.isEnabled && status.state === "stopped") return undefined;
 	if (status.state === "paused") return "PR watch: paused";
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
-	if (status.state === "error") return status.mode === "heavy_fallback" ? "PR watch: REST check failed; retrying" : "PR watch: error";
+	if (status.state === "error") return status.mode === "heavy_fallback" ? REST_FAILURE_STATUS : "PR watch: error";
 	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
 	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} REST polling ${Math.round(status.intervalMs / 1_000)}s`;
 	return "PR watch: active";
