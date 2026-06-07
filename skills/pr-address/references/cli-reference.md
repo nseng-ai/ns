@@ -199,13 +199,72 @@ pr-address exec read-feedback-detail \
   --format json
 ```
 
+### `classification-template`
+
+Build a deterministic classification scaffold from a compact payload manifest.
+Use this after `prepare-run` or `get-feedback` in default payload mode and
+before asking the LLM to fill semantic judgments.
+
+**Invocation:** reads a bare compact manifest object from stdin by default.
+`--manifest-json` and `--manifest-file` are also available.
+
+```bash
+printf '%s' '<prepare-run or get-feedback data json>' \
+  | pr-address exec classification-template --format json
+
+pr-address exec classification-template \
+  --manifest-file manifest.json \
+  --format json
+```
+
+**Output fields (under `data`):**
+
+| Field                     | Description                                                                |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `manifest_kind`           | `prepare_run` or `get_feedback`                                            |
+| `pr_number`               | PR number, or null for `prepare-run` no-PR manifests                       |
+| `payload_path`            | Raw payload artifact path from the compact manifest                        |
+| `counts`                  | Prefilled review/thread/comment counts plus resolved-thread omission count |
+| `classification_template` | Strict packet-shaped scaffold with placeholder semantic fields             |
+
+The helper copies only deterministic fields: IDs, minimal body locators
+(`json_pointer`, `item_pointer`), review-thread item pointers, and exact comment
+coverage skeletons. It omits resolved review threads because current validation
+rejects resolved-thread classification. The raw template uses
+`"<fill: actionable|informational>"` disposition placeholders and empty
+summaries, so it is intentionally invalid until the classifier fills semantic
+fields.
+
+Invalid manifests, duplicate IDs, malformed JSON, and missing files return
+`exit_code: 2` with `invalid_request` or `invalid_json`.
+
 ### `validate-feedback-classification`
 
 Validate a strict PR feedback classification packet against a compact payload
 manifest before planning or execution proceeds.
 
-**Invocation:** reads the wrapper JSON from stdin by default. `--payload-json` is
-also available for direct/manual invocation.
+**Preferred split invocation:** pass the compact manifest and classification
+packet separately, avoiding wrapper JSON assembly.
+
+```bash
+pr-address exec validate-feedback-classification \
+  --manifest-file manifest.json \
+  --classification-file classification.json \
+  --format json
+
+pr-address exec validate-feedback-classification \
+  --manifest-json '<manifest-json>' \
+  --classification-json '<classification-json>' \
+  --format json
+```
+
+Split mode requires exactly one manifest source (`--manifest-json` or
+`--manifest-file`) and exactly one classification source
+(`--classification-json` or `--classification-file`). It rejects wrapper sources
+mixed with split inputs.
+
+**Legacy wrapper invocation:** reads wrapper JSON from stdin by default.
+`--payload-json` and `--payload-file` are also available for compatibility.
 
 ```bash
 printf '%s' '{"manifest":{...},"classification":{...}}' \
@@ -521,6 +580,7 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get-feedback`                     | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
 | `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw payload artifact.                                                                                        |
+| `classification-template`          | Detailed above. Build a deterministic classification scaffold from a compact payload manifest.                                                                         |
 | `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
 | `get-pr-for-branch`                | Look up the open PR for a branch                                                                                                                                       |

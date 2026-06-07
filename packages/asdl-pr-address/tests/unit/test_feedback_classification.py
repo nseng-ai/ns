@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import pytest
+
 from asdl_core.gh.types import PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread
 from asdl_core.payloads.models import PayloadReference
 from asdl_pr_address.cli.pr_address.feedback_classification import (
+    FILL_DISPOSITION_PLACEHOLDER,
+    FeedbackClassificationTemplateManifestError,
     FeedbackClassificationValidationResult,
     ValidationErrorCode,
+    build_feedback_classification_template,
     validate_feedback_classification,
 )
 from asdl_pr_address.cli.pr_address.feedback_payload import (
@@ -166,8 +171,133 @@ def _validate(manifest: dict, packet: dict) -> FeedbackClassificationValidationR
     return validate_feedback_classification(manifest=manifest, classification=packet)
 
 
+def _filled_template_packet(manifest: dict) -> dict:
+    template = build_feedback_classification_template(manifest=manifest)
+    packet = template.classification_template.model_dump(mode="json")
+    for review in packet["reviews"]:
+        review["disposition"] = "informational"
+        review["summary"] = "The top-level review is acknowledged context."
+        review["informational_reason"] = "acknowledgement"
+    for thread in packet["review_threads"]:
+        thread["disposition"] = "actionable"
+        thread["summary"] = "The inline thread requests a local implementation/test update."
+        thread["action_summary"] = "Update implementation and tests for the requested helper."
+        thread["complexity"] = "local"
+    for comment in packet["discussion_comments"]:
+        comment["disposition"] = "actionable"
+        comment["summary"] = "The discussion comment needs a reply."
+        comment["action_summary"] = "Reply after applying the requested change."
+        comment["complexity"] = "single_file"
+        comment["needs_reply"] = True
+    return packet
+
+
 def _error_codes(result: FeedbackClassificationValidationResult) -> set[ValidationErrorCode]:
     return {error.code for error in result.errors}
+
+
+def test_build_feedback_classification_template_prefills_deterministic_fields() -> None:
+    manifest = _manifest_payload(include_resolved=True)
+
+    result = build_feedback_classification_template(manifest=manifest)
+    template = result.classification_template.model_dump(mode="json")
+
+    assert result.manifest_kind == "get_feedback"
+    assert result.pr_number == 42
+    assert result.payload_path == _payload_reference().payload_path
+    assert result.counts.reviews == 1
+    assert result.counts.review_threads == 1
+    assert result.counts.thread_comments == 2
+    assert result.counts.discussion_comments == 1
+    assert result.counts.resolved_review_threads_omitted == 1
+    assert template["reviews"][0] == {
+        "review_id": "PRR_1",
+        "disposition": FILL_DISPOSITION_PLACEHOLDER,
+        "body_locator": {
+            "json_pointer": "/data/reviews/0/body",
+            "item_pointer": "/data/reviews/0",
+        },
+        "summary": "",
+        "action_summary": None,
+        "complexity": None,
+        "pre_existing": False,
+        "informational_reason": None,
+    }
+    assert template["review_threads"][0]["thread_id"] == "PRRT_1"
+    assert template["review_threads"][0]["thread_item_pointer"] == "/data/review_threads/0"
+    assert template["review_threads"][0]["covered_comments"] == [
+        {
+            "comment_id": 101,
+            "body_locator": {
+                "json_pointer": "/data/review_threads/0/comments/0/body",
+                "item_pointer": "/data/review_threads/0/comments/0",
+            },
+        },
+        {
+            "comment_id": 102,
+            "body_locator": {
+                "json_pointer": "/data/review_threads/0/comments/1/body",
+                "item_pointer": "/data/review_threads/0/comments/1",
+            },
+        },
+    ]
+    assert template["discussion_comments"][0] == {
+        "comment_id": 301,
+        "disposition": FILL_DISPOSITION_PLACEHOLDER,
+        "body_locator": {
+            "json_pointer": "/data/discussion_comments/0/body",
+            "item_pointer": "/data/discussion_comments/0",
+        },
+        "summary": "",
+        "action_summary": None,
+        "complexity": None,
+        "needs_reply": False,
+        "informational_reason": None,
+    }
+    serialized_template = result.classification_template.model_dump_json()
+    for omitted_key in ("body_chars", "domain", "path", "line", "author"):
+        assert omitted_key not in serialized_template
+
+
+def test_filled_feedback_classification_template_validates() -> None:
+    manifest = _manifest_payload()
+
+    result = _validate(manifest, _filled_template_packet(manifest))
+
+    assert result.valid is True
+    assert result.errors == ()
+
+
+def test_unfilled_feedback_classification_template_does_not_validate() -> None:
+    manifest = _manifest_payload()
+    packet = build_feedback_classification_template(manifest=manifest).classification_template
+
+    result = _validate(manifest, packet.model_dump(mode="json"))
+
+    assert result.valid is False
+    assert "invalid_schema" in _error_codes(result)
+
+
+def test_feedback_classification_template_omits_resolved_threads() -> None:
+    manifest = _manifest_payload(include_resolved=True)
+
+    result = build_feedback_classification_template(manifest=manifest)
+
+    assert [thread.thread_id for thread in result.classification_template.review_threads] == [
+        "PRRT_1"
+    ]
+    assert result.counts.resolved_review_threads_omitted == 1
+
+
+def test_feedback_classification_template_fails_closed_for_duplicate_manifest_ids() -> None:
+    manifest = _manifest_payload()
+    manifest["reviews"].append(deepcopy(manifest["reviews"][0]))
+
+    with pytest.raises(FeedbackClassificationTemplateManifestError) as exc_info:
+        build_feedback_classification_template(manifest=manifest)
+
+    assert exc_info.value.errors[0].code == "invalid_schema"
+    assert exc_info.value.errors[0].identifier == "PRR_1"
 
 
 def test_validate_feedback_classification_accepts_complete_packet() -> None:
@@ -290,6 +420,28 @@ def test_validate_feedback_classification_reports_unknown_items() -> None:
         "unknown_thread_comment",
         "unknown_discussion_comment",
     }.issubset(_error_codes(result))
+
+
+def test_validate_feedback_classification_rejects_extra_locator_fields() -> None:
+    manifest = _manifest_payload()
+    packet = _complete_packet(manifest)
+    packet["reviews"][0]["body_locator"]["body_chars"] = 25
+
+    result = _validate(manifest, packet)
+
+    assert result.valid is False
+    assert "invalid_schema" in _error_codes(result)
+
+
+def test_validate_feedback_classification_rejects_wrong_covered_comment_field_name() -> None:
+    manifest = _manifest_payload()
+    packet = _complete_packet(manifest)
+    packet["review_threads"][0]["comments"] = packet["review_threads"][0].pop("covered_comments")
+
+    result = _validate(manifest, packet)
+
+    assert result.valid is False
+    assert "invalid_schema" in _error_codes(result)
 
 
 def test_validate_feedback_classification_rejects_invalid_locator_references() -> None:
