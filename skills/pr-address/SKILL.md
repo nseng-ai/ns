@@ -196,15 +196,25 @@ Preferred classification path:
 
 Fallback path when no subagent/separate subagent or helper is available:
 
-- Use targeted detail lookup for the bodies needed to classify items:
+- When multiple bodies/items are needed, batch their compact-manifest pointers
+  into artifact-backed detail lookup:
 
   ```bash
-  <pr-address-runner> exec read-feedback-detail \
-    --payload-path <payload-path> \
-    --json-pointer <locator-json-pointer> \
-    --format json
+  printf '%s' '<selection-json>' \
+    | <pr-address-runner> exec read-feedback-details --format json
   ```
 
+  where `<selection-json>` is:
+
+  ```json
+  { "payload_path": "<payload-path>", "json_pointers": ["<locator-json-pointer>"] }
+  ```
+
+- Inspect `data.selected_payload_reference.payload_path` plus each returned
+  `artifact_json_pointer` for exact body text. Do not paste the selected values
+  into the main transcript unless strictly necessary.
+- Use `read-feedback-detail` only for exact one-off body/item lookup or explicit
+  debugging, because it returns the selected value inline.
 - Stop if targeted lookup still leaves insufficient evidence. Do not switch to
   full inline payloads by default.
 
@@ -275,8 +285,9 @@ comment.
 For each approved batch, do the real engineering work:
 
 - inspect the referenced code
-- use `read-feedback-detail` when exact original body text is needed and was not
-  already provided by the payload-aware classifier answer
+- use `read-feedback-details` when multiple exact original bodies/items are
+  needed and were not already provided by the payload-aware classifier answer;
+  use `read-feedback-detail` only for a one-off inline lookup/debug check
 - decide whether the feedback needs a code change, a reply, or both
 - make the edit
 - run appropriate tests for the affected project
