@@ -49,6 +49,7 @@ class StackTriageBatch:
     risk: StackRisk
     resolver_mandate: str
     validation_requirements: tuple[str, ...]
+    expected_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -168,6 +169,13 @@ class StackRunBatchState(ClinkrModel):
     batch_slug: str
     title: str = ""
     status: StackBatchStatus = "pending"
+    finding_ids: tuple[str, ...] = ()
+    dependencies: tuple[str, ...] = ()
+    confidence: StackConfidence = "medium"
+    risk: StackRisk = "behavioral"
+    resolver_mandate: str = ""
+    validation_requirements: tuple[str, ...] = ()
+    expected_paths: tuple[str, ...] = ()
     generated_branch: GeneratedStackBranch | None = None
     generated_branch_status: StackGeneratedBranchStatus | None = None
     resolver_locator: StackRunArtifactLocator | None = None
