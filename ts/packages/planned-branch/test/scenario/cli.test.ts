@@ -215,6 +215,18 @@ describe("planned-branch CLI parse failures", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.commands.execCalls).toEqual([]);
 	});
+
+	test("rejects JSON-only load-plan fields in text mode before loading a plan", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Error: --include-content and --include-prompt require --format json.\n");
+		expect(run.commands.execCalls).toEqual([]);
+		expect(run.brmem.listAttachedPlansCalls).toEqual([]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+	});
 });
 
 describe("planned-branch exec", () => {
@@ -459,9 +471,15 @@ describe("planned-branch exec", () => {
 		const payload = parseJson(run);
 		expect(payload).toMatchObject({
 			success: true,
+			branch,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			selected_key: PLAN_KEY,
+			byte_count: content.length,
 			attached_plan_content: content,
 		});
 		expect(String(payload.implementation_prompt)).toContain("# planned-branch implementation");
 		expect(String(payload.implementation_prompt)).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
 });

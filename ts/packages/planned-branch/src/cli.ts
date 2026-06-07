@@ -218,17 +218,15 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		return 0;
 	}
 	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
+	if ((parsed.value.shouldIncludeContent || parsed.value.shouldIncludePrompt) && parsed.value.format !== "json") {
+		return writeFailure("--include-content and --include-prompt require --format json.", { stdout: deps.stdout, stderr: deps.stderr, json: false });
+	}
 
 	const requestedKey = parsed.value.keyOrSlug;
 	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem });
 	const promptFile = parsed.value.promptFile === undefined ? undefined : normalizePlanFilePath(parsed.value.promptFile);
-	let implementationPrompt: string | undefined;
-	function getImplementationPrompt(): string {
-		implementationPrompt ??= buildImplPlannedBranchPrompt(plan);
-		return implementationPrompt;
-	}
 	if (promptFile !== undefined) {
-		await writeFile(promptFile, getImplementationPrompt(), "utf8");
+		await writeFile(promptFile, buildImplPlannedBranchPrompt(plan), "utf8");
 	}
 	if (parsed.value.format === "json") {
 		deps.stdout(
@@ -237,7 +235,7 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 				...loadedPlanJson(plan, {
 					promptFile,
 					attachedPlanContent: parsed.value.shouldIncludeContent ? plan.content : undefined,
-					implementationPrompt: parsed.value.shouldIncludePrompt ? getImplementationPrompt() : undefined,
+					implementationPrompt: parsed.value.shouldIncludePrompt ? buildImplPlannedBranchPrompt(plan) : undefined,
 				}),
 			})}\n`,
 		);
@@ -247,7 +245,7 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		deps.stdout(`${formatLoadedPlan(plan)}\nImplementation prompt file: ${promptFile}\n`);
 		return 0;
 	}
-	deps.stdout(`${formatLoadedPlan(plan)}\n\n${getImplementationPrompt()}\n`);
+	deps.stdout(`${formatLoadedPlan(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
 	return 0;
 }
 
