@@ -189,7 +189,7 @@ def _execute_current_worktree_redirect(
             return SlotLifecycleFailure(
                 error_type="slot_allocation_error",
                 message=(
-                    f"Failed to check out {action.failure_subject} in "
+                    f"Failed to check out {_current_redirect_failure_subject(action)} in "
                     f"{slots_ctx.repo.root}: {failure.message}"
                 ),
             )
@@ -198,6 +198,12 @@ def _execute_current_worktree_redirect(
         slots_ctx.git.detach_head(slots_ctx.repo.root, action.ref)
         return None
     raise AssertionError(f"unknown current worktree redirect action: {action!r}")
+
+
+def _current_redirect_failure_subject(action: CheckoutCurrentWorktreeBranch) -> str:
+    if action.role == "trunk":
+        return f"trunk branch '{action.branch}'"
+    return f"'{action.branch}'"
 
 
 def _execute_plan(

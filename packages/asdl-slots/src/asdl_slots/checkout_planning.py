@@ -7,8 +7,10 @@ Inventory-only — no persisted pool state involvement.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure, WorktreeOccupancy
@@ -74,7 +76,7 @@ class CheckoutCurrentWorktreeBranch:
     """Redirect the caller worktree by checking out another branch."""
 
     branch: str
-    failure_subject: str
+    role: Literal["previous", "trunk"]
 
 
 @dataclass(frozen=True)
@@ -161,7 +163,7 @@ def plan_current_wt_redirect(
             return CurrentWorktreeRedirect(
                 action=CheckoutCurrentWorktreeBranch(
                     branch=previous,
-                    failure_subject=f"'{previous}'",
+                    role="previous",
                 ),
                 note=None,
             )
@@ -181,7 +183,7 @@ def plan_current_wt_redirect(
         return CurrentWorktreeRedirect(
             action=CheckoutCurrentWorktreeBranch(
                 branch=trunk,
-                failure_subject=f"trunk branch '{trunk}'",
+                role="trunk",
             ),
             note=None,
         )
@@ -207,6 +209,38 @@ class CurrentCheckoutPlan:
         if self.redirect is None:
             return None
         return self.redirect.note
+
+
+def inventory_without_caller_branch_occupancy(
+    inventory: SlotInventory,
+    *,
+    cwd: Path,
+    moving_branch: str,
+) -> SlotInventory:
+    """Return an inventory view that ignores only the caller worktree's branch hold."""
+    records = tuple(
+        dataclasses.replace(record, branch=None, operation=None)
+        if record.path == cwd and record.branch == moving_branch
+        else record
+        for record in inventory.records
+    )
+    main_worktree = inventory.main_worktree
+    if (
+        main_worktree is not None
+        and main_worktree.path == cwd
+        and main_worktree.branch == moving_branch
+    ):
+        main_worktree = dataclasses.replace(main_worktree, branch=None)
+    branch_occupancies = tuple(
+        occupancy
+        for occupancy in inventory.branch_occupancies
+        if not (occupancy.path == cwd and occupancy.branch == moving_branch)
+    )
+    return SlotInventory(
+        records=records,
+        main_worktree=main_worktree,
+        branch_occupancies=branch_occupancies,
+    )
 
 
 def plan_current_checkout(
@@ -237,20 +271,13 @@ def plan_current_checkout(
         return DirtyCurrentWorktreeError(cwd=cwd)
 
     redirect = plan_current_wt_redirect(git, cwd=cwd, moving_branch=current_branch)
-    occupancy = next(
-        (
-            occupancy
-            for occupancy in inventory.branch_occupancies
-            if occupancy.branch == current_branch and occupancy.path != cwd
-        ),
-        None,
+    adjusted_inventory = inventory_without_caller_branch_occupancy(
+        inventory,
+        cwd=cwd,
+        moving_branch=current_branch,
     )
-    if occupancy is not None:
-        plan: CheckoutPlan = BranchInUse(occupancy=occupancy)
-    else:
-        plan = _assign_to_available_slot(inventory, git)
     return CurrentCheckoutPlan(
-        plan=plan,
+        plan=plan_checkout(adjusted_inventory, git, current_branch),
         branch_name=current_branch,
         redirect=redirect,
     )

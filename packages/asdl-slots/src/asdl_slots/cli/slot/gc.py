@@ -24,13 +24,18 @@ from asdl_slots.cli.slot.cleanup_rendering import (
     cleanup_to_result,
 )
 from asdl_slots.cli.slot.context import load_slots_context
+from asdl_slots.lifecycle.gc import (
+    execute_gc_plan,
+    outcome_from_gc_plan,
+    plan_gc,
+    plan_gc_cleanup,
+)
 from asdl_slots.lifecycle.outcomes import (
     SlotFreeCleanupAction,
     SlotGcAction,
     SlotGcOutcome,
     SlotLifecycleFailure,
 )
-from asdl_slots.lifecycle.release import SlotReleaseWorkflow
 from asdl_slots.repo_context import NoRepoSentinel
 
 
@@ -221,44 +226,39 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
     )
 
     cleanup_actions = SLOT_GC_DELETE_BRANCH_CLEANUP_ACTIONS if request.delete_branches else ()
-    workflow = SlotReleaseWorkflow(slots_ctx)
 
-    plan = workflow.plan_gc()
+    plan = plan_gc(slots_ctx)
     if isinstance(plan, SlotLifecycleFailure):
         return ClinkrExit.failure(error_type=plan.error_type, message=plan.message)
 
     if request.dry_run:
-        cleanup = workflow.plan_gc_cleanup(plan, cleanup_actions)
-        result = _result_from_outcome(
-            workflow.outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup)
-        )
+        cleanup = plan_gc_cleanup(slots_ctx, plan, cleanup_actions)
+        result = _result_from_outcome(outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup))
         return _exit_for_result(result)
 
     if plan.would_free_count == 0:
-        return ClinkrExit.ok(
-            _result_from_outcome(workflow.outcome_from_gc_plan(plan, dry_run=False))
-        )
+        return ClinkrExit.ok(_result_from_outcome(outcome_from_gc_plan(plan, dry_run=False)))
 
     if request.force:
         result = _result_from_outcome(
-            workflow.execute_gc_plan(plan, cleanup_actions=cleanup_actions)
+            execute_gc_plan(slots_ctx, plan, cleanup_actions=cleanup_actions)
         )
         return _exit_for_result(result)
 
-    cleanup_preview = workflow.plan_gc_cleanup(plan, cleanup_actions)
-    preview_outcome = workflow.outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup_preview)
+    cleanup_preview = plan_gc_cleanup(slots_ctx, plan, cleanup_actions)
+    preview_outcome = outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup_preview)
     preview = _result_from_outcome(preview_outcome)
     render_slot_gc(preview, err=True)
     sys.stderr.flush()
     proceed = _confirm_free_slots(plan.would_free_count, delete_branches=request.delete_branches)
     if proceed:
         result = _result_from_outcome(
-            workflow.execute_gc_plan(plan, cleanup_actions=cleanup_actions)
+            execute_gc_plan(slots_ctx, plan, cleanup_actions=cleanup_actions)
         )
         return _exit_for_result(result)
     return ClinkrExit.ok(
         _result_from_outcome(
-            workflow.outcome_from_gc_plan(plan, dry_run=False, cleanup=cleanup_preview),
+            outcome_from_gc_plan(plan, dry_run=False, cleanup=cleanup_preview),
             cancelled=True,
         )
     )

@@ -284,7 +284,7 @@ def test_plan_current_checkout_redirects_to_previous_branch() -> None:
     assert result.redirect is not None
     assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
     assert result.redirect.action.branch == "some-other"
-    assert result.redirect.action.failure_subject == "'some-other'"
+    assert result.redirect.action.role == "previous"
     assert result.redirect.note is None
     # Planning is pure: cwd remains on the moving branch.
     assert git.get_current_branch(cwd) == "feat/x"
@@ -333,7 +333,7 @@ def test_plan_current_checkout_branch_in_main_plans_redirect_then_assignment() -
     assert result.redirect is not None
     assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
     assert result.redirect.action.branch == "some-other"
-    assert result.redirect.action.failure_subject == "'some-other'"
+    assert result.redirect.action.role == "previous"
     # Main remains on feat/x during pure planning.
     assert git.get_current_branch(cwd) == "feat/x"
 
@@ -357,8 +357,30 @@ def test_plan_current_checkout_plans_trunk_redirect_without_mutation() -> None:
     assert result.redirect is not None
     assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
     assert result.redirect.action.branch == "main"
-    assert result.redirect.action.failure_subject == "trunk branch 'main'"
+    assert result.redirect.action.role == "trunk"
     assert result.redirect.note is None
+    assert git.get_current_branch(cwd) == "feat/x"
+
+
+def test_plan_current_checkout_sibling_branch_occupancy_still_blocks() -> None:
+    cwd = Path("/repo")
+    sibling = Path("/wt/sibling")
+    git = FakeGitGateway(
+        branches=("feat/x", "main"),
+        trunk_branch="main",
+        current_branch_by_path={cwd: "feat/x"},
+        worktrees=(
+            WorktreeInfo(path=cwd, branch="feat/x", is_bare=False),
+            WorktreeInfo(path=sibling, branch="feat/x", is_bare=False),
+            _slot_wt(1, None),
+        ),
+    )
+
+    result = plan_current_checkout(git, cwd=cwd, main_repo_root=cwd)
+
+    assert isinstance(result, CurrentCheckoutPlan)
+    assert isinstance(result.plan, BranchInUse)
+    assert result.plan.occupancy.path == sibling
     assert git.get_current_branch(cwd) == "feat/x"
 
 
