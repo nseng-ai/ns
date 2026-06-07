@@ -163,7 +163,14 @@ function step(command: string, args: string[], result: Partial<ExecResult> = {})
 	return { command, args, result };
 }
 
-function resolveWritePlanPromptStep(content: string = DEFAULT_WRITE_PLAN_PROMPT_BODY, result: Partial<ExecResult> = {}): ScriptedExec {
+interface ResolveWritePlanPromptStepOptions {
+	content?: string;
+	result?: Partial<ExecResult>;
+}
+
+function resolveWritePlanPromptStep(options: ResolveWritePlanPromptStepOptions = {}): ScriptedExec {
+	const content = options.content ?? DEFAULT_WRITE_PLAN_PROMPT_BODY;
+	const result = options.result ?? {};
 	return step("asdl", ["exec", "resolve-prompt", "planned-branch-write-plan", "--format", "json"], {
 		stdout: JSON.stringify({
 			exit_code: 0,
@@ -969,7 +976,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("planned-branch:write-plan uses custom resolved prompt body", async () => {
-		const pi = new FakePi([resolveWritePlanPromptStep("Custom plan body\n")]);
+		const pi = new FakePi([resolveWritePlanPromptStep({ content: "Custom plan body\n" })]);
 		registerPlannedBranchExtension(pi);
 		const command = pi.commands.get("planned-branch:write-plan");
 		const context = createContext();
@@ -983,7 +990,7 @@ describe("plan workflow commands", () => {
 
 	test("planned-branch:write-plan falls back and warns when resolver fails", async () => {
 		const pi = new FakePi([
-			resolveWritePlanPromptStep(DEFAULT_WRITE_PLAN_PROMPT_BODY, { code: 1, stdout: "", stderr: "prompt_not_found: missing" }),
+			resolveWritePlanPromptStep({ result: { code: 1, stdout: "", stderr: "prompt_not_found: missing" } }),
 		]);
 		registerPlannedBranchExtension(pi);
 		const command = pi.commands.get("planned-branch:write-plan");
@@ -1004,7 +1011,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("planned-branch:write-plan falls back without UI warning when resolver returns malformed JSON", async () => {
-		const pi = new FakePi([resolveWritePlanPromptStep(DEFAULT_WRITE_PLAN_PROMPT_BODY, { stdout: "not json" })]);
+		const pi = new FakePi([resolveWritePlanPromptStep({ result: { stdout: "not json" } })]);
 		registerPlannedBranchExtension(pi);
 		const command = pi.commands.get("planned-branch:write-plan");
 		const context = createContext([], { hasUI: false });

@@ -20,9 +20,10 @@ import {
 	type SelectedSavedPlanFile,
 	type SourceBranchPlanFileEvidence,
 } from "@asdl/planned-branch";
+import type { ExecResult } from "./command-runtime.ts";
+import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
-import type { ExecResult } from "./command-runtime.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
 export {
@@ -347,14 +348,9 @@ async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promis
 			);
 		}
 
-		const resolved = parseResolvePromptJson(result.stdout);
+		const resolved = parseResolvePromptJson(result.stdout, WRITE_PLAN_PROMPT_NAME);
 		if (resolved === undefined) {
 			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned malformed JSON output.");
-		}
-		if (resolved.name !== WRITE_PLAN_PROMPT_NAME) {
-			return fallbackWritePlanPromptBody(
-				`asdl exec resolve-prompt returned prompt ${resolved.name}, expected ${WRITE_PLAN_PROMPT_NAME}.`,
-			);
 		}
 		if (resolved.content.trim().length === 0) {
 			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned empty prompt content.");
@@ -374,7 +370,7 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 	};
 }
 
-function parseResolvePromptJson(stdout: string): ResolvedAsdlPrompt | undefined {
+function parseResolvePromptJson(stdout: string, expectedName: string): ResolvedAsdlPrompt | undefined {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
@@ -385,12 +381,10 @@ function parseResolvePromptJson(stdout: string): ResolvedAsdlPrompt | undefined 
 	if (!isRecord(parsed) || !isRecord(parsed.data)) {
 		return undefined;
 	}
-	return parseResolvedAsdlPrompt(parsed.data);
-}
 
-function parseResolvedAsdlPrompt(data: Record<string, unknown>): ResolvedAsdlPrompt | undefined {
+	const data = parsed.data;
 	const provenance = data.provenance;
-	if (typeof data.name !== "string" || typeof data.content !== "string" || !isRecord(provenance)) {
+	if (typeof data.name !== "string" || data.name !== expectedName || typeof data.content !== "string" || !isRecord(provenance)) {
 		return undefined;
 	}
 	if (typeof provenance.source !== "string" || typeof provenance.repo_prompt_path !== "string") {
@@ -416,10 +410,6 @@ function parseResolvedAsdlPrompt(data: Record<string, unknown>): ResolvedAsdlPro
 
 function isOptionalString(value: unknown): value is string | null | undefined {
 	return value === undefined || value === null || typeof value === "string";
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 class CreatePlannedBranchUsageError extends Error {
@@ -1093,10 +1083,6 @@ function derivePlannedTargetBranch(
 	}
 
 	return deriveTargetBranch(undefined, slug);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function presentPlannedBranchFailure(
