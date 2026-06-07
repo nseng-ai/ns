@@ -771,7 +771,7 @@ async function handleUpAndImplCommand(
 				pi,
 				ctx,
 				"Created planned branch and attached the plan, but failed to check out the planned branch.",
-				new Error(launchResult.message),
+				launchResult.message,
 				preview,
 			);
 			return;
@@ -780,7 +780,7 @@ async function handleUpAndImplCommand(
 				pi,
 				ctx,
 				"Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.",
-				new Error(launchResult.message),
+				launchResult.message,
 				preview,
 			);
 			return;
