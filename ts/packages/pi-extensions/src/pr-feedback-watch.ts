@@ -589,7 +589,7 @@ class PrFeedbackWatchController {
 	private queuedItems: FeedbackItemKey[] = [];
 	private currentUserLogin: string | undefined;
 	private dirtyNotified = false;
-	private restFailureNotified = false;
+	private hasNotifiedRestFailure = false;
 	private headRefOid: string | undefined;
 	private githubPrIdentity: GithubPrIdentity | undefined;
 	private lastRestFingerprintKey: string | undefined;
@@ -789,7 +789,7 @@ class PrFeedbackWatchController {
 			}
 			return;
 		}
-		this.restFailureNotified = false;
+		this.hasNotifiedRestFailure = false;
 		this.restFingerprintFailures = 0;
 		this.state = {
 			...this.state,
@@ -896,8 +896,8 @@ class PrFeedbackWatchController {
 			lastError: message,
 		};
 		this.renderStatus("PR watch: REST check failed; retrying");
-		if (!this.restFailureNotified) {
-			this.restFailureNotified = true;
+		if (!this.hasNotifiedRestFailure) {
+			this.hasNotifiedRestFailure = true;
 			notify(session.ctx, `PR feedback watch REST check failed; retrying: ${message}`, "warning");
 		}
 	}

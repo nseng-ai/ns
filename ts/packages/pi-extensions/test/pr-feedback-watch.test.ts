@@ -38,6 +38,11 @@ interface ScriptedExec {
 	result: Partial<ExecResult>;
 }
 
+interface StepOptions {
+	result?: Partial<ExecResult>;
+	description?: string;
+}
+
 interface RegisteredCommand {
 	description?: string;
 	handler(args: string, ctx: ExtensionContext): Promise<void> | void;
@@ -145,8 +150,9 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[] | ((args: string[]) => boolean), result: Partial<ExecResult> = {}, description?: string): ScriptedExec {
-	return description === undefined ? { command, args, result } : { command, args, result, description };
+function step(command: string, args: string[] | ((args: string[]) => boolean), options: StepOptions = {}): ScriptedExec {
+	const result = options.result ?? {};
+	return options.description === undefined ? { command, args, result } : { command, args, result, description: options.description };
 }
 
 function matchesArgs(expected: string[] | ((args: string[]) => boolean), actual: string[]): boolean {
@@ -160,16 +166,16 @@ function envelope(data: object): string {
 
 function prepareStep(data: object, sessionId: string): ScriptedExec {
 	return step("pr-address-run", ["exec", "prepare-run", "--payload-session-id", sessionId, "--format", "json"], {
-		stdout: envelope(data),
+		result: { stdout: envelope(data) },
 	});
 }
 
 function currentUserStep(login = "schrockn"): ScriptedExec {
-	return step("gh", ["api", "user", "--jq", ".login"], { stdout: `${login}\n` });
+	return step("gh", ["api", "user", "--jq", ".login"], { result: { stdout: `${login}\n` } });
 }
 
 function headOidStep(prNumber = 123, oid = "abc123"): ScriptedExec {
-	return step("gh", ["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"], { stdout: `${oid}\n` });
+	return step("gh", ["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"], { result: { stdout: `${oid}\n` } });
 }
 
 function discussionFingerprintStep(items: object[]): ScriptedExec {
@@ -192,8 +198,7 @@ function restFingerprintStep(pathFragment: string, jq: string, items: object[]):
 	return step(
 		"gh",
 		(args) => args[0] === "api" && args[1] === "--method" && args[2] === "GET" && args[3] !== undefined && args[3].includes(pathFragment) && args[4] === "--jq" && args[5] === jq,
-		{ stdout: JSON.stringify(items) },
-		`api ${pathFragment}`,
+		{ result: { stdout: JSON.stringify(items) }, description: `api ${pathFragment}` },
 	);
 }
 
@@ -214,11 +219,11 @@ function reviewCommentRestItem(id: number): object {
 }
 
 function cleanStep(): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1"], { stdout: "" });
+	return step("git", ["status", "--porcelain=v1"], { result: { stdout: "" } });
 }
 
 function dirtyStep(): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1"], { stdout: " M file.ts\n" });
+	return step("git", ["status", "--porcelain=v1"], { result: { stdout: " M file.ts\n" } });
 }
 
 function compactManifest(commentIds: number[] = [10]): object {
@@ -514,7 +519,10 @@ describe("pr feedback watch extension", () => {
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
-			step("gh", (args) => args[0] === "api" && args[3] !== undefined && args[3].includes("issues/123/comments"), { code: 1, stderr: "rate limited" }, "failed discussion REST"),
+			step("gh", (args) => args[0] === "api" && args[3] !== undefined && args[3].includes("issues/123/comments"), {
+				result: { code: 1, stderr: "rate limited" },
+				description: "failed discussion REST",
+			}),
 		]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
