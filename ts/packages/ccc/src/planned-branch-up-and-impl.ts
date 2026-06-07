@@ -1,3 +1,4 @@
+import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import type { PlannedBranchEvidence } from "@asdl/planned-branch";
 
@@ -17,9 +18,7 @@ export interface PlannedBranchUpAndImplNewSessionOptions {
 export interface PlannedBranchUpAndImplContext {
 	cwd: string;
 	hasUI: boolean;
-	ui: {
-		setStatus?(key: string, value: string | undefined): void;
-	};
+	ui: LaunchStatusUi;
 	sessionManager?: {
 		getSessionFile?(): string | undefined;
 	};
@@ -45,19 +44,20 @@ const CHECKOUT_TIMEOUT_MS = 30_000;
 
 export async function runPlannedBranchUpAndImplLaunch(options: PlannedBranchUpAndImplLaunchOptions): Promise<PlannedBranchUpAndImplLaunchResult> {
 	const { branch, key } = options.evidence;
+	const statusUpdater = buildStatusUpdater(options);
 	let isReplacementSessionActive = false;
 	let phase: PlannedBranchUpAndImplLaunchPhase = "checkout";
 	let parentSession: string | undefined;
 
 	try {
-		setStatus(options, "checking out planned branch…");
+		setLaunchStatus(statusUpdater, "checking out planned branch…");
 		const checkout = await checkoutPlannedBranch({ host: options.host, cwd: options.ctx.cwd, targetBranch: branch, signal: options.signal });
 		if (checkout.type === "failed") {
 			return { type: "failed", branch, key, phase: "checkout", message: checkout.message };
 		}
 
 		phase = "new-session";
-		setStatus(options, "starting implementation session…");
+		setLaunchStatus(statusUpdater, "starting implementation session…");
 		parentSession = options.ctx.sessionManager?.getSessionFile?.();
 		const parentSessionPart = parentSession === undefined ? {} : { parentSession };
 		const newSessionOptions: PlannedBranchUpAndImplNewSessionOptions = {
@@ -95,7 +95,7 @@ export async function runPlannedBranchUpAndImplLaunch(options: PlannedBranchUpAn
 			...(parentSession === undefined ? {} : { parentSession }),
 		};
 	} finally {
-		setStatus(options, undefined);
+		setLaunchStatus(statusUpdater, undefined);
 	}
 }
 
@@ -136,8 +136,10 @@ function formatCheckoutFailureOutput(result: ExecResult): string {
 	return "(no output)";
 }
 
-function setStatus(options: PlannedBranchUpAndImplLaunchOptions, value: string | undefined): void {
-	if (options.ctx.hasUI) {
-		options.ctx.ui.setStatus?.(options.statusKey, value);
-	}
+function buildStatusUpdater(options: PlannedBranchUpAndImplLaunchOptions): LaunchStatusUpdater {
+	return {
+		hasUI: options.ctx.hasUI,
+		ui: options.ctx.ui,
+		statusKey: options.statusKey,
+	};
 }

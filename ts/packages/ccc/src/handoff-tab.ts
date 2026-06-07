@@ -7,6 +7,7 @@ import {
 	type CmuxSendOptions,
 	type CmuxTabOptions,
 } from "./cmux/focused-terminal-tab.ts";
+import { setLaunchStatus, type LaunchStatusUi } from "./launch-status.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 
@@ -37,9 +38,7 @@ export interface HandoffTabLaunchOptions {
 	cwd: string;
 	model: ModelInfo | undefined;
 	hasUI: boolean;
-	ui: {
-		setStatus?(key: string, value: string | undefined): void;
-	};
+	ui: LaunchStatusUi;
 	statusKey: string;
 	params: HandoffTabLaunchParams;
 	signal: AbortSignal | undefined;
@@ -135,7 +134,7 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 			command,
 		};
 	} finally {
-		setStatus(options, undefined);
+		setLaunchStatus(options, undefined);
 	}
 }
 
@@ -153,12 +152,6 @@ export function formatHandoffTabLaunchSuccess(result: Extract<HandoffTabLaunchRe
 
 function updateProgress(options: HandoffTabLaunchOptions, text: string, status: string): void {
 	options.onUpdate?.({ content: [{ type: "text", text }] });
-	setStatus(options, status);
-}
-
-function setStatus(options: HandoffTabLaunchOptions, value: string | undefined): void {
-	if (options.hasUI) {
-		options.ui.setStatus?.(options.statusKey, value);
-	}
+	setLaunchStatus(options, status);
 }
 
