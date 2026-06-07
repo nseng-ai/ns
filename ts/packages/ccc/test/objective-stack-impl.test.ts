@@ -233,7 +233,7 @@ describe("objective stack impl CCC orchestration", () => {
 				args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
 				options: { cwd: ROOT, timeout: 30_000 },
 			});
-			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.waitForIdleCalls()).toBe(2);
 			expect(result.host.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});
 	});

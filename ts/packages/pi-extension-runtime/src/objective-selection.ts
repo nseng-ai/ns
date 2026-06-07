@@ -58,14 +58,12 @@ interface ChangedObjectiveSelectionOptions {
 interface ObjectiveDiffChangedSlugsOptions {
 	host: ObjectiveSelectionHost;
 	ctx: ObjectiveSelectionContext;
-	spec: ObjectiveSelectionSpec;
 	trunkBranch: string;
 }
 
 interface ObjectiveStatusChangedSlugsOptions {
 	host: ObjectiveSelectionHost;
 	ctx: ObjectiveSelectionContext;
-	spec: ObjectiveSelectionSpec;
 }
 
 interface SelectObjectiveSlugOptions {
@@ -118,10 +116,22 @@ async function listActiveObjectives(
 async function changedObjectiveSelection(options: ChangedObjectiveSelectionOptions): Promise<ObjectiveDiffSelection | undefined> {
 	const { host, ctx, objectiveList, spec } = options;
 	const trunkBranch = objectiveList.trunkBranch.trim();
-	const [committedChangedSlugs, dirtyChangedSlugs] = await Promise.all([
-		trunkBranch ? objectiveDiffChangedSlugs({ host, ctx, spec, trunkBranch }) : Promise.resolve<string[]>([]),
-		objectiveStatusChangedSlugs({ host, ctx, spec }),
-	]);
+	if (ctx.hasUI) {
+		ctx.ui.setStatus?.(spec.statusKey, "checking Objective changes…");
+	}
+
+	let committedChangedSlugs: string[];
+	let dirtyChangedSlugs: string[];
+	try {
+		[committedChangedSlugs, dirtyChangedSlugs] = await Promise.all([
+			trunkBranch ? objectiveDiffChangedSlugs({ host, ctx, trunkBranch }) : Promise.resolve<string[]>([]),
+			objectiveStatusChangedSlugs({ host, ctx }),
+		]);
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus?.(spec.statusKey, undefined);
+		}
+	}
 	const allChangedSlugs = sortedUniqueSlugs([...committedChangedSlugs, ...dirtyChangedSlugs]);
 	const dirtyChangedSlugSet = new Set(dirtyChangedSlugs);
 	const dirtyActiveSlugs = objectiveList.records.filter((record) => dirtyChangedSlugSet.has(record.slug));
@@ -137,12 +147,8 @@ async function changedObjectiveSelection(options: ChangedObjectiveSelectionOptio
 }
 
 async function objectiveDiffChangedSlugs(options: ObjectiveDiffChangedSlugsOptions): Promise<string[]> {
-	const { host, ctx, spec, trunkBranch } = options;
+	const { host, ctx, trunkBranch } = options;
 	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".asdl/objectives"];
-	if (ctx.hasUI) {
-		ctx.ui.setStatus?.(spec.statusKey, `checking Objective diff vs ${trunkBranch}…`);
-	}
-
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
@@ -156,20 +162,12 @@ async function objectiveDiffChangedSlugs(options: ObjectiveDiffChangedSlugsOptio
 	} catch {
 		// Diff evidence is advisory; command startup failures should fall back to the normal picker.
 		return [];
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus?.(spec.statusKey, undefined);
-		}
 	}
 }
 
 async function objectiveStatusChangedSlugs(options: ObjectiveStatusChangedSlugsOptions): Promise<string[]> {
-	const { host, ctx, spec } = options;
+	const { host, ctx } = options;
 	const args = ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"];
-	if (ctx.hasUI) {
-		ctx.ui.setStatus?.(spec.statusKey, "checking checkout Objective changes…");
-	}
-
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
@@ -183,10 +181,6 @@ async function objectiveStatusChangedSlugs(options: ObjectiveStatusChangedSlugsO
 	} catch {
 		// Dirty-check evidence is advisory; command startup failures should fall back to committed evidence.
 		return [];
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus?.(spec.statusKey, undefined);
-		}
 	}
 }
 
