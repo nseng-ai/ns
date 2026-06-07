@@ -8,7 +8,6 @@ right-side diff line.
 
 from __future__ import annotations
 
-import dataclasses
 import re
 from typing import Literal
 
@@ -20,6 +19,7 @@ from asdl_core.gh.types import PRChangedFile
 from roaster.models import ReviewFinding
 
 FallbackReason = Literal[
+    "missing_path",
     "missing_line",
     "file_not_changed",
     "patch_unavailable",
@@ -101,6 +101,9 @@ def classify_inline_findings(
     fallback_only: list[FallbackOnlyFinding] = []
 
     for finding in findings:
+        if finding.path is None:
+            fallback_only.append(FallbackOnlyFinding(finding=finding, reason="missing_path"))
+            continue
         if finding.line is None:
             fallback_only.append(FallbackOnlyFinding(finding=finding, reason="missing_line"))
             continue
@@ -135,14 +138,14 @@ def result_to_json_dict(result: InlineCommentabilityResult) -> dict[str, object]
     return {
         "inlineable": [
             {
-                "finding": dataclasses.asdict(item.finding),
+                "finding": item.finding.to_json_dict(),
                 "target": serialize_to_json_dict(item.target),
             }
             for item in result.inlineable
         ],
         "fallback_only": [
             {
-                "finding": dataclasses.asdict(item.finding),
+                "finding": item.finding.to_json_dict(),
                 "reason": item.reason,
             }
             for item in result.fallback_only

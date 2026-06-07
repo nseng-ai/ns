@@ -1,8 +1,9 @@
 # roaster
 
-`roaster` runs markdown-defined reviewers against the current branch
-diff. Once you've chosen a harness, adding a new reviewer is literally adding
-a markdown file under `reviews/`.
+`roaster` runs markdown-defined reviewers against a target. The default target
+is the current branch diff; callers can also supply a UTF-8 document/artifact
+with `--file` or `--stdin`. Once you've chosen a harness, adding a new reviewer
+is literally adding a markdown file under `reviews/`.
 
 ## Quick start
 
@@ -19,6 +20,10 @@ EOF
 # Run it against the current branch diff. If exactly one supported harness
 # is on PATH, it's selected automatically.
 roaster review run demo
+
+# Run a target-polymorphic adversarial reviewer against a document/artifact.
+roaster review run adversarial --file plan.md --target-kind document --review-format findings
+roaster review run adversarial --stdin --target-kind document --context "This is an implementation plan."
 ```
 
 ## CLI
@@ -38,6 +43,36 @@ Every operation also has a JSON form for machine consumers:
 roaster review run dignified-python --format json
 roaster harness list --format json
 ```
+
+## Review targets and additive context
+
+`roaster review run <key>` reviews the current branch diff unless a document
+source is supplied. Document targets are local-output only in this slice; roaster
+does not publish document findings as GitHub PR inline comments or CI comments.
+
+```bash
+roaster review run simplify                         # reviews the current branch diff
+roaster review run adversarial --file plan.md --target-kind document --review-format findings
+roaster review run adversarial --stdin --target-kind document --context "This is an implementation plan."
+```
+
+Target options:
+
+- `--file <path>` reads a UTF-8 document/artifact file.
+- `--stdin` reads a UTF-8 document/artifact from stdin.
+- `--target-kind document` is optional when `--file` or `--stdin` is supplied;
+  `diff` remains the default without document input.
+- `--base-ref` is valid only for diff targets.
+
+Additive context options:
+
+- `--context <text>` adds inline invocation context and may be repeated.
+- `--context-file <path>` reads UTF-8 context from a file and may be repeated.
+
+Context can narrow focus or provide background facts, but it cannot override the
+reviewer instructions, target guidance, output schema, or materiality rules.
+When a document target is run with a reviewer that appears diff-specific,
+roaster emits a deterministic warning but still runs the review.
 
 ## Graphite stack workflow
 
@@ -164,11 +199,11 @@ Resolution order for which harness a review uses:
 4. Failure — either no harness is on `PATH`, or more than one is and the
    choice is ambiguous.
 
-The Claude Code harness shells out with `-p --output-format stream-json
---verbose --bare`, passes the assembled review prompt on stdin, and uses
-read-only tools (`Bash,Read`). Findings mode also supplies a structured-output
-JSON schema; text mode omits that schema and returns the terminal result prose.
-The runtime parses Claude's stream-json `result` event and usage metadata.
+The Claude Code harness shells out with `-p --bare`, passes the assembled
+review prompt on stdin, and uses read-only tools (`Bash,Read`). Findings mode
+uses `--output-format json` with a target-aware structured-output JSON schema;
+text mode uses `--output-format stream-json --verbose` and omits that schema.
+The runtime parses Claude's terminal `result` event and usage metadata.
 
 ## Review definition format
 
@@ -209,7 +244,7 @@ reviewer's `instructions`.
 
 ## Finding schema
 
-In findings mode, the harness returns structured output of this shape:
+In findings mode, diff targets preserve the legacy finding shape:
 
 ```json
 {
@@ -225,9 +260,37 @@ In findings mode, the harness returns structured output of this shape:
 }
 ```
 
-`line` may be `null` for file-level findings. `severity` is one of
-`info`, `warning`, `error`. An empty `findings` array means the review
-passed.
+`line` may be `null` for file-level findings. Existing diff consumers continue
+to receive `path` and `line`.
+
+Document targets use generalized locations:
+
+```json
+{
+  "findings": [
+    {
+      "location": {"kind": "global"},
+      "severity": "warning",
+      "summary": "Plan omits rollback",
+      "details": "Add the rollback or retry strategy."
+    },
+    {
+      "location": {
+        "kind": "text_anchor",
+        "text": "Ship it safely.",
+        "section": "Rollout"
+      },
+      "severity": "info",
+      "summary": "Clarify safety evidence",
+      "details": "Name the validation command or observable signal."
+    }
+  ]
+}
+```
+
+Document locations are either `global` for whole-artifact findings or
+`text_anchor` for exact text from the reviewed document. `severity` is one of
+`info`, `warning`, `error`. An empty `findings` array means the review passed.
 
 ## PR comments in CI
 

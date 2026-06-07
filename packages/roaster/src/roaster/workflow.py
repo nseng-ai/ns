@@ -11,22 +11,26 @@ from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
 from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from roaster.models import (
     BaseRefUnavailable,
+    DiffReviewTarget,
+    DocumentReviewTarget,
     HarnessDetection,
     HarnessNotConfigured,
     HarnessUnknown,
     InvalidReviewDefinition,
-    LocalDiff,
     LocalReviewResult,
     MatchingReviewSelectionResult,
     ModelNotProvided,
     ResolvedReviewRunPlan,
     ReviewCatalog,
+    ReviewContextFragment,
     ReviewDefinition,
     ReviewExecutionResponse,
     ReviewFormat,
     ReviewSource,
+    ReviewTarget,
     RoasterFailure,
 )
+from roaster.review_compatibility import evaluate_review_compatibility
 from roaster.review_definition import parse_review_definition
 from roaster.review_selection import build_review_selection
 
@@ -54,6 +58,8 @@ def run_review_by_key(
     catalog: ReviewCatalogGateway,
     diff: LocalDiffGateway,
     harness_runtime: HarnessRuntime,
+    requested_document_target: DocumentReviewTarget | None = None,
+    context_fragments: tuple[ReviewContextFragment, ...] = (),
     progress: Callable[[ResolvedReviewRunPlan], None] | None = None,
 ) -> LocalReviewResult | RoasterFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
@@ -80,18 +86,27 @@ def run_review_by_key(
     if not isinstance(resolved_harness, str):
         return resolved_harness
 
-    local_diff = diff.load_diff(base_ref=requested_base_ref)
-    if isinstance(local_diff, BaseRefUnavailable):
-        return local_diff
+    target = _resolve_review_target(
+        requested_base_ref=requested_base_ref,
+        requested_document_target=requested_document_target,
+        diff=diff,
+    )
+    if isinstance(target, BaseRefUnavailable):
+        return target
+
+    compatibility_warnings = _compatibility_warnings(
+        review_definition=review_definition,
+        target=target,
+    )
 
     if progress is not None:
         progress(
-            ResolvedReviewRunPlan(
-                review_name=review_definition.name,
-                model=resolved_model,
-                harness=resolved_harness,
-                base_ref=local_diff.base_ref,
-                changed_path_count=len(local_diff.changed_paths),
+            _run_plan(
+                review_definition=review_definition,
+                resolved_model=resolved_model,
+                resolved_harness=resolved_harness,
+                target=target,
+                compatibility_warnings=compatibility_warnings,
             )
         )
 
@@ -100,7 +115,9 @@ def run_review_by_key(
         review_definition=review_definition,
         resolved_model=resolved_model,
         resolved_harness=resolved_harness,
-        local_diff=local_diff,
+        target=target,
+        context_fragments=context_fragments,
+        compatibility_warnings=compatibility_warnings,
         requested_format=requested_format,
         harness_runtime=harness_runtime,
     )
@@ -167,7 +184,9 @@ def _execute_loaded_review(
     review_definition: ReviewDefinition,
     resolved_model: str,
     resolved_harness: str,
-    local_diff: LocalDiff,
+    target: ReviewTarget,
+    context_fragments: tuple[ReviewContextFragment, ...],
+    compatibility_warnings: tuple[str, ...],
     requested_format: ReviewFormat,
     harness_runtime: HarnessRuntime,
 ) -> LocalReviewResult | RoasterFailure:
@@ -176,7 +195,8 @@ def _execute_loaded_review(
             harness_name=resolved_harness,
             model=resolved_model,
             review_definition=review_definition,
-            local_diff=local_diff,
+            target=target,
+            context_fragments=context_fragments,
             review_format=requested_format,
         )
     )
@@ -187,10 +207,93 @@ def _execute_loaded_review(
         review_name=review_definition.name,
         review_path=str(review_source.path),
         model=resolved_model,
-        base_ref=local_diff.base_ref,
+        base_ref=_target_base_ref(target),
+        target_kind=target.kind,
+        target_label=_target_label(target),
+        target_source_path=_target_source_path(target),
+        context_fragments=context_fragments,
+        compatibility_warnings=compatibility_warnings,
         payload=execution_response.payload,
         usage=execution_response.usage,
     )
+
+
+def _resolve_review_target(
+    *,
+    requested_base_ref: str | None,
+    requested_document_target: DocumentReviewTarget | None,
+    diff: LocalDiffGateway,
+) -> ReviewTarget | BaseRefUnavailable:
+    if requested_document_target is not None:
+        return requested_document_target
+
+    local_diff = diff.load_diff(base_ref=requested_base_ref)
+    if isinstance(local_diff, BaseRefUnavailable):
+        return local_diff
+    return DiffReviewTarget(kind="diff", local_diff=local_diff)
+
+
+def _compatibility_warnings(
+    *,
+    review_definition: ReviewDefinition,
+    target: ReviewTarget,
+) -> tuple[str, ...]:
+    compatibility = evaluate_review_compatibility(
+        review_definition=review_definition,
+        target_kind=target.kind,
+    )
+    if compatibility.warning is None:
+        return ()
+    return (compatibility.warning,)
+
+
+def _run_plan(
+    *,
+    review_definition: ReviewDefinition,
+    resolved_model: str,
+    resolved_harness: str,
+    target: ReviewTarget,
+    compatibility_warnings: tuple[str, ...],
+) -> ResolvedReviewRunPlan:
+    if isinstance(target, DiffReviewTarget):
+        return ResolvedReviewRunPlan(
+            review_name=review_definition.name,
+            model=resolved_model,
+            harness=resolved_harness,
+            base_ref=target.local_diff.base_ref,
+            changed_path_count=len(target.local_diff.changed_paths),
+            target_kind="diff",
+            target_label=_target_label(target),
+            compatibility_warnings=compatibility_warnings,
+        )
+    return ResolvedReviewRunPlan(
+        review_name=review_definition.name,
+        model=resolved_model,
+        harness=resolved_harness,
+        base_ref=None,
+        changed_path_count=None,
+        target_kind="document",
+        target_label=_target_label(target),
+        compatibility_warnings=compatibility_warnings,
+    )
+
+
+def _target_base_ref(target: ReviewTarget) -> str | None:
+    if isinstance(target, DiffReviewTarget):
+        return target.local_diff.base_ref
+    return None
+
+
+def _target_label(target: ReviewTarget) -> str:
+    if isinstance(target, DiffReviewTarget):
+        return "current branch diff"
+    return target.label
+
+
+def _target_source_path(target: ReviewTarget) -> str | None:
+    if isinstance(target, DocumentReviewTarget):
+        return target.source_path
+    return None
 
 
 def _resolve_model(

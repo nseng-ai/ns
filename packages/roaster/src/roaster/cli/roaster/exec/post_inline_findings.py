@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import sys
 from typing import Annotated
 
@@ -106,7 +105,7 @@ def _fallback_only_json(items: tuple[FallbackOnlyFinding, ...]) -> tuple[dict[st
     for item in items:
         rendered.append(
             {
-                "finding": dataclasses.asdict(item.finding),
+                "finding": item.finding.to_json_dict(),
                 "reason": item.reason,
             }
         )

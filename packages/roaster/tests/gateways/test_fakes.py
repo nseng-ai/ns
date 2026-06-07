@@ -15,6 +15,7 @@ from roaster.harness.fake import FakeHarnessRuntime
 from roaster.harness.invocation import HarnessReviewRequest
 from roaster.models import (
     BaseRefUnavailable,
+    DiffReviewTarget,
     FindingsReview,
     LocalDiff,
     ReviewCatalog,
@@ -50,9 +51,12 @@ def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
             instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
         ),
-        local_diff=LocalDiff(
-            base_ref="master",
-            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+        target=DiffReviewTarget(
+            kind="diff",
+            local_diff=LocalDiff(
+                base_ref="master",
+                diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            ),
         ),
         review_format="findings",
     )

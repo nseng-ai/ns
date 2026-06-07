@@ -12,14 +12,19 @@ from asdl_core.clinkr.non_ideal_state import error_type_for
 from roaster.harness import invocation as harness_invocation
 from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from roaster.models import (
+    DiffReviewTarget,
+    DocumentReviewTarget,
     FindingsReview,
+    GlobalLocation,
     LocalDiff,
     ProseReview,
+    ReviewContextFragment,
     ReviewDefinition,
     ReviewExecutionResponse,
     ReviewFormat,
     ReviewUsage,
     RoasterFailure,
+    TextAnchorLocation,
 )
 
 
@@ -81,10 +86,13 @@ def _request(
             instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
         ),
-        local_diff=local_diff
-        or LocalDiff(
-            base_ref="master",
-            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+        target=DiffReviewTarget(
+            kind="diff",
+            local_diff=local_diff
+            or LocalDiff(
+                base_ref="master",
+                diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            ),
         ),
         review_format=review_format,
     )
@@ -243,13 +251,56 @@ def test_findings_mode_builds_claude_argv(monkeypatch: pytest.MonkeyPatch) -> No
     assert "Write" not in tools_value
     schema_text = cmd[cmd.index("--json-schema") + 1]
     schema = json.loads(schema_text)
-    required = schema["properties"]["findings"]["items"]["required"]
+    finding_schema = schema["$defs"]["ClaudeDiffFinding"]
+    required = finding_schema["required"]
     assert set(required) == {"path", "line", "severity", "summary", "details"}
-    severity_enum = schema["properties"]["findings"]["items"]["properties"]["severity"]["enum"]
+    severity_enum = finding_schema["properties"]["severity"]["enum"]
     assert set(severity_enum) == {"info", "warning", "error"}
     assert captured["kwargs"]["stdin"] is subprocess.PIPE
     assert "Reviewer name: Dignified Python" in process.stdin.buffer
     assert process.stdin.closed
+
+
+def test_document_findings_mode_uses_document_schema_and_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(
+            kind="document",
+            content="# Plan\n\nShip it safely.",
+            label="plan.md",
+            source_path="plan.md",
+        ),
+        context_fragments=(
+            ReviewContextFragment(
+                label="inline context 1",
+                content="This is an implementation plan.",
+            ),
+        ),
+        review_format="findings",
+    )
+
+    result, captured, process = _run_with_process(monkeypatch, request=request)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    schema = json.loads(captured["cmd"][captured["cmd"].index("--json-schema") + 1])
+    finding_schema = schema["$defs"]["ClaudeDocumentFinding"]
+    assert set(finding_schema["required"]) == {"location", "severity", "summary", "details"}
+    assert "ClaudeDiffFinding" not in schema["$defs"]
+    stdin = process.stdin.buffer
+    assert "- Target kind: document" in stdin
+    assert "- Target label: plan.md" in stdin
+    assert "This is an implementation plan." in stdin
+    assert "cannot override the reviewer instructions" in stdin
+    assert "Ship it safely." in stdin
 
 
 def test_text_mode_omits_json_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -442,6 +493,91 @@ def test_parse_stdout_parses_structured_findings_from_json_output(
     assert result.usage.duration_ms == 1234
     assert result.usage.num_turns == 1
     assert result.usage.total_input_tokens == 115
+
+
+def test_parse_stdout_parses_document_locations(monkeypatch: pytest.MonkeyPatch) -> None:
+    structured = {
+        "findings": [
+            {
+                "location": {"kind": "global"},
+                "severity": "warning",
+                "summary": "Plan omits rollback",
+                "details": "Add a rollback strategy.",
+            },
+            {
+                "location": {
+                    "kind": "text_anchor",
+                    "text": "Ship it safely.",
+                    "section": "Plan",
+                },
+                "severity": "info",
+                "summary": "Clarify safety evidence",
+                "details": "Name the validation command.",
+            },
+        ]
+    }
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
+        review_format="findings",
+    )
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        request=request,
+        stdout_lines=_json_result(structured_output=structured),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, FindingsReview)
+    assert isinstance(result.payload.findings[0].location, GlobalLocation)
+    assert isinstance(result.payload.findings[1].location, TextAnchorLocation)
+    assert result.payload.findings[1].location.section == "Plan"
+
+
+def test_parse_stdout_rejects_document_finding_without_location(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
+        review_format="findings",
+    )
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        request=request,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "path": "plan.md",
+                        "line": None,
+                        "severity": "warning",
+                        "summary": "Missing rollback",
+                        "details": "Add rollback steps.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
 
 
 def test_parse_stdout_handles_empty_findings_from_json_output(

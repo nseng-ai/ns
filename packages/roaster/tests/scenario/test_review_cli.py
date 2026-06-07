@@ -19,7 +19,10 @@ from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import (
     BaseRefUnavailable,
+    DiffReviewTarget,
+    DocumentReviewTarget,
     FindingsReview,
+    GlobalLocation,
     LocalDiff,
     ProseReview,
     ReviewExecutionResponse,
@@ -192,7 +195,133 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
     assert executed.harness_name == "claude-code"
     assert executed.review_format == "text"
     assert executed.review_definition.name == REVIEW_KEY
-    assert executed.local_diff.base_ref == "master"
+    assert isinstance(executed.target, DiffReviewTarget)
+    assert executed.target.local_diff.base_ref == "master"
+
+
+def test_review_run_file_document_target_human_output(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n\nShip it safely.\n", encoding="utf-8")
+    finding = ReviewFinding(
+        location=GlobalLocation(kind="global"),
+        severity="warning",
+        summary="Plan omits rollback",
+        details="Add rollback steps.",
+    )
+    runner = CliRunner()
+    ctx = _build_context(payload=FindingsReview(findings=(finding,)))
+
+    result = runner.invoke(
+        cli_group,
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--review-format",
+            "findings",
+            "--file",
+            str(plan_path),
+            "--target-kind",
+            "document",
+            "--context",
+            "This is an implementation plan.",
+        ],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Target: {plan_path}" in result.output
+    assert "[warning] global Plan omits rollback" in result.output
+    assert isinstance(ctx.diff, FakeLocalDiffGateway)
+    assert ctx.diff.requested_base_refs == ()
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    executed = ctx.harness_runtime.executed_requests[0]
+    assert isinstance(executed.target, DocumentReviewTarget)
+    assert executed.target.content == "# Plan\n\nShip it safely.\n"
+    assert executed.context_fragments[0].label == "inline context 1"
+
+
+def test_review_run_stdin_document_target_json_output(cli_group: ClinkrGroup) -> None:
+    finding = ReviewFinding(
+        location=GlobalLocation(kind="global"),
+        severity="warning",
+        summary="Plan omits rollback",
+        details="Add rollback steps.",
+    )
+    runner = CliRunner()
+    ctx = _build_context(payload=FindingsReview(findings=(finding,)))
+
+    result = runner.invoke(
+        cli_group,
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--review-format",
+            "findings",
+            "--stdin",
+            "--target-kind",
+            "document",
+            "--format",
+            "json",
+        ],
+        input="# Plan\n",
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.stdout)
+    data = output["data"]
+    assert data["target"] == {"kind": "document", "label": "stdin"}
+    assert data["findings"][0]["location"] == {"kind": "global"}
+    assert isinstance(ctx.diff, FakeLocalDiffGateway)
+    assert ctx.diff.requested_base_refs == ()
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    executed = ctx.harness_runtime.executed_requests[0]
+    assert isinstance(executed.target, DocumentReviewTarget)
+    assert executed.target.content == "# Plan\n"
+
+
+def test_review_run_rejects_multiple_document_sources(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--file", str(plan_path), "--stdin"],
+        input="# stdin\n",
+        obj=_context(),
+    )
+
+    assert result.exit_code != 0
+    assert "--file or --stdin, not both" in result.output
+
+
+def test_review_run_rejects_base_ref_for_document_target(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--file", str(plan_path), "--base-ref", "main"],
+        obj=_context(),
+    )
+
+    assert result.exit_code != 0
+    assert "--base-ref is only valid for diff targets" in result.output
 
 
 def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -> None:
