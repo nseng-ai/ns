@@ -14,13 +14,11 @@ export interface ObjectiveStackImplHost extends ObjectiveSelectionHost, SkillExp
 		name: string,
 		options: {
 			description?: string;
-			handler(args: string, ctx: ObjectiveStackImplCommandContext): Promise<void> | void;
+			handler(args: string, ctx: ObjectiveSelectionContext): Promise<void> | void;
 		},
 	): void;
 	sendUserMessage(content: string): void;
 }
-
-export type ObjectiveStackImplCommandContext = ObjectiveSelectionContext;
 
 const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 	commandName: "objective:stack-impl",
@@ -59,7 +57,7 @@ Treat this as an explicit user selection. Do not auto-select a different Objecti
 
 async function invokeObjectiveStackImplSkill(
 	host: ObjectiveStackImplHost,
-	ctx: ObjectiveStackImplCommandContext,
+	ctx: ObjectiveSelectionContext,
 	spec: ObjectiveStackImplCommandSpec,
 	objective: string,
 ): Promise<void> {
@@ -82,7 +80,7 @@ async function handleObjectiveStackImplCommand(
 	host: ObjectiveStackImplHost,
 	spec: ObjectiveStackImplCommandSpec,
 	args: string,
-	ctx: ObjectiveStackImplCommandContext,
+	ctx: ObjectiveSelectionContext,
 ): Promise<void> {
 	const explicitObjective = args.trim();
 	try {

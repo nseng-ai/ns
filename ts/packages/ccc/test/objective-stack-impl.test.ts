@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { registerObjectiveStackImplCommand, type ObjectiveStackImplCommandContext, type ObjectiveStackImplHost } from "../src/objective-stack-impl.ts";
+import { registerObjectiveStackImplCommand, type ObjectiveStackImplHost } from "../src/objective-stack-impl.ts";
 import {
 	FakeCommandContext,
 	ROOT,
@@ -18,6 +18,7 @@ import {
 	type Selection,
 } from "./ccc-test-harness.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import type { ObjectiveSelectionContext } from "@asdl/pi-extension-runtime/objective-selection";
 
 const TRUNK = "master";
 
@@ -131,7 +132,7 @@ async function runObjectiveStackImpl(
 		fakeContextOptions.selectIndices = selectIndices;
 	}
 	const fakeContext = new FakeCommandContext(fakeContextOptions);
-	const context: ObjectiveStackImplCommandContext = {
+	const context: ObjectiveSelectionContext = {
 		cwd: fakeContext.cwd,
 		hasUI: fakeContext.hasUI,
 		ui: {
