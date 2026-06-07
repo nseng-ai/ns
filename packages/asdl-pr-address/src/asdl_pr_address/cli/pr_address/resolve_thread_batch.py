@@ -118,7 +118,6 @@ def _load_payload(request: ResolveThreadBatchRequest) -> ResolveThreadBatchPaylo
         command_name="resolve-thread-batch",
         input_description="JSON payload",
         option_name="--payload-json",
-        invalid_input_description="payload",
         parser=ResolveThreadBatchPayload.model_validate_json,
     )
 

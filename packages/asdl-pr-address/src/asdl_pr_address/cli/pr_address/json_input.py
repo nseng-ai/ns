@@ -20,7 +20,6 @@ def load_json_input(
     command_name: str,
     input_description: str,
     option_name: str,
-    invalid_input_description: str,
     parser: Callable[[str], ParsedJsonInput],
 ) -> ParsedJsonInput:
     raw_payload = option_value if option_value is not None else sys.stdin.read()
@@ -31,17 +30,20 @@ def load_json_input(
             f"{command_name} requires a non-empty {input_description} via stdin or {option_name}"
         ),
     )
+    # Current callers use two disjoint parser contracts: json.loads raises
+    # JSONDecodeError directly, while Pydantic model_validate_json wraps JSON
+    # syntax and schema failures in ValidationError.
     try:
         return parser(raw_payload)
     except json.JSONDecodeError as exc:
         Ensure.fail(
             error_type="invalid_json",
-            message=f"Invalid {command_name} {invalid_input_description}: {exc}",
+            message=f"Invalid {command_name} {input_description}: {exc}",
         )
     except ValidationError as exc:
         Ensure.fail(
             error_type=_validation_error_type(exc),
-            message=f"Invalid {command_name} {invalid_input_description}: {exc}",
+            message=f"Invalid {command_name} {input_description}: {exc}",
         )
 
 
