@@ -78,14 +78,14 @@ export function formatExecFailure(commandDisplay: string, result: ExecResult): s
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
 	return truncateTail(
-		`objective command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
+		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
 		MAX_ERROR_CHARS,
 	);
 }
 
 export function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
-	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
+	return truncateTail(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
 function applyLineLimit(text: string, maxLines: number | undefined): { text: string; omittedLines: number } {
