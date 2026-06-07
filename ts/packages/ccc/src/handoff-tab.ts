@@ -77,16 +77,15 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 
 		const tabTitle = `handoff: ${options.params.slug}`;
 		const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
+		const windowIdEntry = identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
 		updateProgress(options, "Naming cmux tab…", "naming cmux tab…");
 		const renameOptions: CmuxTabOptions = {
 			workspaceId,
 			surfaceId: created.surface.surfaceId,
 			tabTitle,
 			signal: options.signal,
+			...windowIdEntry,
 		};
-		if (identified.caller.windowId !== undefined) {
-			renameOptions.windowId = identified.caller.windowId;
-		}
 		const renamed = await renameCmuxTab(options.host, options.cwd, renameOptions);
 		if (renamed.type === "failed") {
 			return {
@@ -100,27 +99,20 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 		}
 
 		const launchContext = options.model === undefined ? {} : { model: options.model };
-		const command = buildPiLaunchCommand(
-			options.params.pickupCommand,
-			getPiLaunchOptions(
-				{
-					getThinkingLevel(): ThinkingLevel {
-						return options.host.getThinkingLevel?.() ?? "medium";
-					},
-				},
-				launchContext,
-			),
-		);
+		const thinkingLevelHost = {
+			getThinkingLevel(): ThinkingLevel {
+				return options.host.getThinkingLevel?.() ?? "medium";
+			},
+		};
+		const command = buildPiLaunchCommand(options.params.pickupCommand, getPiLaunchOptions(thinkingLevelHost, launchContext));
 		updateProgress(options, "Launching pickup Pi…", "launching pickup Pi…");
 		const sendOptions: CmuxSendOptions = {
 			workspaceId,
 			surfaceId: created.surface.surfaceId,
 			text: `${command}\n`,
 			signal: options.signal,
+			...windowIdEntry,
 		};
-		if (identified.caller.windowId !== undefined) {
-			sendOptions.windowId = identified.caller.windowId;
-		}
 		const sent = await sendCmuxText(options.host, options.cwd, sendOptions);
 		if (sent.type === "failed") {
 			return {

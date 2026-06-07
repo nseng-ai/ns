@@ -195,15 +195,13 @@ async function runCmuxMutation<TType extends "renamed" | "sent">(options: RunCmu
 }
 
 function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExecOptions {
-	return signal === undefined ? { cwd, timeout: CMUX_TIMEOUT_MS } : { cwd, timeout: CMUX_TIMEOUT_MS, signal };
+	return { cwd, timeout: CMUX_TIMEOUT_MS, ...(signal === undefined ? {} : { signal }) };
 }
 
 function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const trimmedStdout = result.stdout.trimEnd();
-	const trimmedStderr = result.stderr.trimEnd();
-	const stdout = trimmedStdout.length === 0 ? "(empty)" : trimmedStdout;
-	const stderr = trimmedStderr.length === 0 ? "(empty)" : trimmedStderr;
+	const stdout = result.stdout.trimEnd() || "(empty)";
+	const stderr = result.stderr.trimEnd() || "(empty)";
 	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
 }
 

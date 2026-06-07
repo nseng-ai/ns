@@ -77,9 +77,9 @@ function sendStep(command: string, surfaceId = "surface-1", workspaceId = "works
 	return step("cmux", ["send", "--workspace", workspaceId, "--surface", surfaceId, "--window", "window-1", "--", `${command}\n`], {});
 }
 
-function existingChecker(calls: Array<{ branch: string; key: string }>): (branch: string, key: string) => Promise<HandoffExistsResult> {
+function existingChecker(recordCall: (call: { branch: string; key: string }) => void): (branch: string, key: string) => Promise<HandoffExistsResult> {
 	return async (branch, key) => {
-		calls.push({ branch, key });
+		recordCall({ branch, key });
 		return { type: "exists" };
 	};
 }
@@ -102,7 +102,7 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: (update) => updates.push(update),
-			checkHandoffExists: existingChecker(checkerCalls),
+			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
@@ -149,7 +149,7 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker(checkerCalls),
+			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
@@ -229,7 +229,7 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker(checkerCalls),
+			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
@@ -268,7 +268,7 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker(checkerCalls),
+			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
@@ -297,7 +297,7 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker(checkerCalls),
+			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
