@@ -317,8 +317,8 @@ interface ResolvedAsdlPrompt {
 	provenance: {
 		source: string;
 		repo_prompt_path: string;
-		prompt_path?: string | null;
-		default_name?: string | null;
+		prompt_path?: string | null | undefined;
+		default_name?: string | null | undefined;
 	};
 }
 
@@ -343,7 +343,7 @@ async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promis
 		);
 		if (result.code !== 0) {
 			return fallbackWritePlanPromptBody(
-				`asdl exec resolve-prompt failed with exit code ${result.code}: ${result.stderr || result.stdout || "(no output)"}`,
+				`asdl exec resolve-prompt failed with exit code ${result.code}: ${result.stderr ?? result.stdout ?? "(no output)"}`,
 			);
 		}
 
@@ -402,21 +402,15 @@ function parseResolvedAsdlPrompt(data: Record<string, unknown>): ResolvedAsdlPro
 		return undefined;
 	}
 
-	const parsedProvenance: ResolvedAsdlPrompt["provenance"] = {
-		source: provenance.source,
-		repo_prompt_path: provenance.repo_prompt_path,
-	};
-	if (promptPath !== undefined) {
-		parsedProvenance.prompt_path = promptPath;
-	}
-	if (defaultName !== undefined) {
-		parsedProvenance.default_name = defaultName;
-	}
-
 	return {
 		name: data.name,
 		content: data.content,
-		provenance: parsedProvenance,
+		provenance: {
+			source: provenance.source,
+			repo_prompt_path: provenance.repo_prompt_path,
+			prompt_path: promptPath,
+			default_name: defaultName,
+		},
 	};
 }
 
