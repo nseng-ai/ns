@@ -398,9 +398,7 @@ def _run_stack_workflow_mutating(
         return initial_dashboard
     manifest = manifest_with_dashboard_publication(
         manifest,
-        action=initial_dashboard.action,
-        comment_id=initial_dashboard.comment.id,
-        comment_url=initial_dashboard.comment.url,
+        initial_dashboard,
         target_pr=attach_context.target_pr,
         profile_slug=profile.slug,
     )
@@ -637,9 +635,7 @@ def _run_stack_workflow_mutating(
             return batch_dashboard
         manifest = manifest_with_dashboard_publication(
             manifest,
-            action=batch_dashboard.action,
-            comment_id=batch_dashboard.comment.id,
-            comment_url=batch_dashboard.comment.url,
+            batch_dashboard,
             target_pr=attach_context.target_pr,
             profile_slug=profile.slug,
         )
@@ -694,9 +690,7 @@ def _run_stack_workflow_mutating(
         return final_dashboard
     manifest = manifest_with_dashboard_publication(
         manifest,
-        action=final_dashboard.action,
-        comment_id=final_dashboard.comment.id,
-        comment_url=final_dashboard.comment.url,
+        final_dashboard,
         target_pr=attach_context.target_pr,
         profile_slug=profile.slug,
     )

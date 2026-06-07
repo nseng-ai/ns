@@ -42,6 +42,13 @@ class StackSkillGateIssue(ClinkrModel):
     command: str | None = None
 
 
+class StackSkillGitStatusFiles(ClinkrModel):
+    """Touched and deleted files parsed from one git status snapshot."""
+
+    touched_files: tuple[str, ...]
+    deleted_files: tuple[str, ...]
+
+
 class StackSkillGateDecision(ClinkrModel):
     """Mechanical gate decision for one skill-first resolver batch."""
 
@@ -49,6 +56,8 @@ class StackSkillGateDecision(ClinkrModel):
     issues: tuple[StackSkillGateIssue, ...]
     validation_results: tuple[StackSkillValidationResult, ...]
     touched_files: tuple[str, ...]
+    unresolved_conflicts: bool = False
+    validation_evidence_missing: bool = False
     advisory_destructive: bool = False
     advisory_security_sensitive: bool = False
 
@@ -62,6 +71,7 @@ def evaluate_stack_skill_gate(
     validation_results: tuple[StackSkillValidationResult, ...],
     advisory_destructive: bool = False,
     advisory_security_sensitive: bool = False,
+    expected_validation_count: int | None = None,
 ) -> StackSkillGateDecision:
     """Evaluate decidable skill-first batch gate checks."""
     issues: list[StackSkillGateIssue] = []
@@ -113,6 +123,11 @@ def evaluate_stack_skill_gate(
         issues=tuple(issues),
         validation_results=validation_results,
         touched_files=tuple(_normalize_path(path) for path in touched_files),
+        unresolved_conflicts=bool(conflict_marker_files),
+        validation_evidence_missing=(
+            expected_validation_count is not None
+            and len(validation_results) != expected_validation_count
+        ),
         advisory_destructive=advisory_destructive,
         advisory_security_sensitive=advisory_security_sensitive,
     )
@@ -145,56 +160,13 @@ def run_validation_commands(
     return tuple(results)
 
 
-def collect_touched_files(cwd: Path) -> tuple[str, ...]:
-    """Return files touched in the working tree relative to ``HEAD``."""
-    completed = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=all"],
-        cwd=cwd,
-        check=False,
-        capture_output=True,
-        text=True,
+def collect_worktree_files(cwd: Path) -> StackSkillGitStatusFiles:
+    """Return touched and deleted files from one git status snapshot."""
+    lines = _git_status_lines(cwd)
+    return StackSkillGitStatusFiles(
+        touched_files=_touched_files_from_status_lines(lines),
+        deleted_files=_deleted_files_from_status_lines(lines),
     )
-    if completed.returncode != 0:
-        raise RuntimeError(completed.stderr.strip() or "git status failed")
-
-    paths: list[str] = []
-    for line in completed.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        raw_path = line[3:].strip()
-        if " -> " in raw_path:
-            paths.extend(_normalize_path(part) for part in raw_path.split(" -> "))
-        elif raw_path:
-            paths.append(_normalize_path(raw_path))
-    return tuple(dict.fromkeys(paths))
-
-
-def collect_deleted_files(cwd: Path) -> tuple[str, ...]:
-    """Return touched files that are deleted in the working tree or index."""
-    completed = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=all"],
-        cwd=cwd,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError(completed.stderr.strip() or "git status failed")
-
-    paths: list[str] = []
-    for line in completed.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        index_status = line[0]
-        worktree_status = line[1]
-        if index_status != "D" and worktree_status != "D":
-            continue
-        raw_path = line[3:].strip()
-        if " -> " in raw_path:
-            raw_path = raw_path.split(" -> ")[0]
-        if raw_path:
-            paths.append(_normalize_path(raw_path))
-    return tuple(dict.fromkeys(paths))
 
 
 def collect_conflict_marker_files(cwd: Path, paths: tuple[str, ...]) -> tuple[str, ...]:
@@ -209,6 +181,49 @@ def collect_conflict_marker_files(cwd: Path, paths: tuple[str, ...]) -> tuple[st
         if any(marker in text for marker in _CONFLICT_MARKERS):
             marker_files.append(normalized_path)
     return tuple(marker_files)
+
+
+def _git_status_lines(cwd: Path) -> tuple[str, ...]:
+    completed = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(completed.stderr.strip() or "git status failed")
+    return tuple(completed.stdout.splitlines())
+
+
+def _touched_files_from_status_lines(lines: tuple[str, ...]) -> tuple[str, ...]:
+    paths: list[str] = []
+    for line in lines:
+        if len(line) < 4:
+            continue
+        raw_path = line[3:].strip()
+        if " -> " in raw_path:
+            paths.extend(_normalize_path(part) for part in raw_path.split(" -> "))
+        elif raw_path:
+            paths.append(_normalize_path(raw_path))
+    return tuple(dict.fromkeys(paths))
+
+
+def _deleted_files_from_status_lines(lines: tuple[str, ...]) -> tuple[str, ...]:
+    paths: list[str] = []
+    for line in lines:
+        if len(line) < 4:
+            continue
+        index_status = line[0]
+        worktree_status = line[1]
+        if index_status != "D" and worktree_status != "D":
+            continue
+        raw_path = line[3:].strip()
+        if " -> " in raw_path:
+            raw_path = raw_path.split(" -> ")[0]
+        if raw_path:
+            paths.append(_normalize_path(raw_path))
+    return tuple(dict.fromkeys(paths))
 
 
 def _path_allowed(path: str, patterns: tuple[str, ...]) -> bool:

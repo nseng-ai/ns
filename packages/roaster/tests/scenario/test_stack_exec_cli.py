@@ -263,6 +263,8 @@ def test_record_batch_persists_completed_batch_after_gate_pass(
     assert data["status"] == "completed"
     assert data["should_halt"] is False
     assert data["gate"]["passed"] is True
+    assert data["gate"]["unresolved_conflicts"] is False
+    assert data["gate"]["validation_evidence_missing"] is False
     manifest = branch_memory.get(
         "roaster-runs-skill",
         "runs/feature-impl/full-review/run-1/manifest.md",
@@ -271,6 +273,51 @@ def test_record_batch_persists_completed_batch_after_gate_pass(
     assert manifest is not None
     assert "status: completed" in manifest
     assert "expected_paths:" in manifest
+
+
+def test_record_batch_reports_gate_conflict_safety_fact(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _init_git_repo(tmp_path)
+    branch_memory = FakeBranchMemoryGateway()
+    runner = CliRunner()
+    context = _context(tmp_path, branch_memory)
+    _record_triage(cli_group, runner, context)
+    (tmp_path / "app.py").write_text(
+        "<<<<<<< ours\nprint('hello')\n>>>>>>> theirs\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        cli_group,
+        [
+            "stack",
+            "exec",
+            "record-batch",
+            "avoid-print",
+            "--impl-branch",
+            "feature/impl",
+            "--impl-branch-slug",
+            "feature-impl",
+            "--profile-slug",
+            "full-review",
+            "--run-slug",
+            "run-1",
+        ],
+        input=json.dumps(
+            {
+                "status": "completed",
+                "summary": "Resolved print usage.",
+                "files_changed": ["app.py"],
+                "safety": {"destructive": False, "security_sensitive": False},
+            }
+        ),
+        obj=context,
+    )
+
+    assert result.exit_code == 1
+    assert "conflict markers remain in 'app.py'" in result.output
 
 
 def test_render_dashboard_prints_markdown_from_skill_manifest(

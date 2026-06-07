@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Self
 
 from asdl_core.clinkr.models import ClinkrModel
 from roaster.stack.core.contracts import (
@@ -14,6 +14,9 @@ from roaster.stack.core.contracts import (
     StackMarker,
     StackRisk,
 )
+
+if TYPE_CHECKING:
+    from roaster.stack.common.run_storage import StackRunLocator
 
 StackRunSubmissionStatus = Literal["not_started", "submitted", "failed"]
 StackRunDashboardPublicationAction = Literal["created", "updated"]
@@ -43,6 +46,11 @@ class StackRunArtifactLocator(ClinkrModel):
     namespace: str
     key: str
     branch: str
+
+    @classmethod
+    def from_locator(cls, locator: StackRunLocator) -> Self:
+        """Convert a storage locator into the manifest/result locator model."""
+        return cls(namespace=locator.namespace, key=locator.key, branch=locator.branch)
 
 
 class StackRunFailureContext(ClinkrModel):

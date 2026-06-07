@@ -16,6 +16,7 @@ from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import FindingsReview, LocalDiff, ReviewExecutionResponse, ReviewFinding
 from roaster.stack.command.dry_run import StackDryRunResult
+from roaster.stack.command.validation_commands import STACK_WORKFLOW_TEST_COMMAND
 from roaster.stack.command.workflow import StackWorkflowFailure, run_stack_workflow_dry_run
 from roaster.stack.common.run_models import (
     StackWorkflowRequest,
@@ -182,9 +183,7 @@ def _valid_resolver_output(*, batch_slug: str = "avoid-print") -> str:
         "files_changed": ["app.py"],
         "validation": [
             {
-                "command": (
-                    "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py"
-                ),
+                "command": STACK_WORKFLOW_TEST_COMMAND,
                 "status": "passed",
                 "output_summary": "passed",
             }

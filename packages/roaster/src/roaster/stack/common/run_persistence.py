@@ -5,19 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from brmem.gateway import BranchMemoryGateway
+from roaster.stack.command.dashboard import StackDashboardPublication
 from roaster.stack.common.markers import render_stack_dashboard_marker
 from roaster.stack.common.run_models import (
     StackRunArtifactLocator,
     StackRunBatchState,
     StackRunDashboardPublication,
-    StackRunDashboardPublicationAction,
     StackRunFailureContext,
     StackRunManifest,
     StackRunSubmission,
 )
 from roaster.stack.common.run_storage import (
     StackRunIndex,
-    StackRunLocator,
     add_run_to_index,
     write_stack_run_index,
     write_stack_run_manifest,
@@ -129,10 +128,8 @@ def write_batch_failure(
 
 def manifest_with_dashboard_publication(
     manifest: StackRunManifest,
+    publication: StackDashboardPublication,
     *,
-    action: StackRunDashboardPublicationAction,
-    comment_id: int,
-    comment_url: str | None,
     target_pr: str,
     profile_slug: str,
 ) -> StackRunManifest:
@@ -142,9 +139,9 @@ def manifest_with_dashboard_publication(
             "dashboard_publication": StackRunDashboardPublication(
                 marker=render_stack_dashboard_marker(profile_slug),
                 target_pr=target_pr,
-                action=action,
-                comment_id=comment_id,
-                comment_url=comment_url,
+                action=publication.action,
+                comment_id=publication.comment.id,
+                comment_url=publication.comment.url,
             )
         }
     )
@@ -270,7 +267,7 @@ def persist_resolver_output(
             error_type="stack_run_storage_write_failed",
             message=f"failed to persist resolver output for {batch_slug!r}: {exc}",
         )
-    return _artifact_locator(locator)
+    return StackRunArtifactLocator.from_locator(locator)
 
 
 def triage_artifact_content(agent_output_markdown: str | None) -> str:
@@ -286,14 +283,6 @@ def _failure_context(
     if failure is None:
         return None
     return StackRunFailureContext(error_type=failure.error_type, message=failure.message)
-
-
-def _artifact_locator(locator: StackRunLocator) -> StackRunArtifactLocator:
-    return StackRunArtifactLocator(
-        namespace=locator.namespace,
-        key=locator.key,
-        branch=locator.branch,
-    )
 
 
 def _validation_summary(output: StackResolverOutput) -> str:

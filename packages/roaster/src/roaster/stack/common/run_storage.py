@@ -333,9 +333,6 @@ class StackRunStore:
         )
 
 
-DEFAULT_STACK_RUN_STORE = StackRunStore(ROASTER_RUNS_NAMESPACE)
-
-
 def stack_run_artifact_plan(
     *,
     impl_branch: str,
@@ -344,11 +341,12 @@ def stack_run_artifact_plan(
     run_slug: str,
 ) -> StackRunArtifactPlan:
     """Compute Branch Memory locators for a command-driven run."""
-    return DEFAULT_STACK_RUN_STORE.artifact_plan(
+    return _stack_run_artifact_plan(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -361,12 +359,13 @@ def resolver_locator(
     batch_slug: str,
 ) -> StackRunLocator:
     """Compute the Branch Memory locator for one command-driven resolver artifact."""
-    return DEFAULT_STACK_RUN_STORE.resolver_locator(
+    return _resolver_locator(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
         batch_slug=batch_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -378,11 +377,12 @@ def read_stack_run_index(
     profile_slug: str,
 ) -> StackRunIndex | None:
     """Read the command-driven run index."""
-    return DEFAULT_STACK_RUN_STORE.read_index(
+    return _read_stack_run_index(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -394,11 +394,12 @@ def write_stack_run_index(
     dry_run: bool = False,
 ) -> StackRunLocator:
     """Persist the command-driven run index."""
-    return DEFAULT_STACK_RUN_STORE.write_index(
+    return _write_stack_run_index(
         gateway,
         impl_branch=impl_branch,
         index=index,
         dry_run=dry_run,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -411,12 +412,13 @@ def read_stack_run_manifest(
     run_slug: str,
 ) -> StackRunManifest | None:
     """Read a command-driven run manifest."""
-    return DEFAULT_STACK_RUN_STORE.read_manifest(
+    return _read_stack_run_manifest(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -428,11 +430,12 @@ def write_stack_run_manifest(
     dry_run: bool = False,
 ) -> StackRunLocator:
     """Persist a command-driven run manifest."""
-    return DEFAULT_STACK_RUN_STORE.write_manifest(
+    return _write_stack_run_manifest(
         gateway,
         impl_branch=impl_branch,
         manifest=manifest,
         dry_run=dry_run,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -445,12 +448,13 @@ def read_stack_run_triage(
     run_slug: str,
 ) -> str | None:
     """Read command-driven triage markdown."""
-    return DEFAULT_STACK_RUN_STORE.read_triage(
+    return _read_stack_run_triage(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -465,7 +469,7 @@ def write_stack_run_triage(
     dry_run: bool = False,
 ) -> StackRunLocator:
     """Persist command-driven triage markdown."""
-    return DEFAULT_STACK_RUN_STORE.write_triage(
+    return _write_stack_run_triage(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
@@ -473,6 +477,7 @@ def write_stack_run_triage(
         run_slug=run_slug,
         content=content,
         dry_run=dry_run,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -486,13 +491,14 @@ def read_stack_run_resolver(
     batch_slug: str,
 ) -> str | None:
     """Read command-driven resolver markdown."""
-    return DEFAULT_STACK_RUN_STORE.read_resolver(
+    return _read_stack_run_resolver(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
         batch_slug=batch_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -508,7 +514,7 @@ def write_stack_run_resolver(
     dry_run: bool = False,
 ) -> StackRunLocator:
     """Persist command-driven resolver markdown."""
-    return DEFAULT_STACK_RUN_STORE.write_resolver(
+    return _write_stack_run_resolver(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
@@ -517,6 +523,7 @@ def write_stack_run_resolver(
         batch_slug=batch_slug,
         content=content,
         dry_run=dry_run,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -531,7 +538,7 @@ def select_stack_run_slug(
     run_slug: str | None = None,
 ) -> StackRunSelection:
     """Resolve command-driven resume/default, explicit run, or new-run behavior."""
-    return DEFAULT_STACK_RUN_STORE.select_run_slug(
+    return _select_stack_run_slug(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
@@ -539,6 +546,7 @@ def select_stack_run_slug(
         run_slug_stem=run_slug_stem,
         new_run=new_run,
         run_slug=run_slug,
+        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 

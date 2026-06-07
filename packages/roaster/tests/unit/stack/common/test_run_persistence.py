@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from asdl_core.gh.types import PRDiscussionComment
+from roaster.stack.command.dashboard import StackDashboardPublication
 from roaster.stack.common.markers import render_stack_dashboard_marker
 from roaster.stack.common.run_models import (
     StackRunArtifactLocator,
@@ -91,9 +93,15 @@ def test_manifest_with_dashboard_publication_records_marker_and_comment_linkage(
 
     updated = manifest_with_dashboard_publication(
         manifest,
-        action="updated",
-        comment_id=99,
-        comment_url="https://github.com/acme/widgets/pull/123#issuecomment-99",
+        StackDashboardPublication(
+            action="updated",
+            comment=PRDiscussionComment(
+                id=99,
+                body="dashboard",
+                author="github-actions[bot]",
+                url="https://github.com/acme/widgets/pull/123#issuecomment-99",
+            ),
+        ),
         target_pr="123",
         profile_slug="thermonuclear-stack",
     )
