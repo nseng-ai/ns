@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import assert from "node:assert";
 
 import {
 	formatPlannedBranchUpAndImplFollowUpFlow,
@@ -25,8 +26,8 @@ class FakeUpAndImplContext implements PlannedBranchUpAndImplContext {
 	};
 	sessionManager?: { getSessionFile?(): string | undefined };
 	shouldCancelNewSession = false;
-	throwBeforeReplacement = false;
-	throwDuringReplacementSend = false;
+	shouldThrowBeforeReplacement = false;
+	shouldThrowDuringReplacementSend = false;
 
 	constructor(options: { parentSession?: string } = {}) {
 		if (options.parentSession !== undefined) {
@@ -36,7 +37,7 @@ class FakeUpAndImplContext implements PlannedBranchUpAndImplContext {
 
 	async newSession(options?: PlannedBranchUpAndImplNewSessionOptions): Promise<{ cancelled: boolean }> {
 		this.newSessionParentSessions.push(options?.parentSession);
-		if (this.throwBeforeReplacement) {
+		if (this.shouldThrowBeforeReplacement) {
 			throw new Error("new session failed");
 		}
 		if (this.shouldCancelNewSession) {
@@ -44,7 +45,7 @@ class FakeUpAndImplContext implements PlannedBranchUpAndImplContext {
 		}
 		await options?.withSession?.({
 			sendUserMessage: async (content: string) => {
-				if (this.throwDuringReplacementSend) {
+				if (this.shouldThrowDuringReplacementSend) {
 					throw new Error("replacement send failed");
 				}
 				this.replacementUserMessages.push(content);
@@ -121,10 +122,7 @@ describe("planned-branch up-and-impl CCC launch orchestration", () => {
 		const result = await runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
 
 		pi.assertDone();
-		expect(result.type).toBe("cancelled");
-		if (result.type !== "cancelled") {
-			throw new Error("expected cancellation");
-		}
+		assert(result.type === "cancelled");
 		expect(result.message).toContain(`/planned-branch:impl ${KEY}`);
 		expect(ctx.statuses.at(-1)).toEqual({ key: STATUS_KEY, value: undefined });
 	});
@@ -132,7 +130,7 @@ describe("planned-branch up-and-impl CCC launch orchestration", () => {
 	test("returns new-session failure before replacement activation", async () => {
 		const pi = new FakePi({ script: [checkoutStep()] });
 		const ctx = new FakeUpAndImplContext();
-		ctx.throwBeforeReplacement = true;
+		ctx.shouldThrowBeforeReplacement = true;
 
 		const result = await runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
 
@@ -144,7 +142,7 @@ describe("planned-branch up-and-impl CCC launch orchestration", () => {
 	test("rethrows replacement-session failures after activation", async () => {
 		const pi = new FakePi({ script: [checkoutStep()] });
 		const ctx = new FakeUpAndImplContext();
-		ctx.throwDuringReplacementSend = true;
+		ctx.shouldThrowDuringReplacementSend = true;
 
 		await expect(runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } })).rejects.toThrow(
 			"replacement send failed",

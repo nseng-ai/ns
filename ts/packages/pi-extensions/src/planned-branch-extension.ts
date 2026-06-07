@@ -657,7 +657,7 @@ async function handleUpAndImplCommand(
 		launchResult.phase === "checkout"
 			? "Created planned branch and attached the plan, but failed to check out the planned branch."
 			: "Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.";
-	presentPlannedBranchFailure(pi, ctx, title, new Error(launchResult.message), preview);
+	presentPlannedBranchFailure(pi, ctx, title, launchResult.message, preview);
 }
 
 async function createPlannedBranchFromPreview(
