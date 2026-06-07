@@ -180,10 +180,12 @@ def _additive_context(context_fragments: tuple[ReviewContextFragment, ...]) -> s
 def _target_guidance(target: ReviewTarget) -> str:
     if isinstance(target, DiffReviewTarget):
         return (
-            "Review the supplied unified diff for the current branch. Ground each finding in "
-            "a concrete file and line from the diff. Use null for `line` only when a finding "
-            "genuinely spans the whole file or diff. Only flag issues visible in the diff, "
-            "using read-only repository tools only when needed to validate nearby context."
+            "Review the supplied unified diff for the current branch. Emit diff findings with "
+            "the `path` and `line` fields from the schema; do not emit a `location` object for "
+            "diff reviews. Ground each finding in a concrete file and line from the diff. Use "
+            "null for `line` only when a finding genuinely spans the whole file or diff. Only "
+            "flag issues visible in the diff, using read-only repository tools only when needed "
+            "to validate nearby context."
         )
     return (
         "Review the supplied document/artifact, not the repository diff. Use read-only "
@@ -226,8 +228,82 @@ def _claude_code_output_format(review_format: ReviewFormat) -> str:
 
 def _claude_findings_schema(target: ReviewTarget) -> dict[str, Any]:
     if isinstance(target, DocumentReviewTarget):
-        return ClaudeDocumentFindingsOutput.model_json_schema()
-    return ClaudeDiffFindingsOutput.model_json_schema()
+        return _claude_document_findings_schema()
+    return _claude_diff_findings_schema()
+
+
+def _claude_diff_findings_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "path": {"type": "string", "minLength": 1},
+                        "line": {"type": ["integer", "null"]},
+                        "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                        "summary": {"type": "string", "minLength": 1},
+                        "details": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["path", "line", "severity", "summary", "details"],
+                },
+            }
+        },
+        "required": ["findings"],
+    }
+
+
+def _claude_document_findings_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "location": _document_location_schema(),
+                        "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                        "summary": {"type": "string", "minLength": 1},
+                        "details": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["location", "severity", "summary", "details"],
+                },
+            }
+        },
+        "required": ["findings"],
+    }
+
+
+def _document_location_schema() -> dict[str, Any]:
+    return {
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"kind": {"const": "global"}},
+                "required": ["kind"],
+            },
+            {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "kind": {"const": "text_anchor"},
+                    "text": {"type": "string", "minLength": 1},
+                    "section": {"type": "string", "minLength": 1},
+                    "occurrence": {"type": "integer", "minimum": 1},
+                    "context": {"type": "string", "minLength": 1},
+                },
+                "required": ["kind", "text"],
+            },
+        ]
+    }
 
 
 def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProcessInvocation:

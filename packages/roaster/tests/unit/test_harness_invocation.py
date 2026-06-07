@@ -100,6 +100,45 @@ def _request(
     )
 
 
+def _document_request(
+    *,
+    content: str = "Ship it safely.",
+    label: str = "stdin",
+    source_path: str | None = None,
+    review_format: ReviewFormat = "findings",
+    context_fragments: tuple[ReviewContextFragment, ...] = (),
+) -> HarnessReviewRequest:
+    return HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(
+            kind="document",
+            content=content,
+            label=label,
+            source_path=source_path,
+        ),
+        context_fragments=context_fragments,
+        review_format=review_format,
+    )
+
+
+def _assert_no_json_refs(value: object) -> None:
+    if isinstance(value, dict):
+        assert "$defs" not in value
+        assert "$ref" not in value
+        for item in value.values():
+            _assert_no_json_refs(item)
+    elif isinstance(value, list):
+        for item in value:
+            _assert_no_json_refs(item)
+
+
 def _stream_lines(
     *,
     model: str = "sonnet",
@@ -253,9 +292,11 @@ def test_findings_mode_builds_claude_argv(monkeypatch: pytest.MonkeyPatch) -> No
     assert "Write" not in tools_value
     schema_text = cmd[cmd.index("--json-schema") + 1]
     schema = json.loads(schema_text)
-    finding_schema = schema["$defs"]["ClaudeDiffFinding"]
+    _assert_no_json_refs(schema)
+    finding_schema = schema["properties"]["findings"]["items"]
     required = finding_schema["required"]
     assert set(required) == {"path", "line", "severity", "summary", "details"}
+    assert "location" not in finding_schema["properties"]
     severity_enum = finding_schema["properties"]["severity"]["enum"]
     assert set(severity_enum) == {"info", "warning", "error"}
     assert captured["kwargs"]["stdin"] is subprocess.PIPE
@@ -266,37 +307,28 @@ def test_findings_mode_builds_claude_argv(monkeypatch: pytest.MonkeyPatch) -> No
 def test_document_findings_mode_uses_document_schema_and_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(
-            kind="document",
-            content="# Plan\n\nShip it safely.",
-            label="plan.md",
-            source_path="plan.md",
-        ),
+    request = _document_request(
+        content="# Plan\n\nShip it safely.",
+        label="plan.md",
+        source_path="plan.md",
         context_fragments=(
             ReviewContextFragment(
                 label="inline context 1",
                 content="This is an implementation plan.",
             ),
         ),
-        review_format="findings",
     )
 
     result, captured, process = _run_with_process(monkeypatch, request=request)
 
     assert isinstance(result, ReviewExecutionResponse)
     schema = json.loads(captured["cmd"][captured["cmd"].index("--json-schema") + 1])
-    finding_schema = schema["$defs"]["ClaudeDocumentFinding"]
+    _assert_no_json_refs(schema)
+    finding_schema = schema["properties"]["findings"]["items"]
     assert set(finding_schema["required"]) == {"location", "severity", "summary", "details"}
-    assert "ClaudeDiffFinding" not in schema["$defs"]
+    location_branches = finding_schema["properties"]["location"]["oneOf"]
+    location_kinds = {branch["properties"]["kind"]["const"] for branch in location_branches}
+    assert location_kinds == {"global", "text_anchor"}
     stdin = process.stdin.buffer
     assert "- Target kind: document" in stdin
     assert "- Target label: plan.md" in stdin
@@ -617,18 +649,7 @@ def test_parse_stdout_parses_document_locations(monkeypatch: pytest.MonkeyPatch)
             },
         ]
     }
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -646,18 +667,7 @@ def test_parse_stdout_parses_document_locations(monkeypatch: pytest.MonkeyPatch)
 def test_parse_stdout_accepts_text_anchor_whitespace_variation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it\n\nsafely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request(content="Ship it\n\nsafely.")
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -695,18 +705,7 @@ def test_parse_stdout_rejects_document_text_anchor_absent_from_target(
             }
         ]
     }
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -723,18 +722,7 @@ def test_parse_stdout_rejects_document_text_anchor_absent_from_target(
 def test_parse_stdout_rejects_document_text_anchor_occurrence_without_match(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -765,18 +753,7 @@ def test_parse_stdout_rejects_document_text_anchor_occurrence_without_match(
 def test_parse_stdout_rejects_document_finding_without_location(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -804,18 +781,7 @@ def test_parse_stdout_rejects_document_finding_without_location(
 def test_parse_stdout_rejects_diff_line_location_for_document_target(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -866,21 +832,36 @@ def test_parse_stdout_rejects_coerced_diff_line_values(
     assert "line" in result.message
 
 
+def test_parse_stdout_rejects_diff_finding_location_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "path": "app.py",
+                        "line": 12,
+                        "location": {"kind": "diff_line", "path": "app.py", "line": 12},
+                        "severity": "warning",
+                        "summary": "Avoid print",
+                        "details": "Use click.echo() instead.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "location" in result.message
+
+
 def test_parse_stdout_rejects_non_positive_text_anchor_occurrence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -913,18 +894,7 @@ def test_parse_stdout_rejects_coerced_text_anchor_occurrence_values(
     monkeypatch: pytest.MonkeyPatch,
     occurrence: object,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,
@@ -995,18 +965,7 @@ def test_parse_stdout_rejects_blank_diff_finding_strings(
 def test_parse_stdout_rejects_blank_text_anchor_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-        ),
-        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
-        review_format="findings",
-    )
+    request = _document_request()
 
     result, _captured, _process = _run_with_process(
         monkeypatch,

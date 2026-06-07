@@ -32,6 +32,14 @@ class FindingsPayloadParseError:
 
 
 @dataclass(frozen=True)
+class FindingsPublicationPolicyError:
+    """Non-ideal result for valid findings payloads that cannot be published to a PR."""
+
+    message: str
+    error_type: str = "findings_publication_policy_failed"
+
+
+@dataclass(frozen=True)
 class InlinePostingStatusParseError:
     """Non-ideal parse result for malformed inline-posting JSON input."""
 
@@ -79,6 +87,9 @@ class ParsedFindingsCommentBody:
 
 
 FindingsPayloadParseResult: TypeAlias = FindingsPayload | FindingsPayloadParseError
+PublishableFindingsPayloadResult: TypeAlias = (
+    FindingsPayload | FindingsPayloadParseError | FindingsPublicationPolicyError
+)
 InlinePostingStatusParseResult: TypeAlias = InlinePostingStatus | InlinePostingStatusParseError
 FindingsCommentBodyParseResult: TypeAlias = (
     ParsedFindingsCommentBody | FindingsCommentBodyParseError
@@ -171,8 +182,8 @@ def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResu
     return _parse_inline_posting_status_object(status_data)
 
 
-def parse_publishable_diff_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
-    """Parse and reject local-only document findings before PR publication."""
+def parse_publishable_diff_findings_payload_result(raw: str) -> PublishableFindingsPayloadResult:
+    """Parse findings JSON and reject valid local-only findings before PR publication."""
     payload = parse_findings_payload_result(raw)
     if isinstance(payload, FindingsPayloadParseError):
         return payload
@@ -181,10 +192,10 @@ def parse_publishable_diff_findings_payload_result(raw: str) -> FindingsPayloadP
 
 def ensure_publishable_diff_payload(
     payload: FindingsPayload,
-) -> FindingsPayload | FindingsPayloadParseError:
+) -> FindingsPayload | FindingsPublicationPolicyError:
     """Reject local-only document review payloads before PR publication."""
     if payload.target_kind != "diff":
-        return FindingsPayloadParseError(
+        return FindingsPublicationPolicyError(
             message=(
                 "document review findings are local-output only "
                 "and cannot be published as PR comments"
@@ -192,7 +203,7 @@ def ensure_publishable_diff_payload(
         )
     for finding in payload.findings:
         if not isinstance(finding.location, DiffLineLocation):
-            return FindingsPayloadParseError(
+            return FindingsPublicationPolicyError(
                 message=(
                     "PR comment publication requires diff-line finding locations; "
                     f"got {finding.location.kind!r}"

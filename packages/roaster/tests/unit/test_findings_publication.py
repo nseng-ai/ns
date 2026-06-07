@@ -10,6 +10,7 @@ from roaster.findings_publication import (
     FindingsCommentBodyParseError,
     FindingsPayload,
     FindingsPayloadParseError,
+    FindingsPublicationPolicyError,
     InlinePostingStatus,
     InlinePostingStatusParseError,
     ParsedFindingsCommentBody,
@@ -19,6 +20,7 @@ from roaster.findings_publication import (
     parse_findings_comment_body,
     parse_findings_payload_result,
     parse_inline_posting_status_result,
+    parse_publishable_diff_findings_payload_result,
     preserve_activity_log,
     render_findings_comment,
     render_inline_body,
@@ -376,8 +378,44 @@ def test_ensure_publishable_diff_payload_rejects_document_payload() -> None:
 
     result = ensure_publishable_diff_payload(payload)
 
-    assert isinstance(result, FindingsPayloadParseError)
+    assert isinstance(result, FindingsPublicationPolicyError)
+    assert result.error_type == "findings_publication_policy_failed"
     assert "local-output only" in result.message
+
+
+def test_parse_publishable_diff_findings_payload_rejects_document_payload_as_policy() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 0,
+            "data": {
+                "target": {"kind": "document", "label": "stdin"},
+                "findings": [
+                    {
+                        "location": {"kind": "global"},
+                        "severity": "warning",
+                        "summary": "Missing rollback",
+                        "details": "Add rollback steps.",
+                    }
+                ],
+            },
+        }
+    )
+
+    parse_result = parse_findings_payload_result(raw)
+    publishable_result = parse_publishable_diff_findings_payload_result(raw)
+
+    assert isinstance(parse_result, FindingsPayload)
+    assert parse_result.target_kind == "document"
+    assert isinstance(publishable_result, FindingsPublicationPolicyError)
+    assert publishable_result.error_type == "findings_publication_policy_failed"
+    assert "local-output only" in publishable_result.message
+
+
+def test_parse_publishable_diff_findings_payload_preserves_parse_errors() -> None:
+    result = parse_publishable_diff_findings_payload_result("not json")
+
+    assert isinstance(result, FindingsPayloadParseError)
+    assert result.error_type == "findings_parse_failed"
 
 
 def test_ensure_publishable_diff_payload_rejects_document_location() -> None:
@@ -393,7 +431,8 @@ def test_ensure_publishable_diff_payload_rejects_document_location() -> None:
 
     result = ensure_publishable_diff_payload(payload)
 
-    assert isinstance(result, FindingsPayloadParseError)
+    assert isinstance(result, FindingsPublicationPolicyError)
+    assert result.error_type == "findings_publication_policy_failed"
     assert "requires diff-line" in result.message
 
 
