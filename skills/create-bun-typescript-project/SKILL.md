@@ -1,7 +1,7 @@
 ---
 name: create-bun-typescript-project
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
-# "Scaffold a well-structured Bun-centric TypeScript project. Use when the user wants to create a new TypeScript project, set up a Bun project, bootstrap a TS library or CLI, or start a new TS repo with modern tooling. Creates the full structure: package.json (Bun, no build step), strict ESM tsconfig.json, oxlint + oxfmt orchestrated by ultracite, bun test, bunfig.toml, and .gitignore. Bun runs TypeScript directly — no bundler, no dist/. Produces a project that passes `bun run check`, `bunx tsc --noEmit`, and `bun test` immediately. Run when the user says things like 'set up a new TypeScript project', 'create a Bun project', 'scaffold a TS CLI', or 'initialize a bun-centric repo'."
+# "Scaffold a well-structured Bun-centric TypeScript project. Use when the user wants to create a new TypeScript project, set up a Bun project, bootstrap a TS library or CLI, or start a new TS repo with modern tooling. Creates the full structure: package.json (Bun, no build step), strict ESM tsconfig.json, oxlint + oxfmt orchestrated by ultracite, bun test --sequential, bunfig.toml, and .gitignore. Bun runs TypeScript directly — no bundler, no dist/. Produces a project that passes `bun run check`, `bunx tsc --noEmit`, and `bun test --sequential` immediately. Run when the user says things like 'set up a new TypeScript project', 'create a Bun project', 'scaffold a TS CLI', or 'initialize a bun-centric repo'."
 description: "Command: create-bun-typescript-project"
 references:
   - templates/package-json
@@ -20,8 +20,8 @@ allowed-tools:
 Scaffold a complete Bun-centric TypeScript project with modern tooling. Bun runs
 TypeScript directly, so there is **no bundler and no build step** — `src/*.ts` is
 both the source and what runs. The result is an opinionated, production-ready
-layout that passes `bun run check`, `bunx tsc --noEmit`, and `bun test` on first
-run.
+layout that passes `bun run check`, `bunx tsc --noEmit`, and
+`bun test --sequential` on first run.
 
 ## Stack
 
@@ -31,7 +31,7 @@ run.
 | Lint                      | oxlint                                                                   |
 | Format                    | oxfmt                                                                    |
 | Lint/format orchestration | ultracite (`check` / `fix`)                                              |
-| Test runner               | `bun test` (built-in)                                                    |
+| Test runner               | `bun test --sequential` (built-in)                                       |
 | Type checker              | `tsc --noEmit` (strict ESM)                                              |
 | Layout                    | `src/` + `tests/`                                                        |
 | Task runner               | `package.json` scripts (`bun run <script>`)                              |
@@ -167,7 +167,7 @@ not exist, or contains only a default heading, replace with:
 bun install
 bun run check      # oxlint + oxfmt
 bunx tsc --noEmit  # typecheck
-bun test
+bun test --sequential
 ```
 ````
 
@@ -199,7 +199,7 @@ Resolve any non-auto-fixable lint errors by hand.
 ```bash
 bun run check      # oxlint + oxfmt, must be clean
 bunx tsc --noEmit  # typecheck, must be clean
-bun test           # sample test(s) must pass
+bun test --sequential  # sample test(s) must pass
 ```
 
 All three must succeed. If `HAS_CLI` is yes, also confirm the entry runs:
@@ -214,11 +214,11 @@ If anything fails, fix it before considering scaffolding complete.
 
 Tell the user:
 
-1. The project is set up and `bun run check`, `bunx tsc --noEmit`, and `bun test`
-   all pass.
+1. The project is set up and `bun run check`, `bunx tsc --noEmit`, and
+   `bun test --sequential` all pass.
 2. Key commands: `bun run check` (lint + format check), `bun run fix` (auto-fix
-   - format), `bun run typecheck`, `bun test`, `bun add <dep>` (add a runtime
-     dependency — e.g. `bun add zod` for schema validation; Zod 4's
+   - format), `bun run typecheck`, `bun test --sequential`, `bun add <dep>` (add
+     a runtime dependency — e.g. `bun add zod` for schema validation; Zod 4's
      `z.toJSONSchema` works out of the box).
 3. Bun runs `src/*.ts` directly — there is no build step and nothing to compile.
 4. Push to GitHub when ready.

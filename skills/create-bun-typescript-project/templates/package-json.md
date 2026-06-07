@@ -27,8 +27,8 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
-    "ci": "bun run check && bun run typecheck && bun test"
+    "test": "bun test --sequential",
+    "ci": "bun run check && bun run typecheck && bun test --sequential"
   },
   "dependencies": {},
   "devDependencies": {

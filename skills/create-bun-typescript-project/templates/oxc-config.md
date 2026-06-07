@@ -4,7 +4,7 @@ Three files, no placeholders -- use as-is.
 
 `ultracite` auto-detects "oxlint mode" by finding `.oxlintrc.json` in the project
 root, then runs `oxfmt` then `oxlint`. Both config files below are discovered
-automatically from the root; `bunfig.toml` scopes `bun test` to `tests/`.
+automatically from the root; `bunfig.toml` scopes `bun test --sequential` to `tests/`.
 
 ## `.oxlintrc.json`
 
@@ -128,7 +128,7 @@ the rules that fight idiomatic CLI/library TypeScript while keeping
 **Target path:** `bunfig.toml`
 
 ```toml
-# Bun configuration. Tests use Bun's built-in runner (`bun test`).
+# Bun configuration. Tests use Bun's built-in runner (`bun test --sequential`).
 [test]
 root = "tests"
 ```

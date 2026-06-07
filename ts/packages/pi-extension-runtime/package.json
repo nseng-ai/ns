@@ -17,7 +17,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test"
+    "test": "bun test --sequential"
   },
   "dependencies": {},
   "devDependencies": {}
