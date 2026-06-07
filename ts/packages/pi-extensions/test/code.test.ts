@@ -14,6 +14,7 @@ class FakePi {
 	readonly commandNames: string[] = [];
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messageRenderers = new Map<string, unknown>();
+	readonly events: string[] = [];
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		if (this.commands.has(name)) {
@@ -25,6 +26,10 @@ class FakePi {
 
 	registerMessageRenderer(customType: string, renderer: unknown): void {
 		this.messageRenderers.set(customType, renderer);
+	}
+
+	on(event: string): void {
+		this.events.push(event);
 	}
 
 	async exec(): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }> {
@@ -44,6 +49,7 @@ describe("code extension registration", () => {
 			"code:autobranch",
 			"code:land",
 			"code:land-stack",
+			"code:pr-feedback-watch",
 		]);
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("autobranch")).toBe(false);
@@ -64,6 +70,7 @@ describe("code extension registration", () => {
 			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		);
 		expect(pi.commands.get("code:autobranch")?.description).toContain("generating the branch name and checkpoint commit message");
+		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
 		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
@@ -87,6 +94,7 @@ describe("code extension registration", () => {
 			"code:autobranch",
 			"code:land",
 			"code:land-stack",
+			"code:pr-feedback-watch",
 			"dev:preview-url",
 		]);
 	});
