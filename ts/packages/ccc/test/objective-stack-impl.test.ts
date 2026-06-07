@@ -92,17 +92,20 @@ async function withTempSkill<T>(
 	}
 }
 
-async function runObjectiveStackImpl(
-	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
-	commandInfos: CommandInfo[] = [],
-): Promise<{
+interface RunObjectiveStackImplOptions {
+	args: string;
+	script?: ScriptedExec[];
+	contextOptions?: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] };
+	commandInfos?: CommandInfo[];
+}
+
+async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Promise<{
 	host: FakeHost;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
+	const { args, script = [], contextOptions = {}, commandInfos = [] } = options;
 	const host = new FakeHost(script, commandInfos);
 	registerObjectiveStackImplCommand(host);
 	const command = host.commands.get("objective:stack-impl");
@@ -172,7 +175,10 @@ describe("objective stack impl CCC orchestration", () => {
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
 		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
-			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [skillCommand("objective-stack-impl", skillPath)]);
+			const result = await runObjectiveStackImpl({
+				args: "  bravo  ",
+				commandInfos: [skillCommand("objective-stack-impl", skillPath)],
+			});
 
 			result.host.assertDone();
 			expect(result.host.execCalls).toEqual([]);
@@ -195,7 +201,7 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("explicit slug falls back when the portable skill is unavailable", async () => {
-		const result = await runObjectiveStackImpl("bravo");
+		const result = await runObjectiveStackImpl({ args: "bravo" });
 
 		result.host.assertDone();
 		expect(result.host.execCalls).toEqual([]);
@@ -209,12 +215,11 @@ describe("objective stack impl CCC orchestration", () => {
 
 	test("empty args load active candidates with objective list json and git evidence", async () => {
 		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-				{},
-				[skillCommand("objective-stack-impl", skillPath)],
-			);
+			const result = await runObjectiveStackImpl({
+				args: "",
+				script: [objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+				commandInfos: [skillCommand("objective-stack-impl", skillPath)],
+			});
 
 			result.host.assertDone();
 			expectListActiveObjectivesCall(result);
@@ -235,16 +240,15 @@ describe("objective stack impl CCC orchestration", () => {
 
 	test("changed Objective grouping matches objective-next", async () => {
 		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[
+			const result = await runObjectiveStackImpl({
+				args: "",
+				script: [
 					objectiveListStep(["alpha", "bravo", "charlie"]),
 					diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
 					statusStep(""),
 				],
-				{},
-				[skillCommand("objective-stack-impl", skillPath)],
-			);
+				commandInfos: [skillCommand("objective-stack-impl", skillPath)],
+			});
 
 			result.host.assertDone();
 			expect(result.selections[0]).toEqual({
@@ -260,16 +264,16 @@ describe("objective stack impl CCC orchestration", () => {
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
 		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[
+			const result = await runObjectiveStackImpl({
+				args: "",
+				script: [
 					objectiveListStep(["alpha", "bravo", "charlie"]),
 					diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
 					statusStep(""),
 				],
-				{ selectIndices: [1, 1] },
-				[skillCommand("objective-stack-impl", skillPath)],
-			);
+				contextOptions: { selectIndices: [1, 1] },
+				commandInfos: [skillCommand("objective-stack-impl", skillPath)],
+			});
 
 			result.host.assertDone();
 			expect(result.selections[1]).toEqual({
@@ -284,11 +288,11 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("picker cancellation sends no prompt", async () => {
-		const result = await runObjectiveStackImpl(
-			"",
-			[objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-			{ cancelSelect: true },
-		);
+		const result = await runObjectiveStackImpl({
+			args: "",
+			script: [objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+			contextOptions: { cancelSelect: true },
+		});
 
 		result.host.assertDone();
 		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
@@ -296,7 +300,7 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("zero active Objectives sends no prompt", async () => {
-		const result = await runObjectiveStackImpl("", [objectiveListStep([])]);
+		const result = await runObjectiveStackImpl({ args: "", script: [objectiveListStep([])] });
 
 		result.host.assertDone();
 		expect(result.notifications).toEqual([
