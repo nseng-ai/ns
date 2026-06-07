@@ -37,6 +37,7 @@ asdl pr-address --help
 | Reply to a thread     | `pr-address exec add-review-thread-reply`   | GitHub    |
 | Resolve with a reply  | `pr-address exec resolve-thread-with-reply` | GitHub    |
 | Resolve a thread      | `pr-address exec resolve-thread`            | GitHub    |
+| Record batch evidence | `pr-address exec record-batch-checkpoint`   | Local     |
 | Reopen a thread       | `pr-address exec unresolve-thread`          | GitHub    |
 
 ## Agent interface

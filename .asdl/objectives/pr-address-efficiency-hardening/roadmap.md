@@ -22,13 +22,13 @@
   - Policy: Planning must consume validated classification data, preserve approval gates, keep raw body text out of plan output, and order batches deterministically.
   - Evidence: `pr-address exec plan-feedback` validates before planning and emits batches in skill order with exact IDs, locators, source context, approval gates, informational items, and user-decision requirements. Scenario tests and CLI/skill docs cover valid and invalid inputs, deterministic order, prepare-run no-PR behavior, and no raw body text in plan output.
 
-- [~] Reduce manual GitHub mutation payload assembly.
+- [x] Reduce manual GitHub mutation payload assembly.
   - Policy: Agents should build resolution payloads through tested helpers from plan output plus explicit per-thread decisions; mutation should still happen only through helper-mediated GitHub commands.
-  - Evidence: `resolve-thread-batch` accepts stdin, `--payload-json`, or `--payload-file` through the shared JSON loader, so a large generated batch payload can be written to a file instead of inlined in the transcript; `build-resolve-thread-batch-payload` emits either a validated payload, a no-payload result, or structured semantic errors without mutating GitHub. Scenario tests cover ready payload generation, skip handling, non-thread batches, invalid decisions, thread mismatches, malformed input, single-source conflict between `--payload-json` and `--payload-file`, stdin fallback, and compatibility with `resolve-thread-batch`. Remaining evidence is per-batch checkpoint support for changed files, validation commands, and final audit state.
+  - Evidence: `resolve-thread-batch` accepts stdin, `--payload-json`, or `--payload-file` through the shared JSON loader, so a large generated batch payload can be written to a file instead of inlined in the transcript; `build-resolve-thread-batch-payload` emits either a validated payload, a no-payload result, or structured semantic errors without mutating GitHub; `record-batch-checkpoint` records the post-mutation evidence that ties the generated payload, mutation result, commit, changed files, validation commands, and skipped/replied outcomes together. Scenario tests cover ready payload generation, skip handling, non-thread batches, invalid decisions, thread mismatches, malformed input, payload-file/source conflicts, mutation compatibility, checkpoint artifacts, and failed/incomplete evidence.
 
-- [ ] Add per-batch evidence/checkpoint support.
+- [x] Add per-batch evidence/checkpoint support.
   - Policy: Capture workflow evidence without turning run state into a hidden task database.
-  - Evidence: Closure requires each batch to be auditable after commit and before/after GitHub resolution with changed files, validation commands, commit SHA, addressed thread IDs, resolved/replied outcomes, and skipped items.
+  - Evidence: `pr-address exec record-batch-checkpoint` validates one selected `plan-feedback` batch against explicit changed files, validation commands, commit SHA, `build-resolve-thread-batch-payload` output, `resolve-thread-batch` results, PR-level review/discussion outcomes, and skipped items. It writes a same-session managed summary artifact when the plan is payload-backed, returns a checkpoint reference, keeps raw feedback bodies out of stdout/artifacts, and returns `batch_complete=false` for failed or incomplete evidence.
 
 - [ ] Add finalization support for unresolved feedback summary.
   - Policy: End every run through one clear final verification path that re-fetches compact feedback in payload mode and reports unresolved, skipped, and mutated items.
@@ -36,7 +36,7 @@
 
 - [~] Update the public `pr-address` skill and CLI reference for the improved happy path.
   - Policy: Route agents through tested helpers while preserving payload-by-default, validated classification before planning, cost-aware classifier dispatch with escalation, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no push.
-  - Evidence: The CLI reference documents classification templates, validation, planning, selected-detail lookup, and stdin/option JSON input for validation, planning, and thread resolution. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, and keeps `read-feedback-detail` as one-off inline/debug lookup. Remaining evidence is to shed residual manual mutation/finalization instructions as checkpoint and finalization helpers land.
+  - Evidence: The CLI reference documents classification templates, validation, planning, selected-detail lookup, stdin/option/file JSON input for thread resolution, generated mutation payloads, and batch checkpoint recording. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, uses `build-resolve-thread-batch-payload` / `resolve-thread-batch` for inline-thread mutation, and records each batch with `record-batch-checkpoint`. Remaining evidence is to shed residual manual finalization instructions after a final unresolved-feedback helper lands.
 
 ## Closure Evidence
 

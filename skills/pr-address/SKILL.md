@@ -363,6 +363,9 @@ Use the composite helpers for GitHub mutations. Read each helper's entry in
   and produce the non-mutating payload for `resolve-thread-batch`
 - `resolve-thread-batch` — mutating helper that replies to and resolves every
   inline thread included in a validated batch payload
+- `record-batch-checkpoint` — non-GitHub helper that validates compact evidence
+  for one completed batch and writes a managed checkpoint artifact when the plan
+  came from a payload-backed run
 - `resolve-thread-with-reply` — one-off fallback for a single thread
 - `reply-to-review` — post a formatted reply to a PR-level review
 - `reply-to-discussion` — reply to a discussion comment with reaction
@@ -383,6 +386,16 @@ Inspect the builder result:
   items with the appropriate helpers.
 - If the builder exits 1, fix the structured decision errors before mutating
   GitHub.
+
+After committing the batch and after any relevant GitHub mutation helper has
+returned, run `record-batch-checkpoint` with the `plan-feedback` output,
+selected `batch_id`, batch commit SHA when files changed, changed-file list,
+validation command evidence, any `build-resolve-thread-batch-payload` result,
+any `resolve-thread-batch` result, and explicit PR-level review or discussion
+comment outcomes. Include the returned `data.checkpoint_reference` in your final
+summary and use it as finalization evidence. If it exits 1 or returns
+`data.batch_complete == false`, do not treat the batch as done: fix the missing
+or failed evidence, or report a blocker.
 
 Common footguns (the reference is still the source of truth):
 
@@ -416,6 +429,7 @@ Summarize:
 - commits created
 - threads resolved
 - discussion comments replied to
+- batch checkpoint references returned by `record-batch-checkpoint`
 - anything still unresolved
 - anything explicitly skipped by the user
 
@@ -447,7 +461,8 @@ Do not run `git push`. Do not run `gt submit`.
 
 ## Summary persistence
 
-The current skill validates classification before acting and may keep the
-validated packet in scratch context for this run. Durable `.summary.json`
-persistence is intentionally not required for v1; add it only when a concrete
-reload/replay workflow needs a supported `pr-address exec` write command.
+The skill validates classification before acting and may keep the validated
+packet in scratch context for this run. After each executed batch,
+`record-batch-checkpoint` can write a compact `.summary.json` checkpoint artifact
+inside the same payload session. Treat checkpoint artifacts as audit evidence,
+not as a hidden task database or automatic resume queue.
