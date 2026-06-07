@@ -12,6 +12,7 @@ from asdl_pr_address.cli.pr_address.get_feedback import run_get_feedback
 from asdl_pr_address.cli.pr_address.get_pr_for_branch import run_get_pr_for_branch
 from asdl_pr_address.cli.pr_address.get_review_comments import run_get_review_comments
 from asdl_pr_address.cli.pr_address.get_reviews import run_get_reviews
+from asdl_pr_address.cli.pr_address.plan_feedback import run_plan_feedback
 from asdl_pr_address.cli.pr_address.prepare_run import run_prepare_run
 from asdl_pr_address.cli.pr_address.read_feedback_detail import (
     run_read_feedback_detail,
@@ -42,6 +43,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_get_pr_for_branch,
             run_get_review_comments,
             run_get_reviews,
+            run_plan_feedback,
             run_prepare_run,
             run_read_feedback_detail,
             run_read_feedback_details,

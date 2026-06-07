@@ -252,33 +252,35 @@ Validation outcomes:
 - If the retry still fails, stop and report the diagnostics.
 - If validation exits `2`, treat it as malformed workflow input and stop.
 
-The validated packet drives planning:
+After validation succeeds, ask the helper to turn the validated packet into the
+execution plan:
 
-- `disposition: "actionable"` entries become execution items.
-- `disposition: "informational"` review threads require a per-item user choice:
-  `act`, `dismiss`, or `skip`.
+```bash
+printf '%s' '<json wrapper>' \
+  | <pr-address-runner> exec plan-feedback --format json
+```
+
+Use the same wrapper shape as validation. If `plan-feedback` exits `1`, inspect
+`data.validation.counts` and `data.validation.errors`, retry classification once
+with focused correction, then re-run validation and planning. If it exits `2`,
+treat it as malformed workflow input and stop.
+
+The returned plan, not hand-grouped scratch notes, drives execution:
+
+- `data.batches` is ordered as `pre_existing`, `local`, `single_file`,
+  `cross_cutting`, then `complex`, omitting empty groups.
+- `approval_required` is false for `pre_existing`, `local`, and `single_file`;
+  true for `cross_cutting` and `complex`.
+- `data.informational` explicitly lists informational reviews, review threads,
+  and discussion comments.
+- Informational review threads have `user_decision_required: true` and allowed
+  decisions `act`, `dismiss`, or `skip`; ask the user per item.
 - Informational reviews and discussion comments are summarized explicitly; they
   do not hide unresolved review threads.
 
-Evaluate classification rules in `references/feedback-classifier.md`. Key
-batching rules:
-
-- auto-proceed: `pre_existing`, `local`, `single_file`
-- ask first: `cross_cutting`, `complex`
-- prompt per item: informational review threads (`act`, `dismiss`, or `skip`)
-
-Use this batch order:
-
-1. `pre_existing`
-2. `local`
-3. `single_file`
-4. `cross_cutting`
-5. `complex`
-6. informational review threads
-
-Display a compact plan grouped by batch with item location, one-line summary,
-and whether the evidence came from a review, review thread, or discussion
-comment.
+Display a compact plan from `data.batches` and `data.informational`, including
+item location, one-line summary, approval/user-decision requirements, and
+whether the evidence came from a review, review thread, or discussion comment.
 
 ### 4. Execute approved batches
 
@@ -404,7 +406,7 @@ Do not run `git push`. Do not run `gt submit`.
   above.
 - Do not drop unresolved review threads during classification.
 - Do not show or execute a plan until `validate-feedback-classification` accepts
-  the classification packet.
+  the classification packet and `plan-feedback` emits the deterministic plan.
 - Retry invalid classification once with structured diagnostics, then fail
   closed.
 - Do not paste full raw payload JSON into the main transcript by default.
