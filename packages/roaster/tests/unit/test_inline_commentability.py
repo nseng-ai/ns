@@ -127,6 +127,23 @@ def test_classify_inline_findings_returns_inlineable_target() -> None:
     assert result.fallback_only == ()
 
 
+def test_classify_inline_findings_treats_document_global_finding_as_missing_path() -> None:
+    finding = ReviewFinding.global_finding(
+        severity="warning",
+        summary="summary",
+        details="details",
+    )
+
+    result = classify_inline_findings(
+        (finding,),
+        (PRChangedFile(path="app.py", status="modified", patch=_PATCH),),
+    )
+
+    assert result.inlineable == ()
+    assert len(result.fallback_only) == 1
+    assert result.fallback_only[0].reason == "missing_path"
+
+
 @pytest.mark.parametrize(
     ("finding", "changed_files", "reason"),
     [

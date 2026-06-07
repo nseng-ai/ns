@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, ValidationError, field_validator, model_serializer
+from pydantic import Field, ValidationError, field_validator, model_serializer, model_validator
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
@@ -16,6 +16,7 @@ Severity = Literal["info", "warning", "error"]
 
 ReviewFormat = Literal["findings", "text"]
 TargetKind = Literal["diff", "document"]
+StrictInt: TypeAlias = Annotated[int, Field(strict=True)]
 
 
 @dataclass(frozen=True)
@@ -347,7 +348,7 @@ class TextAnchorLocation(ClinkrModel):
     kind: Literal["text_anchor"]
     text: str = Field(min_length=1)
     section: str | None = None
-    occurrence: int | None = None
+    occurrence: StrictInt | None = None
     context: str | None = None
 
     @field_validator("text", "section", "context")
@@ -363,7 +364,7 @@ class DiffLineLocation(ClinkrModel):
 
     kind: Literal["diff_line"]
     path: str = Field(min_length=1)
-    line: int | None
+    line: StrictInt | None
 
     @field_validator("path")
     @classmethod
@@ -513,10 +514,37 @@ class ClaudeDiffFinding(ClinkrModel):
     """Claude schema model for legacy-compatible diff findings."""
 
     path: str = Field(min_length=1)
-    line: int | None
+    line: StrictInt | None
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
+    location: DiffLineLocation | None = None
+
+    @field_validator("path", "summary", "details")
+    @classmethod
+    def _reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must be non-empty")
+        return value
+
+    @model_validator(mode="after")
+    def _reject_conflicting_location(self) -> ClaudeDiffFinding:
+        if self.location is not None and self.location.path != self.path:
+            raise ValueError("legacy `path` conflicts with `location.path`")
+        if self.location is not None and self.location.line != self.line:
+            raise ValueError("legacy `line` conflicts with `location.line`")
+        return self
+
+    def to_review_finding(self) -> ReviewFinding:
+        location = self.location
+        if location is None:
+            location = DiffLineLocation(kind="diff_line", path=self.path, line=self.line)
+        return ReviewFinding(
+            location=location,
+            severity=self.severity,
+            summary=self.summary,
+            details=self.details,
+        )
 
 
 class ClaudeDocumentFinding(ClinkrModel):
@@ -526,6 +554,21 @@ class ClaudeDocumentFinding(ClinkrModel):
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
+
+    @field_validator("summary", "details")
+    @classmethod
+    def _reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must be non-empty")
+        return value
+
+    def to_review_finding(self) -> ReviewFinding:
+        return ReviewFinding(
+            location=self.location,
+            severity=self.severity,
+            summary=self.summary,
+            details=self.details,
+        )
 
 
 class ClaudeDiffFindingsOutput(ClinkrModel):

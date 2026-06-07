@@ -313,6 +313,21 @@ def test_parse_document_target_metadata() -> None:
     assert payload.target_kind == "document"
     assert payload.target_label == "stdin"
     assert payload.base_ref == "unknown"
+    assert payload.findings[0].path is None
+    assert payload.findings[0].line is None
+
+
+def test_render_document_finding_without_path_or_line_uses_dash_location() -> None:
+    finding = ReviewFinding.global_finding(
+        severity="warning",
+        summary="Missing rollback",
+        details="Add rollback steps.",
+    )
+
+    body = render_findings_comment(_payload(findings=(finding,)))
+
+    assert "| ⚠️ warning | `—` | — | Missing rollback |" in body
+    assert "### `—` — warning" in body
 
 
 def test_parse_rejects_malformed_target_kind() -> None:

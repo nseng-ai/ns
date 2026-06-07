@@ -568,6 +568,35 @@ def test_parse_stdout_parses_structured_findings_from_json_output(
     assert result.usage.total_input_tokens == 115
 
 
+def test_parse_stdout_accepts_diff_line_location_from_diff_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    structured = {
+        "findings": [
+            {
+                "path": "app.py",
+                "line": 12,
+                "location": {"kind": "diff_line", "path": "app.py", "line": 12},
+                "severity": "warning",
+                "summary": "Avoid print in library code",
+                "details": "Use click.echo() instead.",
+            }
+        ]
+    }
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        stdout_lines=_json_result(structured_output=structured),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, FindingsReview)
+    finding = result.payload.findings[0]
+    assert isinstance(finding.location, DiffLineLocation)
+    assert finding.path == "app.py"
+    assert finding.line == 12
+
+
 def test_parse_stdout_parses_document_locations(monkeypatch: pytest.MonkeyPatch) -> None:
     structured = {
         "findings": [
@@ -692,6 +721,194 @@ def test_parse_stdout_rejects_document_finding_without_location(
 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "document findings schema" in result.message
+
+
+def test_parse_stdout_rejects_diff_line_location_for_document_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
+        review_format="findings",
+    )
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        request=request,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "location": {"kind": "diff_line", "path": "plan.md", "line": 1},
+                        "severity": "warning",
+                        "summary": "Missing rollback",
+                        "details": "Add rollback steps.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "document findings schema" in result.message
+
+
+@pytest.mark.parametrize("line", ["12", True])
+def test_parse_stdout_rejects_coerced_diff_line_values(
+    monkeypatch: pytest.MonkeyPatch,
+    line: object,
+) -> None:
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "path": "app.py",
+                        "line": line,
+                        "severity": "warning",
+                        "summary": "Avoid print",
+                        "details": "Use click.echo() instead.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "line" in result.message
+
+
+@pytest.mark.parametrize("occurrence", ["1", True])
+def test_parse_stdout_rejects_coerced_text_anchor_occurrence_values(
+    monkeypatch: pytest.MonkeyPatch,
+    occurrence: object,
+) -> None:
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
+        review_format="findings",
+    )
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        request=request,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "location": {
+                            "kind": "text_anchor",
+                            "text": "Ship it safely.",
+                            "occurrence": occurrence,
+                        },
+                        "severity": "warning",
+                        "summary": "Clarify safety",
+                        "details": "Name the validation command.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "occurrence" in result.message
+
+
+@pytest.mark.parametrize(
+    "finding_payload",
+    [
+        {
+            "path": "   ",
+            "line": 12,
+            "severity": "warning",
+            "summary": "Avoid print",
+            "details": "Use click.echo() instead.",
+        },
+        {
+            "path": "app.py",
+            "line": 12,
+            "severity": "warning",
+            "summary": "   ",
+            "details": "Use click.echo() instead.",
+        },
+        {
+            "path": "app.py",
+            "line": 12,
+            "severity": "warning",
+            "summary": "Avoid print",
+            "details": "   ",
+        },
+    ],
+)
+def test_parse_stdout_rejects_blank_diff_finding_strings(
+    monkeypatch: pytest.MonkeyPatch,
+    finding_payload: dict[str, object],
+) -> None:
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        stdout_lines=_json_result(structured_output={"findings": [finding_payload]}),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "must be non-empty" in result.message
+
+
+def test_parse_stdout_rejects_blank_text_anchor_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
+        review_format="findings",
+    )
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        request=request,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "location": {"kind": "text_anchor", "text": "   "},
+                        "severity": "warning",
+                        "summary": "Clarify safety",
+                        "details": "Name the validation command.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "must be non-empty" in result.message
 
 
 def test_parse_stdout_handles_empty_findings_from_json_output(
