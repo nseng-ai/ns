@@ -392,7 +392,8 @@ returned, run `record-batch-checkpoint` with the `plan-feedback` output,
 selected `batch_id`, batch commit SHA when files changed, changed-file list,
 validation command evidence, any `build-resolve-thread-batch-payload` result,
 any `resolve-thread-batch` result, and explicit PR-level review or discussion
-comment outcomes. Include the returned `data.checkpoint_reference` in your final
+comment outcomes. Use repository-relative forward-slash paths in
+`changed_files`. Include the returned `data.checkpoint_reference` in your final
 summary and use it as finalization evidence. If it exits 1 or returns
 `data.batch_complete == false`, do not treat the batch as done: fix the missing
 or failed evidence, or report a blocker.
