@@ -49,7 +49,7 @@ interface ActiveObjectiveListFailed {
 
 type ActiveObjectiveListLoadResult = ActiveObjectiveListLoaded | ActiveObjectiveListFailed;
 
-function truncateTail(text: string, maxChars: number): string {
+export function truncateTail(text: string, maxChars: number): string {
 	const tail = tailText(text, { maxChars });
 	if (tail === text) {
 		return text;
@@ -58,7 +58,7 @@ function truncateTail(text: string, maxChars: number): string {
 	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
 }
 
-function formatExecFailure(commandDisplay: string, result: ExecResult): string {
+export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
@@ -68,7 +68,7 @@ function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	);
 }
 
-function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
+export function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }

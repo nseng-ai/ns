@@ -1,13 +1,17 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import { chooseActiveObjectiveSlug, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import {
+	chooseActiveObjectiveSlug,
+	formatExecFailure,
+	formatExecStartupFailure,
+	type ObjectiveSelectionSpec,
+} from "@asdl/pi-extension-runtime/objective-selection";
 
-import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
 
@@ -179,30 +183,6 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
 	},
 ];
-
-function truncateTail(text: string, maxChars: number): string {
-	const tail = tailText(text, { maxChars });
-	if (tail === text) {
-		return text;
-	}
-
-	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
-}
-
-function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateTail(
-		`objective command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-		MAX_ERROR_CHARS,
-	);
-}
-
-function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
-}
 
 function buildObjectiveSkillPrompt(
 	spec: ObjectiveCommandSpec,

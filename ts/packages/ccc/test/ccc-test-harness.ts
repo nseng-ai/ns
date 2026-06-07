@@ -42,7 +42,8 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
-	result: Partial<ExecResult>;
+	result?: Partial<ExecResult>;
+	error?: unknown;
 }
 
 export interface Notification {
@@ -99,6 +100,9 @@ export class FakePi implements ExtensionAPI {
 			const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 			this.errors.push(message);
 			return execResult({ code: 99, stderr: message });
+		}
+		if (expected.error) {
+			throw expected.error;
 		}
 		return execResult(expected.result);
 	}
@@ -245,8 +249,8 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-export function step(command: string, args: string[] | undefined, result: Partial<ExecResult>): ScriptedExec {
-	return { command, ...(args === undefined ? {} : { args }), result };
+export function step(command: string, args: string[] | undefined, result?: Partial<ExecResult>): ScriptedExec {
+	return { command, ...(args === undefined ? {} : { args }), ...(result === undefined ? {} : { result }) };
 }
 
 export function objectiveListStep(slugs: string[]): ScriptedExec {

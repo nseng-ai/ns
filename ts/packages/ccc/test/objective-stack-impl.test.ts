@@ -4,37 +4,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { registerObjectiveStackImplCommand, type ObjectiveStackImplCommandContext, type ObjectiveStackImplHost } from "../src/objective-stack-impl.ts";
+import {
+	FakeCommandContext,
+	ROOT,
+	execResult,
+	objectiveListStep,
+	sameArgs,
+	skillCommand,
+	step,
+	type ExecCall,
+	type Notification,
+	type ScriptedExec,
+	type Selection,
+} from "./ccc-test-harness.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 
-const ROOT = "/repo";
 const TRUNK = "master";
 
 type RegisteredCommand = Parameters<ObjectiveStackImplHost["registerCommand"]>[1];
 type CommandInfo = ReturnType<ObjectiveStackImplHost["getCommands"]>[number];
-type NotifyLevel = "info" | "warning" | "error";
-
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: { cwd?: string; timeout?: number } | undefined;
-}
-
-interface ScriptedExec {
-	command: string;
-	args: string[];
-	result: Partial<ExecResult> | undefined;
-	error?: unknown;
-}
-
-interface Notification {
-	message: string;
-	level: NotifyLevel | undefined;
-}
-
-interface Selection {
-	title: string;
-	items: string[];
-}
 
 class FakeHost implements ObjectiveStackImplHost {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -62,8 +50,9 @@ class FakeHost implements ObjectiveStackImplHost {
 			return execResult({ code: 99, stderr: message });
 		}
 
-		if (expected.command !== command || !sameArgs(expected.args, args)) {
-			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
+		if (expected.command !== command || expected.args === undefined || !sameArgs(expected.args, args)) {
+			const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
+			const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 			this.errors.push(message);
 			return execResult({ code: 99, stderr: message });
 		}
@@ -89,58 +78,6 @@ class FakeHost implements ObjectiveStackImplHost {
 	}
 }
 
-function sameArgs(left: string[], right: string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return {
-		stdout: overrides.stdout ?? "",
-		stderr: overrides.stderr ?? "",
-		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-	};
-}
-
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
-	return { command, args, result };
-}
-
-function createContext(options: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {}): {
-	ctx: ObjectiveStackImplCommandContext;
-	notifications: Notification[];
-	selections: Selection[];
-	waitForIdleCalls: () => number;
-} {
-	const notifications: Notification[] = [];
-	const selections: Selection[] = [];
-	let waits = 0;
-
-	const ctx: ObjectiveStackImplCommandContext = {
-		cwd: ROOT,
-		hasUI: true,
-		ui: {
-			notify(message: string, level?: NotifyLevel): void {
-				notifications.push({ message, level });
-			},
-			async select(title: string, items: string[]): Promise<string | undefined> {
-				const callIndex = selections.length;
-				selections.push({ title, items: [...items] });
-				if (options.cancelSelect) {
-					return undefined;
-				}
-				return items[options.selectIndices?.[callIndex] ?? options.selectIndex ?? 0];
-			},
-			setStatus(): void {},
-		},
-		async waitForIdle(): Promise<void> {
-			waits += 1;
-		},
-	};
-
-	return { ctx, notifications, selections, waitForIdleCalls: () => waits };
-}
-
 const STACK_SKILL_MARKDOWN = `---
 name: objective-stack-impl
 hidden-frontmatter-token: do-not-include
@@ -150,17 +87,6 @@ hidden-frontmatter-token: do-not-include
 
 Use the selected Objective.
 `;
-
-function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
-	return {
-		name: `skill:${skillName}`,
-		source: "skill",
-		sourceInfo: {
-			path: skillPath,
-			baseDir,
-		},
-	};
-}
 
 async function withTempSkill<T>(
 	skillName: string,
@@ -196,30 +122,32 @@ async function runObjectiveStackImpl(
 		throw new Error("objective:stack-impl was not registered");
 	}
 
-	const context = createContext(contextOptions);
-	await command.handler(args, context.ctx);
-	return { host, ...context };
-}
-
-function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			trunk_branch: trunkBranch,
-			root_path: ".asdl/objectives",
-			status_filter: "active",
-			names_only: false,
-			records: slugs.map((slug, index) => ({
-				slug,
-				status: "open",
-				latest_update_iso: `2026-01-0${index + 1}T00:00:00Z`,
-			})),
+	const fakeContextOptions: ConstructorParameters<typeof FakeCommandContext>[0] = { cwd: ROOT };
+	if (contextOptions.cancelSelect !== undefined) {
+		fakeContextOptions.cancelSelect = contextOptions.cancelSelect;
+	}
+	const selectIndices = contextOptions.selectIndices ?? (contextOptions.selectIndex === undefined ? undefined : [contextOptions.selectIndex]);
+	if (selectIndices !== undefined) {
+		fakeContextOptions.selectIndices = selectIndices;
+	}
+	const fakeContext = new FakeCommandContext(fakeContextOptions);
+	const context: ObjectiveStackImplCommandContext = {
+		cwd: fakeContext.cwd,
+		hasUI: fakeContext.hasUI,
+		ui: {
+			notify: fakeContext.ui.notify,
+			select: (title, items) => fakeContext.ui.select!(title, items),
+			setStatus: fakeContext.ui.setStatus!,
 		},
-	});
-}
-
-function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
-	return step("objective", ["list", "--format", "json"], { stdout: objectiveList(slugs, trunkBranch) });
+		waitForIdle: () => fakeContext.waitForIdle(),
+	};
+	await command.handler(args, context);
+	return {
+		host,
+		notifications: fakeContext.notifications,
+		selections: fakeContext.selections,
+		waitForIdleCalls: () => fakeContext.waitCount,
+	};
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
@@ -254,10 +182,8 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
-			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
-				skillCommandInfo("objective-stack-impl", skillPath, skillDir),
-			]);
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
+			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [skillCommand("objective-stack-impl", skillPath)]);
 
 			result.host.assertDone();
 			expect(result.host.execCalls).toEqual([]);
@@ -293,12 +219,12 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("empty args load active candidates with objective list json and git evidence", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
 			const result = await runObjectiveStackImpl(
 				"",
-				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+				[objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
 				{},
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				[skillCommand("objective-stack-impl", skillPath)],
 			);
 
 			result.host.assertDone();
@@ -318,16 +244,16 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("changed Objective grouping matches objective-next", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
 			const result = await runObjectiveStackImpl(
 				"",
 				[
-					listStep(["alpha", "bravo", "charlie"]),
+					objectiveListStep(["alpha", "bravo", "charlie"]),
 					diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
 					statusStep(""),
 				],
 				{},
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				[skillCommand("objective-stack-impl", skillPath)],
 			);
 
 			result.host.assertDone();
@@ -343,16 +269,16 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath) => {
 			const result = await runObjectiveStackImpl(
 				"",
 				[
-					listStep(["alpha", "bravo", "charlie"]),
+					objectiveListStep(["alpha", "bravo", "charlie"]),
 					diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				[skillCommand("objective-stack-impl", skillPath)],
 			);
 
 			result.host.assertDone();
@@ -370,7 +296,7 @@ describe("objective stack impl CCC orchestration", () => {
 	test("picker cancellation sends no prompt", async () => {
 		const result = await runObjectiveStackImpl(
 			"",
-			[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+			[objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
 			{ cancelSelect: true },
 		);
 
@@ -380,7 +306,7 @@ describe("objective stack impl CCC orchestration", () => {
 	});
 
 	test("zero active Objectives sends no prompt", async () => {
-		const result = await runObjectiveStackImpl("", [listStep([])]);
+		const result = await runObjectiveStackImpl("", [objectiveListStep([])]);
 
 		result.host.assertDone();
 		expect(result.notifications).toEqual([
