@@ -1,37 +1,461 @@
-"""Presentation-neutral slot release planning and cleanup helpers."""
+"""Release workflow for freeing and garbage-collecting assigned slots."""
 
 from __future__ import annotations
 
+import dataclasses
+import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss
+from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_slots.context import SlotsCliContext
-from asdl_slots.inventory import SlotInventory, build_slot_inventory
+from asdl_slots.inventory import SlotInventory, SlotRecord, build_slot_inventory
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
     SlotFreeCleanupAction,
     SlotFreeCleanupResult,
     SlotFreeCleanupStatus,
+    SlotFreeOutcome,
     SlotFreePlan,
+    SlotGcAction,
+    SlotGcEntry,
+    SlotGcOutcome,
+    SlotGcPlan,
     SlotLifecycleFailure,
+)
+
+SLOT_RELEASE_ALL_CLEANUP_ACTIONS: tuple[SlotFreeCleanupAction, ...] = (
+    "pr",
+    "local_branch",
 )
 
 
 @dataclass(frozen=True)
+class SlotFreeReleaseResult:
+    """Combined explicit-free detach and cleanup outcome."""
+
+    outcome: SlotFreeOutcome
+    cleanup: tuple[SlotFreeCleanupResult, ...]
+
+    @property
+    def cleanup_error_count(self) -> int:
+        return sum(1 for result in self.cleanup if result.status == "error")
+
+
+@dataclass(frozen=True)
 class SlotReleasePreview:
+    """Explicit-free release plan plus cleanup preview."""
+
     targets: tuple[FreedSlot, ...]
     cleanup: tuple[SlotFreeCleanupResult, ...]
     trunk_branch: str
 
 
+@dataclass(frozen=True)
+class _GcCounts:
+    freed_count: int
+    kept_count: int
+    skipped_count: int
+    error_count: int
+
+
+@dataclass(frozen=True)
+class SlotReleaseWorkflow:
+    """Own release/free/gc lifecycle behavior without CLI rendering concerns."""
+
+    slots_ctx: SlotsCliContext
+
+    def plan_free_slots(
+        self,
+        slot_names: Sequence[str],
+        *,
+        preflight_errors: Sequence[str] = (),
+        trunk_branch: str | None = None,
+    ) -> SlotFreePlan | SlotLifecycleFailure:
+        """Validate selected slots and return the free plan without mutating state."""
+        inventory = build_slot_inventory(
+            self.slots_ctx.git,
+            main_repo_root=self.slots_ctx.repo.main_repo_root,
+        )
+
+        state_errors = _validate_assigned_and_clean(self.slots_ctx, inventory, slot_names)
+        all_errors = (*preflight_errors, *state_errors)
+        if all_errors:
+            return SlotLifecycleFailure(
+                error_type="invalid_slot_args",
+                message="\n".join(all_errors),
+            )
+
+        trunk = trunk_branch if trunk_branch is not None else self.slots_ctx.git.get_trunk_branch()
+        targets: list[FreedSlot] = []
+        for slot_name in slot_names:
+            record = inventory.find_by_slot(slot_name)
+            if record is None or record.branch is None:
+                return SlotLifecycleFailure(
+                    error_type="slot_not_assigned",
+                    message=(
+                        f"{slot_name} is not currently assigned (state changed during planning)."
+                    ),
+                )
+            if record.operation is not None:
+                return SlotLifecycleFailure(
+                    error_type="operation_in_progress",
+                    message=_free_operation_in_progress_message(
+                        slot_name=record.slot_name,
+                        branch_name=record.branch,
+                        worktree_path=record.path,
+                        operation=record.operation,
+                        action="freeing",
+                    ),
+                )
+            targets.append(
+                FreedSlot(
+                    slot_name=record.slot_name,
+                    branch_name=record.branch,
+                    worktree_path=record.path,
+                )
+            )
+
+        return SlotFreePlan(targets=tuple(targets), trunk_branch=trunk)
+
+    def execute_free_plan(
+        self,
+        plan: SlotFreePlan,
+    ) -> SlotFreeOutcome | SlotLifecycleFailure:
+        """Detach every target in ``plan``, preserving existing recheck semantics."""
+        if not plan.targets:
+            return SlotFreeOutcome(freed=())
+
+        inventory = build_slot_inventory(
+            self.slots_ctx.git,
+            main_repo_root=self.slots_ctx.repo.main_repo_root,
+        )
+
+        freed: list[FreedSlot] = []
+        for target in plan.targets:
+            record = inventory.find_by_slot(target.slot_name)
+            if record is None or record.branch is None:
+                return SlotLifecycleFailure(
+                    error_type="slot_not_assigned",
+                    message=_partial_failure_message(
+                        f"{target.slot_name} is not currently assigned "
+                        "(state changed during free).",
+                        freed,
+                    ),
+                )
+            if record.operation is not None:
+                return SlotLifecycleFailure(
+                    error_type="operation_in_progress",
+                    message=_partial_failure_message(
+                        _free_operation_in_progress_message(
+                            slot_name=record.slot_name,
+                            branch_name=record.branch,
+                            worktree_path=record.path,
+                            operation=record.operation,
+                            action="freeing",
+                        ),
+                        freed,
+                    ),
+                )
+            if self.slots_ctx.git.has_uncommitted_changes(record.path):
+                return SlotLifecycleFailure(
+                    error_type="dirty_worktree",
+                    message=_partial_failure_message(
+                        f"{target.slot_name} has uncommitted changes at {record.path} "
+                        f"(state changed during free).",
+                        freed,
+                    ),
+                )
+            try:
+                self.slots_ctx.git.detach_head(record.path, plan.trunk_branch)
+            except subprocess.CalledProcessError as exc:
+                stderr = exc.stderr.strip() if exc.stderr else str(exc)
+                return SlotLifecycleFailure(
+                    error_type="slot_allocation_error",
+                    message=_partial_failure_message(
+                        f"Failed to detach {target.slot_name} at {record.path} "
+                        f"to {plan.trunk_branch}: {stderr}",
+                        freed,
+                    ),
+                )
+            freed.append(
+                FreedSlot(
+                    slot_name=record.slot_name,
+                    branch_name=record.branch,
+                    worktree_path=record.path,
+                )
+            )
+
+        return SlotFreeOutcome(freed=tuple(freed))
+
+    def free_slots(
+        self,
+        slot_names: Sequence[str],
+        *,
+        preflight_errors: Sequence[str] = (),
+        trunk_branch: str | None = None,
+    ) -> SlotFreeOutcome | SlotLifecycleFailure:
+        if not slot_names and not preflight_errors:
+            return SlotFreeOutcome(freed=())
+
+        plan = self.plan_free_slots(
+            slot_names,
+            preflight_errors=preflight_errors,
+            trunk_branch=trunk_branch,
+        )
+        if isinstance(plan, SlotLifecycleFailure):
+            return plan
+        return self.execute_free_plan(plan)
+
+    def plan_cleanup(
+        self,
+        targets: Sequence[FreedSlot],
+        cleanup_actions: Sequence[SlotFreeCleanupAction],
+        *,
+        trunk_branch: str | None = None,
+    ) -> tuple[SlotFreeCleanupResult, ...]:
+        """Plan cleanup entries for free targets without mutating PRs or branches."""
+        return _cleanup_for_targets(
+            self.slots_ctx,
+            targets,
+            cleanup_actions,
+            trunk_branch=trunk_branch,
+            execute=False,
+        )
+
+    def execute_cleanup(
+        self,
+        freed: Sequence[FreedSlot],
+        cleanup_actions: Sequence[SlotFreeCleanupAction],
+        *,
+        trunk_branch: str | None = None,
+    ) -> tuple[SlotFreeCleanupResult, ...]:
+        """Run requested cleanup actions for slots that detached successfully."""
+        return _cleanup_for_targets(
+            self.slots_ctx,
+            freed,
+            cleanup_actions,
+            trunk_branch=trunk_branch,
+            execute=True,
+        )
+
+    def execute_free_release(
+        self,
+        plan: SlotFreePlan,
+        cleanup_actions: Sequence[SlotFreeCleanupAction],
+    ) -> SlotFreeReleaseResult | SlotLifecycleFailure:
+        """Execute an explicit free plan and cleanup successfully freed slots."""
+        outcome = self.execute_free_plan(plan)
+        if isinstance(outcome, SlotLifecycleFailure):
+            return outcome
+        cleanup = self.execute_cleanup(
+            outcome.freed,
+            cleanup_actions,
+            trunk_branch=plan.trunk_branch,
+        )
+        return SlotFreeReleaseResult(outcome=outcome, cleanup=cleanup)
+
+    def plan_gc(self) -> SlotGcPlan | SlotLifecycleFailure:
+        """Classify assigned slots for garbage collection without mutating state."""
+        inventory = build_slot_inventory(
+            self.slots_ctx.git,
+            main_repo_root=self.slots_ctx.repo.main_repo_root,
+        )
+        if inventory.pool_size == 0:
+            return _gc_pool_empty_failure()
+
+        entries: list[SlotGcEntry] = []
+        would_free_count = 0
+
+        for record in inventory.records:
+            if record.branch is None:
+                continue
+            if record.operation is not None:
+                entries.append(
+                    _entry_from_record(
+                        record,
+                        "skipped_operation",
+                        message=_gc_operation_in_progress_message(
+                            record,
+                            action="running slot gc",
+                        ),
+                    )
+                )
+                continue
+            pr_result = self.slots_ctx.pr.get_pr_for_branch(record.branch)
+
+            if isinstance(pr_result, PRLookupMiss):
+                entries.append(_entry_from_record(record, "kept_no_pr"))
+                continue
+
+            if isinstance(pr_result, PRGatewayFailure):
+                entries.append(
+                    _entry_from_record(
+                        record,
+                        "error",
+                        message=(
+                            pr_result.stderr
+                            or pr_result.stdout
+                            or f"gh pr view exited {pr_result.returncode}"
+                        ),
+                    )
+                )
+                continue
+
+            if pr_result.state == "OPEN":
+                entries.append(_entry_from_record(record, "kept_open_pr", pr_result=pr_result))
+                continue
+
+            entries.append(_entry_from_record(record, "would_free", pr_result=pr_result))
+            would_free_count += 1
+
+        return SlotGcPlan(entries=tuple(entries), would_free_count=would_free_count)
+
+    def plan_gc_cleanup(
+        self,
+        plan: SlotGcPlan,
+        cleanup_actions: Sequence[SlotFreeCleanupAction],
+    ) -> tuple[SlotFreeCleanupResult, ...]:
+        """Plan GC cleanup without freeing slots or deleting local branches."""
+        targets = _gc_free_targets(plan.entries)
+        if not targets or not cleanup_actions:
+            return ()
+        trunk_branch = self.slots_ctx.git.get_trunk_branch()
+        return self.plan_cleanup(targets, cleanup_actions, trunk_branch=trunk_branch)
+
+    def execute_gc_plan(
+        self,
+        plan: SlotGcPlan,
+        *,
+        cleanup_actions: Sequence[SlotFreeCleanupAction] = (),
+    ) -> SlotGcOutcome:
+        """Free every ``would_free`` entry in ``plan``; pass through the rest."""
+        inventory = build_slot_inventory(
+            self.slots_ctx.git,
+            main_repo_root=self.slots_ctx.repo.main_repo_root,
+        )
+        trunk = self.slots_ctx.git.get_trunk_branch()
+        entries: list[SlotGcEntry] = []
+        freed_entries: list[SlotGcEntry] = []
+
+        for entry in plan.entries:
+            if entry.action != "would_free":
+                entries.append(entry)
+                continue
+
+            record = inventory.find_by_slot(entry.slot_name)
+            if record is None or record.branch is None or record.branch != entry.branch_name:
+                entries.append(
+                    _with_action(
+                        entry,
+                        "error",
+                        message=(
+                            f"slot {entry.slot_name} was not assigned to {entry.branch_name} "
+                            "during free (state changed between plan and execute)."
+                        ),
+                    )
+                )
+                continue
+
+            if record.operation is not None:
+                entries.append(
+                    _with_action(
+                        entry,
+                        "skipped_operation",
+                        message=_gc_operation_in_progress_message(
+                            record,
+                            action="freeing this slot",
+                        ),
+                    )
+                )
+                continue
+
+            if self.slots_ctx.git.has_uncommitted_changes(record.path):
+                entries.append(
+                    _with_action(
+                        entry,
+                        "skipped_dirty",
+                        message=f"worktree has uncommitted changes at {record.path}",
+                    )
+                )
+                continue
+
+            try:
+                self.slots_ctx.git.detach_head(record.path, trunk)
+            except subprocess.CalledProcessError as exc:
+                stderr = exc.stderr.strip() if exc.stderr else str(exc)
+                entries.append(
+                    _with_action(
+                        entry,
+                        "error",
+                        message=(
+                            f"Failed to detach {entry.slot_name} at {record.path} "
+                            f"to {trunk}: {stderr}"
+                        ),
+                    )
+                )
+                continue
+
+            freed_entry = _with_action(entry, "freed")
+            entries.append(freed_entry)
+            freed_entries.append(freed_entry)
+
+        if cleanup_actions and freed_entries:
+            cleanup = self.execute_cleanup(
+                _gc_free_targets(freed_entries),
+                cleanup_actions,
+                trunk_branch=trunk,
+            )
+            entries = list(_with_cleanup_by_slot(entries, cleanup))
+
+        counts = _count_gc_actions(entries)
+        return SlotGcOutcome(
+            entries=tuple(entries),
+            freed_count=counts.freed_count,
+            kept_count=counts.kept_count,
+            skipped_count=counts.skipped_count,
+            error_count=counts.error_count,
+            dry_run=False,
+            cleanup_error_count=_gc_cleanup_error_count(entries),
+        )
+
+    @staticmethod
+    def outcome_from_gc_plan(
+        plan: SlotGcPlan,
+        *,
+        dry_run: bool,
+        cleanup: Sequence[SlotFreeCleanupResult] = (),
+    ) -> SlotGcOutcome:
+        """Turn a GC plan and precomputed cleanup results into a renderable outcome."""
+        entries = _with_cleanup_by_slot(plan.entries, cleanup) if cleanup else plan.entries
+        counts = _count_gc_actions(entries)
+        return SlotGcOutcome(
+            entries=entries,
+            freed_count=counts.freed_count,
+            kept_count=counts.kept_count,
+            skipped_count=counts.skipped_count,
+            error_count=counts.error_count,
+            dry_run=dry_run,
+            cleanup_error_count=_gc_cleanup_error_count(entries),
+        )
+
+    def garbage_collect_slots(
+        self,
+        *,
+        dry_run: bool,
+    ) -> SlotGcOutcome | SlotLifecycleFailure:
+        """Plan the GC sweep and execute it unless ``dry_run`` is true."""
+        plan = self.plan_gc()
+        if isinstance(plan, SlotLifecycleFailure):
+            return plan
+        if dry_run:
+            return self.outcome_from_gc_plan(plan, dry_run=True)
+        return self.execute_gc_plan(plan)
+
+
 def operation_recovery_instruction(operation: str) -> str:
-    if operation == "rebase":
-        return "run `git rebase --continue`/`--abort` there"
-    if operation == "bisect":
-        return "run `git bisect reset` there"
-    return "finish or abort it there"
+    return _operation_recovery_instruction(operation)
 
 
 def free_operation_in_progress_message(
@@ -42,9 +466,12 @@ def free_operation_in_progress_message(
     operation: str,
     action: str,
 ) -> str:
-    return (
-        f"{slot_name} has a {operation} in progress for '{branch_name}' at {worktree_path}; "
-        f"{operation_recovery_instruction(operation)} before {action}."
+    return _free_operation_in_progress_message(
+        slot_name=slot_name,
+        branch_name=branch_name,
+        worktree_path=worktree_path,
+        operation=operation,
+        action=action,
     )
 
 
@@ -56,48 +483,11 @@ def plan_free_release_plan(
     trunk_branch: str | None = None,
 ) -> SlotFreePlan | SlotLifecycleFailure:
     """Validate selected slots and return a release plan without mutating state."""
-    inventory = build_slot_inventory(
-        slots_ctx.git,
-        main_repo_root=slots_ctx.repo.main_repo_root,
+    return SlotReleaseWorkflow(slots_ctx).plan_free_slots(
+        slot_names,
+        preflight_errors=preflight_errors,
+        trunk_branch=trunk_branch,
     )
-
-    state_errors = _validate_assigned_and_clean(slots_ctx, inventory, slot_names)
-    all_errors = (*preflight_errors, *state_errors)
-    if all_errors:
-        return SlotLifecycleFailure(
-            error_type="invalid_slot_args",
-            message="\n".join(all_errors),
-        )
-
-    trunk = trunk_branch if trunk_branch is not None else slots_ctx.git.get_trunk_branch()
-    targets: list[FreedSlot] = []
-    for slot_name in slot_names:
-        record = inventory.find_by_slot(slot_name)
-        if record is None or record.branch is None:
-            return SlotLifecycleFailure(
-                error_type="slot_not_assigned",
-                message=f"{slot_name} is not currently assigned (state changed during planning).",
-            )
-        if record.operation is not None:
-            return SlotLifecycleFailure(
-                error_type="operation_in_progress",
-                message=free_operation_in_progress_message(
-                    slot_name=record.slot_name,
-                    branch_name=record.branch,
-                    worktree_path=record.path,
-                    operation=record.operation,
-                    action="freeing",
-                ),
-            )
-        targets.append(
-            FreedSlot(
-                slot_name=record.slot_name,
-                branch_name=record.branch,
-                worktree_path=record.path,
-            )
-        )
-
-    return SlotFreePlan(targets=tuple(targets), trunk_branch=trunk)
 
 
 def plan_free_release_preview(
@@ -109,16 +499,15 @@ def plan_free_release_preview(
     trunk_branch: str | None = None,
 ) -> SlotReleasePreview | SlotLifecycleFailure:
     """Plan explicit slot release plus cleanup preview without mutating state."""
-    plan = plan_free_release_plan(
-        slots_ctx,
+    workflow = SlotReleaseWorkflow(slots_ctx)
+    plan = workflow.plan_free_slots(
         slot_names,
         preflight_errors=preflight_errors,
         trunk_branch=trunk_branch,
     )
     if isinstance(plan, SlotLifecycleFailure):
         return plan
-    cleanup = plan_release_cleanup(
-        slots_ctx,
+    cleanup = workflow.plan_cleanup(
         plan.targets,
         cleanup_actions,
         trunk_branch=plan.trunk_branch,
@@ -138,12 +527,10 @@ def plan_release_cleanup(
     trunk_branch: str | None = None,
 ) -> tuple[SlotFreeCleanupResult, ...]:
     """Plan cleanup entries for release targets without mutating PRs or branches."""
-    return _cleanup_for_targets(
-        slots_ctx,
+    return SlotReleaseWorkflow(slots_ctx).plan_cleanup(
         targets,
         cleanup_actions,
         trunk_branch=trunk_branch,
-        execute=False,
     )
 
 
@@ -155,12 +542,48 @@ def execute_release_cleanup(
     trunk_branch: str | None = None,
 ) -> tuple[SlotFreeCleanupResult, ...]:
     """Run requested cleanup actions for released slots."""
-    return _cleanup_for_targets(
-        slots_ctx,
+    return SlotReleaseWorkflow(slots_ctx).execute_cleanup(
         freed,
         cleanup_actions,
         trunk_branch=trunk_branch,
-        execute=True,
+    )
+
+
+def _gc_pool_empty_failure() -> SlotLifecycleFailure:
+    return SlotLifecycleFailure(
+        error_type="pool_empty",
+        message="No managed slots configured. Run `slot init --size N` first.",
+    )
+
+
+def _operation_recovery_instruction(operation: str) -> str:
+    if operation == "rebase":
+        return "run `git rebase --continue`/`--abort` there"
+    if operation == "bisect":
+        return "run `git bisect reset` there"
+    return "finish or abort it there"
+
+
+def _free_operation_in_progress_message(
+    *,
+    slot_name: str,
+    branch_name: str,
+    worktree_path: Path,
+    operation: str,
+    action: str,
+) -> str:
+    return (
+        f"{slot_name} has a {operation} in progress for '{branch_name}' at {worktree_path}; "
+        f"{_operation_recovery_instruction(operation)} before {action}."
+    )
+
+
+def _gc_operation_in_progress_message(record: SlotRecord, *, action: str) -> str:
+    branch = record.branch or "unknown branch"
+    assert record.operation is not None
+    return (
+        f"{record.operation} in progress for '{branch}' at {record.path}; "
+        f"{_operation_recovery_instruction(record.operation)} before {action}."
     )
 
 
@@ -198,7 +621,6 @@ def _cleanup_for_targets(
             results.append(result)
             if result.status == "error":
                 return tuple(results)
-
     return tuple(results)
 
 
@@ -319,7 +741,7 @@ def _validate_assigned_and_clean(
             continue
         if record.operation is not None:
             errors.append(
-                free_operation_in_progress_message(
+                _free_operation_in_progress_message(
                     slot_name=record.slot_name,
                     branch_name=record.branch,
                     worktree_path=record.path,
@@ -334,3 +756,101 @@ def _validate_assigned_and_clean(
                 f"Commit or stash before freeing."
             )
     return tuple(errors)
+
+
+def _partial_failure_message(base: str, freed: list[FreedSlot]) -> str:
+    if not freed:
+        return base
+    already = ", ".join(f.slot_name for f in freed)
+    return f"{base} Already freed: {already}."
+
+
+def _entry_from_record(
+    record: SlotRecord,
+    action: SlotGcAction,
+    *,
+    pr_result: PRSummary | None = None,
+    message: str | None = None,
+) -> SlotGcEntry:
+    assert record.branch is not None
+    return SlotGcEntry(
+        slot_name=record.slot_name,
+        branch_name=record.branch,
+        worktree_path=record.path,
+        action=action,
+        pr_number=pr_result.number if pr_result is not None else None,
+        pr_state=pr_result.state if pr_result is not None else None,
+        pr_url=pr_result.url if pr_result is not None else None,
+        message=message,
+    )
+
+
+def _with_action(
+    entry: SlotGcEntry,
+    action: SlotGcAction,
+    *,
+    message: str | None = None,
+) -> SlotGcEntry:
+    return dataclasses.replace(entry, action=action, message=message)
+
+
+def _with_cleanup(
+    entry: SlotGcEntry,
+    cleanup: Sequence[SlotFreeCleanupResult],
+) -> SlotGcEntry:
+    return dataclasses.replace(entry, cleanup=tuple(cleanup))
+
+
+def _freed_slot_from_gc_entry(entry: SlotGcEntry) -> FreedSlot:
+    return FreedSlot(
+        slot_name=entry.slot_name,
+        branch_name=entry.branch_name,
+        worktree_path=entry.worktree_path,
+    )
+
+
+def _gc_free_targets(entries: Sequence[SlotGcEntry]) -> tuple[FreedSlot, ...]:
+    return tuple(
+        _freed_slot_from_gc_entry(entry)
+        for entry in entries
+        if entry.action in ("would_free", "freed")
+    )
+
+
+def _with_cleanup_by_slot(
+    entries: Sequence[SlotGcEntry],
+    cleanup: Sequence[SlotFreeCleanupResult],
+) -> tuple[SlotGcEntry, ...]:
+    cleanup_by_target: dict[tuple[str, str], list[SlotFreeCleanupResult]] = {}
+    for result in cleanup:
+        cleanup_by_target.setdefault((result.slot_name, result.branch_name), []).append(result)
+    return tuple(
+        _with_cleanup(entry, cleanup_by_target.get((entry.slot_name, entry.branch_name), ()))
+        for entry in entries
+    )
+
+
+def _gc_cleanup_error_count(entries: Sequence[SlotGcEntry]) -> int:
+    return sum(1 for entry in entries for cleanup in entry.cleanup if cleanup.status == "error")
+
+
+def _count_gc_actions(entries: Sequence[SlotGcEntry]) -> _GcCounts:
+    freed = 0
+    kept = 0
+    skipped = 0
+    error = 0
+    for entry in entries:
+        if entry.action in ("freed", "would_free"):
+            freed += 1
+        elif entry.action in ("kept_open_pr", "kept_no_pr"):
+            kept += 1
+        elif entry.action in ("skipped_dirty", "skipped_operation"):
+            skipped += 1
+        elif entry.action == "error":
+            error += 1
+    return _GcCounts(
+        freed_count=freed,
+        kept_count=kept,
+        skipped_count=skipped,
+        error_count=error,
+    )
