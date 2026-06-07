@@ -6,7 +6,7 @@ export {
 	parseCreatedCmuxSurface,
 	renameCmuxTab,
 	sendCmuxText,
-} from "../../../ccc/src/cmux/focused-terminal-tab.ts";
+} from "@asdl/ccc/cmux/focused-terminal-tab";
 export type {
 	CmuxCallerContext,
 	CmuxCreatedSurface,
@@ -14,4 +14,4 @@ export type {
 	CmuxSendOptions,
 	CmuxTabOptions,
 	CreateCmuxSurfaceOptions,
-} from "../../../ccc/src/cmux/focused-terminal-tab.ts";
+} from "@asdl/ccc/cmux/focused-terminal-tab";

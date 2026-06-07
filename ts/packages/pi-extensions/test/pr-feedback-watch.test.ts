@@ -119,7 +119,7 @@ class FakeContext implements ExtensionContext {
 	readonly statuses = new Map<string, string | undefined>();
 	readonly editorTexts: string[] = [];
 	waitForIdleCalls = 0;
-	idle = true;
+	isIdleState = true;
 	readonly ui = {
 		notify: (message: string, level?: "info" | "warning" | "error") => {
 			this.notifications.push({ message, level });
@@ -137,7 +137,7 @@ class FakeContext implements ExtensionContext {
 	}
 
 	isIdle(): boolean {
-		return this.idle;
+		return this.isIdleState;
 	}
 }
 
@@ -523,6 +523,8 @@ describe("pr feedback watch extension", () => {
 				result: { code: 1, stderr: "rate limited" },
 				description: "failed discussion REST",
 			}),
+			reviewFingerprintStep([]),
+			reviewCommentFingerprintStep([]),
 		]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
