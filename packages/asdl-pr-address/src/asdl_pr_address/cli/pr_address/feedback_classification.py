@@ -169,13 +169,13 @@ class FeedbackClassificationTemplateCounts(ClinkrModel):
 
 class FeedbackClassificationTemplateReviewItem(ClinkrModel):
     review_id: str
-    disposition: str = FILL_DISPOSITION_PLACEHOLDER
+    disposition: str
     body_locator: ClassificationBodyLocatorRef
-    summary: str = ""
-    action_summary: str | None = None
-    complexity: str | None = None
-    pre_existing: bool = False
-    informational_reason: str | None = None
+    summary: str
+    action_summary: str | None
+    complexity: str | None
+    pre_existing: bool
+    informational_reason: str | None
 
 
 class FeedbackClassificationTemplateThreadCommentRef(ClinkrModel):
@@ -185,25 +185,25 @@ class FeedbackClassificationTemplateThreadCommentRef(ClinkrModel):
 
 class FeedbackClassificationTemplateThreadItem(ClinkrModel):
     thread_id: str
-    disposition: str = FILL_DISPOSITION_PLACEHOLDER
+    disposition: str
     thread_item_pointer: str
     covered_comments: tuple[FeedbackClassificationTemplateThreadCommentRef, ...]
-    summary: str = ""
-    action_summary: str | None = None
-    complexity: str | None = None
-    pre_existing: bool = False
-    informational_reason: str | None = None
+    summary: str
+    action_summary: str | None
+    complexity: str | None
+    pre_existing: bool
+    informational_reason: str | None
 
 
 class FeedbackClassificationTemplateDiscussionCommentItem(ClinkrModel):
     comment_id: int
-    disposition: str = FILL_DISPOSITION_PLACEHOLDER
+    disposition: str
     body_locator: ClassificationBodyLocatorRef
-    summary: str = ""
-    action_summary: str | None = None
-    complexity: str | None = None
-    needs_reply: bool = False
-    informational_reason: str | None = None
+    summary: str
+    action_summary: str | None
+    complexity: str | None
+    needs_reply: bool
+    informational_reason: str | None
 
 
 class FeedbackClassificationTemplatePacket(ClinkrModel):
@@ -270,13 +270,20 @@ def build_feedback_classification_template(
         reviews=tuple(
             FeedbackClassificationTemplateReviewItem(
                 review_id=review.id,
+                disposition=FILL_DISPOSITION_PLACEHOLDER,
                 body_locator=_classification_locator_ref(review.body_locator),
+                summary="",
+                action_summary=None,
+                complexity=None,
+                pre_existing=False,
+                informational_reason=None,
             )
             for review in view.reviews
         ),
         review_threads=tuple(
             FeedbackClassificationTemplateThreadItem(
                 thread_id=thread.thread_id,
+                disposition=FILL_DISPOSITION_PLACEHOLDER,
                 thread_item_pointer=thread.item_pointer,
                 covered_comments=tuple(
                     FeedbackClassificationTemplateThreadCommentRef(
@@ -285,13 +292,24 @@ def build_feedback_classification_template(
                     )
                     for comment in thread.comments
                 ),
+                summary="",
+                action_summary=None,
+                complexity=None,
+                pre_existing=False,
+                informational_reason=None,
             )
             for thread in view.required_threads
         ),
         discussion_comments=tuple(
             FeedbackClassificationTemplateDiscussionCommentItem(
                 comment_id=comment.comment_id,
+                disposition=FILL_DISPOSITION_PLACEHOLDER,
                 body_locator=_classification_locator_ref(comment.body_locator),
+                summary="",
+                action_summary=None,
+                complexity=None,
+                needs_reply=False,
+                informational_reason=None,
             )
             for comment in view.discussion_comments
         ),

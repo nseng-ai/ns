@@ -8,6 +8,7 @@ from asdl_core.gh.types import PRDiscussionComment, PRReview, PRReviewComment, P
 from asdl_core.payloads.models import PayloadReference
 from asdl_pr_address.cli.pr_address.feedback_classification import (
     FILL_DISPOSITION_PLACEHOLDER,
+    FeedbackClassificationTemplateResult,
     FeedbackClassificationValidationResult,
     ValidationErrorCode,
     build_feedback_classification_template,
@@ -168,7 +169,9 @@ def _validate(manifest: dict, packet: dict) -> FeedbackClassificationValidationR
     return validate_feedback_classification(manifest=manifest, classification=packet)
 
 
-def _filled_template_packet(manifest: dict, *, include_resolved: bool = False) -> dict:
+def _filled_template_packet(
+    manifest: dict, *, include_resolved: bool = False
+) -> tuple[dict, FeedbackClassificationTemplateResult]:
     result = build_feedback_classification_template(manifest=manifest)
     packet = result.classification_template.model_dump(mode="json")
     packet["reviews"][0].update(
@@ -197,7 +200,7 @@ def _filled_template_packet(manifest: dict, *, include_resolved: bool = False) -
     )
     if include_resolved:
         assert "PRRT_RESOLVED" not in {thread["thread_id"] for thread in packet["review_threads"]}
-    return packet
+    return packet, result
 
 
 def _error_codes(result: FeedbackClassificationValidationResult) -> set[ValidationErrorCode]:
@@ -300,7 +303,7 @@ def test_build_feedback_classification_template_prefills_deterministic_fields() 
 
 def test_filled_feedback_classification_template_validates() -> None:
     manifest = _manifest_payload()
-    packet = _filled_template_packet(manifest)
+    packet, _template_result = _filled_template_packet(manifest)
 
     result = _validate(manifest, packet)
 
@@ -320,18 +323,13 @@ def test_unfilled_feedback_classification_template_does_not_validate() -> None:
 
 def test_feedback_classification_template_omits_resolved_threads() -> None:
     manifest = _manifest_payload(include_resolved=True)
-    packet = _filled_template_packet(manifest, include_resolved=True)
+    packet, template_result = _filled_template_packet(manifest, include_resolved=True)
 
     result = _validate(manifest, packet)
 
     assert result.valid is True
     assert {thread["thread_id"] for thread in packet["review_threads"]} == {"PRRT_1"}
-    assert (
-        build_feedback_classification_template(
-            manifest=manifest
-        ).counts.resolved_review_threads_omitted
-        == 1
-    )
+    assert template_result.counts.resolved_review_threads_omitted == 1
 
 
 def test_validate_feedback_classification_reports_missing_items() -> None:
