@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 from typing import Literal
 
 import click
-from pydantic import ValidationError
 
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
@@ -15,6 +13,7 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewComment
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
+from asdl_pr_address.cli.pr_address.json_input import load_json_input
 from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
 from asdl_pr_address.cli.pr_address.resolve_thread_with_reply import (
     ResolveThreadWithReplyRequest,
@@ -114,26 +113,14 @@ def run_resolve_thread_batch(
 
 
 def _load_payload(request: ResolveThreadBatchRequest) -> ResolveThreadBatchPayload:
-    raw_payload = request.payload_json if request.payload_json is not None else sys.stdin.read()
-    Ensure.truthy(
-        raw_payload.strip(),
-        error_type="invalid_request",
-        message=(
-            "resolve-thread-batch requires a non-empty JSON payload via stdin or --payload-json"
-        ),
+    return load_json_input(
+        option_value=request.payload_json,
+        command_name="resolve-thread-batch",
+        input_description="JSON payload",
+        option_name="--payload-json",
+        invalid_input_description="payload",
+        parser=ResolveThreadBatchPayload.model_validate_json,
     )
-    try:
-        return ResolveThreadBatchPayload.model_validate_json(raw_payload)
-    except ValidationError as exc:
-        raise_type = "invalid_json" if _is_json_parse_error(exc) else "invalid_request"
-        Ensure.fail(error_type=raise_type, message=f"Invalid resolve-thread-batch payload: {exc}")
-
-
-def _is_json_parse_error(exc: ValidationError) -> bool:
-    for error in exc.errors():
-        if error.get("type") == "json_invalid":
-            return True
-    return False
 
 
 def _normalize_payload(
