@@ -360,6 +360,35 @@ def test_checkout_current_preserves_existing_redirect_behavior(tmp_path: Path) -
     assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/x"
 
 
+def test_checkout_current_redirect_failure_uses_planner_subject(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = (tmp_path / "repo").resolve()
+    failure = GitCommandFailure(
+        message="fatal: checkout failed",
+        returncode=128,
+        error_type="git_checkout_failed",
+    )
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("feat/x", "some-other"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="feat/x", is_bare=False),
+            _slot_worktree(slots_root, 1, None),
+        ),
+        previous_branch_by_path={repo_root: "some-other"},
+        checkout_failures_by_path={repo_root: failure},
+    )
+
+    outcome = checkout_current(ctx)
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "slot_allocation_error"
+    assert outcome.message == (
+        f"Failed to check out 'some-other' in {repo_root}: fatal: checkout failed"
+    )
+    assert git._checkout_calls == [(repo_root, "some-other")]
+
+
 def test_initialize_pool_creates_n_detached_worktrees_at_trunk(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(tmp_path, branches=("main",))

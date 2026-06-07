@@ -74,7 +74,7 @@ class CheckoutCurrentWorktreeBranch:
     """Redirect the caller worktree by checking out another branch."""
 
     branch: str
-    failure_subject: str | None = None
+    failure_subject: str
 
 
 @dataclass(frozen=True)
@@ -105,6 +105,18 @@ def _operation_occupancy(record: SlotRecord) -> WorktreeOccupancy | None:
     )
 
 
+def _assign_to_available_slot(
+    inventory: SlotInventory,
+    git: GitGateway,
+) -> AssignToSlot | PoolFull:
+    target = inventory.lowest_available(git)
+    if target is None:
+        return PoolFull(
+            assigned=tuple(r for r in inventory.records if r.branch is not None),
+        )
+    return AssignToSlot(record=target)
+
+
 def plan_checkout(
     inventory: SlotInventory,
     git: GitGateway,
@@ -123,12 +135,7 @@ def plan_checkout(
     if occupancy is not None:
         return BranchInUse(occupancy=occupancy)
 
-    target = inventory.lowest_available(git)
-    if target is None:
-        return PoolFull(
-            assigned=tuple(r for r in inventory.records if r.branch is not None),
-        )
-    return AssignToSlot(record=target)
+    return _assign_to_available_slot(inventory, git)
 
 
 def plan_current_wt_redirect(
@@ -152,7 +159,10 @@ def plan_current_wt_redirect(
         )
         if conflict is None:
             return CurrentWorktreeRedirect(
-                action=CheckoutCurrentWorktreeBranch(branch=previous),
+                action=CheckoutCurrentWorktreeBranch(
+                    branch=previous,
+                    failure_subject=f"'{previous}'",
+                ),
                 note=None,
             )
 
@@ -191,7 +201,12 @@ class CurrentCheckoutPlan:
     plan: CheckoutPlan
     branch_name: str
     redirect: CurrentWorktreeRedirect | None
-    current_wt_note: str | None
+
+    @property
+    def current_wt_note(self) -> str | None:
+        if self.redirect is None:
+            return None
+        return self.redirect.note
 
 
 def plan_current_checkout(
@@ -216,7 +231,6 @@ def plan_current_checkout(
             plan=ReuseAssignment(record=already_match.record),
             branch_name=current_branch,
             redirect=None,
-            current_wt_note=None,
         )
 
     if git.has_uncommitted_changes(cwd):
@@ -234,16 +248,9 @@ def plan_current_checkout(
     if occupancy is not None:
         plan: CheckoutPlan = BranchInUse(occupancy=occupancy)
     else:
-        target = inventory.lowest_available(git)
-        if target is None:
-            plan = PoolFull(
-                assigned=tuple(r for r in inventory.records if r.branch is not None),
-            )
-        else:
-            plan = AssignToSlot(record=target)
+        plan = _assign_to_available_slot(inventory, git)
     return CurrentCheckoutPlan(
         plan=plan,
         branch_name=current_branch,
         redirect=redirect,
-        current_wt_note=redirect.note,
     )
