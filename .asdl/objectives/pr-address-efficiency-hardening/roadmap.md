@@ -16,9 +16,9 @@
   - Delivered: `pr-address exec read-feedback-details` accepts batch JSON Pointer selections from a raw feedback payload, validates every selected body/item pointer before writing, stores selected values in a same-session `.summary.json` payload artifact, and returns compact stdout metadata with artifact pointers and character counts instead of selected body text.
   - Evidence: `read_feedback_detail.py`, `group.py`, scenario tests, CLI reference, and public skill guidance cover stdin/`--selection-json` input, body and item pointer selections, duplicate/empty/broad-pointer failures, summary artifact references, and sentinel assertions proving selected body text stays out of command output.
 
-- [ ] Add deterministic planning support for validated classifications.
-  - Provide a helper or helper output that groups actionable items into the skill’s batch order, marks approval gates, reports informational discussion comments explicitly, and emits exact identities for each batch’s review threads/comments.
-  - Evidence: the plan is derived from a validated packet and can be displayed without the agent hand-assembling batch membership.
+- [x] Add deterministic planning support for validated classifications.
+  - Delivered: `pr-address exec plan-feedback` accepts the same compact manifest/classification wrapper as validation, validates internally before planning, and emits deterministic actionable batches in skill order with approval gates plus explicit informational review/review-thread/discussion-comment items.
+  - Evidence: `feedback_planning.py`, `plan_feedback.py`, `group.py`, scenario tests, CLI reference, and public skill guidance cover stdin/`--payload-json` input, invalid-classification negative behavior, deterministic batch order, approval gates, exact IDs/locators/source context, informational-thread user decisions, prepare-run no-PR handling, and sentinel assertions proving raw body text stays out of plan output.
 
 - [~] Reduce manual GitHub mutation payload assembly.
   - Provide mutation skeletons, file-input support, or a batch checkpoint helper so resolving threads after a commit uses tested shapes rather than agent-authored JSON blobs.
@@ -35,8 +35,8 @@
 
 - [~] Update the public `pr-address` skill and CLI reference for the improved happy path.
   - Remove or demote obsolete manual steps once helpers exist. Keep the guarantees: payload by default, classification validation before planning, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, no push.
-  - Progress: the CLI reference documents `classification-template`, stdin/option JSON input for classification validation and thread resolution, the deterministic template contract, and artifact-backed batch selected-detail lookup. The public skill now prefers `read-feedback-details` for multi-body lookup and keeps `read-feedback-detail` as a one-off inline/debug helper.
-  - Remaining evidence: the main public skill should continue to shed manual grouping/mutation/finalization instructions as planning, checkpoint, and finalization helpers land.
+  - Progress: the CLI reference documents `classification-template`, `validate-feedback-classification`, `plan-feedback`, stdin/option JSON input for classification validation, planning, and thread resolution, the deterministic template and planning contracts, and artifact-backed batch selected-detail lookup. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, and keeps `read-feedback-detail` as a one-off inline/debug helper.
+  - Remaining evidence: the main public skill should continue to shed manual mutation/finalization instructions as checkpoint and finalization helpers land.
 
 - [ ] Prove the lower-orchestration happy path on a representative PR-addressing run.
   - Use a fixture, scenario test, or real PR with PR-level feedback, unresolved inline threads, discussion comments, and at least two batch types. Compare the workflow qualitatively against the 2026-06-07 PR #999 session.

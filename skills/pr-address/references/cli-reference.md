@@ -444,6 +444,110 @@ Semantic validation rules:
 - Malformed/empty input: `exit_code: 2` with an error type such as
   `invalid_json` or `invalid_request`.
 
+### `plan-feedback`
+
+Build a deterministic execution plan from a compact manifest and strict
+classification packet. The helper validates internally before planning, uses
+only compact manifest locators and classification summaries, and does not read
+or print raw feedback body text.
+
+**Invocation:** reads the wrapper JSON from stdin by default. `--payload-json` is
+also available for direct/manual invocation.
+
+```bash
+printf '%s' '{"manifest":{...},"classification":{...}}' \
+  | pr-address exec plan-feedback --format json
+```
+
+**Wrapper shape:** same as `validate-feedback-classification`:
+
+```json
+{
+  "manifest": "<prepare-run or get-feedback data object>",
+  "classification": "<schema_version: 1 classification packet>"
+}
+```
+
+**Output fields (under `data`):**
+
+| Field           | Description                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| `valid`         | Whether validation passed and a plan was produced                                             |
+| `manifest_kind` | `prepare_run` or `get_feedback`                                                               |
+| `pr_number`     | PR number when present                                                                        |
+| `payload_path`  | Raw payload path echoed from `manifest.payload_reference.payload_path`                        |
+| `validation`    | Full validation result used by the planner                                                    |
+| `counts`        | Plan counts when valid: actionable/informational totals, batch totals, and source-kind splits |
+| `batches`       | Ordered actionable batches                                                                    |
+| `informational` | Explicit informational review, review-thread, and discussion-comment items                    |
+| `warnings`      | Sparse non-fatal planning notes                                                               |
+
+Each `batches[]` entry contains:
+
+| Field               | Description                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `batch_id`          | Complexity name (`pre_existing`, `local`, `single_file`, `cross_cutting`, `complex`) |
+| `complexity`        | Same complexity enum value                                                           |
+| `approval_required` | `true` for `cross_cutting` and `complex`; `false` otherwise                          |
+| `items`             | Action items with exact IDs, locators, file/line context, summaries, and reply flags |
+
+Batch order is deterministic and omits empty batches:
+
+1. `pre_existing`
+2. `local`
+3. `single_file`
+4. `cross_cutting`
+5. `complex`
+
+Action items include `source_kind` (`review`, `review_thread`, or
+`discussion_comment`), `summary`, `action_summary`, `complexity`, exact review /
+thread / comment IDs, compact body locators, and source context such as path,
+line, author, URL, covered comment IDs, and `needs_reply` where available.
+Review-thread items include `covered_comments[]` with per-comment locators.
+
+Informational items include source kind, summary, informational reason, exact
+IDs/locators, and `user_decision_required`. Informational review threads set
+`user_decision_required: true` with `allowed_decisions: ["act", "dismiss",
+"skip"]`. Informational PR-level reviews and discussion comments are visible but
+do not require the same per-item choice by default.
+
+**Output behavior:**
+
+- Valid packet: `exit_code: 0`, `data.valid == true`, with ordered batches and
+  informational items.
+- Well-formed but invalid packet: `exit_code: 1`, message
+  `PR feedback classification failed validation; no plan produced.`,
+  `data.valid == false`, `data.validation.errors` populated, and no batches.
+- Malformed/empty input: `exit_code: 2` with an error type such as
+  `invalid_json` or `invalid_request`.
+
+**Example compact output:**
+
+```json
+{
+  "valid": true,
+  "batches": [
+    {
+      "batch_id": "single_file",
+      "complexity": "single_file",
+      "approval_required": false,
+      "items": [
+        {
+          "source_kind": "review_thread",
+          "thread_id": "PRRT_...",
+          "covered_comment_ids": [123456],
+          "path": "src/app.py",
+          "line": 42,
+          "summary": "Guard rejects empty payloads.",
+          "action_summary": "Add a failing test and fix the guard."
+        }
+      ]
+    }
+  ],
+  "informational": []
+}
+```
+
 ### `resolve-thread-with-reply`
 
 Reply to and resolve a PR review thread with canonical pr-address formatting.
@@ -650,6 +754,7 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | `read-feedback-details`            | Detailed above. Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
 | `classification-template`          | Detailed above. Build a deterministic classification scaffold from a compact payload manifest.                                                                         |
 | `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
+| `plan-feedback`                    | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
 | `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
 | `get-pr-for-branch`                | Look up the open PR for a branch                                                                                                                                       |
 | `get-reviews`                      | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
