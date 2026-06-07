@@ -1,8 +1,12 @@
 import {
-	formatPlannedBranchEvidence,
+	formatPlannedBranchEvidence as formatPlanBranchEvidence,
+	normalizeBranchCreationMethod,
 	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
+import { isRecord } from "./primitives.ts";
+
+export { formatPlanBranchEvidence };
 
 export const PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE = "planned-branch-output";
 
@@ -57,14 +61,6 @@ export function extractPlannedBranchEvidence(details: unknown): PlannedBranchEvi
 	return { slug, branch, branchCreation, startPoint, namespace, key, refName, commit, sourceFile, summary };
 }
 
-export function formatPlanBranchEvidence(evidence: PlannedBranchEvidence): string {
-	return formatPlannedBranchEvidence(evidence);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function requiredStringField(record: Record<string, unknown>, key: string): string | undefined {
 	const value = record[key];
 	return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -72,5 +68,12 @@ function requiredStringField(record: Record<string, unknown>, key: string): stri
 
 function branchCreationField(record: Record<string, unknown>, key: string): BranchCreationMethod | undefined {
 	const value = record[key];
-	return value === "plain-git" || value === "graphite" ? value : undefined;
+	if (value === undefined) {
+		return undefined;
+	}
+	try {
+		return normalizeBranchCreationMethod(value);
+	} catch {
+		return undefined;
+	}
 }

@@ -10,6 +10,7 @@ import {
 	type SourceBranchPlanFileOptions,
 } from "./source-plan-file.ts";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { isRecord } from "./primitives.ts";
 
 export const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
 
@@ -285,8 +286,4 @@ async function realpathIfPossible(path: string): Promise<string> {
 	} catch {
 		return resolve(path);
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

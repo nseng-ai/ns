@@ -122,7 +122,7 @@ function buildSlugPrompt(input: {
 		"",
 		contentLabel,
 		"Content:",
-		truncateForSlugPrompt(input.content),
+		truncateForPrompt(input.content, MAX_SLUG_INPUT_CHARS),
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
@@ -139,24 +139,17 @@ function buildPlanSummaryPrompt(input: { content: string; sourceLabel?: string }
 		"",
 		contentLabel,
 		"Plan:",
-		truncateForSummaryPrompt(input.content),
+		truncateForPrompt(input.content, MAX_SUMMARY_INPUT_CHARS),
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
 }
 
-function truncateForSlugPrompt(text: string): string {
-	if (text.length <= MAX_SLUG_INPUT_CHARS) {
+function truncateForPrompt(text: string, maxChars: number): string {
+	if (text.length <= maxChars) {
 		return text;
 	}
-	return `${text.slice(0, MAX_SLUG_INPUT_CHARS)}\n...[truncated]`;
-}
-
-function truncateForSummaryPrompt(text: string): string {
-	if (text.length <= MAX_SUMMARY_INPUT_CHARS) {
-		return text;
-	}
-	return `${text.slice(0, MAX_SUMMARY_INPUT_CHARS)}\n...[truncated]`;
+	return `${text.slice(0, maxChars)}\n...[truncated]`;
 }
 
 function stripResponseFence(value: string): string {

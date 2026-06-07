@@ -5,6 +5,8 @@ import { basename, dirname, join, resolve } from "node:path";
 
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { normalizeSummary, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { isRecord } from "./primitives.ts";
+
 const MAX_SEGMENT_LENGTH = 120;
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
@@ -424,10 +426,6 @@ async function realpathIfPossible(path: string): Promise<string> {
 	} catch {
 		return resolve(path);
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
