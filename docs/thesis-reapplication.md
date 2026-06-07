@@ -77,8 +77,9 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
   ```
 
   If you are currently on the branch, `planned-branch exec load-plan [key-or-slug]
-  --format json` is the higher-level loader. Treat an attached plan as authored
-  intent, not incidental notes.
+  --prompt-file <path> --format json` is the higher-level loader for bounded
+  stdout; read the returned `implementation_prompt_file`. Treat an attached plan
+  as authored intent, not incidental notes.
 - **The PR for each source branch** (`gh pr view <n>`). The PR title and body are
   usually the cleanest statement of intent after any attached planned-branch plan
   — read them _before_ the diffs.

@@ -10,16 +10,17 @@ Load the attached plan from Branch Memory and implement from it as the source of
 ## Command
 
 ```bash
-planned-branch exec load-plan [key-or-slug] --format json
+prompt_file=$(mktemp "${TMPDIR:-/tmp}/planned-branch-impl.XXXXXX.md")
+planned-branch exec load-plan [key-or-slug] --prompt-file "$prompt_file" --format json
 ```
 
-Reads the current branch by default and selects an attached plan from Branch Memory namespace `planned-branch`. The optional argument may be `my-plan` or `my-plan.md`. The JSON response includes `implementation_prompt` and `attached_plan_content`.
+Reads the current branch by default and selects an attached plan from Branch Memory namespace `planned-branch`. The optional argument may be `my-plan` or `my-plan.md`. JSON output is bounded metadata by default and includes `implementation_prompt_file` when `--prompt-file` is passed. Do not use `--include-content` or `--include-prompt` during normal agent operation; those flags can exceed harness stdout limits on large plans.
 
 ## Workflow
 
-1. Run `load-plan --format json` (include the user's key/slug when provided).
-2. Read `implementation_prompt` and `attached_plan_content` before editing code.
-3. Treat the attached plan as authoritative unless current repo state proves it stale; if stale, explain the discrepancy before changing scope.
+1. Create a temp prompt file, then run `load-plan --prompt-file "$prompt_file" --format json` (include the user's key/slug when provided).
+2. Read the returned `implementation_prompt_file` with the file-reading tool before editing code.
+3. Treat the attached plan in that prompt as authoritative unless current repo state proves it stale; if stale, explain the discrepancy before changing scope.
 4. Implement in focused steps; run the plan's validation commands when practical.
 5. Report implemented changes, files changed, validation results, plan deviations, and unresolved follow-up.
 
