@@ -32,7 +32,7 @@ The parent agent should keep compact manifests, identifiers, counts, payload ref
 
 When Pi exposes a runner-subagent tool, launch one focused runner subagent at a time with a complete prompt containing all necessary context. Treat only a final assistant text result as a usable answer. Inspect returned status evidence before deciding the work is complete.
 
-When the harness exposes per-dispatch model selection, bounded artifact-backed classification or summarization tasks may request a cheaper/faster model. The parent must still validate the result against deterministic manifests, schemas, counts, or locators, and must escalate to a stronger model when validation fails or judgment requires broader code context.
+When the harness exposes per-dispatch model selection, bounded artifact-backed classification or summarization tasks may request a cheaper/faster model. In Pi, the canonical cheap classification model is `openai-codex/gpt-5.4-mini:medium`; when a workflow needs a concrete stronger escalation target, use `openai-codex/gpt-5.5:high`. The parent must still validate the result against deterministic manifests, schemas, counts, or locators, and must escalate to a stronger model when validation fails or judgment requires broader code context.
 
 Do not run parallel subagents in the same worktree unless the parent workflow has explicitly proved the tasks are independent and safe. If the subagent edits files, the parent must verify the diff and validation evidence before continuing.
 

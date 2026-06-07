@@ -189,23 +189,20 @@ Preferred classification path:
 
 1. For ordinary bounded classification, launch a focused payload-aware runner
    subagent with `dispatch_runner_subagent` and set its optional `model` field to
-   `openai-codex/gpt-5.4-mini:medium` when available. The prompt must include
-   the compact manifest, `payload_reference.payload_path`, relevant body
-   locators, the generated `classification-template`, the `feedback-classifier`
-   rules, the strict packet contract, and completeness requirements.
+   the canonical cheap classification model named in the shared Pi launch policy
+   when available. The prompt must include the compact manifest,
+   `payload_reference.payload_path`, relevant body locators, the generated
+   `classification-template`, the `feedback-classifier` rules, the strict packet
+   contract, and completeness requirements.
 
 2. Require the summarizer to return only the strict classification packet,
    preserving all prefilled IDs/locators/coverage fields and filling only the
    semantic judgment fields.
-3. Do not use `openai-codex/gpt-5.4-mini:medium` for unusually ambiguous
-   feedback, validation failures, omitted required items, human-sensitive
-   discussion decisions, or comments that require complex cross-file
-   code-context reasoning. Escalate by omitting `model` to use the
-   parent/default strong model, or explicitly pass `openai-codex/gpt-5.5:high`
-   when a concrete Pi escalation target is desired.
+3. Follow the escalation conditions and concrete Pi escalation target guidance
+   in `references/feedback-classifier.md`.
 4. Do not paste the full `.raw.json` payload artifact into the main transcript.
-5. If `dispatch_runner_subagent` is unavailable, the requested mini model is not
-   available, or the harness cannot choose a model per dispatch, use the
+5. If `dispatch_runner_subagent` is unavailable, the requested cheap model is
+   not available, or the harness cannot choose a model per dispatch, use the
    fallback path below and classify directly from artifact-backed selected
    detail lookup; do not pretend delegation/model routing occurred.
 

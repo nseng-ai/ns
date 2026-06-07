@@ -155,17 +155,19 @@ returns `exit_code: 2`, treat it as malformed workflow input and stop.
 
 ## Cost-aware model routing
 
-In Pi, ordinary initial classification should request
-`openai-codex/gpt-5.4-mini:medium` via the runner subagent `model` field when
-that model is available. This model is only for bounded first-pass classification
-over compact manifest entries, payload locators, selected body text, and these
-finite classifier rules; it is not authority to bypass deterministic validation.
+In Pi, ordinary initial classification should request the canonical cheap
+classification model named in the shared Pi launch policy via the runner
+subagent `model` field when that model is available. This model is only for
+bounded first-pass classification over compact manifest entries, payload
+locators, selected body text, and these finite classifier rules; it is not
+authority to bypass deterministic validation.
 
-Escalate to the parent/default strong model, or to
-`openai-codex/gpt-5.5:high` in Pi, when validation fails, required items are
-omitted, comments are ambiguous, reviewer intent is human-sensitive, or the
-classifier needs complex cross-file code context. Pass the validation diagnostics
-and original manifest/template evidence to the escalation run.
+Escalate to the parent/default strong model, or to the concrete Pi escalation
+target named in the shared Pi launch policy, when validation fails, required
+items are omitted, comments are ambiguous, reviewer intent is human-sensitive,
+the classifier reports low confidence or blockers, or the classifier needs
+complex cross-file code context. Pass the validation diagnostics and original
+manifest/template evidence to the escalation run.
 
 ## Classification rules
 

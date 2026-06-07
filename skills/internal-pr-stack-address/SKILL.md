@@ -184,16 +184,11 @@ For each `data.stack[]` prep entry with feedback:
      `Classify stack feedback for PR <number>`, and include that PR's compact
      manifest, raw payload path, relevant body locators, generated template,
      classifier rules, and exact strict JSON output contract. In Pi, use
-     `dispatch_runner_subagent` with
-     `model: "openai-codex/gpt-5.4-mini:medium"` for ordinary bounded per-PR
-     stack classification.
-   - Escalate to the parent/default strong model, or to
-     `openai-codex/gpt-5.5:high` when a concrete Pi escalation target is
-     desired, if the first packet fails `stack-feedback-plan` or per-PR
-     validation, required coverage is omitted, top-level human discussion
-     comments are ambiguous or need a sensitive reply decision, comments require
-     complex cross-file code context, or the mini classifier reports low
-     confidence/blockers.
+     `dispatch_runner_subagent` with the canonical cheap classification model
+     named in the shared Pi launch policy for ordinary bounded per-PR stack
+     classification.
+   - Follow `feedback-classifier.md` for escalation conditions and the shared Pi
+     launch policy for any concrete escalation model target.
    - Follow the shared feedback-detail lookup policy.
    - If no subagent/model routing is available, classify directly using the same
      compact manifest, payload locators, generated template, and classifier
