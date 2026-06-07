@@ -37,3 +37,9 @@ keeps the workflow explicit and avoids ad-hoc wrapper JSON assembly.
 `resolve-thread-batch` accepts its payload from stdin, `--payload-json`, or
 `--payload-file`. Pass only one explicit payload source; use `--payload-file`
 for large generated batch payloads to keep agent transcripts compact.
+
+`record-batch-checkpoint` validates compact post-batch evidence from
+`plan-feedback`, mutation helper results, validation commands, changed files, and
+non-thread outcomes. When the plan came from a payload-backed run, it writes a
+managed `.summary.json` checkpoint artifact without copying raw feedback bodies
+into the checkpoint.

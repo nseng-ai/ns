@@ -21,6 +21,7 @@ from asdl_pr_address.cli.pr_address.read_feedback_detail import (
     run_read_feedback_detail,
     run_read_feedback_details,
 )
+from asdl_pr_address.cli.pr_address.record_batch_checkpoint import run_record_batch_checkpoint
 from asdl_pr_address.cli.pr_address.reply_to_discussion import run_reply_to_discussion
 from asdl_pr_address.cli.pr_address.reply_to_review import run_reply_to_review
 from asdl_pr_address.cli.pr_address.resolve_thread import run_resolve_thread
@@ -55,6 +56,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_prepare_run,
             run_read_feedback_detail,
             run_read_feedback_details,
+            run_record_batch_checkpoint,
             run_classification_template,
             run_reply_to_discussion,
             run_reply_to_review,
