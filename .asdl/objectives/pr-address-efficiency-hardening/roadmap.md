@@ -12,9 +12,9 @@
   - Evidence: local branch diff against Graphite parent `shared-pr-address-json-input-loader`; PR #1011 corroborates the same file set.
   - Remaining evidence: future agents should not need ad-hoc `/tmp/pr-address-*.json` files for the normal validation and mutation path.
 
-- [ ] Improve selected-detail payload ergonomics.
-  - Add batch pointer queries and artifact-backed storage of retrieval results so agents can inspect exactly the bodies needed for classification/execution without printing all selected bodies into the main transcript.
-  - Evidence: selected bodies can be stored or referenced through managed artifacts with compact locators and summaries returned to the agent.
+- [x] Improve selected-detail payload ergonomics.
+  - Delivered: `pr-address exec read-feedback-details` accepts batch JSON Pointer selections from a raw feedback payload, validates every selected body/item pointer before writing, stores selected values in a same-session `.summary.json` payload artifact, and returns compact stdout metadata with artifact pointers and character counts instead of selected body text.
+  - Evidence: `read_feedback_detail.py`, `group.py`, scenario tests, CLI reference, and public skill guidance cover stdin/`--selection-json` input, body and item pointer selections, duplicate/empty/broad-pointer failures, summary artifact references, and sentinel assertions proving selected body text stays out of command output.
 
 - [ ] Add deterministic planning support for validated classifications.
   - Provide a helper or helper output that groups actionable items into the skill’s batch order, marks approval gates, reports informational discussion comments explicitly, and emits exact identities for each batch’s review threads/comments.
@@ -35,7 +35,7 @@
 
 - [~] Update the public `pr-address` skill and CLI reference for the improved happy path.
   - Remove or demote obsolete manual steps once helpers exist. Keep the guarantees: payload by default, classification validation before planning, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, no push.
-  - Progress: the CLI reference documents `classification-template`, stdin/option JSON input for classification validation and thread resolution, and the deterministic template contract.
+  - Progress: the CLI reference documents `classification-template`, stdin/option JSON input for classification validation and thread resolution, the deterministic template contract, and artifact-backed batch selected-detail lookup. The public skill now prefers `read-feedback-details` for multi-body lookup and keeps `read-feedback-detail` as a one-off inline/debug helper.
   - Remaining evidence: the main public skill should continue to shed manual grouping/mutation/finalization instructions as planning, checkpoint, and finalization helpers land.
 
 - [ ] Prove the lower-orchestration happy path on a representative PR-addressing run.

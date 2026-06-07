@@ -104,7 +104,7 @@ Assumptions:
 Risks:
 
 - A composite helper such as `plan-run` could become an opaque mega-command if it owns too much judgment or hides intermediate validation diagnostics.
-- Adding run-state files or managed artifacts could create lifecycle/cleanup confusion if they are not clearly scoped to a payload session or explicit artifact role.
+- Adding run-state files or managed artifacts could create lifecycle/cleanup confusion if they are not clearly scoped to a payload session or explicit artifact role. The selected-detail slice de-risks this for body/item retrieval by writing curated selections as same-session `summary` artifacts with compact stdout references; broader run-state lifecycle questions remain for planning, checkpoints, and finalization.
 - File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design.
 - Shared payload/platform changes could expand the Objective beyond `pr-address` and compete with unrelated agent infrastructure work. PR #1011 narrows this risk for JSON input handling by promoting only a generic Clinkr option/stdin loader while leaving pr-address-specific classification and mutation semantics in `pr-address` helpers; broader payload/platform lifecycle questions remain parked unless directly blocking.
 - Over-optimizing for speed could weaken the existing safety guarantees: validated classification, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no pushing.
@@ -112,7 +112,6 @@ Risks:
 ## Open Questions
 
 - Should the classification template be emitted directly by `prepare-run`, by a separate `classification-template` helper, or by a validator-owned merge operation that accepts only semantic fills?
-- Should selected-detail batch reads produce a secondary payload artifact, a compact manifest of selected bodies, or both?
 - What is the right boundary between `plan-run` and smaller helpers so deterministic orchestration improves without hiding too much from the agent and user?
 - Should `resolve-thread-batch` gain `@file`/file-path input support, or should a higher-level batch checkpoint helper own mutation payload generation entirely?
 - What representative fixture or live-run protocol should count as closure evidence for the lower-orchestration happy path?

@@ -199,6 +199,72 @@ pr-address exec read-feedback-detail \
   --format json
 ```
 
+### `read-feedback-details`
+
+Read multiple allowed details from one payload `.raw.json` feedback envelope,
+write the selected values to a managed `.summary.json` artifact in the same
+payload session, and return only compact metadata on stdout. Prefer this helper
+when classification or execution needs several original bodies/items.
+
+**Invocation:** reads the selection JSON from stdin by default.
+`--selection-json` is also available for direct/manual invocation.
+
+```bash
+printf '%s' '{"payload_path":"/tmp/asdl/sessions/.../payloads/...raw.json","json_pointers":["/data/reviews/0/body"]}' \
+  | pr-address exec read-feedback-details --format json
+```
+
+**Input fields:**
+
+| Field           | Required | Description                                                                      |
+| --------------- | -------- | -------------------------------------------------------------------------------- |
+| `payload_path`  | yes      | Raw payload path from `manifest.payload_reference.payload_path`                  |
+| `json_pointers` | yes      | Non-empty array of allowed JSON Pointers copied from manifest body/item locators |
+
+Allowed pointer families are the same as `read-feedback-detail`:
+
+- `/data/reviews/<n>`
+- `/data/reviews/<n>/body`
+- `/data/review_threads/<n>`
+- `/data/review_threads/<n>/comments/<m>`
+- `/data/review_threads/<n>/comments/<m>/body`
+- `/data/discussion_comments/<n>`
+- `/data/discussion_comments/<n>/body`
+
+**Output fields (under `data`):**
+
+| Field                        | Description                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `payload_path`               | Echo of the raw payload path                                                                                        |
+| `selected_payload_reference` | Store-owned reference for the `.summary.json` artifact containing selected values                                   |
+| `details`                    | One compact entry per requested pointer: source pointer, detail kind, artifact pointer, value kind, and char counts |
+| `counts`                     | Requested/selected counts split into body-value and item-value totals                                               |
+
+The stdout JSON intentionally omits selected body text and full selected item
+objects. To inspect a selected value, read
+`data.selected_payload_reference.payload_path` and resolve that detail's
+`artifact_json_pointer` (for example `/details/0/value`) inside the artifact.
+
+**Artifact shape:**
+
+```json
+{
+  "source_payload_path": "/tmp/asdl/sessions/.../payloads/...raw.json",
+  "details": [
+    {
+      "json_pointer": "/data/reviews/0/body",
+      "detail_kind": "review_body",
+      "value": "full selected body text stored in the summary artifact"
+    }
+  ]
+}
+```
+
+Malformed JSON, empty selections, duplicate pointers, invalid broad pointers,
+missing/non-raw payloads, failed raw envelopes, and value type mismatches return
+`exit_code: 2` with an error type/message. The command validates the whole
+selection before writing any summary artifact.
+
 ### `classification-template`
 
 Build a deterministic classification scaffold from a compact payload manifest.
@@ -580,7 +646,8 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | Command                            | Description                                                                                                                                                            |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get-feedback`                     | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
-| `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw payload artifact.                                                                                        |
+| `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw payload artifact and return the selected value inline.                                                   |
+| `read-feedback-details`            | Detailed above. Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
 | `classification-template`          | Detailed above. Build a deterministic classification scaffold from a compact payload manifest.                                                                         |
 | `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
