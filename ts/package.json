@@ -4,7 +4,7 @@
   "type": "module",
   "workspaces": ["packages/*"],
   "scripts": {
-    "test": "bun run --workspaces --if-present test",
+    "test": "bun run --workspaces --sequential --if-present test",
     "check": "bun run --workspaces --if-present check",
     "asdl-dev": "bun run packages/asdl-dev/src/cli.ts"
   },
