@@ -864,16 +864,16 @@ pr-address exec record-batch-checkpoint \
 
 **Input fields:**
 
-| Field                      | Required | Description                                                                                      |
-| -------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `plan`                     | yes      | `data` object returned by `plan-feedback`                                                        |
-| `batch_id`                 | yes      | Exact `data.batches[].batch_id` to checkpoint                                                    |
-| `commit_sha`               | changes  | Batch commit SHA; required when `changed_files` is non-empty                                     |
-| `changed_files`            | no       | Relative changed paths; absolute paths, traversal, empty entries, and duplicates are rejected    |
-| `validation_commands`      | no       | Commands run for the batch with `status` `passed`, `failed`, or `skipped`, optional exit/summary |
-| `thread_payload_build`     | threads  | Result from `build-resolve-thread-batch-payload` when the batch has review-thread items          |
-| `thread_resolution_result` | payload  | Result from `resolve-thread-batch` when `thread_payload_build.payload_ready` is true             |
-| `non_thread_outcomes`      | items    | One explicit outcome for every selected PR-level review or discussion-comment item               |
+| Field                      | Required | Description                                                                                                                 |
+| -------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `plan`                     | yes      | `data` object returned by `plan-feedback`                                                                                   |
+| `batch_id`                 | yes      | Exact `data.batches[].batch_id` to checkpoint                                                                               |
+| `commit_sha`               | changes  | Batch commit SHA; required when `changed_files` is non-empty                                                                |
+| `changed_files`            | no       | Repository-relative forward-slash paths; absolute paths, traversal, backslashes, empty entries, and duplicates are rejected |
+| `validation_commands`      | no       | Commands run for the batch with `status` `passed`, `failed`, or `skipped`, optional exit/summary                            |
+| `thread_payload_build`     | threads  | Result from `build-resolve-thread-batch-payload` when the batch has review-thread items                                     |
+| `thread_resolution_result` | payload  | Result from `resolve-thread-batch` when `thread_payload_build.payload_ready` is true                                        |
+| `non_thread_outcomes`      | items    | One explicit outcome for every selected PR-level review or discussion-comment item                                          |
 
 Each `non_thread_outcomes[]` entry uses `source_kind: "review"` with
 `review_id`, or `source_kind: "discussion_comment"` with

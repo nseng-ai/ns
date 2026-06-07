@@ -28,7 +28,7 @@
 
 - [x] Add per-batch evidence/checkpoint support.
   - Policy: Capture workflow evidence without turning run state into a hidden task database.
-  - Evidence: `pr-address exec record-batch-checkpoint` validates one selected `plan-feedback` batch against explicit changed files, validation commands, commit SHA, `build-resolve-thread-batch-payload` output, `resolve-thread-batch` results, PR-level review/discussion outcomes, and skipped items. It writes a same-session managed summary artifact when the plan is payload-backed, returns a checkpoint reference, keeps raw feedback bodies out of stdout/artifacts, and returns `batch_complete=false` for failed or incomplete evidence.
+  - Evidence: `pr-address exec record-batch-checkpoint` validates one selected `plan-feedback` batch against explicit changed files, validation commands, commit SHA, `build-resolve-thread-batch-payload` output, `resolve-thread-batch` results, PR-level review/discussion outcomes, and skipped items. It writes a same-session managed summary artifact when the plan is payload-backed, returns a checkpoint reference, keeps raw feedback bodies out of stdout/artifacts, and returns `batch_complete=false` for failed or incomplete evidence. Follow-up hardening split the checkpoint command into typed models plus pure validation logic, moved checkpoint scenarios into a focused test module, added unit coverage for validation policy, and documented `changed_files` as repository-relative forward-slash paths.
 
 - [ ] Add finalization support for unresolved feedback summary.
   - Policy: End every run through one clear final verification path that re-fetches compact feedback in payload mode and reports unresolved, skipped, and mutated items.
