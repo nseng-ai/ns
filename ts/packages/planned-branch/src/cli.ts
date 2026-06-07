@@ -70,8 +70,8 @@ interface LoadPlanArgs {
 	keyOrSlug?: string;
 	format?: "json";
 	promptFile?: string;
-	includeContent: boolean;
-	includePrompt: boolean;
+	shouldIncludeContent: boolean;
+	shouldIncludePrompt: boolean;
 }
 
 interface JsonFailure {
@@ -221,10 +221,14 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 
 	const requestedKey = parsed.value.keyOrSlug;
 	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem });
-	const implementationPrompt = buildImplPlannedBranchPrompt(plan);
 	const promptFile = parsed.value.promptFile === undefined ? undefined : normalizePlanFilePath(parsed.value.promptFile);
+	let implementationPrompt: string | undefined;
+	function getImplementationPrompt(): string {
+		implementationPrompt ??= buildImplPlannedBranchPrompt(plan);
+		return implementationPrompt;
+	}
 	if (promptFile !== undefined) {
-		await writeFile(promptFile, implementationPrompt, "utf8");
+		await writeFile(promptFile, getImplementationPrompt(), "utf8");
 	}
 	if (parsed.value.format === "json") {
 		deps.stdout(
@@ -232,8 +236,8 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 				success: true,
 				...loadedPlanJson(plan, {
 					promptFile,
-					attachedPlanContent: parsed.value.includeContent ? plan.content : undefined,
-					implementationPrompt: parsed.value.includePrompt ? implementationPrompt : undefined,
+					attachedPlanContent: parsed.value.shouldIncludeContent ? plan.content : undefined,
+					implementationPrompt: parsed.value.shouldIncludePrompt ? getImplementationPrompt() : undefined,
 				}),
 			})}\n`,
 		);
@@ -243,7 +247,7 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		deps.stdout(`${formatLoadedPlan(plan)}\nImplementation prompt file: ${promptFile}\n`);
 		return 0;
 	}
-	deps.stdout(`${formatLoadedPlan(plan)}\n\n${implementationPrompt}\n`);
+	deps.stdout(`${formatLoadedPlan(plan)}\n\n${getImplementationPrompt()}\n`);
 	return 0;
 }
 
@@ -414,8 +418,8 @@ function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 	let keyOrSlug: string | undefined;
 	let format: "json" | undefined;
 	let promptFile: string | undefined;
-	let includeContent = false;
-	let includePrompt = false;
+	let shouldIncludeContent = false;
+	let shouldIncludePrompt = false;
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === undefined) continue;
@@ -437,11 +441,11 @@ function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 			continue;
 		}
 		if (arg === "--include-content") {
-			includeContent = true;
+			shouldIncludeContent = true;
 			continue;
 		}
 		if (arg === "--include-prompt") {
-			includePrompt = true;
+			shouldIncludePrompt = true;
 			continue;
 		}
 		if (arg.startsWith("-")) return { type: "error", message: `Unknown option: ${arg}` };
@@ -451,8 +455,8 @@ function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 	return {
 		type: "ok",
 		value: {
-			includeContent,
-			includePrompt,
+			shouldIncludeContent,
+			shouldIncludePrompt,
 			...(keyOrSlug === undefined ? {} : { keyOrSlug }),
 			...(format === undefined ? {} : { format }),
 			...(promptFile === undefined ? {} : { promptFile }),
