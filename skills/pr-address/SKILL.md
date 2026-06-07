@@ -188,23 +188,34 @@ to pass payload paths and locators without pasting raw payload JSON.
 Preferred classification path:
 
 1. For ordinary bounded classification, launch a focused payload-aware runner
-   subagent with `dispatch_runner_subagent` using a configured cheap/fast Pi
-   model pattern in its optional `model` field, for example a local alias such
-   as `haiku` when available. The prompt must include the compact manifest,
-   `payload_reference.payload_path`, relevant body locators, the generated
-   `classification-template`, the `feedback-classifier` rules, the strict packet
-   contract, and completeness requirements.
+   subagent with `dispatch_runner_subagent` and set its optional `model` field to
+   `openai-codex/gpt-5.4-mini:medium` when available. The prompt must include
+   the compact manifest, `payload_reference.payload_path`, relevant body
+   locators, the generated `classification-template`, the `feedback-classifier`
+   rules, the strict packet contract, and completeness requirements.
+
+   ```json
+   {
+     "title": "Classify PR feedback",
+     "model": "openai-codex/gpt-5.4-mini:medium",
+     "prompt": "...compact manifest, payload path, locators, template, classifier rules..."
+   }
+   ```
+
 2. Require the summarizer to return only the strict classification packet,
    preserving all prefilled IDs/locators/coverage fields and filling only the
    semantic judgment fields.
-3. Do not use a cheap model for unusually ambiguous feedback or comments that
-   require complex cross-file code-context reasoning; use the default/strong
-   model path instead by omitting `model` or passing a stronger configured model
-   pattern.
+3. Do not use `openai-codex/gpt-5.4-mini:medium` for unusually ambiguous
+   feedback, validation failures, omitted required items, human-sensitive
+   discussion decisions, or comments that require complex cross-file
+   code-context reasoning. Escalate by omitting `model` to use the
+   parent/default strong model, or explicitly pass `openai-codex/gpt-5.5:high`
+   when a concrete Pi escalation target is desired.
 4. Do not paste the full `.raw.json` payload artifact into the main transcript.
-5. If `dispatch_runner_subagent` is unavailable or the harness cannot choose a
-   model per dispatch, use the fallback path below and classify directly from
-   artifact-backed selected detail lookup; do not pretend delegation occurred.
+5. If `dispatch_runner_subagent` is unavailable, the requested mini model is not
+   available, or the harness cannot choose a model per dispatch, use the
+   fallback path below and classify directly from artifact-backed selected
+   detail lookup; do not pretend delegation/model routing occurred.
 
 Fallback path when no subagent/separate subagent or helper is available:
 

@@ -180,12 +180,20 @@ For each `data.stack[]` prep entry with feedback:
 2. Start from `classification_template.classification_template` and classify
    every review, unresolved review thread, and discussion comment exactly once.
 3. Classify with a payload-aware path:
-   - Preferred: launch a focused subagent with the compact manifest, raw payload
-     path, relevant body locators, generated template, classifier rules, and
-     strict output contract. In Pi, use `dispatch_runner_subagent` with a
-     cheap/fast configured model for ordinary bounded classification.
-   - Use the default/strong model for ambiguous feedback, validation failure,
-     omitted items, or complex cross-file reasoning.
+   - Preferred: launch one focused subagent per PR, with a title like
+     `Classify stack feedback for PR <number>`, and include that PR's compact
+     manifest, raw payload path, relevant body locators, generated template,
+     classifier rules, and exact strict JSON output contract. In Pi, use
+     `dispatch_runner_subagent` with
+     `model: "openai-codex/gpt-5.4-mini:medium"` for ordinary bounded per-PR
+     stack classification.
+   - Escalate to the parent/default strong model, or to
+     `openai-codex/gpt-5.5:high` when a concrete Pi escalation target is
+     desired, if the first packet fails `stack-feedback-plan` or per-PR
+     validation, required coverage is omitted, top-level human discussion
+     comments are ambiguous or need a sensitive reply decision, comments require
+     complex cross-file code context, or the mini classifier reports low
+     confidence/blockers.
    - Follow the shared feedback-detail lookup policy.
    - If no subagent/model routing is available, classify directly using the same
      compact manifest, payload locators, generated template, and classifier
