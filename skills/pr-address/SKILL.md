@@ -413,33 +413,34 @@ and standard formatting.
 
 ### 5. Verify and hand off
 
-After the last batch, re-fetch current feedback with default payload mode:
+After the last batch, re-fetch current feedback with resolved-thread state and
+run deterministic finalization:
 
 ```bash
 <pr-address-runner> exec get-feedback <pr_number> \
+  --include-resolved \
   --payload-session-id <payload-session-id> \
+  --format json
+
+# Put the final get-feedback data object and all record-batch-checkpoint data
+# objects into a finalization JSON file, then run:
+<pr-address-runner> exec finalize-run \
+  --payload-file pr-address-finalization.json \
   --format json
 ```
 
-This returns a compact payload manifest by default. Use selected-detail lookup
-or explicit inline mode only if full body text is required for debugging.
+Use the `data` object from final `get-feedback`, not the Clinkr envelope. Include
+each `data` object returned by `record-batch-checkpoint` in `checkpoints`.
 
-Summarize:
+If `finalize-run` exits 1 or returns `data.ready_to_stop == false`, do not claim
+the PR-address run is complete. Report the helper's unresolved unskipped
+threads, failed/incomplete checkpoints, and skipped items.
 
-- total actionable items addressed
-- commits created
-- threads resolved
-- discussion comments replied to
-- batch checkpoint references returned by `record-batch-checkpoint`
-- anything still unresolved
-- anything explicitly skipped by the user
-
-Finish with manual next steps:
-
-1. review the local commits
-2. push when ready
-3. wait for CI
-4. re-request review if needed
+If `data.ready_to_stop == true`, the final summary should cite the helper result,
+checkpoint references, commits, skipped items, and normal next steps: review the
+local commits, push when ready, wait for CI, and re-request review if needed. Use
+selected-detail lookup or explicit inline mode only if full body text is required
+for debugging; finalization itself should not dump bodies.
 
 Do not run `git push`. Do not run `gt submit`.
 

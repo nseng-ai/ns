@@ -30,13 +30,29 @@
   - Policy: Capture workflow evidence without turning run state into a hidden task database.
   - Evidence: `pr-address exec record-batch-checkpoint` validates one selected `plan-feedback` batch against explicit changed files, validation commands, commit SHA, `build-resolve-thread-batch-payload` output, `resolve-thread-batch` results, PR-level review/discussion outcomes, and skipped items. It writes a same-session managed summary artifact when the plan is payload-backed, returns a checkpoint reference, keeps raw feedback bodies out of stdout/artifacts, and returns `batch_complete=false` for failed or incomplete evidence. Follow-up hardening split the checkpoint command into typed models plus pure validation logic, moved checkpoint scenarios into a focused test module, added unit coverage for validation policy, and documented `changed_files` as repository-relative forward-slash paths.
 
-- [ ] Add finalization support for unresolved feedback summary.
+- [x] Add finalization support for unresolved feedback summary.
   - Policy: End every run through one clear final verification path that re-fetches compact feedback in payload mode and reports unresolved, skipped, and mutated items.
-  - Evidence: Closure requires future `pr-address` runs to have an obvious end state even when a session pivots before final verification.
+  - Evidence: `pr-address exec finalize-run` consumes a final compact `get-feedback --include-resolved` manifest plus `record-batch-checkpoint` result data, then reports unresolved threads, unresolved unskipped work, skipped review/thread/discussion items, checkpoint mutation evidence, failed validation, and `ready_to_stop`. Scenario and unit tests cover ready, unresolved, skipped, failed-checkpoint, PR-mismatch, duplicate-batch, empty-checkpoint, and raw-body sentinel cases; `just check` passed.
 
-- [~] Update the public `pr-address` skill and CLI reference for the improved happy path.
+- [x] Update the public `pr-address` skill and CLI reference for the improved happy path.
   - Policy: Route agents through tested helpers while preserving payload-by-default, validated classification before planning, cost-aware classifier dispatch with escalation, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no push.
-  - Evidence: The CLI reference documents classification templates, validation, planning, selected-detail lookup, stdin/option/file JSON input for thread resolution, generated mutation payloads, and batch checkpoint recording. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, uses `build-resolve-thread-batch-payload` / `resolve-thread-batch` for inline-thread mutation, and records each batch with `record-batch-checkpoint`. Remaining evidence is to shed residual manual finalization instructions after a final unresolved-feedback helper lands.
+  - Evidence: The CLI reference documents classification templates, validation, planning, selected-detail lookup, stdin/option/file JSON input for thread resolution, generated mutation payloads, batch checkpoint recording, and finalization. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, uses `build-resolve-thread-batch-payload` / `resolve-thread-batch` for inline-thread mutation, records each batch with `record-batch-checkpoint`, and ends with `get-feedback --include-resolved` plus `finalize-run` instead of a manual final summary checklist.
+
+- [ ] Harden the stack-address workflow against known schema-shape and output-size failures.
+  - Policy: Until stack-native helpers exist, make the safe path explicit: do not pass `stack-feedback-plan` output to per-PR `build-resolve-thread-batch-payload`; detect stack-plan-shaped input with a concise actionable error; keep large helper envelopes in files or payload artifacts with compact stdout summaries.
+  - Evidence: Skill and CLI-reference updates, plus scenario/unit coverage for stack-plan shape detection in the per-PR payload builder.
+
+- [ ] Add stack-native resolution payload building.
+  - Policy: A validated `stack-feedback-plan` should be enough provenance for deterministic per-PR/per-batch `resolve-thread-batch` payload generation, given explicit per-thread decisions and a commit SHA; agents should not manually reconstruct per-PR `plan-feedback` wrappers from a merged stack plan.
+  - Evidence: A `pr-address exec` helper such as `build-stack-resolve-thread-payloads` with tests for one-PR, multi-PR, missing/duplicate decisions, wrong PR/batch references, all-skipped batches, and mixed fixed/explained/pre-existing outcomes.
+
+- [ ] Add current-feedback reconciliation for stack runs.
+  - Policy: Before resolving review threads, compare the validated stack plan against freshly fetched current stack feedback and make drift explicit: planned still unresolved, planned already resolved, newly appeared unresolved feedback, and missing or outdated planned threads.
+  - Evidence: A `pr-address exec` helper such as `stack-feedback-diff-current` with fixture coverage for unchanged feedback, new unresolved threads, already-resolved planned threads, absent/outdated planned threads, and mixed changes across multiple PRs.
+
+- [ ] Simplify `internal-pr-stack-address` around the stack-native helper path.
+  - Policy: Keep the skill focused on safety boundaries, semantic classification, user approval points, and the short command sequence; move fallback mechanics to references and let tested CLI helpers own deterministic mapping, diffing, payload construction, and summary formatting.
+  - Evidence: Updated skill/reference docs route normal stack runs through compact `stack-feedback-prep`, validated `stack-feedback-plan`, current-feedback diffing, stack payload building, helper-mediated mutation, and final verification without hand-written JSON orchestration.
 
 ## Closure Evidence
 

@@ -914,6 +914,63 @@ Each `non_thread_outcomes[]` entry uses `source_kind: "review"` with
 - Malformed JSON or conflicting input sources return `exit_code: 2` with an
   error type such as `invalid_json` or `invalid_request`.
 
+### `finalize-run`
+
+Summarize final unresolved, skipped, and checkpoint evidence for a `pr-address`
+run. The helper is local/read-only: it does not mutate GitHub, commit, push,
+create branches, or read raw feedback bodies.
+
+Recommended final feedback fetch:
+
+```bash
+pr-address exec get-feedback 630 \
+  --include-resolved \
+  --payload-session-id <payload-session-id> \
+  --format json
+```
+
+**Invocation:** reads finalization JSON from stdin by default. `--payload-json`
+and `--payload-file` are also available; pass only one explicit source.
+
+```bash
+pr-address exec finalize-run \
+  --payload-file pr-address-finalization.json \
+  --format json
+```
+
+**Input fields:**
+
+| Field         | Required | Description                                                                                     |
+| ------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `feedback`    | yes      | `data` object returned by final `get-feedback`, preferably with `--include-resolved`            |
+| `checkpoints` | no       | `data` objects returned by `record-batch-checkpoint` for every completed or attempted run batch |
+
+**Output fields (under `data`):**
+
+| Field                          | Description                                                                                                    |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `valid`                        | Whether supplied finalization input is internally consistent                                                   |
+| `ready_to_stop`                | Whether no unresolved unskipped threads, failed mutations, incomplete checkpoints, or failed validation remain |
+| `all_feedback_addressed`       | Stricter than `ready_to_stop`; false when anything was intentionally skipped/deferred                          |
+| `counts`                       | Batch, unresolved, resolved-from-checkpoint, failed, and skipped counts                                        |
+| `unresolved_threads`           | Every currently unresolved thread from fresh feedback                                                          |
+| `unresolved_unskipped_threads` | Currently unresolved threads that were not explicitly skipped/deferred in checkpoint evidence                  |
+| `skipped_items`                | Skipped review threads, PR-level reviews, and discussion comments                                              |
+| `checkpoint_summaries`         | Compact per-batch commit, changed-file, thread, non-thread, and failed-validation evidence                     |
+| `errors`                       | Structured evidence inconsistencies or failures                                                                |
+| `warnings`                     | Non-fatal caveats, such as no checkpoint evidence supplied                                                     |
+
+**Output behavior:**
+
+- `exit_code: 0` only when `data.valid == true` and
+  `data.ready_to_stop == true`.
+- `exit_code: 1` when unresolved unskipped feedback, failed/incomplete
+  checkpoints, failed validation, or semantic input inconsistencies mean the run
+  should not be claimed complete. Explicitly skipped items remain visible but do
+  not by themselves force exit 1.
+- Malformed JSON or conflicting input sources return `exit_code: 2` with an
+  error type such as `invalid_json` or `invalid_request`.
+
 ### `summarize-feedback`
 
 Fetch compact feedback evidence for a known PR number without dumping full raw
@@ -1023,6 +1080,7 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | `validate-feedback-classification`   | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `plan-feedback`                      | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
 | `build-resolve-thread-batch-payload` | Detailed above. Build and validate the non-mutating payload for `resolve-thread-batch` from a selected plan batch and explicit decisions.                              |
+| `finalize-run`                       | Detailed above. Summarize final unresolved, skipped, and checkpoint evidence without mutating GitHub or printing raw feedback bodies.                                  |
 | `summarize-feedback`                 | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
 | `get-pr-for-branch`                  | Look up the open PR for a branch                                                                                                                                       |
 | `get-reviews`                        | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
