@@ -19,7 +19,7 @@ import dispatchRunnerSubagentExtension, {
 	type ToolDefinition,
 	type ToolResult,
 } from "../src/dispatch-runner-subagent.ts";
-import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
+import { createFakeRunnerSubagentDispatcher, jsonLine, sessionMessageLine, waitForSpawn } from "./runner-subagent-fakes.ts";
 
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";
@@ -52,10 +52,6 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	}
 }
 
-function jsonLine(value: unknown): string {
-	return `${JSON.stringify(value)}\n`;
-}
-
 interface RegisterToolOptions {
 	pi?: FakePi;
 	definitionRoot?: string;
@@ -79,10 +75,6 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 			stopReason,
 		},
 	});
-}
-
-function sessionMessageLine(message: unknown): string {
-	return jsonLine({ type: "message", message });
 }
 
 function sessionUsageJsonl(): string {
@@ -239,11 +231,11 @@ describe("dispatch_runner_subagent extension", () => {
 			composedFixturePrompt("Do focused work."),
 		]);
 		expect(call.args).not.toContain("--extension");
-		expect((updates[0]?.details as Record<string, unknown>).launch).toEqual({
+		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 			thinkingLevel: "medium",
-			modelArgPassed: true,
-			thinkingArgPassed: true,
+			hasModelArg: true,
+			hasThinkingArg: true,
 		});
 
 		call.process.emitStdout(finalTextMessage("Done."));
@@ -254,13 +246,13 @@ describe("dispatch_runner_subagent extension", () => {
 
 		expect(text).toContain("Model: anthropic/claude-sonnet-4-5; Thinking: medium");
 		expect(text).toContain("Usage: 11.6k in / 44 out, cache R11.3k W0, $0.0648");
-		expect(text).not.toContain("modelArgPassed");
-		expect(text).not.toContain("thinkingArgPassed");
-		expect(details.launch).toEqual({
+		expect(text).not.toContain("hasModelArg");
+		expect(text).not.toContain("hasThinkingArg");
+		expect((details.progress as Record<string, unknown>).launch).toEqual({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 			thinkingLevel: "medium",
-			modelArgPassed: true,
-			thinkingArgPassed: true,
+			hasModelArg: true,
+			hasThinkingArg: true,
 		});
 		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
 	});
@@ -392,10 +384,10 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(finalText).not.toContain("Assistant preview unique.");
 		expect(finalText).not.toContain("secret-input.txt");
 		expect(finalText).not.toContain("tool result preview unique");
-		expect((result.details as Record<string, unknown>).launch).toEqual({
+		expect(((result.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
 			thinkingLevel: "off",
-			modelArgPassed: false,
-			thinkingArgPassed: false,
+			hasModelArg: false,
+			hasThinkingArg: false,
 		});
 		expect((result.details as Record<string, unknown>).activity).toBeUndefined();
 	});

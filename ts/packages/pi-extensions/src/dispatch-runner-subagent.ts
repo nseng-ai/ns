@@ -1,5 +1,6 @@
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import { composePiAgentPrompt, loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
+import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
 import {
 	dispatchRunnerSubagent,
 	type RunnerSubagentLaunchMetadata,
@@ -13,7 +14,6 @@ import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
-	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
@@ -48,7 +48,6 @@ export interface DispatchRunnerSubagentDetails {
 	elapsedMs: number;
 	sessionFile?: string;
 	progress: RunnerSubagentResult["progress"];
-	launch?: RunnerSubagentLaunchMetadata;
 	usage?: RunnerSubagentUsageMetadata;
 	finalTextChars?: number;
 	finalTextTruncated?: boolean;
@@ -136,14 +135,14 @@ export default function dispatchRunnerSubagentExtension(
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
 			const childPrompt = composePiAgentPrompt(runnerDefinition, input);
-			const launch = resolveDispatchRunnerSubagentLaunch(pi, ctx);
+			const launch = resolveRunnerSubagentLaunch(pi, ctx, { prompt: childPrompt, returnMode: "final-text" }) ?? defaultRunnerSubagentLaunchMetadata();
 			const initialUpdate: RunnerSubagentUpdate = {
 				progress: initialDispatchProgress(input.title, launch),
 				activity: emptyRunnerSubagentActivity(),
 			};
 			onUpdate?.({
 				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
-				details: { status: "starting", title: input.title, progress: initialUpdate.progress, launch },
+				details: { status: "starting", title: input.title, progress: initialUpdate.progress },
 			});
 			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
 
@@ -161,7 +160,7 @@ export default function dispatchRunnerSubagentExtension(
 							const progressText = formatDispatchRunnerSubagentProgress(update.progress);
 							onUpdate?.({
 								content: [{ type: "text", text: progressText }],
-								details: { status: "running", title: input.title, progress: update.progress, launch: update.progress.launch },
+								details: { status: "running", title: input.title, progress: update.progress },
 							});
 							setWidget(ctx, formatRunnerSubagentActivityWidgetLines(update));
 						},
@@ -224,7 +223,6 @@ export function dispatchRunnerSubagentDetails(
 		elapsedMs: result.elapsedMs,
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,
-		...(result.progress.launch === undefined ? {} : { launch: result.progress.launch }),
 		...(result.usage === undefined ? {} : { usage: result.usage }),
 	};
 
@@ -325,13 +323,11 @@ function initialDispatchProgress(title: string, launch: RunnerSubagentLaunchMeta
 	};
 }
 
-function resolveDispatchRunnerSubagentLaunch(pi: ExtensionAPI, ctx: ExtensionContext): RunnerSubagentLaunchMetadata {
-	const thinkingLevel = pi.getThinkingLevel?.() ?? "off";
+function defaultRunnerSubagentLaunchMetadata(): RunnerSubagentLaunchMetadata {
 	return {
-		...(ctx.model === undefined ? {} : { model: ctx.model }),
-		thinkingLevel,
-		modelArgPassed: ctx.model !== undefined,
-		thinkingArgPassed: thinkingLevel !== "off",
+		thinkingLevel: "off",
+		hasModelArg: false,
+		hasThinkingArg: false,
 	};
 }
 
@@ -359,7 +355,7 @@ function validateDispatchRunnerSubagentInput(params: DispatchRunnerSubagentInput
 }
 
 function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
-	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${formatRunnerSubagentThinkingText(launch)}`;
+	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${launch.thinkingLevel}`;
 }
 
 function formatUsageLine(usage: RunnerSubagentUsageMetadata | undefined): string {

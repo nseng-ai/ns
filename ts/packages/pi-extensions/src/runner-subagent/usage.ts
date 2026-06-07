@@ -1,8 +1,10 @@
+import { errorMessage } from "../handoff/shared.ts";
 import type {
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageTotals,
 	RunnerSubagentUsageUnavailableReason,
 } from "../runner-subagent.ts";
+import { isRecord } from "./json-events.ts";
 
 export interface ReadRunnerSubagentSessionFile {
 	(sessionFile: string): string | Promise<string>;
@@ -14,21 +16,6 @@ export interface AggregateRunnerSubagentUsageOptions {
 
 type UsageField = "input" | "output" | "cacheRead" | "cacheWrite" | "totalTokens";
 type CostField = "input" | "output" | "cacheRead" | "cacheWrite" | "total";
-
-const ZERO_USAGE_TOTALS: RunnerSubagentUsageTotals = {
-	input: 0,
-	output: 0,
-	cacheRead: 0,
-	cacheWrite: 0,
-	totalTokens: 0,
-	cost: {
-		input: 0,
-		output: 0,
-		cacheRead: 0,
-		cacheWrite: 0,
-		total: 0,
-	},
-};
 
 export async function readRunnerSubagentUsageFromSessionFile(
 	sessionFile: string | undefined,
@@ -59,7 +46,20 @@ export function aggregateRunnerSubagentUsageFromSessionJsonl(
 	jsonl: string,
 	options: AggregateRunnerSubagentUsageOptions = {},
 ): RunnerSubagentUsageMetadata {
-	const totals = cloneUsageTotals(ZERO_USAGE_TOTALS);
+	let totals: RunnerSubagentUsageTotals = {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		totalTokens: 0,
+		cost: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			total: 0,
+		},
+	};
 	let assistantMessageCount = 0;
 	let lineNumber = 0;
 
@@ -82,7 +82,7 @@ export function aggregateRunnerSubagentUsageFromSessionJsonl(
 		const usage = assistantUsageFromRecord(record);
 		if (usage === undefined) continue;
 		assistantMessageCount += 1;
-		addUsageTotals(totals, usage);
+		totals = addUsageTotals(totals, usage);
 	}
 
 	if (assistantMessageCount === 0) {
@@ -131,32 +131,19 @@ function hasUsableTokenUsage(usage: Record<string, unknown>): boolean {
 	return fields.some((field) => typeof usage[field] === "number" && Number.isFinite(usage[field]));
 }
 
-function addUsageTotals(target: RunnerSubagentUsageTotals, source: RunnerSubagentUsageTotals): void {
-	target.input += source.input;
-	target.output += source.output;
-	target.cacheRead += source.cacheRead;
-	target.cacheWrite += source.cacheWrite;
-	target.totalTokens += source.totalTokens;
-	target.cost.input += source.cost.input;
-	target.cost.output += source.cost.output;
-	target.cost.cacheRead += source.cost.cacheRead;
-	target.cost.cacheWrite += source.cost.cacheWrite;
-	target.cost.total += source.cost.total;
-}
-
-function cloneUsageTotals(totals: RunnerSubagentUsageTotals): RunnerSubagentUsageTotals {
+function addUsageTotals(left: RunnerSubagentUsageTotals, right: RunnerSubagentUsageTotals): RunnerSubagentUsageTotals {
 	return {
-		input: totals.input,
-		output: totals.output,
-		cacheRead: totals.cacheRead,
-		cacheWrite: totals.cacheWrite,
-		totalTokens: totals.totalTokens,
+		input: left.input + right.input,
+		output: left.output + right.output,
+		cacheRead: left.cacheRead + right.cacheRead,
+		cacheWrite: left.cacheWrite + right.cacheWrite,
+		totalTokens: left.totalTokens + right.totalTokens,
 		cost: {
-			input: totals.cost.input,
-			output: totals.cost.output,
-			cacheRead: totals.cost.cacheRead,
-			cacheWrite: totals.cost.cacheWrite,
-			total: totals.cost.total,
+			input: left.cost.input + right.cost.input,
+			output: left.cost.output + right.cost.output,
+			cacheRead: left.cost.cacheRead + right.cost.cacheRead,
+			cacheWrite: left.cost.cacheWrite + right.cost.cacheWrite,
+			total: left.cost.total + right.cost.total,
 		},
 	};
 }
@@ -178,13 +165,4 @@ function unavailableUsage(input: {
 function numberField(record: Record<string, unknown>, field: UsageField | CostField): number {
 	const value = record[field];
 	return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

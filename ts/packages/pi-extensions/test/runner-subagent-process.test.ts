@@ -8,7 +8,7 @@ import type {
 	RunnerSubagentTerminalToolDefinition,
 	RunnerSubagentUpdate,
 } from "../src/runner-subagent.ts";
-import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
+import { createFakeRunnerSubagentDispatcher, jsonLine, sessionMessageLine, waitForSpawn } from "./runner-subagent-fakes.ts";
 
 const ctx: RunnerSubagentContext = { cwd: "/repo" };
 const pi: RunnerSubagentPi = {};
@@ -51,10 +51,6 @@ function finalTextOptions(
 	};
 }
 
-function jsonLine(value: unknown): string {
-	return `${JSON.stringify(value)}\n`;
-}
-
 function finalTextMessage(text: string, stopReason = "stop"): string {
 	return jsonLine({
 		type: "message_end",
@@ -64,10 +60,6 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 			stopReason,
 		},
 	});
-}
-
-function sessionMessageLine(message: unknown): string {
-	return jsonLine({ type: "message", message });
 }
 
 function sessionUsageJsonl(): string {
@@ -204,8 +196,8 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.progress.launch).toEqual({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 			thinkingLevel: "medium",
-			modelArgPassed: true,
-			thinkingArgPassed: true,
+			hasModelArg: true,
+			hasThinkingArg: true,
 		});
 	});
 
@@ -235,8 +227,8 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.progress.launch).toEqual({
 			thinkingLevel: "off",
-			modelArgPassed: false,
-			thinkingArgPassed: false,
+			hasModelArg: false,
+			hasThinkingArg: false,
 		});
 	});
 

@@ -30,10 +30,6 @@ export function formatRunnerSubagentModelText(launch: RunnerSubagentLaunchMetada
 	return `${launch.model.provider}/${launch.model.id}`;
 }
 
-export function formatRunnerSubagentThinkingText(launch: RunnerSubagentLaunchMetadata): string {
-	return launch.thinkingLevel;
-}
-
 export function formatRunnerSubagentProgressWidgetLines(
 	progress: RunnerSubagentProgress,
 	options: RunnerSubagentProgressWidgetOptions = {},
