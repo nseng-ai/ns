@@ -231,9 +231,9 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 			`${JSON.stringify({
 				success: true,
 				...loadedPlanJson(plan, {
-					...(promptFile === undefined ? {} : { promptFile }),
-					...(parsed.value.includeContent ? { attachedPlanContent: plan.content } : {}),
-					...(parsed.value.includePrompt ? { implementationPrompt } : {}),
+					promptFile,
+					attachedPlanContent: parsed.value.includeContent ? plan.content : undefined,
+					implementationPrompt: parsed.value.includePrompt ? implementationPrompt : undefined,
 				}),
 			})}\n`,
 		);
@@ -544,9 +544,9 @@ function plannedBranchJson(evidence: PlannedBranchEvidence): Record<string, unkn
 }
 
 interface LoadedPlanJsonOptions {
-	promptFile?: string;
-	attachedPlanContent?: string;
-	implementationPrompt?: string;
+	promptFile?: string | undefined;
+	attachedPlanContent?: string | undefined;
+	implementationPrompt?: string | undefined;
 }
 
 function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions = {}): Record<string, unknown> {
