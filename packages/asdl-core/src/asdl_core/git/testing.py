@@ -174,6 +174,7 @@ class FakeGitGateway(GitGateway):
         self._fetch_calls: list[tuple[Path, str, str]] = []
         self._pull_calls: list[Path] = []
         self._update_ref_calls: list[tuple[Path, str, str]] = []
+        self._list_local_branches_calls: list[None] = []
         self._list_tracked_paths_at_ref_calls: list[tuple[str, str]] = []
         self._tree_oids_at_refs_calls: list[tuple[tuple[str, ...], str]] = []
         self._path_last_touched_calls: list[tuple[str, str]] = []
@@ -212,6 +213,7 @@ class FakeGitGateway(GitGateway):
         return branch in self._branches
 
     def list_local_branches(self) -> tuple[str, ...]:
+        self._list_local_branches_calls.append(None)
         return tuple(sorted(self._branches))
 
     def list_local_branch_tips(self) -> tuple[LocalBranchTip, ...]:
@@ -578,6 +580,10 @@ class FakeGitGateway(GitGateway):
         if range_spec not in self._commit_count_by_range:
             return 0
         return self._commit_count_by_range[range_spec]
+
+    @property
+    def list_local_branches_calls(self) -> tuple[None, ...]:
+        return tuple(self._list_local_branches_calls)
 
     @property
     def list_tracked_paths_at_ref_calls(self) -> tuple[tuple[str, str], ...]:

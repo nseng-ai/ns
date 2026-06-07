@@ -6,6 +6,7 @@ import click
 
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.git.types import GitCommandFailure
 from asdl_objectives.context import (
     ObjectiveCliContext,
     ObjectiveCliUnavailable,
@@ -23,7 +24,11 @@ from asdl_objectives.list_render import (
 )
 from asdl_objectives.list_status import ObjectiveStatusFilter, matches_status_filter
 from asdl_objectives.list_updates import touch_updated_iso
-from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT, active_objective_record_path
+from asdl_objectives.objective_paths import (
+    ACTIVE_OBJECTIVE_ROOT,
+    active_objective_record_path,
+    objective_slug_from_active_path,
+)
 
 
 @clinkr_operation(
@@ -36,16 +41,28 @@ def run_list_objectives(
     ctx: click.Context,
     request: ObjectiveListRequest,
 ) -> ClinkrExit[ObjectiveListResult]:
+    if request.names and request.updated_branches:
+        return ClinkrExit.failure(
+            error_type="incompatible_options",
+            message=(
+                "--updated-branches cannot be combined with --names because --names emits "
+                "Objective slugs only."
+            ),
+        )
+
     objective_ctx = load_objective_context(ctx)
     if isinstance(objective_ctx, ObjectiveCliUnavailable):
         return ClinkrExit.failure(error_type="not_in_repo", message=objective_ctx.message)
-    return ClinkrExit.ok(
-        build_objective_list_result(
-            objective_ctx,
-            status_filter=request.status,
-            names_only=request.names,
-        )
+
+    result = _build_objective_list_result_or_failure(
+        objective_ctx,
+        status_filter=request.status,
+        names_only=request.names,
+        include_updated_branches=request.updated_branches,
     )
+    if isinstance(result, GitCommandFailure):
+        return ClinkrExit.failure(error_type=result.error_type, message=result.message)
+    return ClinkrExit.ok(result)
 
 
 def build_objective_list_result(
@@ -53,18 +70,57 @@ def build_objective_list_result(
     *,
     status_filter: ObjectiveStatusFilter = "active",
     names_only: bool = False,
+    include_updated_branches: bool = False,
 ) -> ObjectiveListResult:
+    result = _build_objective_list_result_or_failure(
+        ctx,
+        status_filter=status_filter,
+        names_only=names_only,
+        include_updated_branches=include_updated_branches,
+    )
+    if isinstance(result, GitCommandFailure):
+        raise RuntimeError(result.message)
+    return result
+
+
+def _build_objective_list_result_or_failure(
+    ctx: ObjectiveCliContext,
+    *,
+    status_filter: ObjectiveStatusFilter = "active",
+    names_only: bool = False,
+    include_updated_branches: bool = False,
+) -> ObjectiveListResult | GitCommandFailure:
     inventory = build_objective_checkout_inventory(ctx.repo_root)
-    records = tuple(
-        _build_objective_list_record(ctx, record.slug, record.status)
+    filtered_records = tuple(
+        record
         for record in inventory.records
         if matches_status_filter(record.status, status_filter)
+    )
+    slugs = tuple(record.slug for record in filtered_records)
+    updated_branches_by_slug: dict[str, tuple[str, ...]] = {}
+    if include_updated_branches and slugs:
+        updated_branches_result = _build_updated_branches_by_slug(ctx, frozenset(slugs))
+        if isinstance(updated_branches_result, GitCommandFailure):
+            return updated_branches_result
+        updated_branches_by_slug = updated_branches_result
+
+    records = tuple(
+        _build_objective_list_record(
+            ctx,
+            record.slug,
+            record.status,
+            updated_branches=updated_branches_by_slug.get(record.slug, ()),
+        )
+        if include_updated_branches
+        else _build_objective_list_record(ctx, record.slug, record.status)
+        for record in filtered_records
     )
     return ObjectiveListResult(
         trunk_branch=ctx.trunk_branch,
         root_path=ACTIVE_OBJECTIVE_ROOT.as_posix(),
         status_filter=status_filter,
         names_only=names_only,
+        updated_branches_included=include_updated_branches,
         records=records,
     )
 
@@ -73,6 +129,8 @@ def _build_objective_list_record(
     ctx: ObjectiveCliContext,
     slug: str,
     status: ObjectiveRecordStatus,
+    *,
+    updated_branches: tuple[str, ...] | None = None,
 ) -> ObjectiveListRecord:
     relative_path = active_objective_record_path(slug).as_posix()
     touch = ctx.git.path_last_touched("HEAD", relative_path)
@@ -80,8 +138,63 @@ def _build_objective_list_record(
         slug=slug,
         status=status,
         latest_update_iso=touch_updated_iso(touch),
+        updated_branches=updated_branches,
         has_outstanding_changes=ctx.git.has_uncommitted_changes_under(
             ctx.repo_root,
             relative_path,
         ),
     )
+
+
+def _build_updated_branches_by_slug(
+    ctx: ObjectiveCliContext,
+    slugs: frozenset[str],
+) -> dict[str, tuple[str, ...]] | GitCommandFailure:
+    branches = _local_non_trunk_branches(ctx)
+    updated_branches_by_slug: dict[str, list[str]] = {slug: [] for slug in slugs}
+    if not branches:
+        return {slug: () for slug in slugs}
+
+    objective_root = ACTIVE_OBJECTIVE_ROOT.as_posix()
+    changed_branches = _branches_with_objective_tree_changes(ctx, branches, objective_root)
+    if isinstance(changed_branches, GitCommandFailure):
+        return changed_branches
+
+    for branch in changed_branches:
+        touches = ctx.git.path_touches_under(f"{ctx.trunk_branch}..{branch}", objective_root)
+        if isinstance(touches, GitCommandFailure):
+            return touches
+
+        branch_slugs: set[str] = set()
+        for touch in touches:
+            for path in touch.paths:
+                slug = objective_slug_from_active_path(path)
+                if slug in slugs:
+                    branch_slugs.add(slug)
+
+        for slug in sorted(branch_slugs):
+            updated_branches_by_slug[slug].append(branch)
+
+    return {slug: tuple(branches) for slug, branches in updated_branches_by_slug.items()}
+
+
+def _local_non_trunk_branches(ctx: ObjectiveCliContext) -> tuple[str, ...]:
+    return tuple(
+        branch
+        for branch in sorted(set(ctx.git.list_local_branches()))
+        if branch != ctx.trunk_branch
+    )
+
+
+def _branches_with_objective_tree_changes(
+    ctx: ObjectiveCliContext,
+    branches: tuple[str, ...],
+    objective_root: str,
+) -> tuple[str, ...] | GitCommandFailure:
+    refs = (ctx.trunk_branch, *branches)
+    tree_oids = ctx.git.tree_oids_at_refs(refs, objective_root)
+    if isinstance(tree_oids, GitCommandFailure):
+        return tree_oids
+
+    trunk_tree_oid = tree_oids.get(ctx.trunk_branch)
+    return tuple(branch for branch in branches if tree_oids.get(branch) != trunk_tree_oid)
