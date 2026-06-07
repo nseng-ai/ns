@@ -13,6 +13,8 @@ from importlib.resources import files
 from types import MappingProxyType
 from typing import Any, TextIO
 
+from pydantic import ValidationError
+
 from roaster.models import (
     ClaudeCodeEmptyOutput,
     ClaudeCodeInvalidFindings,
@@ -22,11 +24,9 @@ from roaster.models import (
     ClaudeCodeNonJsonResult,
     ClaudeDiffFindingsOutput,
     ClaudeDocumentFindingsOutput,
-    DiffLineLocation,
     DiffReviewTarget,
     DocumentReviewTarget,
     FindingsReview,
-    GlobalLocation,
     HarnessBinaryMissing,
     HarnessDetection,
     HarnessExecutionFailed,
@@ -37,7 +37,6 @@ from roaster.models import (
     ReviewContextFragment,
     ReviewDefinition,
     ReviewExecutionResponse,
-    ReviewFinding,
     ReviewFormat,
     ReviewTarget,
     ReviewUsage,
@@ -279,37 +278,16 @@ def _parse_findings_payload(
     usage: ReviewUsage | None,
     target: ReviewTarget,
 ) -> ReviewExecutionResponse | RoasterFailure:
-    if not isinstance(payload, dict):
-        return ClaudeCodeInvalidFindings(
-            message="Claude Code review output must be a JSON object with a `findings` array.",
-        )
-
-    findings_payload = payload.get("findings")
-    if not isinstance(findings_payload, list):
-        return ClaudeCodeInvalidFindings(
-            message="Claude Code review output must include a `findings` array.",
-        )
-
-    findings: list[ReviewFinding] = []
-    for finding_payload in findings_payload:
-        if not isinstance(finding_payload, dict):
-            return ClaudeCodeInvalidFindings(
-                message="Each review finding must be a JSON object.",
-            )
+    if isinstance(target, DocumentReviewTarget):
         try:
-            finding = ReviewFinding.from_json_dict(finding_payload)
-        except ValueError as exc:
+            findings_output = ClaudeDocumentFindingsOutput.model_validate(payload)
+        except ValidationError as exc:
             return ClaudeCodeInvalidFindings(
-                message=str(exc),
+                message=(
+                    f"Claude Code review output did not match the document findings schema: {exc}"
+                ),
             )
-        if isinstance(target, DocumentReviewTarget):
-            if not isinstance(finding.location, (GlobalLocation, TextAnchorLocation)):
-                return ClaudeCodeInvalidFindings(
-                    message=(
-                        "Document review findings must include a `global` or `text_anchor` "
-                        "location."
-                    ),
-                )
+        for finding in findings_output.findings:
             if (
                 isinstance(finding.location, TextAnchorLocation)
                 and finding.location.text not in target.content
@@ -321,17 +299,20 @@ def _parse_findings_payload(
                         f"in target {target.label!r}; missing anchor: {anchor_text!r}."
                     ),
                 )
-        if isinstance(target, DiffReviewTarget) and not isinstance(
-            finding.location,
-            DiffLineLocation,
-        ):
+        findings = tuple(finding.to_review_finding() for finding in findings_output.findings)
+    else:
+        try:
+            findings_output = ClaudeDiffFindingsOutput.model_validate(payload)
+        except ValidationError as exc:
             return ClaudeCodeInvalidFindings(
-                message="Diff review findings must use legacy path/line or a `diff_line` location.",
+                message=(
+                    f"Claude Code review output did not match the diff findings schema: {exc}"
+                ),
             )
-        findings.append(finding)
+        findings = tuple(finding.to_review_finding() for finding in findings_output.findings)
 
     return ReviewExecutionResponse(
-        payload=FindingsReview(findings=tuple(findings)),
+        payload=FindingsReview(findings=findings),
         usage=usage,
     )
 
