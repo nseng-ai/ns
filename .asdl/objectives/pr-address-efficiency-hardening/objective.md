@@ -106,7 +106,7 @@ Risks:
 - A composite helper such as `plan-run` could become an opaque mega-command if it owns too much judgment or hides intermediate validation diagnostics.
 - Adding run-state files or managed artifacts could create lifecycle/cleanup confusion if they are not clearly scoped to a payload session or explicit artifact role.
 - File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design.
-- Shared payload/platform changes could expand the Objective beyond `pr-address` and compete with unrelated agent infrastructure work.
+- Shared payload/platform changes could expand the Objective beyond `pr-address` and compete with unrelated agent infrastructure work. PR #1011 narrows this risk for JSON input handling by promoting only a generic Clinkr option/stdin loader while leaving pr-address-specific classification and mutation semantics in `pr-address` helpers; broader payload/platform lifecycle questions remain parked unless directly blocking.
 - Over-optimizing for speed could weaken the existing safety guarantees: validated classification, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no pushing.
 
 ## Open Questions
