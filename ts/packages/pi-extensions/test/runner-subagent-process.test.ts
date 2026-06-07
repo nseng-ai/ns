@@ -39,6 +39,7 @@ function finalTextOptions(
 	overrides: {
 		title?: string;
 		cwd?: string;
+		model?: string;
 		signal?: AbortSignal;
 		terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 	} = {},
@@ -101,6 +102,31 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.sessionFile).toBe("/tmp/runner-subagent.jsonl");
 	});
 
+	test("passes optional model before runtime extension in terminal mode", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ model: "haiku" }), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--model",
+			"haiku",
+			"--extension",
+			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("stopped-without-terminal");
+	});
+
 	test("returns stopped-without-terminal for clean subagent completion", async () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
@@ -135,6 +161,30 @@ describe("runner subagent process dispatcher", () => {
 			diagnostic: "Subagent Pi stopped without terminal capture.",
 			stopReason: "end",
 		});
+	});
+
+	test("passes optional model to child Pi args in final-text mode", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ model: "haiku" }), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--model",
+			"haiku",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }] } }));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
 	});
 
 	test("returns final assistant text for clean subagent completion in final-text mode", async () => {

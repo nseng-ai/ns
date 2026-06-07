@@ -187,12 +187,24 @@ to pass payload paths and locators without pasting raw payload JSON.
 
 Preferred classification path:
 
-1. Pass the compact manifest, `payload_reference.payload_path`, relevant body
-   locators, the generated `classification-template`, and completeness
-   requirements to a focused payload-aware summarizer/subagent.
-2. Require the summarizer to preserve all prefilled IDs/locators/coverage fields
-   and fill only the semantic judgment fields in the strict packet.
-3. Do not paste the full `.raw.json` payload artifact into the main transcript.
+1. For ordinary bounded classification, launch a focused payload-aware runner
+   subagent with `dispatch_runner_subagent` using a configured cheap/fast Pi
+   model pattern in its optional `model` field, for example a local alias such
+   as `haiku` when available. The prompt must include the compact manifest,
+   `payload_reference.payload_path`, relevant body locators, the generated
+   `classification-template`, the `feedback-classifier` rules, the strict packet
+   contract, and completeness requirements.
+2. Require the summarizer to return only the strict classification packet,
+   preserving all prefilled IDs/locators/coverage fields and filling only the
+   semantic judgment fields.
+3. Do not use a cheap model for unusually ambiguous feedback or comments that
+   require complex cross-file code-context reasoning; use the default/strong
+   model path instead by omitting `model` or passing a stronger configured model
+   pattern.
+4. Do not paste the full `.raw.json` payload artifact into the main transcript.
+5. If `dispatch_runner_subagent` is unavailable or the harness cannot choose a
+   model per dispatch, use the fallback path below and classify directly from
+   artifact-backed selected detail lookup; do not pretend delegation occurred.
 
 Fallback path when no subagent/separate subagent or helper is available:
 
@@ -247,8 +259,9 @@ printf '%s' '{"manifest":{...},"classification":{...}}' \
 Validation outcomes:
 
 - If validation exits `0` and `data.valid` is true, continue to plan display.
-- If validation exits `1`, inspect `data.counts` and `data.errors`, retry
-  classification once with focused correction, then revalidate.
+- If validation exits `1`, inspect `data.counts` and `data.errors`, pass those
+  diagnostics plus the original manifest/template evidence to a stronger/default
+  model for one correction attempt, then revalidate.
 - If the retry still fails, stop and report the diagnostics.
 - If validation exits `2`, treat it as malformed workflow input and stop.
 
@@ -261,9 +274,10 @@ printf '%s' '<json wrapper>' \
 ```
 
 Use the same wrapper shape as validation. If `plan-feedback` exits `1`, inspect
-`data.validation.counts` and `data.validation.errors`, retry classification once
-with focused correction, then re-run validation and planning. If it exits `2`,
-treat it as malformed workflow input and stop.
+`data.validation.counts` and `data.validation.errors`, pass those diagnostics
+plus the original manifest/template evidence to a stronger/default model for one
+correction attempt, then re-run validation and planning. If it exits `2`, treat
+it as malformed workflow input and stop.
 
 The returned plan, not hand-grouped scratch notes, drives execution:
 

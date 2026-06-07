@@ -6,10 +6,10 @@
   - Delivered: `pr-address exec classification-template` builds a deterministic fill-in scaffold from `prepare-run` or `get-feedback` compact manifests. It prefills review IDs, thread IDs, comment IDs, item pointers, and minimal valid locator refs while leaving semantic judgment fields for the LLM/agent.
   - Evidence: `feedback_classification.py`, `classification_template.py`, scenario tests, unit tests, and CLI reference now cover filled-template validation, unfilled-template rejection, missing/extra locator fields, wrong covered-comment fields, duplicate IDs, omitted unresolved threads, and resolved-thread omission.
 
-- [ ] Add cost-aware classifier model routing.
-  - Default bounded initial classification to a cheap/fast model or profile when the input is compact feedback plus payload locators, the task is finite-rule classification from the `feedback-classifier` reference, and strict JSON validation runs afterward.
-  - Escalate or retry with a stronger model when validation fails, comments are unusually ambiguous, or the classifier must reason over complex cross-file code context.
-  - Evidence: future pr-address classifier launches can request the cheaper model/profile through a supported per-dispatch interface or documented harness fallback, and tests/docs cover validator-driven escalation behavior without trusting cheap-model output directly.
+- [x] Add cost-aware classifier model routing.
+  - Delivered: Pi `dispatch_runner_subagent` accepts an optional `model` pattern, validates/trims it, passes it to child Pi as `--model`, and reports it as `requestedModel` evidence without claiming the actual resolved model.
+  - Delivered: the public `pr-address` skill routes ordinary bounded classification through a cheap/fast runner model pattern when available, while the classifier reference and shared subagent-launch policy require deterministic validation and escalation to a stronger/default model for validation failures, omissions, ambiguity, or complex cross-file code-context reasoning.
+  - Evidence: targeted runner subagent tests cover optional model schema, validation, final-text child args, terminal/runtime-extension child args, and requested-model details; TypeScript check/tests and dprint checks passed.
 
 - [~] Design the managed run-state boundary for pr-address orchestration.
   - Decide which transient artifacts belong in the payload/session store, which can be ordinary `@file` inputs, and which should disappear behind composite helpers. Preserve the distinction between raw feedback payloads, selected-detail artifacts, classification packets, validation wrappers, and GitHub mutation payloads.

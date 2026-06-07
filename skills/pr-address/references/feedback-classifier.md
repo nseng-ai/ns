@@ -153,6 +153,18 @@ pass those diagnostics back to the classifier once, and ask for a corrected
 packet. If the retry still fails, stop and report the diagnostics. If validation
 returns `exit_code: 2`, treat it as malformed workflow input and stop.
 
+## Cost-aware model routing
+
+Initial classification may run on a cheaper/faster model when the task is bounded
+to compact manifest entries, payload locators, selected body text, and these
+finite classifier rules. This is safe only because the parent validates the
+strict packet before planning or execution.
+
+Escalate to a stronger/default model when validation fails, required items are
+omitted, comments are ambiguous, or the classifier needs complex cross-file code
+context. Pass the validation diagnostics and original manifest/template evidence
+to the escalation run.
+
 ## Classification rules
 
 Evaluate every item against the rules below **in order**. First rule that

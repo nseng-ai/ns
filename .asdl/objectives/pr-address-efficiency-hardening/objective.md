@@ -113,12 +113,12 @@ Risks:
 - File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design.
 - Shared payload/platform changes could expand the Objective beyond `pr-address` and compete with unrelated agent infrastructure work. PR #1011 narrows this risk for JSON input handling by promoting only a generic Clinkr option/stdin loader while leaving pr-address-specific classification and mutation semantics in `pr-address` helpers; broader payload/platform lifecycle questions remain parked unless directly blocking.
 - Over-optimizing for speed could weaken the existing safety guarantees: validated classification, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no pushing.
-- The current subagent dispatch surface may not expose a per-launch model/profile knob. Adding one could touch cross-harness agent policy, so it needs a narrow pr-address-driven contract and a fallback path for harnesses that cannot choose models per dispatch.
+- The previous risk that Pi runner subagent dispatch lacked a per-launch model/profile knob is de-risked for Pi by adding an optional `dispatch_runner_subagent` model pattern that passes through to child Pi `--model`. Cross-harness fallback language remains necessary for environments that cannot choose models per dispatch.
 
 ## Open Questions
 
 - Should the classification template be emitted directly by `prepare-run`, by a separate `classification-template` helper, or by a validator-owned merge operation that accepts only semantic fills?
-- Where should per-dispatch model/profile selection live so `pr-address` can default bounded classifier launches to cheaper models without hard-coding provider-specific policy or weakening validator-driven escalation?
+- Resolved for Pi: per-dispatch model selection lives on the generic `dispatch_runner_subagent` tool as an optional Pi `--model` pattern; `pr-address` skill policy chooses when bounded classification may request it and keeps validator-driven escalation mandatory.
 - What is the right boundary between `plan-run` and smaller helpers so deterministic orchestration improves without hiding too much from the agent and user?
 - Should `resolve-thread-batch` gain `@file`/file-path input support, or should a higher-level batch checkpoint helper own mutation payload generation entirely?
 - What representative fixture or live-run protocol should count as closure evidence for the lower-orchestration happy path?
