@@ -97,7 +97,9 @@ class FeedbackPlanInformationalItem(ClinkrModel):
 
 
 class FeedbackPlanBatch(ClinkrModel):
-    batch_id: str
+    # batch_id intentionally mirrors complexity: it is the stable external selector consumed by
+    # build-resolve-thread-batch-payload, while complexity remains semantic metadata.
+    batch_id: ActionComplexity
     complexity: ActionComplexity
     approval_required: bool
     items: tuple[FeedbackPlanActionItem, ...]
