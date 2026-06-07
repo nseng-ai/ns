@@ -299,6 +299,40 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.status).toBe("final-text");
 	});
 
+	test("does not inherit parent thinking when caller provides a model pattern", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(
+			{ getThinkingLevel: () => "high" },
+			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.5" } },
+			finalTextOptions({ title: "Cheap classifier", model: "openai-codex/gpt-5.4-mini:medium" }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--model",
+			"openai-codex/gpt-5.4-mini:medium",
+			"--no-extensions",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }] } }));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.progress.launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini:medium",
+			thinkingLevel: "off",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
+	});
+
 	test("returns final assistant text for clean subagent completion in final-text mode", async () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });

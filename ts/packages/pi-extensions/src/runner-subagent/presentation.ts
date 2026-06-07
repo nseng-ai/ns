@@ -26,8 +26,9 @@ export function runnerSubagentSessionFileText(source: RunnerSubagentPresentation
 }
 
 export function formatRunnerSubagentModelText(launch: RunnerSubagentLaunchMetadata): string {
-	if (launch.model === undefined) return "default (not specified)";
-	return `${launch.model.provider}/${launch.model.id}`;
+	if (launch.model !== undefined) return `${launch.model.provider}/${launch.model.id}`;
+	if (launch.requestedModel !== undefined) return launch.requestedModel;
+	return "default (not specified)";
 }
 
 export function formatRunnerSubagentProgressWidgetLines(

@@ -1,3 +1,4 @@
+import type { ThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
 import {
@@ -76,7 +77,7 @@ export class RunnerSubagentJsonEventParser {
 	private readonly now: () => number;
 	private readonly startTimeMs: number;
 	private readonly terminalToolNames: Set<string>;
-	private readonly launch: RunnerSubagentLaunchMetadata | undefined;
+	private launch: RunnerSubagentLaunchMetadata | undefined;
 	private buffer = "";
 	private state: ParserState = "starting";
 	private currentTool: string | undefined;
@@ -100,7 +101,7 @@ export class RunnerSubagentJsonEventParser {
 		this.now = options.now ?? Date.now;
 		this.startTimeMs = options.startTimeMs ?? this.now();
 		this.terminalToolNames = new Set(options.terminalToolNames ?? []);
-		this.launch = options.launch;
+		this.launch = cloneLaunchMetadata(options.launch);
 		this.sessionFile = options.sessionFile;
 	}
 
@@ -188,6 +189,12 @@ export class RunnerSubagentJsonEventParser {
 			case "session":
 				this.captureSessionHeader(event);
 				return;
+			case "model_change":
+				this.captureModelChange(event);
+				return;
+			case "thinking_level_change":
+				this.captureThinkingLevelChange(event);
+				return;
 			case "agent_start":
 				this.state = "running";
 				return;
@@ -253,6 +260,26 @@ export class RunnerSubagentJsonEventParser {
 		if (typeof headerSessionFile === "string" && headerSessionFile.length > 0) {
 			this.sessionFile = headerSessionFile;
 		}
+	}
+
+	private captureModelChange(event: JsonRecord): void {
+		if (typeof event.provider !== "string" || typeof event.modelId !== "string") return;
+		this.launch = {
+			...this.currentLaunchMetadata(),
+			model: { provider: event.provider, id: event.modelId },
+		};
+	}
+
+	private captureThinkingLevelChange(event: JsonRecord): void {
+		if (!isThinkingLevel(event.thinkingLevel)) return;
+		this.launch = {
+			...this.currentLaunchMetadata(),
+			thinkingLevel: event.thinkingLevel,
+		};
+	}
+
+	private currentLaunchMetadata(): RunnerSubagentLaunchMetadata {
+		return this.launch ?? { thinkingLevel: "off", hasModelArg: false, hasThinkingArg: false };
 	}
 
 	private captureCurrentTool(event: JsonRecord): void {
@@ -429,6 +456,21 @@ function chunkToString(chunk: string | Uint8Array): string {
 
 function isJsonEvent(value: unknown): value is JsonEvent {
 	return isRecord(value) && typeof value.type === "string";
+}
+
+function isThinkingLevel(value: unknown): value is ThinkingLevel {
+	return value === "off" || value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh";
+}
+
+function cloneLaunchMetadata(launch: RunnerSubagentLaunchMetadata | undefined): RunnerSubagentLaunchMetadata | undefined {
+	if (launch === undefined) return undefined;
+	return {
+		...(launch.model === undefined ? {} : { model: { ...launch.model } }),
+		...(launch.requestedModel === undefined ? {} : { requestedModel: launch.requestedModel }),
+		thinkingLevel: launch.thinkingLevel,
+		hasModelArg: launch.hasModelArg,
+		hasThinkingArg: launch.hasThinkingArg,
+	};
 }
 
 export function isRecord(value: unknown): value is JsonRecord {

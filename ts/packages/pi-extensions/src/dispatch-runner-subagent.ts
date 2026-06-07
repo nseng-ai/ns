@@ -135,7 +135,12 @@ export default function dispatchRunnerSubagentExtension(
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
 			const childPrompt = composePiAgentPrompt(runnerDefinition, input);
-			const launch = resolveRunnerSubagentLaunch(pi, ctx, { prompt: childPrompt, returnMode: "final-text" }) ?? defaultRunnerSubagentLaunchMetadata();
+			const launch =
+				resolveRunnerSubagentLaunch(pi, ctx, {
+					prompt: childPrompt,
+					returnMode: "final-text",
+					...(input.model === undefined ? {} : { model: input.model }),
+				}) ?? defaultRunnerSubagentLaunchMetadata();
 			const initialUpdate: RunnerSubagentUpdate = {
 				progress: initialDispatchProgress(input.title, launch),
 				activity: emptyRunnerSubagentActivity(),

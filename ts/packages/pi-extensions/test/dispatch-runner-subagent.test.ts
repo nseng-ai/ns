@@ -259,15 +259,16 @@ describe("dispatch_runner_subagent extension", () => {
 
 	test("passes optional model to child Pi invocation and reports requested model details", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
-		const pi = new FakePi(runner.dependencies);
+		const pi = new FakePi(runner.dependencies, { thinkingLevel: "high" });
 		const tool = registerTool({ pi });
+		const updates: ToolResult[] = [];
 
 		const running = tool.execute(
 			"tool-1",
-			{ title: "Cheap classifier", prompt: "Classify feedback.", model: " haiku " },
+			{ title: "Cheap classifier", prompt: "Classify feedback.", model: " openai-codex/gpt-5.4-mini:medium " },
 			undefined,
-			undefined,
-			{ cwd: ROOT },
+			(partial) => updates.push(partial),
+			{ cwd: ROOT, model: { provider: "openai-codex", id: "gpt-5.5" } },
 		);
 		const call = await waitForSpawn(runner.calls);
 
@@ -276,19 +277,30 @@ describe("dispatch_runner_subagent extension", () => {
 			"json",
 			"-p",
 			"--model",
-			"haiku",
+			"openai-codex/gpt-5.4-mini:medium",
 			"--no-extensions",
 			"--session",
 			SESSION_FILE,
 			composedFixturePrompt("Classify feedback."),
 		]);
+		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini:medium",
+			thinkingLevel: "off",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
 
+		call.process.emitStdout(jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }));
+		call.process.emitStdout(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
+		expect(updateTexts(updates)).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: medium");
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
 		const result = await running;
+		const text = result.content[0]?.text ?? "";
 		const details = result.details as Record<string, unknown>;
 
-		expect(details.requestedModel).toBe("haiku");
+		expect(text).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: medium");
+		expect(details.requestedModel).toBe("openai-codex/gpt-5.4-mini:medium");
 	});
 
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {

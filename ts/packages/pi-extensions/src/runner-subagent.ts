@@ -27,6 +27,7 @@ export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 
 export interface RunnerSubagentLaunchMetadata {
 	model?: ModelInfo;
+	requestedModel?: string;
 	thinkingLevel: ThinkingLevel;
 	hasModelArg: boolean;
 	hasThinkingArg: boolean;

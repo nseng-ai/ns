@@ -283,7 +283,7 @@ export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	} else if (input.launch?.model !== undefined) {
 		args.push("--provider", input.launch.model.provider, "--model", input.launch.model.id);
 	}
-	if (input.launch !== undefined && input.launch.thinkingLevel !== "off") {
+	if (input.launch !== undefined && input.launch.hasThinkingArg) {
 		args.push("--thinking", input.launch.thinkingLevel);
 	}
 	args.push("--no-extensions");
@@ -305,15 +305,20 @@ export function resolveRunnerSubagentLaunch(
 	ctx: RunnerSubagentContext,
 	options: RunnerSubagentOptions,
 ): RunnerSubagentLaunchMetadata | undefined {
-	const model = options.launch?.model ?? ctx.model;
-	const hasThinkingSource = options.launch?.thinkingLevel !== undefined || pi.getThinkingLevel !== undefined;
-	if (model === undefined && !hasThinkingSource) return undefined;
-	const thinkingLevel = options.launch?.thinkingLevel ?? pi.getThinkingLevel?.() ?? "off";
+	const requestedModel = options.model;
+	const model = requestedModel === undefined ? options.launch?.model ?? ctx.model : undefined;
+	const hasExplicitThinking = options.launch?.thinkingLevel !== undefined;
+	const hasInheritedThinkingSource = requestedModel === undefined && pi.getThinkingLevel !== undefined;
+	const hasThinkingSource = hasExplicitThinking || hasInheritedThinkingSource;
+	if (requestedModel === undefined && model === undefined && !hasThinkingSource) return undefined;
+	const thinkingLevel = options.launch?.thinkingLevel ?? (requestedModel === undefined ? pi.getThinkingLevel?.() : undefined) ?? "off";
+	const hasThinkingArg = thinkingLevel !== "off" && (hasExplicitThinking || requestedModel === undefined);
 	return {
 		...(model === undefined ? {} : { model }),
+		...(requestedModel === undefined ? {} : { requestedModel }),
 		thinkingLevel,
-		hasModelArg: model !== undefined,
-		hasThinkingArg: thinkingLevel !== "off",
+		hasModelArg: requestedModel !== undefined || model !== undefined,
+		hasThinkingArg,
 	};
 }
 
@@ -352,6 +357,12 @@ function updateSignature(update: RunnerSubagentUpdate): string {
 		String(update.progress.toolCount),
 		String(update.progress.turnCount),
 		update.progress.sessionFile ?? "",
+		update.progress.launch?.model?.provider ?? "",
+		update.progress.launch?.model?.id ?? "",
+		update.progress.launch?.requestedModel ?? "",
+		update.progress.launch?.thinkingLevel ?? "",
+		String(update.progress.launch?.hasModelArg ?? false),
+		String(update.progress.launch?.hasThinkingArg ?? false),
 		update.activity.assistantPreview ?? "",
 		update.activity.currentToolInputPreview ?? "",
 		update.activity.lastToolName ?? "",
