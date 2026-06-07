@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import click
 
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.git.types import GitCommandFailure
+from asdl_core.git.types import GitCommandFailure, LocalBranchTip
 from asdl_objectives.context import (
     ObjectiveCliContext,
     ObjectiveCliUnavailable,
@@ -179,11 +181,27 @@ def _build_updated_branches_by_slug(
 
 
 def _local_non_trunk_branches(ctx: ObjectiveCliContext) -> tuple[str, ...]:
-    return tuple(
-        branch
-        for branch in sorted(set(ctx.git.list_local_branches()))
-        if branch != ctx.trunk_branch
+    branch_tips = sorted(
+        (tip for tip in ctx.git.list_local_branch_tips() if tip.name != ctx.trunk_branch),
+        key=lambda tip: tip.name,
     )
+    return tuple(
+        tip.name
+        for tip in sorted(
+            branch_tips,
+            key=_branch_tip_datetime,
+            reverse=True,
+        )
+    )
+
+
+def _branch_tip_datetime(tip: LocalBranchTip) -> datetime:
+    if tip.head_iso is None:
+        return datetime.min.replace(tzinfo=UTC)
+    parsed = datetime.fromisoformat(tip.head_iso)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _branches_with_objective_tree_changes(

@@ -425,6 +425,45 @@ def test_objective_list_updated_branches_json_human_and_markdown(
     assert "| beta | ○ open | — | feat/beta |" in markdown.output
 
 
+def test_objective_list_updated_branches_orders_branches_by_latest_tip(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    root_path = ".asdl/objectives"
+    ctx = _list_context(
+        repo_root=tmp_path,
+        branches=("master", "a-older", "z-newer"),
+        tree_oid_by_ref_path={
+            ("master", root_path): "trunk-tree",
+            ("a-older", root_path): "older-tree",
+            ("z-newer", root_path): "newer-tree",
+        },
+        path_change_touches_by_ref_path={
+            ("master..a-older", root_path): (
+                _change_touch("older-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+            ),
+            ("master..z-newer", root_path): (
+                _change_touch("newer-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+            ),
+        },
+        branch_head_iso_by_branch={
+            "master": "2026-05-01T00:00:00+00:00",
+            "a-older": "2026-05-02T00:00:00+00:00",
+            "z-newer": "2026-05-03T00:00:00+00:00",
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, updated_branches=True)
+    human = _invoke_list_human(cli_group, ctx, updated_branches=True, terminal_columns=120)
+
+    assert result.exit_code == 0, result.output
+    records = json.loads(result.output)["data"]["records"]
+    assert records[0]["updated_branches"] == ["z-newer", "a-older"]
+    assert human.exit_code == 0, human.output
+    assert "2 z-newer, a-older" in human.output
+
+
 def test_objective_list_updated_branches_human_is_compact_at_narrow_width(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -1281,6 +1320,7 @@ def _list_context(
         dict[tuple[str, str], tuple[PathChangeTouch, ...] | GitCommandFailure] | None
     ) = None,
     uncommitted_changes_by_cwd_path: dict[tuple[Path, str], bool] | None = None,
+    branch_head_iso_by_branch: dict[str, str] | None = None,
 ) -> ObjectiveCliContext:
     return ObjectiveCliContext(
         repo_root=repo_root,
@@ -1294,6 +1334,7 @@ def _list_context(
             path_touch_by_ref_path=path_touch_by_ref_path,
             path_change_touches_by_ref_path=path_change_touches_by_ref_path,
             uncommitted_changes_by_cwd_path=uncommitted_changes_by_cwd_path,
+            branch_head_iso_by_branch=branch_head_iso_by_branch,
         ),
     )
 

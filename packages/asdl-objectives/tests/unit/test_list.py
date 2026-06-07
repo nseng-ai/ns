@@ -200,7 +200,7 @@ def test_build_objective_list_result_updated_branches_uses_branch_first_prefilte
         ("alpha", ("feat/alpha",)),
         ("beta", ("feat/beta",)),
     ]
-    assert git.list_local_branches_calls == (None,)
+    assert git.list_local_branches_calls == ()
     assert git.tree_oids_at_refs_calls == (
         (
             ("master", "feat/alpha", "feat/beta", "feat/branch-only", "feat/same-tree"),
