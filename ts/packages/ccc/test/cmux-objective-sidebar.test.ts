@@ -17,7 +17,7 @@ import {
 	objectiveSidebarDescription,
 	resetCmuxTestEnvironment,
 	step,
-} from "./cmux-test-harness.ts";
+} from "./ccc-test-harness.ts";
 
 afterEach(resetCmuxTestEnvironment);
 
