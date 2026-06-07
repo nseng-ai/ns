@@ -155,7 +155,7 @@ export default function dispatchRunnerSubagentExtension(
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-					details: dispatchRunnerSubagentDetails(result, input.model === undefined ? {} : { requestedModel: input.model }),
+					details: dispatchRunnerSubagentDetails(result, { requestedModel: input.model }),
 				};
 			} finally {
 				setWidget(ctx, undefined);
@@ -196,7 +196,7 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 
 export function dispatchRunnerSubagentDetails(
 	result: RunnerSubagentResult,
-	options: { requestedModel?: string } = {},
+	options: { requestedModel?: string | undefined } = {},
 ): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
 	const sessionFile = runnerSubagentSessionFile(result);

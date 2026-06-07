@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from typing import Annotated
 
 import click
-from pydantic import ValidationError
 
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_pr_address.cli.pr_address.feedback_classification import validate_feedback_classification
@@ -17,11 +16,7 @@ from asdl_pr_address.cli.pr_address.feedback_classification_models import (
     FeedbackClassificationValidationResult,
     ValidateFeedbackClassificationInput,
 )
-from asdl_pr_address.cli.pr_address.json_sources import (
-    fail_for_json_or_validation_error,
-    load_json_object_source,
-    read_json_text_source,
-)
+from asdl_pr_address.cli.pr_address.json_sources import load_json_object_source
 
 
 class ValidateFeedbackClassificationRequest(ClinkrModel):
@@ -149,23 +144,16 @@ def _validate_split_sources(request: ValidateFeedbackClassificationRequest) -> N
 def _load_wrapper_payload(
     request: ValidateFeedbackClassificationRequest,
 ) -> ValidateFeedbackClassificationInput:
-    raw_payload = read_json_text_source(
-        inline_json=request.payload_json,
+    return load_json_input(
+        option_value=request.payload_json,
         file_path=request.payload_file,
         allow_stdin=True,
         command_name="validate-feedback-classification",
-        input_name="wrapper payload",
-        inline_option="--payload-json",
-        file_option="--payload-file",
+        input_description="wrapper payload",
+        option_name="--payload-json",
+        file_option_name="--payload-file",
+        parser=ValidateFeedbackClassificationInput.model_validate_json,
     )
-    try:
-        return ValidateFeedbackClassificationInput.model_validate_json(raw_payload)
-    except (json.JSONDecodeError, ValidationError) as exc:
-        fail_for_json_or_validation_error(
-            exc=exc,
-            command_name="validate-feedback-classification",
-            input_name="wrapper payload",
-        )
 
 
 def _source_count(*values: str | None) -> int:

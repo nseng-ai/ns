@@ -163,6 +163,22 @@ def test_read_json_payload_artifact_value_rejects_symlink_file(tmp_path: Path) -
     _assert_payload_lookup_failed(exc_info)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="symlink privileges vary on Windows")
+def test_read_json_payload_artifact_value_rejects_broken_symlink_as_symlink(
+    tmp_path: Path,
+) -> None:
+    payload_dir = tmp_path / "payload-root" / "sessions" / "session1" / "payloads"
+    payload_dir.mkdir(parents=True)
+    symlink_path = payload_dir / "20260603t123456z-0001-probe.raw.json"
+    symlink_path.symlink_to(payload_dir / "missing-target.json")
+
+    with pytest.raises(PayloadError) as exc_info:
+        read_json_payload_artifact_value(symlink_path, "")
+
+    _assert_payload_lookup_failed(exc_info)
+    assert "must not be a symlink" in exc_info.value.message
+
+
 def test_read_json_payload_artifact_value_rejects_invalid_json(tmp_path: Path) -> None:
     payload_path = _payload_file(
         tmp_path,

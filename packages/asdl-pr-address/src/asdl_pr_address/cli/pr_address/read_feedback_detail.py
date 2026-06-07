@@ -156,39 +156,24 @@ def run_read_feedback_details(
     selected = _select_feedback_details(selection)
     artifact = SelectedFeedbackDetailsArtifact(
         source_payload_path=selection.payload_path,
-        details=tuple(
-            SelectedFeedbackDetailsArtifactItem(
-                json_pointer=item.json_pointer,
-                detail_kind=item.detail_kind,
-                value=item.value,
-            )
-            for item in selected
-        ),
+        details=selected,
     )
     reference = _write_selected_details_artifact(
         source_payload_path=Path(selection.payload_path),
         artifact=artifact,
     )
-    summaries = tuple(_detail_summary(item, index=index) for index, item in enumerate(selected))
+    summaries, counts = _summaries_and_counts(
+        selected,
+        requested_count=len(selection.json_pointers),
+    )
     return ClinkrExit.ok(
         ReadFeedbackDetailsResult(
             payload_path=selection.payload_path,
             selected_payload_reference=reference,
             details=summaries,
-            counts=SelectedFeedbackDetailCounts(
-                requested=len(selection.json_pointers),
-                selected=len(summaries),
-                body_values=sum(1 for item in summaries if item.value_kind == "string"),
-                item_values=sum(1 for item in summaries if item.value_kind == "object"),
-            ),
+            counts=counts,
         )
     )
-
-
-class _SelectedFeedbackDetail(ClinkrModel):
-    json_pointer: str
-    detail_kind: DetailKind
-    value: Any
 
 
 def _load_details_selection(request: ReadFeedbackDetailsRequest) -> ReadFeedbackDetailsInput:
@@ -204,25 +189,23 @@ def _load_details_selection(request: ReadFeedbackDetailsRequest) -> ReadFeedback
         error_type="invalid_request",
         message="read-feedback-details selection must include at least one JSON Pointer",
     )
-    seen_pointers: set[str] = set()
-    for pointer in selection.json_pointers:
-        Ensure.true(
-            pointer not in seen_pointers,
-            error_type="invalid_request",
-            message=f"Duplicate JSON Pointer in read-feedback-details selection: {pointer}",
-        )
-        seen_pointers.add(pointer)
+    duplicate_pointer = _first_duplicate_pointer(selection.json_pointers)
+    Ensure.true(
+        duplicate_pointer is None,
+        error_type="invalid_request",
+        message=f"Duplicate JSON Pointer in read-feedback-details selection: {duplicate_pointer}",
+    )
     return selection
 
 
 def _select_feedback_details(
     selection: ReadFeedbackDetailsInput,
-) -> tuple[_SelectedFeedbackDetail, ...]:
+) -> tuple[SelectedFeedbackDetailsArtifactItem, ...]:
     detail_kinds = tuple(_validated_detail_kind(pointer) for pointer in selection.json_pointers)
     envelope = _read_raw_payload_envelope(Path(selection.payload_path))
     _validate_success_envelope(envelope, payload_path=selection.payload_path)
 
-    selected: list[_SelectedFeedbackDetail] = []
+    selected: list[SelectedFeedbackDetailsArtifactItem] = []
     for pointer, detail_kind in zip(selection.json_pointers, detail_kinds, strict=True):
         value = _resolve_detail_value(envelope, pointer)
         _validate_detail_value_type(
@@ -232,7 +215,7 @@ def _select_feedback_details(
             json_pointer=pointer,
         )
         selected.append(
-            _SelectedFeedbackDetail(
+            SelectedFeedbackDetailsArtifactItem(
                 json_pointer=pointer,
                 detail_kind=detail_kind,
                 value=value,
@@ -241,19 +224,52 @@ def _select_feedback_details(
     return tuple(selected)
 
 
+def _first_duplicate_pointer(pointers: tuple[str, ...]) -> str | None:
+    seen: set[str] = set()
+    for pointer in pointers:
+        if pointer in seen:
+            return pointer
+        seen.add(pointer)
+    return None
+
+
+def _summaries_and_counts(
+    selected: tuple[SelectedFeedbackDetailsArtifactItem, ...],
+    *,
+    requested_count: int,
+) -> tuple[tuple[SelectedFeedbackDetailSummary, ...], SelectedFeedbackDetailCounts]:
+    summaries: list[SelectedFeedbackDetailSummary] = []
+    body_values = 0
+    item_values = 0
+    for index, item in enumerate(selected):
+        summary = _detail_summary(item, index=index)
+        summaries.append(summary)
+        if summary.value_kind == "string":
+            body_values += 1
+        else:
+            item_values += 1
+    return tuple(summaries), SelectedFeedbackDetailCounts(
+        requested=requested_count,
+        selected=len(summaries),
+        body_values=body_values,
+        item_values=item_values,
+    )
+
+
 def _detail_summary(
-    selected: _SelectedFeedbackDetail,
+    selected: SelectedFeedbackDetailsArtifactItem,
     *,
     index: int,
 ) -> SelectedFeedbackDetailSummary:
     if isinstance(selected.value, str):
+        value_chars = len(selected.value)
         return SelectedFeedbackDetailSummary(
             json_pointer=selected.json_pointer,
             detail_kind=selected.detail_kind,
             artifact_json_pointer=f"/details/{index}/value",
             value_kind="string",
-            value_chars=len(selected.value),
-            body_chars=len(selected.value),
+            value_chars=value_chars,
+            body_chars=value_chars,
         )
 
     value = cast(dict[str, Any], selected.value)

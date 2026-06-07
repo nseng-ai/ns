@@ -81,6 +81,22 @@ Load these when their domain is touched:
 
 ## Workflow
 
+### Shared helper conventions
+
+- Payload session: choose one valid stack-wide payload session id using the
+  `pr-address` CLI reference as the source of truth for allowed syntax. Pass it
+  to every default payload feedback command with `--payload-session-id` or set
+  `ASDL_PAYLOAD_SESSION_ID` consistently for the run.
+- Helper exit codes: `0` means use the returned data; `1` means validation,
+  semantic, or operation-level failure with structured diagnostics; `2` means
+  malformed input, precondition failure, or unsupported workflow state and should
+  stop the run. For mutating helpers, report partial result data and do not roll
+  back successful mutations.
+- Feedback detail lookup: use `read-feedback-details` for batched selected
+  body/item lookup and `read-feedback-detail` only for exact one-off
+  lookup/debugging. Do not paste full raw payload artifacts into the transcript
+  or switch to inline payload mode by default.
+
 ### 1. Preflight
 
 1. Verify prerequisites:
@@ -99,11 +115,8 @@ Load these when their domain is touched:
 5. Resolve every non-trunk stack branch to an open PR with `gh pr list` or
    equivalent. Stop if any branch lacks an open PR unless the user explicitly
    chooses to continue.
-6. Choose one stack-wide payload session id for this invocation, matching
-   `^[a-z0-9][a-z0-9._-]{0,127}$`, for example
-   `pr-stack-address-20260604t120000z-a1`. Pass it to every default payload
-   feedback command with `--payload-session-id <payload-session-id>` or set
-   `ASDL_PAYLOAD_SESSION_ID` for all such commands.
+6. Choose the stack-wide payload session id for this invocation following the
+   shared helper convention above.
 7. If running in an asdl checkout and launching classifier subagents, read
    `.asdl/prompts/subagent-launch.md` before dispatch.
 
@@ -143,7 +156,6 @@ Rules:
 - Preserve `data.stack[]` entries, especially each compact `manifest`, raw
   payload reference, generated classification template, summary references, and
   `discussion_triage`.
-- Stop or report clearly if the helper returns `exit_code: 2`.
 - If a PR has no reviews, unresolved review threads, or discussion comments,
   include it in the scan summary but produce no plan items for it.
 - Top-level automation/status comments are summarized in `discussion_triage`;
@@ -174,10 +186,10 @@ For each `data.stack[]` prep entry with feedback:
      cheap/fast configured model for ordinary bounded classification.
    - Use the default/strong model for ambiguous feedback, validation failure,
      omitted items, or complex cross-file reasoning.
-   - Do not paste the full `.raw.json` payload artifact into the transcript.
-   - If no subagent/model routing is available, classify directly using
-     `read-feedback-details` for batched selected body/item lookup and
-     `read-feedback-detail` only for exact one-off lookup/debugging.
+   - Follow the shared feedback-detail lookup policy.
+   - If no subagent/model routing is available, classify directly using the same
+     compact manifest, payload locators, generated template, and classifier
+     rules.
 4. Treat `discussion_triage` as advisory only. It can suggest that Vercel,
    Graphite, roaster summary, or GitHub Actions comments are informational, but
    it does not remove them from classification coverage.
@@ -195,10 +207,9 @@ printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification"
 
 Rules:
 
-- If `stack-feedback-plan` exits `1`, use `data.validation.per_pr[]` counts and
-  errors plus original manifest/template evidence to correct classifications,
-  then rerun. If it still fails, stop and report diagnostics.
-- If it exits `2`, treat it as malformed workflow input and stop.
+- Apply the shared helper exit-code convention. For validation failures, use
+  `data.validation.per_pr[]` counts and errors plus original manifest/template
+  evidence to correct classifications before rerunning.
 - Do not show or execute a stack plan unless `data.valid` and
   `data.validation.all_valid` are true.
 - Use `data.batches` as the merged stack plan. It preserves PR provenance and
@@ -264,9 +275,8 @@ For each approved batch:
 3. Make the smallest coherent fix.
 4. For false positives or already-fixed items, do not change code; prepare a
    factual `explained` resolution message.
-5. Use `read-feedback-details` when multiple exact original bodies/items are
-   needed. Use `read-feedback-detail` only for exact one-off lookup/debugging.
-   Do not switch to full inline payloads by default.
+5. Follow the shared feedback-detail lookup policy when exact original
+   bodies/items are needed.
 6. Run targeted tests/typechecks for touched packages plus formatter checks.
    Escalate to full `just` when changes cross package/language boundaries or no
    targeted check is obvious.
@@ -328,11 +338,9 @@ For each PR and selected `plan-feedback` batch represented in an omnibus commit:
 
 5. If `data.payload_ready == false`, do not call `resolve-thread-batch`; report
    warnings/skipped/non-thread items.
-6. If the builder exits `1`, fix structured decision errors before mutating
-   GitHub.
-7. If `resolve-thread-batch` exits `1`, report partial result data, including
-   failed thread IDs and retry/fallback instructions. Do not roll back
-   successful resolutions.
+6. Apply the shared helper exit-code convention: fix builder decision errors
+   before mutating GitHub, and report mutating-helper partial failures with
+   failed thread IDs and retry/fallback instructions.
 
 Resolution messages must use canonical `pr-address` helper formatting and
 explicit stack-tip omnibus wording, for example:

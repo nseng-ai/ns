@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, cast, get_args
+from typing import Annotated, cast
 
 import click
-from pydantic import ValidationError
 
 from asdl_core.clinkr.exit import ClinkrExit
-from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
@@ -16,15 +14,16 @@ from asdl_pr_address.cli.pr_address.feedback_planning import (
     FeedbackPlanActionItem,
     FeedbackPlanningResult,
 )
-from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
+from asdl_pr_address.cli.pr_address.reply_formatting import (
+    VALID_RESOLUTION_MODES,
+    ResolutionReplyMode,
+    valid_resolution_modes_text,
+)
 from asdl_pr_address.cli.pr_address.resolve_thread_batch import (
     ResolveThreadBatchItem,
     ResolveThreadBatchPayload,
-    normalize_resolve_thread_batch_payload,
 )
 from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
-
-VALID_RESOLUTION_MODES: tuple[str, ...] = get_args(ResolutionReplyMode)
 
 
 class BuildResolveThreadBatchPayloadRequest(ClinkrModel):
@@ -168,13 +167,13 @@ def build_resolve_thread_batch_payload(
 
     selected_thread_ids = {trim_required(item.thread_id) for item in candidates}
     other_batch_by_thread = _other_batch_review_threads(plan=plan, selected_batch_id=batch_id)
-    informational_thread_ids = {
-        thread_id
-        for item in plan.informational
-        if item.source_kind == "review_thread"
-        for thread_id in (trim_optional(item.thread_id),)
-        if thread_id is not None
-    }
+    informational_thread_ids: set[str] = set()
+    for item in plan.informational:
+        if item.source_kind != "review_thread":
+            continue
+        thread_id = trim_optional(item.thread_id)
+        if thread_id is not None:
+            informational_thread_ids.add(thread_id)
 
     decisions_by_thread: dict[str, ResolveThreadBatchDecision] = {}
     duplicate_thread_ids: set[str] = set()
@@ -315,7 +314,7 @@ def build_resolve_thread_batch_payload(
         continue_on_error=request.continue_on_error,
         items=tuple(payload_items),
     )
-    canonical_errors = _canonical_payload_errors(
+    canonical_errors = _payload_cross_item_errors(
         payload=canonical_payload,
         batch_id=batch_id,
     )
@@ -465,12 +464,12 @@ def _validated_decision_item(
         )
 
     if mode not in VALID_RESOLUTION_MODES:
-        valid_modes = ", ".join(VALID_RESOLUTION_MODES)
         errors.append(
             BuildResolveThreadBatchPayloadError(
                 code="invalid_mode",
                 message=(
-                    f"Resolve decision for thread {thread_id} must use one of: {valid_modes}."
+                    "Resolve decision for thread "
+                    f"{thread_id} must use one of: {valid_resolution_modes_text()}."
                 ),
                 batch_id=batch_id,
                 thread_id=thread_id,
@@ -517,41 +516,55 @@ def _validated_decision_item(
         return errors, None, None
 
     resolution_mode = cast(ResolutionReplyMode, mode)
+    if resolution_mode == "pre_existing":
+        return (
+            [],
+            ResolveThreadBatchItem(
+                thread_id=thread_id,
+                mode=resolution_mode,
+                message=None,
+                commit_sha=None,
+            ),
+            None,
+        )
+
     return (
         [],
         ResolveThreadBatchItem(
             thread_id=thread_id,
             mode=resolution_mode,
-            message=message if mode != "pre_existing" else None,
-            commit_sha=item_commit_sha if mode != "pre_existing" else None,
+            message=message,
+            commit_sha=item_commit_sha,
         ),
         None,
     )
 
 
-def _canonical_payload_errors(
+def _payload_cross_item_errors(
     *,
     payload: ResolveThreadBatchPayload,
     batch_id: str,
 ) -> tuple[BuildResolveThreadBatchPayloadError, ...]:
-    try:
-        normalize_resolve_thread_batch_payload(payload)
-    except ClinkrFailure as exc:
-        return (
-            BuildResolveThreadBatchPayloadError(
-                code="canonical_payload_invalid",
-                message=exc.message,
-                batch_id=batch_id,
-            ),
-        )
-    except ValidationError as exc:
-        return (
-            BuildResolveThreadBatchPayloadError(
-                code="canonical_payload_invalid",
-                message=str(exc),
-                batch_id=batch_id,
-            ),
-        )
+    """Validate invariants spanning multiple constructed payload items.
+
+    Per-item request normalization is already covered by `_validated_decision_item` and Pydantic
+    construction. This remains as a resolver safety check for malformed plans that list the same
+    review thread more than once in one batch.
+    """
+    seen_thread_ids: set[str] = set()
+    for item in payload.items:
+        if item.thread_id in seen_thread_ids:
+            return (
+                BuildResolveThreadBatchPayloadError(
+                    code="canonical_payload_invalid",
+                    message=(
+                        f"Duplicate thread_id in resolve-thread-batch payload: {item.thread_id}"
+                    ),
+                    batch_id=batch_id,
+                    thread_id=item.thread_id,
+                ),
+            )
+        seen_thread_ids.add(item.thread_id)
     return ()
 
 

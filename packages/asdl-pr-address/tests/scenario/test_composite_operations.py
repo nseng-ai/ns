@@ -1126,6 +1126,57 @@ def test_build_resolve_thread_batch_payload_returns_no_payload_for_non_thread_ba
     assert "no review-thread items" in data["warnings"][0]
 
 
+def test_build_resolve_thread_batch_payload_rejects_duplicate_plan_threads(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [
+                    _thread_plan_item("PRRT_dup"),
+                    _thread_plan_item("PRRT_dup"),
+                ],
+            )
+        ]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "decisions": [
+            {
+                "thread_id": "PRRT_dup",
+                "action": "resolve",
+                "mode": "fixed",
+                "message": "Fixed the duplicated plan item.",
+            }
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    data = output["data"]
+    assert data["valid"] is False
+    assert data["payload"] is None
+    assert data["errors"] == [
+        {
+            "code": "canonical_payload_invalid",
+            "message": "Duplicate thread_id in resolve-thread-batch payload: PRRT_dup",
+            "batch_id": "single_file",
+            "thread_id": "PRRT_dup",
+        }
+    ]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
 def test_build_resolve_thread_batch_payload_rejects_invalid_resolve_fields(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -1347,6 +1398,67 @@ def test_resolve_thread_batch_accepts_payload_json_option(
     assert output["exit_code"] == 0
     assert output["data"]["resolved"] == 1
     assert fake.resolved_thread_ids == ("PRRT_fixed",)
+
+
+def test_resolve_thread_batch_accepts_payload_file_option(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway()
+    payload = {
+        "commit_sha": "abc1234",
+        "items": [
+            {"thread_id": "PRRT_fixed", "mode": "fixed", "message": "Fixed it."},
+        ],
+    }
+    payload_path = tmp_path / "resolve-thread-batch.json"
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-file", str(payload_path)],
+        fake,
+        input_text=json.dumps({"items": [{"thread_id": "PRRT_stdin", "mode": "pre_existing"}]}),
+    )
+
+    assert exit_code == 0
+    assert output["exit_code"] == 0
+    assert output["data"]["resolved"] == 1
+    assert fake.resolved_thread_ids == ("PRRT_fixed",)
+
+
+def test_resolve_thread_batch_rejects_payload_json_and_payload_file(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = FakePRGateway()
+    payload = {
+        "commit_sha": "abc1234",
+        "items": [
+            {"thread_id": "PRRT_fixed", "mode": "fixed", "message": "Fixed it."},
+        ],
+    }
+    payload_path = tmp_path / "resolve-thread-batch.json"
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        [
+            "resolve-thread-batch",
+            "--payload-json",
+            json.dumps(payload),
+            "--payload-file",
+            str(payload_path),
+        ],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_request"
+    assert "do not pass both --payload-json and --payload-file" in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
 
 
 @pytest.mark.parametrize(
