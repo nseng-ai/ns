@@ -18,10 +18,12 @@
 
 - [x] Neutralize shared session artifacts and runtime helpers that CCC consumes but should not own.
   - Moved the planned-branch output/session-artifact contract into `@asdl/planned-branch` as a lower neutral/domain contract shared by planned-branch producers and CCC consumers.
-  - Kept command runtime, machine-envelope parsing, shell quoting, tail formatting, and terminal presentation below CCC; no generic runtime helpers moved into CCC in this slice.
-  - Kept lower packages from importing CCC; `@asdl/pi-extensions/src/planned-branch-output.ts` is now a compatibility re-export.
+  - Extracted `@asdl/pi-extension-runtime` as the lower neutral helper package for command runtime formatting, machine-envelope parsing, shell quoting, tail formatting, terminal presentation, Objective picker/list helpers, skill expansion, branch-slug helpers, and cmux/Pi runtime types.
+  - CCC now imports shared runtime helpers from `@asdl/pi-extension-runtime`, not from `@asdl/pi-extensions` internals; `@asdl/pi-extensions` keeps compatibility re-export paths during migration.
+  - Kept lower packages from importing CCC except intentional temporary `@asdl/pi-extensions` cmux compatibility shims; `@asdl/pi-extensions/src/planned-branch-output.ts` is now a compatibility re-export.
+  - Moved cmux behavior tests under `ts/packages/ccc/test/` so CCC package tests cover the command suite it owns, and left a small pi-extensions shim smoke test for legacy import paths.
   - Policy: direct execution after preview; steer first if a lower package would need a CCC import.
-  - Evidence: parent validation passed with `bun run --cwd ts check`, planned-branch tests, focused planned-branch/cmux tests, `bun run --cwd ts test`, CCC package tests, and `git diff --check`.
+  - Evidence: review follow-up validation should pass `bun run --cwd ts check`, `bun test --cwd ts/packages/ccc`, focused planned-branch/pi-extension tests, `bun run --cwd ts test`, and `git diff --check`.
 
 - [ ] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
   - Move the `/planned-branch:up-and-impl` flow out of the planned-branch adapter into CCC-owned orchestration, leaving planned-branch write/create/impl primitives below.

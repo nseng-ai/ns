@@ -1,5 +1,5 @@
-import { formatCommand, formatOutputSection } from "../../../pi-extensions/src/command-runtime.ts";
-import { parseMachineEnvelopeData } from "../../../pi-extensions/src/machine-envelope.ts";
+import { formatCommand, formatOutputSection } from "@asdl/pi-extension-runtime/command-runtime";
+import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { isRecord } from "./primitives.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type { ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";

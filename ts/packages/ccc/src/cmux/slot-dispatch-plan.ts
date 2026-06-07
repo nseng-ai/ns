@@ -16,7 +16,7 @@ import {
 	type PlannedBranchEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@asdl/planned-branch";
-import { formatCommand, formatShellArg } from "../../../pi-extensions/src/command-runtime.ts";
+import { formatCommand, formatShellArg } from "@asdl/pi-extension-runtime/command-runtime";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
