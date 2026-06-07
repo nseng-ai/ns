@@ -121,9 +121,9 @@ def batches_from_manifest(manifest: StackRunManifest) -> tuple[StackTriageBatch,
 
 def batch_from_manifest(manifest: StackRunManifest, batch_slug: str) -> StackTriageBatch:
     """Return one batch from a manifest or fail."""
-    for batch in batches_from_manifest(manifest):
-        if batch.slug == batch_slug:
-            return batch
+    for state in manifest.batch_states:
+        if state.batch_slug == batch_slug:
+            return batch_from_state(state)
     Ensure.fail(
         error_type="stack_skill_batch_missing",
         message=f"manifest run {manifest.run_slug!r} has no batch {batch_slug!r}",

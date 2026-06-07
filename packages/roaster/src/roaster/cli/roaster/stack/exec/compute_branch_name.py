@@ -9,8 +9,8 @@ import click
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from roaster.stack_graphite import generated_branch_for_batch
-from roaster.stack_models import GeneratedStackBranch, StackTriageBatch
+from roaster.stack_models import GeneratedStackBranch
+from roaster.stack_slugs import generated_batch_branch_name
 
 
 class ComputeBranchNameRequest(ClinkrModel):
@@ -39,22 +39,16 @@ def compute_branch_name_command(
     request: ComputeBranchNameRequest,
 ) -> ClinkrExit[GeneratedStackBranch]:
     del ctx
-    batch = StackTriageBatch(
-        slug=request.batch_slug,
-        title=request.batch_slug,
-        summary="",
-        finding_ids=(),
-        dependencies=(),
-        confidence="medium",
-        risk="behavioral",
-        resolver_mandate="",
-        validation_requirements=(),
-        expected_paths=(),
+    branch_name = generated_batch_branch_name(
+        impl_branch_slug=request.impl_branch_slug,
+        run_slug=request.run_slug,
+        batch_slug=request.batch_slug,
     )
     return ClinkrExit.ok(
-        generated_branch_for_batch(
+        GeneratedStackBranch(
+            branch_name=branch_name,
             impl_branch_slug=request.impl_branch_slug,
             run_slug=request.run_slug,
-            batch=batch,
+            batch_slug=request.batch_slug,
         )
     )
