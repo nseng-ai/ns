@@ -25,6 +25,7 @@ from asdl_slots.lifecycle.release_cleanup import (
 )
 from asdl_slots.lifecycle.release_target import (
     ReleaseTargetFailure,
+    free_operation_in_progress_message,
     gc_operation_in_progress_message,
     release_assigned_slot_target,
 )
@@ -134,7 +135,6 @@ def execute_gc_plan(
             inventory,
             target,
             trunk,
-            operation_action="freeing this slot",
         )
         if isinstance(result, ReleaseTargetFailure):
             entries.append(_entry_from_release_failure(entry, result))
@@ -240,14 +240,33 @@ def _entry_from_release_failure(
             ),
         )
     if failure.reason == "operation_in_progress":
-        return _with_action(entry, "skipped_operation", message=failure.message)
+        return _with_action(
+            entry,
+            "skipped_operation",
+            message=free_operation_in_progress_message(
+                slot_name=failure.slot_name,
+                branch_name=failure.branch_name,
+                worktree_path=failure.worktree_path,
+                operation=failure.operation or "operation",
+                action="running slot gc",
+            ),
+        )
     if failure.reason == "dirty_worktree":
         return _with_action(
             entry,
             "skipped_dirty",
             message=f"worktree has uncommitted changes at {failure.worktree_path}",
         )
-    return _with_action(entry, "error", message=failure.message)
+    return _with_action(entry, "error", message=_detach_failure_message(failure))
+
+
+def _detach_failure_message(failure: ReleaseTargetFailure) -> str:
+    detach_ref = failure.detach_ref or "target ref"
+    detach_error = f": {failure.detach_error}" if failure.detach_error else ""
+    return (
+        f"Failed to detach {failure.slot_name} at {failure.worktree_path} "
+        f"to {detach_ref}{detach_error}"
+    )
 
 
 def _with_action(

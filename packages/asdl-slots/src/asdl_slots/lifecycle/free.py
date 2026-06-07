@@ -8,16 +8,9 @@ from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotInventory, build_slot_inventory
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
-    SlotFreeCleanupAction,
-    SlotFreeCleanupResult,
     SlotFreeOutcome,
     SlotFreePlan,
     SlotLifecycleFailure,
-)
-from asdl_slots.lifecycle.release_cleanup import (
-    SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
-    execute_release_cleanup,
-    plan_release_cleanup,
 )
 from asdl_slots.lifecycle.release_target import (
     ReleaseTargetFailure,
@@ -25,8 +18,6 @@ from asdl_slots.lifecycle.release_target import (
     freed_slot_from_record,
     release_assigned_slot_target,
 )
-
-SLOT_FREE_ALL_CLEANUP_ACTIONS = SLOT_RELEASE_ALL_CLEANUP_ACTIONS
 
 
 def plan_free_slots(
@@ -42,7 +33,7 @@ def plan_free_slots(
         main_repo_root=slots_ctx.repo.main_repo_root,
     )
 
-    state_errors = _validate_assigned_and_clean(slots_ctx, inventory, slot_names)
+    targets, state_errors = _validated_free_targets(slots_ctx, inventory, slot_names)
     all_errors = (*preflight_errors, *state_errors)
     if all_errors:
         return SlotLifecycleFailure(
@@ -51,28 +42,7 @@ def plan_free_slots(
         )
 
     trunk = trunk_branch if trunk_branch is not None else slots_ctx.git.get_trunk_branch()
-    targets: list[FreedSlot] = []
-    for slot_name in slot_names:
-        record = inventory.find_by_slot(slot_name)
-        if record is None or record.branch is None:
-            return SlotLifecycleFailure(
-                error_type="slot_not_assigned",
-                message=(f"{slot_name} is not currently assigned (state changed during planning)."),
-            )
-        if record.operation is not None:
-            return SlotLifecycleFailure(
-                error_type="operation_in_progress",
-                message=free_operation_in_progress_message(
-                    slot_name=record.slot_name,
-                    branch_name=record.branch,
-                    worktree_path=record.path,
-                    operation=record.operation,
-                    action="freeing",
-                ),
-            )
-        targets.append(freed_slot_from_record(record))
-
-    return SlotFreePlan(targets=tuple(targets), trunk_branch=trunk)
+    return SlotFreePlan(targets=targets, trunk_branch=trunk)
 
 
 def execute_free_plan(
@@ -95,7 +65,6 @@ def execute_free_plan(
             inventory,
             target,
             plan.trunk_branch,
-            operation_action="freeing",
         )
         if isinstance(result, ReleaseTargetFailure):
             return SlotLifecycleFailure(
@@ -128,44 +97,13 @@ def free_slots(
     return execute_free_plan(slots_ctx, plan)
 
 
-def plan_cleanup_for_free_targets(
-    slots_ctx: SlotsCliContext,
-    targets: Sequence[FreedSlot],
-    cleanup_actions: Sequence[SlotFreeCleanupAction],
-    *,
-    trunk_branch: str | None = None,
-) -> tuple[SlotFreeCleanupResult, ...]:
-    """Plan cleanup entries for free targets without mutating PRs or branches."""
-    return plan_release_cleanup(
-        slots_ctx,
-        targets,
-        cleanup_actions,
-        trunk_branch=trunk_branch,
-    )
-
-
-def execute_cleanup_for_freed_slots(
-    slots_ctx: SlotsCliContext,
-    freed: Sequence[FreedSlot],
-    cleanup_actions: Sequence[SlotFreeCleanupAction],
-    *,
-    trunk_branch: str | None = None,
-) -> tuple[SlotFreeCleanupResult, ...]:
-    """Run requested cleanup actions for slots that detached successfully."""
-    return execute_release_cleanup(
-        slots_ctx,
-        freed,
-        cleanup_actions,
-        trunk_branch=trunk_branch,
-    )
-
-
-def _validate_assigned_and_clean(
+def _validated_free_targets(
     slots_ctx: SlotsCliContext,
     inventory: SlotInventory,
     slot_names: Sequence[str],
-) -> tuple[str, ...]:
+) -> tuple[tuple[FreedSlot, ...], tuple[str, ...]]:
     errors: list[str] = []
+    targets: list[FreedSlot] = []
     for slot_name in slot_names:
         record = inventory.find_by_slot(slot_name)
         if record is None or record.branch is None:
@@ -189,18 +127,37 @@ def _validate_assigned_and_clean(
                 f"{slot_name} has uncommitted changes at {record.path}. "
                 f"Commit or stash before freeing."
             )
-    return tuple(errors)
+            continue
+        targets.append(freed_slot_from_record(record))
+    return tuple(targets), tuple(errors)
 
 
 def _free_execution_failure_message(failure: ReleaseTargetFailure) -> str:
     if failure.reason == "slot_not_assigned":
         return f"{failure.slot_name} is not currently assigned (state changed during free)."
+    if failure.reason == "operation_in_progress":
+        return free_operation_in_progress_message(
+            slot_name=failure.slot_name,
+            branch_name=failure.branch_name,
+            worktree_path=failure.worktree_path,
+            operation=failure.operation or "operation",
+            action="freeing",
+        )
     if failure.reason == "dirty_worktree":
         return (
             f"{failure.slot_name} has uncommitted changes at {failure.worktree_path} "
             "(state changed during free)."
         )
-    return failure.message
+    return _detach_failure_message(failure)
+
+
+def _detach_failure_message(failure: ReleaseTargetFailure) -> str:
+    detach_ref = failure.detach_ref or "target ref"
+    detach_error = f": {failure.detach_error}" if failure.detach_error else ""
+    return (
+        f"Failed to detach {failure.slot_name} at {failure.worktree_path} "
+        f"to {detach_ref}{detach_error}"
+    )
 
 
 def _partial_failure_message(base: str, freed: list[FreedSlot]) -> str:

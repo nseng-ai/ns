@@ -40,6 +40,10 @@ def make_pr(number: int, state: PRState, branch: str) -> PRSummary:
     )
 
 
+def make_repo_root(tmp_path: Path) -> Path:
+    return tmp_path.resolve() / "repo"
+
+
 def make_slots_lifecycle_context(
     tmp_path: Path,
     *,
@@ -55,7 +59,7 @@ def make_slots_lifecycle_context(
     prs_by_branch: dict[str, PRSummary] | None = None,
     pr_gateway: FakePRGateway | None = None,
 ) -> tuple[SlotsCliContext, FakeGitGateway]:
-    repo_root = (tmp_path / "repo").resolve()
+    repo_root = make_repo_root(tmp_path)
     slots_root = tmp_path / "slots"
     repo_dir = slots_root / "repos" / "repo"
     repo = RepoContext(
