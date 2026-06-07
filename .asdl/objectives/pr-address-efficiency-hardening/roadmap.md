@@ -38,6 +38,22 @@
   - Policy: Route agents through tested helpers while preserving payload-by-default, validated classification before planning, cost-aware classifier dispatch with escalation, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no push.
   - Evidence: The CLI reference documents classification templates, validation, planning, selected-detail lookup, stdin/option/file JSON input for thread resolution, generated mutation payloads, batch checkpoint recording, and finalization. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, uses `build-resolve-thread-batch-payload` / `resolve-thread-batch` for inline-thread mutation, records each batch with `record-batch-checkpoint`, and ends with `get-feedback --include-resolved` plus `finalize-run` instead of a manual final summary checklist.
 
+- [ ] Harden the stack-address workflow against known schema-shape and output-size failures.
+  - Policy: Until stack-native helpers exist, make the safe path explicit: do not pass `stack-feedback-plan` output to per-PR `build-resolve-thread-batch-payload`; detect stack-plan-shaped input with a concise actionable error; keep large helper envelopes in files or payload artifacts with compact stdout summaries.
+  - Evidence: Skill and CLI-reference updates, plus scenario/unit coverage for stack-plan shape detection in the per-PR payload builder.
+
+- [ ] Add stack-native resolution payload building.
+  - Policy: A validated `stack-feedback-plan` should be enough provenance for deterministic per-PR/per-batch `resolve-thread-batch` payload generation, given explicit per-thread decisions and a commit SHA; agents should not manually reconstruct per-PR `plan-feedback` wrappers from a merged stack plan.
+  - Evidence: A `pr-address exec` helper such as `build-stack-resolve-thread-payloads` with tests for one-PR, multi-PR, missing/duplicate decisions, wrong PR/batch references, all-skipped batches, and mixed fixed/explained/pre-existing outcomes.
+
+- [ ] Add current-feedback reconciliation for stack runs.
+  - Policy: Before resolving review threads, compare the validated stack plan against freshly fetched current stack feedback and make drift explicit: planned still unresolved, planned already resolved, newly appeared unresolved feedback, and missing or outdated planned threads.
+  - Evidence: A `pr-address exec` helper such as `stack-feedback-diff-current` with fixture coverage for unchanged feedback, new unresolved threads, already-resolved planned threads, absent/outdated planned threads, and mixed changes across multiple PRs.
+
+- [ ] Simplify `internal-pr-stack-address` around the stack-native helper path.
+  - Policy: Keep the skill focused on safety boundaries, semantic classification, user approval points, and the short command sequence; move fallback mechanics to references and let tested CLI helpers own deterministic mapping, diffing, payload construction, and summary formatting.
+  - Evidence: Updated skill/reference docs route normal stack runs through compact `stack-feedback-prep`, validated `stack-feedback-plan`, current-feedback diffing, stack payload building, helper-mediated mutation, and final verification without hand-written JSON orchestration.
+
 ## Closure Evidence
 
 A representative fixture, dry run, or live PR-addressing run with PR-level feedback, unresolved inline threads, discussion comments, and at least two batch types is required to close the Objective. Treat that as closure evidence for the roadmap, not as a separate implementation work unit.

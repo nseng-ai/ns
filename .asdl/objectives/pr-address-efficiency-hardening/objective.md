@@ -18,18 +18,20 @@ The same run showed where orchestration still leaked to the agent:
 - Batch validation, commit evidence, final unresolved-feedback checks, and GitHub mutation outcomes depended on the agent remembering procedural steps.
 - Recent retrospectives reinforced the same pattern: repeated reference reads, shell invocations, large tool outputs, and manual state reconciliation. Specific session counts belong in retrospective artifacts, not in this durable Objective.
 
+The `internal-pr-stack-address` retrospective on the runner-subagent stack showed the same pattern at stack scope: the safety model worked, but the agent had to bridge a structural mismatch between `stack-feedback-plan` and per-PR resolution payload builders, manually reconcile changed feedback, and carry too much JSON orchestration in prompt context.
+
 The durable direction is to move from “agent follows a long skill recipe” toward “CLI owns deterministic state machine; agent supplies judgment and code edits.”
 
 ## Scope
 
 In scope:
 
-- Make current-branch `pr-address` runs faster, less error-prone, and less transcript-heavy.
+- Make current-branch and stack-wide `pr-address` runs faster, less error-prone, and less transcript-heavy.
 - Add deterministic classification templates or equivalent schema guardrails so LLMs fill semantic judgments without inventing IDs, locators, or packet structure.
 - Add cost-aware model routing for bounded classification work: default cheap/fast where compact payloads, finite classifier rules, strict JSON, and deterministic validation make it safe; retry or escalate when validation fails, feedback is ambiguous, or complex cross-file reasoning is required.
 - Improve payload and selected-detail ergonomics so raw or selected feedback bodies remain in managed artifacts unless the human explicitly asks to see them.
 - Add file/path-based JSON input affordances or equivalent managed run-state helpers to eliminate confusing ad-hoc `/tmp/pr-address-*.json` scratch files for normal operation.
-- Add composite planning/finalization helpers where they reduce deterministic orchestration: batch grouping, approval gates, mutation skeletons, per-batch evidence, and final unresolved-feedback summary.
+- Add composite planning/finalization helpers where they reduce deterministic orchestration: batch grouping, approval gates, mutation skeletons, per-batch evidence, final unresolved-feedback summary, stack-level resolution payload building, and current-feedback reconciliation.
 - Update the `pr-address` skill and CLI reference only where needed to route future agents through the improved path.
 - Allow shared payload, CLI, or platform helper changes only when they directly simplify or harden the `pr-address` workflow.
 
@@ -54,6 +56,7 @@ Required closure evidence:
 - Planning output groups actionable work by batch, identifies approval gates, and provides exact identities plus mutation skeletons or follow-up commands.
 - Batch execution records or surfaces keepable evidence: changed files, validation commands, commit SHA, addressed thread IDs, skipped items, and mutation outcomes.
 - Final verification has one clear helper or path that reports unresolved feedback, skipped items, and GitHub mutation outcomes.
+- Stack-wide feedback addressing can proceed from a validated stack plan to safe per-PR mutation payloads without manual per-PR plan reconstruction, and can deterministically detect newly appeared, disappeared, or already-resolved feedback before mutation.
 - The public `pr-address` skill and CLI reference describe the improved path clearly enough that future agents do not need to rediscover this retro.
 - Scenario/unit tests cover new deterministic helpers and at least one end-to-end representative path.
 
@@ -87,7 +90,7 @@ Risks:
 
 - A composite helper such as `plan-run` could become an opaque mega-command if it owns too much judgment or hides intermediate validation diagnostics.
 - Managed run-state artifacts could create lifecycle/cleanup confusion if they are not scoped clearly to a payload session and explicit artifact role.
-- File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design. De-risked for thread-resolution batches: `resolve-thread-batch --payload-file` runs through the shared `load_json_input` loader with single-source conflict detection, `build-resolve-thread-batch-payload` produces the tested generated payload, and `record-batch-checkpoint` records compact post-batch evidence without turning payload artifacts into a hidden task database. De-risked for final verification: `finalize-run` consumes the compact final feedback manifest and checkpoint results without reading raw feedback bodies or mutating GitHub.
+- File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design. De-risked for single-PR thread-resolution batches: `resolve-thread-batch --payload-file` runs through the shared `load_json_input` loader with single-source conflict detection, `build-resolve-thread-batch-payload` produces the tested generated payload, and `record-batch-checkpoint` records compact post-batch evidence without turning payload artifacts into a hidden task database. De-risked for final verification: `finalize-run` consumes the compact final feedback manifest and checkpoint results without reading raw feedback bodies or mutating GitHub. Still open for stack-wide runs: stack plans cannot yet directly produce per-PR resolution payloads, and current-feedback drift is not yet a deterministic helper-owned comparison.
 - Shared payload/platform changes could expand the Objective beyond `pr-address`; keep them parked unless they directly unblock this workflow.
 - Over-optimizing for speed could weaken existing safety guarantees: validated classification, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no pushing.
 - Cross-harness fallback language remains necessary where runner dispatch cannot choose models per launch.
@@ -97,3 +100,4 @@ Risks:
 - What is the right boundary between a composite `plan-run` helper and smaller helpers so deterministic orchestration improves without hiding too much from the agent and user?
 - The `@file` mutation affordance now exists (`resolve-thread-batch --payload-file`, backed by the shared JSON loader), generated mutation payloads come from `build-resolve-thread-batch-payload`, per-batch evidence is recorded by `record-batch-checkpoint`, and final verification is aggregated by `finalize-run` from fresh compact feedback plus checkpoint results. A future enhancement could decide whether to dereference checkpoint artifacts directly, but the normal happy path no longer depends on that decision.
 - What representative fixture or live-run protocol should count as final closure evidence for the lower-orchestration happy path?
+- Should stack-wide helpers be a thin adapter over existing per-PR planning/payload models, or should they introduce a first-class stack run artifact that owns plan, diff, payload, and finalization references?
