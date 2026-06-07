@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.stack_slugs import (
+from roaster.stack.core.slugs import (
     StackSlugError,
     validate_batch_slug,
     validate_branch_memory_branch_name,

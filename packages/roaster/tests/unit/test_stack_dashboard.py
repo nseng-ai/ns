@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRDiscussionComment
-from roaster.stack_dashboard import (
+from roaster.stack.command.dashboard import (
     RejectedStackFinding,
     StackDashboardBatch,
     StackDashboardCounts,
@@ -13,7 +13,7 @@ from roaster.stack_dashboard import (
     publish_stack_dashboard,
     render_stack_dashboard,
 )
-from roaster.stack_markers import (
+from roaster.stack.common.markers import (
     GeneratedPrBodyRequest,
     GeneratedPrBranchMemoryLocator,
     StackDashboardMarker,
@@ -28,7 +28,7 @@ from roaster.stack_markers import (
     render_stack_dashboard_marker,
     render_stack_generated_pr_marker,
 )
-from roaster.stack_run_storage import ROASTER_RUNS_NAMESPACE, StackRunLocator
+from roaster.stack.common.run_storage import ROASTER_RUNS_NAMESPACE, StackRunLocator
 
 
 def _manifest_locator() -> StackRunLocator:

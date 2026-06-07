@@ -5,8 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias
 
-from roaster.stack_models import GeneratedStackBranch, StackTriageBatch
-from roaster.stack_slugs import generated_batch_branch_name
+from roaster.stack.core.contracts import (
+    GeneratedStackBranch,
+    StackTriageBatch,
+)
+from roaster.stack.core.slugs import generated_batch_branch_name
 
 _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 _RISK_ORDER = {"mechanical": 0, "behavioral": 1, "architectural": 2, "speculative": 3}

@@ -20,9 +20,7 @@ from roaster.models import (
     ReviewUsage,
     RoasterFailure,
 )
-from roaster.stack_models import StackTriageOutput, StackWorkflowRequest
-from roaster.stack_profile import StackProfile
-from roaster.stack_triage import (
+from roaster.stack.command.triage import (
     StackReviewCollection,
     StackTriageFailure,
     StackTriageResult,
@@ -30,6 +28,9 @@ from roaster.stack_triage import (
     collect_stack_review_findings,
     run_stack_triage,
 )
+from roaster.stack.common.run_models import StackWorkflowRequest
+from roaster.stack.core.contracts import StackTriageOutput
+from roaster.stack.core.profile import StackProfile
 
 PYTHON_REVIEW_SOURCE = (
     "---\n"

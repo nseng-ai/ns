@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from roaster.stack_skill_gate import (
+from roaster.stack.skill.gate import (
     StackSkillValidationResult,
     evaluate_stack_skill_gate,
 )

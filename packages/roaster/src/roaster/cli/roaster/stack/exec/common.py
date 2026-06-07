@@ -9,27 +9,24 @@ from pydantic import ValidationError
 
 from asdl_core.clinkr.ensure import Ensure
 from brmem.gateway import BranchMemoryGateway
-from roaster.cli.roaster.stack.exec.models import (
+from roaster.context import RoasterCliContext
+from roaster.stack.common.run_models import (
+    StackRunBatchState,
+    StackRunManifest,
+)
+from roaster.stack.common.run_storage import StackRunStorageError, validate_stack_run_manifest
+from roaster.stack.core.contracts import (
+    StackResolverOutput,
+    StackResolverSafety,
+    StackResolverValidation,
+    StackTriageBatch,
+)
+from roaster.stack.skill.inputs import (
     StackSkillResolverInput,
     StackSkillTriageBatchInput,
     StackSkillTriageInput,
 )
-from roaster.context import RoasterCliContext
-from roaster.stack_models import (
-    StackResolverOutput,
-    StackResolverSafety,
-    StackResolverValidation,
-    StackRunBatchState,
-    StackRunManifest,
-    StackTriageBatch,
-)
-from roaster.stack_run_storage import (
-    StackRunStorageError,
-    read_stack_run_manifest,
-    validate_stack_run_manifest,
-)
-
-SKILL_STACK_RUNS_NAMESPACE = "roaster-runs-skill"
+from roaster.stack.skill.storage import read_stack_run_manifest
 
 
 def branch_memory_or_fail(context: RoasterCliContext) -> BranchMemoryGateway:
@@ -80,7 +77,6 @@ def load_skill_manifest(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
     return Ensure.not_none(
         manifest,

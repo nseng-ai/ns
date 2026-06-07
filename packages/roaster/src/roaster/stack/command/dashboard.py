@@ -7,8 +7,8 @@ from typing import Literal, TypeAlias
 
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRDiscussionComment
-from roaster.stack_markers import render_stack_dashboard_marker
-from roaster.stack_run_storage import StackRunLocator
+from roaster.stack.common.markers import render_stack_dashboard_marker
+from roaster.stack.common.run_storage import StackRunLocator
 
 DEFAULT_STACK_DASHBOARD_AUTHOR_LOGIN = "github-actions[bot]"
 _ACTIVITY_LOG_HEADING = "### Activity Log"

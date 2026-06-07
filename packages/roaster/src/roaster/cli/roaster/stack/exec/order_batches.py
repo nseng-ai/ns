@@ -16,7 +16,7 @@ from roaster.cli.roaster.stack.exec.common import (
     load_skill_manifest,
 )
 from roaster.context import RoasterCliContext
-from roaster.stack_graphite import StackBatchOrderingError, order_stack_triage_batches
+from roaster.stack.core.graphite import StackBatchOrderingError, order_stack_triage_batches
 
 
 class OrderBatchesRequest(ClinkrModel):

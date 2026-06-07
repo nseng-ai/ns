@@ -12,17 +12,19 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.cli.roaster.stack.exec.common import (
-    SKILL_STACK_RUNS_NAMESPACE,
     branch_memory_or_fail,
     parse_triage_stdin,
     triage_batch_from_input,
 )
 from roaster.context import RoasterCliContext
-from roaster.stack_models import StackRunArtifactLocator, StackRunManifest
-from roaster.stack_run_persistence import initial_batch_states
-from roaster.stack_run_storage import (
-    StackRunLocator,
-    add_run_to_index,
+from roaster.stack.common.run_models import (
+    StackRunArtifactLocator,
+    StackRunManifest,
+)
+from roaster.stack.common.run_persistence import initial_batch_states
+from roaster.stack.common.run_storage import StackRunLocator, add_run_to_index
+from roaster.stack.skill.storage import (
+    SKILL_STACK_RUNS_NAMESPACE,
     read_stack_run_index,
     write_stack_run_index,
     write_stack_run_manifest,
@@ -101,7 +103,6 @@ def record_triage_command(
         impl_branch=request.impl_branch,
         impl_branch_slug=request.impl_branch_slug,
         profile_slug=request.profile_slug,
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
     next_index = add_run_to_index(
         index,
@@ -124,13 +125,11 @@ def record_triage_command(
         branch_memory,
         impl_branch=request.impl_branch,
         index=next_index,
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
     manifest_locator = write_stack_run_manifest(
         branch_memory,
         impl_branch=request.impl_branch,
         manifest=manifest,
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
     triage_locator = write_stack_run_triage(
         branch_memory,
@@ -139,7 +138,6 @@ def record_triage_command(
         profile_slug=request.profile_slug,
         run_slug=request.run_slug,
         content=_triage_artifact_content(triage.model_dump_json(indent=2)),
-        namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
 
     return ClinkrExit.ok(

@@ -8,7 +8,7 @@ from typing import Any, TypeAlias, cast
 import yaml
 
 from brmem.gateway import BranchMemoryGateway
-from roaster.stack_models import (
+from roaster.stack.common.run_models import (
     StackRunArtifactLocator,
     StackRunBatchState,
     StackRunDashboardPublication,
@@ -16,7 +16,7 @@ from roaster.stack_models import (
     StackRunManifest,
     StackRunSubmission,
 )
-from roaster.stack_slugs import (
+from roaster.stack.core.slugs import (
     StackSlugError,
     validate_batch_slug,
     validate_branch_memory_branch_name,
@@ -109,6 +109,439 @@ class StackRunArtifactPlan:
         )
 
 
+@dataclass(frozen=True)
+class StackRunStore:
+    """Namespace-bound accessor for roaster stack run artifacts."""
+
+    namespace: str
+
+    def artifact_plan(
+        self,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+    ) -> StackRunArtifactPlan:
+        """Compute Branch Memory locators for a run without writing anything."""
+        return _stack_run_artifact_plan(
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            namespace=self.namespace,
+        )
+
+    def resolver_locator(
+        self,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+        batch_slug: str,
+    ) -> StackRunLocator:
+        """Compute the Branch Memory locator for one resolver artifact."""
+        return _resolver_locator(
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            batch_slug=batch_slug,
+            namespace=self.namespace,
+        )
+
+    def read_index(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+    ) -> StackRunIndex | None:
+        """Read the persisted run index for an implementation branch/profile."""
+        return _read_stack_run_index(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            namespace=self.namespace,
+        )
+
+    def write_index(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        index: StackRunIndex,
+        dry_run: bool = False,
+    ) -> StackRunLocator:
+        """Persist a run index unless ``dry_run`` is set; always return its locator."""
+        return _write_stack_run_index(
+            gateway,
+            impl_branch=impl_branch,
+            index=index,
+            dry_run=dry_run,
+            namespace=self.namespace,
+        )
+
+    def read_manifest(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+    ) -> StackRunManifest | None:
+        """Read a persisted run manifest."""
+        return _read_stack_run_manifest(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            namespace=self.namespace,
+        )
+
+    def write_manifest(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        manifest: StackRunManifest,
+        dry_run: bool = False,
+    ) -> StackRunLocator:
+        """Persist a run manifest unless ``dry_run`` is set; always return its locator."""
+        return _write_stack_run_manifest(
+            gateway,
+            impl_branch=impl_branch,
+            manifest=manifest,
+            dry_run=dry_run,
+            namespace=self.namespace,
+        )
+
+    def read_triage(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+    ) -> str | None:
+        """Read raw triage markdown for a run."""
+        return _read_stack_run_triage(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            namespace=self.namespace,
+        )
+
+    def write_triage(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+        content: str,
+        dry_run: bool = False,
+    ) -> StackRunLocator:
+        """Persist raw triage markdown unless ``dry_run`` is set; always return its locator."""
+        return _write_stack_run_triage(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            content=content,
+            dry_run=dry_run,
+            namespace=self.namespace,
+        )
+
+    def read_resolver(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+        batch_slug: str,
+    ) -> str | None:
+        """Read raw resolver markdown for one batch."""
+        return _read_stack_run_resolver(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            batch_slug=batch_slug,
+            namespace=self.namespace,
+        )
+
+    def write_resolver(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug: str,
+        batch_slug: str,
+        content: str,
+        dry_run: bool = False,
+    ) -> StackRunLocator:
+        """Persist raw resolver markdown unless ``dry_run`` is set; always return its locator."""
+        return _write_stack_run_resolver(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug=run_slug,
+            batch_slug=batch_slug,
+            content=content,
+            dry_run=dry_run,
+            namespace=self.namespace,
+        )
+
+    def select_run_slug(
+        self,
+        gateway: BranchMemoryGateway,
+        *,
+        impl_branch: str,
+        impl_branch_slug: str,
+        profile_slug: str,
+        run_slug_stem: str,
+        new_run: bool = False,
+        run_slug: str | None = None,
+    ) -> StackRunSelection:
+        """Resolve resume/default, explicit ``run_slug``, or ``new_run`` ordinal behavior."""
+        return _select_stack_run_slug(
+            gateway,
+            impl_branch=impl_branch,
+            impl_branch_slug=impl_branch_slug,
+            profile_slug=profile_slug,
+            run_slug_stem=run_slug_stem,
+            new_run=new_run,
+            run_slug=run_slug,
+            namespace=self.namespace,
+        )
+
+
+DEFAULT_STACK_RUN_STORE = StackRunStore(ROASTER_RUNS_NAMESPACE)
+
+
+def stack_run_artifact_plan(
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+) -> StackRunArtifactPlan:
+    """Compute Branch Memory locators for a command-driven run."""
+    return DEFAULT_STACK_RUN_STORE.artifact_plan(
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+    )
+
+
+def resolver_locator(
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+    batch_slug: str,
+) -> StackRunLocator:
+    """Compute the Branch Memory locator for one command-driven resolver artifact."""
+    return DEFAULT_STACK_RUN_STORE.resolver_locator(
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+        batch_slug=batch_slug,
+    )
+
+
+def read_stack_run_index(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+) -> StackRunIndex | None:
+    """Read the command-driven run index."""
+    return DEFAULT_STACK_RUN_STORE.read_index(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+    )
+
+
+def write_stack_run_index(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    index: StackRunIndex,
+    dry_run: bool = False,
+) -> StackRunLocator:
+    """Persist the command-driven run index."""
+    return DEFAULT_STACK_RUN_STORE.write_index(
+        gateway,
+        impl_branch=impl_branch,
+        index=index,
+        dry_run=dry_run,
+    )
+
+
+def read_stack_run_manifest(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+) -> StackRunManifest | None:
+    """Read a command-driven run manifest."""
+    return DEFAULT_STACK_RUN_STORE.read_manifest(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+    )
+
+
+def write_stack_run_manifest(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    manifest: StackRunManifest,
+    dry_run: bool = False,
+) -> StackRunLocator:
+    """Persist a command-driven run manifest."""
+    return DEFAULT_STACK_RUN_STORE.write_manifest(
+        gateway,
+        impl_branch=impl_branch,
+        manifest=manifest,
+        dry_run=dry_run,
+    )
+
+
+def read_stack_run_triage(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+) -> str | None:
+    """Read command-driven triage markdown."""
+    return DEFAULT_STACK_RUN_STORE.read_triage(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+    )
+
+
+def write_stack_run_triage(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+    content: str,
+    dry_run: bool = False,
+) -> StackRunLocator:
+    """Persist command-driven triage markdown."""
+    return DEFAULT_STACK_RUN_STORE.write_triage(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+        content=content,
+        dry_run=dry_run,
+    )
+
+
+def read_stack_run_resolver(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+    batch_slug: str,
+) -> str | None:
+    """Read command-driven resolver markdown."""
+    return DEFAULT_STACK_RUN_STORE.read_resolver(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+        batch_slug=batch_slug,
+    )
+
+
+def write_stack_run_resolver(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug: str,
+    batch_slug: str,
+    content: str,
+    dry_run: bool = False,
+) -> StackRunLocator:
+    """Persist command-driven resolver markdown."""
+    return DEFAULT_STACK_RUN_STORE.write_resolver(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug=run_slug,
+        batch_slug=batch_slug,
+        content=content,
+        dry_run=dry_run,
+    )
+
+
+def select_stack_run_slug(
+    gateway: BranchMemoryGateway,
+    *,
+    impl_branch: str,
+    impl_branch_slug: str,
+    profile_slug: str,
+    run_slug_stem: str,
+    new_run: bool = False,
+    run_slug: str | None = None,
+) -> StackRunSelection:
+    """Resolve command-driven resume/default, explicit run, or new-run behavior."""
+    return DEFAULT_STACK_RUN_STORE.select_run_slug(
+        gateway,
+        impl_branch=impl_branch,
+        impl_branch_slug=impl_branch_slug,
+        profile_slug=profile_slug,
+        run_slug_stem=run_slug_stem,
+        new_run=new_run,
+        run_slug=run_slug,
+    )
+
+
 def stack_run_keys(*, impl_branch_slug: str, profile_slug: str, run_slug: str) -> StackRunKeys:
     """Return all canonical Branch Memory keys for a run."""
     normalized_impl_branch_slug = _validate_impl_branch_slug(impl_branch_slug)
@@ -124,7 +557,7 @@ def stack_run_keys(*, impl_branch_slug: str, profile_slug: str, run_slug: str) -
     )
 
 
-def stack_run_artifact_plan(
+def _stack_run_artifact_plan(
     *,
     impl_branch: str,
     impl_branch_slug: str,
@@ -158,7 +591,7 @@ def stack_run_artifact_plan(
     )
 
 
-def resolver_locator(
+def _resolver_locator(
     *,
     impl_branch: str,
     impl_branch_slug: str,
@@ -177,7 +610,7 @@ def resolver_locator(
     return StackRunLocator(namespace=namespace, key=key, branch=normalized_impl_branch)
 
 
-def read_stack_run_index(
+def _read_stack_run_index(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -186,7 +619,7 @@ def read_stack_run_index(
     namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunIndex | None:
     """Read the persisted run index for an implementation branch/profile."""
-    locator = _index_locator(
+    locator = _bound_index_locator(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
@@ -198,7 +631,7 @@ def read_stack_run_index(
     return parse_stack_run_index(content)
 
 
-def write_stack_run_index(
+def _write_stack_run_index(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -208,7 +641,7 @@ def write_stack_run_index(
 ) -> StackRunLocator:
     """Persist a run index unless ``dry_run`` is set; always return its locator."""
     normalized_index = validate_stack_run_index(index)
-    locator = _index_locator(
+    locator = _bound_index_locator(
         impl_branch=impl_branch,
         impl_branch_slug=normalized_index.impl_branch_slug,
         profile_slug=normalized_index.profile_slug,
@@ -224,7 +657,7 @@ def write_stack_run_index(
     return locator
 
 
-def read_stack_run_manifest(
+def _read_stack_run_manifest(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -234,7 +667,7 @@ def read_stack_run_manifest(
     namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunManifest | None:
     """Read a persisted run manifest."""
-    locator = stack_run_artifact_plan(
+    locator = _stack_run_artifact_plan(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
@@ -247,7 +680,7 @@ def read_stack_run_manifest(
     return parse_stack_run_manifest(content)
 
 
-def write_stack_run_manifest(
+def _write_stack_run_manifest(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -257,7 +690,7 @@ def write_stack_run_manifest(
 ) -> StackRunLocator:
     """Persist a run manifest unless ``dry_run`` is set; always return its locator."""
     normalized_manifest = validate_stack_run_manifest(manifest)
-    locator = stack_run_artifact_plan(
+    locator = _stack_run_artifact_plan(
         impl_branch=impl_branch,
         impl_branch_slug=normalized_manifest.impl_branch_slug,
         profile_slug=normalized_manifest.profile_slug,
@@ -274,7 +707,7 @@ def write_stack_run_manifest(
     return locator
 
 
-def read_stack_run_triage(
+def _read_stack_run_triage(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -284,7 +717,7 @@ def read_stack_run_triage(
     namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> str | None:
     """Read raw triage markdown for a run."""
-    locator = stack_run_artifact_plan(
+    locator = _stack_run_artifact_plan(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
@@ -294,7 +727,7 @@ def read_stack_run_triage(
     return gateway.get(locator.namespace, locator.key, locator.branch)
 
 
-def write_stack_run_triage(
+def _write_stack_run_triage(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -306,7 +739,7 @@ def write_stack_run_triage(
     namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Persist raw triage markdown unless ``dry_run`` is set; always return its locator."""
-    locator = stack_run_artifact_plan(
+    locator = _stack_run_artifact_plan(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
@@ -318,7 +751,7 @@ def write_stack_run_triage(
     return locator
 
 
-def read_stack_run_resolver(
+def _read_stack_run_resolver(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -329,7 +762,7 @@ def read_stack_run_resolver(
     namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> str | None:
     """Read raw resolver markdown for one batch."""
-    locator = resolver_locator(
+    locator = _resolver_locator(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
@@ -340,7 +773,7 @@ def read_stack_run_resolver(
     return gateway.get(locator.namespace, locator.key, locator.branch)
 
 
-def write_stack_run_resolver(
+def _write_stack_run_resolver(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -353,7 +786,7 @@ def write_stack_run_resolver(
     namespace: str = ROASTER_RUNS_NAMESPACE,
 ) -> StackRunLocator:
     """Persist raw resolver markdown unless ``dry_run`` is set; always return its locator."""
-    locator = resolver_locator(
+    locator = _resolver_locator(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
@@ -366,7 +799,7 @@ def write_stack_run_resolver(
     return locator
 
 
-def select_stack_run_slug(
+def _select_stack_run_slug(
     gateway: BranchMemoryGateway,
     *,
     impl_branch: str,
@@ -383,7 +816,7 @@ def select_stack_run_slug(
     slug to compute locators during dry-run planning or persist artifacts later.
     """
     normalized_stem = validate_run_slug(run_slug_stem)
-    index = read_stack_run_index(
+    index = _read_stack_run_index(
         gateway,
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
@@ -657,7 +1090,7 @@ def parse_stack_run_manifest(source: str) -> StackRunManifest:
     return validate_stack_run_manifest(manifest)
 
 
-def _index_locator(
+def _bound_index_locator(
     *,
     impl_branch: str,
     impl_branch_slug: str,

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from roaster.stack_graphite import (
+from roaster.stack.core.contracts import (
+    GeneratedStackBranch,
+    StackConfidence,
+    StackRisk,
+    StackTriageBatch,
+)
+from roaster.stack.core.graphite import (
     StackBatchOrderingError,
     generated_branch_for_batch,
     order_stack_triage_batches,
 )
-from roaster.stack_models import GeneratedStackBranch, StackConfidence, StackRisk, StackTriageBatch
 
 
 def _batch(

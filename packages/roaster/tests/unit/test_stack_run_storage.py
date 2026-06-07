@@ -4,8 +4,7 @@ import pytest
 
 from brmem.fake import FakeBranchMemoryGateway
 from brmem.gateway import BranchMemoryGateway
-from roaster.stack_models import (
-    GeneratedStackBranch,
+from roaster.stack.common.run_models import (
     StackRunArtifactLocator,
     StackRunBatchState,
     StackRunDashboardPublication,
@@ -13,7 +12,7 @@ from roaster.stack_models import (
     StackRunManifest,
     StackRunSubmission,
 )
-from roaster.stack_run_storage import (
+from roaster.stack.common.run_storage import (
     ROASTER_RUNS_NAMESPACE,
     StackRunIndex,
     StackRunIndexEntry,
@@ -33,6 +32,7 @@ from roaster.stack_run_storage import (
     write_stack_run_resolver,
     write_stack_run_triage,
 )
+from roaster.stack.core.contracts import GeneratedStackBranch
 
 
 class _CountingBranchMemoryGateway(FakeBranchMemoryGateway):

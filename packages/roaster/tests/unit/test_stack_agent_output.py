@@ -6,12 +6,15 @@ from typing import Any
 import pytest
 import yaml
 
-from roaster.stack_agent_output import (
+from roaster.stack.command.agent_output import (
     StackAgentOutputParseError,
     parse_resolver_output_result,
     parse_triage_output_result,
 )
-from roaster.stack_models import StackResolverOutput, StackTriageOutput
+from roaster.stack.core.contracts import (
+    StackResolverOutput,
+    StackTriageOutput,
+)
 
 
 def _frontmatter_source(data: dict[str, Any], *, body: str = "## Explanation\n") -> str:
