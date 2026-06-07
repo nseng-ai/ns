@@ -13,7 +13,7 @@ import { formatErrorMessage, type TextResult } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
-const COMMAND_NAME = "cmux:workspace:dispatch-prompt";
+const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "cmux-workspace-dispatch-prompt-files");
 
 interface BranchCreateResult {
@@ -22,38 +22,38 @@ interface BranchCreateResult {
 	startPoint: string;
 }
 
-export interface CmuxSlotDispatchPromptOptions {
+export interface CccSlotDispatchPromptOptions {
 	promptDir?: string;
 	now?: () => number;
 }
 
-export interface ResolvedCmuxSlotDispatchPromptOptions {
+export interface ResolvedCccSlotDispatchPromptOptions {
 	promptDir: string;
 	now: () => number;
 }
 
-export interface HandleCmuxSlotDispatchPromptOptions {
+export interface HandleCccSlotDispatchPromptOptions {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
-	dispatchOptions: ResolvedCmuxSlotDispatchPromptOptions;
+	dispatchOptions: ResolvedCccSlotDispatchPromptOptions;
 	args: string;
 	ctx: CommandContext;
 }
 
-export function registerCmuxSlotDispatchPromptCommand(
+export function registerCccSlotDispatchPromptCommand(
 	pi: ExtensionAPI,
-	options: CmuxSlotDispatchPromptOptions = {},
+	options: CccSlotDispatchPromptOptions = {},
 ): void {
-	const resolvedOptions = resolveCmuxSlotDispatchPromptOptions(options);
+	const resolvedOptions = resolveCccSlotDispatchPromptOptions(options);
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {
-			await handleCmuxSlotDispatchPrompt({ pi, dispatchOptions: resolvedOptions, args, ctx });
+			await handleCccSlotDispatchPrompt({ pi, dispatchOptions: resolvedOptions, args, ctx });
 		},
 	});
 }
 
-export async function handleCmuxSlotDispatchPrompt(options: HandleCmuxSlotDispatchPromptOptions): Promise<void> {
+export async function handleCccSlotDispatchPrompt(options: HandleCccSlotDispatchPromptOptions): Promise<void> {
 	const { pi, dispatchOptions, args, ctx } = options;
 	const prompt = args.trim();
 	if (prompt.length === 0) {
@@ -170,7 +170,7 @@ function appendBranchSuffix(branchName: string, suffix: number): string {
 }
 
 export async function writePromptFile(
-	options: ResolvedCmuxSlotDispatchPromptOptions,
+	options: ResolvedCccSlotDispatchPromptOptions,
 	branchName: string,
 	prompt: string,
 ): Promise<string> {
@@ -192,9 +192,9 @@ export function buildLaunchPrompt(prompt: string): string {
 	].join("\n");
 }
 
-function resolveCmuxSlotDispatchPromptOptions(
-	options: CmuxSlotDispatchPromptOptions,
-): ResolvedCmuxSlotDispatchPromptOptions {
+function resolveCccSlotDispatchPromptOptions(
+	options: CccSlotDispatchPromptOptions,
+): ResolvedCccSlotDispatchPromptOptions {
 	return {
 		promptDir: options.promptDir ?? PROMPT_DIR,
 		now: options.now ?? Date.now,

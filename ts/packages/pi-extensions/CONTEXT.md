@@ -1,6 +1,6 @@
 # @asdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is a separate private orchestration layer for repo-opinionated command-and-control workflows that may sit underneath stable Pi command surfaces later. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
+`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows and owns the `ccc` Pi command prefix for cmux/workspace orchestration. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
 
 ## Language
 
@@ -21,27 +21,27 @@ The private TypeScript workspace package at `ts/packages/pi-extensions/` that ho
 _Avoid_: published npm API, stable library boundary, global Pi extension, CCC itself.
 
 **CCC orchestration layer**:
-The private TypeScript workspace package at `ts/packages/ccc/` for repo-opinionated command-and-control workflows spanning Pi, cmux, Graphite, Objectives, handoffs, planned branches, and worktree flows. Existing public slash-command names stay owned by their current surfaces; CCC is an implementation boundary, not a user-facing command namespace.
-_Avoid_: Pi discovery adapter, command rename, lower capability package, public npm API.
+The private TypeScript workspace package at `ts/packages/ccc/` for repo-opinionated command-and-control workflows spanning Pi, cmux, Graphite, Objectives, handoffs, planned branches, and worktree flows. CCC-owned Pi command surfaces use the `ccc` slash-command prefix while preserving `cmux` terminology for the external tool and workspace domain.
+_Avoid_: Pi discovery adapter, `/cmux:*` compatibility alias, lower capability package, public npm API.
 
 **Structured grill UI surface**:
 The Pi-specific command/tool layer for starting grill sessions and routing user-facing questions through `grill_ask`. It includes the plain `/grill-ui` path and the docs-aware `/grill-with-docs-ui` path.
 _Avoid_: questionnaire framework, docs editor, generic form engine.
 
 **Command runtime**:
-The neutral helper layer, implemented in `@asdl/pi-extension-runtime` and compatibility-re-exported where needed, for command display formatting, shell quoting, normalized exec results, and bounded stdout/stderr evidence.
+The neutral helper layer, implemented in `@asdl/pi-extension-runtime`, for command display formatting, shell quoting, normalized exec results, and bounded stdout/stderr evidence.
 _Avoid_: shell executor, workflow owner, subprocess policy, test fake.
 
-**cmux command suite**:
-The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:sidebar:pr-summary`, `/cmux:sidebar:objective-summary`, `/cmux:workspace:dispatch-plan`, `/cmux:workspace:open-branch`, and `/cmux:workspace:dispatch-prompt`. The command names and registration surface are stable even if later implementation slices move orchestration behind CCC.
-_Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone, CCC command namespace.
+**CCC cmux command suite**:
+The project-local CCC Pi command family registered by `.pi/extensions/ccc.ts`: `/ccc:sidebar:pr-summary`, `/ccc:sidebar:objective-summary`, `/ccc:workspace:dispatch-plan`, `/ccc:workspace:open-branch`, and `/ccc:workspace:dispatch-prompt`. The commands intentionally have no `/cmux:*` compatibility aliases; use `cmux` only for the external workspace tool they operate.
+_Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone, `/cmux:*` alias.
 
 **cmux workspace-opening command**:
-A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch, plan, or prompt: `/cmux:workspace:open-branch`, `/cmux:workspace:dispatch-plan`, or `/cmux:workspace:dispatch-prompt`. `open` only opens a workspace; `dispatch` opens a workspace and starts child Pi execution immediately.
+A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch, plan, or prompt: `/ccc:workspace:open-branch`, `/ccc:workspace:dispatch-plan`, or `/ccc:workspace:dispatch-prompt`. `open` only opens a workspace; `dispatch` opens a workspace and starts child Pi execution immediately.
 _Avoid_: workspace metadata refresh, summary-only command, current workspace rename.
 
 **cmux sidebar command**:
-An explicit manual command that updates the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies through `asdl exec cmux-workspace-summary`. `/cmux:sidebar:pr-summary` is model-assisted; `/cmux:sidebar:objective-summary [objective-slug-or-path]` is a deterministic Objective picker/metadata formatter/apply command.
+An explicit manual command that updates the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies through `asdl exec cmux-workspace-summary`. `/ccc:sidebar:pr-summary` is model-assisted; `/ccc:sidebar:objective-summary [objective-slug-or-path]` is a deterministic Objective picker/metadata formatter/apply command.
 _Avoid_: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation, assuming both sidebar variants use a model.
 
 **Objective selector**:
@@ -53,7 +53,7 @@ The `title` and description produced without a model from structured metadata an
 _Avoid_: generated Objective summary, arbitrary prose compression, model draft.
 
 **Parked cmux automatic sidebar update**:
-A removed post-success behavior for cmux workspace-opening commands. Automatic sidebar updates are intentionally parked until cmux extension consolidation clarifies the target workspace and deterministic apply path.
+A removed post-success behavior for cmux workspace-opening commands. Automatic sidebar updates are intentionally parked until CCC command consolidation clarifies the target workspace and deterministic apply path.
 _Avoid_: current command behavior, workspace-opening sidebar automation, workspace-ref inference.
 
 **Saved plan**:

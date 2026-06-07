@@ -1,6 +1,6 @@
 import {
 	formatPlannedBranchEvidence as formatPlanBranchEvidence,
-	normalizeBranchCreationMethod,
+	tryNormalizeBranchCreationMethod,
 	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
@@ -71,9 +71,5 @@ function branchCreationField(record: Record<string, unknown>, key: string): Bran
 	if (value === undefined) {
 		return undefined;
 	}
-	try {
-		return normalizeBranchCreationMethod(value);
-	} catch {
-		return undefined;
-	}
+	return tryNormalizeBranchCreationMethod(value);
 }

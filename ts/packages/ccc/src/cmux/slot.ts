@@ -98,7 +98,7 @@ export async function checkoutSlot(
 	}
 
 	if (isSlotCheckoutSuccessEnvelope(parsed)) {
-		return slotCheckoutTargetFromData(parsed.data);
+		return parsed.data;
 	}
 
 	const failure = parsed;
@@ -140,10 +140,6 @@ export function buildNewWorkspaceArgs(
 		args.push("--command", options.command);
 	}
 	return args;
-}
-
-export function slotCheckoutTargetFromData(data: SlotCheckoutTarget): SlotCheckoutTarget {
-	return data;
 }
 
 export function isSlotCheckoutSuccessEnvelope(

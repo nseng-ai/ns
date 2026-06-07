@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./cmux/slot-open-branch": "./src/cmux/slot-open-branch.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import registerCmuxExtension from "../src/cmux.ts";
-import { registerCmuxSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
-import { registerCmuxSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
-import { registerCmuxSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
-import { createCmuxSidebarController, registerCmuxSidebarCommands } from "../src/cmux/sidebar.ts";
+import registerCccExtension from "../src/ccc.ts";
+import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
+import { registerCccSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
+import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
+import { createCccSidebarController, registerCccSidebarCommands } from "../src/cmux/sidebar.ts";
 import {
 	BRANCH,
 	FAST_MODEL,
@@ -36,45 +36,45 @@ import {
 	step,
 	writeCmuxPlanStoreFile,
 	writeTempSkill,
-} from "./cmux-test-harness.ts";
+} from "./ccc-test-harness.ts";
 
 afterEach(resetCmuxTestEnvironment);
 
-describe("cmux extension", () => {
-	test("registers the project cmux command suite", () => {
+describe("CCC cmux command suite", () => {
+	test("registers the project CCC command suite", () => {
 		const pi = new FakePi();
 
-		registerCmuxExtension(pi);
+		registerCccExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual([
-			"cmux:sidebar:objective-summary",
-			"cmux:sidebar:pr-summary",
-			"cmux:workspace:dispatch-plan",
-			"cmux:workspace:dispatch-prompt",
-			"cmux:workspace:open-branch",
+			"ccc:sidebar:objective-summary",
+			"ccc:sidebar:pr-summary",
+			"ccc:workspace:dispatch-plan",
+			"ccc:workspace:dispatch-prompt",
+			"ccc:workspace:open-branch",
 		]);
 	});
 
-	test("cmux:sidebar:pr-summary queues expanded skill prompt and restores the previous model", async () => {
+	test("ccc:sidebar:pr-summary queues expanded skill prompt and restores the previous model", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const skillPath = await writeTempSkill("Use direct `--description` command shape.");
-		const pi = new FakePi({ skillCommands: [skillCommand("cmux-sidebar", skillPath)] });
-		const controller = createCmuxSidebarController(pi);
-		registerCmuxSidebarCommands(pi, controller);
+		const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
+		const controller = createCccSidebarController(pi);
+		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
 
-		await pi.commands.get("cmux:sidebar:pr-summary")?.handler("", ctx);
+		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
 
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("<skill name=\"cmux-sidebar\"");
+		expect(pi.sentUserMessages[0]).toContain("<skill name=\"ccc-sidebar\"");
 		expect(pi.sentUserMessages[0]).toContain("Requested variant: PR sidebar.");
 		expect(pi.sentUserMessages[0]).toContain("--description");
 		expect(pi.setModels).toEqual([FAST_MODEL]);
 		expect(pi.thinkingLevels).toEqual(["minimal"]);
 		expect(ctx.statuses).toEqual([
-			{ key: "pi:cmux-sidebar", value: "preparing cmux sidebar…" },
-			{ key: "pi:cmux-sidebar", value: undefined },
+			{ key: "pi:ccc-sidebar", value: "preparing cmux sidebar…" },
+			{ key: "pi:ccc-sidebar", value: undefined },
 		]);
 
 		await pi.emitAgentEnd(ctx);
@@ -86,11 +86,11 @@ describe("cmux extension", () => {
 	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const pi = new FakePi();
-		const controller = createCmuxSidebarController(pi);
-		registerCmuxSidebarCommands(pi, controller);
+		const controller = createCccSidebarController(pi);
+		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("cmux:sidebar:pr-summary")?.handler("", ctx);
+		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("--description 'Goal: ...'");
@@ -101,13 +101,13 @@ describe("cmux extension", () => {
 		delete process.env.CMUX_WORKSPACE_ID;
 		delete process.env.CMUX_TAB_ID;
 		const noWorkspace = new FakeCommandContext();
-		await pi.commands.get("cmux:sidebar:pr-summary")?.handler("", noWorkspace);
+		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", noWorkspace);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(noWorkspace.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
 	});
 
-	test("cmux:workspace:open-branch opens explicit branch without queuing sidebar summary", async () => {
+	test("ccc:workspace:open-branch opens explicit branch without queuing sidebar summary", async () => {
 		const pi = new FakePi({
 			script: [
 				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(BRANCH) }),
@@ -123,10 +123,10 @@ describe("cmux extension", () => {
 				], {}),
 			],
 		});
-		registerCmuxSlotOpenBranchCommand(pi);
+		registerCccSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("cmux:workspace:open-branch")?.handler(BRANCH, ctx);
+		await pi.commands.get("ccc:workspace:open-branch")?.handler(BRANCH, ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(1);
@@ -136,22 +136,22 @@ describe("cmux extension", () => {
 		expect(notificationMessages(ctx)).toContain(`Opened cmux workspace for branch: ${BRANCH}`);
 	});
 
-	test("cmux:workspace:open-branch cancels inferred branch without opening workspace", async () => {
+	test("ccc:workspace:open-branch cancels inferred branch without opening workspace", async () => {
 		const pi = new FakePi();
-		registerCmuxSlotOpenBranchCommand(pi);
+		registerCccSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext({ branchEntries: [plannedBranchOutputEntry("feature/latest")] });
 		ctx.shouldConfirm = false;
 
-		await pi.commands.get("cmux:workspace:open-branch")?.handler("", ctx);
+		await pi.commands.get("ccc:workspace:open-branch")?.handler("", ctx);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe("Cancelled; no cmux workspace was opened.");
 	});
 
-	test("cmux:workspace:open-branch does not infer from text-only planned branch output", async () => {
+	test("ccc:workspace:open-branch does not infer from text-only planned branch output", async () => {
 		const pi = new FakePi();
-		registerCmuxSlotOpenBranchCommand(pi);
+		registerCccSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext({
 			branchEntries: [
 				{
@@ -168,13 +168,13 @@ describe("cmux extension", () => {
 			],
 		});
 
-		await pi.commands.get("cmux:workspace:open-branch")?.handler("", ctx);
+		await pi.commands.get("ccc:workspace:open-branch")?.handler("", ctx);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("No latest [planned-branch-output] branch found");
 	});
 
-	test("cmux:workspace:dispatch-plan dry-run emits preview without sidebar summary", async () => {
+	test("ccc:workspace:dispatch-plan dry-run emits preview without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
@@ -186,10 +186,10 @@ describe("cmux extension", () => {
 				headStep(),
 			],
 		});
-		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
-		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([]);
@@ -207,7 +207,7 @@ describe("cmux extension", () => {
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 	});
 
-	test("cmux:workspace:dispatch-plan full success opens cmux without sidebar summary", async () => {
+	test("ccc:workspace:dispatch-plan full success opens cmux without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
@@ -243,10 +243,10 @@ describe("cmux extension", () => {
 				], {}),
 			],
 		});
-		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, model: PREVIOUS_MODEL, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
 
-		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("", ctx);
+		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "success" });
@@ -256,17 +256,17 @@ describe("cmux extension", () => {
 		expect(pi.thinkingLevels).toEqual([]);
 	});
 
-	test("cmux:workspace:dispatch-plan rejects session plan outside local plan store", async () => {
+	test("ccc:workspace:dispatch-plan rejects session plan outside local plan store", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const outsideDir = await makeTempDir();
 		const outsidePlanFile = join(outsideDir, PLAN_KEY);
 		await writeFile(outsidePlanFile, "# Outside Plan\n", "utf8");
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
-		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, outsidePlanFile)] });
 
-		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("outside the current local plan store directory");
@@ -274,18 +274,18 @@ describe("cmux extension", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("cmux:workspace:dispatch-plan rejects wrong repo metadata", async () => {
+	test("ccc:workspace:dispatch-plan rejects wrong repo metadata", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
-		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { repoKey: "gh--other--repo" })],
 		});
 
-		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("repoKey");
@@ -293,18 +293,18 @@ describe("cmux extension", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("cmux:workspace:dispatch-plan rejects wrong source branch or branch key", async () => {
+	test("ccc:workspace:dispatch-plan rejects wrong source branch or branch key", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
-		registerCmuxSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { sourceBranch: "other-branch", branchKey: "other-branch" })],
 		});
 
-		await pi.commands.get("cmux:workspace:dispatch-plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("sourceBranch");
@@ -313,7 +313,7 @@ describe("cmux extension", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("cmux:workspace:dispatch-prompt opens cmux without sidebar summary", async () => {
+	test("ccc:workspace:dispatch-prompt opens cmux without sidebar summary", async () => {
 		const promptDir = await makeTempDir();
 		const pi = new FakePi({
 			script: [
@@ -338,10 +338,10 @@ describe("cmux extension", () => {
 				], {}),
 			],
 		});
-		registerCmuxSlotDispatchPromptCommand(pi, { promptDir, now: () => 123 });
+		registerCccSlotDispatchPromptCommand(pi, { promptDir, now: () => 123 });
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
-		await pi.commands.get("cmux:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);
+		await pi.commands.get("ccc:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);
 
 		pi.assertDone();
 		const promptText = await readFile(join(promptDir, `123-${BRANCH}.md`), "utf8");

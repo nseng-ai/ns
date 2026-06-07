@@ -17,8 +17,8 @@ The package-level implementation home for workflows that must compose multiple l
 _Avoid_: primitive gateway, storage backend, UI adapter, one-off script.
 
 **CCC boundary**:
-The dependency direction rule: CCC may depend on lower-level packages, CLIs, and runtime capabilities that expose primitive operations, but lower-level packages must not import `@asdl/ccc`. Public Pi slash-command names remain stable while their implementations may later delegate orchestration to CCC.
-_Avoid_: circular helper import, public API promise, command rename.
+The dependency direction rule: CCC may depend on lower-level packages, CLIs, and runtime capabilities that expose primitive operations, but lower-level packages must not import `@asdl/ccc`. CCC-owned Pi command surfaces use the `ccc` slash-command prefix; cmux wording is reserved for the external tool/workspace domain.
+_Avoid_: circular helper import, public API promise, compatibility alias.
 
 **Lower capability**:
 A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as `@asdl/pi-extension-runtime` helper contracts, planned-branch creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
@@ -28,9 +28,9 @@ _Avoid_: CCC submodule, orchestrator, command surface.
 A checked-in Pi extension file under `.pi/extensions/` that registers stable user-facing slash commands and delegates implementation. Project-local adapters are discovery and registration surfaces, not CCC itself.
 _Avoid_: CCC package, lower capability, hidden command alias.
 
-**Stable command surface**:
-The existing public slash commands and CLI commands users invoke. CCC is allowed to become an implementation layer underneath those commands, but this vocabulary does not rename, re-register, or consolidate user-facing commands by itself.
-_Avoid_: migration alias, new command namespace, behavioral slice.
+**CCC command surface**:
+The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/ccc:workspace:*` and `/ccc:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
+_Avoid_: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
 **Orchestration candidate**:
 An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, planned-branch up-and-impl, handoff-tab, Objective stack implementation, autobranch/land, and worktree-status behavior.
