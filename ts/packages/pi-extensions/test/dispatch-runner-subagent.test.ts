@@ -361,9 +361,8 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(partialText).toContain("current tool: read");
 		expect(partialText).toContain("turns: 1");
 		expect(partialText).toContain("tools: 1");
+		expect(partialText).toContain("Model: default (not specified); Thinking: off");
 		expect(partialText).toContain(`Session file: ${SESSION_FILE}`);
-		expect(partialText).not.toContain("Model: default (not specified)");
-		expect(partialText).not.toContain("Thinking: off");
 		expect(partialText).not.toContain("Assistant preview unique.");
 		expect(partialText).not.toContain("secret-input.txt");
 		expect(partialText).not.toContain("tool result preview unique");

@@ -288,6 +288,7 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 	return [
 		`Running runner subagent: ${runnerSubagentDisplayTitle(progress)}`,
 		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
+		...(progress.launch === undefined ? [] : [formatLaunchLine(progress.launch)]),
 		`Session file: ${runnerSubagentSessionFileText(progress)}`,
 	].join("\n");
 }
