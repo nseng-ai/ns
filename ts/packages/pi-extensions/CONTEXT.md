@@ -92,6 +92,10 @@ _Avoid_: Branch Memory policy, brmem-owned workflow, package import edge.
 The shippable agent-skill capability made of the `planned-branch` umbrella/reference skill plus the installed write-plan, create, and implement step skills that use it as their shared planned-branch model.
 _Avoid_: one-off skill, internal docs dependency, hidden installation requirement.
 
+**Planned-branch write-plan prompt policy**:
+The checked-in `.asdl/prompts/planned-branch-write-plan.md` static prompt body consumed by `/planned-branch:write-plan` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt planned-branch-write-plan --format json` with built-in fallback for usability.
+_Avoid_: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
+
 **Handoff artifact**:
 A directed, durable work-context artifact for a specific future continuation.
 _Avoid_: Branch Memory entry as the user model, save/load operation language, generic session summary, compaction.

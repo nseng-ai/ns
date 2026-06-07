@@ -39,8 +39,26 @@ agents can share one package contract without duplicating implementation details
 
 ### Save a source-branch plan
 
-Pi users run `/planned-branch:write-plan`. Other agents use the
-`planned-branch-write-plan` skill, which shells out to:
+Pi users run `/planned-branch:write-plan`. The Pi command injects its command
+header and user steering dynamically, then resolves the static planning-policy
+body from the checked-in repo prompt file:
+
+```text
+.asdl/prompts/planned-branch-write-plan.md
+```
+
+Resolution goes through the deterministic root CLI operation:
+
+```text
+asdl exec resolve-prompt planned-branch-write-plan --format json
+```
+
+The initial checked-in prompt body matches the previous built-in body, so editing
+nothing preserves behavior. Editing the prompt file customizes this repo's
+planning policy for future write-plan turns; it does not change saved-plan
+storage mechanics, branch creation, or Branch Memory attachment contracts.
+
+Other agents use the `planned-branch-write-plan` skill, which shells out to:
 
 ```text
 planned-branch exec write-plan-file --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]

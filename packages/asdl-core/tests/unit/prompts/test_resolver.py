@@ -226,6 +226,19 @@ def test_resolve_prompt_uses_packaged_subagent_launch_default(tmp_path: Path) ->
     assert "## Fallback Behavior\n" in resolution.content
 
 
+def test_resolve_prompt_uses_packaged_planned_branch_write_plan_default(tmp_path: Path) -> None:
+    resolution = resolve_prompt("planned-branch-write-plan", repo_root=tmp_path)
+
+    assert resolution.provenance.source == "embedded_default"
+    assert resolution.provenance.repo_prompt_path == (
+        tmp_path / ".asdl" / "prompts" / "planned-branch-write-plan.md"
+    )
+    assert resolution.provenance.prompt_path is None
+    assert resolution.provenance.default_name == "planned-branch-write-plan"
+    assert "Plan audience and context contract:" in resolution.content
+    assert "write_source_branch_plan_file" in resolution.content
+
+
 def test_resolve_prompt_reports_missing_prompt_when_default_absent(tmp_path: Path) -> None:
     with pytest.raises(PromptError) as exc_info:
         resolve_prompt("missing", repo_root=tmp_path, embedded_defaults={})
@@ -237,6 +250,14 @@ def test_resolve_prompt_reports_missing_prompt_when_default_absent(tmp_path: Pat
 def test_checked_in_subagent_launch_prompt_matches_embedded_default() -> None:
     checked_in_prompt = _repo_root() / ".asdl" / "prompts" / "subagent-launch.md"
     embedded_prompt = load_embedded_default_prompt("subagent-launch")
+
+    assert embedded_prompt is not None
+    assert checked_in_prompt.read_text(encoding="utf-8") == embedded_prompt
+
+
+def test_checked_in_planned_branch_write_plan_prompt_matches_embedded_default() -> None:
+    checked_in_prompt = _repo_root() / ".asdl" / "prompts" / "planned-branch-write-plan.md"
+    embedded_prompt = load_embedded_default_prompt("planned-branch-write-plan")
 
     assert embedded_prompt is not None
     assert checked_in_prompt.read_text(encoding="utf-8") == embedded_prompt

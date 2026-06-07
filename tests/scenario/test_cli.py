@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -58,6 +59,81 @@ def test_root_exec_group_is_hidden_but_invocable() -> None:
     assert exec_help.exit_code == 0
     assert "Commands for use by asdl-tools skills." in exec_help.output
     assert "cmux-workspace-summary" in exec_help.output
+    assert "resolve-prompt" in exec_help.output
+
+
+def test_resolve_prompt_exec_reads_repo_prompt(tmp_path: Path) -> None:
+    prompt_path = tmp_path / ".asdl" / "prompts" / "example.md"
+    prompt_path.parent.mkdir(parents=True)
+    prompt_path.write_text("repo prompt\n\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "resolve-prompt",
+            "example",
+            "--repo-root",
+            str(tmp_path),
+            "--format",
+            "json",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    assert payload["data"]["name"] == "example"
+    assert payload["data"]["content"] == "repo prompt\n\n"
+    assert payload["data"]["provenance"] == {
+        "source": "repo",
+        "repo_prompt_path": str(prompt_path),
+        "prompt_path": str(prompt_path),
+        "default_name": None,
+    }
+
+
+def test_resolve_prompt_exec_uses_planned_branch_embedded_default(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "resolve-prompt",
+            "planned-branch-write-plan",
+            "--repo-root",
+            str(tmp_path),
+            "--format",
+            "json",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["name"] == "planned-branch-write-plan"
+    assert payload["data"]["provenance"]["source"] == "embedded_default"
+    assert payload["data"]["content"].startswith("Plan audience and context contract:")
+    assert "write_source_branch_plan_file" in payload["data"]["content"]
+
+
+def test_resolve_prompt_exec_rejects_unsafe_name(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "resolve-prompt",
+            "nested/prompt",
+            "--repo-root",
+            str(tmp_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "prompt_name_invalid" in result.output
+    assert "Prompt name must match safe segment pattern" in result.output
 
 
 def test_cmux_workspace_summary_exec_applies_generated_fields() -> None:
