@@ -199,11 +199,11 @@ Contract:
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
-- Provide an opt-in `--updated-branches` flag that adds local non-trunk branch attribution for the listed checkout-local Objective records. It cannot be combined with `--names`.
+- Provide an opt-in `--branches` flag that adds local non-trunk branch attribution for the listed checkout-local Objective records. It cannot be combined with `--names`.
 - Compute `latest_update_iso` from the newest committed update touching `.asdl/objectives/<slug>/` when available; otherwise report `null`.
 - Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.asdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
-- With `--updated-branches`, report local branches whose net `.asdl/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.asdl/objectives/`.
-- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state. When `--updated-branches` is present, `data.updated_branches_included` is true and each record contains an `updated_branches` array.
+- With `--branches`, report local branches whose net `.asdl/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.asdl/objectives/`.
+- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state. When `--branches` is present, `data.updated_branches_included` is true and each record contains an `updated_branches` array.
 - Do not parse Markdown prose, summarize Objective bodies, choose a canonical branch, or depend on Graphite.
 - By default, the shipped command has no branch projection, third active status, current-branch mode, or detail view.
 
@@ -214,9 +214,9 @@ Shipped CLI:
 - Run `objective list --format json` for the machine envelope.
 - Run `objective list --status all` to include open and closed active-root Objective records.
 - Run `objective list --status closed` for closed active-root Objective records.
-- Run `objective list --updated-branches` to include the opt-in local-branch update column.
-- Run `objective list --status all --updated-branches --format md` for a Markdown table with local branch attribution.
-- Run `objective list --status closed --updated-branches --format json` for machine-readable closed-record branch attribution.
+- Run `objective list --branches` to include the opt-in local-branch update column.
+- Run `objective list --status all --branches --format md` for a Markdown table with local branch attribution.
+- Run `objective list --status closed --branches --format json` for machine-readable closed-record branch attribution.
 - Run `objective list --names` to print active slugs, one per line.
 
 ### `objective-create`

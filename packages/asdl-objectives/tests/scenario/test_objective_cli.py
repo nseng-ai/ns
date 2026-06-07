@@ -59,7 +59,8 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
     assert "List Objective records in the current checkout" in result.output
     assert "--names" in result.output
     assert "--status" in result.output
-    assert "--updated-branches" in result.output
+    assert "--branches" in result.output
+    assert "--updated-branches" not in result.output
     assert "--current" not in result.output
     assert "--view" not in result.output
     assert "in-flight" not in result.output
@@ -537,7 +538,7 @@ def test_objective_list_updated_branches_rejects_names(
     result = _invoke_list_json(cli_group, ctx, names=True, updated_branches=True)
 
     assert result.exit_code == 2
-    assert "--updated-branches cannot be combined with --names" in result.output
+    assert "--branches cannot be combined with --names" in result.output
 
 
 def test_objective_list_updated_branches_surfaces_git_failures(
@@ -1495,7 +1496,7 @@ def _list_args(
     if names:
         args.append("--names")
     if updated_branches:
-        args.append("--updated-branches")
+        args.append("--branches")
     if status is not None:
         args.extend(("--status", status))
     if view is not None:

@@ -47,7 +47,7 @@ def run_list_objectives(
         return ClinkrExit.failure(
             error_type="incompatible_options",
             message=(
-                "--updated-branches cannot be combined with --names because --names emits "
+                "--branches cannot be combined with --names because --names emits "
                 "Objective slugs only."
             ),
         )

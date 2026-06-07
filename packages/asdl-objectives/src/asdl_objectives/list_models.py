@@ -34,7 +34,7 @@ class ObjectiveListRequest(ClinkrModel):
     updated_branches: Annotated[
         bool,
         click.Option(
-            ["--updated-branches"],
+            ["--branches"],
             is_flag=True,
             default=False,
             help="Include local branches with committed updates to listed Objectives.",
