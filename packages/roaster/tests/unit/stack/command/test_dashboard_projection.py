@@ -8,7 +8,6 @@ from roaster.stack.command.dashboard_projection import (
     build_stack_dashboard_state,
 )
 from roaster.stack.command.triage import StackReviewCollection, StackReviewerRun, StackTriageResult
-from roaster.stack.command.validation_commands import STACK_WORKFLOW_TEST_COMMAND
 from roaster.stack.common.run_models import StackWorkflowRequest
 from roaster.stack.common.run_storage import stack_run_artifact_plan
 from roaster.stack.core.contracts import (
@@ -21,6 +20,10 @@ from roaster.stack.core.contracts import (
     StackTriageOutput,
 )
 from roaster.stack.core.profile import StackProfile
+
+_STACK_DASHBOARD_VALIDATION_COMMAND = (
+    "uv run pytest packages/roaster/tests/unit/stack/command/test_dashboard_projection.py"
+)
 
 
 def _profile() -> StackProfile:
@@ -126,7 +129,7 @@ def _resolver_output() -> StackResolverOutput:
         files_changed=("app.py",),
         validation=(
             StackResolverValidation(
-                command=STACK_WORKFLOW_TEST_COMMAND,
+                command=_STACK_DASHBOARD_VALIDATION_COMMAND,
                 status="passed",
                 output_summary="passed",
             ),
@@ -181,7 +184,9 @@ def test_build_stack_dashboard_state_projects_run_counts_batches_and_rejections(
     assert state.batches[0].generated_branch == "feature-target/roaster/stack-run-1/avoid-print"
     assert state.batches[0].resolver_status == "completed"
     assert state.batches[0].validation_status == "passed"
-    assert state.batches[0].validation_summary == f"{STACK_WORKFLOW_TEST_COMMAND}: passed (passed)"
+    assert state.batches[0].validation_summary == (
+        f"{_STACK_DASHBOARD_VALIDATION_COMMAND}: passed (passed)"
+    )
     assert state.rejected_findings[0].finding_id == "F2"
     assert state.rejected_findings[0].rationale == "Not part of this stack."
 

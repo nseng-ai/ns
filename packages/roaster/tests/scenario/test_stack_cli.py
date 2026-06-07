@@ -21,7 +21,6 @@ from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import FindingsReview, LocalDiff, ReviewExecutionResponse, ReviewFinding
-from roaster.stack.command.validation_commands import STACK_WORKFLOW_TEST_COMMAND
 
 
 @pytest.fixture(scope="module")
@@ -132,7 +131,7 @@ def _valid_resolver_output() -> str:
         "files_changed": ["app.py"],
         "validation": [
             {
-                "command": STACK_WORKFLOW_TEST_COMMAND,
+                "command": "uv run pytest packages/roaster/tests/scenario/test_stack_cli.py",
                 "status": "passed",
                 "output_summary": "passed",
             }

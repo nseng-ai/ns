@@ -111,7 +111,7 @@ class StackRunArtifactPlan:
 
 @dataclass(frozen=True)
 class StackRunStore:
-    """Namespace-bound accessor for roaster stack run artifacts."""
+    """Namespace-bound accessor for non-default roaster stack run artifacts."""
 
     namespace: str
 
@@ -346,7 +346,6 @@ def stack_run_artifact_plan(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -365,7 +364,6 @@ def resolver_locator(
         profile_slug=profile_slug,
         run_slug=run_slug,
         batch_slug=batch_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -382,7 +380,6 @@ def read_stack_run_index(
         impl_branch=impl_branch,
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -399,7 +396,6 @@ def write_stack_run_index(
         impl_branch=impl_branch,
         index=index,
         dry_run=dry_run,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -418,7 +414,6 @@ def read_stack_run_manifest(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -435,7 +430,6 @@ def write_stack_run_manifest(
         impl_branch=impl_branch,
         manifest=manifest,
         dry_run=dry_run,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -454,7 +448,6 @@ def read_stack_run_triage(
         impl_branch_slug=impl_branch_slug,
         profile_slug=profile_slug,
         run_slug=run_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -477,7 +470,6 @@ def write_stack_run_triage(
         run_slug=run_slug,
         content=content,
         dry_run=dry_run,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -498,7 +490,6 @@ def read_stack_run_resolver(
         profile_slug=profile_slug,
         run_slug=run_slug,
         batch_slug=batch_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -523,7 +514,6 @@ def write_stack_run_resolver(
         batch_slug=batch_slug,
         content=content,
         dry_run=dry_run,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
@@ -546,7 +536,6 @@ def select_stack_run_slug(
         run_slug_stem=run_slug_stem,
         new_run=new_run,
         run_slug=run_slug,
-        namespace=ROASTER_RUNS_NAMESPACE,
     )
 
 
