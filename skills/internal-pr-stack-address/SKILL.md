@@ -180,12 +180,15 @@ For each `data.stack[]` prep entry with feedback:
 2. Start from `classification_template.classification_template` and classify
    every review, unresolved review thread, and discussion comment exactly once.
 3. Classify with a payload-aware path:
-   - Preferred: launch a focused subagent with the compact manifest, raw payload
-     path, relevant body locators, generated template, classifier rules, and
-     strict output contract. In Pi, use `dispatch_runner_subagent` with a
-     cheap/fast configured model for ordinary bounded classification.
-   - Use the default/strong model for ambiguous feedback, validation failure,
-     omitted items, or complex cross-file reasoning.
+   - Preferred: launch one focused subagent per PR, with a title like
+     `Classify stack feedback for PR <number>`, and include that PR's compact
+     manifest, raw payload path, relevant body locators, generated template,
+     classifier rules, and exact strict JSON output contract. In Pi, use
+     `dispatch_runner_subagent` with the canonical cheap classification model
+     named in the shared Pi launch policy for ordinary bounded per-PR stack
+     classification.
+   - Follow `feedback-classifier.md` for escalation conditions and the shared Pi
+     launch policy for any concrete escalation model target.
    - Follow the shared feedback-detail lookup policy.
    - If no subagent/model routing is available, classify directly using the same
      compact manifest, payload locators, generated template, and classifier

@@ -188,23 +188,23 @@ to pass payload paths and locators without pasting raw payload JSON.
 Preferred classification path:
 
 1. For ordinary bounded classification, launch a focused payload-aware runner
-   subagent with `dispatch_runner_subagent` using a configured cheap/fast Pi
-   model pattern in its optional `model` field, for example a local alias such
-   as `haiku` when available. The prompt must include the compact manifest,
+   subagent with `dispatch_runner_subagent` and set its optional `model` field to
+   the canonical cheap classification model named in the shared Pi launch policy
+   when available. The prompt must include the compact manifest,
    `payload_reference.payload_path`, relevant body locators, the generated
    `classification-template`, the `feedback-classifier` rules, the strict packet
    contract, and completeness requirements.
+
 2. Require the summarizer to return only the strict classification packet,
    preserving all prefilled IDs/locators/coverage fields and filling only the
    semantic judgment fields.
-3. Do not use a cheap model for unusually ambiguous feedback or comments that
-   require complex cross-file code-context reasoning; use the default/strong
-   model path instead by omitting `model` or passing a stronger configured model
-   pattern.
+3. Follow the escalation conditions and concrete Pi escalation target guidance
+   in `references/feedback-classifier.md`.
 4. Do not paste the full `.raw.json` payload artifact into the main transcript.
-5. If `dispatch_runner_subagent` is unavailable or the harness cannot choose a
-   model per dispatch, use the fallback path below and classify directly from
-   artifact-backed selected detail lookup; do not pretend delegation occurred.
+5. If `dispatch_runner_subagent` is unavailable, the requested cheap model is
+   not available, or the harness cannot choose a model per dispatch, use the
+   fallback path below and classify directly from artifact-backed selected
+   detail lookup; do not pretend delegation/model routing occurred.
 
 Fallback path when no subagent/separate subagent or helper is available:
 
