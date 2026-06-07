@@ -29,11 +29,13 @@ from asdl_slots.lifecycle.free import (
     plan_free_slots,
 )
 from asdl_slots.lifecycle.gc import (
+    SlotGcReleasePreview,
     execute_gc_plan,
     garbage_collect_slots,
     outcome_from_gc_plan,
     plan_gc,
     plan_gc_cleanup,
+    plan_gc_release_preview,
 )
 from asdl_slots.lifecycle.outcomes import (
     SlotCheckoutOutcome,
@@ -50,6 +52,7 @@ from asdl_slots.lifecycle.pool import (
     initialize_pool,
     resize_pool,
 )
+from asdl_slots.lifecycle.release import SlotReleasePreview, plan_free_release_preview
 from asdl_slots.repo_context import RepoContext
 
 
@@ -1246,6 +1249,93 @@ def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
     assert git.delete_local_branch_calls == ()
 
 
+def test_plan_free_release_preview_validates_and_attaches_cleanup_without_mutating(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")})
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+
+    preview = plan_free_release_preview(
+        ctx,
+        ("slot-01",),
+        cleanup_actions=SLOT_FREE_ALL_CLEANUP_ACTIONS,
+    )
+
+    assert isinstance(preview, SlotReleasePreview)
+    assert preview.trunk_branch == "main"
+    assert [(target.slot_name, target.branch_name) for target in preview.targets] == [
+        ("slot-01", "feat/x")
+    ]
+    assert [(entry.action, entry.status, entry.pr_number) for entry in preview.cleanup] == [
+        ("pr", "planned", 42),
+        ("local_branch", "planned", None),
+    ]
+    assert git._detach_head_calls == []
+    assert git.delete_local_branch_calls == ()
+    assert pr.close_calls == ()
+    assert git.branch_exists("feat/x")
+
+
+def test_plan_free_release_preview_combines_preflight_and_state_errors(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    worktree_path = _slot_path(slots_root, 1)
+    ctx, _git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        file_status_by_path={
+            worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+
+    preview = plan_free_release_preview(
+        ctx,
+        ("slot-01",),
+        preflight_errors=("selector failed",),
+    )
+
+    assert isinstance(preview, SlotLifecycleFailure)
+    assert preview.error_type == "invalid_slot_args"
+    assert "selector failed" in preview.message
+    assert "slot-01 has uncommitted changes" in preview.message
+
+
+def test_plan_free_release_preview_cleanup_error_is_reported_without_mutation(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(lookup_failure=PRGatewayFailure(stderr="gh auth failed", returncode=4))
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+
+    preview = plan_free_release_preview(
+        ctx,
+        ("slot-01",),
+        cleanup_actions=SLOT_FREE_ALL_CLEANUP_ACTIONS,
+    )
+
+    assert isinstance(preview, SlotReleasePreview)
+    assert [(entry.action, entry.status, entry.message) for entry in preview.cleanup] == [
+        ("pr", "error", "gh auth failed")
+    ]
+    assert git._detach_head_calls == []
+    assert git.delete_local_branch_calls == ()
+    assert pr.close_calls == ()
+    assert git.branch_exists("feat/x")
+
+
 # --- slot GC ---
 
 
@@ -1561,6 +1651,67 @@ def test_plan_gc_cleanup_is_explicit_and_outcome_attachment_is_pure(tmp_path: Pa
     assert git._detach_head_calls == []
     assert git.delete_local_branch_calls == ()
     assert git.branch_exists("feat/done")
+
+
+def test_plan_gc_release_preview_classifies_and_attaches_cleanup_without_mutating(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/done", "feat/wip", "local"),
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/done"),
+            _slot_worktree(slots_root, 2, "feat/wip"),
+            _slot_worktree(slots_root, 3, "local"),
+        ),
+        prs_by_branch={
+            "feat/done": _make_pr(1, "MERGED", "feat/done"),
+            "feat/wip": _make_pr(2, "OPEN", "feat/wip"),
+        },
+    )
+
+    preview = plan_gc_release_preview(ctx, ("local_branch",))
+
+    assert isinstance(preview, SlotGcReleasePreview)
+    assert preview.outcome.dry_run is True
+    actions_by_slot = {entry.slot_name: entry.action for entry in preview.outcome.entries}
+    assert actions_by_slot == {
+        "slot-01": "would_free",
+        "slot-02": "kept_open_pr",
+        "slot-03": "kept_no_pr",
+    }
+    cleanup_by_slot = {entry.slot_name: entry.cleanup for entry in preview.outcome.entries}
+    assert [(entry.action, entry.status) for entry in cleanup_by_slot["slot-01"]] == [
+        ("local_branch", "planned")
+    ]
+    assert cleanup_by_slot["slot-02"] == ()
+    assert cleanup_by_slot["slot-03"] == ()
+    assert preview.plan.would_free_count == 1
+    assert git._detach_head_calls == []
+    assert git.delete_local_branch_calls == ()
+    assert git.branch_exists("feat/done")
+
+
+def test_plan_gc_release_preview_preserves_dirty_dry_run_semantics(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    worktree_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        file_status_by_path={
+            worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+    )
+
+    preview = plan_gc_release_preview(ctx)
+
+    assert isinstance(preview, SlotGcReleasePreview)
+    assert [entry.action for entry in preview.outcome.entries] == ["would_free"]
+    assert preview.outcome.freed_count == 1
+    assert preview.outcome.dry_run is True
+    assert git._detach_head_calls == []
 
 
 def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
