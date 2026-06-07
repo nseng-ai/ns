@@ -11,7 +11,7 @@
   - Evidence: future agents should not need ad-hoc `/tmp/pr-address-*.json` files for the normal validation and mutation path.
 
 - [ ] Improve selected-detail payload ergonomics.
-  - Add a batch selected-detail path or equivalent artifact-backed inspection flow so agents can inspect exactly the bodies needed for classification/execution without printing all selected bodies into the main transcript.
+  - Add batch pointer queries and artifact-backed storage of retrieval results so agents can inspect exactly the bodies needed for classification/execution without printing all selected bodies into the main transcript.
   - Evidence: selected bodies can be stored or referenced through managed artifacts with compact locators and summaries returned to the agent.
 
 - [ ] Add deterministic planning support for validated classifications.
@@ -36,7 +36,7 @@
 
 - [ ] Prove the lower-orchestration happy path on a representative PR-addressing run.
   - Use a fixture, scenario test, or real PR with PR-level feedback, unresolved inline threads, discussion comments, and at least two batch types. Compare the workflow qualitatively against the 2026-06-07 PR #999 session.
-  - Evidence: fewer manual JSON/scratch steps, fewer visible feedback-body dumps, validated classification, successful batch execution evidence, and final unresolved-feedback summary.
+  - Evidence: the Completion Criteria are met on the representative run.
 
 ## Parked
 

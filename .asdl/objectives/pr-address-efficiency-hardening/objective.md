@@ -19,7 +19,7 @@ The same session exposed several avoidable inefficiencies:
 
 - The classification subagent semantically understood the feedback but returned a packet that failed validation because the packet shape was too easy to get wrong: extra `body_locator` fields, non-contract fields such as path/line, and wrong covered-comment field names.
 - The parent agent manually canonicalized the classification, created `/tmp/pr-address-validation-wrapper*.json`, and retried validation. These scratch files were not raw payload artifacts, but they were ad-hoc orchestration state and confused the boundary between managed payloads and agent-local plumbing.
-- The agent printed selected feedback bodies in the transcript after `read-feedback-detail`. This was supported selected-detail lookup, not inline raw payload mode, but the ergonomics encouraged visible body dumps rather than artifact-backed side-channel inspection.
+- The agent printed selected feedback bodies in the transcript after `read-feedback-detail`. This was supported selected-detail lookup, not inline raw payload mode, but the ergonomics encouraged visible body dumps rather than payload artifact inspection.
 - The agent manually assembled `resolve-thread-batch` JSON payloads and commit-to-thread mappings after each batch.
 - The auto-approved work was tested and committed, but the skill’s per-batch validation and final verification expectations still depended on the agent remembering every step.
 - A branch retrospective collected 20 sessions and showed broad evidence of high tool orchestration: many `read` and `bash` tool calls, repeated reads of `pr-address` references, repeated large outputs, and repeated shell invocations. For the `pr-address` session itself, there were roughly 51 tool calls, 50 tool results, and 39 assistant messages over about 8 minutes.
@@ -67,7 +67,7 @@ Progress is keepable when it reduces agent-managed ceremony while preserving or 
 
 - A deterministic helper that replaces manual JSON construction, reference re-reading, or fragile shell quoting.
 - A schema/template change that makes invalid classification packets less likely while preserving LLM semantic judgment.
-- A payload-sidechannel improvement that keeps raw or selected feedback bodies out of the main transcript by default.
+- A payload artifact improvement that keeps raw or selected feedback bodies out of the main transcript by default.
 - A small workflow helper that turns an implicit skill step into explicit machine-readable state or next-step evidence.
 - A skill/reference update that routes agents to a new tested helper and removes obsolete manual instructions.
 
