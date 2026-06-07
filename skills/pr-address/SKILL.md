@@ -168,6 +168,19 @@ Open `references/feedback-classifier.md` and follow its strict packet contract.
 The classifier output is a JSON packet with `schema_version: 1` and explicit
 `reviews`, `review_threads`, and `discussion_comments` entries.
 
+Generate a deterministic scaffold from the compact manifest before asking the
+LLM to classify semantics:
+
+```bash
+printf '%s' '<prepare-run data json>' \
+  | <pr-address-runner> exec classification-template --format json
+```
+
+The scaffold pre-fills IDs, locators, item pointers, and coverage skeletons.
+The raw scaffold is intentionally invalid until the classifier fills semantic
+fields such as `disposition`, `summary`, `action_summary`, `complexity`, and
+`informational_reason`.
+
 When running in an asdl checkout, also read `.asdl/prompts/subagent-launch.md`
 before launching a payload-aware summarizer/subagent. That policy describes how
 to pass payload paths and locators without pasting raw payload JSON.
@@ -175,9 +188,10 @@ to pass payload paths and locators without pasting raw payload JSON.
 Preferred classification path:
 
 1. Pass the compact manifest, `payload_reference.payload_path`, relevant body
-   locators, expected packet schema, and completeness requirements to a focused
-   payload-aware summarizer/subagent.
-2. Require the summarizer to return only the strict classification packet.
+   locators, the generated `classification-template`, and completeness
+   requirements to a focused payload-aware summarizer/subagent.
+2. Require the summarizer to preserve all prefilled IDs/locators/coverage fields
+   and fill only the semantic judgment fields in the strict packet.
 3. Do not paste the full `.raw.json` payload artifact into the main transcript.
 
 Fallback path when no subagent/separate subagent or helper is available:
@@ -194,17 +208,30 @@ Fallback path when no subagent/separate subagent or helper is available:
 - Stop if targeted lookup still leaves insufficient evidence. Do not switch to
   full inline payloads by default.
 
-Validate before displaying any execution plan:
+Validate before displaying any execution plan. Prefer split manifest and
+classification inputs so no ad-hoc wrapper JSON is needed:
 
 ```bash
-printf '%s' '<json wrapper>' \
-  | <pr-address-runner> exec validate-feedback-classification --format json
+<pr-address-runner> exec validate-feedback-classification \
+  --manifest-file manifest.json \
+  --classification-file classification.json \
+  --format json
 ```
 
-where `<json wrapper>` is:
+Direct JSON options are also supported for controlled invocations:
 
-```json
-{ "manifest": "<prepare-run data>", "classification": "<classification packet>" }
+```bash
+<pr-address-runner> exec validate-feedback-classification \
+  --manifest-json '<prepare-run data json>' \
+  --classification-json '<classification packet json>' \
+  --format json
+```
+
+Legacy wrapper stdin remains a compatibility fallback:
+
+```bash
+printf '%s' '{"manifest":{...},"classification":{...}}' \
+  | <pr-address-runner> exec validate-feedback-classification --format json
 ```
 
 Validation outcomes:

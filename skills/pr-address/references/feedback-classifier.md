@@ -24,14 +24,17 @@ The classifier receives payload artifact evidence, not pasted raw review JSON:
   review-thread comments, and discussion comments.
 - **Restructured files:** optional `restructured_files` from `prepare-run`, used
   when judging moved/copied-path bot comments as pre-existing.
+- **Classification template:** the deterministic scaffold from
+  `pr-address exec classification-template`, when available. It pre-fills IDs,
+  locators, item pointers, and review-thread comment coverage.
 - **Selected body text:** obtained either by a payload-aware summarizer/subagent
   that can read the raw payload file, or by targeted calls to
   `pr-address exec read-feedback-detail`.
 
 Do not paste the full raw payload artifact into the main transcript. Pass paths,
-locators, expected output shape, and completeness requirements to the side
-channel. If no separate subagent or helper is available, inspect only the required bodies with
-`read-feedback-detail`.
+locators, the generated template, expected output shape, and completeness
+requirements to the side channel. If no separate subagent or helper is available,
+inspect only the required bodies with `read-feedback-detail`.
 
 ## Output packet
 
@@ -94,8 +97,11 @@ Return a strict classification packet with `schema_version: 1`:
 }
 ```
 
-Use locator references copied from the manifest. Do not invent IDs, pointers, or
-item paths.
+When a `classification-template` scaffold is available, fill that scaffold
+instead of writing the packet from scratch. Preserve all prefilled IDs, locator
+references, item pointers, and `covered_comments`; fill only semantic judgment
+fields. Use locator references copied from the manifest. Do not invent IDs,
+pointers, or item paths.
 
 Enum values:
 
@@ -137,14 +143,10 @@ explicit per-ID records with `informational_reason`.
 
 ## Validation and retry
 
-The parent skill validates the wrapper:
-
-```json
-{ "manifest": "<compact manifest>", "classification": "<packet>" }
-```
-
-with `pr-address exec validate-feedback-classification` before showing an
-execution plan.
+The parent skill validates the compact manifest and packet with
+`pr-address exec validate-feedback-classification` before showing an execution
+plan. Prefer split inputs (`--manifest-file` / `--classification-file` or the
+matching `--*-json` options); legacy wrapper JSON remains supported.
 
 If validation returns `exit_code: 1`, inspect `data.counts` and `data.errors`,
 pass those diagnostics back to the classifier once, and ask for a corrected

@@ -62,6 +62,8 @@ The current operation set, by category:
 - **Feedback fetch / composite**: `get-feedback`, `summarize-feedback`,
   `prepare-run`, `get-pr-for-branch`, `get-reviews`,
   `get-review-comments`, `get-discussion-comments`
+- **Classification / payload ergonomics**: `read-feedback-detail`,
+  `classification-template`, `validate-feedback-classification`
 - **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
   `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
 - **Replies / comments / reactions**: `reply-to-review`,
