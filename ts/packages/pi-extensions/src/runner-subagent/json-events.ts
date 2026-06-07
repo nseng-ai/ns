@@ -64,7 +64,7 @@ export class RunnerSubagentJsonEventParserError extends Error {
 
 type ParserState = RunnerSubagentProgress["state"];
 
-type JsonRecord = Record<string, unknown>;
+export type JsonRecord = Record<string, unknown>;
 
 interface JsonEvent {
 	type: string;
@@ -431,7 +431,7 @@ function isJsonEvent(value: unknown): value is JsonEvent {
 	return isRecord(value) && typeof value.type === "string";
 }
 
-function isRecord(value: unknown): value is JsonRecord {
+export function isRecord(value: unknown): value is JsonRecord {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

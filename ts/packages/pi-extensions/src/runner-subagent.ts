@@ -28,8 +28,8 @@ export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 export interface RunnerSubagentLaunchMetadata {
 	model?: ModelInfo;
 	thinkingLevel: ThinkingLevel;
-	modelArgPassed: boolean;
-	thinkingArgPassed: boolean;
+	hasModelArg: boolean;
+	hasThinkingArg: boolean;
 }
 
 export interface RunnerSubagentLaunchOptions {

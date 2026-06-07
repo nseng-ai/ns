@@ -36,6 +36,7 @@ import {
 } from "./subagent-runtime.ts";
 import { emptyRunnerSubagentActivity } from "./activity.ts";
 import { createRunnerSubagentJsonEventParser, type RunnerSubagentJsonEventParserSnapshot } from "./json-events.ts";
+import { runnerSubagentSessionFile } from "./presentation.ts";
 import { readRunnerSubagentUsageFromSessionFile, type ReadRunnerSubagentSessionFile } from "./usage.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
@@ -299,7 +300,7 @@ function runnerSubagentTerminalTools(options: RunnerSubagentOptions): readonly R
 	return options.terminalTools ?? [];
 }
 
-function resolveRunnerSubagentLaunch(
+export function resolveRunnerSubagentLaunch(
 	pi: RunnerSubagentPi,
 	ctx: RunnerSubagentContext,
 	options: RunnerSubagentOptions,
@@ -311,8 +312,8 @@ function resolveRunnerSubagentLaunch(
 	return {
 		...(model === undefined ? {} : { model }),
 		thinkingLevel,
-		modelArgPassed: model !== undefined,
-		thinkingArgPassed: thinkingLevel !== "off",
+		hasModelArg: model !== undefined,
+		hasThinkingArg: thinkingLevel !== "off",
 	};
 }
 
@@ -351,11 +352,6 @@ function updateSignature(update: RunnerSubagentUpdate): string {
 		String(update.progress.toolCount),
 		String(update.progress.turnCount),
 		update.progress.sessionFile ?? "",
-		update.progress.launch?.model?.provider ?? "",
-		update.progress.launch?.model?.id ?? "",
-		update.progress.launch?.thinkingLevel ?? "",
-		String(update.progress.launch?.modelArgPassed ?? false),
-		String(update.progress.launch?.thinkingArgPassed ?? false),
 		update.activity.assistantPreview ?? "",
 		update.activity.currentToolInputPreview ?? "",
 		update.activity.lastToolName ?? "",
@@ -565,15 +561,15 @@ function defaultSpawnChildProcess(command: string, args: string[], options: Spaw
 	return nodeSpawn(command, args, options);
 }
 
-async function defaultReadSessionFile(sessionFile: string): Promise<string> {
-	return await readFile(sessionFile, "utf8");
+function defaultReadSessionFile(sessionFile: string): Promise<string> {
+	return readFile(sessionFile, "utf8");
 }
 
 async function withRunnerSubagentUsage<TTerminalInput>(
 	result: RunnerSubagentResult<TTerminalInput>,
 	readSessionFile: ReadRunnerSubagentSessionFile,
 ): Promise<RunnerSubagentResult<TTerminalInput>> {
-	const sessionFile = result.sessionFile ?? result.progress.sessionFile;
+	const sessionFile = runnerSubagentSessionFile(result);
 	let usage: RunnerSubagentUsageMetadata;
 	try {
 		usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, readSessionFile);

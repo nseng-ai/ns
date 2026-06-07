@@ -22,6 +22,14 @@ export interface SpawnCall {
 type CloseListener = (code: number | null, signal: NodeJS.Signals | null) => void;
 type ErrorListener = (error: Error) => void;
 
+export function jsonLine(value: unknown): string {
+	return `${JSON.stringify(value)}\n`;
+}
+
+export function sessionMessageLine(message: unknown): string {
+	return jsonLine({ type: "message", message });
+}
+
 interface FakeSpawnedChildProcessEvents {
 	close: Parameters<CloseListener>;
 	error: Parameters<ErrorListener>;

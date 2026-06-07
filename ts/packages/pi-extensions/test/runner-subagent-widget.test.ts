@@ -15,8 +15,8 @@ const METADATA_ONLY_UPDATE: RunnerSubagentUpdate = {
 		launch: {
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 			thinkingLevel: "medium",
-			modelArgPassed: true,
-			thinkingArgPassed: true,
+			hasModelArg: true,
+			hasThinkingArg: true,
 		},
 	},
 	activity: {},
@@ -103,8 +103,8 @@ describe("runner subagent activity widget", () => {
 						elapsedMs: 0,
 						launch: {
 							thinkingLevel: "off",
-							modelArgPassed: false,
-							thinkingArgPassed: false,
+							hasModelArg: false,
+							hasThinkingArg: false,
 						},
 					},
 					activity: {},
