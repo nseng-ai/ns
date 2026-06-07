@@ -78,6 +78,101 @@ def _read_raw_payload(data: dict) -> dict:
     return json.loads(Path(data["payload_reference"]["payload_path"]).read_text(encoding="utf-8"))
 
 
+def _minimal_feedback_plan(
+    *,
+    batches: list[dict],
+    informational: list[dict] | None = None,
+) -> dict:
+    return {
+        "valid": True,
+        "manifest_kind": "get_feedback",
+        "pr_number": 42,
+        "payload_path": None,
+        "validation": {
+            "valid": True,
+            "manifest_kind": "get_feedback",
+            "pr_number": 42,
+            "payload_path": None,
+            "counts": {
+                "reviews_expected": 0,
+                "reviews_classified": 0,
+                "review_threads_expected": 0,
+                "review_threads_classified": 0,
+                "thread_comments_expected": 0,
+                "thread_comments_covered": 0,
+                "discussion_comments_expected": 0,
+                "discussion_comments_classified": 0,
+            },
+            "errors": [],
+        },
+        "counts": {
+            "actionable_items": sum(len(batch["items"]) for batch in batches),
+            "informational_items": len(informational or []),
+            "batches": len(batches),
+            "approval_required_batches": 0,
+            "actionable_reviews": 0,
+            "actionable_review_threads": 0,
+            "actionable_discussion_comments": 0,
+            "informational_reviews": 0,
+            "informational_review_threads": 0,
+            "informational_discussion_comments": 0,
+        },
+        "batches": batches,
+        "informational": informational or [],
+        "warnings": [],
+    }
+
+
+def _plan_batch(batch_id: str, items: list[dict], *, complexity: str = "single_file") -> dict:
+    return {
+        "batch_id": batch_id,
+        "complexity": complexity,
+        "approval_required": False,
+        "items": items,
+    }
+
+
+def _thread_plan_item(thread_id: str, *, summary: str | None = None) -> dict:
+    return {
+        "source_kind": "review_thread",
+        "summary": summary or f"Thread {thread_id} requires action.",
+        "action_summary": f"Address thread {thread_id}.",
+        "complexity": "single_file",
+        "thread_id": thread_id,
+    }
+
+
+def _review_plan_item(review_id: str) -> dict:
+    return {
+        "source_kind": "review",
+        "summary": f"Review {review_id} requires action.",
+        "action_summary": f"Address review {review_id}.",
+        "complexity": "single_file",
+        "review_id": review_id,
+    }
+
+
+def _discussion_plan_item(comment_id: int) -> dict:
+    return {
+        "source_kind": "discussion_comment",
+        "summary": f"Discussion comment {comment_id} requires action.",
+        "action_summary": f"Address discussion comment {comment_id}.",
+        "complexity": "single_file",
+        "discussion_comment_id": comment_id,
+    }
+
+
+def _informational_thread_item(thread_id: str) -> dict:
+    return {
+        "source_kind": "review_thread",
+        "summary": f"Thread {thread_id} is informational.",
+        "informational_reason": "question_only",
+        "user_decision_required": True,
+        "allowed_decisions": ["act", "dismiss", "skip"],
+        "thread_id": thread_id,
+    }
+
+
 def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -837,6 +932,336 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
     assert data["is_resolved"] is True
     assert data["body"].startswith(PRE_EXISTING_REPLY)
     assert RESOLUTION_MARKER in data["body"]
+
+
+def test_build_resolve_thread_batch_payload_builds_ready_payload_and_matches_batch_contract(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [
+                    _thread_plan_item("PRRT_fixed"),
+                    _review_plan_item("PRR_ignored"),
+                    _thread_plan_item("PRRT_explained"),
+                ],
+            ),
+            _plan_batch(
+                "local",
+                [_thread_plan_item("PRRT_other")],
+                complexity="local",
+            ),
+        ],
+        informational=[_informational_thread_item("PRRT_info")],
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "continue_on_error": True,
+        "decisions": [
+            {
+                "thread_id": "PRRT_fixed",
+                "action": "resolve",
+                "mode": "fixed",
+                "message": "Updated the guard.",
+            },
+            {
+                "thread_id": "PRRT_explained",
+                "action": "resolve",
+                "mode": "explained",
+                "message": "This path is already covered by the documented contract.",
+            },
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload"],
+        fake,
+        input_text=json.dumps(request),
+    )
+
+    assert exit_code == 0
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["valid"] is True
+    assert data["payload_ready"] is True
+    assert data["review_thread_count"] == 2
+    assert data["resolved_thread_count"] == 2
+    assert data["skipped_thread_count"] == 0
+    assert data["ignored_non_thread_items"] == [
+        {
+            "source_kind": "review",
+            "review_id": "PRR_ignored",
+            "discussion_comment_id": None,
+            "summary": "Review PRR_ignored requires action.",
+        }
+    ]
+    assert data["payload"] == {
+        "commit_sha": "abc1234",
+        "continue_on_error": True,
+        "items": [
+            {
+                "thread_id": "PRRT_fixed",
+                "mode": "fixed",
+                "message": "Updated the guard.",
+                "commit_sha": None,
+            },
+            {
+                "thread_id": "PRRT_explained",
+                "mode": "explained",
+                "message": "This path is already covered by the documented contract.",
+                "commit_sha": None,
+            },
+        ],
+    }
+
+    batch_exit_code, batch_output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch"],
+        fake,
+        input_text=json.dumps(data["payload"]),
+    )
+
+    assert batch_exit_code == 0
+    assert batch_output["data"]["resolved"] == 2
+    assert fake.resolved_thread_ids == ("PRRT_fixed", "PRRT_explained")
+
+
+def test_build_resolve_thread_batch_payload_supports_explicit_skip_decisions(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [
+                    _thread_plan_item("PRRT_resolve"),
+                    _thread_plan_item("PRRT_skip"),
+                ],
+            )
+        ]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "decisions": [
+            {
+                "thread_id": "PRRT_resolve",
+                "action": "resolve",
+                "mode": "fixed",
+                "message": "Fixed the requested behavior.",
+            },
+            {
+                "thread_id": "PRRT_skip",
+                "action": "skip",
+                "skip_reason": "User deferred this thread to a follow-up.",
+            },
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload"],
+        fake,
+        input_text=json.dumps(request),
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert data["payload_ready"] is True
+    assert [item["thread_id"] for item in data["payload"]["items"]] == ["PRRT_resolve"]
+    assert data["skipped_items"] == [
+        {
+            "thread_id": "PRRT_skip",
+            "skip_reason": "User deferred this thread to a follow-up.",
+            "summary": "Thread PRRT_skip requires action.",
+        }
+    ]
+    assert data["skipped_thread_count"] == 1
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+def test_build_resolve_thread_batch_payload_returns_no_payload_for_non_thread_batch(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [_review_plan_item("PRR_1"), _discussion_plan_item(9001)],
+            )
+        ]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "decisions": [],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload"],
+        fake,
+        input_text=json.dumps(request),
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert data["valid"] is True
+    assert data["payload_ready"] is False
+    assert data["payload"] is None
+    assert data["review_thread_count"] == 0
+    assert [item["source_kind"] for item in data["ignored_non_thread_items"]] == [
+        "review",
+        "discussion_comment",
+    ]
+    assert "no review-thread items" in data["warnings"][0]
+
+
+def test_build_resolve_thread_batch_payload_rejects_invalid_resolve_fields(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [
+                    _thread_plan_item("PRRT_fixed"),
+                    _thread_plan_item("PRRT_explained"),
+                    _thread_plan_item("PRRT_mode"),
+                ],
+            )
+        ]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "decisions": [
+            {
+                "thread_id": "PRRT_fixed",
+                "action": "resolve",
+                "mode": "fixed",
+                "message": " ",
+            },
+            {
+                "thread_id": "PRRT_explained",
+                "action": "resolve",
+                "mode": "explained",
+                "message": " ",
+            },
+            {
+                "thread_id": "PRRT_mode",
+                "action": "resolve",
+                "mode": "later",
+                "message": "Fixed later.",
+            },
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["exit_code"] == 1
+    data = output["data"]
+    assert data["valid"] is False
+    assert data["payload"] is None
+    error_codes = [error["code"] for error in data["errors"]]
+    assert error_codes == [
+        "missing_message",
+        "missing_commit_sha",
+        "missing_message",
+        "invalid_mode",
+    ]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+def test_build_resolve_thread_batch_payload_rejects_thread_mismatches(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [
+                    _thread_plan_item("PRRT_dup"),
+                    _thread_plan_item("PRRT_missing"),
+                ],
+            ),
+            _plan_batch(
+                "local",
+                [_thread_plan_item("PRRT_other")],
+                complexity="local",
+            ),
+        ],
+        informational=[_informational_thread_item("PRRT_info")],
+    )
+    valid_resolve = {
+        "action": "resolve",
+        "mode": "fixed",
+        "message": "Fixed.",
+    }
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "decisions": [
+            {"thread_id": "PRRT_dup", **valid_resolve},
+            {"thread_id": "PRRT_dup", **valid_resolve},
+            {"thread_id": "PRRT_other", **valid_resolve},
+            {"thread_id": "PRRT_info", **valid_resolve},
+            {"thread_id": "PRRT_unknown", **valid_resolve},
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    error_codes = [error["code"] for error in output["data"]["errors"]]
+    assert error_codes == [
+        "duplicate_thread_decision",
+        "thread_not_in_selected_batch",
+        "informational_thread_not_in_batch",
+        "unknown_thread_decision",
+        "missing_thread_decision",
+    ]
+    assert output["data"]["payload"] is None
+    assert fake.thread_replies == ()
+
+
+def test_build_resolve_thread_batch_payload_rejects_malformed_json(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", "{"],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_json"
+    assert fake.thread_replies == ()
 
 
 def test_resolve_thread_batch_resolves_mixed_payload_from_stdin(

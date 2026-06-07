@@ -23,7 +23,9 @@
 - [~] Reduce manual GitHub mutation payload assembly.
   - Provide mutation skeletons, file-input support, or a batch checkpoint helper so resolving threads after a commit uses tested shapes rather than agent-authored JSON blobs.
   - Progress: `resolve-thread-batch` accepts JSON via stdin or `--payload-json` through the shared Clinkr JSON loader, so malformed payloads fail before mutation through a tested parser path.
-  - Remaining evidence: mutation skeletons or checkpoint helpers still need to remove agent-authored batch JSON shapes from the normal path while preserving canonical reply formatting.
+  - Progress: `build-resolve-thread-batch-payload` now consumes `plan-feedback` output plus explicit per-thread resolve/skip decisions and emits either a validated `resolve-thread-batch` payload, a no-payload result, or structured semantic errors without mutating GitHub.
+  - Evidence: scenario tests cover ready payload generation, skip handling, non-thread no-payload batches, invalid decision fields, thread mismatches, malformed input, and compatibility with `resolve-thread-batch`; the public skill and CLI reference route agents through the builder before mutation.
+  - Remaining evidence: per-batch checkpoint/evidence helpers still need to remove residual transcript memory around changed files, validation commands, and final audit state while preserving canonical reply formatting.
 
 - [ ] Add per-batch evidence/checkpoint support.
   - Capture or surface changed files, validation commands, commit SHA, addressed thread IDs, resolved/replied outcomes, and skipped items for each batch. Keep this as workflow evidence, not a hidden task database.
