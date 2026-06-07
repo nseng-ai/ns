@@ -21,7 +21,7 @@ interface HarnessOptions {
 	stashPushFails?: boolean;
 	stashListFails?: boolean;
 	stashRefMissing?: boolean;
-	gtCreateFails?: boolean;
+	shouldGtCreateFail?: boolean;
 	stashPopFails?: boolean;
 	detachedHead?: boolean;
 	cleanWorktree?: boolean;
@@ -86,9 +86,6 @@ function createHarness(options: HarnessOptions = {}) {
 			if (command === "git" && args[0] === "log" && args.includes("--format=%B")) {
 				return ok("Update committed feature\n");
 			}
-			if (command === "git" && args[0] === "log" && args.includes("--oneline")) {
-				return ok("abc123d Update committed feature\n");
-			}
 			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 				return ok(`${currentBranch}\n`);
 			}
@@ -133,7 +130,7 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "gt" && args[0] === "create") {
 				currentBranch = args[1] ?? currentBranch;
-				return options.gtCreateFails ? fail("gt create failed") : ok("created\n");
+				return options.shouldGtCreateFail ? fail("gt create failed") : ok("created\n");
 			}
 			return ok();
 		},
@@ -218,6 +215,17 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
+	test("dirty worktree with failed upstream check warns and keeps the existing path", async () => {
+		const harness = createHarness({ upstreamMode: "failed" });
+
+		await createAutobranchCheckpointFlow(harness.input);
+
+		expect(harness.events).toContain("prepare");
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
+		expect(harness.notifications.some((notice) => notice.level === "warning" && notice.message.includes("continuing with dirty-worktree autobranch"))).toBe(true);
+		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
+	});
+
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {
 		const harness = createHarness();
 
@@ -282,7 +290,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("Graphite creation failure attempts stash restoration and skips final commit", async () => {
-		const harness = createHarness({ gtCreateFails: true });
+		const harness = createHarness({ shouldGtCreateFail: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
@@ -293,7 +301,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("Graphite creation failure plus stash restoration failure reports both problems", async () => {
-		const harness = createHarness({ gtCreateFails: true, stashPopFails: true });
+		const harness = createHarness({ shouldGtCreateFail: true, stashPopFails: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 

@@ -4,6 +4,7 @@ import { formatPendingWorktreeCommandDetails, type PendingWorktreeSnapshot } fro
 import { chooseAvailableBranchName } from "./autobranch-branch-name.ts";
 import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "./branch-slug.ts";
+import { shortSha } from "./land-stack/command-exec.ts";
 import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -43,7 +44,7 @@ interface LatestCommitFacts {
 export interface LatestCommitAutobranchPlan extends LatestCommitFacts {
 	branchName: string;
 	baseSlug: string;
-	usedSuffix: boolean;
+	hasSuffix: boolean;
 	slugSource: "requested" | "model";
 }
 
@@ -61,6 +62,11 @@ export type LatestCommitPreparationResult =
 	| { ok: false; kind: "slug_generation_failed"; error: string }
 	| { ok: false; kind: "branch_name_unavailable"; baseSlug: string };
 
+type CreatedBranchRecovery =
+	| { restored: true; createdBranchDeleted: true }
+	| { restored: true; createdBranchDeleted: false; createdBranchDeleteError: string }
+	| { restored: false; restoreError: string; createdBranchDeleted: false; createdBranchDeleteError: string };
+
 export type LatestCommitTransactionResult =
 	| { ok: true; commitSummary: string; backupDeleted: true }
 	| { ok: true; commitSummary: string; backupDeleted: false; backupBranch: string; backupDeleteError: string }
@@ -68,10 +74,8 @@ export type LatestCommitTransactionResult =
 	| { ok: false; kind: "source_reset_failed"; backupBranch: string; error: string }
 	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: true }
 	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: false; restoreError: string }
-	| { ok: false; kind: "branch_reset_failed"; backupBranch: string; branchName: string; resetError: string; restored: true }
-	| { ok: false; kind: "branch_reset_failed"; backupBranch: string; branchName: string; resetError: string; restored: false; restoreError: string }
-	| { ok: false; kind: "head_verify_failed"; backupBranch: string; branchName: string; actualHead: string; restored: true }
-	| { ok: false; kind: "head_verify_failed"; backupBranch: string; branchName: string; actualHead: string; restored: false; restoreError: string };
+	| ({ ok: false; kind: "branch_reset_failed"; backupBranch: string; branchName: string; resetError: string } & CreatedBranchRecovery)
+	| ({ ok: false; kind: "head_verify_failed"; backupBranch: string; branchName: string; actualHead: string } & CreatedBranchRecovery);
 
 export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobranchInput): Promise<void> {
 	const prepared = await prepareLatestCommitAutobranchPlan(input);
@@ -94,7 +98,7 @@ export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobr
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
 	const clean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
-	const suffix = prepared.plan.usedSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
+	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
 	const lines = [
 		`New branch: ${prepared.plan.branchName}${suffix}`,
 		`Moved commit: ${transaction.commitSummary}`,
@@ -114,10 +118,10 @@ export async function inspectUpstreamHeadState(input: {
 	const upstream = await input.exec("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], input.cwd, GIT_TIMEOUT_MS);
 	if (upstream.code !== 0) {
 		const details = `${upstream.stdout}\n${upstream.stderr}`.toLowerCase();
-		if (details.includes("no upstream") || details.includes("no tracking") || details.includes("has no upstream")) {
+		if (upstream.code === 128 || details.includes("no upstream") || details.includes("no tracking") || details.includes("has no upstream")) {
 			return { type: "no_upstream" };
 		}
-		return { type: "failed", error: formatCommandDetails(upstream) };
+		return { type: "failed", error: formatPendingWorktreeCommandDetails(upstream) };
 	}
 
 	const upstreamName = upstream.stdout.trim().split("\n").find((line) => line.trim().length > 0)?.trim();
@@ -132,7 +136,7 @@ export async function inspectUpstreamHeadState(input: {
 	if (containsHead.code === 1) {
 		return { type: "head_not_in_upstream", upstream: upstreamName };
 	}
-	return { type: "failed", error: formatCommandDetails(containsHead) };
+	return { type: "failed", error: formatPendingWorktreeCommandDetails(containsHead) };
 }
 
 export async function prepareLatestCommitAutobranchPlan(
@@ -164,7 +168,7 @@ export async function prepareLatestCommitAutobranchPlan(
 			...facts.facts,
 			branchName: branchName.name,
 			baseSlug: slug.baseSlug,
-			usedSuffix: branchName.usedSuffix,
+			hasSuffix: branchName.hasSuffix,
 			slugSource: slug.source,
 		},
 	};
@@ -184,7 +188,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		input.exec("git", ["branch", backupBranch, input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS),
 	);
 	if (backupCreated.code !== 0) {
-		return { ok: false, kind: "backup_create_failed", error: formatCommandDetails(backupCreated) };
+		return { ok: false, kind: "backup_create_failed", error: formatPendingWorktreeCommandDetails(backupCreated) };
 	}
 
 	const resetSource = await resetSourceBranchToParent(input);
@@ -198,13 +202,13 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 	if (created.code !== 0) {
 		const restored = await restoreSourceBranch(input);
 		if (restored.ok) {
-			return { ok: false, kind: "graphite_create_failed", backupBranch, createError: formatCommandDetails(created), restored: true };
+			return { ok: false, kind: "graphite_create_failed", backupBranch, createError: formatPendingWorktreeCommandDetails(created), restored: true };
 		}
 		return {
 			ok: false,
 			kind: "graphite_create_failed",
 			backupBranch,
-			createError: formatCommandDetails(created),
+			createError: formatPendingWorktreeCommandDetails(created),
 			restored: false,
 			restoreError: restored.error,
 		};
@@ -214,42 +218,34 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		input.exec("git", ["reset", "--hard", input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS),
 	);
 	if (resetBranch.code !== 0) {
-		const restored = await restoreSourceBranch(input);
-		if (restored.ok) {
-			return { ok: false, kind: "branch_reset_failed", backupBranch, branchName: input.plan.branchName, resetError: formatCommandDetails(resetBranch), restored: true };
-		}
+		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
 			ok: false,
 			kind: "branch_reset_failed",
 			backupBranch,
 			branchName: input.plan.branchName,
-			resetError: formatCommandDetails(resetBranch),
-			restored: false,
-			restoreError: restored.error,
+			resetError: formatPendingWorktreeCommandDetails(resetBranch),
+			...recovery,
 		};
 	}
 
 	const verified = await input.exec("git", ["rev-parse", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
 	const actualHead = verified.stdout.trim();
 	if (verified.code !== 0 || actualHead !== input.plan.originalHeadSha) {
-		const restored = await restoreSourceBranch(input);
-		if (restored.ok) {
-			return { ok: false, kind: "head_verify_failed", backupBranch, branchName: input.plan.branchName, actualHead: actualHead || formatCommandDetails(verified), restored: true };
-		}
+		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
 			ok: false,
 			kind: "head_verify_failed",
 			backupBranch,
 			branchName: input.plan.branchName,
-			actualHead: actualHead || formatCommandDetails(verified),
-			restored: false,
-			restoreError: restored.error,
+			actualHead: actualHead || formatPendingWorktreeCommandDetails(verified),
+			...recovery,
 		};
 	}
 
 	const deleted = await withStatus(input, "cleaning up recovery branch…", () => input.exec("git", ["branch", "-D", backupBranch], input.cwd, GIT_TIMEOUT_MS));
 	if (deleted.code !== 0) {
-		return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: false, backupBranch, backupDeleteError: formatCommandDetails(deleted) };
+		return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: false, backupBranch, backupDeleteError: formatPendingWorktreeCommandDetails(deleted) };
 	}
 	return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: true };
 }
@@ -275,7 +271,7 @@ async function loadLatestCommitFacts(
 > {
 	const trunk = await input.exec("gt", ["trunk", "--no-interactive"], input.cwd, GT_TIMEOUT_MS);
 	if (trunk.code !== 0) {
-		return { ok: false, kind: "trunk_lookup_failed", error: formatCommandDetails(trunk) };
+		return { ok: false, kind: "trunk_lookup_failed", error: formatPendingWorktreeCommandDetails(trunk) };
 	}
 	const trunkBranch = trunk.stdout.trim().split("\n").find((line) => line.trim().length > 0)?.trim();
 	if (!trunkBranch) {
@@ -295,7 +291,7 @@ async function loadLatestCommitFacts(
 
 	const parents = await input.exec("git", ["rev-list", "--parents", "-n", "1", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
 	if (parents.code !== 0) {
-		return { ok: false, kind: "commit_parent_lookup_failed", error: formatCommandDetails(parents) };
+		return { ok: false, kind: "commit_parent_lookup_failed", error: formatPendingWorktreeCommandDetails(parents) };
 	}
 	const [headSha, ...parentShas] = parents.stdout.trim().split(/\s+/).filter(Boolean);
 	if (!headSha) {
@@ -310,16 +306,14 @@ async function loadLatestCommitFacts(
 
 	const message = await input.exec("git", ["log", "-1", "--format=%B"], input.cwd, GIT_TIMEOUT_MS);
 	if (message.code !== 0) {
-		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(message) };
+		return { ok: false, kind: "commit_evidence_failed", error: formatPendingWorktreeCommandDetails(message) };
 	}
 	const diff = await input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], input.cwd, GIT_TIMEOUT_MS);
 	if (diff.code !== 0) {
-		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(diff) };
+		return { ok: false, kind: "commit_evidence_failed", error: formatPendingWorktreeCommandDetails(diff) };
 	}
-	const summary = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, GIT_TIMEOUT_MS);
-	if (summary.code !== 0) {
-		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(summary) };
-	}
+	const commitSubject = message.stdout.split("\n")[0]?.trim();
+	const commitSummary = commitSubject ? `${shortSha(headSha)} ${commitSubject}` : shortSha(headSha);
 
 	return {
 		ok: true,
@@ -330,7 +324,7 @@ async function loadLatestCommitFacts(
 			parentSha: parentShas[0] as string,
 			commitMessage: message.stdout,
 			commitDiff: diff.stdout,
-			commitSummary: summary.stdout.trim() || shortSha(headSha),
+			commitSummary,
 			...(upstream.type === "head_not_in_upstream" ? { upstream: upstream.upstream } : {}),
 		},
 	};
@@ -401,7 +395,7 @@ function buildLatestCommitSlugPrompt(facts: LatestCommitFacts): string {
 async function resetSourceBranchToParent(input: LatestCommitTransactionInput): Promise<{ ok: true } | { ok: false; error: string }> {
 	const currentBranch = await input.exec("git", ["branch", "--show-current"], input.cwd, GIT_TIMEOUT_MS);
 	if (currentBranch.code !== 0) {
-		return { ok: false, error: formatCommandDetails(currentBranch) };
+		return { ok: false, error: formatPendingWorktreeCommandDetails(currentBranch) };
 	}
 	if (currentBranch.stdout.trim() !== input.plan.sourceBranch) {
 		return { ok: false, error: `Expected to be on ${input.plan.sourceBranch}, but current branch is ${currentBranch.stdout.trim() || "(detached)"}.` };
@@ -409,7 +403,7 @@ async function resetSourceBranchToParent(input: LatestCommitTransactionInput): P
 
 	const currentHead = await input.exec("git", ["rev-parse", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
 	if (currentHead.code !== 0) {
-		return { ok: false, error: formatCommandDetails(currentHead) };
+		return { ok: false, error: formatPendingWorktreeCommandDetails(currentHead) };
 	}
 	if (currentHead.stdout.trim() !== input.plan.originalHeadSha) {
 		return { ok: false, error: `Expected HEAD ${input.plan.originalHeadSha}, but found ${currentHead.stdout.trim()}.` };
@@ -417,7 +411,7 @@ async function resetSourceBranchToParent(input: LatestCommitTransactionInput): P
 
 	const reset = await withStatus(input, "resetting source branch…", () => input.exec("git", ["reset", "--hard", input.plan.parentSha], input.cwd, GIT_TIMEOUT_MS));
 	if (reset.code !== 0) {
-		return { ok: false, error: formatCommandDetails(reset) };
+		return { ok: false, error: formatPendingWorktreeCommandDetails(reset) };
 	}
 	return { ok: true };
 }
@@ -425,13 +419,35 @@ async function resetSourceBranchToParent(input: LatestCommitTransactionInput): P
 async function restoreSourceBranch(input: LatestCommitTransactionInput): Promise<{ ok: true } | { ok: false; error: string }> {
 	const checkedOut = await input.exec("git", ["checkout", input.plan.sourceBranch], input.cwd, GIT_TIMEOUT_MS);
 	if (checkedOut.code !== 0) {
-		return { ok: false, error: formatCommandDetails(checkedOut) };
+		return { ok: false, error: formatPendingWorktreeCommandDetails(checkedOut) };
 	}
 	const restored = await input.exec("git", ["reset", "--hard", input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS);
 	if (restored.code !== 0) {
-		return { ok: false, error: formatCommandDetails(restored) };
+		return { ok: false, error: formatPendingWorktreeCommandDetails(restored) };
 	}
 	return { ok: true };
+}
+
+async function restoreSourceAndDeleteCreatedBranch(input: LatestCommitTransactionInput): Promise<CreatedBranchRecovery> {
+	const restored = await restoreSourceBranch(input);
+	if (!restored.ok) {
+		return {
+			restored: false,
+			restoreError: restored.error,
+			createdBranchDeleted: false,
+			createdBranchDeleteError: `Skipped deleting incomplete branch ${input.plan.branchName} because source branch restoration failed.`,
+		};
+	}
+
+	const deleted = await input.exec("git", ["branch", "-D", input.plan.branchName], input.cwd, GIT_TIMEOUT_MS);
+	if (deleted.code !== 0) {
+		return {
+			restored: true,
+			createdBranchDeleted: false,
+			createdBranchDeleteError: formatPendingWorktreeCommandDetails(deleted),
+		};
+	}
+	return { restored: true, createdBranchDeleted: true };
 }
 
 async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInput, sourceBranch: string, timestamp: number): Promise<string> {
@@ -523,6 +539,7 @@ function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransa
 				`Recovery branch: ${result.backupBranch}`,
 				result.resetError,
 				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
+				formatCreatedBranchCleanup(result),
 			].join("\n");
 		case "head_verify_failed":
 			return [
@@ -530,12 +547,16 @@ function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransa
 				`Expected original commit, found: ${result.actualHead}`,
 				`Recovery branch: ${result.backupBranch}`,
 				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
+				formatCreatedBranchCleanup(result),
 			].join("\n");
 	}
 }
 
-function formatCommandDetails(result: CommandResult): string {
-	return formatPendingWorktreeCommandDetails(result);
+function formatCreatedBranchCleanup(result: CreatedBranchRecovery & { branchName: string }): string {
+	if (result.createdBranchDeleted) {
+		return `Deleted incomplete branch ${result.branchName}.`;
+	}
+	return `Could not delete incomplete branch ${result.branchName}: ${result.createdBranchDeleteError}`;
 }
 
 function truncate(text: string, maxChars: number): string {
@@ -545,6 +566,3 @@ function truncate(text: string, maxChars: number): string {
 	return `${text.slice(0, maxChars)}\n...[truncated]`;
 }
 
-function shortSha(value: string): string {
-	return value.slice(0, 7);
-}

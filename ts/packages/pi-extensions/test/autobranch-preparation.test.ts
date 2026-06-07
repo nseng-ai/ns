@@ -133,7 +133,7 @@ describe("prepareAutobranchPlan", () => {
 				branchName: "test-branch",
 				baseSlug: "test-branch",
 				slugSource: "requested",
-				usedSuffix: false,
+				hasSuffix: false,
 				checkpointMessage: "[cp] Update app\n\n- Add coverage",
 			},
 			warnings: [],
@@ -169,7 +169,7 @@ describe("prepareAutobranchPlan", () => {
 				branchName: "refactor-slug-prompt",
 				baseSlug: "refactor-slug-prompt",
 				slugSource: "model",
-				usedSuffix: false,
+				hasSuffix: false,
 			});
 			expect(result.warnings).toEqual([]);
 		}
@@ -196,7 +196,7 @@ describe("prepareAutobranchPlan", () => {
 				branchName: "update-app-ts-notes-txt",
 				baseSlug: "update-app-ts-notes-txt",
 				slugSource: "fallback",
-				usedSuffix: false,
+				hasSuffix: false,
 			});
 			expect(result.warnings).toEqual([{ kind: "slug_model_failed", fallbackSlug: "update-app-ts-notes-txt" }]);
 		}
@@ -217,7 +217,7 @@ describe("prepareAutobranchPlan", () => {
 		if (result.ok) {
 			expect(result.plan.branchName).toBe(suffixed);
 			expect(result.plan.baseSlug).toBe(baseSlug);
-			expect(result.plan.usedSuffix).toBe(true);
+			expect(result.plan.hasSuffix).toBe(true);
 			expect(result.plan.branchName.length).toBe(MAX_BRANCH_SLUG_LENGTH);
 		}
 	});

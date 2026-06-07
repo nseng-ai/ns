@@ -11,13 +11,13 @@ export interface BranchNameAvailabilityInput {
 
 export interface AvailableBranchName {
 	name: string;
-	usedSuffix: boolean;
+	hasSuffix: boolean;
 }
 
 export async function chooseAvailableBranchName(
 	input: BranchNameAvailabilityInput,
 	baseSlug: string,
-): Promise<{ ok: true; name: string; usedSuffix: boolean } | { ok: false }> {
+): Promise<({ ok: true } & AvailableBranchName) | { ok: false }> {
 	for (let index = 0; index < 50; index += 1) {
 		const suffix = index === 0 ? "" : `-${index + 1}`;
 		const candidate = trimBranchSlugToLength(baseSlug, MAX_BRANCH_SLUG_LENGTH - suffix.length) + suffix;
@@ -27,7 +27,7 @@ export async function chooseAvailableBranchName(
 		}
 		const exists = await input.exec("git", ["show-ref", "--verify", "--quiet", `refs/heads/${candidate}`], input.cwd, GIT_TIMEOUT_MS);
 		if (exists.code !== 0) {
-			return { ok: true, name: candidate, usedSuffix: index > 0 };
+			return { ok: true, name: candidate, hasSuffix: index > 0 };
 		}
 	}
 	return { ok: false };

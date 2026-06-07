@@ -41,7 +41,7 @@ export interface AutobranchPlan {
 	branchName: string;
 	baseSlug: string;
 	slugSource: "requested" | "model" | "fallback";
-	usedSuffix: boolean;
+	hasSuffix: boolean;
 	checkpointMessage: string;
 }
 
@@ -83,7 +83,7 @@ export async function prepareAutobranchPlan(input: AutobranchPreparationInput): 
 			branchName: branchName.name,
 			baseSlug: slug.baseSlug,
 			slugSource: slug.source,
-			usedSuffix: branchName.usedSuffix,
+			hasSuffix: branchName.hasSuffix,
 			checkpointMessage: prepared.message,
 		},
 		warnings,

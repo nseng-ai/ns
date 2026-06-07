@@ -83,9 +83,12 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 
 async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<void> {
 	const upstream = await inspectUpstreamHeadState({ cwd: input.cwd, exec: input.exec });
-	if (upstream.type === "head_not_in_upstream" || upstream.type === "failed") {
+	if (upstream.type === "head_not_in_upstream") {
 		input.notify(formatDirtyMixedStateRefusal(upstream), "error");
 		return;
+	}
+	if (upstream.type === "failed") {
+		input.notify(formatDirtyUpstreamWarning(upstream), "warning");
 	}
 
 	const prepared = await prepareAutobranchPlan({
@@ -123,7 +126,7 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
 	const clean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
-	const suffix = prepared.plan.usedSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
+	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
 
 	input.notify(
 		[
@@ -136,14 +139,15 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 	);
 }
 
-function formatDirtyMixedStateRefusal(upstream: Extract<UpstreamHeadState, { type: "head_not_in_upstream" | "failed" }>): string {
-	if (upstream.type === "failed") {
-		return `Could not determine whether HEAD is already in the current branch upstream.\n${upstream.error}`;
-	}
+function formatDirtyMixedStateRefusal(upstream: Extract<UpstreamHeadState, { type: "head_not_in_upstream" }>): string {
 	return [
 		`Current branch has both unpublished committed work and dirty changes; upstream ${upstream.upstream} does not contain HEAD.`,
 		"Clean up the dirty worktree, branch the latest commit first, or use the stackify workflow for multi-part local work.",
 	].join("\n");
+}
+
+function formatDirtyUpstreamWarning(upstream: Extract<UpstreamHeadState, { type: "failed" }>): string {
+	return [`Could not determine whether HEAD is already in the current branch upstream; continuing with dirty-worktree autobranch.`, upstream.error].join("\n");
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {

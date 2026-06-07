@@ -21,7 +21,7 @@ type UpstreamMode = "contains" | "ahead" | "none" | "failed";
 
 interface PreparationHarnessOptions {
 	slug?: string;
-	trunkFails?: boolean;
+	shouldTrunkFail?: boolean;
 	currentBranch?: string;
 	upstreamMode?: UpstreamMode;
 	parentsLine?: string;
@@ -57,7 +57,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		exec: async (command: string, args: string[]) => {
 			calls.push({ command, args });
 			if (command === "gt" && args[0] === "trunk") {
-				return options.trunkFails ? fail("gt trunk failed") : ok("master\n");
+				return options.shouldTrunkFail ? fail("gt trunk failed") : ok("master\n");
 			}
 			if (command === "git" && args[0] === "rev-parse" && args.at(-1) === "@{u}") {
 				if (upstreamMode === "none") {
@@ -79,9 +79,6 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "diff") {
 				return ok("diff --git a/src/autobranch.ts b/src/autobranch.ts\n+latest commit support\n");
-			}
-			if (command === "git" && args[0] === "log" && args.includes("--oneline")) {
-				return ok("abc123d Add latest commit support\n");
 			}
 			if (command === "pi") {
 				return options.piResult ?? ok("add-latest-commit-autobranch\n");
@@ -117,17 +114,17 @@ function basePlan(overrides: Partial<LatestCommitAutobranchPlan> = {}): LatestCo
 		commitSummary: "abc123d Add latest commit support",
 		branchName: "latest-commit-branch",
 		baseSlug: "latest-commit-branch",
-		usedSuffix: false,
+		hasSuffix: false,
 		slugSource: "requested",
 		...overrides,
 	};
 }
 
 interface TransactionHarnessOptions {
-	gtCreateFails?: boolean;
-	branchResetFails?: boolean;
-	deleteBackupFails?: boolean;
-	restoreFails?: boolean;
+	shouldGtCreateFail?: boolean;
+	shouldBranchResetFail?: boolean;
+	shouldDeleteBackupFail?: boolean;
+	shouldRestoreFail?: boolean;
 	verifyHead?: string;
 }
 
@@ -154,7 +151,8 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return ok(`${currentBranch}\n`);
 			}
 			if (command === "git" && args[0] === "branch" && args[1] === "-D") {
-				return options.deleteBackupFails ? fail("delete failed") : ok("deleted\n");
+				const branchName = args[2] ?? "";
+				return options.shouldDeleteBackupFail && branchName.startsWith("autobranch-backup/") ? fail("delete failed") : ok("deleted\n");
 			}
 			if (command === "git" && args[0] === "branch") {
 				return ok();
@@ -163,21 +161,21 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return ok(`${options.verifyHead ?? head}\n`);
 			}
 			if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
-				if (currentBranch === "latest-commit-branch" && args[2] === "abc123def456" && options.branchResetFails) {
+				if (currentBranch === "latest-commit-branch" && args[2] === "abc123def456" && options.shouldBranchResetFail) {
 					return fail("branch reset failed");
 				}
 				head = args[2] ?? head;
 				return ok();
 			}
 			if (command === "gt" && args[0] === "create") {
-				if (options.gtCreateFails) {
+				if (options.shouldGtCreateFail) {
 					return fail("gt create failed");
 				}
 				currentBranch = args[1] ?? currentBranch;
 				return ok("created\n");
 			}
 			if (command === "git" && args[0] === "checkout") {
-				if (options.restoreFails) {
+				if (options.shouldRestoreFail) {
 					return fail("checkout failed");
 				}
 				currentBranch = args[1] ?? currentBranch;
@@ -279,7 +277,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 	});
 
 	test("backup deletion failure is a success with recovery branch warning data", async () => {
-		const harness = createTransactionHarness({ deleteBackupFails: true });
+		const harness = createTransactionHarness({ shouldDeleteBackupFail: true });
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
@@ -293,7 +291,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 	});
 
 	test("Graphite creation failure restores source and keeps recovery branch", async () => {
-		const harness = createTransactionHarness({ gtCreateFails: true });
+		const harness = createTransactionHarness({ shouldGtCreateFail: true });
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
@@ -309,7 +307,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 	});
 
 	test("new branch reset failure restores source and reports partial branch", async () => {
-		const harness = createTransactionHarness({ branchResetFails: true });
+		const harness = createTransactionHarness({ shouldBranchResetFail: true });
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
@@ -320,7 +318,9 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			branchName: "latest-commit-branch",
 			resetError: "exit 1: branch reset failed",
 			restored: true,
+			createdBranchDeleted: true,
 		});
 		expect(eventIndex(harness.events, "exec:git checkout feature/base")).toBeGreaterThan(eventIndex(harness.events, "exec:git reset --hard abc123def456"));
+		expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBeGreaterThan(eventIndex(harness.events, "exec:git checkout feature/base"));
 	});
 });
