@@ -284,6 +284,7 @@ def test_plan_current_checkout_redirects_to_previous_branch() -> None:
     assert result.redirect is not None
     assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
     assert result.redirect.action.branch == "some-other"
+    assert result.redirect.action.failure_subject == "'some-other'"
     assert result.redirect.note is None
     # Planning is pure: cwd remains on the moving branch.
     assert git.get_current_branch(cwd) == "feat/x"
@@ -332,6 +333,7 @@ def test_plan_current_checkout_branch_in_main_plans_redirect_then_assignment() -
     assert result.redirect is not None
     assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
     assert result.redirect.action.branch == "some-other"
+    assert result.redirect.action.failure_subject == "'some-other'"
     # Main remains on feat/x during pure planning.
     assert git.get_current_branch(cwd) == "feat/x"
 
@@ -355,6 +357,7 @@ def test_plan_current_checkout_plans_trunk_redirect_without_mutation() -> None:
     assert result.redirect is not None
     assert isinstance(result.redirect.action, CheckoutCurrentWorktreeBranch)
     assert result.redirect.action.branch == "main"
+    assert result.redirect.action.failure_subject == "trunk branch 'main'"
     assert result.redirect.note is None
     assert git.get_current_branch(cwd) == "feat/x"
 
@@ -381,6 +384,7 @@ def test_plan_current_checkout_plans_detach_when_trunk_busy_without_mutation() -
     assert isinstance(result.redirect.action, DetachCurrentWorktree)
     assert result.redirect.action.ref == "feat/x"
     assert result.redirect.note is not None
+    assert result.current_wt_note == result.redirect.note
     assert "checked out" in result.redirect.note
     assert "detached HEAD" in result.redirect.note
     assert git.get_current_branch(cwd) == "feat/x"

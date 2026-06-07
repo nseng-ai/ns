@@ -186,13 +186,11 @@ def _execute_current_worktree_redirect(
     if isinstance(action, CheckoutCurrentWorktreeBranch):
         failure = slots_ctx.git.checkout_branch(slots_ctx.repo.root, action.branch)
         if failure is not None:
-            subject = action.failure_subject
-            if subject is None:
-                subject = f"'{action.branch}'"
             return SlotLifecycleFailure(
                 error_type="slot_allocation_error",
                 message=(
-                    f"Failed to check out {subject} in {slots_ctx.repo.root}: {failure.message}"
+                    f"Failed to check out {action.failure_subject} in "
+                    f"{slots_ctx.repo.root}: {failure.message}"
                 ),
             )
         return None
