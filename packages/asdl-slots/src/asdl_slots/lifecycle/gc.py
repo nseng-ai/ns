@@ -10,10 +10,6 @@ from dataclasses import dataclass
 from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotRecord, build_slot_inventory
-from asdl_slots.lifecycle.free import (
-    execute_cleanup_for_freed_slots,
-    plan_cleanup_for_free_targets,
-)
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot,
     SlotFreeCleanupAction,
@@ -24,6 +20,7 @@ from asdl_slots.lifecycle.outcomes import (
     SlotGcPlan,
     SlotLifecycleFailure,
 )
+from asdl_slots.lifecycle.release import execute_release_cleanup, plan_release_cleanup
 
 
 @dataclass(frozen=True)
@@ -32,6 +29,12 @@ class _GcCounts:
     kept_count: int
     skipped_count: int
     error_count: int
+
+
+@dataclass(frozen=True)
+class SlotGcReleasePreview:
+    plan: SlotGcPlan
+    outcome: SlotGcOutcome
 
 
 def _gc_pool_empty_failure() -> SlotLifecycleFailure:
@@ -213,11 +216,35 @@ def plan_gc_cleanup(
     if not targets or not cleanup_actions:
         return ()
     trunk_branch = slots_ctx.git.get_trunk_branch()
-    return plan_cleanup_for_free_targets(
+    return plan_release_cleanup(
         slots_ctx,
         targets,
         cleanup_actions,
         trunk_branch=trunk_branch,
+    )
+
+
+def outcome_from_gc_release_plan(
+    slots_ctx: SlotsCliContext,
+    plan: SlotGcPlan,
+    cleanup_actions: Sequence[SlotFreeCleanupAction] = (),
+) -> SlotGcOutcome:
+    """Compose a dry-run GC release outcome from an existing classification plan."""
+    cleanup = plan_gc_cleanup(slots_ctx, plan, cleanup_actions)
+    return outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup)
+
+
+def plan_gc_release_preview(
+    slots_ctx: SlotsCliContext,
+    cleanup_actions: Sequence[SlotFreeCleanupAction] = (),
+) -> SlotGcReleasePreview | SlotLifecycleFailure:
+    """Classify GC candidates and attach release cleanup preview without mutating state."""
+    plan = plan_gc(slots_ctx)
+    if isinstance(plan, SlotLifecycleFailure):
+        return plan
+    return SlotGcReleasePreview(
+        plan=plan,
+        outcome=outcome_from_gc_release_plan(slots_ctx, plan, cleanup_actions),
     )
 
 
@@ -295,7 +322,7 @@ def execute_gc_plan(
         freed_entries.append(freed_entry)
 
     if cleanup_actions and freed_entries:
-        cleanup = execute_cleanup_for_freed_slots(
+        cleanup = execute_release_cleanup(
             slots_ctx,
             _gc_free_targets(freed_entries),
             cleanup_actions,

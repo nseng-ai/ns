@@ -27,8 +27,9 @@ from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.lifecycle.gc import (
     execute_gc_plan,
     outcome_from_gc_plan,
+    outcome_from_gc_release_plan,
     plan_gc,
-    plan_gc_cleanup,
+    plan_gc_release_preview,
 )
 from asdl_slots.lifecycle.outcomes import (
     SlotFreeCleanupAction,
@@ -227,14 +228,16 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
 
     cleanup_actions = SLOT_GC_DELETE_BRANCH_CLEANUP_ACTIONS if request.delete_branches else ()
 
+    if request.dry_run:
+        preview = plan_gc_release_preview(slots_ctx, cleanup_actions)
+        if isinstance(preview, SlotLifecycleFailure):
+            return ClinkrExit.failure(error_type=preview.error_type, message=preview.message)
+        result = _result_from_outcome(preview.outcome)
+        return _exit_for_result(result)
+
     plan = plan_gc(slots_ctx)
     if isinstance(plan, SlotLifecycleFailure):
         return ClinkrExit.failure(error_type=plan.error_type, message=plan.message)
-
-    if request.dry_run:
-        cleanup = plan_gc_cleanup(slots_ctx, plan, cleanup_actions)
-        result = _result_from_outcome(outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup))
-        return _exit_for_result(result)
 
     if plan.would_free_count == 0:
         return ClinkrExit.ok(_result_from_outcome(outcome_from_gc_plan(plan, dry_run=False)))
@@ -245,8 +248,7 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
         )
         return _exit_for_result(result)
 
-    cleanup_preview = plan_gc_cleanup(slots_ctx, plan, cleanup_actions)
-    preview_outcome = outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup_preview)
+    preview_outcome = outcome_from_gc_release_plan(slots_ctx, plan, cleanup_actions)
     preview = _result_from_outcome(preview_outcome)
     render_slot_gc(preview, err=True)
     sys.stderr.flush()
@@ -258,7 +260,13 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
         return _exit_for_result(result)
     return ClinkrExit.ok(
         _result_from_outcome(
-            outcome_from_gc_plan(plan, dry_run=False, cleanup=cleanup_preview),
+            outcome_from_gc_plan(
+                plan,
+                dry_run=False,
+                cleanup=tuple(
+                    cleanup for entry in preview_outcome.entries for cleanup in entry.cleanup
+                ),
+            ),
             cancelled=True,
         )
     )
