@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import registerPlannedBranchExtension, {
 	CREATE_PLANNED_BRANCH_USAGE,
+	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	PLAN_BRANCH_NAMESPACE,
 	buildWritePlanPrompt,
 	buildRepoPlanStoreKey,
@@ -31,6 +33,8 @@ import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-pla
 import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
 import type { ExecOptions } from "@asdl/planned-branch";
 
+const TEST_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(TEST_DIR, "../../../..");
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
@@ -157,6 +161,25 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 
 function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
 	return { command, args, result };
+}
+
+function resolveWritePlanPromptStep(content: string = DEFAULT_WRITE_PLAN_PROMPT_BODY, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("asdl", ["exec", "resolve-prompt", "planned-branch-write-plan", "--format", "json"], {
+		stdout: JSON.stringify({
+			exit_code: 0,
+			data: {
+				name: "planned-branch-write-plan",
+				content,
+				provenance: {
+					source: "repo",
+					repo_prompt_path: `${ROOT}/.asdl/prompts/planned-branch-write-plan.md`,
+					prompt_path: `${ROOT}/.asdl/prompts/planned-branch-write-plan.md`,
+					default_name: null,
+				},
+			},
+		}),
+		...result,
+	});
 }
 
 function planSlugArgs(content: string): string[] {
@@ -732,6 +755,18 @@ describe("buildWritePlanPrompt", () => {
 	test("renders empty steering as none", () => {
 		expect(buildWritePlanPrompt("   ")).toContain("User steering for this planning request: (none)");
 	});
+
+	test("uses custom static prompt body without changing dynamic header", () => {
+		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n");
+
+		expect(prompt).toBe(`This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
+	});
+
+	test("checked-in write-plan prompt policy matches TypeScript fallback body", async () => {
+		const promptPath = join(REPO_ROOT, ".asdl", "prompts", "planned-branch-write-plan.md");
+
+		expect(await readFile(promptPath, "utf8")).toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
+	});
 });
 
 describe("formatCreatePlannedBranchPreview", () => {
@@ -888,9 +923,9 @@ describe("plan workflow commands", () => {
 		expect(pi.tools.has("persist_brmem_plan")).toBe(false);
 	});
 
-	test("planned-branch:write-plan waits for idle before dispatching the generated prompt", async () => {
+	test("planned-branch:write-plan waits for idle, resolves prompt, and dispatches the generated prompt", async () => {
 		const events: string[] = [];
-		const pi = new FakePi([], events);
+		const pi = new FakePi([resolveWritePlanPromptStep()], events);
 		registerPlannedBranchExtension(pi);
 		const command = pi.commands.get("planned-branch:write-plan");
 		expect(command).toBeDefined();
@@ -898,12 +933,19 @@ describe("plan workflow commands", () => {
 
 		await command?.handler("  add a tiny docs note plan for testing  ", context.ctx);
 
+		pi.assertDone();
 		expect(context.waits()).toBe(1);
 		expect(events[0]).toBe("wait");
 		expect(events.at(-1)).toBe("send");
+		expect(pi.execCalls).toEqual([
+			{
+				command: "asdl",
+				args: ["exec", "resolve-prompt", "planned-branch-write-plan", "--format", "json"],
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
+		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("/planned-branch:write-plan request");
-		expect(pi.sentUserMessages[0]).toContain("add a tiny docs note plan for testing");
+		expect(pi.sentUserMessages[0]).toBe(buildWritePlanPrompt("add a tiny docs note plan for testing"));
 		expect(pi.sentUserMessages[0]).toContain("write_source_branch_plan_file");
 		expect(pi.sentUserMessages[0]).toContain("~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md");
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
@@ -914,15 +956,64 @@ describe("plan workflow commands", () => {
 	});
 
 	test("planned-branch:write-plan with empty args still sends a prompt with none steering", async () => {
-		const pi = new FakePi();
+		const pi = new FakePi([resolveWritePlanPromptStep()]);
 		registerPlannedBranchExtension(pi);
 		const command = pi.commands.get("planned-branch:write-plan");
 		const context = createContext();
 
 		await command?.handler("   ", context.ctx);
 
+		pi.assertDone();
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
+	});
+
+	test("planned-branch:write-plan uses custom resolved prompt body", async () => {
+		const pi = new FakePi([resolveWritePlanPromptStep("Custom plan body\n")]);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:write-plan");
+		const context = createContext();
+
+		await command?.handler("customize this", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("customize this", "Custom plan body\n")]);
+		expect(context.notifications).toEqual([{ message: "Starting /planned-branch:write-plan planning turn…", level: "info" }]);
+	});
+
+	test("planned-branch:write-plan falls back and warns when resolver fails", async () => {
+		const pi = new FakePi([
+			resolveWritePlanPromptStep(DEFAULT_WRITE_PLAN_PROMPT_BODY, { code: 1, stdout: "", stderr: "prompt_not_found: missing" }),
+		]);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:write-plan");
+		const context = createContext();
+
+		await command?.handler("fallback please", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("fallback please")]);
+		expect(context.notifications).toEqual([
+			{ message: "Starting /planned-branch:write-plan planning turn…", level: "info" },
+			{
+				message:
+					"Falling back to built-in /planned-branch:write-plan prompt body because asdl exec resolve-prompt failed with exit code 1: prompt_not_found: missing",
+				level: "warning",
+			},
+		]);
+	});
+
+	test("planned-branch:write-plan falls back without UI warning when resolver returns malformed JSON", async () => {
+		const pi = new FakePi([resolveWritePlanPromptStep(DEFAULT_WRITE_PLAN_PROMPT_BODY, { stdout: "not json" })]);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:write-plan");
+		const context = createContext([], { hasUI: false });
+
+		await command?.handler("malformed", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("malformed")]);
+		expect(context.notifications).toEqual([]);
 	});
 
 	test("planned-branch:impl waits, loads the attached plan, and sends an implementation prompt", async () => {

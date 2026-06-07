@@ -174,7 +174,7 @@ See [cmux Extension Pattern for Pi](./cmux-extension-pattern.md) and [Querying c
 
 ## Planned branch workflow
 
-The planned-branch workflow uses `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:up-and-impl`, and `/planned-branch:impl` in Pi, plus the `planned-branch-write-plan`, `planned-branch-create`, and `planned-branch-impl` skills for other agents, to save reviewed plans, create implementation branches, attach plans through Branch Memory, and load them for implementation. `/planned-branch:up-and-impl` is the Pi-only convenience flow for branch creation, exact `git checkout <branch>`, starting a fresh Pi session, and implementation kickoff.
+The planned-branch workflow uses `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:up-and-impl`, and `/planned-branch:impl` in Pi, plus the `planned-branch-write-plan`, `planned-branch-create`, and `planned-branch-impl` skills for other agents, to save reviewed plans, create implementation branches, attach plans through Branch Memory, and load them for implementation. The static `/planned-branch:write-plan` prompt body is repo-editable at `.asdl/prompts/planned-branch-write-plan.md` and resolved with `asdl exec resolve-prompt planned-branch-write-plan --format json`. `/planned-branch:up-and-impl` is the Pi-only convenience flow for branch creation, exact `git checkout <branch>`, starting a fresh Pi session, and implementation kickoff.
 
 See [Planned Branch Workflow](./planned-branch-workflow.md).
 

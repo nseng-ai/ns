@@ -250,12 +250,10 @@ Options:
 
 This command intentionally models the manual flow: /planned-branch:create, git checkout <branch>, /new, then /planned-branch:impl <key> in the new Pi session.`;
 
-export function buildWritePlanPrompt(steering: string): string {
-	return `This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.
+const WRITE_PLAN_PROMPT_NAME = "planned-branch-write-plan";
+const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
 
-${formatSteeringBlock(steering)}
-
-Plan audience and context contract:
+export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contract:
 - Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
 - Make the plan self-contained. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
 - Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and validation commands.
@@ -312,6 +310,122 @@ Exact tool call shape:
 \`\`\`
 
 If summary is not useful, omit it from the tool call rather than passing an empty string. Do not create target branches or write Branch Memory in this workflow.`;
+
+interface ResolvedAsdlPrompt {
+	name: string;
+	content: string;
+	provenance: {
+		source: string;
+		repo_prompt_path: string;
+		prompt_path?: string | null;
+		default_name?: string | null;
+	};
+}
+
+type WritePlanPromptBodyResolution =
+	| { type: "resolved"; body: string }
+	| { type: "fallback"; body: string; warning: string };
+
+export function buildWritePlanPrompt(steering: string, promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY): string {
+	return `This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.
+
+${formatSteeringBlock(steering)}
+
+${promptBody}`;
+}
+
+async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promise<WritePlanPromptBodyResolution> {
+	try {
+		const result = await pi.exec(
+			"asdl",
+			["exec", "resolve-prompt", WRITE_PLAN_PROMPT_NAME, "--format", "json"],
+			{ cwd, timeout: WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS },
+		);
+		if (result.code !== 0) {
+			return fallbackWritePlanPromptBody(
+				`asdl exec resolve-prompt failed with exit code ${result.code}: ${result.stderr || result.stdout || "(no output)"}`,
+			);
+		}
+
+		const resolved = parseResolvePromptJson(result.stdout);
+		if (resolved === undefined) {
+			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned malformed JSON output.");
+		}
+		if (resolved.name !== WRITE_PLAN_PROMPT_NAME) {
+			return fallbackWritePlanPromptBody(
+				`asdl exec resolve-prompt returned prompt ${resolved.name}, expected ${WRITE_PLAN_PROMPT_NAME}.`,
+			);
+		}
+		if (resolved.content.trim().length === 0) {
+			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned empty prompt content.");
+		}
+
+		return { type: "resolved", body: resolved.content };
+	} catch (error) {
+		return fallbackWritePlanPromptBody(`asdl exec resolve-prompt failed: ${formatErrorMessage(error)}`);
+	}
+}
+
+function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolution {
+	return {
+		type: "fallback",
+		body: DEFAULT_WRITE_PLAN_PROMPT_BODY,
+		warning: `Falling back to built-in /planned-branch:write-plan prompt body because ${reason}`,
+	};
+}
+
+function parseResolvePromptJson(stdout: string): ResolvedAsdlPrompt | undefined {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch {
+		return undefined;
+	}
+
+	if (!isRecord(parsed) || !isRecord(parsed.data)) {
+		return undefined;
+	}
+	return parseResolvedAsdlPrompt(parsed.data);
+}
+
+function parseResolvedAsdlPrompt(data: Record<string, unknown>): ResolvedAsdlPrompt | undefined {
+	const provenance = data.provenance;
+	if (typeof data.name !== "string" || typeof data.content !== "string" || !isRecord(provenance)) {
+		return undefined;
+	}
+	if (typeof provenance.source !== "string" || typeof provenance.repo_prompt_path !== "string") {
+		return undefined;
+	}
+	const promptPath = provenance.prompt_path;
+	const defaultName = provenance.default_name;
+	if (!isOptionalString(promptPath) || !isOptionalString(defaultName)) {
+		return undefined;
+	}
+
+	const parsedProvenance: ResolvedAsdlPrompt["provenance"] = {
+		source: provenance.source,
+		repo_prompt_path: provenance.repo_prompt_path,
+	};
+	if (promptPath !== undefined) {
+		parsedProvenance.prompt_path = promptPath;
+	}
+	if (defaultName !== undefined) {
+		parsedProvenance.default_name = defaultName;
+	}
+
+	return {
+		name: data.name,
+		content: data.content,
+		provenance: parsedProvenance,
+	};
+}
+
+function isOptionalString(value: unknown): value is string | null | undefined {
+	return value === undefined || value === null || typeof value === "string";
+}
+
+function formatErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 class CreatePlannedBranchUsageError extends Error {
@@ -503,7 +617,11 @@ async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: Comma
 	if (ctx.hasUI) {
 		ctx.ui.notify("Starting /planned-branch:write-plan planning turn…", "info");
 	}
-	pi.sendUserMessage(buildWritePlanPrompt(steering));
+	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
+	if (promptBody.type === "fallback" && ctx.hasUI) {
+		ctx.ui.notify(promptBody.warning, "warning");
+	}
+	pi.sendUserMessage(buildWritePlanPrompt(steering, promptBody.body));
 }
 
 async function handleImplPlannedBranchCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {

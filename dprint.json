@@ -14,7 +14,9 @@
     ".claude",
     "node_modules",
     ".venv",
-    ".pytest_cache"
+    ".pytest_cache",
+    ".asdl/prompts/planned-branch-write-plan.md",
+    "packages/asdl-core/src/asdl_core/prompts/defaults/planned-branch-write-plan.md"
   ],
   "plugins": [
     "https://plugins.dprint.dev/markdown-0.21.1.wasm",
