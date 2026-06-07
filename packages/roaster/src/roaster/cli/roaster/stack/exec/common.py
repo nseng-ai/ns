@@ -3,30 +3,37 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+from typing import TypeVar
 
 from pydantic import ValidationError
 
 from asdl_core.clinkr.ensure import Ensure
+from asdl_core.clinkr.models import ClinkrModel
 from brmem.gateway import BranchMemoryGateway
 from roaster.context import RoasterCliContext
 from roaster.stack.common.run_models import (
     StackRunBatchState,
     StackRunManifest,
 )
-from roaster.stack.common.run_storage import StackRunStorageError, validate_stack_run_manifest
+from roaster.stack.common.run_storage import (
+    StackRunStorageError,
+    validate_stack_run_manifest,
+)
 from roaster.stack.core.contracts import (
     StackResolverOutput,
     StackResolverSafety,
     StackResolverValidation,
     StackTriageBatch,
 )
+from roaster.stack.skill.gate import StackSkillGateDecision
 from roaster.stack.skill.inputs import (
     StackSkillResolverInput,
     StackSkillTriageBatchInput,
     StackSkillTriageInput,
 )
 from roaster.stack.skill.storage import read_stack_run_manifest
+
+ModelT = TypeVar("ModelT", bound=ClinkrModel)
 
 
 def branch_memory_or_fail(context: RoasterCliContext) -> BranchMemoryGateway:
@@ -40,26 +47,33 @@ def branch_memory_or_fail(context: RoasterCliContext) -> BranchMemoryGateway:
 
 def parse_triage_stdin() -> StackSkillTriageInput:
     """Parse skill-first triage JSON from stdin."""
-    raw = sys.stdin.read()
-    try:
-        return StackSkillTriageInput.model_validate_json(raw)
-    except ValidationError as exc:
-        Ensure.fail(
-            error_type="stack_skill_triage_invalid_json",
-            message=f"record-triage expected valid triage JSON on stdin: {exc}",
-        )
+    return _parse_stdin_json(
+        StackSkillTriageInput,
+        error_type="stack_skill_triage_invalid_json",
+        message_prefix="record-triage expected valid triage JSON on stdin",
+    )
 
 
 def parse_resolver_stdin() -> StackSkillResolverInput:
     """Parse skill-first resolver JSON from stdin."""
+    return _parse_stdin_json(
+        StackSkillResolverInput,
+        error_type="stack_skill_resolver_invalid_json",
+        message_prefix="record-batch expected valid resolver JSON on stdin",
+    )
+
+
+def _parse_stdin_json(
+    model_cls: type[ModelT],
+    *,
+    error_type: str,
+    message_prefix: str,
+) -> ModelT:
     raw = sys.stdin.read()
     try:
-        return StackSkillResolverInput.model_validate_json(raw)
+        return model_cls.model_validate_json(raw)
     except ValidationError as exc:
-        Ensure.fail(
-            error_type="stack_skill_resolver_invalid_json",
-            message=f"record-batch expected valid resolver JSON on stdin: {exc}",
-        )
+        Ensure.fail(error_type=error_type, message=f"{message_prefix}: {exc}")
 
 
 def load_skill_manifest(
@@ -145,6 +159,7 @@ def triage_batch_from_input(batch: StackSkillTriageBatchInput) -> StackTriageBat
 def resolver_output_from_input(
     batch_slug: str,
     resolver: StackSkillResolverInput,
+    gate: StackSkillGateDecision,
 ) -> StackResolverOutput:
     """Convert resolver JSON into the existing resolver output contract."""
     return StackResolverOutput(
@@ -161,10 +176,10 @@ def resolver_output_from_input(
             for item in resolver.validation
         ),
         safety=StackResolverSafety(
-            unresolved_conflicts=False,
+            unresolved_conflicts=gate.unresolved_conflicts,
             destructive_changes=resolver.safety.destructive,
             secrets_or_security_sensitive=resolver.safety.security_sensitive,
-            validation_evidence_missing=False,
+            validation_evidence_missing=gate.validation_evidence_missing,
             notes=resolver.safety.notes,
         ),
         body=resolver.summary,
@@ -177,8 +192,3 @@ def validate_manifest_or_fail(manifest: StackRunManifest) -> StackRunManifest:
         return validate_stack_run_manifest(manifest)
     except StackRunStorageError as exc:
         Ensure.fail(error_type="stack_skill_manifest_invalid", message=str(exc))
-
-
-def cwd_from_context(context: RoasterCliContext) -> Path:
-    """Return context cwd."""
-    return context.cwd

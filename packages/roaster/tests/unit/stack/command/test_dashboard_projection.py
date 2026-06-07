@@ -21,6 +21,10 @@ from roaster.stack.core.contracts import (
 )
 from roaster.stack.core.profile import StackProfile
 
+_STACK_DASHBOARD_VALIDATION_COMMAND = (
+    "uv run pytest packages/roaster/tests/unit/stack/command/test_dashboard_projection.py"
+)
+
 
 def _profile() -> StackProfile:
     return StackProfile(
@@ -125,7 +129,7 @@ def _resolver_output() -> StackResolverOutput:
         files_changed=("app.py",),
         validation=(
             StackResolverValidation(
-                command="uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py",
+                command=_STACK_DASHBOARD_VALIDATION_COMMAND,
                 status="passed",
                 output_summary="passed",
             ),
@@ -181,7 +185,7 @@ def test_build_stack_dashboard_state_projects_run_counts_batches_and_rejections(
     assert state.batches[0].resolver_status == "completed"
     assert state.batches[0].validation_status == "passed"
     assert state.batches[0].validation_summary == (
-        "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py: passed (passed)"
+        f"{_STACK_DASHBOARD_VALIDATION_COMMAND}: passed (passed)"
     )
     assert state.rejected_findings[0].finding_id == "F2"
     assert state.rejected_findings[0].rationale == "Not part of this stack."

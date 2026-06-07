@@ -88,6 +88,16 @@ def _generated_pr_locator() -> GeneratedPrBranchMemoryLocator:
     )
 
 
+_CANONICAL_GENERATED_PR_MARKER = (
+    '<!-- roaster-stack-generated-pr {"version":1,"implementation_branch":"feature/impl",'
+    '"implementation_pr":"123","profile_slug":"thermonuclear-stack","run_slug":"run-1",'
+    '"batch_slug":"fix-tests","finding_ids":["F-1","F-2"],'
+    '"branch_memory_namespace":"roaster-runs","branch_memory_branch":"feature/impl",'
+    '"branch_memory_key":"runs/impl/thermonuclear-stack/run-1/batches/fix-tests/'
+    'resolver.md"} -->'
+)
+
+
 def test_render_stack_generated_pr_marker_uses_compact_deterministic_json() -> None:
     marker = render_stack_generated_pr_marker(
         implementation_branch="feature/impl",
@@ -99,28 +109,11 @@ def test_render_stack_generated_pr_marker_uses_compact_deterministic_json() -> N
         branch_memory=_generated_pr_locator(),
     )
 
-    assert marker == (
-        '<!-- roaster-stack-generated-pr {"version":1,"implementation_branch":"feature/impl",'
-        '"implementation_pr":"123","profile_slug":"thermonuclear-stack","run_slug":"run-1",'
-        '"batch_slug":"fix-tests","finding_ids":["F-1","F-2"],'
-        '"branch_memory_namespace":"roaster-runs","branch_memory_branch":"feature/impl",'
-        '"branch_memory_key":"runs/impl/thermonuclear-stack/run-1/batches/fix-tests/'
-        'resolver.md"} -->'
-    )
+    assert marker == _CANONICAL_GENERATED_PR_MARKER
 
 
 def test_parse_stack_generated_pr_marker_accepts_canonical_marker() -> None:
-    marker = render_stack_generated_pr_marker(
-        implementation_branch="feature/impl",
-        implementation_pr="123",
-        profile_slug="thermonuclear-stack",
-        run_slug="run-1",
-        batch_slug="fix-tests",
-        finding_ids=("F-1", "F-2"),
-        branch_memory=_generated_pr_locator(),
-    )
-
-    parsed = parse_stack_generated_pr_marker(marker)
+    parsed = parse_stack_generated_pr_marker(_CANONICAL_GENERATED_PR_MARKER)
 
     assert parsed == StackGeneratedPrMarker(
         implementation_branch="feature/impl",

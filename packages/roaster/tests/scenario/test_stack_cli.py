@@ -131,9 +131,7 @@ def _valid_resolver_output() -> str:
         "files_changed": ["app.py"],
         "validation": [
             {
-                "command": (
-                    "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py"
-                ),
+                "command": "uv run pytest packages/roaster/tests/scenario/test_stack_cli.py",
                 "status": "passed",
                 "output_summary": "passed",
             }

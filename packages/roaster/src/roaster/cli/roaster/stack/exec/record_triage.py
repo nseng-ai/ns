@@ -22,7 +22,7 @@ from roaster.stack.common.run_models import (
     StackRunManifest,
 )
 from roaster.stack.common.run_persistence import initial_batch_states
-from roaster.stack.common.run_storage import StackRunLocator, add_run_to_index
+from roaster.stack.common.run_storage import add_run_to_index
 from roaster.stack.skill.storage import (
     SKILL_STACK_RUNS_NAMESPACE,
     read_stack_run_index,
@@ -145,18 +145,10 @@ def record_triage_command(
             namespace=SKILL_STACK_RUNS_NAMESPACE,
             run_slug=request.run_slug,
             batch_slugs=manifest.batch_slugs,
-            index_locator=_artifact_locator(index_locator),
-            manifest_locator=_artifact_locator(manifest_locator),
-            triage_locator=_artifact_locator(triage_locator),
+            index_locator=StackRunArtifactLocator.from_locator(index_locator),
+            manifest_locator=StackRunArtifactLocator.from_locator(manifest_locator),
+            triage_locator=StackRunArtifactLocator.from_locator(triage_locator),
         )
-    )
-
-
-def _artifact_locator(locator: StackRunLocator) -> StackRunArtifactLocator:
-    return StackRunArtifactLocator(
-        namespace=locator.namespace,
-        key=locator.key,
-        branch=locator.branch,
     )
 
 

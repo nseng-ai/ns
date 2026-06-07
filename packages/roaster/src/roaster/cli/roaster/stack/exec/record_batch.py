@@ -13,7 +13,6 @@ from asdl_core.clinkr.operation import clinkr_operation
 from roaster.cli.roaster.stack.exec.common import (
     batch_from_manifest,
     branch_memory_or_fail,
-    cwd_from_context,
     load_skill_manifest,
     parse_resolver_stdin,
     resolver_output_from_input,
@@ -24,7 +23,6 @@ from roaster.stack.common.run_persistence import (
     StackRunPersistenceFailure,
     manifest_with_batch_state,
 )
-from roaster.stack.common.run_storage import StackRunLocator
 from roaster.stack.core.contracts import (
     GeneratedStackBranch,
     StackBatchStatus,
@@ -32,8 +30,7 @@ from roaster.stack.core.contracts import (
 from roaster.stack.skill.gate import (
     StackSkillGateDecision,
     collect_conflict_marker_files,
-    collect_deleted_files,
-    collect_touched_files,
+    collect_worktree_files,
     evaluate_stack_skill_gate,
     run_validation_commands,
 )
@@ -100,11 +97,12 @@ def record_batch_command(
         run_slug=request.run_slug,
     )
     batch = batch_from_manifest(manifest, request.batch_slug)
-    cwd = cwd_from_context(context)
+    cwd = context.cwd
 
     validation_results = run_validation_commands(batch.validation_requirements, cwd=cwd)
-    touched_files = collect_touched_files(cwd)
-    deleted_files = collect_deleted_files(cwd)
+    worktree_files = collect_worktree_files(cwd)
+    touched_files = worktree_files.touched_files
+    deleted_files = worktree_files.deleted_files
     conflict_marker_files = collect_conflict_marker_files(cwd, touched_files)
     gate = evaluate_stack_skill_gate(
         expected_paths=batch.expected_paths,
@@ -114,6 +112,7 @@ def record_batch_command(
         validation_results=validation_results,
         advisory_destructive=resolver.safety.destructive,
         advisory_security_sensitive=resolver.safety.security_sensitive,
+        expected_validation_count=len(batch.validation_requirements),
     )
 
     resolver_locator = write_stack_run_resolver(
@@ -132,8 +131,8 @@ def record_batch_command(
         status=status,
         generated_branch=_generated_branch(request),
         generated_branch_status="planned" if request.generated_branch_name is not None else None,
-        resolver_locator=_artifact_locator(resolver_locator),
-        resolver_output=resolver_output_from_input(request.batch_slug, resolver),
+        resolver_locator=StackRunArtifactLocator.from_locator(resolver_locator),
+        resolver_output=resolver_output_from_input(request.batch_slug, resolver, gate),
         failure=_failure(resolver.status, gate),
     )
     manifest_locator = write_stack_run_manifest(
@@ -147,8 +146,8 @@ def record_batch_command(
         status=status,
         should_halt=status != "completed",
         gate=gate,
-        manifest_locator=_artifact_locator(manifest_locator),
-        resolver_locator=_artifact_locator(resolver_locator),
+        manifest_locator=StackRunArtifactLocator.from_locator(manifest_locator),
+        resolver_locator=StackRunArtifactLocator.from_locator(resolver_locator),
     )
     if result.should_halt:
         return ClinkrExit.negative(data=result, message=_halt_message(resolver.status, gate))
@@ -193,12 +192,4 @@ def _generated_branch(request: RecordBatchRequest) -> GeneratedStackBranch | Non
         impl_branch_slug=request.impl_branch_slug,
         run_slug=request.run_slug,
         batch_slug=request.batch_slug,
-    )
-
-
-def _artifact_locator(locator: StackRunLocator) -> StackRunArtifactLocator:
-    return StackRunArtifactLocator(
-        namespace=locator.namespace,
-        key=locator.key,
-        branch=locator.branch,
     )
