@@ -43,7 +43,7 @@ class StackReviewerRun:
     review_name: str
     review_path: str
     model: str
-    base_ref: str
+    base_ref: str | None
     findings: tuple[ReviewFinding, ...]
     usage: ReviewUsage | None = None
 
@@ -307,7 +307,7 @@ def _reviewer_run_from_result(*, key: str, result: LocalReviewResult) -> StackRe
         review_name=result.review_name,
         review_path=result.review_path,
         model=result.model,
-        base_ref=result.base_ref or "",
+        base_ref=result.base_ref,
         findings=result.payload.findings,
         usage=result.usage,
     )
@@ -336,7 +336,7 @@ def _reviewer_run_markdown(run: StackReviewerRun) -> list[str]:
         f"- Review name: {run.review_name}",
         f"- Review path: `{run.review_path}`",
         f"- Model: `{run.model}`",
-        f"- Base ref: `{run.base_ref}`",
+        f"- Base ref: `{_value_or_dash(run.base_ref)}`",
         f"- Finding count: {len(run.findings)}",
         *_usage_markdown(run.usage),
         "",

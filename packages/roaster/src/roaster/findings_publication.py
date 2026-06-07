@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.models import ReviewFinding, TargetKind
+from roaster.models import DiffLineLocation, ReviewFinding, TargetKind
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -171,6 +171,14 @@ def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResu
     return _parse_inline_posting_status_object(status_data)
 
 
+def parse_publishable_diff_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
+    """Parse and reject local-only document findings before PR publication."""
+    payload = parse_findings_payload_result(raw)
+    if isinstance(payload, FindingsPayloadParseError):
+        return payload
+    return ensure_publishable_diff_payload(payload)
+
+
 def ensure_publishable_diff_payload(
     payload: FindingsPayload,
 ) -> FindingsPayload | FindingsPayloadParseError:
@@ -182,6 +190,14 @@ def ensure_publishable_diff_payload(
                 "and cannot be published as PR comments"
             )
         )
+    for finding in payload.findings:
+        if not isinstance(finding.location, DiffLineLocation):
+            return FindingsPayloadParseError(
+                message=(
+                    "PR comment publication requires diff-line finding locations; "
+                    f"got {finding.location.kind!r}"
+                )
+            )
     return payload
 
 
@@ -240,11 +256,19 @@ def preserve_activity_log(existing_body: str, new_body: str, run_summary: str) -
 
 
 def inline_marker_for_finding(review_name: str, finding: ReviewFinding) -> str:
+    location_discriminator = ""
+    if not isinstance(finding.location, DiffLineLocation):
+        location_discriminator = json.dumps(
+            finding.location.model_dump(mode="json"),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
     digest_input = "\0".join(
         (
             review_name,
             finding.path or "",
             "" if finding.line is None else str(finding.line),
+            location_discriminator,
             finding.severity,
             finding.summary,
             finding.details,
@@ -366,16 +390,13 @@ def _parse_target_metadata(
     if target is not None:
         if not isinstance(target, dict):
             return FindingsPayloadParseError(message="`target` must be an object when present")
-        raw_kind = target.get("kind")
+        raw_kind = target.get("kind", "diff")
         raw_label = target.get("label")
         raw_source_path = target.get("source_path")
     else:
         raw_kind = inner.get("target_kind", "diff")
         raw_label = inner.get("target_label")
         raw_source_path = inner.get("target_source_path")
-
-    if raw_kind is None:
-        raw_kind = "diff"
     if raw_kind == "diff":
         target_kind: TargetKind = "diff"
     elif raw_kind == "document":

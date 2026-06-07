@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import threading
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 from types import MappingProxyType
-from typing import Any, TextIO
+from typing import Any, TextIO, assert_never
 
 from pydantic import ValidationError
 
@@ -207,14 +208,7 @@ def _render_prompt_fence(content: str, *, language: str) -> str:
 
 
 def _collision_free_backtick_fence(content: str) -> str:
-    longest_run = 0
-    current_run = 0
-    for character in content:
-        if character == "`":
-            current_run += 1
-            longest_run = max(longest_run, current_run)
-        else:
-            current_run = 0
+    longest_run = max((len(match) for match in re.findall(r"`+", content)), default=0)
     return "`" * max(3, longest_run + 1)
 
 
@@ -278,43 +272,92 @@ def _parse_findings_payload(
     usage: ReviewUsage | None,
     target: ReviewTarget,
 ) -> ReviewExecutionResponse | RoasterFailure:
-    if isinstance(target, DocumentReviewTarget):
-        try:
-            findings_output = ClaudeDocumentFindingsOutput.model_validate(payload)
-        except ValidationError as exc:
-            return ClaudeCodeInvalidFindings(
-                message=(
-                    f"Claude Code review output did not match the document findings schema: {exc}"
-                ),
-            )
-        for finding in findings_output.findings:
-            if (
-                isinstance(finding.location, TextAnchorLocation)
-                and finding.location.text not in target.content
-            ):
-                anchor_text = _truncate_prose(finding.location.text.strip(), limit=120)
-                return ClaudeCodeInvalidFindings(
-                    message=(
-                        "Document review `text_anchor` location must quote exact text present "
-                        f"in target {target.label!r}; missing anchor: {anchor_text!r}."
-                    ),
-                )
-        findings = tuple(finding.to_review_finding() for finding in findings_output.findings)
-    else:
-        try:
-            findings_output = ClaudeDiffFindingsOutput.model_validate(payload)
-        except ValidationError as exc:
-            return ClaudeCodeInvalidFindings(
-                message=(
-                    f"Claude Code review output did not match the diff findings schema: {exc}"
-                ),
-            )
-        findings = tuple(finding.to_review_finding() for finding in findings_output.findings)
+    findings_output = _validate_findings_output(payload, target)
+    if isinstance(findings_output, RoasterFailure):
+        return findings_output
 
+    if isinstance(target, DocumentReviewTarget) and isinstance(
+        findings_output,
+        ClaudeDocumentFindingsOutput,
+    ):
+        invalid_anchor = _validate_document_text_anchors(findings_output, target)
+        if invalid_anchor is not None:
+            return invalid_anchor
+
+    findings = tuple(finding.to_review_finding() for finding in findings_output.findings)
     return ReviewExecutionResponse(
         payload=FindingsReview(findings=findings),
         usage=usage,
     )
+
+
+def _validate_findings_output(
+    payload: Any,
+    target: ReviewTarget,
+) -> ClaudeDiffFindingsOutput | ClaudeDocumentFindingsOutput | RoasterFailure:
+    if isinstance(target, DocumentReviewTarget):
+        schema_name = "document"
+        model = ClaudeDocumentFindingsOutput
+    elif isinstance(target, DiffReviewTarget):
+        schema_name = "diff"
+        model = ClaudeDiffFindingsOutput
+    else:
+        assert_never(target)
+
+    try:
+        return model.model_validate(payload)
+    except ValidationError as exc:
+        return ClaudeCodeInvalidFindings(
+            message=(
+                f"Claude Code review output did not match the {schema_name} findings schema: {exc}"
+            ),
+        )
+
+
+def _validate_document_text_anchors(
+    findings_output: ClaudeDocumentFindingsOutput,
+    target: DocumentReviewTarget,
+) -> ClaudeCodeInvalidFindings | None:
+    for finding in findings_output.findings:
+        location = finding.location
+        if not isinstance(location, TextAnchorLocation):
+            continue
+        match_count = _text_anchor_match_count(target.content, location)
+        if match_count == 0:
+            anchor_text = _truncate_prose(location.text.strip(), limit=120)
+            return ClaudeCodeInvalidFindings(
+                message=(
+                    "Document review `text_anchor` location must match text present "
+                    f"in target {target.label!r}; missing anchor: {anchor_text!r}."
+                ),
+            )
+        if location.occurrence is not None and location.occurrence > match_count:
+            return ClaudeCodeInvalidFindings(
+                message=(
+                    "Document review text_anchor occurrence exceeds matches in reviewed "
+                    f"target: occurrence={location.occurrence} matches={match_count}."
+                ),
+            )
+    return None
+
+
+def _text_anchor_match_count(content: str, location: TextAnchorLocation) -> int:
+    if location.text in content:
+        if location.occurrence is None:
+            return 1
+        return content.count(location.text)
+
+    normalized_content = _normalized_text(content)
+    normalized_anchor = _normalized_text(location.text)
+    if normalized_anchor not in normalized_content:
+        return 0
+    if location.occurrence is None:
+        return 1
+    return normalized_content.count(normalized_anchor)
+
+
+def _normalized_text(value: str) -> str:
+    return " ".join(value.split())
 
 
 def _extract_usage(result_event: dict[str, Any]) -> ReviewUsage | None:

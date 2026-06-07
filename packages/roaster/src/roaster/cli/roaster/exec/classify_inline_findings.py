@@ -13,10 +13,7 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from roaster.context import RoasterCliContext
-from roaster.findings_publication import (
-    ensure_publishable_diff_payload,
-    parse_findings_payload_result,
-)
+from roaster.findings_publication import parse_publishable_diff_findings_payload_result
 from roaster.inline_commentability import (
     InlineCommentabilityResult,
     classify_inline_findings,
@@ -46,8 +43,7 @@ def classify_inline_findings_command(
     request: ClassifyInlineFindingsRequest,
 ) -> ClinkrExit[InlineCommentabilityResult]:
     raw = sys.stdin.read()
-    payload = Ensure.ideal_state(parse_findings_payload_result(raw))
-    payload = Ensure.ideal_state(ensure_publishable_diff_payload(payload))
+    payload = Ensure.ideal_state(parse_publishable_diff_findings_payload_result(raw))
 
     pr_gateway = load_typed_context(ctx, RoasterCliContext).pr_gateway
     changed_files = pr_gateway.get_pr_changed_files(request.pr_number)

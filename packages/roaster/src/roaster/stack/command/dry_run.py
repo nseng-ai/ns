@@ -27,7 +27,7 @@ class StackDryRunReviewerSummary(ClinkrModel):
     review_name: str
     review_path: str
     model: str
-    base_ref: str
+    base_ref: str | None
     finding_count: int
 
 
