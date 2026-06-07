@@ -7,9 +7,8 @@ import { registerObjectiveStackImplCommand, type ObjectiveStackImplHost } from "
 import {
 	FakeCommandContext,
 	ROOT,
-	execResult,
 	objectiveListStep,
-	sameArgs,
+	runScriptedExec,
 	skillCommand,
 	step,
 	type ExecCall,
@@ -43,26 +42,15 @@ class FakeHost implements ObjectiveStackImplHost {
 	}
 
 	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (!expected) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-
-		if (expected.command !== command || expected.args === undefined || !sameArgs(expected.args, args)) {
-			const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
-			const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-
-		if (expected.error) {
-			throw expected.error;
-		}
-
-		return execResult(expected.result);
+		return runScriptedExec({
+			script: this.script,
+			execCalls: this.execCalls,
+			errors: this.errors,
+			command,
+			args,
+			options,
+			requireExpectedArgs: true,
+		});
 	}
 
 	getCommands(): ReturnType<ObjectiveStackImplHost["getCommands"]> {
