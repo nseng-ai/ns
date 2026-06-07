@@ -2,12 +2,12 @@
 
 ## Work
 
-- [ ] Establish the CCC package and vocabulary without changing user-facing command behavior.
-  - Create the private TypeScript workspace package or first-class subtree for **CCC — Cmux Command and Control**.
-  - Wire package manifests, TypeScript config, exports/imports, and compatibility shims so existing project-local `.pi/extensions/*` adapters can continue to register the same slash commands.
-  - Add durable context language for CCC in the TypeScript context files and relationship map.
+- [x] Establish the CCC package and vocabulary without changing user-facing command behavior.
+  - Created the private TypeScript workspace package `ts/packages/ccc/` with package name `@asdl/ccc`.
+  - Added package manifest, TypeScript config, a small package identity export, and focused identity test without moving command behavior.
+  - Added durable context language for CCC in `ts/packages/ccc/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, and `CONTEXT-MAP.md`.
   - Policy: direct execution after preview.
-  - Evidence: package/workspace checks pass; context docs define CCC; public command names remain stable.
+  - Evidence: parent validation passed with `bun run --cwd ts check`, `bun run --cwd ts test`, targeted `dprint check`, and `git diff --check`; public slash-command registrations were not changed in this slice.
 
 - [ ] Move cmux workspace and sidebar orchestration into CCC.
   - Move the current cmux command suite registry and workspace-opening/sidebar modules into CCC or CCC-owned modules: `cmux.ts`, `cmux/slot-dispatch-plan.ts`, `cmux/dispatch-prompt.ts`, `cmux/slot-open-branch.ts`, `cmux/slot.ts` orchestration, `cmux/pi-launch.ts`, `cmux/sidebar.ts`, focused cmux tab/surface helpers, and worktree description helpers as appropriate.

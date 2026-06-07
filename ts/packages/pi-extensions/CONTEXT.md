@@ -1,6 +1,6 @@
 # @asdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package.
+`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is a separate private orchestration layer for repo-opinionated command-and-control workflows that may sit underneath stable Pi command surfaces later.
 
 ## Language
 
@@ -17,8 +17,12 @@ A project-local extension implementation kept directly under `.pi/extensions/` w
 _Avoid_: deprecated extension, throwaway script, unowned code.
 
 **Engineered Pi extension package**:
-The private TypeScript workspace package at `ts/packages/pi-extensions/` that holds tested implementation modules for project-local Pi behavior.
-_Avoid_: published npm API, stable library boundary, global Pi extension.
+The private TypeScript workspace package at `ts/packages/pi-extensions/` that holds tested implementation modules for project-local Pi behavior, including registration helpers, command presentation, and Pi runtime integration. It is distinct from CCC, which owns cross-capability orchestration vocabulary and future command-and-control implementation seams.
+_Avoid_: published npm API, stable library boundary, global Pi extension, CCC itself.
+
+**CCC orchestration layer**:
+The private TypeScript workspace package at `ts/packages/ccc/` for repo-opinionated command-and-control workflows spanning Pi, cmux, Graphite, Objectives, handoffs, planned branches, and worktree flows. Existing public slash-command names stay owned by their current surfaces; CCC is an implementation boundary, not a user-facing command namespace.
+_Avoid_: Pi discovery adapter, command rename, lower capability package, public npm API.
 
 **Structured grill UI surface**:
 The Pi-specific command/tool layer for starting grill sessions and routing user-facing questions through `grill_ask`. It includes the plain `/grill-ui` path and the docs-aware `/grill-with-docs-ui` path.
@@ -29,8 +33,8 @@ The package helper layer for invoking external commands from Pi extensions with 
 _Avoid_: shell script, subprocess wrapper unqualified, test fake.
 
 **cmux command suite**:
-The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:sidebar:pr-summary`, `/cmux:sidebar:objective-summary`, `/cmux:workspace:dispatch-plan`, `/cmux:workspace:open-branch`, and `/cmux:workspace:dispatch-prompt`.
-_Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone.
+The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:sidebar:pr-summary`, `/cmux:sidebar:objective-summary`, `/cmux:workspace:dispatch-plan`, `/cmux:workspace:open-branch`, and `/cmux:workspace:dispatch-prompt`. The command names and registration surface are stable even if later implementation slices move orchestration behind CCC.
+_Avoid_: user-local cmux commands, cmux CLI, sidebar skill alone, CCC command namespace.
 
 **cmux workspace-opening command**:
 A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch, plan, or prompt: `/cmux:workspace:open-branch`, `/cmux:workspace:dispatch-plan`, or `/cmux:workspace:dispatch-prompt`. `open` only opens a workspace; `dispatch` opens a workspace and starts child Pi execution immediately.
