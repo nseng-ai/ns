@@ -154,7 +154,7 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(tool.description).toBe("Markdown definition description with final assistant text.");
 		expect(tool.promptSnippet).toBe("Markdown definition snippet");
 		expect(schema.type).toBe("object");
-		expect(Object.keys(schema.properties ?? {}).sort()).toEqual(["prompt", "title"]);
+		expect(Object.keys(schema.properties ?? {}).sort()).toEqual(["model", "prompt", "title"]);
 		expect(schema.required).toEqual(["title", "prompt"]);
 		expect(schema.additionalProperties).toBe(false);
 		expect(tool.promptGuidelines).toEqual(["Use dispatch_runner_subagent according to the Markdown definition."]);
@@ -199,6 +199,40 @@ describe("dispatch_runner_subagent extension", () => {
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
 		await running;
+	});
+
+	test("passes optional model to child Pi invocation and reports requested model details", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool({ pi });
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Cheap classifier", prompt: "Classify feedback.", model: " haiku " },
+			undefined,
+			undefined,
+			{ cwd: ROOT },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--model",
+			"haiku",
+			"--session",
+			SESSION_FILE,
+			composedFixturePrompt("Classify feedback."),
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+		const details = result.details as Record<string, unknown>;
+
+		expect(details.requestedModel).toBe("haiku");
 	});
 
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {
@@ -485,7 +519,7 @@ describe("dispatch_runner_subagent extension", () => {
 		});
 	});
 
-	test("rejects blank title or prompt before spawning a subagent", async () => {
+	test("rejects blank title, prompt, or provided model before spawning a subagent", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
@@ -496,6 +530,9 @@ describe("dispatch_runner_subagent extension", () => {
 		await expect(tool.execute("tool-2", { title: "Slice subagent", prompt: "\n\t" }, undefined, undefined, { cwd: ROOT })).rejects.toThrow(
 			"non-empty prompt",
 		);
+		await expect(
+			tool.execute("tool-3", { title: "Slice subagent", prompt: "Do focused work.", model: "   " }, undefined, undefined, { cwd: ROOT }),
+		).rejects.toThrow(/model.*non-empty/);
 		expect(runner.calls).toEqual([]);
 	});
 

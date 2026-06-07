@@ -143,7 +143,12 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	});
 	updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 	const stderr = new BoundedTextBuffer(dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES);
-	const childArgs = buildChildPiArgs(options.prompt, sessionFile, runtimeFiles?.extensionPath);
+	const childArgs = buildChildPiArgs({
+		prompt: options.prompt,
+		sessionFile,
+		...(runtimeFiles?.extensionPath === undefined ? {} : { runtimeExtensionPath: runtimeFiles.extensionPath }),
+		...(options.model === undefined ? {} : { model: options.model }),
+	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawn = dependencies.spawn ?? defaultSpawnChildProcess;
 	const timers = {
@@ -254,10 +259,18 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	});
 }
 
-export function buildChildPiArgs(prompt: string, sessionFile: string, runtimeExtensionPath?: string): string[] {
+interface BuildChildPiArgsInput {
+	prompt: string;
+	sessionFile: string;
+	runtimeExtensionPath?: string;
+	model?: string;
+}
+
+export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	const args = ["--mode", "json", "-p", "--no-extensions"];
-	if (runtimeExtensionPath !== undefined) args.push("--extension", runtimeExtensionPath);
-	args.push("--session", sessionFile, prompt);
+	if (input.model !== undefined) args.push("--model", input.model);
+	if (input.runtimeExtensionPath !== undefined) args.push("--extension", input.runtimeExtensionPath);
+	args.push("--session", input.sessionFile, input.prompt);
 	return args;
 }
 

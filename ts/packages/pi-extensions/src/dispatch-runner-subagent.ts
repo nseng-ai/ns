@@ -33,11 +33,13 @@ export interface ToolResult {
 export interface DispatchRunnerSubagentInput {
 	title: string;
 	prompt: string;
+	model?: string;
 }
 
 export interface DispatchRunnerSubagentDetails {
 	status: RunnerSubagentResult["status"];
 	title?: string;
+	requestedModel?: string;
 	elapsedMs: number;
 	sessionFile?: string;
 	progress: RunnerSubagentResult["progress"];
@@ -94,6 +96,10 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 			type: "string",
 			description: "Complete prompt for the subagent, including all necessary context.",
 		},
+		model: {
+			type: "string",
+			description: "Optional Pi --model pattern for the child runner subagent. Use only when the delegated task is safe for that model.",
+		},
 	},
 	required: ["title", "prompt"],
 	additionalProperties: false,
@@ -135,6 +141,7 @@ export default function dispatchRunnerSubagentExtension(
 				const result = await dispatchRunnerSubagent(pi, { cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }) }, {
 					title: input.title,
 					prompt: childPrompt,
+					...(input.model === undefined ? {} : { model: input.model }),
 					returnMode: "final-text",
 					onProgress: (update) => {
 						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
@@ -148,7 +155,7 @@ export default function dispatchRunnerSubagentExtension(
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-					details: dispatchRunnerSubagentDetails(result),
+					details: dispatchRunnerSubagentDetails(result, input.model === undefined ? {} : { requestedModel: input.model }),
 				};
 			} finally {
 				setWidget(ctx, undefined);
@@ -187,12 +194,16 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 	return lines.join("\n");
 }
 
-export function dispatchRunnerSubagentDetails(result: RunnerSubagentResult): DispatchRunnerSubagentDetails {
+export function dispatchRunnerSubagentDetails(
+	result: RunnerSubagentResult,
+	options: { requestedModel?: string } = {},
+): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
 	const sessionFile = runnerSubagentSessionFile(result);
 	const details: DispatchRunnerSubagentDetails = {
 		status: result.status,
 		...(title === undefined ? {} : { title }),
+		...(options.requestedModel === undefined ? {} : { requestedModel: options.requestedModel }),
 		elapsedMs: result.elapsedMs,
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,
@@ -309,7 +320,11 @@ function validateDispatchRunnerSubagentInput(params: DispatchRunnerSubagentInput
 	if (typeof params.prompt !== "string" || params.prompt.trim().length === 0) {
 		throw new Error("dispatch_runner_subagent requires a non-empty prompt string.");
 	}
-	return { title: params.title.trim(), prompt: params.prompt };
+	if (params.model !== undefined && (typeof params.model !== "string" || params.model.trim().length === 0)) {
+		throw new Error("dispatch_runner_subagent model must be a non-empty string when provided.");
+	}
+	const model = params.model?.trim();
+	return { title: params.title.trim(), prompt: params.prompt, ...(model === undefined ? {} : { model }) };
 }
 
 function formatProgressLine(result: RunnerSubagentResult): string {
