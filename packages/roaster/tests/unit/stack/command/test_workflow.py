@@ -182,7 +182,9 @@ def _valid_resolver_output(*, batch_slug: str = "avoid-print") -> str:
         "files_changed": ["app.py"],
         "validation": [
             {
-                "command": "uv run pytest packages/roaster/tests/unit/test_stack_workflow.py",
+                "command": (
+                    "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py"
+                ),
                 "status": "passed",
                 "output_summary": "passed",
             }

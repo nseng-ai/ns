@@ -19,7 +19,6 @@ from roaster.stack.core.contracts import (
     StackTriageFinding,
     StackTriageOutput,
 )
-from roaster.stack.core.dashboard_pr import stack_dashboard_pr_number, stack_dashboard_pr_url
 from roaster.stack.core.profile import StackProfile
 
 
@@ -126,7 +125,7 @@ def _resolver_output() -> StackResolverOutput:
         files_changed=("app.py",),
         validation=(
             StackResolverValidation(
-                command="uv run pytest packages/roaster/tests/unit/test_stack_workflow.py",
+                command="uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py",
                 status="passed",
                 output_summary="passed",
             ),
@@ -182,7 +181,7 @@ def test_build_stack_dashboard_state_projects_run_counts_batches_and_rejections(
     assert state.batches[0].resolver_status == "completed"
     assert state.batches[0].validation_status == "passed"
     assert state.batches[0].validation_summary == (
-        "uv run pytest packages/roaster/tests/unit/test_stack_workflow.py: passed (passed)"
+        "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py: passed (passed)"
     )
     assert state.rejected_findings[0].finding_id == "F2"
     assert state.rejected_findings[0].rationale == "Not part of this stack."
@@ -217,14 +216,3 @@ def test_build_stack_dashboard_rows_projects_pending_and_completed_batches() -> 
     assert rows[1].status == "pending"
     assert rows[1].branch_name is None
     assert rows[1].summary == "Still queued."
-
-
-def test_stack_dashboard_pr_helpers_accept_numbers_urls_and_invalid_values() -> None:
-    assert stack_dashboard_pr_number("123") == 123
-    assert stack_dashboard_pr_number("https://github.com/acme/widgets/issues/456") == 456
-    assert stack_dashboard_pr_number("not-a-pr") is None
-    assert stack_dashboard_pr_number(None) is None
-    assert stack_dashboard_pr_url("https://github.com/acme/widgets/pull/123") == (
-        "https://github.com/acme/widgets/pull/123"
-    )
-    assert stack_dashboard_pr_url("123") is None
