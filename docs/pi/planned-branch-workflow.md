@@ -134,7 +134,7 @@ Pi users run `/planned-branch:impl [key-or-slug]`. Other agents use the
 `planned-branch-impl` skill, which shells out to:
 
 ```text
-planned-branch exec load-plan [key-or-slug] [--format json]
+planned-branch exec load-plan [key-or-slug] [--prompt-file <path>] [--format json]
 ```
 
 The command reads the current branch, refuses detached HEAD and trunk/default
@@ -142,6 +142,12 @@ branches, lists canonical `planned-branch` entries on the current branch,
 selects the requested key when one is provided, or otherwise selects the
 branch-final segment match when possible. If multiple attached plans are present
 and no key is obvious, the workflow should ask the user to choose a key or slug.
+
+JSON output is bounded metadata by default. Agent workflows that need the full
+implementation prompt should pass `--prompt-file <path>` and read the returned
+`implementation_prompt_file` from disk, rather than asking the shell command to
+print the full plan into stdout. The explicit `--include-content` and
+`--include-prompt` flags are for callers that can safely accept large stdout.
 
 After loading the selected plan, the workflow starts an implementation turn with
 that attached plan as the authoritative plan text.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 
 import { buildImplPlannedBranchPrompt, loadAttachedPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
@@ -69,6 +69,9 @@ interface CreateArgs {
 interface LoadPlanArgs {
 	keyOrSlug?: string;
 	format?: "json";
+	promptFile?: string;
+	shouldIncludeContent: boolean;
+	shouldIncludePrompt: boolean;
 }
 
 interface JsonFailure {
@@ -215,15 +218,34 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		return 0;
 	}
 	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
+	if ((parsed.value.shouldIncludeContent || parsed.value.shouldIncludePrompt) && parsed.value.format !== "json") {
+		return writeFailure("--include-content and --include-prompt require --format json.", { stdout: deps.stdout, stderr: deps.stderr, json: false });
+	}
 
 	const requestedKey = parsed.value.keyOrSlug;
 	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem });
-	const implementationPrompt = buildImplPlannedBranchPrompt(plan);
+	const promptFile = parsed.value.promptFile === undefined ? undefined : normalizePlanFilePath(parsed.value.promptFile);
+	if (promptFile !== undefined) {
+		await writeFile(promptFile, buildImplPlannedBranchPrompt(plan), "utf8");
+	}
 	if (parsed.value.format === "json") {
-		deps.stdout(`${JSON.stringify({ success: true, ...loadedPlanJson(plan, implementationPrompt) })}\n`);
+		deps.stdout(
+			`${JSON.stringify({
+				success: true,
+				...loadedPlanJson(plan, {
+					promptFile,
+					attachedPlanContent: parsed.value.shouldIncludeContent ? plan.content : undefined,
+					implementationPrompt: parsed.value.shouldIncludePrompt ? buildImplPlannedBranchPrompt(plan) : undefined,
+				}),
+			})}\n`,
+		);
 		return 0;
 	}
-	deps.stdout(`${formatLoadedPlan(plan)}\n\n${implementationPrompt}\n`);
+	if (promptFile !== undefined) {
+		deps.stdout(`${formatLoadedPlan(plan)}\nImplementation prompt file: ${promptFile}\n`);
+		return 0;
+	}
+	deps.stdout(`${formatLoadedPlan(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
 	return 0;
 }
 
@@ -393,6 +415,9 @@ function parseCreateArgs(args: readonly string[]): ParseResult<CreateArgs> {
 function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 	let keyOrSlug: string | undefined;
 	let format: "json" | undefined;
+	let promptFile: string | undefined;
+	let shouldIncludeContent = false;
+	let shouldIncludePrompt = false;
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === undefined) continue;
@@ -406,11 +431,35 @@ function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 			index += 1;
 			continue;
 		}
+		if (arg === "--prompt-file") {
+			const value = parseFlagValue(args, index, "--prompt-file");
+			if (value.type === "error") return value;
+			promptFile = value.value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--include-content") {
+			shouldIncludeContent = true;
+			continue;
+		}
+		if (arg === "--include-prompt") {
+			shouldIncludePrompt = true;
+			continue;
+		}
 		if (arg.startsWith("-")) return { type: "error", message: `Unknown option: ${arg}` };
 		if (keyOrSlug !== undefined) return { type: "error", message: "load-plan accepts at most one key or slug." };
 		keyOrSlug = arg;
 	}
-	return { type: "ok", value: { ...(keyOrSlug === undefined ? {} : { keyOrSlug }), ...(format === undefined ? {} : { format }) } };
+	return {
+		type: "ok",
+		value: {
+			shouldIncludeContent,
+			shouldIncludePrompt,
+			...(keyOrSlug === undefined ? {} : { keyOrSlug }),
+			...(format === undefined ? {} : { format }),
+			...(promptFile === undefined ? {} : { promptFile }),
+		},
+	};
 }
 
 function parseFormat(value: string): ValueParseResult<"json"> {
@@ -496,7 +545,13 @@ function plannedBranchJson(evidence: PlannedBranchEvidence): Record<string, unkn
 	};
 }
 
-function loadedPlanJson(plan: LoadedAttachedPlan, implementationPrompt: string): Record<string, unknown> {
+interface LoadedPlanJsonOptions {
+	promptFile?: string | undefined;
+	attachedPlanContent?: string | undefined;
+	implementationPrompt?: string | undefined;
+}
+
+function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions = {}): Record<string, unknown> {
 	return {
 		branch: plan.branch,
 		namespace: plan.namespace,
@@ -504,8 +559,9 @@ function loadedPlanJson(plan: LoadedAttachedPlan, implementationPrompt: string):
 		ref_name: plan.refName,
 		byte_count: plan.byteCount,
 		available_keys: plan.availableKeys,
-		attached_plan_content: plan.content,
-		implementation_prompt: implementationPrompt,
+		...(options.promptFile === undefined ? {} : { implementation_prompt_file: options.promptFile }),
+		...(options.attachedPlanContent === undefined ? {} : { attached_plan_content: options.attachedPlanContent }),
+		...(options.implementationPrompt === undefined ? {} : { implementation_prompt: options.implementationPrompt }),
 	};
 }
 
@@ -610,7 +666,13 @@ function createHelp(): string {
 }
 
 function loadPlanHelp(): string {
-	return ["Usage: planned-branch exec load-plan [key-or-slug] [--format json]", ""].join("\n");
+	return [
+		"Usage: planned-branch exec load-plan [key-or-slug] [--prompt-file <path>] [--include-content] [--include-prompt] [--format json]",
+		"",
+		"JSON output is metadata-only by default. Use --prompt-file for normal agent handoff;",
+		"use --include-content or --include-prompt only when the caller can safely accept large stdout.",
+		"",
+	].join("\n");
 }
 
 if (import.meta.main) {

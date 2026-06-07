@@ -215,6 +215,18 @@ describe("planned-branch CLI parse failures", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.commands.execCalls).toEqual([]);
 	});
+
+	test("rejects JSON-only load-plan fields in text mode before loading a plan", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Error: --include-content and --include-prompt require --format json.\n");
+		expect(run.commands.execCalls).toEqual([]);
+		expect(run.brmem.listAttachedPlansCalls).toEqual([]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+	});
 });
 
 describe("planned-branch exec", () => {
@@ -390,7 +402,7 @@ describe("planned-branch exec", () => {
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
-	test("load-plan selects the attached plan and returns an implementation prompt", async () => {
+	test("load-plan JSON is metadata-only by default", async () => {
 		const repoRoot = await makeTempDir();
 		const branch = "planned-branches/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
@@ -408,6 +420,61 @@ describe("planned-branch exec", () => {
 			branch,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			selected_key: PLAN_KEY,
+			byte_count: content.length,
+		});
+		expect(payload).not.toHaveProperty("attached_plan_content");
+		expect(payload).not.toHaveProperty("implementation_prompt");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
+	});
+
+	test("load-plan writes the implementation prompt to a file for bounded JSON output", async () => {
+		const repoRoot = await makeTempDir();
+		const promptFile = join(await makeTempDir(), "implementation-prompt.md");
+		const branch = "planned-branches/branch-scoped-plan";
+		const content = "# Attached Plan\n\n- Implement from this.\n";
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--prompt-file", promptFile, "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({
+			success: true,
+			branch,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			selected_key: PLAN_KEY,
+			implementation_prompt_file: promptFile,
+		});
+		expect(payload).not.toHaveProperty("attached_plan_content");
+		expect(payload).not.toHaveProperty("implementation_prompt");
+		const prompt = await readFile(promptFile, "utf8");
+		expect(prompt).toContain("# planned-branch implementation");
+		expect(prompt).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
+	});
+
+	test("load-plan can include large JSON fields explicitly", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const content = "# Attached Plan\n\n- Implement from this.\n";
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content", "--include-prompt", "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({
+			success: true,
+			branch,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			selected_key: PLAN_KEY,
+			byte_count: content.length,
 			attached_plan_content: content,
 		});
 		expect(String(payload.implementation_prompt)).toContain("# planned-branch implementation");
