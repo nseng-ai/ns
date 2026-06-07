@@ -237,6 +237,10 @@ Every operation emits the `ClinkrExit` envelope on stdout when invoked with `--f
 
 Use `--json-schema` on any command to get the JSON Schema document for its input and output.
 
+### JSON option/stdin input
+
+Use `asdl_core.clinkr.json_input.load_json_input` in Clinkr CLI-layer helpers that accept JSON from either an explicit option such as `--payload-json` or stdin. It preserves standard Clinkr failure handling by translating empty input, malformed JSON, and Pydantic validation failures into `ClinkrFailure` through `Ensure`.
+
 ### Parameter Mapping
 
 Pydantic request model fields map to Click parameters automatically:
@@ -260,6 +264,7 @@ Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` re
 | `non_ideal_state` | `NonIdealState` Protocol for failure types that pre-name their CLI translation      |
 | `group`           | `ClinkrGroup`                                                                       |
 | `command`         | Machine envelope emission                                                           |
+| `json_input`      | JSON option/stdin loading for CLI-layer helpers                                     |
 | `json_schema`     | JSON Schema document assembly                                                       |
 | `models`          | Pydantic base models for clinkr DTOs                                                |
 | `params`          | Pydantic model-to-Click parameter extraction                                        |

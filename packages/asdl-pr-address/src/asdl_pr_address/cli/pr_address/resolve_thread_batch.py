@@ -9,11 +9,11 @@ import click
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewComment
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_pr_address.cli.pr_address.json_input import load_json_input
 from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
 from asdl_pr_address.cli.pr_address.resolve_thread_with_reply import (
     ResolveThreadWithReplyRequest,

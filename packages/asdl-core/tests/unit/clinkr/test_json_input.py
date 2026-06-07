@@ -1,4 +1,4 @@
-"""Tests for shared pr-address JSON input loading."""
+"""Tests for shared Clinkr JSON input loading."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from functools import partial
 import pytest
 
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
-from asdl_pr_address.cli.pr_address.json_input import load_json_input
 
 
 class _ExamplePayload(ClinkrModel):
