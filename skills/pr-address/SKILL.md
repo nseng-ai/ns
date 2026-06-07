@@ -344,20 +344,36 @@ If the bot is wrong:
 Use the composite helpers for GitHub mutations. Read each helper's entry in
 `references/cli-reference.md` before calling it — do not guess the JSON shape:
 
-- `resolve-thread-batch` — after a batch commit, reply to and resolve every
-  inline thread addressed by that commit in one JSON payload
+- `build-resolve-thread-batch-payload` — after a batch commit, validate explicit
+  per-thread resolve/skip decisions against the selected `plan-feedback` batch
+  and produce the non-mutating payload for `resolve-thread-batch`
+- `resolve-thread-batch` — mutating helper that replies to and resolves every
+  inline thread included in a validated batch payload
 - `resolve-thread-with-reply` — one-off fallback for a single thread
 - `reply-to-review` — post a formatted reply to a PR-level review
 - `reply-to-discussion` — reply to a discussion comment with reaction
 
-For an approved batch that addresses multiple inline threads, commit first, then
-call `resolve-thread-batch` once with the batch commit SHA and one item per
-thread. Use `mode=fixed` for code changes, `mode=pre_existing` for
-moved/restructured pre-existing comments, and `mode=explained` for factual
-false-positive/already-fixed explanations.
+For an approved batch that addresses inline threads, commit first, then call
+`build-resolve-thread-batch-payload` with the `plan-feedback` output, the
+selected `batch_id`, the batch commit SHA, and one explicit `resolve` or `skip`
+decision for every review-thread item in that batch. Use `mode=fixed` for code
+changes, `mode=pre_existing` for moved/restructured pre-existing comments, and
+`mode=explained` for factual false-positive/already-fixed explanations.
+
+Inspect the builder result:
+
+- If `data.payload_ready` is true, pipe `data.payload` to
+  `resolve-thread-batch --format json`.
+- If `data.payload_ready` is false, do not call `resolve-thread-batch`; report
+  the warning/skipped items and handle any PR-level review or discussion-comment
+  items with the appropriate helpers.
+- If the builder exits 1, fix the structured decision errors before mutating
+  GitHub.
 
 Common footguns (the reference is still the source of truth):
 
+- Missing decisions never mean skip; every review-thread item needs an explicit
+  `resolve` or `skip` decision.
 - `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads fail
   before mutation; gateway failures may return `exit_code: 1` with partial
   result data.

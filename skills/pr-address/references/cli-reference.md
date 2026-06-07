@@ -592,11 +592,101 @@ pr-address exec resolve-thread-with-reply \
 
 On invalid input: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
 
+### `build-resolve-thread-batch-payload`
+
+Build and validate the JSON payload for `resolve-thread-batch` from a
+`plan-feedback` result, one selected batch, the batch commit SHA, and explicit
+post-edit decisions. This helper does not mutate GitHub.
+
+Use this after making and committing an approved batch, before calling the
+mutating `resolve-thread-batch` helper.
+
+**Invocation:** reads JSON from stdin by default. `--payload-json` is also
+available for direct/manual invocation.
+
+```bash
+printf '%s' '{"plan":{...},"batch_id":"single_file","commit_sha":"abc1234","decisions":[{"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Updated the guard."}]}' \
+  | pr-address exec build-resolve-thread-batch-payload --format json
+```
+
+**Input fields:**
+
+| Field               | Required | Description                                                                                  |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `plan`              | yes      | `data` object returned by `plan-feedback`                                                    |
+| `batch_id`          | yes      | Exact `data.batches[].batch_id` to build from                                                |
+| `commit_sha`        | mode     | Batch commit SHA; required when any `fixed` decision lacks an item-level SHA                 |
+| `continue_on_error` | no       | Copied into the generated `resolve-thread-batch` payload                                     |
+| `decisions`         | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch |
+
+Resolve decision:
+
+```json
+{
+  "thread_id": "PRRT_kw...",
+  "action": "resolve",
+  "mode": "fixed",
+  "message": "Updated the guard.",
+  "commit_sha": "optional item-level override"
+}
+```
+
+Skip decision:
+
+```json
+{
+  "thread_id": "PRRT_kw...",
+  "action": "skip",
+  "skip_reason": "User deferred this thread to a follow-up."
+}
+```
+
+`mode` is `fixed`, `pre_existing`, or `explained`. `fixed` requires a non-empty
+`message` and a batch or item-level `commit_sha`; `explained` requires a
+non-empty `message`; `pre_existing` ignores `message` and `commit_sha` and they
+should be omitted.
+
+**Output fields (under `data`):**
+
+| Field                      | Description                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
+| `valid`                    | Whether the selected batch and decisions are semantically valid                             |
+| `payload_ready`            | Whether `data.payload` should be piped to `resolve-thread-batch`                            |
+| `batch_id`                 | Selected batch ID                                                                           |
+| `review_thread_count`      | Review-thread items in the selected batch                                                   |
+| `resolved_thread_count`    | Items included in the generated payload                                                     |
+| `skipped_thread_count`     | Explicitly skipped review-thread items                                                      |
+| `ignored_non_thread_items` | Selected-batch PR-level reviews or discussion comments that require other helpers           |
+| `skipped_items`            | Explicit skip reasons with thread summaries                                                 |
+| `payload`                  | Ready `resolve-thread-batch` payload, or `null` when no inline-thread payload should be run |
+| `errors`                   | Structured semantic decision errors                                                         |
+| `warnings`                 | No-payload explanations, such as no review-thread items or all threads skipped              |
+
+Validation rejects missing decisions, duplicate thread IDs, decisions for other
+batches, informational thread decisions, unknown threads, invalid modes, missing
+messages/commit SHAs, and non-empty resolution fields on skip/pre-existing
+items. It validates any generated payload through the same pre-mutation rules as
+`resolve-thread-batch`.
+
+**Output behavior:**
+
+- Valid decisions with at least one resolved thread: `exit_code: 0`,
+  `data.payload_ready == true`, and `data.payload` can be piped to
+  `resolve-thread-batch`.
+- Valid decisions with no payload needed: `exit_code: 0`,
+  `data.payload_ready == false`, `data.payload == null`, and `data.warnings`
+  explains why.
+- Well-formed but invalid decisions: `exit_code: 1`, `data.valid == false`,
+  `data.payload == null`, and `data.errors` describes all known issues.
+- Malformed/empty input: `exit_code: 2` with an error type such as
+  `invalid_json` or `invalid_request`.
+
 ### `resolve-thread-batch`
 
-Reply to and resolve multiple PR review threads with canonical formatting. Use
-this after a batch commit instead of looping over `resolve-thread-with-reply`
-once per thread.
+Reply to and resolve multiple PR review threads with canonical formatting. After
+a batch commit, prefer `build-resolve-thread-batch-payload` to build and validate
+this payload, then call this mutating helper only when `data.payload_ready` is
+true.
 
 **Invocation:** reads JSON from stdin by default. `--payload-json` is also
 available for direct/manual invocation.
@@ -747,22 +837,23 @@ Lower-level helpers available via `pr-address exec <command> --format json`.
 The composite helpers above call these internally — use them directly only when
 the workflow requires it. Run `<command> --json-schema` for full schemas.
 
-| Command                            | Description                                                                                                                                                            |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get-feedback`                     | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
-| `read-feedback-detail`             | Detailed above. Read one allowed body/item pointer from a raw payload artifact and return the selected value inline.                                                   |
-| `read-feedback-details`            | Detailed above. Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
-| `classification-template`          | Detailed above. Build a deterministic classification scaffold from a compact payload manifest.                                                                         |
-| `validate-feedback-classification` | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
-| `plan-feedback`                    | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
-| `summarize-feedback`               | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
-| `get-pr-for-branch`                | Look up the open PR for a branch                                                                                                                                       |
-| `get-reviews`                      | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
-| `get-review-comments`              | Fetch review threads for a PR                                                                                                                                          |
-| `get-discussion-comments`          | Fetch discussion comments for a PR                                                                                                                                     |
-| `add-issue-comment`                | Add a discussion comment to a PR                                                                                                                                       |
-| `add-reaction`                     | Add a reaction to a comment                                                                                                                                            |
-| `add-review-thread-reply`          | Post a reply comment on a PR review thread                                                                                                                             |
-| `resolve-thread`                   | Resolve a PR review thread by its GraphQL node ID                                                                                                                      |
-| `resolve-thread-batch`             | Reply to and resolve multiple PR review threads from one JSON payload.                                                                                                 |
-| `unresolve-thread`                 | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                           |
+| Command                              | Description                                                                                                                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get-feedback`                       | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
+| `read-feedback-detail`               | Detailed above. Read one allowed body/item pointer from a raw payload artifact and return the selected value inline.                                                   |
+| `read-feedback-details`              | Detailed above. Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
+| `classification-template`            | Detailed above. Build a deterministic fill-in classification scaffold from a compact manifest.                                                                         |
+| `validate-feedback-classification`   | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
+| `plan-feedback`                      | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
+| `build-resolve-thread-batch-payload` | Detailed above. Build and validate the non-mutating payload for `resolve-thread-batch` from a selected plan batch and explicit decisions.                              |
+| `summarize-feedback`                 | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
+| `get-pr-for-branch`                  | Look up the open PR for a branch                                                                                                                                       |
+| `get-reviews`                        | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
+| `get-review-comments`                | Fetch review threads for a PR                                                                                                                                          |
+| `get-discussion-comments`            | Fetch discussion comments for a PR                                                                                                                                     |
+| `add-issue-comment`                  | Add a discussion comment to a PR                                                                                                                                       |
+| `add-reaction`                       | Add a reaction to a comment                                                                                                                                            |
+| `add-review-thread-reply`            | Post a reply comment on a PR review thread                                                                                                                             |
+| `resolve-thread`                     | Resolve a PR review thread by its GraphQL node ID                                                                                                                      |
+| `resolve-thread-batch`               | Mutating helper: reply to and resolve multiple PR review threads from one JSON payload.                                                                                |
+| `unresolve-thread`                   | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                           |

@@ -6,6 +6,9 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_pr_address.cli.pr_address.add_issue_comment import run_add_issue_comment
 from asdl_pr_address.cli.pr_address.add_reaction import run_add_pr_discussion_comment_reaction
 from asdl_pr_address.cli.pr_address.add_review_thread_reply import run_add_review_thread_reply
+from asdl_pr_address.cli.pr_address.build_resolve_thread_batch_payload import (
+    run_build_resolve_thread_batch_payload,
+)
 from asdl_pr_address.cli.pr_address.classification_template import run_classification_template
 from asdl_pr_address.cli.pr_address.get_discussion_comments import run_get_pr_discussion_comments
 from asdl_pr_address.cli.pr_address.get_feedback import run_get_feedback
@@ -38,6 +41,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_add_issue_comment,
             run_add_pr_discussion_comment_reaction,
             run_add_review_thread_reply,
+            run_build_resolve_thread_batch_payload,
             run_get_pr_discussion_comments,
             run_get_feedback,
             run_get_pr_for_branch,
