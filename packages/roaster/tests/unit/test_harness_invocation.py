@@ -615,6 +615,47 @@ def test_parse_stdout_parses_document_locations(monkeypatch: pytest.MonkeyPatch)
     assert result.payload.findings[1].location.section == "Plan"
 
 
+def test_parse_stdout_rejects_document_text_anchor_absent_from_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    structured = {
+        "findings": [
+            {
+                "location": {
+                    "kind": "text_anchor",
+                    "text": "Hallucinated rollout gate.",
+                },
+                "severity": "warning",
+                "summary": "Clarify rollout gate",
+                "details": "Name the actual rollout gate in the document.",
+            }
+        ]
+    }
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Adversarial",
+            description="Review plans and artifacts.",
+            instructions="Break false confidence.",
+            default_model="sonnet",
+        ),
+        target=DocumentReviewTarget(kind="document", content="Ship it safely.", label="stdin"),
+        review_format="findings",
+    )
+
+    result, _captured, _process = _run_with_process(
+        monkeypatch,
+        request=request,
+        stdout_lines=_json_result(structured_output=structured),
+    )
+
+    assert isinstance(result, RoasterFailure)
+    assert error_type_for(result) == "claude_code_invalid_findings"
+    assert "text_anchor" in result.message
+    assert "Hallucinated rollout gate." in result.message
+
+
 def test_parse_stdout_rejects_document_finding_without_location(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

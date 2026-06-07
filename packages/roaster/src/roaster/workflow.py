@@ -32,6 +32,7 @@ from roaster.models import (
 )
 from roaster.review_definition import parse_review_definition
 from roaster.review_selection import build_review_selection
+from roaster.review_target import target_label
 
 ENV_HARNESS = "ASDL_ROASTER_HARNESS"
 
@@ -200,7 +201,7 @@ def _execute_loaded_review(
         model=resolved_model,
         base_ref=_target_base_ref(target),
         target_kind=target.kind,
-        target_label=_target_label(target),
+        target_label=target_label(target),
         target_source_path=_target_source_path(target),
         context_fragments=context_fragments,
         payload=execution_response.payload,
@@ -230,24 +231,20 @@ def _run_plan(
     resolved_harness: str,
     target: ReviewTarget,
 ) -> ResolvedReviewRunPlan:
+    base_ref: str | None = None
+    changed_path_count: int | None = None
     if isinstance(target, DiffReviewTarget):
-        return ResolvedReviewRunPlan(
-            review_name=review_definition.name,
-            model=resolved_model,
-            harness=resolved_harness,
-            base_ref=target.local_diff.base_ref,
-            changed_path_count=len(target.local_diff.changed_paths),
-            target_kind="diff",
-            target_label=_target_label(target),
-        )
+        base_ref = target.local_diff.base_ref
+        changed_path_count = len(target.local_diff.changed_paths)
+
     return ResolvedReviewRunPlan(
         review_name=review_definition.name,
         model=resolved_model,
         harness=resolved_harness,
-        base_ref=None,
-        changed_path_count=None,
-        target_kind="document",
-        target_label=_target_label(target),
+        base_ref=base_ref,
+        changed_path_count=changed_path_count,
+        target_kind=target.kind,
+        target_label=target_label(target),
     )
 
 
@@ -255,12 +252,6 @@ def _target_base_ref(target: ReviewTarget) -> str | None:
     if isinstance(target, DiffReviewTarget):
         return target.local_diff.base_ref
     return None
-
-
-def _target_label(target: ReviewTarget) -> str:
-    if isinstance(target, DiffReviewTarget):
-        return "current branch diff"
-    return target.label
 
 
 def _target_source_path(target: ReviewTarget) -> str | None:

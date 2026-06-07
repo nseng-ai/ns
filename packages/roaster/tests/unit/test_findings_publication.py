@@ -458,7 +458,7 @@ def test_parse_rejects_invalid_finding_from_review_finding_validation() -> None:
 
     assert "finding #0" in result.message
     assert "summary" in result.message
-    assert "non-empty string" in result.message
+    assert "at least 1 character" in result.message
 
 
 def test_parse_rejects_unknown_severity() -> None:
@@ -482,7 +482,7 @@ def test_parse_rejects_unknown_severity() -> None:
     result = _parse_error(raw)
 
     assert "severity" in result.message
-    assert "error, info, warning" in result.message
+    assert "'info', 'warning' or 'error'" in result.message
 
 
 def test_parse_rejects_extra_finding_fields() -> None:

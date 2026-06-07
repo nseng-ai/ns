@@ -44,6 +44,7 @@ from roaster.models import (
     RoasterFailure,
     TextAnchorLocation,
 )
+from roaster.review_target import target_label
 
 ProgressWriter = Callable[[str], None]
 BinaryLocator = Callable[[str], str | None]
@@ -139,7 +140,7 @@ def _assemble_review_prompt(
             review_description=review_definition.description,
             review_instructions=review_definition.instructions,
             target_kind=target.kind,
-            target_label=_target_label(target),
+            target_label=target_label(target),
             target_metadata=_target_metadata(target),
             additive_context=_additive_context(context_fragments),
             target_guidance=_target_guidance(target),
@@ -149,14 +150,8 @@ def _assemble_review_prompt(
     )
 
 
-def _target_label(target: ReviewTarget) -> str:
-    if isinstance(target, DiffReviewTarget):
-        return "current branch diff"
-    return target.label
-
-
 def _target_metadata(target: ReviewTarget) -> str:
-    lines = [f"- Target kind: {target.kind}", f"- Target label: {_target_label(target)}"]
+    lines = [f"- Target kind: {target.kind}", f"- Target label: {target_label(target)}"]
     if isinstance(target, DiffReviewTarget):
         lines.append(f"- Base ref: {target.local_diff.base_ref}")
         changed_path_count = len(target.local_diff.changed_paths)
@@ -307,15 +302,25 @@ def _parse_findings_payload(
             return ClaudeCodeInvalidFindings(
                 message=str(exc),
             )
-        if isinstance(target, DocumentReviewTarget) and not isinstance(
-            finding.location,
-            (GlobalLocation, TextAnchorLocation),
-        ):
-            return ClaudeCodeInvalidFindings(
-                message=(
-                    "Document review findings must include a `global` or `text_anchor` location."
-                ),
-            )
+        if isinstance(target, DocumentReviewTarget):
+            if not isinstance(finding.location, (GlobalLocation, TextAnchorLocation)):
+                return ClaudeCodeInvalidFindings(
+                    message=(
+                        "Document review findings must include a `global` or `text_anchor` "
+                        "location."
+                    ),
+                )
+            if (
+                isinstance(finding.location, TextAnchorLocation)
+                and finding.location.text not in target.content
+            ):
+                anchor_text = _truncate_prose(finding.location.text.strip(), limit=120)
+                return ClaudeCodeInvalidFindings(
+                    message=(
+                        "Document review `text_anchor` location must quote exact text present "
+                        f"in target {target.label!r}; missing anchor: {anchor_text!r}."
+                    ),
+                )
         if isinstance(target, DiffReviewTarget) and not isinstance(
             finding.location,
             DiffLineLocation,

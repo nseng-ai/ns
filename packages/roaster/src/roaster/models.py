@@ -13,7 +13,6 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 
 Severity = Literal["info", "warning", "error"]
-_VALID_SEVERITIES = {"info", "warning", "error"}
 
 ReviewFormat = Literal["findings", "text"]
 TargetKind = Literal["diff", "document"]
@@ -457,7 +456,6 @@ class ReviewFinding(ClinkrModel):
             field_list = ", ".join(missing_common)
             raise ValueError(f"Missing review-finding fields: {field_list}")
 
-        _validate_finding_common_payload(data)
         common_payload = {
             "severity": data["severity"],
             "summary": data["summary"],
@@ -509,18 +507,6 @@ class ReviewFinding(ClinkrModel):
         if isinstance(self.location, DiffLineLocation):
             return {"path": self.location.path, "line": self.location.line, **common}
         return {"location": self.location.model_dump(mode="json"), **common}
-
-
-def _validate_finding_common_payload(data: dict[str, Any]) -> None:
-    severity = data["severity"]
-    if not isinstance(severity, str) or severity not in _VALID_SEVERITIES:
-        valid_values = ", ".join(sorted(_VALID_SEVERITIES))
-        raise ValueError(f"Review finding field `severity` must be one of: {valid_values}")
-
-    for field_name in ("summary", "details"):
-        value = data[field_name]
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"Review finding field `{field_name}` must be a non-empty string.")
 
 
 class ClaudeDiffFinding(ClinkrModel):
