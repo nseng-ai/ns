@@ -37,6 +37,44 @@ export interface RunnerSubagentLaunchOptions {
 	thinkingLevel?: ThinkingLevel;
 }
 
+export interface RunnerSubagentUsageTotals {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	totalTokens: number;
+	cost: {
+		input: number;
+		output: number;
+		cacheRead: number;
+		cacheWrite: number;
+		total: number;
+	};
+}
+
+export type RunnerSubagentUsageUnavailableReason =
+	| "missing-session-file"
+	| "session-read-error"
+	| "malformed-session-jsonl"
+	| "no-assistant-usage";
+
+export type RunnerSubagentUsageMetadata =
+	| {
+			status: "available";
+			source: "child-session-file";
+			sessionFile: string;
+			assistantMessageCount: number;
+			totals: RunnerSubagentUsageTotals;
+			contextWindow?: number;
+	  }
+	| {
+			status: "unavailable";
+			source: "child-session-file";
+			sessionFile?: string;
+			reason: RunnerSubagentUsageUnavailableReason;
+			diagnostic: string;
+	  };
+
 export interface RunnerSubagentProgress {
 	title?: string;
 	state: "starting" | "running" | "terminating" | "stopped";
@@ -85,6 +123,7 @@ interface RunnerSubagentResultBase<TStatus extends RunnerSubagentStatus> {
 	elapsedMs: number;
 	progress: RunnerSubagentProgress;
 	sessionFile?: string;
+	usage?: RunnerSubagentUsageMetadata;
 }
 
 export interface RunnerSubagentCompletedResult<TInput = unknown> extends RunnerSubagentResultBase<"completed"> {

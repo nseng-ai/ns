@@ -7,10 +7,13 @@ import {
 	type RunnerSubagentProgress,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
+	type RunnerSubagentUsageMetadata,
 } from "./runner-subagent.ts";
 import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
 import {
 	formatRunnerSubagentElapsed,
+	formatRunnerSubagentModelText,
+	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
@@ -46,6 +49,7 @@ export interface DispatchRunnerSubagentDetails {
 	sessionFile?: string;
 	progress: RunnerSubagentResult["progress"];
 	launch?: RunnerSubagentLaunchMetadata;
+	usage?: RunnerSubagentUsageMetadata;
 	finalTextChars?: number;
 	finalTextTruncated?: boolean;
 	diagnostic?: string;
@@ -181,6 +185,8 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 		"dispatch_runner_subagent result",
 		`Status: ${result.status}`,
 		`Title: ${runnerSubagentDisplayTitle(result)}`,
+		...(result.progress.launch === undefined ? [] : [formatLaunchLine(result.progress.launch)]),
+		formatUsageLine(result.usage),
 		`Session file: ${runnerSubagentSessionFileText(result)}`,
 		formatProgressLine(result),
 	];
@@ -219,6 +225,7 @@ export function dispatchRunnerSubagentDetails(
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,
 		...(result.progress.launch === undefined ? {} : { launch: result.progress.launch }),
+		...(result.usage === undefined ? {} : { usage: result.usage }),
 	};
 
 	switch (result.status) {
@@ -281,6 +288,7 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 	return [
 		`Running runner subagent: ${runnerSubagentDisplayTitle(progress)}`,
 		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
+		...(progress.launch === undefined ? [] : [formatLaunchLine(progress.launch)]),
 		`Session file: ${runnerSubagentSessionFileText(progress)}`,
 	].join("\n");
 }
@@ -348,6 +356,50 @@ function validateDispatchRunnerSubagentInput(params: DispatchRunnerSubagentInput
 	}
 	const model = params.model?.trim();
 	return { title: params.title.trim(), prompt: params.prompt, ...(model === undefined ? {} : { model }) };
+}
+
+function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
+	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${formatRunnerSubagentThinkingText(launch)}`;
+}
+
+function formatUsageLine(usage: RunnerSubagentUsageMetadata | undefined): string {
+	if (usage === undefined) return "Usage: unavailable (not collected)";
+	if (usage.status === "unavailable") return `Usage: unavailable (${formatUsageUnavailableReason(usage)})`;
+	const totals = usage.totals;
+	return [
+		`Usage: ${formatCompactUsageTokens(totals.input)} in / ${formatCompactUsageTokens(totals.output)} out`,
+		`cache R${formatCompactUsageTokens(totals.cacheRead)} W${formatCompactUsageTokens(totals.cacheWrite)}`,
+		`$${totals.cost.total.toFixed(4)}`,
+	].join(", ");
+}
+
+function formatUsageUnavailableReason(usage: Extract<RunnerSubagentUsageMetadata, { status: "unavailable" }>): string {
+	switch (usage.reason) {
+		case "missing-session-file":
+			return "session file missing";
+		case "session-read-error":
+			return "session file not readable";
+		case "malformed-session-jsonl":
+			return "malformed session JSONL";
+		case "no-assistant-usage":
+			return "no assistant usage";
+		default: {
+			const exhaustive: never = usage.reason;
+			return exhaustive;
+		}
+	}
+}
+
+function formatCompactUsageTokens(count: number): string {
+	if (count < 1_000) return Math.round(count).toString();
+	if (count < 100_000) return `${trimTrailingZero((count / 1_000).toFixed(1))}k`;
+	if (count < 1_000_000) return `${Math.round(count / 1_000)}k`;
+	if (count < 100_000_000) return `${trimTrailingZero((count / 1_000_000).toFixed(1))}M`;
+	return `${Math.round(count / 1_000_000)}M`;
+}
+
+function trimTrailingZero(text: string): string {
+	return text.endsWith(".0") ? text.slice(0, -2) : text;
 }
 
 function formatProgressLine(result: RunnerSubagentResult): string {

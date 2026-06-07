@@ -73,6 +73,8 @@ export function createFakeRunnerSubagentDispatcher(
 		runtimeFiles?: RunnerSubagentRuntimeFiles;
 		runtimeResult?: RuntimeResultV1;
 		runtimeResultRead?: RuntimeResultReadResult;
+		sessionFileText?: string;
+		sessionFileReadError?: Error;
 	} = {},
 ): {
 	dependencies: RunnerSubagentDispatcherDependencies;
@@ -96,6 +98,10 @@ export function createFakeRunnerSubagentDispatcher(
 			return runtimeFiles;
 		},
 		readRuntimeResult: () => options.runtimeResultRead ?? (options.runtimeResult ? { type: "loaded", result: options.runtimeResult } : { type: "missing" }),
+		readSessionFile: () => {
+			if (options.sessionFileReadError !== undefined) throw options.sessionFileReadError;
+			return options.sessionFileText ?? "";
+		},
 		processArgv: ["/usr/bin/node"],
 		processExecPath: "/usr/bin/node",
 		existsSync: () => false,

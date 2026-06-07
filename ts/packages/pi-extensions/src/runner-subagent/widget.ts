@@ -1,6 +1,8 @@
-import type { RunnerSubagentLaunchMetadata, RunnerSubagentUpdate } from "../runner-subagent.ts";
+import type { RunnerSubagentUpdate } from "../runner-subagent.ts";
 import {
 	formatRunnerSubagentElapsed,
+	formatRunnerSubagentModelText,
+	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 } from "./presentation.ts";
@@ -18,7 +20,7 @@ export function formatRunnerSubagentActivityWidgetLines(
 	const { progress, activity } = update;
 	const lines = [`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`, `State: ${progress.state}`];
 	if (progress.launch !== undefined) {
-		lines.push(formatRunnerSubagentModelLine(progress.launch), formatRunnerSubagentThinkingLine(progress.launch));
+		lines.push(`Model: ${formatRunnerSubagentModelText(progress.launch)}`, `Thinking: ${formatRunnerSubagentThinkingText(progress.launch)}`);
 	}
 
 	if (activity.assistantPreview !== undefined) lines.push(`Assistant: ${activity.assistantPreview}`);
@@ -34,13 +36,4 @@ export function formatRunnerSubagentActivityWidgetLines(
 	const sessionFile = runnerSubagentSessionFile(progress);
 	if (sessionFile !== undefined) lines.push(`Session: ${sessionFile}`);
 	return lines;
-}
-
-function formatRunnerSubagentModelLine(launch: RunnerSubagentLaunchMetadata): string {
-	if (launch.model === undefined) return "Model: default (not specified)";
-	return `Model: ${launch.model.provider}/${launch.model.id}`;
-}
-
-function formatRunnerSubagentThinkingLine(launch: RunnerSubagentLaunchMetadata): string {
-	return `Thinking: ${launch.thinkingLevel}`;
 }
