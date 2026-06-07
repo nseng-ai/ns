@@ -1,4 +1,5 @@
-import { PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE, extractPlannedBranchEvidence } from "../../../pi-extensions/src/planned-branch-output.ts";
+import { PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE, extractPlannedBranchEvidence } from "@asdl/planned-branch";
+
 import { isRecord } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {

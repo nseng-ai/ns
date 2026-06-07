@@ -16,12 +16,12 @@
   - Policy: direct execution after preview.
   - Evidence: parent validation passed with `bun run --cwd ts check`, `bun test --cwd ts/packages/ccc`, focused cmux/handoff-tab tests, `bun run --cwd ts test`, targeted `dprint check`, and `git diff --check`.
 
-- [ ] Neutralize shared session artifacts and runtime helpers that CCC consumes but should not own.
-  - Move or wrap `planned-branch-output` as a neutral session-artifact contract shared by planned-branch producers and CCC consumers.
-  - Keep command runtime, machine-envelope parsing, shell quoting, tail formatting, and terminal presentation below CCC or extract them to a neutral runtime module if needed.
-  - Keep lower packages from importing CCC.
+- [x] Neutralize shared session artifacts and runtime helpers that CCC consumes but should not own.
+  - Moved the planned-branch output/session-artifact contract into `@asdl/planned-branch` as a lower neutral/domain contract shared by planned-branch producers and CCC consumers.
+  - Kept command runtime, machine-envelope parsing, shell quoting, tail formatting, and terminal presentation below CCC; no generic runtime helpers moved into CCC in this slice.
+  - Kept lower packages from importing CCC; `@asdl/pi-extensions/src/planned-branch-output.ts` is now a compatibility re-export.
   - Policy: direct execution after preview; steer first if a lower package would need a CCC import.
-  - Evidence: import direction is downward into CCC, never upward from lower packages; planned-branch and CCC both use the neutral planned-branch output contract.
+  - Evidence: parent validation passed with `bun run --cwd ts check`, planned-branch tests, focused planned-branch/cmux tests, `bun run --cwd ts test`, CCC package tests, and `git diff --check`.
 
 - [ ] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
   - Move the `/planned-branch:up-and-impl` flow out of the planned-branch adapter into CCC-owned orchestration, leaving planned-branch write/create/impl primitives below.
