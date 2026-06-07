@@ -28,17 +28,18 @@ asdl pr-address --help
 
 ## Common commands
 
-| Goal                  | Command                                     | Boundary  |
-| --------------------- | ------------------------------------------- | --------- |
-| Prepare a review run  | `pr-address exec prepare-run`               | Read-only |
-| Fetch review state    | `pr-address exec get-reviews`               | Read-only |
-| Fetch review comments | `pr-address exec get-review-comments`       | Read-only |
-| Reply to a review     | `pr-address exec reply-to-review`           | GitHub    |
-| Reply to a thread     | `pr-address exec add-review-thread-reply`   | GitHub    |
-| Resolve with a reply  | `pr-address exec resolve-thread-with-reply` | GitHub    |
-| Resolve a thread      | `pr-address exec resolve-thread`            | GitHub    |
-| Record batch evidence | `pr-address exec record-batch-checkpoint`   | Local     |
-| Reopen a thread       | `pr-address exec unresolve-thread`          | GitHub    |
+| Goal                  | Command                                     | Boundary        |
+| --------------------- | ------------------------------------------- | --------------- |
+| Prepare a review run  | `pr-address exec prepare-run`               | Read-only       |
+| Fetch review state    | `pr-address exec get-reviews`               | Read-only       |
+| Fetch review comments | `pr-address exec get-review-comments`       | Read-only       |
+| Reply to a review     | `pr-address exec reply-to-review`           | GitHub          |
+| Reply to a thread     | `pr-address exec add-review-thread-reply`   | GitHub          |
+| Resolve with a reply  | `pr-address exec resolve-thread-with-reply` | GitHub          |
+| Resolve a thread      | `pr-address exec resolve-thread`            | GitHub          |
+| Record batch evidence | `pr-address exec record-batch-checkpoint`   | Local           |
+| Finalize run evidence | `pr-address exec finalize-run`              | Local/read-only |
+| Reopen a thread       | `pr-address exec unresolve-thread`          | GitHub          |
 
 ## Agent interface
 

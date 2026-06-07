@@ -44,3 +44,8 @@ non-thread outcomes. `changed_files` entries must be repository-relative
 forward-slash paths. When the plan came from a payload-backed run, it writes a
 managed `.summary.json` checkpoint artifact without copying raw feedback bodies
 into the checkpoint.
+
+`finalize-run` consumes a fresh compact `get-feedback` payload manifest plus the
+batch checkpoint results and produces final unresolved, skipped, mutation, and
+validation evidence. It is local/read-only and does not read or print raw
+feedback bodies.
