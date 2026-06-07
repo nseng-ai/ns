@@ -260,8 +260,9 @@ pr-address exec validate-feedback-classification \
 
 Split mode requires exactly one manifest source (`--manifest-json` or
 `--manifest-file`) and exactly one classification source
-(`--classification-json` or `--classification-file`). It rejects wrapper sources
-mixed with split inputs.
+(`--classification-json` or `--classification-file`). It rejects explicit wrapper
+sources (`--payload-json` or `--payload-file`) mixed with split inputs. Stdin is
+only consumed in legacy wrapper mode when no split source is provided.
 
 **Legacy wrapper invocation:** reads wrapper JSON from stdin by default.
 `--payload-json` and `--payload-file` are also available for compatibility.
