@@ -282,12 +282,12 @@ describe("pr feedback watch command parsing", () => {
 		expect(parseWatchCommandArgs("")).toEqual({
 			type: "valid",
 			action: "start",
-			options: { intervalMs: 15_000, allowDirty: false, dispatchExisting: false },
+			options: { intervalMs: 15_000, shouldAllowDirty: false, shouldDispatchExisting: false },
 		});
 		expect(parseWatchCommandArgs("--interval-seconds 10 --allow-dirty --dispatch-existing")).toEqual({
 			type: "valid",
 			action: "start",
-			options: { intervalMs: 10_000, allowDirty: true, dispatchExisting: true },
+			options: { intervalMs: 10_000, shouldAllowDirty: true, shouldDispatchExisting: true },
 		});
 		expect(parseWatchCommandArgs("status")).toMatchObject({ type: "valid", action: "status" });
 	});

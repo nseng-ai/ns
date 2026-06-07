@@ -29,8 +29,8 @@ type WatchCommandParseResult =
 
 export interface WatchCommandOptions {
 	intervalMs: number;
-	allowDirty: boolean;
-	dispatchExisting: boolean;
+	shouldAllowDirty: boolean;
+	shouldDispatchExisting: boolean;
 }
 
 export interface FeedbackItemKey {
@@ -326,19 +326,19 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 
 	const options: WatchCommandOptions = {
 		intervalMs: DEFAULT_INTERVAL_MS,
-		allowDirty: false,
-		dispatchExisting: false,
+		shouldAllowDirty: false,
+		shouldDispatchExisting: false,
 	};
 
 	const optionStartIndex = hasExplicitAction ? 1 : 0;
 	for (let index = optionStartIndex; index < tokens.length; index += 1) {
 		const token = tokens[index];
 		if (token === "--allow-dirty") {
-			options.allowDirty = true;
+			options.shouldAllowDirty = true;
 			continue;
 		}
 		if (token === "--dispatch-existing") {
-			options.dispatchExisting = true;
+			options.shouldDispatchExisting = true;
 			continue;
 		}
 		if (token === "--interval-seconds") {
@@ -599,7 +599,7 @@ class PrFeedbackWatchController {
 	private isPollInFlight = false;
 	private isPollPending = false;
 	private state: WatchStatus = initialWatchStatus();
-	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, allowDirty: false, dispatchExisting: false };
+	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: false, shouldDispatchExisting: false };
 	private seenKeys = new Set<string>();
 	private attemptedKeys = new Set<string>();
 	private queuedItems: FeedbackItemKey[] = [];
@@ -636,7 +636,7 @@ class PrFeedbackWatchController {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
 		this.state = { ...this.state, isEnabled: true, state: "polling", intervalMs: options.intervalMs, lastError: undefined };
-		this.appendEvent("config", { details: { intervalMs: options.intervalMs, allowDirty: options.allowDirty } });
+		this.appendEvent("config", { details: { intervalMs: options.intervalMs, shouldAllowDirty: options.shouldAllowDirty } });
 		this.renderStatus("PR watch: baselining");
 		const snapshot = await this.loadSnapshot(session);
 		if (snapshot.type === "failed") {
@@ -652,9 +652,9 @@ class PrFeedbackWatchController {
 
 		this.updateContextFromSnapshot(snapshot.snapshot);
 		await this.initializeRestBaseline(session, snapshot.snapshot);
-		if (options.dispatchExisting) {
+		if (options.shouldDispatchExisting) {
 			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
-			if (dirty && !options.allowDirty) {
+			if (dirty && !options.shouldAllowDirty) {
 				this.state = { ...this.state, state: "paused" };
 				this.renderStatus("PR watch: paused dirty tree");
 				notify(ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
@@ -674,7 +674,7 @@ class PrFeedbackWatchController {
 	async once(ctx: ExtensionContext, options: WatchCommandOptions): Promise<void> {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
-		await this.pollOnce(session, { scheduleNext: false, dispatchExisting: options.dispatchExisting });
+		await this.pollOnce(session, { scheduleNext: false, shouldDispatchExisting: options.shouldDispatchExisting });
 	}
 
 	stop(reason: "user" | "shutdown"): void {
@@ -730,7 +730,7 @@ class PrFeedbackWatchController {
 
 	private async pollOnce(
 		session: ActiveSession,
-		options: { scheduleNext: boolean; dispatchExisting: boolean },
+		options: { scheduleNext: boolean; shouldDispatchExisting: boolean },
 	): Promise<void> {
 		if (!this.isActiveSession(session)) return;
 		if (this.isPollInFlight) {
@@ -762,8 +762,8 @@ class PrFeedbackWatchController {
 		}
 	}
 
-	private canUseRestFingerprint(options: { dispatchExisting: boolean }): boolean {
-		return !options.dispatchExisting && this.githubPrIdentity !== undefined && this.lastRestFingerprintKey !== undefined;
+	private canUseRestFingerprint(options: { shouldDispatchExisting: boolean }): boolean {
+		return !options.shouldDispatchExisting && this.githubPrIdentity !== undefined && this.lastRestFingerprintKey !== undefined;
 	}
 
 	private async initializeRestBaseline(session: ActiveSession, snapshot: FeedbackSnapshot): Promise<void> {
@@ -786,7 +786,7 @@ class PrFeedbackWatchController {
 		this.advanceRestFingerprint(result.fingerprint);
 	}
 
-	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; dispatchExisting: boolean }): Promise<void> {
+	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; shouldDispatchExisting: boolean }): Promise<void> {
 		const identity = this.githubPrIdentity;
 		if (identity === undefined || this.lastRestFingerprintKey === undefined) {
 			await this.pollWithHeavySnapshot(session, options, { reason: "normal" });
@@ -817,7 +817,7 @@ class PrFeedbackWatchController {
 			return;
 		}
 		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
-		if (dirty && !this.options.allowDirty) {
+		if (dirty && !this.options.shouldAllowDirty) {
 			this.state = { ...this.state, state: "paused" };
 			this.renderStatus("PR watch: paused dirty tree");
 			if (!this.hasNotifiedDirtyPause) {
@@ -833,7 +833,7 @@ class PrFeedbackWatchController {
 
 	private async pollWithHeavySnapshot(
 		session: ActiveSession,
-		options: { scheduleNext: boolean; dispatchExisting: boolean },
+		options: { scheduleNext: boolean; shouldDispatchExisting: boolean },
 		context: { reason: "normal" | "fallback" | "rest_changed"; fingerprint?: FeedbackFingerprint | undefined },
 	): Promise<void> {
 		if (context.reason === "fallback") this.renderStatus("PR watch: fallback polling 60s");
@@ -860,7 +860,7 @@ class PrFeedbackWatchController {
 		if (this.state.isEnabled && context.reason !== "rest_changed" && this.lastRestFingerprintKey === undefined) {
 			await this.initializeRestBaseline(session, snapshot);
 		}
-		if (!this.state.isEnabled && !options.dispatchExisting) {
+		if (!this.state.isEnabled && !options.shouldDispatchExisting) {
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
 			this.state = { ...this.state, state: "stopped" };
@@ -870,7 +870,7 @@ class PrFeedbackWatchController {
 		}
 		if (context.reason !== "rest_changed") {
 			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
-			if (dirty && !this.options.allowDirty) {
+			if (dirty && !this.options.shouldAllowDirty) {
 				this.state = { ...this.state, state: "paused" };
 				this.renderStatus("PR watch: paused dirty tree");
 				if (!this.hasNotifiedDirtyPause) {
@@ -881,7 +881,7 @@ class PrFeedbackWatchController {
 			}
 			this.hasNotifiedDirtyPause = false;
 		}
-		const newItems = options.dispatchExisting
+		const newItems = options.shouldDispatchExisting
 			? snapshot.items.filter((item) => !this.attemptedKeys.has(item.key))
 			: snapshot.items.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
 		if (newItems.length === 0) {
@@ -1062,7 +1062,7 @@ class PrFeedbackWatchController {
 		this.clearTimer();
 		this.timer = setTimeout(() => {
 			this.timer = undefined;
-			void this.pollOnce(session, { scheduleNext: true, dispatchExisting: false });
+			void this.pollOnce(session, { scheduleNext: true, shouldDispatchExisting: false });
 		}, this.nextPollDelayMs());
 		const maybeTimer = this.timer as { unref?: () => void };
 		maybeTimer.unref?.();
@@ -1223,7 +1223,7 @@ function skewIso(iso: string): string {
 }
 
 function execOptions(cwd: string, timeout: number, signal?: AbortSignal): ExecOptions {
-	return { cwd, timeout, signal };
+	return signal === undefined ? { cwd, timeout } : { cwd, timeout, signal };
 }
 
 function isExecutable(path: string): boolean {
