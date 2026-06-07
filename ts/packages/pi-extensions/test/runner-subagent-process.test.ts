@@ -66,6 +66,39 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 	});
 }
 
+function sessionMessageLine(message: unknown): string {
+	return jsonLine({ type: "message", message });
+}
+
+function sessionUsageJsonl(): string {
+	return [
+		sessionMessageLine({ role: "user", usage: { input: 1000 } }),
+		sessionMessageLine({
+			role: "assistant",
+			usage: {
+				input: 10_000,
+				output: 40,
+				cacheRead: 9_000,
+				cacheWrite: 0,
+				totalTokens: 19_040,
+				cost: { input: 0.01, output: 0.02, cacheRead: 0.003, cacheWrite: 0, total: 0.033 },
+			},
+		}),
+		sessionMessageLine({ role: "assistant", content: [{ type: "text", text: "No usage." }] }),
+		sessionMessageLine({
+			role: "assistant",
+			usage: {
+				input: 1_600,
+				output: 4,
+				cacheRead: 2_300,
+				cacheWrite: 0,
+				totalTokens: 3_904,
+				cost: { input: 0.02, output: 0.01, cacheRead: 0.0018, cacheWrite: 0, total: 0.0318 },
+			},
+		}),
+	].join("");
+}
+
 describe("runner subagent process dispatcher", () => {
 	test("resolves a safely discoverable current Pi command before falling back to installed pi", () => {
 		const args = ["--mode", "json"];
@@ -238,6 +271,13 @@ describe("runner subagent process dispatcher", () => {
 				sessionFile: "/tmp/runner-subagent.jsonl",
 			},
 			sessionFile: "/tmp/runner-subagent.jsonl",
+			usage: {
+				status: "unavailable",
+				source: "child-session-file",
+				sessionFile: "/tmp/runner-subagent.jsonl",
+				reason: "no-assistant-usage",
+				diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+			},
 			diagnostic: "Subagent Pi stopped without terminal capture.",
 			stopReason: "end",
 		});
@@ -313,9 +353,119 @@ describe("runner subagent process dispatcher", () => {
 				sessionFile: "/tmp/runner-subagent.jsonl",
 			},
 			sessionFile: "/tmp/runner-subagent.jsonl",
+			usage: {
+				status: "unavailable",
+				source: "child-session-file",
+				sessionFile: "/tmp/runner-subagent.jsonl",
+				reason: "no-assistant-usage",
+				diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+			},
 			finalText: "Done.\nEvidence: tests passed.",
 			stopReason: "stop",
 		});
+	});
+
+	test("aggregates usage from multiple assistant messages after child close", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			sessionFileText: sessionUsageJsonl(),
+		});
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ title: "Usage task" }), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		expect(result.usage).toEqual({
+			status: "available",
+			source: "child-session-file",
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			assistantMessageCount: 2,
+			totals: {
+				input: 11_600,
+				output: 44,
+				cacheRead: 11_300,
+				cacheWrite: 0,
+				totalTokens: 22_944,
+				cost: {
+					input: 0.03,
+					output: 0.03,
+					cacheRead: 0.0048000000000000004,
+					cacheWrite: 0,
+					total: 0.0648,
+				},
+			},
+		});
+	});
+
+	test("session read failure is nonfatal for final text results", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFileReadError: new Error("EACCES: permission denied") });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		expect(result.usage).toEqual(
+			expect.objectContaining({
+				status: "unavailable",
+				reason: "session-read-error",
+				diagnostic: expect.stringContaining("EACCES: permission denied"),
+			}),
+		);
+	});
+
+	test("malformed session JSONL is nonfatal and unavailable", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFileText: "{bad json}\n" });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		expect(result.usage).toEqual(
+			expect.objectContaining({
+				status: "unavailable",
+				reason: "malformed-session-jsonl",
+			}),
+		);
+	});
+
+	test("no assistant usage is nonfatal and unavailable", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFileText: sessionMessageLine({ role: "user", content: [] }) });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		expect(result.usage).toEqual(
+			expect.objectContaining({
+				status: "unavailable",
+				reason: "no-assistant-usage",
+			}),
+		);
+	});
+
+	test("diagnostic statuses can still carry usage when available", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFileText: sessionUsageJsonl() });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStderr("failed\n");
+		call.process.close(2);
+		const result = await running;
+
+		expect(result.status).toBe("error");
+		expect(result.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
 	});
 
 	test("emits progress and UI-only activity while parsing child JSONL", async () => {

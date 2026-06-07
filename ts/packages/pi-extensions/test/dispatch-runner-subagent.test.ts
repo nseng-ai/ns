@@ -81,6 +81,37 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 	});
 }
 
+function sessionMessageLine(message: unknown): string {
+	return jsonLine({ type: "message", message });
+}
+
+function sessionUsageJsonl(): string {
+	return [
+		sessionMessageLine({
+			role: "assistant",
+			usage: {
+				input: 10_000,
+				output: 40,
+				cacheRead: 9_000,
+				cacheWrite: 0,
+				totalTokens: 19_040,
+				cost: { input: 0.01, output: 0.02, cacheRead: 0.003, cacheWrite: 0, total: 0.033 },
+			},
+		}),
+		sessionMessageLine({
+			role: "assistant",
+			usage: {
+				input: 1_600,
+				output: 4,
+				cacheRead: 2_300,
+				cacheWrite: 0,
+				totalTokens: 3_904,
+				cost: { input: 0.02, output: 0.01, cacheRead: 0.0018, cacheWrite: 0, total: 0.0318 },
+			},
+		}),
+	].join("");
+}
+
 interface UiRecord {
 	key: string;
 	value: string | undefined;
@@ -176,7 +207,7 @@ describe("dispatch_runner_subagent extension", () => {
 	});
 
 	test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, sessionFileText: sessionUsageJsonl() });
 		const pi = new FakePi(runner.dependencies, { thinkingLevel: "medium" });
 		const tool = registerTool({ pi });
 		const updates: ToolResult[] = [];
@@ -217,7 +248,21 @@ describe("dispatch_runner_subagent extension", () => {
 
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
-		await running;
+		const result = await running;
+		const text = result.content[0]?.text ?? "";
+		const details = result.details as Record<string, unknown>;
+
+		expect(text).toContain("Model: anthropic/claude-sonnet-4-5; Thinking: medium");
+		expect(text).toContain("Usage: 11.6k in / 44 out, cache R11.3k W0, $0.0648");
+		expect(text).not.toContain("modelArgPassed");
+		expect(text).not.toContain("thinkingArgPassed");
+		expect(details.launch).toEqual({
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			thinkingLevel: "medium",
+			modelArgPassed: true,
+			thinkingArgPassed: true,
+		});
+		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
 	});
 
 	test("passes optional model to child Pi invocation and reports requested model details", async () => {
@@ -325,6 +370,7 @@ describe("dispatch_runner_subagent extension", () => {
 		for (const update of updates) {
 			const details = update.details as Record<string, unknown>;
 			expect(details.progress).toBeDefined();
+			expect(details.usage).toBeUndefined();
 			expect(details.activity).toBeUndefined();
 		}
 		expect(statuses).toEqual([]);
@@ -384,12 +430,14 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(text).toContain("Status: final-text");
 		expect(text).toContain("Subagent final answer.");
 		expect(text).toContain(`Session file: ${SESSION_FILE}`);
+		expect(text).toContain("Usage: unavailable (no assistant usage)");
 		expect(text).toContain("Elapsed: 1.3s; turns: 1; tools: 1");
 		expect(details.status).toBe("final-text");
 		expect(details.sessionFile).toBe(SESSION_FILE);
 		expect(details.finalTextChars).toBe("Subagent final answer.\nEvidence: test fixture.".length);
 		expect(details.finalTextTruncated).toBe(false);
 		expect(details.progress).toEqual(expect.objectContaining({ turnCount: 1, toolCount: 1 }));
+		expect(details.usage).toEqual(expect.objectContaining({ status: "unavailable", reason: "no-assistant-usage" }));
 		expect(details.activity).toBeUndefined();
 	});
 

@@ -26,9 +26,10 @@ Important details:
 - `--no-extensions` prevents ordinary project parent extensions from recursively loading in the subagent.
 - `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools when terminal mode is used.
 - `--session <file>` points at a parent-created runner subagent artifact. The returned `sessionFile` is inspectable after blocked/error/cancelled outcomes when Pi writes the session.
+- After the child process closes, the helper reads that child session file and aggregates assistant-message usage metadata for post-run result details. This usage is child-session-only and excludes the parent Pi session's usage.
 - The subagent uses `ctx.cwd` by default, so it sees the same repository/worktree while starting from a fresh conversation.
 
-The helper keeps the full subagent transcript out of the parent LLM context. Parent code receives the structured result and can decide what summary, diagnostics, or session path to display.
+The helper keeps the full subagent transcript out of the parent LLM context. Parent code receives the structured result and can decide what summary, diagnostics, usage metadata, or session path to display.
 
 ## Runner agent definition
 
@@ -81,6 +82,8 @@ Mixed terminal-plus-sibling behavior is deterministic from the parent's perspect
 
 The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, session path, and optional launch metadata. Launch metadata records the model/provider and thinking level that the child process was asked to use, plus whether model/thinking CLI args were actually passed. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
 
+Usage metadata is post-run only. It is collected after the child closes by reading the child session JSONL file and summing only records shaped like assistant messages with `message.usage`. Missing, unreadable, malformed, or usage-free session files are nonfatal and produce `result.usage.status === "unavailable"` with a reason and diagnostic. Context window is omitted unless an authoritative numeric value is available; the helper does not guess it from the model id.
+
 `RunnerSubagentProgress` remains metadata-only. Activity previews are for local display surfaces such as an above-editor `ctx.ui.setWidget(...)`, not parent tool content/details. Parent tools should keep partial `onUpdate(...)` text and final tool results minimal so child assistant/tool details do not enter the parent model context.
 
 The maintained generic integration surface is `dispatch_runner_subagent`. Its MVP widget can show:
@@ -103,7 +106,7 @@ That tool always uses final-text mode. It requires:
 - `title`: concise title for the runner subagent artifact/progress.
 - `prompt`: complete prompt for the subagent, including all necessary context.
 
-The tool returns final assistant text when the child produces it. For every non-`final-text` status, the tool result includes diagnostics and the session file path; the parent agent must inspect those before treating the delegated task as complete.
+The tool returns final assistant text when the child produces it. Its model-visible header includes status, title, model/thinking launch metadata, child-only usage/cost accounting (or `Usage: unavailable (...)`), session file, elapsed time, turns/tools, and stop reason when present. Structured `details` mirrors launch metadata and usage diagnostics so callers can inspect them programmatically. For every non-`final-text` status, the tool result includes diagnostics and the session file path; the parent agent must inspect those before treating the delegated task as complete.
 
 ## Why not Pi core?
 

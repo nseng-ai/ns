@@ -1,4 +1,4 @@
-import type { RunnerSubagentProgress, RunnerSubagentResult } from "../runner-subagent.ts";
+import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress, RunnerSubagentResult } from "../runner-subagent.ts";
 
 export type RunnerSubagentPresentationSource = RunnerSubagentProgress | RunnerSubagentResult<unknown>;
 
@@ -23,6 +23,15 @@ export function runnerSubagentSessionFile(source: RunnerSubagentPresentationSour
 
 export function runnerSubagentSessionFileText(source: RunnerSubagentPresentationSource, fallback = "(not available)"): string {
 	return runnerSubagentSessionFile(source) ?? fallback;
+}
+
+export function formatRunnerSubagentModelText(launch: RunnerSubagentLaunchMetadata): string {
+	if (launch.model === undefined) return "default (not specified)";
+	return `${launch.model.provider}/${launch.model.id}`;
+}
+
+export function formatRunnerSubagentThinkingText(launch: RunnerSubagentLaunchMetadata): string {
+	return launch.thinkingLevel;
 }
 
 export function formatRunnerSubagentProgressWidgetLines(

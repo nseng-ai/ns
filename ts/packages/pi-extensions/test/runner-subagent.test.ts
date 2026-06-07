@@ -237,6 +237,13 @@ describe("dispatchRunnerSubagent local contract", () => {
 				sessionFile: "/tmp/contract-runner-subagent.jsonl",
 			},
 			sessionFile: "/tmp/contract-runner-subagent.jsonl",
+			usage: {
+				status: "unavailable",
+				source: "child-session-file",
+				sessionFile: "/tmp/contract-runner-subagent.jsonl",
+				reason: "no-assistant-usage",
+				diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+			},
 			diagnostic: "Subagent Pi stopped without terminal capture.",
 		});
 		expect(call.options.cwd).toBe("/repo/packages/example");

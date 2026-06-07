@@ -1,7 +1,7 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync as nodeExistsSync } from "node:fs";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
@@ -19,6 +19,7 @@ import type {
 	RunnerSubagentProtocolErrorResult,
 	RunnerSubagentUpdate,
 	RunnerSubagentResult,
+	RunnerSubagentUsageMetadata,
 	RunnerSubagentReturnMode,
 	RunnerSubagentStoppedWithoutTerminalResult,
 	RunnerSubagentStoppedWithoutUsefulTextResult,
@@ -35,6 +36,7 @@ import {
 } from "./subagent-runtime.ts";
 import { emptyRunnerSubagentActivity } from "./activity.ts";
 import { createRunnerSubagentJsonEventParser, type RunnerSubagentJsonEventParserSnapshot } from "./json-events.ts";
+import { readRunnerSubagentUsageFromSessionFile, type ReadRunnerSubagentSessionFile } from "./usage.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
@@ -86,6 +88,7 @@ export interface RunnerSubagentDispatcherDependencies {
 	createSessionFile?: (input: { cwd: string; title?: string }) => string | Promise<string>;
 	createRuntimeFiles?: CreateRunnerSubagentRuntimeFiles;
 	readRuntimeResult?: ReadRunnerSubagentRuntimeResult;
+	readSessionFile?: ReadRunnerSubagentSessionFile;
 	processArgv?: readonly string[];
 	processExecPath?: string;
 	existsSync?: (path: string) => boolean;
@@ -262,10 +265,12 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 				returnMode,
 				...(runtimeFiles === undefined ? {} : { runtimeFiles }),
 				terminalToolStatuses: new Map(terminalTools.map((tool) => [tool.name, tool.status] as const)),
-			}).then(finish, (error: unknown) => {
-				const progress = parser.getProgress();
-				finish(errorResult(title, progress, `Failed to resolve subagent result: ${errorMessage(error)}`, error));
-			});
+			})
+				.then((result) => withRunnerSubagentUsage(result, dependencies.readSessionFile ?? defaultReadSessionFile))
+				.then(finish, (error: unknown) => {
+					const progress = parser.getProgress();
+					finish(errorResult(title, progress, `Failed to resolve subagent result: ${errorMessage(error)}`, error));
+				});
 		});
 	});
 }
@@ -558,6 +563,30 @@ async function createDefaultSessionFile(): Promise<string> {
 
 function defaultSpawnChildProcess(command: string, args: string[], options: SpawnChildProcessOptions): SpawnedChildProcess {
 	return nodeSpawn(command, args, options);
+}
+
+async function defaultReadSessionFile(sessionFile: string): Promise<string> {
+	return await readFile(sessionFile, "utf8");
+}
+
+async function withRunnerSubagentUsage<TTerminalInput>(
+	result: RunnerSubagentResult<TTerminalInput>,
+	readSessionFile: ReadRunnerSubagentSessionFile,
+): Promise<RunnerSubagentResult<TTerminalInput>> {
+	const sessionFile = result.sessionFile ?? result.progress.sessionFile;
+	let usage: RunnerSubagentUsageMetadata;
+	try {
+		usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, readSessionFile);
+	} catch (error) {
+		usage = {
+			status: "unavailable",
+			source: "child-session-file",
+			...(sessionFile === undefined ? {} : { sessionFile }),
+			reason: "session-read-error",
+			diagnostic: `Unexpected error while collecting subagent child session usage: ${errorMessage(error)}`,
+		};
+	}
+	return { ...result, usage };
 }
 
 function finalTextResult(
