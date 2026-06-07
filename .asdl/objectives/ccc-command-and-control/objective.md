@@ -38,21 +38,12 @@ In scope:
 - Update TypeScript package manifests, workspace wiring, imports, tests, and project-local extension adapters to preserve current public command behavior while moving implementation ownership.
 - Update durable domain context (`ts/packages/pi-extensions/CONTEXT.md`, `CONTEXT-MAP.md`, and any new `ts/packages/ccc/CONTEXT.md`) so future agents can distinguish Project-local Pi extension surfaces, Engineered Pi extension package behavior, CCC orchestration, planned-branch primitives, asdl-dev primitives, and neutral runtime/session-artifact utilities.
 
-Important current files and symbols discovered during planning:
+Implementation areas discovered during planning:
 
-- Project-local discovery adapters: `.pi/extensions/cmux.ts`, `.pi/extensions/code.ts`, `.pi/extensions/planned-branch.ts`, `.pi/extensions/handoff.ts`, `.pi/extensions/objective.ts`.
-- Current cmux suite registry: `ts/packages/pi-extensions/src/cmux.ts`.
-- Current cmux workspace orchestration: `ts/packages/pi-extensions/src/cmux/slot-dispatch-plan.ts`, `dispatch-prompt.ts`, `slot-open-branch.ts`, `slot.ts`, `pi-launch.ts`, `focused-terminal-tab.ts`, `sidebar.ts`, `worktree-description.ts`.
-- Current planned-branch Pi adapter and up-and-impl flow: `ts/packages/pi-extensions/src/planned-branch-extension.ts`.
-- Current planned-branch session artifact contract: `ts/packages/pi-extensions/src/planned-branch-output.ts`.
-- Planned-branch core package that should remain below CCC: `ts/packages/planned-branch/src/{plan-persistence,source-plan-file,attached-plan,planned-branch-creation,git-gateway,brmem-gateway,graphite-gateway,cli}.ts`.
-- Current code-management extension registry: `ts/packages/pi-extensions/src/code.ts`.
-- Current autobranch modules: `ts/packages/pi-extensions/src/autobranch.ts`, `autobranch-flow.ts`, `autobranch-preparation.ts`, `autobranch-transaction.ts`.
-- Current landing modules: `ts/packages/pi-extensions/src/land.ts`, `ts/packages/pi-extensions/src/land-stack/**`.
-- Current asdl-dev primitives that CCC may depend on but should not absorb wholesale: `ts/packages/asdl-dev/src/pending-worktree.ts`, `checkpoint-flow.ts`, `checkpoint-message.ts`, `checkpoint.ts`, `submit.ts`, `command-runner.ts`, `gateways/*`, `preview-url.ts`.
-- Current Objective adapter files: `ts/packages/pi-extensions/src/objective.ts`, `objective-list.ts`, `objective-picker.ts`.
-- Current handoff tab launch file: `ts/packages/pi-extensions/src/handoff/tab.ts`.
-- Current status extension: `ts/packages/pi-extensions/src/worktree-status.ts`.
+- Project-local Pi discovery adapters should stay thin while engineered packages own behavior.
+- CCC should own repo-opinionated cmux workspace/sidebar orchestration, handoff-tab launch, planned-branch up-and-impl, Objective stack implementation orchestration, autobranch, landing, and CCC-specific worktree observability.
+- Lower packages should retain reusable domain primitives: planned-branch persistence/attachment, handoff lifecycle and storage, Objective records, Branch Memory semantics, runner-subagent machinery, command runtime helpers, machine envelopes, and source-control gateway primitives.
+- The roadmap carries the current implementation inventory, progress evidence, and remaining migration slices so this Objective body can stay focused on ownership boundaries rather than file-by-file state.
 
 Planning evidence used for this Objective:
 
@@ -147,10 +138,9 @@ Steer or ask first when:
 
 How work may change files and be left:
 
-- It may create `ts/packages/ccc/` and update `ts/package.json`, package manifests, `tsconfig` includes, imports, tests, and project-local `.pi/extensions` adapters.
-- It may move TypeScript files with import updates, preserving tests and behavior.
-- It may add compatibility shims such as `ts/packages/pi-extensions/src/cmux.ts` re-exporting CCC registration during transition.
-- It may update `CONTEXT-MAP.md`, `ts/packages/pi-extensions/CONTEXT.md`, and add `ts/packages/ccc/CONTEXT.md`.
+- It may introduce or extend a private CCC package/module, package wiring, imports, tests, and thin project-local Pi extension adapters.
+- It may move coherent orchestration slices while preserving public command behavior and retaining compatibility shims during transition.
+- It may update durable context docs so the CCC boundary and lower-package ownership remain discoverable.
 - It should leave PR submission undone unless explicitly requested.
 
 Validation before keeping work:
@@ -186,10 +176,10 @@ Risks:
 - A new package may require TypeScript workspace/package-manager plumbing that is easy to miss. Include package manifest and workspace checks in the first slice.
 - Some package names or command names may have test assumptions. Preserve public command names initially and let tests catch accidental user-visible rename.
 
-## Open Questions
+## Settled Defaults and Remaining Decisions
 
-- Should the first implementation create `ts/packages/ccc/` immediately, or start with `ts/packages/pi-extensions/src/ccc/**` and promote later? Default: create `ts/packages/ccc/` because the user explicitly wants a coherent higher-level package.
-- What should the neutral runtime package/module be called if command runtime and session artifacts need to leave `pi-extensions`? Default: avoid naming a package until required; first move `planned-branch-output` to a neutral module that both CCC and planned-branch can import without cycles.
-- Should `/code:submit` remain an `asdl-dev` CLI mirror or become CCC-owned Graphite orchestration? Default: leave `asdl-dev submit` lower and let CCC own only command-suite placement unless deeper stack policy needs extraction.
-- Should `worktree-status` become part of CCC in v1? Default: split operational facts from generic footer plumbing and move only the operational facts/presentation that represent CCC observability.
-- Should public docs introduce `/ccc:*` as a user-facing namespace? Default: no; keep current slash-command namespaces and use CCC as architecture vocabulary.
+- Prefer a private `@asdl/ccc` package because the migration needs a coherent higher-level package boundary, not another internal pi-extensions subtree.
+- Keep neutral runtime/session-artifact helpers below CCC; name or extract additional neutral modules only when a second consumer forces that seam.
+- Leave `asdl-dev submit` as a lower CLI mirror by default; CCC should own command-suite placement only if deeper stack policy needs orchestration.
+- Split `worktree-status` before moving it, and move only operational facts/presentation that represent CCC observability.
+- Keep existing public slash-command namespaces for now. A public `/ccc:*` namespace remains a future product decision, not a prerequisite for this Objective.

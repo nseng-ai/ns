@@ -8,6 +8,7 @@ import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
 import { normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { formatErrorMessage, isRecord } from "./primitives.ts";
 
 export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 
@@ -499,18 +500,10 @@ function partialFailureError(input: {
 	);
 }
 
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 function trimErrorText(value: string): string {
 	if (value.length <= MAX_ERROR_CHARS) {
 		return value;
 	}
 	return `…${value.slice(-MAX_ERROR_CHARS)}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

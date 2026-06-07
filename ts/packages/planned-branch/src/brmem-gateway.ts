@@ -3,6 +3,7 @@ import { tailText, type ExecResult } from "./command-runtime.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import { formatCommandFailure, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { isRecord } from "./primitives.ts";
 
 const BRMEM_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -326,8 +327,4 @@ function failure(code: string, title: string, run: CommandRun): BrmemErrorInfo {
 
 function malformedBrmemEnvelope(commandName: string, stdout: string, reason: string): Error {
 	return new Error(`Malformed ${commandName} JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

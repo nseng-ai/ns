@@ -11,7 +11,6 @@ export {
 export type {
 	OpenBranchInCmuxSlotOptions,
 	OpenCmuxWorkspaceOptions,
-	SlotCheckoutData,
 	SlotCheckoutEnvelope,
 	SlotCheckoutFailureEnvelope,
 	SlotCheckoutSuccessEnvelope,

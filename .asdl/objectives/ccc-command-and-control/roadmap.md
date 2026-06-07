@@ -55,11 +55,9 @@
 
 ## Parked
 
+These are future product or cleanup possibilities, not Objective non-goals restated as roadmap work:
+
 - [ ] Public `/ccc:*` slash-command namespace or aliases.
 - [ ] Publishing CCC as a stable external package.
-- [ ] Moving Branch Memory, handoff, Objective, planned-branch, or asdl-dev domain semantics into CCC.
-- [ ] Moving runner-subagent core machinery into CCC.
-- [ ] Branch Memory ledgers, CCC hidden state, stack schemas, YAML registries, or task databases for this migration.
-- [ ] Automatic PR submission, stack landing, deployment, publishing, or GitHub mutation during implementation without an explicit user request.
 - [ ] Package-wide generic guard/helper consolidation outside the helpers needed for CCC migration.
 - [ ] Replacing existing public slash-command families with a new command taxonomy.

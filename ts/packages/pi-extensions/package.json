@@ -7,6 +7,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@asdl/ccc": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/planned-branch": "workspace:*",
     "asdl-dev": "workspace:*"

@@ -9,6 +9,7 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
+import { formatErrorMessage } from "./primitives.ts";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
 const PR_SIDEBAR_COMMAND_NAME = "cmux:sidebar:pr-summary";
@@ -318,8 +319,4 @@ function setStatus(ctx: CommandContext, value: string | undefined): void {
 	if (ctx.hasUI !== false) {
 		ctx.ui.setStatus?.(PI_SIDEBAR_STATUS_KEY, value);
 	}
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

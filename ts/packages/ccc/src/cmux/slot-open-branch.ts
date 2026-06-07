@@ -24,15 +24,6 @@ interface PlannedBranchSelection {
 	startPoint?: string;
 }
 
-interface LoosePlannedBranchSelection {
-	branchName: string;
-	key?: string | undefined;
-	commit?: string | undefined;
-	sourceFile?: string | undefined;
-	branchCreation?: string | undefined;
-	startPoint?: string | undefined;
-}
-
 type ResolvedBranch =
 	| { inferred: false; branchName: string }
 	| { inferred: true; branchName: string; selection: PlannedBranchSelection }
@@ -151,24 +142,14 @@ function extractStructuredPlannedBranchSelection(message: Record<string, unknown
 		return undefined;
 	}
 
-	return withoutUndefinedProperties({
+	return {
 		branchName: evidence.branch,
 		key: evidence.key,
 		commit: evidence.commit,
 		sourceFile: evidence.sourceFile,
 		branchCreation: evidence.branchCreation,
 		startPoint: evidence.startPoint,
-	});
-}
-
-function withoutUndefinedProperties(selection: LoosePlannedBranchSelection): PlannedBranchSelection {
-	const cleaned: PlannedBranchSelection = { branchName: selection.branchName };
-	if (selection.key !== undefined) cleaned.key = selection.key;
-	if (selection.commit !== undefined) cleaned.commit = selection.commit;
-	if (selection.sourceFile !== undefined) cleaned.sourceFile = selection.sourceFile;
-	if (selection.branchCreation !== undefined) cleaned.branchCreation = selection.branchCreation;
-	if (selection.startPoint !== undefined) cleaned.startPoint = selection.startPoint;
-	return cleaned;
+	};
 }
 
 async function confirmInferredBranch(

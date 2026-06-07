@@ -1,4 +1,5 @@
 import { tailText, type TailTextOptions } from "./command-runtime.ts";
+import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
 
 export interface MachineEnvelopeParseOptions {
 	label: string;
@@ -71,12 +72,4 @@ function envelopeStatusText(envelope: Record<string, unknown>): string | undefin
 		return envelope.error;
 	}
 	return undefined;
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

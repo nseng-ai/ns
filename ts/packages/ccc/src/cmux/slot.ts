@@ -8,7 +8,7 @@ const SLOT_TIMEOUT_MS = 30_000;
 const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 
-export interface SlotCheckoutData {
+export interface SlotCheckoutTarget {
 	slotName: string;
 	branchName: string;
 	worktreePath: string;
@@ -17,7 +17,7 @@ export interface SlotCheckoutData {
 
 export interface SlotCheckoutSuccessEnvelope {
 	exit_code: 0;
-	data: SlotCheckoutData;
+	data: SlotCheckoutTarget;
 }
 
 export interface SlotCheckoutFailureEnvelope {
@@ -27,13 +27,6 @@ export interface SlotCheckoutFailureEnvelope {
 }
 
 export type SlotCheckoutEnvelope = SlotCheckoutSuccessEnvelope | SlotCheckoutFailureEnvelope;
-
-export interface SlotCheckoutTarget {
-	slotName: string;
-	branchName: string;
-	worktreePath: string;
-	isAlreadyAssigned: boolean;
-}
 
 export interface OpenBranchInCmuxSlotOptions {
 	pi: Pick<ExtensionAPI, "exec">;
@@ -149,13 +142,8 @@ export function buildNewWorkspaceArgs(
 	return args;
 }
 
-export function slotCheckoutTargetFromData(data: SlotCheckoutData): SlotCheckoutTarget {
-	return {
-		slotName: data.slotName,
-		branchName: data.branchName,
-		worktreePath: data.worktreePath,
-		isAlreadyAssigned: data.isAlreadyAssigned,
-	};
+export function slotCheckoutTargetFromData(data: SlotCheckoutTarget): SlotCheckoutTarget {
+	return data;
 }
 
 export function isSlotCheckoutSuccessEnvelope(
@@ -210,6 +198,7 @@ function parseSlotCheckoutFailureEnvelope(stdout: string): SlotCheckoutFailureEn
 	try {
 		parsed = JSON.parse(stdout);
 	} catch {
+		// Success parsing intentionally accepts CLI envelopes with leading logs; failure output must be plain JSON.
 		return undefined;
 	}
 	if (!isRecord(parsed) || typeof parsed.exit_code !== "number" || parsed.exit_code === 0) {

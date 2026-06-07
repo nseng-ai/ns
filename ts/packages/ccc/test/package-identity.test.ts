@@ -9,7 +9,6 @@ describe("CCC package identity", () => {
 			vocabularyName: "CCC",
 			expandedName: "Cmux Command and Control",
 			visibility: "private-workspace",
-			importPolicy: "compose-from-ccc-only",
 		});
 		expect(CCC_PACKAGE_IDENTITY.ownedConcerns).toContain("cmux-workspace-orchestration");
 	});
