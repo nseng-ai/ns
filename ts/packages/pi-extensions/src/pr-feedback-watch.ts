@@ -7,14 +7,19 @@ export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
 export const PR_FEEDBACK_WATCH_MESSAGE_TYPE = "code-pr-feedback-watch";
 export const PR_FEEDBACK_WATCH_STATE_TYPE = "code-pr-feedback-watch-state";
 
-const DEFAULT_INTERVAL_MS = 60_000;
-const MIN_INTERVAL_MS = 60_000;
+const DEFAULT_INTERVAL_MS = 15_000;
+const MIN_INTERVAL_MS = 10_000;
+const HEAVY_FALLBACK_INTERVAL_MS = 60_000;
+const REST_FINGERPRINT_SKEW_MS = 2_000;
+const REST_FAILURES_BEFORE_HEAVY_FALLBACK = 3;
 const COMMAND_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 5_000;
 const TOP_LEVEL_BOT_DISCUSSION_AUTHORS = new Set(["vercel[bot]"]);
 
 type WatchCommandAction = "start" | "stop" | "status" | "once";
 type FeedbackItemKind = "review" | "thread_comment" | "discussion_comment";
+type FeedbackFingerprintItemKind = "discussion_comment" | "review" | "review_comment";
+type WatchMode = "rest_fingerprint" | "heavy_fallback" | "stopped";
 type IgnoredFeedbackReason = "current_user" | "status_bot";
 
 type WatchCommandParseResult =
@@ -40,6 +45,33 @@ export interface FeedbackItemKey {
 export interface IgnoredFeedbackItem {
 	item: FeedbackItemKey;
 	reason: IgnoredFeedbackReason;
+}
+
+export interface GithubPrIdentity {
+	owner: string;
+	repo: string;
+	number: number;
+	url?: string | undefined;
+}
+
+export interface FeedbackFingerprintItem {
+	kind: FeedbackFingerprintItemKind;
+	id: string;
+	updatedAt?: string | undefined;
+	author?: string | undefined;
+	path?: string | undefined;
+	line?: number | undefined;
+	state?: string | undefined;
+	commitId?: string | undefined;
+	reviewId?: string | undefined;
+	inReplyToId?: string | undefined;
+}
+
+export interface FeedbackFingerprint {
+	key: string;
+	items: FeedbackFingerprintItem[];
+	latestTimestamp?: string | undefined;
+	fetchedAt: string;
 }
 
 export interface FilteredFeedbackItems {
@@ -188,6 +220,7 @@ interface FeedbackSnapshot {
 interface WatchStatus {
 	enabled: boolean;
 	state: "stopped" | "active" | "polling" | "paused" | "dispatching" | "error";
+	mode: WatchMode;
 	prNumber?: number | undefined;
 	branch?: string | undefined;
 	intervalMs: number;
@@ -195,6 +228,9 @@ interface WatchStatus {
 	attemptedCount: number;
 	queuedCount: number;
 	lastPollAt?: string | undefined;
+	lastRestPollAt?: string | undefined;
+	lastHeavyCheckAt?: string | undefined;
+	restFailures: number;
 	lastError?: string | undefined;
 }
 
@@ -264,7 +300,9 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 
 export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_INTERVAL_MS): WatchCommandParseResult {
 	const tokens = rawArgs.trim().length === 0 ? [] : rawArgs.trim().split(/\s+/);
-	const actionToken = tokens[0] ?? "status";
+	const explicitActionToken = tokens[0];
+	const hasExplicitAction = explicitActionToken !== undefined && !explicitActionToken.startsWith("--");
+	const actionToken = hasExplicitAction ? explicitActionToken : "start";
 	if (!isWatchCommandAction(actionToken)) {
 		return { type: "invalid", message: `Unknown pr-feedback-watch action: ${actionToken}` };
 	}
@@ -275,7 +313,8 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		dispatchExisting: false,
 	};
 
-	for (let index = 1; index < tokens.length; index += 1) {
+	const optionStartIndex = hasExplicitAction ? 1 : 0;
+	for (let index = optionStartIndex; index < tokens.length; index += 1) {
 		const token = tokens[index];
 		if (token === "--allow-dirty") {
 			options.allowDirty = true;
@@ -371,6 +410,117 @@ export function feedbackItemKeysFromPrepareRun(data: PrepareRunData): FeedbackIt
 	return items;
 }
 
+export function parseGitHubPullRequestUrl(url: string | undefined, fallbackNumber: number | undefined): GithubPrIdentity | undefined {
+	if (url === undefined) return undefined;
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return undefined;
+	}
+	if (parsed.hostname !== "github.com") return undefined;
+	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
+	if (parts.length !== 4 || parts[2] !== "pull") return undefined;
+	const number = Number(parts[3]);
+	if (!Number.isInteger(number) || number <= 0) return undefined;
+	if (fallbackNumber !== undefined && fallbackNumber !== number) return undefined;
+	return { owner: parts[0] as string, repo: parts[1] as string, number, url };
+}
+
+export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFingerprintItem[] {
+	if (!Array.isArray(value)) return [];
+	const items: FeedbackFingerprintItem[] = [];
+	for (const item of value) {
+		if (!isRecord(item)) continue;
+		const id = idField(item, "id");
+		if (id === undefined) continue;
+		items.push({
+			kind: "discussion_comment",
+			id,
+			updatedAt: stringField(item, "updated_at") ?? stringField(item, "created_at"),
+			author: authorFromValue(item),
+		});
+	}
+	return items;
+}
+
+export function parseReviewFingerprint(value: unknown): FeedbackFingerprintItem[] {
+	if (!Array.isArray(value)) return [];
+	const items: FeedbackFingerprintItem[] = [];
+	for (const item of value) {
+		if (!isRecord(item)) continue;
+		const id = idField(item, "id") ?? stringField(item, "node_id");
+		if (id === undefined) continue;
+		items.push({
+			kind: "review",
+			id,
+			updatedAt: stringField(item, "submitted_at"),
+			author: authorFromValue(item),
+			state: stringField(item, "state"),
+			commitId: stringField(item, "commit_id"),
+		});
+	}
+	return items;
+}
+
+export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerprintItem[] {
+	if (!Array.isArray(value)) return [];
+	const items: FeedbackFingerprintItem[] = [];
+	for (const item of value) {
+		if (!isRecord(item)) continue;
+		const id = idField(item, "id");
+		if (id === undefined) continue;
+		items.push({
+			kind: "review_comment",
+			id,
+			updatedAt: stringField(item, "updated_at") ?? stringField(item, "created_at"),
+			author: authorFromValue(item),
+			path: stringField(item, "path"),
+			line: numberField(item, "line"),
+			reviewId: idField(item, "pull_request_review_id"),
+			inReplyToId: idField(item, "in_reply_to_id"),
+		});
+	}
+	return items;
+}
+
+export function buildFeedbackFingerprint(items: readonly FeedbackFingerprintItem[], fetchedAt = new Date().toISOString()): FeedbackFingerprint {
+	const copied = [...items];
+	return {
+		key: fingerprintKeyFromItems(copied),
+		items: copied,
+		latestTimestamp: maxFingerprintTimestamp(copied),
+		fetchedAt,
+	};
+}
+
+export function fingerprintKeyFromItems(items: readonly FeedbackFingerprintItem[]): string {
+	return [...items]
+		.sort(compareFingerprintItems)
+		.map((item) => [
+			item.kind,
+			item.id,
+			item.updatedAt ?? "",
+			item.author ?? "",
+			item.path ?? "",
+			item.line === undefined ? "" : String(item.line),
+			item.state ?? "",
+			item.commitId ?? "",
+			item.reviewId ?? "",
+			item.inReplyToId ?? "",
+		].join(":"))
+		.join("\n");
+}
+
+export function maxFingerprintTimestamp(items: readonly FeedbackFingerprintItem[]): string | undefined {
+	let latest: string | undefined;
+	for (const item of items) {
+		if (item.updatedAt === undefined) continue;
+		if (latest === undefined || item.updatedAt > latest) latest = item.updatedAt;
+	}
+	return latest;
+}
+
 export function filterIgnoredFeedback(
 	items: readonly FeedbackItemKey[],
 	options: { currentUserLogin?: string | undefined } = {},
@@ -439,7 +589,14 @@ class PrFeedbackWatchController {
 	private queuedItems: FeedbackItemKey[] = [];
 	private currentUserLogin: string | undefined;
 	private dirtyNotified = false;
+	private hasNotifiedRestFailure = false;
 	private headRefOid: string | undefined;
+	private githubPrIdentity: GithubPrIdentity | undefined;
+	private lastRestFingerprintKey: string | undefined;
+	private restSinceIso: string | undefined;
+	private pendingRestFingerprint: FeedbackFingerprint | undefined;
+	private restFingerprintFailures = 0;
+	private lastHeavyFallbackAt = 0;
 	private payloadSessionSequence = 0;
 	private runner: PrAddressRunner | undefined;
 
@@ -480,6 +637,7 @@ class PrFeedbackWatchController {
 		}
 
 		this.updateContextFromSnapshot(snapshot.snapshot);
+		await this.initializeRestBaseline(session, snapshot.snapshot);
 		if (options.dispatchExisting) {
 			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
 			if (dirty && !options.allowDirty) {
@@ -494,7 +652,7 @@ class PrFeedbackWatchController {
 			this.baseline(snapshot.snapshot);
 			notify(ctx, `PR feedback watch started for #${snapshot.snapshot.data.number ?? "unknown"}; existing feedback was baselined.`, "info");
 		}
-		this.state = { ...this.state, enabled: true, state: "active" };
+		this.state = { ...this.state, enabled: true, state: "active", mode: this.lastRestFingerprintKey === undefined ? "heavy_fallback" : "rest_fingerprint" };
 		this.renderStatus();
 		this.scheduleNextPoll(session);
 	}
@@ -508,7 +666,10 @@ class PrFeedbackWatchController {
 	stop(reason: "user" | "shutdown"): void {
 		this.clearTimer();
 		const session = this.activeSession;
-		this.state = { ...this.state, enabled: false, state: "stopped", queuedCount: 0 };
+		this.state = { ...this.state, enabled: false, state: "stopped", mode: "stopped", queuedCount: 0 };
+		this.githubPrIdentity = undefined;
+		this.lastRestFingerprintKey = undefined;
+		this.pendingRestFingerprint = undefined;
 		this.queuedItems = [];
 		if (reason === "user") this.appendEvent("stopped");
 		session?.ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, undefined);
@@ -572,32 +733,132 @@ class PrFeedbackWatchController {
 				this.renderStatus("PR watch: waiting for idle agent");
 				return;
 			}
-			const snapshotResult = await this.loadSnapshot(session);
-			if (snapshotResult.type === "failed") {
-				this.recordError(snapshotResult.message);
+			if (this.canUseRestFingerprint(options)) {
+				await this.pollWithRestFingerprint(session, options);
 				return;
 			}
-			const snapshot = snapshotResult.snapshot;
-			if (!snapshot.data.found) {
-				this.recordError("No PR found for current branch.");
-				return;
+			await this.pollWithHeavySnapshot(session, options, { reason: "normal" });
+		} finally {
+			this.isPollInFlight = false;
+			if (this.isPollPending && this.isActiveSession(session)) {
+				this.isPollPending = false;
+				void this.pollOnce(session, options);
+			} else if (options.scheduleNext && this.state.enabled && this.isActiveSession(session)) {
+				this.scheduleNextPoll(session);
 			}
-			if (this.shouldRebaselineForHead(snapshot)) {
-				this.updateContextFromSnapshot(snapshot);
-				this.baseline(snapshot);
-				this.state = { ...this.state, state: this.state.enabled ? "active" : "stopped" };
-				this.renderStatus();
-				notify(session.ctx, "PR head changed; refreshed feedback baseline.", "info");
-				return;
+		}
+	}
+
+	private canUseRestFingerprint(options: { dispatchExisting: boolean }): boolean {
+		return !options.dispatchExisting && this.githubPrIdentity !== undefined && this.lastRestFingerprintKey !== undefined;
+	}
+
+	private async initializeRestBaseline(session: ActiveSession, snapshot: FeedbackSnapshot): Promise<void> {
+		const identity = parseGitHubPullRequestUrl(snapshot.data.url, snapshot.data.number);
+		this.githubPrIdentity = identity;
+		this.lastRestFingerprintKey = undefined;
+		this.pendingRestFingerprint = undefined;
+		if (identity === undefined) {
+			this.state = { ...this.state, mode: "heavy_fallback" };
+			notify(session.ctx, "PR feedback watch could not parse the GitHub PR URL; falling back to conservative polling.", "warning");
+			return;
+		}
+		const sinceIso = skewIso(new Date().toISOString());
+		const result = await loadRestFingerprint(this.pi, session.cwd, identity, { sinceIso, signal: session.abortController.signal });
+		if (result.type === "failed") {
+			this.recordRestFailure(session, result.message);
+			this.state = { ...this.state, mode: "heavy_fallback" };
+			return;
+		}
+		this.restSinceIso = sinceIso;
+		this.advanceRestFingerprint(result.fingerprint);
+	}
+
+	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; dispatchExisting: boolean }): Promise<void> {
+		const identity = this.githubPrIdentity;
+		if (identity === undefined || this.lastRestFingerprintKey === undefined) {
+			await this.pollWithHeavySnapshot(session, options, { reason: "normal" });
+			return;
+		}
+		const result = await loadRestFingerprint(this.pi, session.cwd, identity, { sinceIso: this.restSinceIso, signal: session.abortController.signal });
+		if (result.type === "failed") {
+			this.recordRestFailure(session, result.message);
+			if (this.restFingerprintFailures >= REST_FAILURES_BEFORE_HEAVY_FALLBACK && this.canRunHeavyFallback()) {
+				this.lastHeavyFallbackAt = Date.now();
+				await this.pollWithHeavySnapshot(session, options, { reason: "fallback" });
 			}
+			return;
+		}
+		this.hasNotifiedRestFailure = false;
+		this.restFingerprintFailures = 0;
+		this.state = {
+			...this.state,
+			mode: "rest_fingerprint",
+			restFailures: 0,
+			lastRestPollAt: result.fingerprint.fetchedAt,
+			lastPollAt: result.fingerprint.fetchedAt,
+			lastError: undefined,
+		};
+		if (result.fingerprint.key === this.lastRestFingerprintKey) {
+			this.state = { ...this.state, state: this.state.enabled ? "active" : "stopped" };
+			this.renderStatus();
+			if (!this.state.enabled) notify(session.ctx, "No new PR feedback detected.", "info");
+			return;
+		}
+		this.pendingRestFingerprint = result.fingerprint;
+		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
+		if (dirty && !this.options.allowDirty) {
+			this.state = { ...this.state, state: "paused" };
+			this.renderStatus("PR watch: paused dirty tree");
+			if (!this.dirtyNotified) {
+				this.dirtyNotified = true;
+				notify(session.ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
+			}
+			return;
+		}
+		this.dirtyNotified = false;
+		this.renderStatus("PR watch: checking changed feedback");
+		await this.pollWithHeavySnapshot(session, options, { reason: "rest_changed", fingerprint: result.fingerprint });
+	}
+
+	private async pollWithHeavySnapshot(
+		session: ActiveSession,
+		options: { scheduleNext: boolean; dispatchExisting: boolean },
+		context: { reason: "normal" | "fallback" | "rest_changed"; fingerprint?: FeedbackFingerprint | undefined },
+	): Promise<void> {
+		if (context.reason === "fallback") this.renderStatus("PR watch: fallback polling 60s");
+		const snapshotResult = await this.loadSnapshot(session);
+		if (snapshotResult.type === "failed") {
+			this.recordError(snapshotResult.message);
+			return;
+		}
+		const snapshot = snapshotResult.snapshot;
+		if (!snapshot.data.found) {
+			this.recordError("No PR found for current branch.");
+			return;
+		}
+		if (this.shouldRebaselineForHead(snapshot)) {
 			this.updateContextFromSnapshot(snapshot);
-			if (!this.state.enabled && !options.dispatchExisting) {
-				this.baseline(snapshot);
-				this.state = { ...this.state, state: "stopped" };
-				this.renderStatus();
-				notify(session.ctx, "No new PR feedback detected; current feedback is now baselined.", "info");
-				return;
-			}
+			this.baseline(snapshot);
+			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
+			this.state = { ...this.state, state: this.state.enabled ? "active" : "stopped" };
+			this.renderStatus();
+			notify(session.ctx, "PR head changed; refreshed feedback baseline.", "info");
+			return;
+		}
+		this.updateContextFromSnapshot(snapshot);
+		if (this.state.enabled && context.reason !== "rest_changed" && this.lastRestFingerprintKey === undefined) {
+			await this.initializeRestBaseline(session, snapshot);
+		}
+		if (!this.state.enabled && !options.dispatchExisting) {
+			this.baseline(snapshot);
+			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
+			this.state = { ...this.state, state: "stopped" };
+			this.renderStatus();
+			notify(session.ctx, "No new PR feedback detected; current feedback is now baselined.", "info");
+			return;
+		}
+		if (context.reason !== "rest_changed") {
 			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
 			if (dirty && !this.options.allowDirty) {
 				this.state = { ...this.state, state: "paused" };
@@ -609,26 +870,53 @@ class PrFeedbackWatchController {
 				return;
 			}
 			this.dirtyNotified = false;
-			const newItems = options.dispatchExisting
-				? snapshot.items.filter((item) => !this.attemptedKeys.has(item.key))
-				: snapshot.items.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
-			if (newItems.length === 0) {
-				this.baseline(snapshot);
-				this.state = { ...this.state, state: this.state.enabled ? "active" : "stopped" };
-				this.renderStatus();
-				if (!this.state.enabled) notify(session.ctx, "No new PR feedback detected.", "info");
-				return;
-			}
-			await this.dispatchNewItems(session, newItems, snapshot);
-		} finally {
-			this.isPollInFlight = false;
-			if (this.isPollPending && this.isActiveSession(session)) {
-				this.isPollPending = false;
-				void this.pollOnce(session, options);
-			} else if (options.scheduleNext && this.state.enabled && this.isActiveSession(session)) {
-				this.scheduleNextPoll(session);
-			}
 		}
+		const newItems = options.dispatchExisting
+			? snapshot.items.filter((item) => !this.attemptedKeys.has(item.key))
+			: snapshot.items.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
+		if (newItems.length === 0) {
+			this.baseline(snapshot);
+			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
+			this.state = { ...this.state, state: this.state.enabled ? "active" : "stopped" };
+			this.renderStatus();
+			if (!this.state.enabled) notify(session.ctx, "No new PR feedback detected.", "info");
+			return;
+		}
+		if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
+		await this.dispatchNewItems(session, newItems, snapshot);
+	}
+
+	private recordRestFailure(session: ActiveSession, message: string): void {
+		this.restFingerprintFailures += 1;
+		this.state = {
+			...this.state,
+			state: "error",
+			mode: "heavy_fallback",
+			restFailures: this.restFingerprintFailures,
+			lastError: message,
+		};
+		this.renderStatus("PR watch: REST check failed; retrying");
+		if (!this.hasNotifiedRestFailure) {
+			this.hasNotifiedRestFailure = true;
+			notify(session.ctx, `PR feedback watch REST check failed; retrying: ${message}`, "warning");
+		}
+	}
+
+	private canRunHeavyFallback(): boolean {
+		return Date.now() - this.lastHeavyFallbackAt >= HEAVY_FALLBACK_INTERVAL_MS;
+	}
+
+	private advanceRestFingerprint(fingerprint: FeedbackFingerprint): void {
+		this.lastRestFingerprintKey = fingerprint.key;
+		this.restSinceIso = skewIso(fingerprint.latestTimestamp ?? fingerprint.fetchedAt);
+		this.pendingRestFingerprint = undefined;
+		this.restFingerprintFailures = 0;
+		this.state = {
+			...this.state,
+			mode: "rest_fingerprint",
+			restFailures: 0,
+			lastRestPollAt: fingerprint.fetchedAt,
+		};
 	}
 
 	private async loadSnapshot(session: ActiveSession): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
@@ -758,6 +1046,7 @@ class PrFeedbackWatchController {
 			prNumber: snapshot.data.number,
 			branch: snapshot.data.currentBranch ?? snapshot.data.headRefName,
 			lastPollAt: new Date().toISOString(),
+			lastHeavyCheckAt: new Date().toISOString(),
 			lastError: undefined,
 			seenCount: this.seenKeys.size,
 			attemptedCount: this.attemptedKeys.size,
@@ -769,9 +1058,13 @@ class PrFeedbackWatchController {
 		this.timer = setTimeout(() => {
 			this.timer = undefined;
 			void this.pollOnce(session, { scheduleNext: true, dispatchExisting: false });
-		}, this.options.intervalMs);
+		}, this.nextPollDelayMs());
 		const maybeTimer = this.timer as { unref?: () => void };
 		maybeTimer.unref?.();
+	}
+
+	private nextPollDelayMs(): number {
+		return this.githubPrIdentity === undefined || this.lastRestFingerprintKey === undefined ? HEAVY_FALLBACK_INTERVAL_MS : this.options.intervalMs;
 	}
 
 	private clearTimer(): void {
@@ -859,6 +1152,78 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 	return result.stdout.trim() || undefined;
 }
 
+async function loadRestFingerprint(
+	pi: ExecGateway,
+	cwd: string,
+	identity: GithubPrIdentity,
+	options: { sinceIso?: string | undefined; signal?: AbortSignal | undefined },
+): Promise<{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }> {
+	const discussion = await ghApiJson(pi, cwd, discussionCommentsEndpoint(identity, options.sinceIso), "[.[] | {id, created_at, updated_at, author: .user.login}]", options.signal);
+	if (discussion.type === "failed") return discussion;
+	const reviews = await ghApiJson(pi, cwd, reviewsEndpoint(identity), "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]", options.signal);
+	if (reviews.type === "failed") return reviews;
+	const reviewComments = await ghApiJson(
+		pi,
+		cwd,
+		reviewCommentsEndpoint(identity, options.sinceIso),
+		"[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
+		options.signal,
+	);
+	if (reviewComments.type === "failed") return reviewComments;
+	return {
+		type: "loaded",
+		fingerprint: buildFeedbackFingerprint([
+			...parseDiscussionCommentFingerprint(discussion.value),
+			...parseReviewFingerprint(reviews.value),
+			...parseReviewCommentFingerprint(reviewComments.value),
+		]),
+	};
+}
+
+async function ghApiJson(
+	pi: ExecGateway,
+	cwd: string,
+	endpoint: string,
+	jq: string,
+	signal?: AbortSignal,
+): Promise<{ type: "loaded"; value: unknown } | { type: "failed"; message: string }> {
+	const result = await pi.exec("gh", ["api", "--method", "GET", endpoint, "--jq", jq], execOptions(cwd, GIT_TIMEOUT_MS, signal));
+	if (result.killed || result.code !== 0) {
+		return { type: "failed", message: `gh api failed for ${endpoint}: ${result.stderr.trim() || `exit code ${result.code}`}` };
+	}
+	try {
+		return { type: "loaded", value: JSON.parse(result.stdout) };
+	} catch {
+		return { type: "failed", message: `gh api returned malformed JSON for ${endpoint}.` };
+	}
+}
+
+function discussionCommentsEndpoint(identity: GithubPrIdentity, sinceIso: string | undefined): string {
+	return buildGitHubRestEndpoint(`repos/${identity.owner}/${identity.repo}/issues/${identity.number}/comments`, { per_page: 100, since: sinceIso });
+}
+
+function reviewsEndpoint(identity: GithubPrIdentity): string {
+	return buildGitHubRestEndpoint(`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/reviews`, { per_page: 100 });
+}
+
+function reviewCommentsEndpoint(identity: GithubPrIdentity, sinceIso: string | undefined): string {
+	return buildGitHubRestEndpoint(`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/comments`, { per_page: 100, sort: "updated", direction: "desc", since: sinceIso });
+}
+
+function buildGitHubRestEndpoint(path: string, params: Record<string, string | number | undefined>): string {
+	const search = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (value !== undefined) search.set(key, String(value));
+	}
+	return search.size === 0 ? path : `${path}?${search.toString()}`;
+}
+
+function skewIso(iso: string): string {
+	const timestamp = Date.parse(iso);
+	if (!Number.isFinite(timestamp)) return iso;
+	return new Date(timestamp - REST_FINGERPRINT_SKEW_MS).toISOString();
+}
+
 function execOptions(cwd: string, timeout: number, signal?: AbortSignal): ExecOptions {
 	return { cwd, timeout, ...(signal === undefined ? {} : { signal }) };
 }
@@ -885,10 +1250,12 @@ function initialWatchStatus(): WatchStatus {
 	return {
 		enabled: false,
 		state: "stopped",
+		mode: "stopped",
 		intervalMs: DEFAULT_INTERVAL_MS,
 		seenCount: 0,
 		attemptedCount: 0,
 		queuedCount: 0,
+		restFailures: 0,
 	};
 }
 
@@ -896,8 +1263,9 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (!status.enabled && status.state === "stopped") return undefined;
 	if (status.state === "paused") return "PR watch: paused";
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
-	if (status.state === "error") return "PR watch: error";
-	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} polling ${Math.round(status.intervalMs / 1_000)}s`;
+	if (status.state === "error") return status.mode === "heavy_fallback" ? "PR watch: REST check failed; retrying" : "PR watch: error";
+	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
+	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} REST polling ${Math.round(status.intervalMs / 1_000)}s`;
 	return "PR watch: active";
 }
 
@@ -905,15 +1273,25 @@ function formatWatchStatus(status: WatchStatus): string {
 	const lines = [
 		`PR feedback watch: ${status.enabled ? status.state : "stopped"}`,
 		`Interval: ${Math.round(status.intervalMs / 1_000)}s`,
+		`Mode: ${formatWatchMode(status.mode)}`,
+		`REST failures: ${status.restFailures}`,
 		`Seen: ${status.seenCount}`,
 		`Attempted: ${status.attemptedCount}`,
 		`Queued: ${status.queuedCount}`,
 	];
 	if (status.prNumber !== undefined) lines.push(`PR: #${status.prNumber}`);
 	if (status.branch !== undefined) lines.push(`Branch: ${status.branch}`);
+	if (status.lastRestPollAt !== undefined) lines.push(`Last REST poll: ${status.lastRestPollAt}`);
+	if (status.lastHeavyCheckAt !== undefined) lines.push(`Last heavy check: ${status.lastHeavyCheckAt}`);
 	if (status.lastPollAt !== undefined) lines.push(`Last poll: ${status.lastPollAt}`);
 	if (status.lastError !== undefined) lines.push(`Last error: ${status.lastError}`);
 	return lines.join("\n");
+}
+
+function formatWatchMode(mode: WatchMode): string {
+	if (mode === "rest_fingerprint") return "REST fingerprint";
+	if (mode === "heavy_fallback") return "heavy fallback";
+	return "stopped";
 }
 
 function notify(ctx: ExtensionContext, message: string, level: "info" | "warning" | "error"): void {
@@ -1020,6 +1398,27 @@ function payloadPathFromValue(value: unknown): string | undefined {
 function locatorFromValue(value: unknown): { jsonPointer?: string | undefined; itemPointer?: string | undefined } {
 	if (!isRecord(value)) return {};
 	return { jsonPointer: stringField(value, "json_pointer"), itemPointer: stringField(value, "item_pointer") };
+}
+
+function compareFingerprintItems(left: FeedbackFingerprintItem, right: FeedbackFingerprintItem): number {
+	return fingerprintSortKey(left).localeCompare(fingerprintSortKey(right));
+}
+
+function fingerprintSortKey(item: FeedbackFingerprintItem): string {
+	return [item.kind, item.id, item.updatedAt ?? "", item.path ?? "", item.line === undefined ? "" : String(item.line)].join(":");
+}
+
+function authorFromValue(value: Record<string, unknown>): string | undefined {
+	const author = stringField(value, "author");
+	if (author !== undefined) return author;
+	if (!isRecord(value.user)) return undefined;
+	return stringField(value.user, "login");
+}
+
+function idField(value: Record<string, unknown>, key: string): string | undefined {
+	const field = value[key];
+	if (typeof field === "number" && Number.isFinite(field)) return String(field);
+	return typeof field === "string" ? field : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

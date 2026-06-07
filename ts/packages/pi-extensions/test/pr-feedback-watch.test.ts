@@ -2,9 +2,14 @@ import { describe, expect, test } from "bun:test";
 
 import prFeedbackWatchExtension, {
 	buildDetectedFeedbackPrompt,
+	buildFeedbackFingerprint,
 	feedbackItemKeysFromPrepareRun,
 	filterIgnoredFeedback,
+	parseDiscussionCommentFingerprint,
+	parseGitHubPullRequestUrl,
 	parsePrepareRunData,
+	parseReviewCommentFingerprint,
+	parseReviewFingerprint,
 	parseWatchCommandArgs,
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -28,8 +33,14 @@ interface ExecCall {
 
 interface ScriptedExec {
 	command: string;
-	args: string[];
+	args: string[] | ((args: string[]) => boolean);
+	description?: string;
 	result: Partial<ExecResult>;
+}
+
+interface StepOptions {
+	result?: Partial<ExecResult>;
+	description?: string;
 }
 
 interface RegisteredCommand {
@@ -74,8 +85,9 @@ class FakePi implements ExtensionAPI {
 			this.errors.push(message);
 			return execResult({ code: 99, stderr: message });
 		}
-		if (expected.command !== command || !sameArgs(expected.args, args)) {
-			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
+		if (expected.command !== command || !matchesArgs(expected.args, args)) {
+			const expectedArgs = Array.isArray(expected.args) ? expected.args.join(" ") : (expected.description ?? "<custom args matcher>");
+			const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 			this.errors.push(message);
 			return execResult({ code: 99, stderr: message });
 		}
@@ -138,12 +150,14 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
-	return { command, args, result };
+function step(command: string, args: string[] | ((args: string[]) => boolean), options: StepOptions = {}): ScriptedExec {
+	const result = options.result ?? {};
+	return options.description === undefined ? { command, args, result } : { command, args, result, description: options.description };
 }
 
-function sameArgs(left: string[], right: string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
+function matchesArgs(expected: string[] | ((args: string[]) => boolean), actual: string[]): boolean {
+	if (Array.isArray(expected)) return expected.length === actual.length && expected.every((value, index) => value === actual[index]);
+	return expected(actual);
 }
 
 function envelope(data: object): string {
@@ -152,24 +166,64 @@ function envelope(data: object): string {
 
 function prepareStep(data: object, sessionId: string): ScriptedExec {
 	return step("pr-address-run", ["exec", "prepare-run", "--payload-session-id", sessionId, "--format", "json"], {
-		stdout: envelope(data),
+		result: { stdout: envelope(data) },
 	});
 }
 
 function currentUserStep(login = "schrockn"): ScriptedExec {
-	return step("gh", ["api", "user", "--jq", ".login"], { stdout: `${login}\n` });
+	return step("gh", ["api", "user", "--jq", ".login"], { result: { stdout: `${login}\n` } });
 }
 
 function headOidStep(prNumber = 123, oid = "abc123"): ScriptedExec {
-	return step("gh", ["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"], { stdout: `${oid}\n` });
+	return step("gh", ["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"], { result: { stdout: `${oid}\n` } });
+}
+
+function discussionFingerprintStep(items: object[]): ScriptedExec {
+	return restFingerprintStep("issues/123/comments", "[.[] | {id, created_at, updated_at, author: .user.login}]", items);
+}
+
+function reviewFingerprintStep(items: object[]): ScriptedExec {
+	return restFingerprintStep("pulls/123/reviews", "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]", items);
+}
+
+function reviewCommentFingerprintStep(items: object[]): ScriptedExec {
+	return restFingerprintStep(
+		"pulls/123/comments",
+		"[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
+		items,
+	);
+}
+
+function restFingerprintStep(pathFragment: string, jq: string, items: object[]): ScriptedExec {
+	return step(
+		"gh",
+		(args) => args[0] === "api" && args[1] === "--method" && args[2] === "GET" && args[3] !== undefined && args[3].includes(pathFragment) && args[4] === "--jq" && args[5] === jq,
+		{ result: { stdout: JSON.stringify(items) }, description: `api ${pathFragment}` },
+	);
+}
+
+function restFingerprintSteps(options: { discussion?: object[]; reviews?: object[]; reviewComments?: object[] } = {}): ScriptedExec[] {
+	return [discussionFingerprintStep(options.discussion ?? []), reviewFingerprintStep(options.reviews ?? []), reviewCommentFingerprintStep(options.reviewComments ?? [])];
+}
+
+function reviewCommentRestItem(id: number): object {
+	return {
+		id,
+		pull_request_review_id: 1,
+		created_at: "2026-06-07T00:00:00Z",
+		updated_at: `2026-06-07T00:00:${String(id).padStart(2, "0")}Z`,
+		path: "src/file.ts",
+		line: id,
+		author: "reviewer",
+	};
 }
 
 function cleanStep(): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1"], { stdout: "" });
+	return step("git", ["status", "--porcelain=v1"], { result: { stdout: "" } });
 }
 
 function dirtyStep(): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1"], { stdout: " M file.ts\n" });
+	return step("git", ["status", "--porcelain=v1"], { result: { stdout: " M file.ts\n" } });
 }
 
 function compactManifest(commentIds: number[] = [10]): object {
@@ -224,19 +278,24 @@ function compactManifest(commentIds: number[] = [10]): object {
 }
 
 describe("pr feedback watch command parsing", () => {
-	test("parses status by default and start options", () => {
-		expect(parseWatchCommandArgs("")).toMatchObject({ type: "valid", action: "status" });
-		expect(parseWatchCommandArgs("start --interval-seconds 120 --allow-dirty --dispatch-existing")).toEqual({
+	test("parses start by default and supports implicit start options", () => {
+		expect(parseWatchCommandArgs("")).toEqual({
 			type: "valid",
 			action: "start",
-			options: { intervalMs: 120_000, allowDirty: true, dispatchExisting: true },
+			options: { intervalMs: 15_000, allowDirty: false, dispatchExisting: false },
 		});
+		expect(parseWatchCommandArgs("--interval-seconds 10 --allow-dirty --dispatch-existing")).toEqual({
+			type: "valid",
+			action: "start",
+			options: { intervalMs: 10_000, allowDirty: true, dispatchExisting: true },
+		});
+		expect(parseWatchCommandArgs("status")).toMatchObject({ type: "valid", action: "status" });
 	});
 
 	test("rejects unknown actions, unknown options, and too-small intervals", () => {
 		expect(parseWatchCommandArgs("bogus")).toMatchObject({ type: "invalid" });
 		expect(parseWatchCommandArgs("start --wat")).toMatchObject({ type: "invalid" });
-		expect(parseWatchCommandArgs("start --interval-seconds 30")).toMatchObject({ type: "invalid" });
+		expect(parseWatchCommandArgs("start --interval-seconds 9")).toMatchObject({ type: "invalid" });
 	});
 });
 
@@ -274,6 +333,50 @@ describe("pr feedback watch manifest helpers", () => {
 	});
 });
 
+describe("pr feedback watch REST fingerprint helpers", () => {
+	test("parses GitHub PR URLs and rejects malformed URLs", () => {
+		expect(parseGitHubPullRequestUrl("https://github.com/dagster-io/asdl-tools/pull/1036", undefined)).toEqual({
+			owner: "dagster-io",
+			repo: "asdl-tools",
+			number: 1036,
+			url: "https://github.com/dagster-io/asdl-tools/pull/1036",
+		});
+		expect(parseGitHubPullRequestUrl("https://example.com/dagster-io/asdl-tools/pull/1036", undefined)).toBeUndefined();
+		expect(parseGitHubPullRequestUrl("https://github.com/dagster-io/asdl-tools/issues/1036", undefined)).toBeUndefined();
+	});
+
+	test("parses minimal REST feedback fields and ignores malformed optional fields", () => {
+		expect(parseDiscussionCommentFingerprint([{ id: 90, updated_at: "2026-06-07T00:00:00Z", author: "reviewer" }, { nope: true }])).toEqual([
+			{ kind: "discussion_comment", id: "90", updatedAt: "2026-06-07T00:00:00Z", author: "reviewer" },
+		]);
+		expect(parseReviewFingerprint([{ id: 1, state: "CHANGES_REQUESTED", submitted_at: "2026-06-07T00:01:00Z", commit_id: "abc", author: "octo" }])).toEqual([
+			{ kind: "review", id: "1", updatedAt: "2026-06-07T00:01:00Z", author: "octo", state: "CHANGES_REQUESTED", commitId: "abc" },
+		]);
+		expect(parseReviewCommentFingerprint([{ id: 10, pull_request_review_id: 1, path: "src/file.ts", line: 7, in_reply_to_id: "9", updated_at: "2026-06-07T00:02:00Z" }])).toEqual([
+			{ kind: "review_comment", id: "10", updatedAt: "2026-06-07T00:02:00Z", path: "src/file.ts", line: 7, reviewId: "1", inReplyToId: "9" },
+		]);
+	});
+
+	test("builds deterministic fingerprint keys independent of response order", () => {
+		const left = buildFeedbackFingerprint([
+			{ kind: "review_comment", id: "11", updatedAt: "2026-06-07T00:02:00Z" },
+			{ kind: "discussion_comment", id: "90", updatedAt: "2026-06-07T00:00:00Z" },
+		], "2026-06-07T00:03:00Z");
+		const right = buildFeedbackFingerprint([
+			{ kind: "discussion_comment", id: "90", updatedAt: "2026-06-07T00:00:00Z" },
+			{ kind: "review_comment", id: "11", updatedAt: "2026-06-07T00:02:00Z" },
+		], "2026-06-07T00:04:00Z");
+		const changed = buildFeedbackFingerprint([
+			{ kind: "discussion_comment", id: "90", updatedAt: "2026-06-07T00:00:00Z" },
+			{ kind: "review_comment", id: "12", updatedAt: "2026-06-07T00:02:00Z" },
+		], "2026-06-07T00:05:00Z");
+
+		expect(left.key).toBe(right.key);
+		expect(changed.key).not.toBe(left.key);
+		expect(left.latestTimestamp).toBe("2026-06-07T00:02:00Z");
+	});
+});
+
 describe("pr feedback watch extension", () => {
 	test("registers command and lifecycle hooks without starting polling", () => {
 		const pi = new FakePi();
@@ -284,12 +387,12 @@ describe("pr feedback watch extension", () => {
 		expect(pi.calls).toEqual([]);
 	});
 
-	test("start baselines existing feedback without dispatching", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep()]);
+	test("empty command starts and baselines existing feedback without dispatching", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);
@@ -322,17 +425,37 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
-	test("after baseline, a new comment dispatches once", async () => {
+	test("unchanged cheap poll avoids heavy work", async () => {
 		const pi = new FakePi([
 			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
 			currentUserStep(),
 			headOidStep(),
+			...restFingerprintSteps(),
+			...restFingerprintSteps(),
+		]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+
+		expect(pi.userMessages).toEqual([]);
+		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(1);
+		pi.assertDone();
+	});
+
+	test("after baseline, a new comment dispatches once", async () => {
+		const changedRest = { reviewComments: [reviewCommentRestItem(11)] };
+		const pi = new FakePi([
+			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+			...restFingerprintSteps(changedRest),
+			cleanStep(),
 			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-123-2"),
 			headOidStep(),
-			cleanStep(),
-			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-123-3"),
-			headOidStep(),
-			cleanStep(),
+			...restFingerprintSteps(changedRest),
 		]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
@@ -346,8 +469,75 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
+	test("changed REST fingerprint with no actionable manifest items advances without dispatch", async () => {
+		const changedRest = { discussion: [{ id: 92, updated_at: "2026-06-07T00:00:30Z", author: "schrockn" }] };
+		const pi = new FakePi([
+			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+			...restFingerprintSteps(changedRest),
+			cleanStep(),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-123-2"),
+			headOidStep(),
+		]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+
+		expect(pi.userMessages).toEqual([]);
+		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(2);
+		pi.assertDone();
+	});
+
+	test("dirty tree pauses before heavy normalization after REST changes", async () => {
+		const pi = new FakePi([
+			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+			...restFingerprintSteps({ reviewComments: [reviewCommentRestItem(11)] }),
+			dirtyStep(),
+		]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+
+		expect(pi.userMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
+		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(1);
+		pi.assertDone();
+	});
+
+	test("REST failures warn without dispatching or heavy retry before threshold", async () => {
+		const pi = new FakePi([
+			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+			step("gh", (args) => args[0] === "api" && args[3] !== undefined && args[3].includes("issues/123/comments"), {
+				result: { code: 1, stderr: "rate limited" },
+				description: "failed discussion REST",
+			}),
+		]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+
+		expect(pi.userMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toContain("REST check failed");
+		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(1);
+		pi.assertDone();
+	});
+
 	test("start with dispatch-existing pauses on dirty tree", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), dirtyStep()]);
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), dirtyStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
