@@ -9,6 +9,7 @@
     "./machine-envelope": "./src/machine-envelope.ts",
     "./objective-list": "./src/objective-list.ts",
     "./objective-picker": "./src/objective-picker.ts",
+    "./objective-selection": "./src/objective-selection.ts",
     "./skill-expansion": "./src/skill-expansion.ts",
     "./terminal-presentation": "./src/terminal-presentation.ts",
     "./cmux/pi-launch": "./src/cmux/pi-launch.ts",

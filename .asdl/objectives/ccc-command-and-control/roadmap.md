@@ -33,13 +33,13 @@
   - Policy: deliberate user-confirmed rename; preserved tested behavior under the new prefix.
   - Evidence: see the 2026-06-07 rename update for the landed command-prefix rename, validation, and stale-`cmux:` registration check.
 
-- [~] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
+- [x] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
   - Moved the `/planned-branch:up-and-impl` checkout/new-session implementation-launch flow into CCC-owned orchestration, leaving planned-branch write/create/impl primitives, saved-plan resolution, Branch Memory attachment, and attached-plan loading below.
   - Moved handoff-tab launch orchestration into CCC, leaving handoff identity/storage/listing semantics below.
-  - Move Objective stack implementation orchestration into CCC or make the Objective adapter delegate to CCC, leaving Objective record/list/update semantics below.
+  - Moved Objective stack implementation orchestration into CCC while preserving public `/objective:stack-impl` registration through the Objective adapter and leaving Objective record/list/update semantics below.
   - Policy: direct execution after preview; ask first if command names or ownership boundaries need to change.
   - Evidence: handoff-tab launch and planned-branch up-and-impl launch orchestration now live in `@asdl/ccc`; public `handoff-tab`, `handoff_tab_launch`, `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:up-and-impl`, and `/planned-branch:impl` surfaces stayed stable; lower packages still do not import CCC; and validation passed with `bun test --cwd ts/packages/ccc --sequential`, `bun test --cwd ts/packages/pi-extensions --sequential`, `bun run --cwd ts check`, `bun run --cwd ts test`, `just dprint-check`, and `git diff --check`.
-  - Evidence still needed: Objective adapter orchestration move without lower packages importing CCC.
+  - Evidence: Objective stack implementation orchestration now lives in `@asdl/ccc/objective-stack-impl`; `@asdl/pi-extensions` preserves public `/objective:stack-impl` registration and delegates to CCC; Objective active-selection mechanics live in neutral `@asdl/pi-extension-runtime/objective-selection`; validation passed with `bun test --cwd ts/packages/pi-extension-runtime --sequential`, `bun test --cwd ts/packages/ccc --sequential`, `bun test --cwd ts/packages/pi-extensions --sequential`, `bun run --cwd ts check`, and import-direction checks.
 
 - [ ] Move repo source-control command/control workflows into CCC.
   - Move `/code:autobranch` and its preparation/transaction modules into CCC because it encodes dirty-worktree-to-Graphite-branch-to-checkpoint policy.

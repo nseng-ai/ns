@@ -48,6 +48,10 @@ _Avoid_: automatic workspace-opening automation, focused workspace fallback, raw
 A structured selector for an active Objective: either a single Objective slug, a repo-relative/absolute path below `.asdl/objectives/<slug>/`, or a user-chosen active Objective from a deterministic picker when a command intentionally supports no-arg selection. It is not prompt text and is not inferred from branch, PR, hidden context, or conversation prose.
 _Avoid_: Objective prompt, branch-derived Objective, archived Objective path.
 
+**Objective stack implementation adapter**:
+The public Pi extension registration surface for `/objective:stack-impl`. The command name remains part of the Objective extension surface, but the stack implementation orchestration behind it is delegated to `@asdl/ccc/objective-stack-impl`; normal Objective record/list/current/update/next/close/archive semantics stay below CCC.
+_Avoid_: CCC command prefix alias, Objective storage owner, stack orchestration implementation body.
+
 **Deterministic sidebar fields**:
 The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `asdl exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.
 _Avoid_: generated Objective summary, arbitrary prose compression, model draft.

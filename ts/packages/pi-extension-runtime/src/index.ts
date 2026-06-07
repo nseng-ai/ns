@@ -44,6 +44,13 @@ export {
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
 export {
+	chooseActiveObjectiveSlug,
+	type ObjectiveSelectionContext,
+	type ObjectiveSelectionHost,
+	type ObjectiveSelectionNotifyLevel,
+	type ObjectiveSelectionSpec,
+} from "./objective-selection.ts";
+export {
 	expandSkillBlock,
 	type ExpandedSkillBlock,
 	type SkillCommandInfo,
