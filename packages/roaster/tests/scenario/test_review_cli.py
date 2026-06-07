@@ -289,6 +289,52 @@ def test_review_run_stdin_document_target_json_output(cli_group: ClinkrGroup) ->
     assert executed.target.content == "# Plan\n"
 
 
+def test_review_run_rejects_oversized_file_document_target(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("x" * 1_000_001, encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--file", str(plan_path)],
+        obj=_context(),
+    )
+
+    assert result.exit_code != 0
+    assert "exceeds 1000000 bytes" in result.output
+
+
+def test_review_run_rejects_oversized_stdin_document_target(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--stdin"],
+        input="x" * 1_000_001,
+        obj=_context(),
+    )
+
+    assert result.exit_code != 0
+    assert "stdin exceeds 1000000 bytes" in result.output
+
+
+def test_review_run_rejects_non_utf8_file_document_target(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_bytes(b"\xff")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--file", str(plan_path)],
+        obj=_context(),
+    )
+
+    assert result.exit_code != 0
+    assert "must be valid UTF-8" in result.output
+
+
 def test_review_run_rejects_multiple_document_sources(
     cli_group: ClinkrGroup,
     tmp_path: Path,

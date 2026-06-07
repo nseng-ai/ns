@@ -31,11 +31,14 @@ from roaster.models import (
 )
 from roaster.workflow import run_review_by_key
 
+_DOCUMENT_TARGET_MAX_BYTES = 1_000_000
+
 
 def _stderr_run_plan(plan: ResolvedReviewRunPlan) -> None:
-    target_summary = f"target=document label={plan.target_label}"
     if plan.target_kind == "diff":
         target_summary = f"base_ref={plan.base_ref} changed_paths={plan.changed_path_count}"
+    else:
+        target_summary = f"target=document label={plan.target_label}"
     click.echo(
         f"  · resolved model={plan.model} harness={plan.harness} {target_summary}",
         err=True,
@@ -122,7 +125,7 @@ class ReviewRunRequest(ClinkrModel):
 
 
 def _resolve_document_target(request: ReviewRunRequest) -> DocumentReviewTarget | None:
-    has_file = request.file is not None and bool(request.file.strip())
+    has_file = request.file is not None
     has_stdin = request.stdin
     if has_file and has_stdin:
         raise ClinkrFailure(
@@ -154,9 +157,10 @@ def _resolve_document_target(request: ReviewRunRequest) -> DocumentReviewTarget 
                 error_type="review_target_invalid",
                 message=f"Document target file does not exist or is not a file: {request.file}",
             )
+        content = _read_document_file(path, label=request.file)
         return DocumentReviewTarget(
             kind="document",
-            content=path.read_text(encoding="utf-8"),
+            content=content,
             label=request.file,
             source_path=str(path),
         )
@@ -164,12 +168,48 @@ def _resolve_document_target(request: ReviewRunRequest) -> DocumentReviewTarget 
     if has_stdin:
         return DocumentReviewTarget(
             kind="document",
-            content=click.get_text_stream("stdin").read(),
+            content=_read_document_stdin(),
             label="stdin",
             source_path=None,
         )
 
     return None
+
+
+def _read_document_file(path: Path, *, label: str) -> str:
+    size_bytes = path.stat().st_size
+    if size_bytes > _DOCUMENT_TARGET_MAX_BYTES:
+        raise ClinkrFailure(
+            error_type="review_target_too_large",
+            message=(
+                f"Document target file exceeds {_DOCUMENT_TARGET_MAX_BYTES} bytes: "
+                f"{label} ({size_bytes} bytes)"
+            ),
+        )
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ClinkrFailure(
+            error_type="review_target_invalid_encoding",
+            message=f"Document target file must be valid UTF-8: {label}",
+        ) from exc
+
+
+def _read_document_stdin() -> str:
+    stream = click.get_text_stream("stdin")
+    try:
+        content = stream.read(_DOCUMENT_TARGET_MAX_BYTES + 1)
+    except UnicodeDecodeError as exc:
+        raise ClinkrFailure(
+            error_type="review_target_invalid_encoding",
+            message="Document target stdin must be valid UTF-8",
+        ) from exc
+    if len(content.encode("utf-8")) > _DOCUMENT_TARGET_MAX_BYTES:
+        raise ClinkrFailure(
+            error_type="review_target_too_large",
+            message=f"Document target stdin exceeds {_DOCUMENT_TARGET_MAX_BYTES} bytes",
+        )
+    return content
 
 
 def _context_fragments(request: ReviewRunRequest) -> tuple[ReviewContextFragment, ...]:

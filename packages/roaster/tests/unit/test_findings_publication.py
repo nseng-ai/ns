@@ -330,6 +330,27 @@ def test_render_document_finding_without_path_or_line_uses_dash_location() -> No
     assert "### `—` — warning" in body
 
 
+def test_document_inline_marker_includes_location_discriminator() -> None:
+    global_finding = ReviewFinding.global_finding(
+        severity="warning",
+        summary="Missing rollback",
+        details="Add rollback steps.",
+    )
+    anchored_finding = ReviewFinding.from_json_dict(
+        {
+            "location": {"kind": "text_anchor", "text": "Ship it safely."},
+            "severity": "warning",
+            "summary": "Missing rollback",
+            "details": "Add rollback steps.",
+        }
+    )
+
+    assert inline_marker_for_finding("adversarial", global_finding) != inline_marker_for_finding(
+        "adversarial",
+        anchored_finding,
+    )
+
+
 def test_parse_rejects_malformed_target_kind() -> None:
     result = _parse_error(
         json.dumps(
@@ -357,6 +378,23 @@ def test_ensure_publishable_diff_payload_rejects_document_payload() -> None:
 
     assert isinstance(result, FindingsPayloadParseError)
     assert "local-output only" in result.message
+
+
+def test_ensure_publishable_diff_payload_rejects_document_location() -> None:
+    payload = _payload(
+        findings=(
+            ReviewFinding.global_finding(
+                severity="warning",
+                summary="Missing rollback",
+                details="Add rollback steps.",
+            ),
+        )
+    )
+
+    result = ensure_publishable_diff_payload(payload)
+
+    assert isinstance(result, FindingsPayloadParseError)
+    assert "requires diff-line" in result.message
 
 
 def test_parse_count_derives_from_findings_when_absent() -> None:

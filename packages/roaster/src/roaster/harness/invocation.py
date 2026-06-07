@@ -322,12 +322,12 @@ def _validate_document_text_anchors(
         location = finding.location
         if not isinstance(location, TextAnchorLocation):
             continue
-        match_count = target.content.count(location.text)
+        match_count = _text_anchor_match_count(target.content, location)
         if match_count == 0:
             anchor_text = _truncate_prose(location.text.strip(), limit=120)
             return ClaudeCodeInvalidFindings(
                 message=(
-                    "Document review `text_anchor` location must quote exact text present "
+                    "Document review `text_anchor` location must match text present "
                     f"in target {target.label!r}; missing anchor: {anchor_text!r}."
                 ),
             )
@@ -339,6 +339,25 @@ def _validate_document_text_anchors(
                 ),
             )
     return None
+
+
+def _text_anchor_match_count(content: str, location: TextAnchorLocation) -> int:
+    if location.text in content:
+        if location.occurrence is None:
+            return 1
+        return content.count(location.text)
+
+    normalized_content = _normalized_text(content)
+    normalized_anchor = _normalized_text(location.text)
+    if normalized_anchor not in normalized_content:
+        return 0
+    if location.occurrence is None:
+        return 1
+    return normalized_content.count(normalized_anchor)
+
+
+def _normalized_text(value: str) -> str:
+    return " ".join(value.split())
 
 
 def _extract_usage(result_event: dict[str, Any]) -> ReviewUsage | None:

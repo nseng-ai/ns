@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, ValidationError, field_validator, model_serializer
+from pydantic import Field, ValidationError, field_validator, model_serializer, model_validator
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
@@ -17,6 +17,7 @@ Severity = Literal["info", "warning", "error"]
 ReviewFormat = Literal["findings", "text"]
 TargetKind = Literal["diff", "document"]
 StrictInt: TypeAlias = Annotated[int, Field(strict=True)]
+PositiveStrictInt: TypeAlias = Annotated[int, Field(strict=True, ge=1)]
 
 
 @dataclass(frozen=True)
@@ -360,7 +361,7 @@ class TextAnchorLocation(ClinkrModel):
     kind: Literal["text_anchor"]
     text: str = Field(min_length=1)
     section: str | None = None
-    occurrence: StrictInt | None = None
+    occurrence: PositiveStrictInt | None = None
     context: str | None = None
 
     @field_validator("text", "section", "context")
@@ -399,6 +400,20 @@ class ReviewFinding(ClinkrModel):
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_diff_fields(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        if "location" in value or "path" not in value:
+            return value
+
+        normalized = dict(value)
+        path = normalized.pop("path")
+        line = normalized.pop("line", None)
+        normalized["location"] = {"kind": "diff_line", "path": path, "line": line}
+        return normalized
 
     @field_validator("summary", "details")
     @classmethod
