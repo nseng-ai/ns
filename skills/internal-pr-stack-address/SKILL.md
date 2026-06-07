@@ -46,12 +46,15 @@ Do not trigger from ordinary single-PR review feedback requests; use
 - Creates or reuses a child branch at the stack tip named
   `<stack-prefix>/address-stack-feedback` by default.
 - Does **not** run `gt submit`, `git push`, or `gh pr create` by default.
-- Uses payload artifact mode for stack PR feedback by default; full inline
-  payload mode is only for explicit debugging or migration fallback.
-- Requires every stack PR's classification to pass
-  `validate-feedback-classification` before stack planning proceeds.
-- Derives executable batches from `plan-feedback`, not hand-grouped scratch
-  notes.
+- Uses one payload session as the durable stack run record; normal operation
+  does not create ad hoc `/tmp` scratch directories.
+- Uses `stack-feedback-prep` and `stack-feedback-plan` for deterministic stack
+  feedback orchestration when available; full inline payload mode is only for
+  explicit debugging or migration fallback.
+- Requires every stack PR's classification to validate before stack planning
+  proceeds.
+- Derives executable batches from validated `plan-feedback` semantics through
+  `stack-feedback-plan`, not hand-grouped scratch notes.
 - Shows a compact execution plan before editing.
 - Auto-executes only mechanical/simple feedback; asks before complex or
   human-sensitive work.
@@ -104,44 +107,66 @@ Load these when their domain is touched:
 7. If running in an asdl checkout and launching classifier subagents, read
    `.asdl/prompts/subagent-launch.md` before dispatch.
 
-### 2. Fetch stack feedback
+### 2. Fetch stack feedback into payload artifacts
 
-For each open stack PR, fetch the compact payload manifest:
+Build an explicit Graphite-neutral stack input from the open PR coverage found
+in preflight:
+
+```json
+{
+  "stack": [
+    {
+      "pr_number": 1009,
+      "branch": "feature-branch",
+      "title": "Optional PR title",
+      "url": "https://github.com/org/repo/pull/1009",
+      "head_ref_name": "feature-branch",
+      "base_ref_name": "base-branch"
+    }
+  ]
+}
+```
+
+Then run the stack prep helper:
 
 ```bash
-<pr-address-runner> exec get-feedback <pr_number> \
-  --payload-session-id <payload-session-id> \
-  --format json
+printf '%s' '<stack-json>' \
+  | <pr-address-runner> exec stack-feedback-prep \
+      --payload-session-id <payload-session-id> \
+      --format json
 ```
 
 Rules:
 
 - Default to unresolved threads only.
 - Include resolved threads only for explicit reference/audit mode.
-- Preserve each PR's compact manifest and `payload_reference.payload_path` for
-  classification and selected detail lookup.
-- Stop or report clearly if any helper returns `exit_code: 2`.
+- Preserve `data.stack[]` entries, especially each compact `manifest`, raw
+  payload reference, generated classification template, summary references, and
+  `discussion_triage`.
+- Stop or report clearly if the helper returns `exit_code: 2`.
 - If a PR has no reviews, unresolved review threads, or discussion comments,
   include it in the scan summary but produce no plan items for it.
+- Top-level automation/status comments are summarized in `discussion_triage`;
+  they still remain in the manifest and must be classified exactly once.
+
+Fallback: if `stack-feedback-prep` is unavailable, use the older per-PR
+`get-feedback` + `classification-template` loop, but keep artifacts in the same
+payload session and report the missing helper as a push-down gap. Do not create
+ad hoc scratch directories in normal operation.
 
 `summarize-feedback` may be used for quick read-only triage when no
 classification/execution will follow. Do not use it as the normal source of
 truth here: it lacks payload locators and does not support validated
 classification/planning.
 
-### 3. Classify, validate, and plan per PR
+### 3. Classify each PR
 
-For each PR manifest with feedback:
+For each `data.stack[]` prep entry with feedback:
 
-1. Generate the deterministic scaffold:
-
-   ```bash
-   printf '%s' '<get-feedback data json>' \
-     | <pr-address-runner> exec classification-template --format json
-   ```
-
-2. Read `skills/pr-address/references/feedback-classifier.md`. Use its packet
+1. Read `skills/pr-address/references/feedback-classifier.md`. Use its packet
    schema, completeness invariant, enum values, and classification rules.
+2. Start from `classification_template.classification_template` and classify
+   every review, unresolved review thread, and discussion comment exactly once.
 3. Classify with a payload-aware path:
    - Preferred: launch a focused subagent with the compact manifest, raw payload
      path, relevant body locators, generated template, classifier rules, and
@@ -153,53 +178,45 @@ For each PR manifest with feedback:
    - If no subagent/model routing is available, classify directly using
      `read-feedback-details` for batched selected body/item lookup and
      `read-feedback-detail` only for exact one-off lookup/debugging.
-4. Validate before showing or merging any plan:
+4. Treat `discussion_triage` as advisory only. It can suggest that Vercel,
+   Graphite, roaster summary, or GitHub Actions comments are informational, but
+   it does not remove them from classification coverage.
 
-   ```bash
-   <pr-address-runner> exec validate-feedback-classification \
-     --manifest-file manifest-pr-<number>.json \
-     --classification-file classification-pr-<number>.json \
-     --format json
-   ```
+### 4. Validate classifications and merge a stack-wide plan
 
-5. If validation exits `1`, pass `data.counts` / `data.errors` plus original
-   manifest/template evidence to a stronger/default model for one correction
-   attempt, then revalidate. If it still fails, stop and report diagnostics.
-6. If validation exits `2`, treat it as malformed workflow input and stop.
-7. Generate the deterministic per-PR plan:
+Run the stack plan helper with the prep data and one classification per PR:
 
-   ```bash
-   printf '%s' '{"manifest":{...},"classification":{...}}' \
-     | <pr-address-runner> exec plan-feedback --format json
-   ```
+```bash
+printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
+  | <pr-address-runner> exec stack-feedback-plan \
+      --payload-session-id <payload-session-id> \
+      --format json
+```
 
-8. If `plan-feedback` exits `1`, handle its validation diagnostics as above. If
-   it exits `2`, stop.
+Rules:
 
-Stack-wide planning must be a merge of validated per-PR `plan-feedback` outputs.
-Unvalidated LLM scratch notes must not drive edits.
+- If `stack-feedback-plan` exits `1`, use `data.validation.per_pr[]` counts and
+  errors plus original manifest/template evidence to correct classifications,
+  then rerun. If it still fails, stop and report diagnostics.
+- If it exits `2`, treat it as malformed workflow input and stop.
+- Do not show or execute a stack plan unless `data.valid` and
+  `data.validation.all_valid` are true.
+- Use `data.batches` as the merged stack plan. It preserves PR provenance and
+  follows `plan-feedback` batch order: `pre_existing`, `local`, `single_file`,
+  `cross_cutting`, `complex`.
+- Preserve `data.informational` explicitly; never hide unresolved review threads
+  inside counts.
+- Use `data.automation_discussion_summary` to report automation-only discussion
+  comments compactly.
+- Use `data.decision_docket` for approval-required work, informational review
+  thread decisions, and non-automation discussion comments that may need a
+  reply.
 
-### 4. Merge per-PR plans into a stack-wide plan
-
-Merge the validated per-PR plans by `plan-feedback` batch order:
-
-1. `pre_existing`
-2. `local`
-3. `single_file`
-4. `cross_cutting`
-5. `complex`
-
-Preserve per-item provenance: PR number, branch/head ref, PR title/URL when
-available, source kind, thread/review/comment ID, path, line, author, summary,
-action summary, complexity, approval requirement, and source batch ID.
-
-Respect `plan-feedback` semantics:
+Respect plan semantics:
 
 - Auto-proceed only for `pre_existing`, `local`, and `single_file` after local
   code verification.
 - Ask before `cross_cutting` and `complex` work.
-- Preserve `data.informational` explicitly; never hide unresolved review threads
-  inside counts.
 - Ask for user decisions on informational review threads when
   `user_decision_required` is true (`act`, `dismiss`, or `skip`).
 - Ask before replying to top-level human reviews/discussion comments unless the
@@ -208,6 +225,11 @@ Respect `plan-feedback` semantics:
 Display a compact plan before editing. Include PR number and branch, source
 kind, thread/comment/review ID, path/line when available, one-line summary,
 action summary, complexity, and approval/user-decision requirement.
+
+Fallback: if `stack-feedback-plan` is unavailable, run
+`validate-feedback-classification` and `plan-feedback` per PR and merge the
+validated plans manually in the same batch order, preserving the same
+provenance. Report the missing helper as a push-down gap.
 
 ### 5. Create or reuse the omnibus branch
 
@@ -367,6 +389,11 @@ Never push or submit unless the user explicitly asks for that extra step.
   `build-resolve-thread-batch-payload`.
 - Do not call GitHub mutation helpers before explicit final confirmation.
 - Do not hide unresolved review threads inside informational counts.
+- Treat obvious top-level Vercel, Graphite, roaster summary, and GitHub Actions
+  status comments as informational by default; inline review threads remain the
+  source of truth for actionable roaster findings.
+- Do not show automation discussion bodies in the decision docket unless direct
+  request language or uncertainty is detected; summarize counts by reason.
 - Do not guess helper field names or enum values; read
   `pr-address/references/cli-reference.md` or run `--json-schema`.
 - Do not commit a broken batch.
@@ -376,15 +403,16 @@ Never push or submit unless the user explicitly asks for that extra step.
 
 Already covered by current `pr-address` helpers:
 
+- Stack-wide payload-backed feedback prep and classification template creation:
+  `stack-feedback-prep`.
+- Stack-wide validation, deterministic plan merge, decision docket, and
+  automation discussion summary: `stack-feedback-plan`.
 - Per-PR unresolved-thread completeness:
   `validate-feedback-classification` plus `plan-feedback`.
 - Per-PR/per-batch resolution payload assembly:
   `build-resolve-thread-batch-payload`.
 
-If this workflow repeats often, consider deterministic helpers for:
+Future deterministic helpers to consider:
 
-- stack branch → open PR mapping
-- stack-wide orchestration over `get-feedback`, `classification-template`,
-  validation, and planning
-- deterministic merge of per-PR `plan-feedback` outputs
+- stack branch → open PR mapping, behind an explicit Graphite/`gt` command
 - rerun/idempotency summaries across stack PRs

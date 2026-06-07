@@ -156,6 +156,111 @@ pr-address exec get-feedback 630 \
 If no PR is found, the JSON envelope uses `exit_code: 1` and `data.found=false`.
 Gateway/auth failures use `exit_code: 2`.
 
+### `stack-feedback-prep`
+
+Fetch feedback for an explicit stack PR list, write payload artifacts, build
+classification templates, and summarize obvious automation discussion comments.
+The command is Graphite-neutral: callers provide PR/branch metadata and the
+helper does not call `gt` or `gh` for stack discovery.
+
+**Invocation:** reads stack JSON from stdin by default. `--stack-json` is also
+available.
+
+```bash
+printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
+  | pr-address exec stack-feedback-prep \
+      --payload-session-id pr-stack-address-20260604t120000z-a1 \
+      --format json
+```
+
+**Input fields:**
+
+| Field                   | Required | Description                                                                             |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `stack[].pr_number`     | yes      | PR number                                                                               |
+| `stack[].branch`        | yes      | Stack branch name; must be non-empty and unique                                         |
+| `stack[].title`         | no       | PR title for provenance                                                                 |
+| `stack[].url`           | no       | PR URL for provenance                                                                   |
+| `stack[].head_ref_name` | no       | PR head ref for provenance                                                              |
+| `stack[].base_ref_name` | no       | PR base ref for provenance                                                              |
+| `include_resolved`      | no       | Include resolved review threads in manifests (default false)                            |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
+| `payload_session_id`    | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules     |
+
+The stack must be non-empty and have unique PR numbers and branch names.
+
+**Output fields (under `data`):**
+
+| Field                                       | Description                                                             |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| `payload_session_id`                        | Payload session used for the stack run                                  |
+| `stack[]`                                   | One compact prep result per PR                                          |
+| `stack[].manifest`                          | Compact get-feedback manifest with locators, not body text              |
+| `stack[].raw_feedback_reference`            | Raw full feedback envelope reference (`role: raw`)                      |
+| `stack[].manifest_summary_reference`        | Per-PR compact manifest summary artifact (`role: summary`)              |
+| `stack[].classification_template`           | Deterministic scaffold for LLM classification                           |
+| `stack[].classification_template_reference` | Per-PR classification template summary artifact (`role: summary`)       |
+| `stack[].discussion_triage`                 | Advisory automation/human/direct-request summary for top-level comments |
+| `stack_summary_reference`                   | Whole-stack prep summary artifact (`role: summary`)                     |
+| `summary`                                   | Stack-level PR, feedback, automation, and needs-agent-review counts     |
+
+`discussion_triage` is conservative and advisory. Obvious Vercel, Graphite,
+roaster summary, GitHub Actions, and bot status comments are summarized as
+`classification_hint: "automation"`; direct-request-like comments become
+`needs_agent_review`; non-bot FYI comments become `human_like`. The LLM
+classification packet must still classify every discussion comment exactly once.
+
+### `stack-feedback-plan`
+
+Validate stack classifications, run deterministic per-PR planning, merge batches
+by `plan-feedback` order, write a stack plan summary artifact, and produce a
+compact decision docket.
+
+**Invocation:** reads payload JSON from stdin by default. `--payload-json` is
+also available.
+
+```bash
+printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
+  | pr-address exec stack-feedback-plan \
+      --payload-session-id pr-stack-address-20260604t120000z-a1 \
+      --format json
+```
+
+**Input fields:**
+
+| Field                              | Required | Description                                                                         |
+| ---------------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| `prep`                             | yes      | Complete `data` object from `stack-feedback-prep`                                   |
+| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                     |
+| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                      |
+| `payload_session_id`               | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+
+Every prep PR must have exactly one classification. Unknown, duplicate, or
+missing PR classifications fail with `exit_code: 2`.
+
+**Output fields (under `data`):**
+
+| Field                           | Description                                                                                           |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `valid`                         | Whether all classifications validated and a merged plan was produced                                  |
+| `validation.all_valid`          | Aggregate validation boolean                                                                          |
+| `validation.per_pr[]`           | Per-PR validation counts and errors                                                                   |
+| `batches[]`                     | Merged actionable batches in `pre_existing`, `local`, `single_file`, `cross_cutting`, `complex` order |
+| `batches[].items[]`             | Action item with PR/branch provenance and source item metadata                                        |
+| `informational[]`               | Informational items with PR provenance, including decision-required threads                           |
+| `automation_discussion_summary` | Compact counts for automation/human/needs-review discussion triage                                    |
+| `decision_docket[]`             | Approval-required work and non-automation discussion decisions to ask about                           |
+| `stack_plan_reference`          | Stack plan summary artifact (`role: summary`) when `valid` is true                                    |
+| `summary`                       | Actionable, approval-required, informational, and automation counts                                   |
+
+If validation fails, the command returns `exit_code: 1`, includes structured
+`data.validation.per_pr[]` diagnostics, does not write a merged stack plan, and
+sets `data.stack_plan_reference` to `null`. If validation succeeds, it returns
+`exit_code: 0`.
+
+Semantic classification remains LLM-owned. This helper validates and merges
+classification packets; it does not infer arbitrary review meaning from prose.
+
 ### `read-feedback-detail`
 
 Read one allowed detail from a payload `.raw.json` feedback envelope. Use this
