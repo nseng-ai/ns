@@ -2,294 +2,30 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from typing import Literal, TypeAlias
-
 from pydantic import ValidationError
 
-from asdl_core.clinkr.models import ClinkrModel
-from asdl_pr_address.cli.pr_address.feedback_payload import (
-    BodyLocator,
-    DiscussionCommentManifestItem,
-    GetFeedbackPayloadManifest,
-    PrepareRunPayloadManifest,
-    ReviewManifestItem,
-    ThreadManifestItem,
+from asdl_pr_address.cli.pr_address.feedback_classification_models import (
+    ActionComplexity,
+    ClassificationBodyLocatorRef,
+    ClassificationDisposition,
+    ClassifiedThreadItem,
+    ExactOnceCodePrefix,
+    FeedbackClassificationPacket,
+    FeedbackClassificationValidationCounts,
+    FeedbackClassificationValidationError,
+    FeedbackClassificationValidationResult,
+    FeedbackManifestView,
+    InformationalReason,
+    ValidationErrorCode,
+    ValidationItemKind,
+    duplicate_values,
+    validation_schema_errors,
 )
-
-ClassificationDisposition: TypeAlias = Literal["actionable", "informational"]
-ActionComplexity: TypeAlias = Literal[
-    "pre_existing",
-    "local",
-    "single_file",
-    "cross_cutting",
-    "complex",
-]
-InformationalReason: TypeAlias = Literal[
-    "resolved_reference",
-    "automation",
-    "acknowledgement",
-    "approval",
-    "question_only",
-    "fyi",
-    "noise",
-    "already_addressed",
-    "other",
-]
-ValidationErrorCode: TypeAlias = Literal[
-    "invalid_schema",
-    "missing_review",
-    "duplicate_review",
-    "unknown_review",
-    "missing_thread",
-    "duplicate_thread",
-    "unknown_thread",
-    "resolved_thread_classified",
-    "missing_thread_comment",
-    "duplicate_thread_comment",
-    "unknown_thread_comment",
-    "missing_discussion_comment",
-    "duplicate_discussion_comment",
-    "unknown_discussion_comment",
-    "invalid_locator",
-    "invalid_action_fields",
-    "invalid_informational_fields",
-]
-ValidationItemKind: TypeAlias = Literal[
-    "review", "review_thread", "thread_comment", "discussion_comment", "packet"
-]
-ManifestKind: TypeAlias = Literal["get_feedback", "prepare_run"]
-ExactOnceCodePrefix: TypeAlias = Literal["review", "thread", "thread_comment", "discussion_comment"]
-
-FILL_DISPOSITION_PLACEHOLDER = "<fill: actionable|informational>"
-
-
-class ClassificationBodyLocatorRef(ClinkrModel):
-    json_pointer: str
-    item_pointer: str | None = None
-
-
-class ClassifiedReviewItem(ClinkrModel):
-    review_id: str
-    disposition: ClassificationDisposition
-    body_locator: ClassificationBodyLocatorRef
-    summary: str
-    action_summary: str | None = None
-    complexity: ActionComplexity | None = None
-    pre_existing: bool = False
-    informational_reason: InformationalReason | None = None
-
-
-class ClassifiedThreadCommentRef(ClinkrModel):
-    comment_id: int
-    body_locator: ClassificationBodyLocatorRef
-
-
-class ClassifiedThreadItem(ClinkrModel):
-    thread_id: str
-    disposition: ClassificationDisposition
-    thread_item_pointer: str
-    covered_comments: tuple[ClassifiedThreadCommentRef, ...]
-    summary: str
-    action_summary: str | None = None
-    complexity: ActionComplexity | None = None
-    pre_existing: bool = False
-    informational_reason: InformationalReason | None = None
-
-
-class ClassifiedDiscussionCommentItem(ClinkrModel):
-    comment_id: int
-    disposition: ClassificationDisposition
-    body_locator: ClassificationBodyLocatorRef
-    summary: str
-    action_summary: str | None = None
-    complexity: ActionComplexity | None = None
-    needs_reply: bool = False
-    informational_reason: InformationalReason | None = None
-
-
-class FeedbackClassificationPacket(ClinkrModel):
-    schema_version: Literal[1] = 1
-    reviews: tuple[ClassifiedReviewItem, ...] = ()
-    review_threads: tuple[ClassifiedThreadItem, ...] = ()
-    discussion_comments: tuple[ClassifiedDiscussionCommentItem, ...] = ()
-
-
-class ValidateFeedbackClassificationInput(ClinkrModel):
-    manifest: dict[str, object]
-    classification: dict[str, object]
-
-
-class FeedbackClassificationTemplateReviewItem(ClinkrModel):
-    review_id: str
-    disposition: str = FILL_DISPOSITION_PLACEHOLDER
-    body_locator: ClassificationBodyLocatorRef
-    summary: str = ""
-    action_summary: str | None = None
-    complexity: ActionComplexity | None = None
-    pre_existing: bool = False
-    informational_reason: InformationalReason | None = None
-
-
-class FeedbackClassificationTemplateThreadCommentRef(ClinkrModel):
-    comment_id: int
-    body_locator: ClassificationBodyLocatorRef
-
-
-class FeedbackClassificationTemplateThreadItem(ClinkrModel):
-    thread_id: str
-    disposition: str = FILL_DISPOSITION_PLACEHOLDER
-    thread_item_pointer: str
-    covered_comments: tuple[FeedbackClassificationTemplateThreadCommentRef, ...]
-    summary: str = ""
-    action_summary: str | None = None
-    complexity: ActionComplexity | None = None
-    pre_existing: bool = False
-    informational_reason: InformationalReason | None = None
-
-
-class FeedbackClassificationTemplateDiscussionCommentItem(ClinkrModel):
-    comment_id: int
-    disposition: str = FILL_DISPOSITION_PLACEHOLDER
-    body_locator: ClassificationBodyLocatorRef
-    summary: str = ""
-    action_summary: str | None = None
-    complexity: ActionComplexity | None = None
-    needs_reply: bool = False
-    informational_reason: InformationalReason | None = None
-
-
-class FeedbackClassificationTemplatePacket(ClinkrModel):
-    schema_version: Literal[1] = 1
-    reviews: tuple[FeedbackClassificationTemplateReviewItem, ...] = ()
-    review_threads: tuple[FeedbackClassificationTemplateThreadItem, ...] = ()
-    discussion_comments: tuple[FeedbackClassificationTemplateDiscussionCommentItem, ...] = ()
-
-
-class FeedbackClassificationTemplateCounts(ClinkrModel):
-    reviews: int
-    review_threads: int
-    thread_comments: int
-    discussion_comments: int
-    resolved_review_threads_omitted: int
-
-
-class FeedbackClassificationTemplateResult(ClinkrModel):
-    manifest_kind: ManifestKind
-    pr_number: int | None = None
-    payload_path: str | None = None
-    counts: FeedbackClassificationTemplateCounts
-    classification_template: FeedbackClassificationTemplatePacket
-
-
-class FeedbackClassificationValidationError(ClinkrModel):
-    code: ValidationErrorCode
-    message: str
-    kind: ValidationItemKind
-    identifier: str | int | None = None
-    path: str | None = None
-
-
-class FeedbackClassificationValidationCounts(ClinkrModel):
-    reviews_expected: int
-    reviews_classified: int
-    review_threads_expected: int
-    review_threads_classified: int
-    thread_comments_expected: int
-    thread_comments_covered: int
-    discussion_comments_expected: int
-    discussion_comments_classified: int
-
-
-class FeedbackClassificationValidationResult(ClinkrModel):
-    valid: bool
-    manifest_kind: ManifestKind
-    pr_number: int | None = None
-    payload_path: str | None = None
-    counts: FeedbackClassificationValidationCounts
-    errors: tuple[FeedbackClassificationValidationError, ...] = ()
-
-
-class FeedbackManifestView(ClinkrModel):
-    kind: ManifestKind
-    pr_number: int | None
-    payload_path: str
-    reviews: tuple[ReviewManifestItem, ...]
-    required_threads: tuple[ThreadManifestItem, ...]
-    resolved_threads: tuple[ThreadManifestItem, ...]
-    discussion_comments: tuple[DiscussionCommentManifestItem, ...]
-
-
-class FeedbackClassificationTemplateManifestError(ValueError):
-    def __init__(
-        self,
-        errors: tuple[FeedbackClassificationValidationError, ...],
-    ) -> None:
-        self.errors = errors
-        message = "Cannot build feedback classification template from invalid manifest."
-        if errors:
-            message = f"{message} {errors[0].message}"
-        super().__init__(message)
-
-
-def build_feedback_classification_template(
-    *,
-    manifest: object,
-) -> FeedbackClassificationTemplateResult:
-    view, manifest_errors = _manifest_view(manifest)
-    if view is None or manifest_errors:
-        raise FeedbackClassificationTemplateManifestError(manifest_errors)
-
-    classification_template = FeedbackClassificationTemplatePacket(
-        reviews=tuple(
-            FeedbackClassificationTemplateReviewItem(
-                review_id=review.id,
-                body_locator=_classification_locator_ref(review.body_locator),
-            )
-            for review in view.reviews
-        ),
-        review_threads=tuple(
-            FeedbackClassificationTemplateThreadItem(
-                thread_id=thread.thread_id,
-                thread_item_pointer=thread.item_pointer,
-                covered_comments=tuple(
-                    FeedbackClassificationTemplateThreadCommentRef(
-                        comment_id=comment.id,
-                        body_locator=_classification_locator_ref(comment.body_locator),
-                    )
-                    for comment in thread.comments
-                ),
-            )
-            for thread in view.required_threads
-        ),
-        discussion_comments=tuple(
-            FeedbackClassificationTemplateDiscussionCommentItem(
-                comment_id=comment.comment_id,
-                body_locator=_classification_locator_ref(comment.body_locator),
-            )
-            for comment in view.discussion_comments
-        ),
-    )
-    return FeedbackClassificationTemplateResult(
-        manifest_kind=view.kind,
-        pr_number=view.pr_number,
-        payload_path=view.payload_path,
-        counts=FeedbackClassificationTemplateCounts(
-            reviews=len(view.reviews),
-            review_threads=len(view.required_threads),
-            thread_comments=sum(len(thread.comments) for thread in view.required_threads),
-            discussion_comments=len(view.discussion_comments),
-            resolved_review_threads_omitted=len(view.resolved_threads),
-        ),
-        classification_template=classification_template,
-    )
-
-
-def _classification_locator_ref(locator: BodyLocator) -> ClassificationBodyLocatorRef:
-    return ClassificationBodyLocatorRef(
-        json_pointer=locator.json_pointer,
-        item_pointer=locator.item_pointer,
-    )
+from asdl_pr_address.cli.pr_address.feedback_manifest_view import (
+    build_feedback_manifest_view,
+    manifest_kind_for_payload,
+)
+from asdl_pr_address.cli.pr_address.feedback_payload import ThreadManifestItem
 
 
 def validate_feedback_classification(
@@ -297,8 +33,8 @@ def validate_feedback_classification(
     manifest: object,
     classification: object,
 ) -> FeedbackClassificationValidationResult:
-    manifest_kind = _manifest_kind_for_payload(manifest)
-    view, manifest_errors = _manifest_view(manifest)
+    manifest_kind = manifest_kind_for_payload(manifest)
+    view, manifest_errors = build_feedback_manifest_view(manifest)
     packet, packet_errors = _classification_packet(classification)
 
     counts = _validation_counts(view=view, packet=packet)
@@ -319,151 +55,13 @@ def validate_feedback_classification(
     )
 
 
-def _manifest_kind_for_payload(payload: object) -> ManifestKind:
-    if isinstance(payload, dict) and "found" in payload:
-        return "prepare_run"
-    return "get_feedback"
-
-
-def _manifest_view(
-    manifest_payload: object,
-) -> tuple[FeedbackManifestView | None, tuple[FeedbackClassificationValidationError, ...]]:
-    manifest_kind = _manifest_kind_for_payload(manifest_payload)
-    try:
-        if manifest_kind == "prepare_run":
-            manifest = PrepareRunPayloadManifest.model_validate(manifest_payload)
-            view = FeedbackManifestView(
-                kind="prepare_run",
-                pr_number=manifest.number if manifest.found else None,
-                payload_path=manifest.payload_reference.payload_path,
-                reviews=manifest.reviews,
-                required_threads=tuple(
-                    thread for thread in manifest.review_threads if not thread.is_resolved
-                ),
-                resolved_threads=tuple(
-                    thread for thread in manifest.review_threads if thread.is_resolved
-                ),
-                discussion_comments=manifest.discussion_comments,
-            )
-        else:
-            manifest = GetFeedbackPayloadManifest.model_validate(manifest_payload)
-            view = FeedbackManifestView(
-                kind="get_feedback",
-                pr_number=manifest.pr_number,
-                payload_path=manifest.payload_reference.payload_path,
-                reviews=manifest.reviews,
-                required_threads=tuple(
-                    thread for thread in manifest.review_threads if not thread.is_resolved
-                ),
-                resolved_threads=tuple(
-                    thread for thread in manifest.review_threads if thread.is_resolved
-                ),
-                discussion_comments=manifest.discussion_comments,
-            )
-    except ValidationError as exc:
-        return None, _schema_errors(exc, subject="manifest")
-
-    return view, tuple(_manifest_integrity_errors(view))
-
-
 def _classification_packet(
     classification_payload: object,
 ) -> tuple[FeedbackClassificationPacket | None, tuple[FeedbackClassificationValidationError, ...]]:
     try:
         return FeedbackClassificationPacket.model_validate(classification_payload), ()
     except ValidationError as exc:
-        return None, _schema_errors(exc, subject="classification")
-
-
-def _schema_errors(
-    exc: ValidationError,
-    *,
-    subject: Literal["manifest", "classification"],
-) -> tuple[FeedbackClassificationValidationError, ...]:
-    errors: list[FeedbackClassificationValidationError] = []
-    for index, error in enumerate(exc.errors()):
-        path = _validation_error_path(subject, error.get("loc", ()))
-        errors.append(
-            FeedbackClassificationValidationError(
-                code="invalid_schema",
-                message=(
-                    f"Invalid {subject} schema at {path}: {error.get('msg', 'validation failed')}"
-                ),
-                kind="packet",
-                path=path,
-                identifier=index,
-            )
-        )
-    return tuple(errors)
-
-
-def _validation_error_path(subject: str, loc: object) -> str:
-    if not isinstance(loc, tuple) or not loc:
-        return subject
-    path = subject
-    for part in loc:
-        if isinstance(part, int):
-            path += f"[{part}]"
-        else:
-            path += f".{part}"
-    return path
-
-
-def _manifest_integrity_errors(
-    view: FeedbackManifestView,
-) -> list[FeedbackClassificationValidationError]:
-    errors: list[FeedbackClassificationValidationError] = []
-    errors.extend(
-        _manifest_duplicate_errors(
-            values=tuple(review.id for review in view.reviews),
-            kind="review",
-            identifier_name="review id",
-        )
-    )
-    all_threads = (*view.required_threads, *view.resolved_threads)
-    errors.extend(
-        _manifest_duplicate_errors(
-            values=tuple(thread.thread_id for thread in all_threads),
-            kind="review_thread",
-            identifier_name="thread id",
-        )
-    )
-    errors.extend(
-        _manifest_duplicate_errors(
-            values=tuple(comment.comment_id for comment in view.discussion_comments),
-            kind="discussion_comment",
-            identifier_name="discussion comment id",
-        )
-    )
-    for thread in all_threads:
-        errors.extend(
-            _manifest_duplicate_errors(
-                values=tuple(comment.id for comment in thread.comments),
-                kind="thread_comment",
-                identifier_name=f"comment id in thread {thread.thread_id}",
-            )
-        )
-    return errors
-
-
-def _manifest_duplicate_errors(
-    *,
-    values: tuple[str | int, ...],
-    kind: ValidationItemKind,
-    identifier_name: str,
-) -> list[FeedbackClassificationValidationError]:
-    counts = Counter(values)
-    errors: list[FeedbackClassificationValidationError] = []
-    for value in _duplicate_values(values, counts):
-        errors.append(
-            FeedbackClassificationValidationError(
-                code="invalid_schema",
-                message=f"Manifest has duplicate {identifier_name}: {value}",
-                kind=kind,
-                identifier=value,
-            )
-        )
-    return errors
+        return None, validation_schema_errors(exc, subject="classification")
 
 
 def _validation_counts(
@@ -654,10 +252,9 @@ def _exact_once_errors(
     parent_identifier: str | None = None,
 ) -> list[FeedbackClassificationValidationError]:
     expected_set = set(expected_ids)
-    actual_counts = Counter(actual_ids)
     errors: list[FeedbackClassificationValidationError] = []
 
-    for duplicate_id in _duplicate_values(actual_ids, actual_counts):
+    for duplicate_id in duplicate_values(actual_ids):
         errors.append(
             FeedbackClassificationValidationError(
                 code=_duplicate_code(code_prefix),
@@ -720,19 +317,6 @@ def _missing_code(code_prefix: ExactOnceCodePrefix) -> ValidationErrorCode:
     if code_prefix == "thread_comment":
         return "missing_thread_comment"
     return "missing_discussion_comment"
-
-
-def _duplicate_values(
-    values: tuple[str | int, ...],
-    counts: Counter[str | int],
-) -> tuple[str | int, ...]:
-    seen: set[str | int] = set()
-    duplicates: list[str | int] = []
-    for value in values:
-        if counts[value] > 1 and value not in seen:
-            duplicates.append(value)
-            seen.add(value)
-    return tuple(duplicates)
 
 
 def _unknown_values(
