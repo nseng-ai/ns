@@ -63,7 +63,7 @@ class _Fakes:
 
 
 def _finding(summary: str = "Avoid print") -> ReviewFinding:
-    return ReviewFinding(
+    return ReviewFinding.diff_line(
         path="app.py",
         line=12,
         severity="warning",

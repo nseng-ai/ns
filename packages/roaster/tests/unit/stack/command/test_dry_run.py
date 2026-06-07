@@ -30,7 +30,7 @@ def _triage_result() -> StackTriageResult:
                     model="sonnet",
                     base_ref="master",
                     findings=(
-                        ReviewFinding(
+                        ReviewFinding.diff_line(
                             path="app.py",
                             line=12,
                             severity="warning",

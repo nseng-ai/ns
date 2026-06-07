@@ -18,6 +18,4 @@ Target guidance:
 
 Target content:
 
-```{target_fence_language}
-{target_content}
-```
+{target_block}

@@ -13,6 +13,7 @@ from roaster.findings_publication import (
     InlinePostingStatus,
     InlinePostingStatusParseError,
     ParsedFindingsCommentBody,
+    ensure_publishable_diff_payload,
     extract_inline_markers,
     inline_marker_for_finding,
     parse_findings_comment_body,
@@ -242,7 +243,13 @@ def test_parse_success_wrapped_payload() -> None:
     assert payload.base_ref == "master"
     assert payload.count == 1
     assert payload.findings == (
-        ReviewFinding(path="app.py", line=1, severity="warning", summary="s", details="d"),
+        ReviewFinding.diff_line(
+            path="app.py",
+            line=1,
+            severity="warning",
+            summary="s",
+            details="d",
+        ),
     )
     assert payload.is_error is False
 
@@ -254,6 +261,87 @@ def test_parse_missing_optional_payload_fields_uses_defaults() -> None:
     assert payload.base_ref == "unknown"
     assert payload.findings == ()
     assert payload.count == 0
+    assert payload.target_kind == "diff"
+
+
+def test_parse_diff_target_metadata() -> None:
+    payload = _parse_payload(
+        json.dumps(
+            {
+                "exit_code": 0,
+                "data": {
+                    "review_name": "dignified-python",
+                    "base_ref": "master",
+                    "target": {
+                        "kind": "diff",
+                        "label": "current branch diff",
+                        "base_ref": "master",
+                    },
+                    "findings": [],
+                },
+            }
+        )
+    )
+
+    assert payload.target_kind == "diff"
+    assert payload.target_label == "current branch diff"
+    assert payload.target_source_path is None
+
+
+def test_parse_document_target_metadata() -> None:
+    payload = _parse_payload(
+        json.dumps(
+            {
+                "exit_code": 0,
+                "data": {
+                    "review_name": "adversarial",
+                    "base_ref": None,
+                    "target": {"kind": "document", "label": "stdin"},
+                    "findings": [
+                        {
+                            "location": {"kind": "global"},
+                            "severity": "warning",
+                            "summary": "Missing rollback",
+                            "details": "Add rollback steps.",
+                        }
+                    ],
+                },
+            }
+        )
+    )
+
+    assert payload.target_kind == "document"
+    assert payload.target_label == "stdin"
+    assert payload.base_ref == "unknown"
+
+
+def test_parse_rejects_malformed_target_kind() -> None:
+    result = _parse_error(
+        json.dumps(
+            {
+                "exit_code": 0,
+                "data": {"target": {"kind": "artifact"}, "findings": []},
+            }
+        )
+    )
+
+    assert "target kind" in result.message
+
+
+def test_ensure_publishable_diff_payload_rejects_document_payload() -> None:
+    payload = FindingsPayload(
+        review_name="adversarial",
+        base_ref="unknown",
+        count=0,
+        findings=(),
+        target_kind="document",
+        target_label="stdin",
+    )
+
+    result = ensure_publishable_diff_payload(payload)
+
+    assert isinstance(result, FindingsPayloadParseError)
+    assert "local-output only" in result.message
 
 
 def test_parse_count_derives_from_findings_when_absent() -> None:
@@ -370,7 +458,7 @@ def test_parse_rejects_invalid_finding_from_review_finding_validation() -> None:
 
     assert "finding #0" in result.message
     assert "summary" in result.message
-    assert "non-empty string" in result.message
+    assert "at least 1 character" in result.message
 
 
 def test_parse_rejects_unknown_severity() -> None:
@@ -394,7 +482,7 @@ def test_parse_rejects_unknown_severity() -> None:
     result = _parse_error(raw)
 
     assert "severity" in result.message
-    assert "error, info, warning" in result.message
+    assert "'info', 'warning' or 'error'" in result.message
 
 
 def test_parse_rejects_extra_finding_fields() -> None:

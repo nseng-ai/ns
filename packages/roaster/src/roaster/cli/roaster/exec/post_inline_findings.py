@@ -15,6 +15,7 @@ from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRInlineCommentInput
 from roaster.context import RoasterCliContext
 from roaster.findings_publication import (
+    ensure_publishable_diff_payload,
     extract_inline_markers,
     inline_marker_for_finding,
     parse_findings_payload_result,
@@ -54,6 +55,7 @@ def post_inline_findings_command(
 ) -> ClinkrExit[PostInlineFindingsResult]:
     raw = sys.stdin.read()
     payload = Ensure.ideal_state(parse_findings_payload_result(raw))
+    payload = Ensure.ideal_state(ensure_publishable_diff_payload(payload))
 
     pr_gateway = load_typed_context(ctx, RoasterCliContext).pr_gateway
     changed_files = pr_gateway.get_pr_changed_files(request.pr_number)

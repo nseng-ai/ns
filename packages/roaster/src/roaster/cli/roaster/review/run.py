@@ -33,22 +33,12 @@ from roaster.workflow import run_review_by_key
 
 
 def _stderr_run_plan(plan: ResolvedReviewRunPlan) -> None:
+    details = f"resolved model={plan.model} harness={plan.harness}"
     if plan.target_kind == "diff":
-        click.echo(
-            "  · "
-            f"resolved model={plan.model} harness={plan.harness} "
-            f"base_ref={plan.base_ref} changed_paths={plan.changed_path_count}",
-            err=True,
-        )
+        details += f" base_ref={plan.base_ref} changed_paths={plan.changed_path_count}"
     else:
-        click.echo(
-            "  · "
-            f"resolved model={plan.model} harness={plan.harness} "
-            f"target=document label={plan.target_label}",
-            err=True,
-        )
-    for warning in plan.compatibility_warnings:
-        click.echo(f"  ⚠ {warning}", err=True)
+        details += f" target=document label={plan.target_label}"
+    click.echo(f"  · {details}", err=True)
 
 
 class ReviewRunRequest(ClinkrModel):
@@ -209,9 +199,6 @@ def render_review_run(result: LocalReviewResult) -> None:
         click.echo(f"Base ref: {result.base_ref}")
     else:
         click.echo(f"Target: {result.target_label}")
-    for warning in result.compatibility_warnings:
-        click.echo(f"Warning: {warning}")
-
     if result.usage is not None:
         usage = result.usage
         click.echo(
@@ -233,20 +220,14 @@ def render_review_run(result: LocalReviewResult) -> None:
             click.echo(f"Findings: {len(findings)}")
             for finding in findings:
                 location = _finding_location_display(finding_location=finding.location)
-                if location is None:
-                    location = finding.path or result.target_label
-                    if finding.line is not None:
-                        location = f"{location}:{finding.line}"
                 click.echo(f"- [{finding.severity}] {location} {finding.summary}")
                 click.echo(f"  {finding.details}")
 
 
 def _finding_location_display(
     *,
-    finding_location: GlobalLocation | TextAnchorLocation | DiffLineLocation | None,
-) -> str | None:
-    if finding_location is None:
-        return None
+    finding_location: GlobalLocation | TextAnchorLocation | DiffLineLocation,
+) -> str:
     if isinstance(finding_location, GlobalLocation):
         return "global"
     if isinstance(finding_location, DiffLineLocation):

@@ -115,7 +115,7 @@ def _harness_runtime() -> FakeHarnessRuntime:
         default_response=ReviewExecutionResponse(
             payload=FindingsReview(
                 findings=(
-                    ReviewFinding(
+                    ReviewFinding.diff_line(
                         path="app.py",
                         line=12,
                         severity="warning",
