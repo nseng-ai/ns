@@ -214,12 +214,12 @@ export class FakeCommandContext implements CommandContext {
 const tempDirs: string[] = [];
 const originalCmuxWorkspaceId = process.env.CMUX_WORKSPACE_ID;
 const originalCmuxTabId = process.env.CMUX_TAB_ID;
-const originalSidebarModel = process.env.ASDL_CMUX_SIDEBAR_MODEL;
+const originalSidebarModel = process.env.ASDL_CCC_SIDEBAR_MODEL;
 
 export async function resetCmuxTestEnvironment(): Promise<void> {
 	process.env.CMUX_WORKSPACE_ID = originalCmuxWorkspaceId;
 	process.env.CMUX_TAB_ID = originalCmuxTabId;
-	process.env.ASDL_CMUX_SIDEBAR_MODEL = originalSidebarModel;
+	process.env.ASDL_CCC_SIDEBAR_MODEL = originalSidebarModel;
 	const dirs = tempDirs.splice(0);
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
 }
@@ -350,7 +350,7 @@ export async function makeTempDir(): Promise<string> {
 export async function writeTempSkill(body: string): Promise<string> {
 	const dir = await makeTempDir();
 	const path = join(dir, "SKILL.md");
-	await writeFile(path, `---\nname: cmux-sidebar\n---\n${body}\n`, "utf8");
+	await writeFile(path, `---\nname: ccc-sidebar\n---\n${body}\n`, "utf8");
 	return path;
 }
 

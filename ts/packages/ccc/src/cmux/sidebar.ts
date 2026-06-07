@@ -12,11 +12,11 @@ import {
 import { formatErrorMessage } from "./primitives.ts";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
-const PR_SIDEBAR_COMMAND_NAME = "cmux:sidebar:pr-summary";
-const OBJECTIVE_SIDEBAR_COMMAND_NAME = "cmux:sidebar:objective-summary";
-const SKILL_NAME = "cmux-sidebar";
-const PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar";
-const SIDEBAR_MODEL_ENV = "ASDL_CMUX_SIDEBAR_MODEL";
+const PR_SIDEBAR_COMMAND_NAME = "ccc:sidebar:pr-summary";
+const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
+const SKILL_NAME = "ccc-sidebar";
+const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
+const SIDEBAR_MODEL_ENV = "ASDL_CCC_SIDEBAR_MODEL";
 const DEFAULT_SIDEBAR_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
 interface RestoreState {
@@ -24,7 +24,7 @@ interface RestoreState {
 	thinkingLevel: ThinkingLevel;
 }
 
-export interface CmuxSidebarController {
+export interface CccSidebarController {
 	handlePrCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
@@ -34,7 +34,7 @@ interface ParsedModelRef {
 	modelId: string;
 }
 
-export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarController {
+export function createCccSidebarController(pi: ExtensionAPI): CccSidebarController {
 	let pendingRestore: RestoreState | undefined;
 
 	pi.on("agent_end", async (_event, ctx) => {
@@ -60,9 +60,9 @@ export function createCmuxSidebarController(pi: ExtensionAPI): CmuxSidebarContro
 	};
 }
 
-export function registerCmuxSidebarCommands(
+export function registerCccSidebarCommands(
 	pi: ExtensionAPI,
-	controller: CmuxSidebarController,
+	controller: CccSidebarController,
 ): void {
 	pi.registerCommand(PR_SIDEBAR_COMMAND_NAME, {
 		description: "Summarize current PR work into the caller cmux sidebar.",
@@ -100,7 +100,7 @@ Use the active Pi conversation context already available to you. Do not include 
 }
 
 function buildFallbackSkillPrompt(): string {
-	return `The cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for the current PR work using exactly one deterministic command:
+	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for the current PR work using exactly one deterministic command:
 
 \`\`\`bash
 asdl exec cmux-workspace-summary \\

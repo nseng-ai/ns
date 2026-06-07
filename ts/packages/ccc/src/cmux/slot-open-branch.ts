@@ -29,17 +29,17 @@ type ResolvedBranch =
 	| { inferred: true; branchName: string; selection: PlannedBranchSelection }
 	| { error: string };
 
-export interface HandleCmuxSlotOpenBranchOptions {
+export interface HandleCccSlotOpenBranchOptions {
 	pi: Pick<ExtensionAPI, "exec">;
 	args: string;
 	ctx: CommandContext;
 }
 
-const COMMAND_NAME = "cmux:workspace:open-branch";
+const COMMAND_NAME = "ccc:workspace:open-branch";
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 
-export function registerCmuxSlotOpenBranchCommand(pi: ExtensionAPI): void {
+export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 	let currentCwd = process.cwd();
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -55,12 +55,12 @@ export function registerCmuxSlotOpenBranchCommand(pi: ExtensionAPI): void {
 			return completions.length > 0 ? completions : null;
 		},
 		handler: async (args, ctx) => {
-			await handleCmuxSlotOpenBranch({ pi, args, ctx });
+			await handleCccSlotOpenBranch({ pi, args, ctx });
 		},
 	});
 }
 
-export async function handleCmuxSlotOpenBranch(options: HandleCmuxSlotOpenBranchOptions): Promise<void> {
+export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOptions): Promise<void> {
 	const { pi, args, ctx } = options;
 	await ctx.waitForIdle();
 

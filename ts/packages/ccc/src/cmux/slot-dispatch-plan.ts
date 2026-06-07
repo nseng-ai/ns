@@ -25,8 +25,8 @@ import { repositoryNameFromPath } from "./worktree-description.ts";
 import { formatErrorMessage } from "./primitives.ts";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
-const COMMAND_NAME = "cmux:workspace:dispatch-plan";
-const STATUS_KEY = "cmux:workspace:dispatch-plan";
+const COMMAND_NAME = "ccc:workspace:dispatch-plan";
+const STATUS_KEY = "ccc:workspace:dispatch-plan";
 const BRANCH_CREATION = "graphite";
 
 const USAGE = `Usage: /${COMMAND_NAME} [--dry-run]
@@ -70,11 +70,11 @@ interface FormatFinalSuccessOptions {
 	launchOptions: PiLaunchOptions;
 }
 
-export interface CmuxSlotDispatchPlanOptions {
+export interface CccSlotDispatchPlanOptions {
 	planStoreRoot?: string;
 }
 
-export function registerCmuxSlotDispatchPlanCommand(pi: ExtensionAPI, options: CmuxSlotDispatchPlanOptions = {}): void {
+export function registerCccSlotDispatchPlanCommand(pi: ExtensionAPI, options: CccSlotDispatchPlanOptions = {}): void {
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Dispatch the latest saved plan into a new cmux workspace for implementation.",
 		argumentHint: "[--dry-run]",
@@ -88,7 +88,7 @@ async function handleCommand(
 	pi: ExtensionAPI,
 	rawArgs: string,
 	ctx: CommandContext,
-	options: CmuxSlotDispatchPlanOptions,
+	options: CccSlotDispatchPlanOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
 
@@ -202,7 +202,7 @@ async function resolveLatestSavedPlanFromSession(
 async function resolveCurrentCheckout(
 	pi: ExtensionAPI,
 	cwd: string,
-	options: CmuxSlotDispatchPlanOptions,
+	options: CccSlotDispatchPlanOptions,
 ): Promise<CurrentCheckout | { error: string }> {
 	let directory: PlanStoreDirectoryEvidence;
 	try {
@@ -222,7 +222,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	try {
 		evidence = await createPlannedBranchFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot });
 	} catch (error) {
-		present(ctx, formatCmuxPlannedBranchCreateFailure(operation, error), "error");
+		present(ctx, formatCccPlannedBranchCreateFailure(operation, error), "error");
 		return;
 	}
 
@@ -303,7 +303,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 	].filter((line): line is string => line !== undefined).join("\n");
 }
 
-function formatCmuxPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
+function formatCccPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
 	const failure = formatPlannedBranchCreateFailure(operation, error);
 	return failure.replace("\n\n", "\nNo cmux workspace was opened.\n\n");
 }

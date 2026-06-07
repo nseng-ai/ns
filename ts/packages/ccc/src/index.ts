@@ -1,4 +1,4 @@
-export { default as registerCmuxExtension } from "./cmux.ts";
+export { default as registerCccExtension } from "./ccc.ts";
 
 export const CCC_PACKAGE_IDENTITY = {
 	packageName: "@asdl/ccc",

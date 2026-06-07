@@ -12,9 +12,9 @@ _Avoid_: command implementation, workflow owner, CCC orchestration, public npm A
 A type or helper that can be consumed by both CCC and repo-local Pi extensions without creating an import cycle or implying command ownership.
 _Avoid_: compatibility shim, adapter, domain lifecycle, public API promise.
 
-**Compatibility re-export**:
-An old `@asdl/pi-extensions` module path that forwards to `@asdl/pi-extension-runtime` or `@asdl/ccc` so existing imports keep working during migration.
-_Avoid_: implementation home, new dependency direction, permanent ownership statement.
+**Runtime cmux helper path**:
+A neutral helper module path under `@asdl/pi-extension-runtime/cmux/*` for cmux/Pi runtime types, primitive parsing, and launch-command formatting shared below CCC and repo-local Pi extensions. These paths describe the cmux runtime domain, not a `/cmux:*` Pi command namespace.
+_Avoid_: command implementation, compatibility shim, new dependency direction, permanent workflow ownership statement.
 
 **Machine envelope parser**:
 The shared JSON envelope parser for command outputs with `exit_code` and object `data`, returning typed parse results and bounded diagnostic text for malformed output.

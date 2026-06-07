@@ -1,11 +1,11 @@
 ---
-name: cmux-sidebar
-description: Use when /cmux:sidebar:pr-summary asks a Pi session to update the caller cmux sidebar/workspace card from current PR work; generate compact title and one-line Goal description, then run one asdl exec command. /cmux:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
+name: ccc-sidebar
+description: Use when /ccc:sidebar:pr-summary asks a Pi session to update the caller cmux sidebar/workspace card from current PR work; generate compact title and one-line Goal description, then run one asdl exec command. /ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
 metadata:
   internal: true
 ---
 
-# cmux-sidebar
+# ccc-sidebar
 
 Update the caller cmux workspace entry so the sidebar distinguishes this Pi session from other workspaces.
 
@@ -19,7 +19,7 @@ Do not target the focused workspace unless it is the same environment-provided c
 
 Summarize the current PR, branch, or active implementation work. Use PR/branch/session evidence already visible in the active Pi conversation context. The goal should describe the PR outcome, not the cmux update itself.
 
-`/cmux:sidebar:objective-summary` is not skill-driven. It is handled directly by deterministic extension code from an Objective slug/path or UI picker selection; do not use this skill for Objective sidebar work.
+`/ccc:sidebar:objective-summary` is not skill-driven. It is handled directly by deterministic extension code from an Objective slug/path or UI picker selection; do not use this skill for Objective sidebar work.
 
 ## Summarize from current Pi context
 

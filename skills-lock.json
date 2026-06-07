@@ -17,6 +17,11 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
+    "ccc-sidebar": {
+      "source": "skills/ccc-sidebar",
+      "sourceType": "local",
+      "computedHash": "01d83c07e01dd1406ce1934c0ab7b7bb04ed0fed3f8f66181ff66f534f4c20a5"
+    },
     "changelog-update": {
       "source": "skills/changelog-update",
       "sourceType": "local",
@@ -26,11 +31,6 @@
       "source": "skills/cli-push-down",
       "sourceType": "local",
       "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
-    },
-    "cmux-sidebar": {
-      "source": "skills/cmux-sidebar",
-      "sourceType": "local",
-      "computedHash": "fd3868707ac088d214a3a83ce7a1736b126d6f2f5e811bf82d181934a415615a"
     },
     "code-gt-restack-resolve": {
       "source": "skills/code-gt-restack-resolve",
