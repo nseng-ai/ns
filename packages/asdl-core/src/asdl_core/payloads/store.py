@@ -25,6 +25,7 @@ PAYLOAD_FILENAME_PATTERN_TEXT = (
     r"(?P<role>raw|summary|log)\."
     r"(?P<extension>json|txt)$"
 )
+PAYLOAD_FILENAME_PATTERN = re.compile(PAYLOAD_FILENAME_PATTERN_TEXT)
 
 JsonPayloadRole = Literal["raw", "summary"]
 LogPayloadRole = Literal["log"]
@@ -225,7 +226,7 @@ class PayloadStore:
             ) from error
 
         for payload_entry in payload_entries:
-            match = re.fullmatch(PAYLOAD_FILENAME_PATTERN_TEXT, payload_entry.name)
+            match = PAYLOAD_FILENAME_PATTERN.fullmatch(payload_entry.name)
             if match is not None:
                 max_sequence = max(max_sequence, int(match.group("sequence")))
         return max_sequence + 1
@@ -241,15 +242,15 @@ def _validate_contained_artifact_path(payload_path: Path) -> None:
             error_type="payload_lookup_failed",
             message=f"Payload artifact path must be absolute: {payload_path}",
         )
-    if not payload_path.exists():
-        raise PayloadError(
-            error_type="payload_lookup_failed",
-            message=f"Payload artifact path does not exist: {payload_path}",
-        )
     if payload_path.is_symlink():
         raise PayloadError(
             error_type="payload_lookup_failed",
             message=f"Payload artifact path must not be a symlink: {payload_path}",
+        )
+    if not payload_path.exists():
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact path does not exist: {payload_path}",
         )
     if not payload_path.is_file():
         raise PayloadError(
@@ -275,7 +276,7 @@ def _validate_contained_artifact_path(payload_path: Path) -> None:
                 f"Payload artifact must live under sessions/<session-id>/payloads: {payload_path}"
             ),
         )
-    if re.fullmatch(PAYLOAD_FILENAME_PATTERN_TEXT, payload_path.name) is None:
+    if PAYLOAD_FILENAME_PATTERN.fullmatch(payload_path.name) is None:
         raise PayloadError(
             error_type="payload_lookup_failed",
             message=(

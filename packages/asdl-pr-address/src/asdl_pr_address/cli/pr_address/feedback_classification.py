@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pydantic import ValidationError
 
 from asdl_pr_address.cli.pr_address.feedback_classification_models import (
@@ -28,11 +30,29 @@ from asdl_pr_address.cli.pr_address.feedback_manifest_view import (
 from asdl_pr_address.cli.pr_address.feedback_payload import ThreadManifestItem
 
 
+@dataclass(frozen=True)
+class FeedbackClassificationValidationArtifacts:
+    validation: FeedbackClassificationValidationResult
+    manifest_view: FeedbackManifestView | None
+    classification_packet: FeedbackClassificationPacket | None
+
+
 def validate_feedback_classification(
     *,
     manifest: object,
     classification: object,
 ) -> FeedbackClassificationValidationResult:
+    return validate_feedback_classification_artifacts(
+        manifest=manifest,
+        classification=classification,
+    ).validation
+
+
+def validate_feedback_classification_artifacts(
+    *,
+    manifest: object,
+    classification: object,
+) -> FeedbackClassificationValidationArtifacts:
     manifest_kind = manifest_kind_for_payload(manifest)
     view, manifest_errors = build_feedback_manifest_view(manifest)
     packet, packet_errors = _classification_packet(classification)
@@ -45,13 +65,18 @@ def validate_feedback_classification(
         errors.extend(_validate_discussion_comments(view, packet))
         errors.extend(_validate_item_semantics(packet))
 
-    return FeedbackClassificationValidationResult(
+    validation = FeedbackClassificationValidationResult(
         valid=not errors,
         manifest_kind=view.kind if view is not None else manifest_kind,
         pr_number=view.pr_number if view is not None else None,
         payload_path=view.payload_path if view is not None else None,
         counts=counts,
         errors=tuple(errors),
+    )
+    return FeedbackClassificationValidationArtifacts(
+        validation=validation,
+        manifest_view=view,
+        classification_packet=packet,
     )
 
 

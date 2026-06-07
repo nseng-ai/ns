@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from asdl_core.clinkr.models import ClinkrModel
-from asdl_pr_address.cli.pr_address.feedback_classification import validate_feedback_classification
+from asdl_pr_address.cli.pr_address.feedback_classification import (
+    validate_feedback_classification_artifacts,
+)
 from asdl_pr_address.cli.pr_address.feedback_classification_models import (
     ActionComplexity,
     ClassifiedDiscussionCommentItem,
@@ -17,7 +21,6 @@ from asdl_pr_address.cli.pr_address.feedback_classification_models import (
     InformationalReason,
     ManifestKind,
 )
-from asdl_pr_address.cli.pr_address.feedback_manifest_view import build_feedback_manifest_view
 from asdl_pr_address.cli.pr_address.feedback_payload import (
     BodyLocator,
     DiscussionCommentManifestItem,
@@ -49,51 +52,37 @@ class FeedbackPlanCoveredThreadComment(ClinkrModel):
     body_locator: BodyLocator
 
 
-class FeedbackPlanActionItem(ClinkrModel):
+class FeedbackPlanSourceItem(ClinkrModel):
     source_kind: PlanSourceKind
     summary: str
+    review_id: str | None = None
+    review_state: str | None = None
+    submitted_at: str | None = None
+    thread_id: str | None = None
+    discussion_comment_id: int | None = None
+    covered_comment_ids: tuple[int, ...] = ()
+    covered_comments: tuple[FeedbackPlanCoveredThreadComment, ...] = ()
+    body_locator: BodyLocator | None = None
+    thread_item_pointer: str | None = None
+    path: str | None = None
+    line: int | None = None
+    start_line: int | None = None
+    is_outdated: bool | None = None
+    author: str | None = None
+    url: str | None = None
+
+
+class FeedbackPlanActionItem(FeedbackPlanSourceItem):
     action_summary: str
     complexity: ActionComplexity
     pre_existing: bool = False
-    review_id: str | None = None
-    review_state: str | None = None
-    submitted_at: str | None = None
-    thread_id: str | None = None
-    discussion_comment_id: int | None = None
-    covered_comment_ids: tuple[int, ...] = ()
-    covered_comments: tuple[FeedbackPlanCoveredThreadComment, ...] = ()
-    body_locator: BodyLocator | None = None
-    thread_item_pointer: str | None = None
-    path: str | None = None
-    line: int | None = None
-    start_line: int | None = None
-    is_outdated: bool | None = None
-    author: str | None = None
     needs_reply: bool | None = None
-    url: str | None = None
 
 
-class FeedbackPlanInformationalItem(ClinkrModel):
-    source_kind: PlanSourceKind
-    summary: str
+class FeedbackPlanInformationalItem(FeedbackPlanSourceItem):
     informational_reason: InformationalReason
     user_decision_required: bool
     allowed_decisions: tuple[PlanDecision, ...] = ()
-    review_id: str | None = None
-    review_state: str | None = None
-    submitted_at: str | None = None
-    thread_id: str | None = None
-    discussion_comment_id: int | None = None
-    covered_comment_ids: tuple[int, ...] = ()
-    covered_comments: tuple[FeedbackPlanCoveredThreadComment, ...] = ()
-    body_locator: BodyLocator | None = None
-    thread_item_pointer: str | None = None
-    path: str | None = None
-    line: int | None = None
-    start_line: int | None = None
-    is_outdated: bool | None = None
-    author: str | None = None
-    url: str | None = None
 
 
 class FeedbackPlanBatch(ClinkrModel):
@@ -130,12 +119,23 @@ class FeedbackPlanningResult(ClinkrModel):
     warnings: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class _ClassifiedLookup:
+    reviews: dict[str, ClassifiedReviewItem]
+    threads: dict[str, ClassifiedThreadItem]
+    comments: dict[int, ClassifiedDiscussionCommentItem]
+
+
 def plan_feedback(
     *,
     manifest: object,
     classification: object,
 ) -> FeedbackPlanningResult:
-    validation = validate_feedback_classification(manifest=manifest, classification=classification)
+    artifacts = validate_feedback_classification_artifacts(
+        manifest=manifest,
+        classification=classification,
+    )
+    validation = artifacts.validation
     if not validation.valid:
         return FeedbackPlanningResult(
             valid=False,
@@ -145,20 +145,20 @@ def plan_feedback(
             validation=validation,
         )
 
-    view, manifest_errors = build_feedback_manifest_view(manifest)
-    if view is None or manifest_errors:
+    if artifacts.manifest_view is None or artifacts.classification_packet is None:
         return FeedbackPlanningResult(
             valid=False,
             manifest_kind=validation.manifest_kind,
             pr_number=validation.pr_number,
             payload_path=validation.payload_path,
             validation=validation,
-            warnings=("Validated input could not be converted into a planning manifest view.",),
+            warnings=("Validated input could not be converted into planning artifacts.",),
         )
 
-    packet = FeedbackClassificationPacket.model_validate(classification)
-    actions = _action_items(view=view, packet=packet)
-    informational = _informational_items(view=view, packet=packet)
+    view = artifacts.manifest_view
+    classified = _classified_lookup(artifacts.classification_packet)
+    actions = _action_items(view=view, classified=classified)
+    informational = _informational_items(view=view, classified=classified)
     batches = _batches(actions)
     return FeedbackPlanningResult(
         valid=True,
@@ -173,30 +173,35 @@ def plan_feedback(
     )
 
 
+def _classified_lookup(packet: FeedbackClassificationPacket) -> _ClassifiedLookup:
+    return _ClassifiedLookup(
+        reviews={item.review_id: item for item in packet.reviews},
+        threads={item.thread_id: item for item in packet.review_threads},
+        comments={item.comment_id: item for item in packet.discussion_comments},
+    )
+
+
 def _action_items(
     *,
     view: FeedbackManifestView,
-    packet: FeedbackClassificationPacket,
+    classified: _ClassifiedLookup,
 ) -> tuple[FeedbackPlanActionItem, ...]:
     actions: list[FeedbackPlanActionItem] = []
-    classified_reviews = {item.review_id: item for item in packet.reviews}
-    classified_threads = {item.thread_id: item for item in packet.review_threads}
-    classified_comments = {item.comment_id: item for item in packet.discussion_comments}
 
     for review in view.reviews:
-        item = classified_reviews.get(review.id)
+        item = classified.reviews.get(review.id)
         if item is not None and item.disposition == "actionable":
             action = _review_action_item(review=review, item=item)
             if action is not None:
                 actions.append(action)
     for thread in view.required_threads:
-        item = classified_threads.get(thread.thread_id)
+        item = classified.threads.get(thread.thread_id)
         if item is not None and item.disposition == "actionable":
             action = _thread_action_item(thread=thread, item=item)
             if action is not None:
                 actions.append(action)
     for comment in view.discussion_comments:
-        item = classified_comments.get(comment.comment_id)
+        item = classified.comments.get(comment.comment_id)
         if item is not None and item.disposition == "actionable":
             action = _discussion_action_item(comment=comment, item=item)
             if action is not None:
@@ -233,6 +238,7 @@ def _thread_action_item(
     if item.action_summary is None or item.complexity is None:
         return None
     covered_comments = _covered_thread_comments(thread=thread, item=item)
+    first_comment = covered_comments[0] if covered_comments else None
     return FeedbackPlanActionItem(
         source_kind="review_thread",
         summary=item.summary,
@@ -242,13 +248,13 @@ def _thread_action_item(
         thread_id=thread.thread_id,
         covered_comment_ids=tuple(comment.comment_id for comment in covered_comments),
         covered_comments=covered_comments,
-        body_locator=_first_body_locator(covered_comments),
+        body_locator=first_comment.body_locator if first_comment is not None else None,
         thread_item_pointer=thread.item_pointer,
         path=thread.path,
         line=thread.line,
         start_line=thread.start_line,
         is_outdated=thread.is_outdated,
-        author=_first_author(covered_comments),
+        author=first_comment.author if first_comment is not None else None,
     )
 
 
@@ -275,27 +281,24 @@ def _discussion_action_item(
 def _informational_items(
     *,
     view: FeedbackManifestView,
-    packet: FeedbackClassificationPacket,
+    classified: _ClassifiedLookup,
 ) -> tuple[FeedbackPlanInformationalItem, ...]:
     informational: list[FeedbackPlanInformationalItem] = []
-    classified_reviews = {item.review_id: item for item in packet.reviews}
-    classified_threads = {item.thread_id: item for item in packet.review_threads}
-    classified_comments = {item.comment_id: item for item in packet.discussion_comments}
 
     for review in view.reviews:
-        item = classified_reviews.get(review.id)
+        item = classified.reviews.get(review.id)
         if item is not None and item.disposition == "informational":
             info = _review_informational_item(review=review, item=item)
             if info is not None:
                 informational.append(info)
     for thread in view.required_threads:
-        item = classified_threads.get(thread.thread_id)
+        item = classified.threads.get(thread.thread_id)
         if item is not None and item.disposition == "informational":
             info = _thread_informational_item(thread=thread, item=item)
             if info is not None:
                 informational.append(info)
     for comment in view.discussion_comments:
-        item = classified_comments.get(comment.comment_id)
+        item = classified.comments.get(comment.comment_id)
         if item is not None and item.disposition == "informational":
             info = _discussion_informational_item(comment=comment, item=item)
             if info is not None:
@@ -331,6 +334,7 @@ def _thread_informational_item(
     if item.informational_reason is None:
         return None
     covered_comments = _covered_thread_comments(thread=thread, item=item)
+    first_comment = covered_comments[0] if covered_comments else None
     return FeedbackPlanInformationalItem(
         source_kind="review_thread",
         summary=item.summary,
@@ -340,13 +344,13 @@ def _thread_informational_item(
         thread_id=thread.thread_id,
         covered_comment_ids=tuple(comment.comment_id for comment in covered_comments),
         covered_comments=covered_comments,
-        body_locator=_first_body_locator(covered_comments),
+        body_locator=first_comment.body_locator if first_comment is not None else None,
         thread_item_pointer=thread.item_pointer,
         path=thread.path,
         line=thread.line,
         start_line=thread.start_line,
         is_outdated=thread.is_outdated,
-        author=_first_author(covered_comments),
+        author=first_comment.author if first_comment is not None else None,
     )
 
 
@@ -391,24 +395,16 @@ def _covered_thread_comment(comment: ThreadCommentManifestItem) -> FeedbackPlanC
     )
 
 
-def _first_body_locator(
-    comments: tuple[FeedbackPlanCoveredThreadComment, ...],
-) -> BodyLocator | None:
-    if not comments:
-        return None
-    return comments[0].body_locator
-
-
-def _first_author(comments: tuple[FeedbackPlanCoveredThreadComment, ...]) -> str | None:
-    if not comments:
-        return None
-    return comments[0].author
-
-
 def _batches(actions: tuple[FeedbackPlanActionItem, ...]) -> tuple[FeedbackPlanBatch, ...]:
+    items_by_complexity: dict[ActionComplexity, list[FeedbackPlanActionItem]] = {
+        complexity: [] for complexity in ACTION_COMPLEXITY_ORDER
+    }
+    for item in actions:
+        items_by_complexity[item.complexity].append(item)
+
     batches: list[FeedbackPlanBatch] = []
     for complexity in ACTION_COMPLEXITY_ORDER:
-        items = tuple(item for item in actions if item.complexity == complexity)
+        items = tuple(items_by_complexity[complexity])
         if items:
             batches.append(
                 FeedbackPlanBatch(
@@ -427,25 +423,20 @@ def _counts(
     informational: tuple[FeedbackPlanInformationalItem, ...],
     batches: tuple[FeedbackPlanBatch, ...],
 ) -> FeedbackPlanCounts:
+    action_source_counts = Counter(item.source_kind for item in actions)
+    informational_source_counts = Counter(item.source_kind for item in informational)
     return FeedbackPlanCounts(
         actionable_items=len(actions),
         informational_items=len(informational),
         batches=len(batches),
         approval_required_batches=sum(1 for batch in batches if batch.approval_required),
-        actionable_reviews=_source_count(actions, "review"),
-        actionable_review_threads=_source_count(actions, "review_thread"),
-        actionable_discussion_comments=_source_count(actions, "discussion_comment"),
-        informational_reviews=_source_count(informational, "review"),
-        informational_review_threads=_source_count(informational, "review_thread"),
-        informational_discussion_comments=_source_count(informational, "discussion_comment"),
+        actionable_reviews=action_source_counts["review"],
+        actionable_review_threads=action_source_counts["review_thread"],
+        actionable_discussion_comments=action_source_counts["discussion_comment"],
+        informational_reviews=informational_source_counts["review"],
+        informational_review_threads=informational_source_counts["review_thread"],
+        informational_discussion_comments=informational_source_counts["discussion_comment"],
     )
-
-
-def _source_count(
-    items: tuple[FeedbackPlanActionItem, ...] | tuple[FeedbackPlanInformationalItem, ...],
-    source_kind: PlanSourceKind,
-) -> int:
-    return sum(1 for item in items if item.source_kind == source_kind)
 
 
 def _warnings(view: FeedbackManifestView) -> tuple[str, ...]:

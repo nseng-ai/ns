@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Container
 from pathlib import Path
 from typing import Final, TypeAlias, cast
 
 from asdl_core.payloads.errors import PayloadError
 from asdl_core.payloads.segments import is_safe_segment
-from asdl_core.payloads.store import PAYLOAD_FILENAME_PATTERN_TEXT
+from asdl_core.payloads.store import PAYLOAD_FILENAME_PATTERN
 
 JsonValue: TypeAlias = object
 
@@ -154,15 +153,15 @@ def _validate_json_payload_artifact_path(
             error_type="payload_lookup_failed",
             message=f"Payload artifact path must be absolute: {payload_path}",
         )
-    if not payload_path.exists():
-        raise PayloadError(
-            error_type="payload_lookup_failed",
-            message=f"Payload artifact path does not exist: {payload_path}",
-        )
     if payload_path.is_symlink():
         raise PayloadError(
             error_type="payload_lookup_failed",
             message=f"Payload artifact path must not be a symlink: {payload_path}",
+        )
+    if not payload_path.exists():
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact path does not exist: {payload_path}",
         )
     if not payload_path.is_file():
         raise PayloadError(
@@ -189,7 +188,7 @@ def _validate_json_payload_artifact_path(
             ),
         )
 
-    match = re.fullmatch(PAYLOAD_FILENAME_PATTERN_TEXT, payload_path.name)
+    match = PAYLOAD_FILENAME_PATTERN.fullmatch(payload_path.name)
     if match is None:
         raise PayloadError(
             error_type="payload_lookup_failed",

@@ -10,15 +10,13 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_pr_address.cli.pr_address.feedback_classification_models import (
+    ValidateFeedbackClassificationInput,
+)
 from asdl_pr_address.cli.pr_address.feedback_planning import (
     FeedbackPlanningResult,
     plan_feedback,
 )
-
-
-class PlanFeedbackInput(ClinkrModel):
-    manifest: dict[str, object]
-    classification: dict[str, object]
 
 
 class PlanFeedbackRequest(ClinkrModel):
@@ -50,11 +48,11 @@ def run_plan_feedback(
     )
 
 
-def _load_payload(request: PlanFeedbackRequest) -> PlanFeedbackInput:
+def _load_payload(request: PlanFeedbackRequest) -> ValidateFeedbackClassificationInput:
     return load_json_input(
         option_value=request.payload_json,
         command_name="plan-feedback",
         input_description="JSON payload",
         option_name="--payload-json",
-        parser=PlanFeedbackInput.model_validate_json,
+        parser=ValidateFeedbackClassificationInput.model_validate_json,
     )

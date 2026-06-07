@@ -33,3 +33,7 @@ allowing bot/status noise to be recorded as informational.
 `validate-feedback-classification` operations support both legacy wrapper input
 and split manifest/classification input. Split input is preferred because it
 keeps the workflow explicit and avoids ad-hoc wrapper JSON assembly.
+
+`resolve-thread-batch` accepts its payload from stdin, `--payload-json`, or
+`--payload-file`. Pass only one explicit payload source; use `--payload-file`
+for large generated batch payloads to keep agent transcripts compact.

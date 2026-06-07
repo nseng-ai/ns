@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 import click
 
@@ -26,7 +26,14 @@ ResolveThreadBatchItemStatus = Literal["resolved", "failed", "skipped"]
 
 
 class ResolveThreadBatchRequest(ClinkrModel):
-    payload_json: str | None = None
+    payload_json: Annotated[
+        str | None,
+        click.Option(["--payload-json"], type=click.STRING, required=False),
+    ] = None
+    payload_file: Annotated[
+        str | None,
+        click.Option(["--payload-file"], type=click.STRING, required=False),
+    ] = None
 
 
 class ResolveThreadBatchItem(ClinkrModel):
@@ -116,9 +123,11 @@ def run_resolve_thread_batch(
 def _load_payload(request: ResolveThreadBatchRequest) -> ResolveThreadBatchPayload:
     return load_json_input(
         option_value=request.payload_json,
+        file_path=request.payload_file,
         command_name="resolve-thread-batch",
         input_description="JSON payload",
         option_name="--payload-json",
+        file_option_name="--payload-file",
         parser=ResolveThreadBatchPayload.model_validate_json,
     )
 

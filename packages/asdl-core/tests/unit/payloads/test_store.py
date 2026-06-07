@@ -290,6 +290,18 @@ def test_open_containing_artifact_rejects_symlink_path(tmp_path: Path) -> None:
     assert exc_info.value.error_type == "payload_lookup_failed"
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlinks are required for this check")
+def test_open_containing_artifact_rejects_broken_symlink_as_symlink(tmp_path: Path) -> None:
+    link_path = tmp_path / "20260603t123456z-0001-probe.raw.json"
+    link_path.symlink_to(tmp_path / "missing-target.json")
+
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(link_path)
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+    assert "must not be a symlink" in exc_info.value.message
+
+
 def test_write_json_artifact_creates_raw_json_reference(tmp_path: Path) -> None:
     store = _open_store(tmp_path)
 

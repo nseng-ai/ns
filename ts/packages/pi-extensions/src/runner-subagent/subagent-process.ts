@@ -146,8 +146,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const childArgs = buildChildPiArgs({
 		prompt: options.prompt,
 		sessionFile,
-		...(runtimeFiles?.extensionPath === undefined ? {} : { runtimeExtensionPath: runtimeFiles.extensionPath }),
-		...(options.model === undefined ? {} : { model: options.model }),
+		runtimeExtensionPath: runtimeFiles?.extensionPath,
+		model: options.model,
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawn = dependencies.spawn ?? defaultSpawnChildProcess;
@@ -262,8 +262,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 interface BuildChildPiArgsInput {
 	prompt: string;
 	sessionFile: string;
-	runtimeExtensionPath?: string;
-	model?: string;
+	runtimeExtensionPath: string | undefined;
+	model: string | undefined;
 }
 
 export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
