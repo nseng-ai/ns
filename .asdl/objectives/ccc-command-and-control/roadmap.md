@@ -12,7 +12,7 @@
 - [x] Move cmux workspace and sidebar orchestration into CCC.
   - Moved the cmux command suite registry and workspace/sidebar orchestration into `ts/packages/ccc/src/cmux.ts` and `ts/packages/ccc/src/cmux/`.
   - Left generic/lower helper seams outside CCC and kept tiny `@asdl/pi-extensions` compatibility shims where existing non-cmux code still imports cmux helpers.
-  - Preserved public `/cmux:workspace:*` and `/cmux:sidebar:*` command names; `.pi/extensions/cmux.ts` now imports CCC registration directly.
+  - Preserved public `/cmux:workspace:*` and `/cmux:sidebar:*` command names; `.pi/extensions/cmux.ts` now imports CCC registration directly. (These were later renamed to `/ccc:*` and the adapter became `.pi/extensions/ccc.ts` — see the rename row below.)
   - Policy: direct execution after preview.
   - Evidence: parent validation passed with `bun run --cwd ts check`, `bun test --cwd ts/packages/ccc`, focused cmux/handoff-tab tests, `bun run --cwd ts test`, targeted `dprint check`, and `git diff --check`.
 
@@ -24,6 +24,14 @@
   - Moved cmux behavior tests under `ts/packages/ccc/test/` so CCC package tests cover the command suite it owns, and left a small pi-extensions shim smoke test for legacy import paths.
   - Policy: direct execution after preview; steer first if a lower package would need a CCC import.
   - Evidence: review follow-up validation should pass `bun run --cwd ts check`, `bun test --cwd ts/packages/ccc`, focused planned-branch/pi-extension tests, `bun run --cwd ts test`, and `git diff --check`.
+
+- [x] Rename the CCC public command prefix from `cmux:` to `ccc:` and remove the cmux command-suite shims.
+  - Renamed the CCC Pi command surface `/cmux:workspace:*` → `/ccc:workspace:*` and `/cmux:sidebar:*` → `/ccc:sidebar:*`; `ccc` now names the orchestration layer's command surface while `cmux` is reserved for the external workspace tool.
+  - Renamed the `cmux-sidebar` skill (and symlinks) to `ccc-sidebar`, `.pi/extensions/cmux.ts` to `.pi/extensions/ccc.ts` (exporting `registerCccExtension`), `ts/packages/ccc/src/cmux.ts` to `src/ccc.ts`, the `ASDL_CMUX_SIDEBAR_MODEL` env var to `ASDL_CCC_SIDEBAR_MODEL`, and the `pi:cmux-sidebar` status key to `pi:ccc-sidebar`.
+  - Removed the `@asdl/pi-extensions` cmux command-suite compatibility shims and their covering test (`cmux-shims.test.ts`), plus the `./cmux/slot-open-branch` export from `@asdl/ccc`. The handoff-tab `focused-terminal-tab.ts` shim and the lower `pi-launch.ts`/`primitives.ts`/`types.ts` modules under `ts/packages/pi-extensions/src/cmux/` remain.
+  - Supersedes the earlier "keep `/cmux:*` names for now" default and de-parks the `/ccc:*` namespace item; this was a deliberate namespace decision, not a prerequisite to the extraction.
+  - Policy: deliberate user-confirmed rename; preserved tested behavior under the new prefix.
+  - Evidence: landed on `master` in commit `10892ce4`; no `cmux:` command registrations remain (`rg "'cmux:(workspace|sidebar)'"` over `ts/` is empty); current registrations are `ccc:workspace:dispatch-plan|dispatch-prompt|open-branch` and `ccc:sidebar:pr-summary|objective-summary`; `.pi/extensions/ccc.ts` and `skills/ccc-sidebar/` are present and the `cmux` adapter/skill are gone.
 
 - [~] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
   - Move the `/planned-branch:up-and-impl` flow out of the planned-branch adapter into CCC-owned orchestration, leaving planned-branch write/create/impl primitives below.
@@ -58,7 +66,6 @@
 
 These are future product or cleanup possibilities, not Objective non-goals restated as roadmap work:
 
-- [ ] Public `/ccc:*` slash-command namespace or aliases.
 - [ ] Publishing CCC as a stable external package.
 - [ ] Package-wide generic guard/helper consolidation outside the helpers needed for CCC migration.
 - [ ] Replacing existing public slash-command families with a new command taxonomy.
