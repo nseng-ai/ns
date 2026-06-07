@@ -32,6 +32,10 @@ _Avoid_: CCC package, lower capability, hidden command alias.
 The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/ccc:workspace:*` and `/ccc:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
 _Avoid_: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
+**Planned-branch up-and-impl launch orchestration**:
+The CCC-owned launch step after lower planned-branch creation and Branch Memory attachment succeed: check out the target branch, start a replacement Pi session, and dispatch `/planned-branch:impl <key>` into that session. Planned-branch write/create/impl primitives, slugging, target-branch derivation, and storage semantics remain lower capabilities.
+_Avoid_: planned-branch storage primitive, Branch Memory backend, saved-plan selection, public command registration.
+
 **Orchestration candidate**:
-An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, planned-branch up-and-impl, handoff-tab, Objective stack implementation, autobranch/land, and worktree-status behavior.
+An existing command flow that likely belongs in CCC once behavior is moved deliberately, including Objective stack implementation, autobranch/land, and worktree-status behavior.
 _Avoid_: moved implementation, immediate dependency, completed consolidation.

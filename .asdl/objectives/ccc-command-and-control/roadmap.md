@@ -34,12 +34,13 @@
   - Evidence: see the 2026-06-07 rename update for the landed command-prefix rename, validation, and stale-`cmux:` registration check.
 
 - [~] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
-  - Move the `/planned-branch:up-and-impl` flow out of the planned-branch adapter into CCC-owned orchestration, leaving planned-branch write/create/impl primitives below.
+  - Moved the `/planned-branch:up-and-impl` launch step into CCC-owned orchestration, leaving planned-branch write/create/impl primitives, saved-plan selection, slugging, target branch derivation, and Branch Memory attachment below.
   - Moved handoff-tab launch orchestration into CCC, leaving handoff identity/storage/listing semantics below.
   - Move Objective stack implementation orchestration into CCC or make the Objective adapter delegate to CCC, leaving Objective record/list/update semantics below.
   - Policy: direct execution after preview; ask first if command names or ownership boundaries need to change.
   - Evidence: handoff-tab launch now lives in `@asdl/ccc`, focused cmux terminal-tab helpers moved to CCC with a pi-extension shim, public handoff-tab command/tool names stayed stable, and validation passed with `bun test --cwd ts/packages/ccc`, `bun test --cwd ts/packages/pi-extensions`, `bun run --cwd ts check`, and `bun run --cwd ts test`.
-  - Evidence still needed: planned-branch up-and-impl and Objective adapter orchestration move without lower packages importing CCC.
+  - Evidence: planned-branch up-and-impl launch now lives in `@asdl/ccc/planned-branch-up-and-impl`; `@asdl/pi-extensions` preserves public `/planned-branch:up-and-impl` registration and delegates checkout/new-session dispatch to CCC; validation passed with `bun test --cwd ts/packages/ccc --sequential`, `bun test --cwd ts/packages/pi-extensions --sequential`, `bun run --cwd ts check`, `bun run --cwd ts test`, and import-direction checks.
+  - Evidence still needed: Objective adapter orchestration move without lower packages importing CCC.
 
 - [ ] Move repo source-control command/control workflows into CCC.
   - Move `/code:autobranch` and its preparation/transaction modules into CCC because it encodes dirty-worktree-to-Graphite-branch-to-checkpoint policy.
