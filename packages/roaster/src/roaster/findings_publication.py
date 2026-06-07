@@ -219,7 +219,7 @@ def inline_marker_for_finding(review_name: str, finding: ReviewFinding) -> str:
     digest_input = "\0".join(
         (
             review_name,
-            finding.path,
+            finding.path or "",
             "" if finding.line is None else str(finding.line),
             finding.severity,
             finding.summary,
@@ -287,13 +287,10 @@ def _render_findings_body(payload: FindingsPayload) -> list[str]:
         "| Severity | File | Line | Summary |",
         "| --- | --- | --- | --- |",
     ]
-    body.extend(
-        f"| {_severity_label(f.severity)} | `{f.path}` | {_line_display(f.line)} | {f.summary} |"
-        for f in payload.findings
-    )
+    body.extend(_finding_table_row(finding) for finding in payload.findings)
     body.extend(["", "<details>", "<summary>Details</summary>", ""])
     for finding in payload.findings:
-        location = finding.path if finding.line is None else f"{finding.path}:{finding.line}"
+        location = _finding_location(finding)
         body.extend(
             [
                 f"### `{location}` — {finding.severity}",
@@ -307,12 +304,29 @@ def _render_findings_body(payload: FindingsPayload) -> list[str]:
     return body
 
 
+def _finding_table_row(finding: ReviewFinding) -> str:
+    return (
+        f"| {_severity_label(finding.severity)} | `{_path_display(finding.path)}` | "
+        f"{_line_display(finding.line)} | {finding.summary} |"
+    )
+
+
+def _finding_location(finding: ReviewFinding) -> str:
+    if finding.line is None:
+        return _path_display(finding.path)
+    return f"{_path_display(finding.path)}:{finding.line}"
+
+
 def _severity_label(severity: str) -> str:
     return _SEVERITY_LABELS.get(severity, severity)
 
 
 def _line_display(line: int | None) -> str:
     return "—" if line is None else str(line)
+
+
+def _path_display(path: str | None) -> str:
+    return "—" if path is None else path
 
 
 def _coerce_str(value: Any, *, default: str) -> str:

@@ -11,12 +11,15 @@ from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import (
+    DiffReviewTarget,
+    DocumentReviewTarget,
     FindingsReview,
     LocalDiff,
     LocalReviewResult,
     MatchingReviewSelectionResult,
     ModelNotSupportedByHarness,
     ResolvedReviewRunPlan,
+    ReviewContextFragment,
     ReviewExecutionResponse,
     ReviewFormat,
     RoasterFailure,
@@ -75,6 +78,8 @@ def _run(
     requested_harness: str | None = None,
     requested_format: ReviewFormat = "findings",
     fakes: _Fakes | None = None,
+    document_target: DocumentReviewTarget | None = None,
+    context_fragments: tuple[ReviewContextFragment, ...] = (),
     progress: Callable[[ResolvedReviewRunPlan], None] | None = None,
 ) -> LocalReviewResult | RoasterFailure:
     if fakes is None:
@@ -88,6 +93,8 @@ def _run(
         catalog=fakes.catalog,
         diff=fakes.diff,
         harness_runtime=fakes.harness_runtime,
+        requested_document_target=document_target,
+        context_fragments=context_fragments,
         progress=progress,
     )
 
@@ -120,8 +127,32 @@ def test_runs_end_to_end_auto_selecting_single_detected_harness() -> None:
     assert executed.review_definition.name == REVIEW_KEY
     assert executed.review_definition.description == "Review Python diffs."
     assert executed.review_definition.instructions == "Flag concrete issues."
-    assert executed.local_diff.base_ref == "master"
-    assert "diff --git a/app.py b/app.py" in executed.local_diff.diff_text
+    assert isinstance(executed.target, DiffReviewTarget)
+    assert executed.target.local_diff.base_ref == "master"
+    assert "diff --git a/app.py b/app.py" in executed.target.local_diff.diff_text
+
+
+def test_document_target_runs_without_loading_diff() -> None:
+    fakes = _fakes()
+    target = DocumentReviewTarget(
+        kind="document",
+        content="# Plan\n\nDo the thing.",
+        label="plan.md",
+        source_path="plan.md",
+    )
+    fragments = (ReviewContextFragment(label="inline context 1", content="Implementation plan."),)
+
+    result = _run(fakes=fakes, document_target=target, context_fragments=fragments)
+
+    assert isinstance(result, LocalReviewResult)
+    assert result.base_ref is None
+    assert result.target_kind == "document"
+    assert result.target_label == "plan.md"
+    assert result.context_fragments == fragments
+    assert fakes.diff.requested_base_refs == ()
+    executed = fakes.harness_runtime.executed_requests[0]
+    assert executed.target is target
+    assert executed.context_fragments == fragments
 
 
 def test_nested_key_preserves_subpath_in_review_name() -> None:
@@ -209,6 +240,7 @@ def test_run_review_by_key_reports_resolved_run_plan_before_execution() -> None:
             harness="claude-code",
             base_ref="master",
             changed_path_count=1,
+            target_label="current branch diff",
         )
     ]
 

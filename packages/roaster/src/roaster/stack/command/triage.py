@@ -307,7 +307,7 @@ def _reviewer_run_from_result(*, key: str, result: LocalReviewResult) -> StackRe
         review_name=result.review_name,
         review_path=result.review_path,
         model=result.model,
-        base_ref=result.base_ref,
+        base_ref=result.base_ref or "",
         findings=result.payload.findings,
         usage=result.usage,
     )
@@ -350,7 +350,7 @@ def _reviewer_run_markdown(run: StackReviewerRun) -> list[str]:
             [
                 f"#### Finding {index}",
                 "",
-                f"- Path: `{finding.path}`",
+                f"- Path: `{_value_or_dash(finding.path)}`",
                 f"- Line: {_line_or_dash(finding.line)}",
                 f"- Severity: `{finding.severity}`",
                 f"- Summary: {finding.summary}",
