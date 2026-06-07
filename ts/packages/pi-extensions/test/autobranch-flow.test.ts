@@ -11,6 +11,8 @@ function fail(stderr: string): CommandResult {
 	return { code: 1, stdout: "", stderr };
 }
 
+type UpstreamMode = "contains" | "ahead" | "none" | "failed";
+
 interface HarnessOptions {
 	args?: AutobranchFlowInput["args"];
 	piResult?: CommandResult;
@@ -23,6 +25,7 @@ interface HarnessOptions {
 	stashPopFails?: boolean;
 	detachedHead?: boolean;
 	cleanWorktree?: boolean;
+	upstreamMode?: UpstreamMode;
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -31,6 +34,9 @@ function createHarness(options: HarnessOptions = {}) {
 	const preparedSnapshots: Array<Pick<PendingWorktreeSnapshot, "status" | "diff">> = [];
 	let stashMessage = "";
 	let statusCalls = 0;
+	let head = "abc123def456";
+	let currentBranch = "base-branch";
+	const upstreamMode = options.upstreamMode ?? "contains";
 	const prepareResult = options.prepareResult ?? { ok: true, message: `[cp] Update checkpoint tests\n\n- Add coverage` };
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
 
@@ -40,8 +46,23 @@ function createHarness(options: HarnessOptions = {}) {
 		now: () => 123,
 		exec: async (command, args) => {
 			events.push(`exec:${command} ${args.join(" ")}`);
-			if (command === "git" && args[0] === "rev-parse") {
+			if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel") {
 				return ok("/repo\n");
+			}
+			if (command === "git" && args[0] === "rev-parse" && args.at(-1) === "@{u}") {
+				if (upstreamMode === "none") {
+					return fail("fatal: no upstream configured for branch 'base-branch'");
+				}
+				if (upstreamMode === "failed") {
+					return fail("rev-parse upstream failed");
+				}
+				return ok("origin/base-branch\n");
+			}
+			if (command === "git" && args[0] === "rev-parse" && args[1] === "HEAD") {
+				return ok(`${head}\n`);
+			}
+			if (command === "git" && args[0] === "merge-base") {
+				return upstreamMode === "ahead" ? { code: 1, stdout: "", stderr: "" } : ok();
 			}
 			if (command === "git" && args[0] === "symbolic-ref") {
 				return options.detachedHead ? fail("not a symbolic ref") : ok("base-branch\n");
@@ -50,11 +71,40 @@ function createHarness(options: HarnessOptions = {}) {
 				statusCalls += 1;
 				return ok(statusCalls === 1 ? (options.cleanWorktree ? "" : " M file.ts\n") : "");
 			}
+			if (command === "git" && args[0] === "diff" && args[1] === "HEAD^") {
+				return ok("diff --git a/file.ts b/file.ts\n+committed\n");
+			}
 			if (command === "git" && args[0] === "diff") {
 				return ok("diff --git a/file.ts b/file.ts\n");
 			}
 			if (command === "git" && args[0] === "ls-files") {
 				return ok("");
+			}
+			if (command === "git" && args[0] === "rev-list") {
+				return ok("abc123def456 parent987654\n");
+			}
+			if (command === "git" && args[0] === "log" && args.includes("--format=%B")) {
+				return ok("Update committed feature\n");
+			}
+			if (command === "git" && args[0] === "log" && args.includes("--oneline")) {
+				return ok("abc123d Update committed feature\n");
+			}
+			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
+				return ok(`${currentBranch}\n`);
+			}
+			if (command === "git" && args[0] === "branch" && args[1] !== "-D") {
+				return ok();
+			}
+			if (command === "git" && args[0] === "branch" && args[1] === "-D") {
+				return ok("deleted\n");
+			}
+			if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
+				head = args[2] ?? head;
+				return ok(`HEAD is now at ${head}\n`);
+			}
+			if (command === "git" && args[0] === "checkout") {
+				currentBranch = args[1] ?? currentBranch;
+				return ok();
 			}
 			if (command === "pi") {
 				return options.piResult ?? ok("generated-branch\n");
@@ -78,7 +128,11 @@ function createHarness(options: HarnessOptions = {}) {
 			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
 				return options.stashPopFails ? fail("stash conflict") : ok("restored\n");
 			}
+			if (command === "gt" && args[0] === "trunk") {
+				return ok("master\n");
+			}
 			if (command === "gt" && args[0] === "create") {
+				currentBranch = args[1] ?? currentBranch;
 				return options.gtCreateFails ? fail("gt create failed") : ok("created\n");
 			}
 			return ok();
@@ -121,14 +175,18 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(harness.notifications).toContainEqual({ message: "checkpoint prep failed", level: "error" });
 	});
 
-	test("clean worktree reports nothing to move and stops before preparation", async () => {
-		const harness = createHarness({ cleanWorktree: true });
+	test("clean worktree extracts the latest commit instead of preparing a checkpoint", async () => {
+		const harness = createHarness({ cleanWorktree: true, upstreamMode: "none" });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
 		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
-		expect(harness.notifications).toContainEqual({ message: "Working tree is clean; nothing to move to a new branch.", level: "warning" });
+		expect(eventIndex(harness.events, "exec:git rev-list --parents -n 1 HEAD")).toBeGreaterThan(-1);
+		expect(eventIndex(harness.events, "exec:git reset --hard parent987654")).toBeGreaterThan(-1);
+		expect(eventIndex(harness.events, "exec:gt create test-branch")).toBeGreaterThan(-1);
+		expect(eventIndex(harness.events, "exec:git reset --hard abc123def456")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create test-branch"));
+		expect(harness.notifications.at(-1)?.message).toContain("Moved commit: abc123d Update committed feature");
 	});
 
 	test("detached HEAD reports the autobranch-specific checkout guidance", async () => {
@@ -138,6 +196,26 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		expect(harness.events).not.toContain("prepare");
 		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /code:autobranch."))).toBe(true);
+	});
+
+	test("dirty worktree with unpublished committed work refuses before preparation", async () => {
+		const harness = createHarness({ upstreamMode: "ahead" });
+
+		await createAutobranchCheckpointFlow(harness.input);
+
+		expect(harness.events).not.toContain("prepare");
+		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
+		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("both unpublished committed work and dirty changes"))).toBe(true);
+	});
+
+	test("dirty worktree with no upstream keeps the existing path", async () => {
+		const harness = createHarness({ upstreamMode: "none" });
+
+		await createAutobranchCheckpointFlow(harness.input);
+
+		expect(harness.events).toContain("prepare");
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
+		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {

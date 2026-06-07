@@ -4,7 +4,8 @@ import { relative, resolve } from "node:path";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength } from "./branch-slug.ts";
+import { chooseAvailableBranchName } from "./autobranch-branch-name.ts";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "./branch-slug.ts";
 import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -208,22 +209,6 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 		.map((path) => path.split("/").pop() ?? path)
 		.join(" ");
 	return sanitizeBranchName(`update ${basenameWords || snapshot.branch}`);
-}
-
-async function chooseAvailableBranchName(input: AutobranchPreparationInput, baseSlug: string): Promise<{ ok: true; name: string; usedSuffix: boolean } | { ok: false }> {
-	for (let index = 0; index < 50; index += 1) {
-		const suffix = index === 0 ? "" : `-${index + 1}`;
-		const candidate = trimBranchSlugToLength(baseSlug, MAX_BRANCH_SLUG_LENGTH - suffix.length) + suffix;
-		const valid = await input.exec("git", ["check-ref-format", "--branch", candidate], input.cwd, GIT_TIMEOUT_MS);
-		if (valid.code !== 0) {
-			continue;
-		}
-		const exists = await input.exec("git", ["show-ref", "--verify", "--quiet", `refs/heads/${candidate}`], input.cwd, GIT_TIMEOUT_MS);
-		if (exists.code !== 0) {
-			return { ok: true, name: candidate, usedSuffix: index > 0 };
-		}
-	}
-	return { ok: false };
 }
 
 function truncate(text: string, maxChars: number): string {

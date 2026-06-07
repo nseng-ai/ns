@@ -6,6 +6,11 @@ import {
 	type PendingWorktreeSnapshot,
 } from "asdl-dev/src/pending-worktree.ts";
 import {
+	createLatestCommitAutobranchFlow,
+	inspectUpstreamHeadState,
+	type UpstreamHeadState,
+} from "./autobranch-latest-commit.ts";
+import {
 	prepareAutobranchPlan,
 	type FileStat,
 	type AutobranchPreparationResult,
@@ -61,7 +66,25 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
-		input.notify("Working tree is clean; nothing to move to a new branch.", "warning");
+		await createLatestCommitAutobranchFlow({
+			cwd: input.cwd,
+			args: input.args,
+			snapshot,
+			exec: input.exec,
+			notify: input.notify,
+			setStatus: input.setStatus,
+			...(input.now ? { now: input.now } : {}),
+		});
+		return;
+	}
+
+	await runDirtyAutobranchFlow(input, snapshot);
+}
+
+async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<void> {
+	const upstream = await inspectUpstreamHeadState({ cwd: input.cwd, exec: input.exec });
+	if (upstream.type === "head_not_in_upstream" || upstream.type === "failed") {
+		input.notify(formatDirtyMixedStateRefusal(upstream), "error");
 		return;
 	}
 
@@ -111,6 +134,16 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 		].join("\n"),
 		clean ? "success" : "warning",
 	);
+}
+
+function formatDirtyMixedStateRefusal(upstream: Extract<UpstreamHeadState, { type: "head_not_in_upstream" | "failed" }>): string {
+	if (upstream.type === "failed") {
+		return `Could not determine whether HEAD is already in the current branch upstream.\n${upstream.error}`;
+	}
+	return [
+		`Current branch has both unpublished committed work and dirty changes; upstream ${upstream.upstream} does not contain HEAD.`,
+		"Clean up the dirty worktree, branch the latest commit first, or use the stackify workflow for multi-part local work.",
+	].join("\n");
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
