@@ -171,6 +171,14 @@ def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResu
     return _parse_inline_posting_status_object(status_data)
 
 
+def parse_publishable_diff_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
+    """Parse and reject local-only document findings before PR publication."""
+    payload = parse_findings_payload_result(raw)
+    if isinstance(payload, FindingsPayloadParseError):
+        return payload
+    return ensure_publishable_diff_payload(payload)
+
+
 def ensure_publishable_diff_payload(
     payload: FindingsPayload,
 ) -> FindingsPayload | FindingsPayloadParseError:

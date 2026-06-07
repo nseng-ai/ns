@@ -33,12 +33,13 @@ from roaster.workflow import run_review_by_key
 
 
 def _stderr_run_plan(plan: ResolvedReviewRunPlan) -> None:
-    details = f"resolved model={plan.model} harness={plan.harness}"
+    target_summary = f"target=document label={plan.target_label}"
     if plan.target_kind == "diff":
-        details += f" base_ref={plan.base_ref} changed_paths={plan.changed_path_count}"
-    else:
-        details += f" target=document label={plan.target_label}"
-    click.echo(f"  · {details}", err=True)
+        target_summary = f"base_ref={plan.base_ref} changed_paths={plan.changed_path_count}"
+    click.echo(
+        f"  · resolved model={plan.model} harness={plan.harness} {target_summary}",
+        err=True,
+    )
 
 
 class ReviewRunRequest(ClinkrModel):

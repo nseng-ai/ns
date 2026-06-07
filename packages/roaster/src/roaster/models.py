@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, ValidationError, field_validator, model_serializer, model_validator
+from pydantic import Field, ValidationError, field_validator, model_serializer
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
@@ -336,6 +336,18 @@ class DocumentReviewTarget:
 ReviewTarget: TypeAlias = DiffReviewTarget | DocumentReviewTarget
 
 
+def _reject_blank_string(value: str) -> str:
+    if not value.strip():
+        raise ValueError("must be non-empty")
+    return value
+
+
+def _reject_blank_optional_string(value: str | None) -> str | None:
+    if value is not None and not value.strip():
+        raise ValueError("must be non-empty when provided")
+    return value
+
+
 class GlobalLocation(ClinkrModel):
     """Finding applies to the whole reviewed target."""
 
@@ -354,9 +366,7 @@ class TextAnchorLocation(ClinkrModel):
     @field_validator("text", "section", "context")
     @classmethod
     def _reject_blank_strings(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("must be non-empty when provided")
-        return value
+        return _reject_blank_optional_string(value)
 
 
 class DiffLineLocation(ClinkrModel):
@@ -369,9 +379,7 @@ class DiffLineLocation(ClinkrModel):
     @field_validator("path")
     @classmethod
     def _reject_blank_path(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("must be non-empty")
-        return value
+        return _reject_blank_string(value)
 
 
 ReviewLocation: TypeAlias = Annotated[
@@ -395,9 +403,7 @@ class ReviewFinding(ClinkrModel):
     @field_validator("summary", "details")
     @classmethod
     def _reject_blank_strings(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("must be non-empty")
-        return value
+        return _reject_blank_string(value)
 
     @property
     def path(self) -> str | None:
@@ -464,17 +470,14 @@ class ReviewFinding(ClinkrModel):
         }
 
         if "location" not in data:
-            missing_legacy_fields = sorted(field for field in ("path", "line") if field not in data)
-            if missing_legacy_fields:
-                field_list = ", ".join(missing_legacy_fields)
+            if "path" not in data:
                 raise ValueError(
-                    "Review finding must include `location` or legacy diff fields; "
-                    f"missing: {field_list}"
+                    "Review finding must include `location` or legacy diff fields; missing: path"
                 )
             location_payload = {
                 "kind": "diff_line",
                 "path": data["path"],
-                "line": data["line"],
+                "line": data.get("line"),
             }
         else:
             location_payload = data["location"]
@@ -518,29 +521,15 @@ class ClaudeDiffFinding(ClinkrModel):
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
-    location: DiffLineLocation | None = None
 
     @field_validator("path", "summary", "details")
     @classmethod
     def _reject_blank_strings(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("must be non-empty")
-        return value
-
-    @model_validator(mode="after")
-    def _reject_conflicting_location(self) -> ClaudeDiffFinding:
-        if self.location is not None and self.location.path != self.path:
-            raise ValueError("legacy `path` conflicts with `location.path`")
-        if self.location is not None and self.location.line != self.line:
-            raise ValueError("legacy `line` conflicts with `location.line`")
-        return self
+        return _reject_blank_string(value)
 
     def to_review_finding(self) -> ReviewFinding:
-        location = self.location
-        if location is None:
-            location = DiffLineLocation(kind="diff_line", path=self.path, line=self.line)
         return ReviewFinding(
-            location=location,
+            location=DiffLineLocation(kind="diff_line", path=self.path, line=self.line),
             severity=self.severity,
             summary=self.summary,
             details=self.details,
@@ -558,9 +547,7 @@ class ClaudeDocumentFinding(ClinkrModel):
     @field_validator("summary", "details")
     @classmethod
     def _reject_blank_strings(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("must be non-empty")
-        return value
+        return _reject_blank_string(value)
 
     def to_review_finding(self) -> ReviewFinding:
         return ReviewFinding(

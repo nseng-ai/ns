@@ -231,17 +231,14 @@ def _run_plan(
     resolved_harness: str,
     target: ReviewTarget,
 ) -> ResolvedReviewRunPlan:
-    base_ref: str | None = None
-    changed_path_count: int | None = None
+    changed_path_count = None
     if isinstance(target, DiffReviewTarget):
-        base_ref = target.local_diff.base_ref
         changed_path_count = len(target.local_diff.changed_paths)
-
     return ResolvedReviewRunPlan(
         review_name=review_definition.name,
         model=resolved_model,
         harness=resolved_harness,
-        base_ref=base_ref,
+        base_ref=_target_base_ref(target),
         changed_path_count=changed_path_count,
         target_kind=target.kind,
         target_label=target_label(target),
