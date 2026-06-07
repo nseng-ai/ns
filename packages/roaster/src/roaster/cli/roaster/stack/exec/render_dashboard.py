@@ -24,7 +24,7 @@ from roaster.stack_dashboard import (
 )
 from roaster.stack_dashboard_projection import stack_dashboard_pr_number, stack_dashboard_pr_url
 from roaster.stack_models import StackRunBatchState
-from roaster.stack_run_storage import StackRunLocator, stack_run_artifact_plan
+from roaster.stack_run_storage import stack_run_artifact_plan
 
 
 class RenderDashboardRequest(ClinkrModel):
@@ -88,7 +88,7 @@ def render_dashboard_command(
         profile_slug=request.profile_slug,
         run_slug=request.run_slug,
         implementation_branch=manifest.target_branch or request.impl_branch,
-        manifest_locator=_locator(artifact_plan.manifest),
+        manifest_locator=artifact_plan.manifest,
         implementation_pr_number=stack_dashboard_pr_number(manifest.target_pr),
         implementation_pr_url=stack_dashboard_pr_url(manifest.target_pr),
         counts=_counts(manifest.batch_states),
@@ -135,6 +135,3 @@ def _counts(states: tuple[StackRunBatchState, ...]) -> StackDashboardCounts:
         blocked=blocked,
     )
 
-
-def _locator(locator: StackRunLocator) -> StackRunLocator:
-    return locator

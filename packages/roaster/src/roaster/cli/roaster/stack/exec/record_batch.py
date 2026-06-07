@@ -126,10 +126,11 @@ def record_batch_command(
         content=resolver.model_dump_json(indent=2),
         namespace=SKILL_STACK_RUNS_NAMESPACE,
     )
+    status = _batch_status(resolver.status, gate)
     updated_manifest = manifest_with_batch_state(
         manifest,
         batch=batch,
-        status=_batch_status(resolver.status, gate),
+        status=status,
         generated_branch=_generated_branch(request),
         generated_branch_status="planned" if request.generated_branch_name is not None else None,
         resolver_locator=_artifact_locator(resolver_locator),
@@ -145,8 +146,8 @@ def record_batch_command(
     result = RecordBatchResult(
         run_slug=request.run_slug,
         batch_slug=request.batch_slug,
-        status=_batch_status(resolver.status, gate),
-        should_halt=not gate.passed or resolver.status != "completed",
+        status=status,
+        should_halt=status != "completed",
         gate=gate,
         manifest_locator=_artifact_locator(manifest_locator),
         resolver_locator=_artifact_locator(resolver_locator),
