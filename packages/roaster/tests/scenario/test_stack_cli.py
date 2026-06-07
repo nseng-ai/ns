@@ -22,6 +22,8 @@ from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
 from roaster.models import FindingsReview, LocalDiff, ReviewExecutionResponse, ReviewFinding
 
+_STACK_CLI_VALIDATION_COMMAND = "uv run pytest packages/roaster/tests/scenario/test_stack_cli.py"
+
 
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
@@ -131,7 +133,7 @@ def _valid_resolver_output() -> str:
         "files_changed": ["app.py"],
         "validation": [
             {
-                "command": "uv run pytest packages/roaster/tests/scenario/test_stack_cli.py",
+                "command": _STACK_CLI_VALIDATION_COMMAND,
                 "status": "passed",
                 "output_summary": "passed",
             }

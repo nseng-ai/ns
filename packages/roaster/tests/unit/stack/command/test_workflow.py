@@ -35,6 +35,10 @@ PYTHON_REVIEW_SOURCE = (
     "Flag Python issues.\n"
 )
 
+_STACK_WORKFLOW_VALIDATION_COMMAND = (
+    "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py"
+)
+
 
 class _DashboardFailingPRGateway(FakePRGateway):
     def add_pr_discussion_comment(self, pr_number: int, body: str) -> Any:
@@ -182,9 +186,7 @@ def _valid_resolver_output(*, batch_slug: str = "avoid-print") -> str:
         "files_changed": ["app.py"],
         "validation": [
             {
-                "command": (
-                    "uv run pytest packages/roaster/tests/unit/stack/command/test_workflow.py"
-                ),
+                "command": _STACK_WORKFLOW_VALIDATION_COMMAND,
                 "status": "passed",
                 "output_summary": "passed",
             }
