@@ -21,12 +21,19 @@ ReleaseTargetFailureReason = Literal[
 
 @dataclass(frozen=True)
 class ReleaseTargetFailure:
-    error_type: str
     reason: ReleaseTargetFailureReason
-    message: str
     slot_name: str
     branch_name: str
     worktree_path: Path
+    operation: str | None = None
+    detach_ref: str | None = None
+    detach_error: str | None = None
+
+    @property
+    def error_type(self) -> str:
+        if self.reason == "detach_failed":
+            return "slot_allocation_error"
+        return self.reason
 
 
 def operation_recovery_instruction(operation: str) -> str:
@@ -74,16 +81,12 @@ def release_assigned_slot_target(
     inventory: SlotInventory,
     target: FreedSlot,
     trunk_branch: str,
-    *,
-    operation_action: str,
 ) -> FreedSlot | ReleaseTargetFailure:
     """Recheck and detach one assigned target without owning caller policy."""
     record = inventory.find_by_slot(target.slot_name)
     if record is None or record.branch is None:
         return ReleaseTargetFailure(
-            error_type="slot_not_assigned",
             reason="slot_not_assigned",
-            message=f"{target.slot_name} is not currently assigned.",
             slot_name=target.slot_name,
             branch_name=target.branch_name,
             worktree_path=target.worktree_path,
@@ -91,12 +94,7 @@ def release_assigned_slot_target(
 
     if record.branch != target.branch_name:
         return ReleaseTargetFailure(
-            error_type="slot_not_assigned",
             reason="slot_not_assigned",
-            message=(
-                f"slot {target.slot_name} was not assigned to {target.branch_name} "
-                "during free (state changed between plan and execute)."
-            ),
             slot_name=target.slot_name,
             branch_name=target.branch_name,
             worktree_path=record.path,
@@ -104,25 +102,16 @@ def release_assigned_slot_target(
 
     if record.operation is not None:
         return ReleaseTargetFailure(
-            error_type="operation_in_progress",
             reason="operation_in_progress",
-            message=free_operation_in_progress_message(
-                slot_name=record.slot_name,
-                branch_name=record.branch,
-                worktree_path=record.path,
-                operation=record.operation,
-                action=operation_action,
-            ),
             slot_name=target.slot_name,
             branch_name=target.branch_name,
             worktree_path=record.path,
+            operation=record.operation,
         )
 
     if git.has_uncommitted_changes(record.path):
         return ReleaseTargetFailure(
-            error_type="dirty_worktree",
             reason="dirty_worktree",
-            message=f"worktree has uncommitted changes at {record.path}",
             slot_name=target.slot_name,
             branch_name=target.branch_name,
             worktree_path=record.path,
@@ -133,14 +122,12 @@ def release_assigned_slot_target(
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr.strip() if exc.stderr else str(exc)
         return ReleaseTargetFailure(
-            error_type="slot_allocation_error",
             reason="detach_failed",
-            message=(
-                f"Failed to detach {target.slot_name} at {record.path} to {trunk_branch}: {stderr}"
-            ),
             slot_name=target.slot_name,
             branch_name=target.branch_name,
             worktree_path=record.path,
+            detach_ref=trunk_branch,
+            detach_error=stderr,
         )
 
     return freed_slot_from_record(record)

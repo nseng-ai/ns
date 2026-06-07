@@ -7,13 +7,16 @@ from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRGatewayFailure
 from asdl_core.git.types import DetachedHead, FileStatus
 from asdl_slots.lifecycle.free import (
-    SLOT_FREE_ALL_CLEANUP_ACTIONS,
     execute_free_plan,
     plan_free_slots,
 )
 from asdl_slots.lifecycle.gc import execute_gc_plan, plan_gc
 from asdl_slots.lifecycle.outcomes import SlotLifecycleFailure
-from asdl_slots.lifecycle.release_cleanup import execute_release_cleanup, plan_release_cleanup
+from asdl_slots.lifecycle.release_cleanup import (
+    SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
+    execute_release_cleanup,
+    plan_release_cleanup,
+)
 from asdl_slots.testing.lifecycle_context import (
     make_pr,
     make_slots_lifecycle_context,
@@ -64,7 +67,7 @@ def test_execute_free_plan_detaches_then_cleanup_closes_pr_and_deletes_branch(
     cleanup = plan_release_cleanup(
         ctx,
         outcome.freed,
-        SLOT_FREE_ALL_CLEANUP_ACTIONS,
+        SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
         trunk_branch=plan.trunk_branch,
     )
 
@@ -126,7 +129,7 @@ def test_plan_release_cleanup_stops_on_pr_lookup_failure(tmp_path: Path) -> None
     cleanup = plan_release_cleanup(
         ctx,
         plan.targets,
-        SLOT_FREE_ALL_CLEANUP_ACTIONS,
+        SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
         trunk_branch=plan.trunk_branch,
     )
 
@@ -225,7 +228,7 @@ def test_execute_release_cleanup_executes_pr_close_and_branch_delete(tmp_path: P
     cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
-        SLOT_FREE_ALL_CLEANUP_ACTIONS,
+        SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
         trunk_branch=plan.trunk_branch,
     )
 

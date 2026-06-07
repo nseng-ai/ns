@@ -6,8 +6,7 @@ from pathlib import Path
 import pytest
 
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_core.gh.types import PRGatewayFailure, PRState, PRSummary
-from asdl_core.git.testing import FakeGitGateway
+from asdl_core.gh.types import PRGatewayFailure, PRState
 from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
@@ -15,17 +14,11 @@ from asdl_core.git.types import (
     WorktreeInfo,
     WorktreeOccupancy,
 )
-from asdl_slots.context import SlotsCliContext
-from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
-from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
 from asdl_slots.lifecycle.free import (
-    SLOT_FREE_ALL_CLEANUP_ACTIONS,
-    execute_cleanup_for_freed_slots,
     execute_free_plan,
     free_slots,
-    plan_cleanup_for_free_targets,
     plan_free_slots,
 )
 from asdl_slots.lifecycle.gc import (
@@ -50,7 +43,18 @@ from asdl_slots.lifecycle.pool import (
     initialize_pool,
     resize_pool,
 )
-from asdl_slots.repo_context import RepoContext
+from asdl_slots.lifecycle.release_cleanup import (
+    SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
+    execute_release_cleanup,
+    plan_release_cleanup,
+)
+from asdl_slots.testing.lifecycle_context import (
+    make_pr,
+    make_repo_root,
+    make_slots_lifecycle_context,
+    slot_path,
+    slot_worktree,
+)
 
 
 def _record(
@@ -70,83 +74,6 @@ def _record(
 
 def _inventory(*records: SlotRecord) -> SlotInventory:
     return SlotInventory(records=tuple(sorted(records, key=lambda r: r.slot_number)))
-
-
-def _slot_path(slots_root: Path, n: int) -> Path:
-    return slots_root / "repos" / "repo" / "worktrees" / f"slot-{n:02d}"
-
-
-def _slot_worktree(slots_root: Path, n: int, branch: str | None) -> WorktreeInfo:
-    return WorktreeInfo(path=_slot_path(slots_root, n), branch=branch, is_bare=False)
-
-
-def _lifecycle_context(
-    tmp_path: Path,
-    *,
-    branches: tuple[str, ...] = (),
-    worktrees: tuple[WorktreeInfo, ...] = (),
-    previous_branch_by_path: dict[Path, str | None] | None = None,
-    trunk_branch: str = "main",
-    file_status_by_path: dict[Path, FileStatus] | None = None,
-    operations_by_path: dict[Path, WorktreeOccupancy] | None = None,
-    checkout_failures_by_path: dict[Path, GitCommandFailure] | None = None,
-    detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
-    delete_local_branch_failure_by_branch: dict[str, GitCommandFailure] | None = None,
-    prs_by_branch: dict[str, PRSummary] | None = None,
-    pr_gateway: FakePRGateway | None = None,
-) -> tuple[SlotsCliContext, FakeGitGateway]:
-    repo_root = (tmp_path / "repo").resolve()
-    slots_root = tmp_path / "slots"
-    repo_dir = slots_root / "repos" / "repo"
-    repo = RepoContext(
-        root=repo_root,
-        main_repo_root=repo_root,
-        repo_name="repo",
-        repo_dir=repo_dir,
-        worktrees_dir=repo_dir / "worktrees",
-    )
-    current_branch_by_path: dict[Path, str | DetachedHead] = {
-        wt.path: wt.branch if wt.branch is not None else DetachedHead() for wt in worktrees
-    }
-    existing_paths = {repo_root, *(wt.path for wt in worktrees)}
-    storage = FakeSlotsStorageGateway(existing_paths=existing_paths)
-    git = FakeGitGateway(
-        repo_root=repo_root,
-        branches=branches,
-        worktrees=worktrees,
-        current_branch_by_path=current_branch_by_path,
-        previous_branch_by_path=previous_branch_by_path,
-        trunk_branch=trunk_branch,
-        file_status_by_path=file_status_by_path,
-        operations_by_path=operations_by_path,
-        checkout_failures_by_path=checkout_failures_by_path,
-        detach_head_failures_by_path=detach_head_failures_by_path,
-        delete_local_branch_failure_by_branch=delete_local_branch_failure_by_branch,
-        existing_paths=existing_paths,
-        repository_root_by_cwd={repo_root: repo_root},
-    )
-    return (
-        SlotsCliContext(
-            repo=repo,
-            git=git,
-            storage=storage,
-            clipboard=FakeClipboardGateway(),
-            pr=pr_gateway or FakePRGateway(prs_by_branch=prs_by_branch or {}),
-            slots_root=slots_root,
-        ),
-        git,
-    )
-
-
-def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
-    return PRSummary(
-        number=number,
-        title=f"PR {number}",
-        url=f"https://github.com/dagster-io/asdl/pull/{number}",
-        head_ref_name=branch,
-        base_ref_name="master",
-        state=state,
-    )
 
 
 def test_init_plan_creates_one_through_n() -> None:
@@ -225,12 +152,12 @@ def test_resize_shrink_returns_full_records() -> None:
 
 def test_checkout_branch_existing_branch_assigns_lowest_clean_slot(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("feat/x",),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, None),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, None),
         ),
     )
 
@@ -239,21 +166,21 @@ def test_checkout_branch_existing_branch_assigns_lowest_clean_slot(tmp_path: Pat
     assert isinstance(outcome, SlotCheckoutOutcome)
     assert outcome.slot_name == "slot-01"
     assert outcome.branch_name == "feat/x"
-    assert outcome.worktree_path == _slot_path(slots_root, 1)
+    assert outcome.worktree_path == slot_path(slots_root, 1)
     assert outcome.already_assigned is False
     assert outcome.created_branch is False
     assert outcome.current_wt_note is None
-    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/x"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/x"
     assert ctx.storage.path_exists(ctx.repo.repo_dir)
     assert ctx.storage.path_exists(ctx.repo.worktrees_dir)
 
 
 def test_checkout_branch_new_creates_branch_before_assigning(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
     )
 
     outcome = checkout_branch(ctx, "feat/new", new_branch=True, base="main")
@@ -263,13 +190,13 @@ def test_checkout_branch_new_creates_branch_before_assigning(tmp_path: Path) -> 
     assert outcome.slot_name == "slot-01"
     assert outcome.branch_name == "feat/new"
     assert outcome.created_branch is True
-    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/new"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/new"
 
 
 def test_checkout_branch_pool_full_returns_failure_without_checkout(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    assigned = _slot_worktree(slots_root, 1, "feat/a")
-    ctx, git = _lifecycle_context(
+    assigned = slot_worktree(slots_root, 1, "feat/a")
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("feat/a", "feat/b"),
         worktrees=(assigned,),
@@ -282,18 +209,18 @@ def test_checkout_branch_pool_full_returns_failure_without_checkout(tmp_path: Pa
     assert outcome.error_type == "pool_full"
     assert "slot-01 -> feat/a" in outcome.message
     assert git.list_worktrees() == worktrees_before
-    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/a"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/a"
 
 
 def test_checkout_branch_in_use_by_rebasing_slot_returns_branch_in_use_failure(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
-    rebasing_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    rebasing_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("feat/x", "main"),
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
         operations_by_path={
             rebasing_path: WorktreeOccupancy(
                 path=rebasing_path,
@@ -315,17 +242,17 @@ def test_checkout_branch_in_use_by_rebasing_slot_returns_branch_in_use_failure(
 
 def test_checkout_branch_surfaces_git_checkout_failure_without_raising(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    slot_path = _slot_path(slots_root, 1)
+    failed_path = slot_path(slots_root, 1)
     failure = GitCommandFailure(
         message="fatal: 'feat/x' is already checked out at '/wt/slot-06'",
         returncode=128,
         error_type="git_checkout_failed",
     )
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("feat/x", "main"),
-        worktrees=(_slot_worktree(slots_root, 1, None),),
-        checkout_failures_by_path={slot_path: failure},
+        worktrees=(slot_worktree(slots_root, 1, None),),
+        checkout_failures_by_path={failed_path: failure},
     )
 
     outcome = checkout_branch(ctx, "feat/x", new_branch=False, base=None)
@@ -333,18 +260,18 @@ def test_checkout_branch_surfaces_git_checkout_failure_without_raising(tmp_path:
     assert isinstance(outcome, SlotLifecycleFailure)
     assert outcome.error_type == "checkout_failed"
     assert "already checked out" in outcome.message
-    assert git._checkout_calls == [(slot_path, "feat/x")]
+    assert git._checkout_calls == [(failed_path, "feat/x")]
 
 
 def test_checkout_current_preserves_existing_redirect_behavior(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    repo_root = (tmp_path / "repo").resolve()
-    ctx, git = _lifecycle_context(
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("feat/x", "some-other"),
         worktrees=(
             WorktreeInfo(path=repo_root, branch="feat/x", is_bare=False),
-            _slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 1, None),
         ),
         previous_branch_by_path={repo_root: "some-other"},
     )
@@ -357,23 +284,23 @@ def test_checkout_current_preserves_existing_redirect_behavior(tmp_path: Path) -
     assert outcome.created_branch is False
     assert outcome.current_wt_note is None
     assert git.get_current_branch(repo_root) == "some-other"
-    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/x"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/x"
 
 
 def test_checkout_current_redirect_failure_uses_planner_subject(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    repo_root = (tmp_path / "repo").resolve()
+    repo_root = make_repo_root(tmp_path)
     failure = GitCommandFailure(
         message="fatal: checkout failed",
         returncode=128,
         error_type="git_checkout_failed",
     )
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("feat/x", "some-other"),
         worktrees=(
             WorktreeInfo(path=repo_root, branch="feat/x", is_bare=False),
-            _slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 1, None),
         ),
         previous_branch_by_path={repo_root: "some-other"},
         checkout_failures_by_path={repo_root: failure},
@@ -391,7 +318,7 @@ def test_checkout_current_redirect_failure_uses_planner_subject(tmp_path: Path) 
 
 def test_initialize_pool_creates_n_detached_worktrees_at_trunk(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
 
     outcome = initialize_pool(ctx, 3)
 
@@ -404,16 +331,16 @@ def test_initialize_pool_creates_n_detached_worktrees_at_trunk(tmp_path: Path) -
     worktrees = git.list_worktrees()
     assert len(worktrees) == 3
     for n, wt in enumerate(worktrees, start=1):
-        assert wt.path == _slot_path(slots_root, n)
+        assert wt.path == slot_path(slots_root, n)
         assert wt.branch is None
 
 
 def test_initialize_pool_with_existing_pool_returns_failure(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
     )
     worktrees_before = git.list_worktrees()
 
@@ -426,7 +353,7 @@ def test_initialize_pool_with_existing_pool_returns_failure(tmp_path: Path) -> N
 
 
 def test_initialize_pool_invalid_size_below_min_returns_failure(tmp_path: Path) -> None:
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
     worktrees_before = git.list_worktrees()
 
     outcome = initialize_pool(ctx, 0)
@@ -438,7 +365,7 @@ def test_initialize_pool_invalid_size_below_min_returns_failure(tmp_path: Path) 
 
 
 def test_initialize_pool_invalid_size_above_max_returns_failure(tmp_path: Path) -> None:
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
     worktrees_before = git.list_worktrees()
 
     outcome = initialize_pool(ctx, 100)
@@ -450,7 +377,7 @@ def test_initialize_pool_invalid_size_above_max_returns_failure(tmp_path: Path) 
 
 def test_resize_pool_grow_from_empty_creates_detached_worktrees(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
 
     outcome = resize_pool(ctx, 2)
 
@@ -462,18 +389,18 @@ def test_resize_pool_grow_from_empty_creates_detached_worktrees(tmp_path: Path) 
     assert outcome.worktrees_dir == ctx.repo.worktrees_dir
     worktrees = git.list_worktrees()
     assert len(worktrees) == 2
-    assert worktrees[0].path == _slot_path(slots_root, 1)
+    assert worktrees[0].path == slot_path(slots_root, 1)
     assert worktrees[0].branch is None
 
 
 def test_resize_pool_no_op_when_at_target(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, None),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, None),
         ),
     )
     worktrees_before = git.list_worktrees()
@@ -490,14 +417,14 @@ def test_resize_pool_no_op_when_at_target(tmp_path: Path) -> None:
 
 def test_resize_pool_shrink_removes_highest_unassigned(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, None),
-            _slot_worktree(slots_root, 3, None),
-            _slot_worktree(slots_root, 4, None),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, None),
+            slot_worktree(slots_root, 3, None),
+            slot_worktree(slots_root, 4, None),
         ),
     )
 
@@ -509,17 +436,17 @@ def test_resize_pool_shrink_removes_highest_unassigned(tmp_path: Path) -> None:
     assert outcome.created == ()
     assert outcome.removed == ("slot-03", "slot-04")
     remaining_paths = {wt.path for wt in git.list_worktrees()}
-    assert remaining_paths == {_slot_path(slots_root, 1), _slot_path(slots_root, 2)}
+    assert remaining_paths == {slot_path(slots_root, 1), slot_path(slots_root, 2)}
 
 
 def test_resize_pool_shrink_blocks_when_slot_assigned(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, "feat/x"),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, "feat/x"),
         ),
     )
     worktrees_before = git.list_worktrees()
@@ -534,17 +461,17 @@ def test_resize_pool_shrink_blocks_when_slot_assigned(tmp_path: Path) -> None:
 
 def test_resize_pool_shrink_blocks_when_operation_in_progress(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    slot_path = _slot_path(slots_root, 2)
-    ctx, git = _lifecycle_context(
+    operation_path = slot_path(slots_root, 2)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/rebase"),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, None),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, None),
         ),
         operations_by_path={
-            slot_path: WorktreeOccupancy(
-                path=slot_path,
+            operation_path: WorktreeOccupancy(
+                path=operation_path,
                 branch="feat/rebase",
                 operation="rebase",
             ),
@@ -565,13 +492,13 @@ def test_resize_pool_shrink_blocks_when_operation_in_progress(tmp_path: Path) ->
 
 def test_resize_pool_shrink_blocks_when_slot_dirty(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    dirty_path = _slot_path(slots_root, 2)
-    ctx, git = _lifecycle_context(
+    dirty_path = slot_path(slots_root, 2)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, None),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, None),
         ),
         file_status_by_path={
             dirty_path: FileStatus(staged=False, modified=True, untracked=False),
@@ -589,13 +516,13 @@ def test_resize_pool_shrink_blocks_when_slot_dirty(tmp_path: Path) -> None:
 
 def test_resize_pool_shrink_assigned_takes_priority_over_dirty(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    contested_path = _slot_path(slots_root, 2)
-    ctx, _git = _lifecycle_context(
+    contested_path = slot_path(slots_root, 2)
+    ctx, _git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
         worktrees=(
-            _slot_worktree(slots_root, 1, None),
-            _slot_worktree(slots_root, 2, "feat/x"),
+            slot_worktree(slots_root, 1, None),
+            slot_worktree(slots_root, 2, "feat/x"),
         ),
         file_status_by_path={
             contested_path: FileStatus(staged=False, modified=True, untracked=False),
@@ -611,7 +538,7 @@ def test_resize_pool_shrink_assigned_takes_priority_over_dirty(tmp_path: Path) -
 
 
 def test_resize_pool_invalid_size_below_min_returns_failure(tmp_path: Path) -> None:
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
     worktrees_before = git.list_worktrees()
 
     outcome = resize_pool(ctx, 0)
@@ -622,7 +549,7 @@ def test_resize_pool_invalid_size_below_min_returns_failure(tmp_path: Path) -> N
 
 
 def test_resize_pool_invalid_size_above_max_returns_failure(tmp_path: Path) -> None:
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
     worktrees_before = git.list_worktrees()
 
     outcome = resize_pool(ctx, 100)
@@ -636,7 +563,7 @@ def test_resize_pool_invalid_size_above_max_returns_failure(tmp_path: Path) -> N
 
 
 def test_free_slots_empty_list_is_no_op(tmp_path: Path) -> None:
-    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    ctx, git = make_slots_lifecycle_context(tmp_path, branches=("main",))
     worktrees_before = git.list_worktrees()
 
     outcome = free_slots(ctx, ())
@@ -649,13 +576,13 @@ def test_free_slots_empty_list_is_no_op(tmp_path: Path) -> None:
 
 def test_free_slots_single_assigned_slot_detaches_at_trunk(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         trunk_branch="trunk",
     )
-    path = _slot_path(slots_root, 1)
+    path = slot_path(slots_root, 1)
 
     outcome = free_slots(ctx, ("slot-01",))
 
@@ -671,13 +598,13 @@ def test_free_slots_single_assigned_slot_detaches_at_trunk(tmp_path: Path) -> No
 
 def test_free_slots_batch_detaches_all_in_order(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/a", "feat/b", "feat/c"),
         worktrees=(
-            _slot_worktree(slots_root, 1, "feat/a"),
-            _slot_worktree(slots_root, 2, "feat/b"),
-            _slot_worktree(slots_root, 3, "feat/c"),
+            slot_worktree(slots_root, 1, "feat/a"),
+            slot_worktree(slots_root, 2, "feat/b"),
+            slot_worktree(slots_root, 3, "feat/c"),
         ),
     )
 
@@ -687,20 +614,20 @@ def test_free_slots_batch_detaches_all_in_order(tmp_path: Path) -> None:
     assert [freed.slot_name for freed in outcome.freed] == ["slot-03", "slot-01"]
     assert [freed.branch_name for freed in outcome.freed] == ["feat/c", "feat/a"]
     assert git._detach_head_calls == [
-        (_slot_path(slots_root, 3), "main"),
-        (_slot_path(slots_root, 1), "main"),
+        (slot_path(slots_root, 3), "main"),
+        (slot_path(slots_root, 1), "main"),
     ]
-    assert git.get_current_branch(_slot_path(slots_root, 1)) == DetachedHead()
-    assert git.get_current_branch(_slot_path(slots_root, 2)) == "feat/b"
-    assert git.get_current_branch(_slot_path(slots_root, 3)) == DetachedHead()
+    assert git.get_current_branch(slot_path(slots_root, 1)) == DetachedHead()
+    assert git.get_current_branch(slot_path(slots_root, 2)) == "feat/b"
+    assert git.get_current_branch(slot_path(slots_root, 3)) == DetachedHead()
 
 
 def test_free_slots_unassigned_target_returns_invalid_slot_args(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
     )
 
     outcome = free_slots(ctx, ("slot-01",))
@@ -713,14 +640,14 @@ def test_free_slots_unassigned_target_returns_invalid_slot_args(tmp_path: Path) 
 
 def test_free_slots_operation_target_returns_invalid_slot_args(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    slot_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    operation_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/rebase"),
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
         operations_by_path={
-            slot_path: WorktreeOccupancy(
-                path=slot_path,
+            operation_path: WorktreeOccupancy(
+                path=operation_path,
                 branch="feat/rebase",
                 operation="rebase",
             ),
@@ -740,11 +667,11 @@ def test_free_slots_operation_target_returns_invalid_slot_args(tmp_path: Path) -
 
 def test_free_slots_dirty_target_returns_invalid_slot_args(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    dirty_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    dirty_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         file_status_by_path={
             dirty_path: FileStatus(staged=False, modified=True, untracked=False),
         },
@@ -761,13 +688,13 @@ def test_free_slots_dirty_target_returns_invalid_slot_args(tmp_path: Path) -> No
 
 def test_free_slots_preflight_blocks_all_when_one_dirty(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    dirty_path = _slot_path(slots_root, 2)
-    ctx, git = _lifecycle_context(
+    dirty_path = slot_path(slots_root, 2)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/a", "feat/b"),
         worktrees=(
-            _slot_worktree(slots_root, 1, "feat/a"),
-            _slot_worktree(slots_root, 2, "feat/b"),
+            slot_worktree(slots_root, 1, "feat/a"),
+            slot_worktree(slots_root, 2, "feat/b"),
         ),
         file_status_by_path={
             dirty_path: FileStatus(staged=False, modified=True, untracked=False),
@@ -780,20 +707,20 @@ def test_free_slots_preflight_blocks_all_when_one_dirty(tmp_path: Path) -> None:
     assert outcome.error_type == "invalid_slot_args"
     assert f"slot-02 has uncommitted changes at {dirty_path}" in outcome.message
     assert git._detach_head_calls == []
-    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/a"
-    assert git.get_current_branch(_slot_path(slots_root, 2)) == "feat/b"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/a"
+    assert git.get_current_branch(slot_path(slots_root, 2)) == "feat/b"
 
 
 def test_free_slots_combines_selector_preflight_errors_with_state_errors(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
         worktrees=(
-            _slot_worktree(slots_root, 1, "feat/x"),
-            _slot_worktree(slots_root, 2, None),
+            slot_worktree(slots_root, 1, "feat/x"),
+            slot_worktree(slots_root, 2, None),
         ),
     )
 
@@ -815,14 +742,14 @@ def test_free_slots_combines_selector_preflight_errors_with_state_errors(
 
 def test_free_slots_mid_loop_git_failure_reports_already_freed(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    first_path = _slot_path(slots_root, 1)
-    second_path = _slot_path(slots_root, 2)
-    ctx, git = _lifecycle_context(
+    first_path = slot_path(slots_root, 1)
+    second_path = slot_path(slots_root, 2)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/a", "feat/b"),
         worktrees=(
-            _slot_worktree(slots_root, 1, "feat/a"),
-            _slot_worktree(slots_root, 2, "feat/b"),
+            slot_worktree(slots_root, 1, "feat/a"),
+            slot_worktree(slots_root, 2, "feat/b"),
         ),
         detach_head_failures_by_path={
             second_path: subprocess.CalledProcessError(
@@ -847,11 +774,11 @@ def test_free_slots_mid_loop_git_failure_reports_already_freed(tmp_path: Path) -
 
 def test_free_slots_mid_loop_first_failure_omits_already_freed(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    first_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    first_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/a"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/a"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/a"),),
         detach_head_failures_by_path={
             first_path: subprocess.CalledProcessError(
                 128,
@@ -873,11 +800,11 @@ def test_free_slots_mid_loop_first_failure_omits_already_freed(tmp_path: Path) -
 
 def test_plan_free_slots_validates_without_mutating(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         trunk_branch="trunk",
     )
 
@@ -893,11 +820,11 @@ def test_plan_free_slots_validates_without_mutating(tmp_path: Path) -> None:
 
 def test_execute_free_plan_preserves_free_slots_behavior(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
@@ -911,7 +838,7 @@ def test_execute_free_plan_preserves_free_slots_behavior(tmp_path: Path) -> None
 
 
 def test_all_cleanup_actions_are_in_fixed_order() -> None:
-    assert SLOT_FREE_ALL_CLEANUP_ACTIONS == (
+    assert SLOT_RELEASE_ALL_CLEANUP_ACTIONS == (
         "pr",
         "local_branch",
     )
@@ -919,20 +846,20 @@ def test_all_cleanup_actions_are_in_fixed_order() -> None:
 
 def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")})
-    ctx, git = _lifecycle_context(
+    pr = FakePRGateway(prs_by_branch={"feat/x": make_pr(42, "OPEN", "feat/x")})
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         pr_gateway=pr,
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
 
-    cleanup = plan_cleanup_for_free_targets(
+    cleanup = plan_release_cleanup(
         ctx,
         plan.targets,
-        SLOT_FREE_ALL_CLEANUP_ACTIONS,
+        SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
         trunk_branch=plan.trunk_branch,
     )
 
@@ -947,11 +874,11 @@ def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
 
 def test_pr_cleanup_success_closes_open_pr_after_detach(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")})
-    ctx, git = _lifecycle_context(
+    pr = FakePRGateway(prs_by_branch={"feat/x": make_pr(42, "OPEN", "feat/x")})
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         pr_gateway=pr,
     )
     plan = plan_free_slots(ctx, ("slot-01",))
@@ -959,7 +886,7 @@ def test_pr_cleanup_success_closes_open_pr_after_detach(tmp_path: Path) -> None:
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("pr",),
@@ -969,21 +896,21 @@ def test_pr_cleanup_success_closes_open_pr_after_detach(tmp_path: Path) -> None:
     assert [(entry.action, entry.status, entry.pr_number) for entry in cleanup] == [
         ("pr", "success", 42)
     ]
-    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+    assert git._detach_head_calls == [(slot_path(slots_root, 1), "main")]
     assert pr.close_calls == (42,)
 
 
 def test_pr_cleanup_no_pr_is_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, _git = _lifecycle_context(
+    ctx, _git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
 
-    cleanup = plan_cleanup_for_free_targets(ctx, plan.targets, ("pr",), trunk_branch="main")
+    cleanup = plan_release_cleanup(ctx, plan.targets, ("pr",), trunk_branch="main")
 
     assert cleanup[0].action == "pr"
     assert cleanup[0].status == "skipped"
@@ -994,17 +921,17 @@ def test_cleanup_all_with_pr_lookup_miss_continues_to_local_branch_cleanup(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("pr", "local_branch"),
@@ -1025,11 +952,11 @@ def test_cleanup_all_with_completed_pr_continues_to_local_branch_cleanup(
     pr_state: PRState,
 ) -> None:
     slots_root = tmp_path / "slots"
-    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, pr_state, "feat/x")})
-    ctx, git = _lifecycle_context(
+    pr = FakePRGateway(prs_by_branch={"feat/x": make_pr(42, pr_state, "feat/x")})
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         pr_gateway=pr,
     )
     plan = plan_free_slots(ctx, ("slot-01",))
@@ -1037,7 +964,7 @@ def test_cleanup_all_with_completed_pr_continues_to_local_branch_cleanup(
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("pr", "local_branch"),
@@ -1057,10 +984,10 @@ def test_cleanup_all_with_pr_lookup_failure_stops_before_local_branch_cleanup(
 ) -> None:
     slots_root = tmp_path / "slots"
     pr = FakePRGateway(lookup_failure=PRGatewayFailure(stderr="gh auth failed", returncode=4))
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         pr_gateway=pr,
     )
     plan = plan_free_slots(ctx, ("slot-01",))
@@ -1068,7 +995,7 @@ def test_cleanup_all_with_pr_lookup_failure_stops_before_local_branch_cleanup(
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("pr", "local_branch"),
@@ -1088,13 +1015,13 @@ def test_cleanup_all_with_pr_close_failure_stops_before_local_branch_cleanup(
     slots_root = tmp_path / "slots"
     failure = PRGatewayFailure(stderr="gh auth failed", returncode=4)
     pr = FakePRGateway(
-        prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
+        prs_by_branch={"feat/x": make_pr(42, "OPEN", "feat/x")},
         close_failure=failure,
     )
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         pr_gateway=pr,
     )
     plan = plan_free_slots(ctx, ("slot-01",))
@@ -1102,7 +1029,7 @@ def test_cleanup_all_with_pr_close_failure_stops_before_local_branch_cleanup(
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("pr", "local_branch"),
@@ -1119,17 +1046,17 @@ def test_cleanup_all_with_pr_close_failure_stops_before_local_branch_cleanup(
 
 def test_local_branch_cleanup_force_deletes_after_detach(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("local_branch",),
@@ -1137,24 +1064,24 @@ def test_local_branch_cleanup_force_deletes_after_detach(tmp_path: Path) -> None
     )
 
     assert cleanup[0].status == "success"
-    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+    assert git._detach_head_calls == [(slot_path(slots_root, 1), "main")]
     assert git.delete_local_branch_calls == (("feat/x", True),)
     assert not git.branch_exists("feat/x")
 
 
 def test_local_branch_cleanup_skips_when_branch_is_already_absent(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("local_branch",),
@@ -1168,10 +1095,10 @@ def test_local_branch_cleanup_skips_when_branch_is_already_absent(tmp_path: Path
 def test_local_branch_cleanup_skips_narrow_missing_branch_race(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     failure = GitCommandFailure(message="error: branch 'feat/x' not found.", returncode=1)
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         delete_local_branch_failure_by_branch={"feat/x": failure},
     )
     plan = plan_free_slots(ctx, ("slot-01",))
@@ -1179,7 +1106,7 @@ def test_local_branch_cleanup_skips_narrow_missing_branch_race(tmp_path: Path) -
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("local_branch",),
@@ -1198,10 +1125,10 @@ def test_local_branch_cleanup_unexpected_failure_is_error_and_preserves_branch(
         message="cannot delete branch 'feat/x' checked out at '/repo-other'",
         returncode=1,
     )
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         delete_local_branch_failure_by_branch={"feat/x": failure},
     )
     plan = plan_free_slots(ctx, ("slot-01",))
@@ -1209,7 +1136,7 @@ def test_local_branch_cleanup_unexpected_failure_is_error_and_preserves_branch(
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         ctx,
         outcome.freed,
         ("local_branch",),
@@ -1224,16 +1151,16 @@ def test_local_branch_cleanup_unexpected_failure_is_error_and_preserves_branch(
 
 def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main",),
-        worktrees=(_slot_worktree(slots_root, 1, "main"),),
+        worktrees=(slot_worktree(slots_root, 1, "main"),),
         trunk_branch="main",
     )
     plan = plan_free_slots(ctx, ("slot-01",))
     assert isinstance(plan, SlotFreePlan)
 
-    cleanup = plan_cleanup_for_free_targets(
+    cleanup = plan_release_cleanup(
         ctx,
         plan.targets,
         ("local_branch",),
@@ -1250,7 +1177,7 @@ def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
 
 
 def test_plan_gc_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
-    ctx, git = _lifecycle_context(tmp_path)
+    ctx, git = make_slots_lifecycle_context(tmp_path)
 
     plan = plan_gc(ctx)
 
@@ -1261,7 +1188,7 @@ def test_plan_gc_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
 
 
 def test_garbage_collect_slots_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
-    ctx, _git = _lifecycle_context(tmp_path)
+    ctx, _git = make_slots_lifecycle_context(tmp_path)
 
     outcome = garbage_collect_slots(ctx, dry_run=False)
 
@@ -1271,9 +1198,9 @@ def test_garbage_collect_slots_empty_pool_returns_lifecycle_failure(tmp_path: Pa
 
 def test_garbage_collect_slots_detached_slots_are_ignored(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=False)
@@ -1290,10 +1217,10 @@ def test_garbage_collect_slots_detached_slots_are_ignored(tmp_path: Path) -> Non
 
 def test_garbage_collect_slots_open_pr_is_kept(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
-        prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
+        prs_by_branch={"feat/x": make_pr(42, "OPEN", "feat/x")},
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=False)
@@ -1314,11 +1241,11 @@ def test_garbage_collect_slots_completed_pr_is_freed(
     pr_state: PRState,
 ) -> None:
     slots_root = tmp_path / "slots"
-    worktree_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    worktree_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, pr_state, "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, pr_state, "feat/done")},
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=False)
@@ -1334,9 +1261,9 @@ def test_garbage_collect_slots_completed_pr_is_freed(
 
 def test_garbage_collect_slots_no_pr_is_kept(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "local-only"),),
+        worktrees=(slot_worktree(slots_root, 1, "local-only"),),
         prs_by_branch={},
     )
 
@@ -1351,9 +1278,9 @@ def test_garbage_collect_slots_no_pr_is_kept(tmp_path: Path) -> None:
 
 def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/x"),),
         pr_gateway=FakePRGateway(
             lookup_failure=PRGatewayFailure(stderr="gh: command not found", returncode=4)
         ),
@@ -1370,18 +1297,18 @@ def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Pat
 
 def test_garbage_collect_slots_operation_worktree_is_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    slot_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    operation_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, None),),
+        worktrees=(slot_worktree(slots_root, 1, None),),
         operations_by_path={
-            slot_path: WorktreeOccupancy(
-                path=slot_path,
+            operation_path: WorktreeOccupancy(
+                path=operation_path,
                 branch="feat/rebase",
                 operation="rebase",
             ),
         },
-        prs_by_branch={"feat/rebase": _make_pr(12, "MERGED", "feat/rebase")},
+        prs_by_branch={"feat/rebase": make_pr(12, "MERGED", "feat/rebase")},
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=False)
@@ -1397,14 +1324,14 @@ def test_garbage_collect_slots_operation_worktree_is_skipped(tmp_path: Path) -> 
 
 def test_garbage_collect_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    worktree_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    worktree_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/dirty"),),
         file_status_by_path={
             worktree_path: FileStatus(staged=False, modified=True, untracked=False),
         },
-        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+        prs_by_branch={"feat/dirty": make_pr(12, "MERGED", "feat/dirty")},
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=False)
@@ -1417,10 +1344,10 @@ def test_garbage_collect_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None
 
 def test_garbage_collect_slots_dry_run_reports_without_mutating(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, "MERGED", "feat/done")},
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=True)
@@ -1436,26 +1363,26 @@ def test_garbage_collect_slots_dry_run_reports_without_mutating(tmp_path: Path) 
 
 def test_garbage_collect_slots_mixed_pool_classifies_per_slot(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         worktrees=(
-            _slot_worktree(slots_root, 1, "feat/done"),
-            _slot_worktree(slots_root, 2, "feat/wip"),
-            _slot_worktree(slots_root, 3, "local"),
-            _slot_worktree(slots_root, 4, "feat/dirty"),
-            _slot_worktree(slots_root, 5, None),
+            slot_worktree(slots_root, 1, "feat/done"),
+            slot_worktree(slots_root, 2, "feat/wip"),
+            slot_worktree(slots_root, 3, "local"),
+            slot_worktree(slots_root, 4, "feat/dirty"),
+            slot_worktree(slots_root, 5, None),
         ),
         file_status_by_path={
-            _slot_path(slots_root, 4): FileStatus(
+            slot_path(slots_root, 4): FileStatus(
                 staged=False,
                 modified=True,
                 untracked=False,
             ),
         },
         prs_by_branch={
-            "feat/done": _make_pr(1, "MERGED", "feat/done"),
-            "feat/wip": _make_pr(2, "OPEN", "feat/wip"),
-            "feat/dirty": _make_pr(3, "MERGED", "feat/dirty"),
+            "feat/done": make_pr(1, "MERGED", "feat/done"),
+            "feat/wip": make_pr(2, "OPEN", "feat/wip"),
+            "feat/dirty": make_pr(3, "MERGED", "feat/dirty"),
         },
     )
 
@@ -1473,21 +1400,21 @@ def test_garbage_collect_slots_mixed_pool_classifies_per_slot(tmp_path: Path) ->
     assert outcome.kept_count == 2
     assert outcome.skipped_count == 1
     assert outcome.error_count == 0
-    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+    assert git._detach_head_calls == [(slot_path(slots_root, 1), "main")]
 
 
 def test_plan_gc_classifies_without_mutating_state(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         worktrees=(
-            _slot_worktree(slots_root, 1, "feat/done"),
-            _slot_worktree(slots_root, 2, "feat/wip"),
-            _slot_worktree(slots_root, 3, "local"),
+            slot_worktree(slots_root, 1, "feat/done"),
+            slot_worktree(slots_root, 2, "feat/wip"),
+            slot_worktree(slots_root, 3, "local"),
         ),
         prs_by_branch={
-            "feat/done": _make_pr(1, "MERGED", "feat/done"),
-            "feat/wip": _make_pr(2, "OPEN", "feat/wip"),
+            "feat/done": make_pr(1, "MERGED", "feat/done"),
+            "feat/wip": make_pr(2, "OPEN", "feat/wip"),
         },
     )
 
@@ -1506,14 +1433,14 @@ def test_plan_gc_classifies_without_mutating_state(tmp_path: Path) -> None:
 
 def test_plan_gc_dirty_worktree_still_classified_as_would_free(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    worktree_path = _slot_path(slots_root, 1)
-    ctx, _git = _lifecycle_context(
+    worktree_path = slot_path(slots_root, 1)
+    ctx, _git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/dirty"),),
         file_status_by_path={
             worktree_path: FileStatus(staged=False, modified=True, untracked=False),
         },
-        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+        prs_by_branch={"feat/dirty": make_pr(12, "MERGED", "feat/dirty")},
     )
 
     plan = plan_gc(ctx)
@@ -1525,10 +1452,10 @@ def test_plan_gc_dirty_worktree_still_classified_as_would_free(tmp_path: Path) -
 
 def test_outcome_from_gc_plan_preserves_dry_run_tally_semantics(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, _git = _lifecycle_context(
+    ctx, _git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, "MERGED", "feat/done")},
     )
     plan = plan_gc(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
@@ -1542,11 +1469,11 @@ def test_outcome_from_gc_plan_preserves_dry_run_tally_semantics(tmp_path: Path) 
 
 def test_plan_gc_cleanup_is_explicit_and_outcome_attachment_is_pure(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
         branches=("main", "feat/done"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, "MERGED", "feat/done")},
     )
     plan = plan_gc(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
@@ -1565,10 +1492,10 @@ def test_plan_gc_cleanup_is_explicit_and_outcome_attachment_is_pure(tmp_path: Pa
 
 def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, "MERGED", "feat/done")},
     )
 
     plan = plan_gc(ctx)
@@ -1578,15 +1505,15 @@ def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
     assert [entry.action for entry in outcome.entries] == ["freed"]
     assert outcome.freed_count == 1
     assert outcome.dry_run is False
-    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+    assert git._detach_head_calls == [(slot_path(slots_root, 1), "main")]
 
 
 def test_execute_gc_plan_passthrough_non_would_free(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 2, "feat/wip"),),
-        prs_by_branch={"feat/wip": _make_pr(2, "OPEN", "feat/wip")},
+        worktrees=(slot_worktree(slots_root, 2, "feat/wip"),),
+        prs_by_branch={"feat/wip": make_pr(2, "OPEN", "feat/wip")},
     )
 
     plan = plan_gc(ctx)
@@ -1601,14 +1528,14 @@ def test_execute_gc_plan_passthrough_non_would_free(tmp_path: Path) -> None:
 
 def test_execute_gc_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    worktree_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    worktree_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        worktrees=(slot_worktree(slots_root, 1, "feat/dirty"),),
         file_status_by_path={
             worktree_path: FileStatus(staged=False, modified=True, untracked=False),
         },
-        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+        prs_by_branch={"feat/dirty": make_pr(12, "MERGED", "feat/dirty")},
     )
 
     plan = plan_gc(ctx)
@@ -1624,18 +1551,18 @@ def test_execute_gc_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
 
 def test_execute_gc_plan_translates_new_operation_to_skipped(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    slot_path = _slot_path(slots_root, 1)
-    ctx, git = _lifecycle_context(
+    operation_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, "MERGED", "feat/done")},
     )
 
     plan = plan_gc(ctx)
     assert not isinstance(plan, SlotLifecycleFailure)
-    git._worktrees = [WorktreeInfo(path=slot_path, branch=None, is_bare=False)]
-    git._operations_by_path[slot_path] = WorktreeOccupancy(
-        path=slot_path,
+    git._worktrees = [WorktreeInfo(path=operation_path, branch=None, is_bare=False)]
+    git._operations_by_path[operation_path] = WorktreeOccupancy(
+        path=operation_path,
         branch="feat/done",
         operation="bisect",
     )
@@ -1650,10 +1577,10 @@ def test_execute_gc_plan_translates_new_operation_to_skipped(tmp_path: Path) -> 
 
 def test_execute_gc_plan_record_disappears_yields_error(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
+    ctx, git = make_slots_lifecycle_context(
         tmp_path,
-        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
-        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+        worktrees=(slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": make_pr(7, "MERGED", "feat/done")},
     )
 
     plan = plan_gc(ctx)

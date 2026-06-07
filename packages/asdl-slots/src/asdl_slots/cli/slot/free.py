@@ -23,10 +23,7 @@ from asdl_slots.cli.slot.selectors import (
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch
 from asdl_slots.lifecycle.free import (
-    SLOT_FREE_ALL_CLEANUP_ACTIONS,
-    execute_cleanup_for_freed_slots,
     execute_free_plan,
-    plan_cleanup_for_free_targets,
     plan_free_slots,
 )
 from asdl_slots.lifecycle.outcomes import (
@@ -39,6 +36,11 @@ from asdl_slots.lifecycle.outcomes import (
     SlotFreeOutcome,
     SlotFreePlan,
     SlotLifecycleFailure,
+)
+from asdl_slots.lifecycle.release_cleanup import (
+    SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
+    execute_release_cleanup,
+    plan_release_cleanup,
 )
 from asdl_slots.repo_context import NoRepoSentinel
 
@@ -235,10 +237,10 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
     if isinstance(free_plan, SlotLifecycleFailure):
         return ClinkrExit.failure(error_type=free_plan.error_type, message=free_plan.message)
 
-    cleanup_actions = SLOT_FREE_ALL_CLEANUP_ACTIONS if request.all else ()
+    cleanup_actions = SLOT_RELEASE_ALL_CLEANUP_ACTIONS if request.all else ()
 
     if request.dry_run:
-        cleanup_plan = plan_cleanup_for_free_targets(
+        cleanup_plan = plan_release_cleanup(
             slots_ctx,
             free_plan.targets,
             cleanup_actions,
@@ -264,7 +266,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
                 error_type="confirmation_required",
                 message="Destructive cleanup requires --yes in JSON mode (or use --dry-run first).",
             )
-        cleanup_preview = plan_cleanup_for_free_targets(
+        cleanup_preview = plan_release_cleanup(
             slots_ctx,
             free_plan.targets,
             cleanup_actions,
@@ -295,7 +297,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             message=outcome.message,
         )
 
-    cleanup = execute_cleanup_for_freed_slots(
+    cleanup = execute_release_cleanup(
         slots_ctx,
         outcome.freed,
         cleanup_actions,

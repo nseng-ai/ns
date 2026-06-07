@@ -206,9 +206,7 @@ class CurrentCheckoutPlan:
 
     @property
     def current_wt_note(self) -> str | None:
-        if self.redirect is None:
-            return None
-        return self.redirect.note
+        return self.redirect.note if self.redirect else None
 
 
 def inventory_without_caller_branch_occupancy(
@@ -236,7 +234,8 @@ def inventory_without_caller_branch_occupancy(
         for occupancy in inventory.branch_occupancies
         if not (occupancy.path == cwd and occupancy.branch == moving_branch)
     )
-    return SlotInventory(
+    return dataclasses.replace(
+        inventory,
         records=records,
         main_worktree=main_worktree,
         branch_occupancies=branch_occupancies,

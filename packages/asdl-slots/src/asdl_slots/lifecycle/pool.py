@@ -11,6 +11,7 @@ from asdl_slots.lifecycle.outcomes import (
     SlotLifecycleFailure,
     SlotResizeOutcome,
 )
+from asdl_slots.lifecycle.release_target import operation_recovery_instruction
 from asdl_slots.naming import generate_slot_name
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
@@ -147,14 +148,6 @@ def resize_pool(
     )
 
 
-def _operation_recovery_instruction(operation: str) -> str:
-    if operation == "rebase":
-        return "run `git rebase --continue`/`--abort` there"
-    if operation == "bisect":
-        return "run `git bisect reset` there"
-    return "finish or abort it there"
-
-
 def _validate_removals(
     slots_ctx: SlotsCliContext, to_remove: tuple[SlotRecord, ...]
 ) -> tuple[str, ...]:
@@ -165,7 +158,7 @@ def _validate_removals(
             errors.append(
                 f"{record.slot_name} has a {record.operation} in progress for "
                 f"'{branch}' at {record.path}; "
-                f"{_operation_recovery_instruction(record.operation)} before shrinking the pool."
+                f"{operation_recovery_instruction(record.operation)} before shrinking the pool."
             )
             continue
         if record.branch is not None:
