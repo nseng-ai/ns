@@ -529,7 +529,11 @@ class ReviewFinding(ClinkrModel):
 
 
 class ClaudeDiffFinding(ClinkrModel):
-    """Claude schema model for legacy-compatible diff findings."""
+    """Claude-facing diff finding contract using path/line only.
+
+    ReviewFinding.location is the canonical internal representation. Claude diff output
+    intentionally stays on path/line fields to avoid a duplicated location branch.
+    """
 
     path: str = Field(min_length=1)
     line: StrictInt | None
