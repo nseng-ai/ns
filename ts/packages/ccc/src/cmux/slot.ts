@@ -98,7 +98,7 @@ export async function checkoutSlot(
 	}
 
 	if (isSlotCheckoutSuccessEnvelope(parsed)) {
-		return slotCheckoutTargetFromData(parsed.data);
+		return parsed.data;
 	}
 
 	const failure = parsed;
@@ -142,6 +142,10 @@ export function buildNewWorkspaceArgs(
 	return args;
 }
 
+/**
+ * @deprecated Slot checkout data is already normalized by parseSlotCheckoutEnvelope.
+ * Retained as an exported compatibility no-op for existing callers.
+ */
 export function slotCheckoutTargetFromData(data: SlotCheckoutTarget): SlotCheckoutTarget {
 	return data;
 }

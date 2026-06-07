@@ -47,6 +47,7 @@ export {
 	formatPlannedBranchEvidence,
 	normalizeBranchCreationMethod,
 	resolvePlannedBranchCreatePreviewContext,
+	tryNormalizeBranchCreationMethod,
 	validateTargetBranchName,
 	type BranchCreationMethod,
 	type CreatePlannedBranchFromFileOptions,

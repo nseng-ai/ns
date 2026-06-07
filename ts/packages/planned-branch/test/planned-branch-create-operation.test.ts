@@ -8,6 +8,7 @@ import {
 	formatPlannedBranchCreatePreview,
 	formatPlannedBranchEvidence,
 	resolvePlannedBranchCreatePreviewContext,
+	tryNormalizeBranchCreationMethod,
 } from "../src/planned-branch-creation.ts";
 import type { PlanCommandExecApi } from "../src/plan-persistence.ts";
 import { InMemoryPlannedBranchGitGateway } from "./support/in-memory-git-gateway.ts";
@@ -79,6 +80,16 @@ describe("buildPlannedBranchCreateOperation", () => {
 			"parameter `branchCreation` must be one of `plain-git` or `graphite`",
 		);
 		expect(() => buildPlannedBranchCreateOperation({ slug: PLAN_SLUG })).toThrow("requires string parameter `filePath`");
+	});
+});
+
+describe("branch creation normalization", () => {
+	test("returns undefined instead of throwing for invalid branch creation methods", () => {
+		expect(tryNormalizeBranchCreationMethod(undefined)).toBe("plain-git");
+		expect(tryNormalizeBranchCreationMethod("graphite")).toBe("graphite");
+		expect(tryNormalizeBranchCreationMethod("plain-git")).toBe("plain-git");
+		expect(tryNormalizeBranchCreationMethod("hg")).toBeUndefined();
+		expect(tryNormalizeBranchCreationMethod(123)).toBeUndefined();
 	});
 });
 

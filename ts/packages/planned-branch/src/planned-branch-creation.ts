@@ -257,12 +257,20 @@ export function parseCreatePlannedBranchFromFileParams(params: unknown): CreateP
 	return parsed;
 }
 
-export function normalizeBranchCreationMethod(value: unknown): BranchCreationMethod {
+export function tryNormalizeBranchCreationMethod(value: unknown): BranchCreationMethod | undefined {
 	if (value === undefined) {
 		return "plain-git";
 	}
 	if (value === "plain-git" || value === "graphite") {
 		return value;
+	}
+	return undefined;
+}
+
+export function normalizeBranchCreationMethod(value: unknown): BranchCreationMethod {
+	const normalized = tryNormalizeBranchCreationMethod(value);
+	if (normalized !== undefined) {
+		return normalized;
 	}
 	if (typeof value !== "string") {
 		throw new Error("createPlannedBranchFromFile parameter `branchCreation` must be a string when provided.");
