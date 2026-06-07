@@ -31,7 +31,7 @@
   - Removed the `@asdl/pi-extensions` cmux command-suite compatibility shims and their covering test (`cmux-shims.test.ts`), plus the `./cmux/slot-open-branch` export from `@asdl/ccc`. The handoff-tab `focused-terminal-tab.ts` shim and the lower `pi-launch.ts`/`primitives.ts`/`types.ts` modules under `ts/packages/pi-extensions/src/cmux/` remain.
   - Supersedes the earlier "keep `/cmux:*` names for now" default and de-parks the `/ccc:*` namespace item; this was a deliberate namespace decision, not a prerequisite to the extraction.
   - Policy: deliberate user-confirmed rename; preserved tested behavior under the new prefix.
-  - Evidence: landed on `master` in commit `10892ce4`; no `cmux:` command registrations remain (`rg "'cmux:(workspace|sidebar)'"` over `ts/` is empty); current registrations are `ccc:workspace:dispatch-plan|dispatch-prompt|open-branch` and `ccc:sidebar:pr-summary|objective-summary`; `.pi/extensions/ccc.ts` and `skills/ccc-sidebar/` are present and the `cmux` adapter/skill are gone.
+  - Evidence: see the 2026-06-07 rename update for the landed command-prefix rename, validation, and stale-`cmux:` registration check.
 
 - [~] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
   - Move the `/planned-branch:up-and-impl` flow out of the planned-branch adapter into CCC-owned orchestration, leaving planned-branch write/create/impl primitives below.
