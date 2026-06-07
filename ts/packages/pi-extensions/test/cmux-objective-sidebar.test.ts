@@ -3,8 +3,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
 	formatObjectiveSidebarFields,
 	resolveObjectiveSelector,
-} from "../src/cmux/objective-sidebar.ts";
-import { createCmuxSidebarController, registerCmuxSidebarCommands } from "../src/cmux/sidebar.ts";
+} from "../../ccc/src/cmux/objective-sidebar.ts";
+import { createCmuxSidebarController, registerCmuxSidebarCommands } from "../../ccc/src/cmux/sidebar.ts";
 import {
 	FakeCommandContext,
 	FakePi,

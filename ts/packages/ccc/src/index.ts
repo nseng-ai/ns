@@ -17,6 +17,8 @@ export interface CccPackageIdentity {
 	readonly ownedConcerns: readonly CccOwnedConcern[];
 }
 
+export { default as registerCmuxExtension } from "./cmux.ts";
+
 export const CCC_PACKAGE_IDENTITY = {
 	packageName: "@asdl/ccc",
 	vocabularyName: "CCC",

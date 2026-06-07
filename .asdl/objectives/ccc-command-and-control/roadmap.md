@@ -9,12 +9,12 @@
   - Policy: direct execution after preview.
   - Evidence: parent validation passed with `bun run --cwd ts check`, `bun run --cwd ts test`, targeted `dprint check`, and `git diff --check`; public slash-command registrations were not changed in this slice.
 
-- [ ] Move cmux workspace and sidebar orchestration into CCC.
-  - Move the current cmux command suite registry and workspace-opening/sidebar modules into CCC or CCC-owned modules: `cmux.ts`, `cmux/slot-dispatch-plan.ts`, `cmux/dispatch-prompt.ts`, `cmux/slot-open-branch.ts`, `cmux/slot.ts` orchestration, `cmux/pi-launch.ts`, `cmux/sidebar.ts`, focused cmux tab/surface helpers, and worktree description helpers as appropriate.
-  - Keep low-level cmux/slot client seams separate from higher orchestration modules.
-  - Preserve public `/cmux:workspace:*` and `/cmux:sidebar:*` command names.
+- [x] Move cmux workspace and sidebar orchestration into CCC.
+  - Moved the cmux command suite registry and workspace/sidebar orchestration into `ts/packages/ccc/src/cmux.ts` and `ts/packages/ccc/src/cmux/`.
+  - Left generic/lower helper seams outside CCC and kept tiny `@asdl/pi-extensions` compatibility shims where existing non-cmux code still imports cmux helpers.
+  - Preserved public `/cmux:workspace:*` and `/cmux:sidebar:*` command names; `.pi/extensions/cmux.ts` now imports CCC registration directly.
   - Policy: direct execution after preview.
-  - Evidence: cmux tests pass in the new home; command registration behavior and exact command names are unchanged unless explicitly approved.
+  - Evidence: parent validation passed with `bun run --cwd ts check`, `bun test --cwd ts/packages/ccc`, focused cmux/handoff-tab tests, `bun run --cwd ts test`, targeted `dprint check`, and `git diff --check`.
 
 - [ ] Neutralize shared session artifacts and runtime helpers that CCC consumes but should not own.
   - Move or wrap `planned-branch-output` as a neutral session-artifact contract shared by planned-branch producers and CCC consumers.
