@@ -1,0 +1,14 @@
+{
+  "name": "@asdl/ccc",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

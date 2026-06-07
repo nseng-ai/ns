@@ -8,8 +8,8 @@ Current checkout facts:
 
 - Python workspace inventory: 12 tracked packages under `packages/`.
 - In-scope Python context targets: 11 packages. `asdl-dispatcher` is tracked but remains out of context scope while its CLI group has `operations=[]`.
-- TypeScript workspace inventory: two repo-local packages, `asdl-dev` and `@asdl/pi-extensions`.
-- Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `packages/brmem/CONTEXT.md`, and `ts/packages/pi-extensions/CONTEXT.md`.
+- TypeScript workspace inventory: three repo-local packages, `asdl-dev`, `@asdl/pi-extensions`, and `@asdl/ccc`.
+- Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `packages/brmem/CONTEXT.md`, `packages/asdl-handoff/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, and `ts/packages/ccc/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
 ## Contexts
@@ -21,6 +21,7 @@ Current checkout facts:
 - [brmem](./packages/brmem/CONTEXT.md) — Branch Memory primitive vocabulary. Present terms include Branch Memory System, Branch Memory, Namespace, Base Namespace `base`, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export. Do not describe prompt resolution as ordinary Branch Memory operation, and do not revive stale `Entry Ref` / `Ref locator` wording.
 - [asdl-handoff](./packages/asdl-handoff/CONTEXT.md) — directed handoff artifact vocabulary over Branch Memory storage: continuation focus, Create a Handoff, Pick Up a Handoff, List Handoffs, and Delete a Handoff actions, handoff slug/key, `handoff` namespace, Handoff Summary, Branch State, List Scope, all-branches inventory, garbage collection, Handoff Technical Locator, and the boundary between durable handoff artifacts and worker-protocol handoffs.
 - [@asdl/pi-extensions](./ts/packages/pi-extensions/CONTEXT.md) — repo-local Pi discovery adapters, engineered extension package, saved-plan/planned-branch/checkpoint/handoff language, runner subagents, command runtime, terminal presentation, and CLI bridge vocabulary. This file exists, but still needs the later refresh against the current extension inventory and `asdl-dev` command mirror boundary.
+- [@asdl/ccc](./ts/packages/ccc/CONTEXT.md) — CCC (Cmux Command and Control) vocabulary for the private TypeScript orchestration layer that composes Pi, cmux, Graphite, Objective, handoff, planned-branch, autobranch/land, and worktree-status capabilities without lower packages importing it.
 
 ### Planned Python package contexts
 
@@ -50,6 +51,7 @@ These are current map seeds, not final readback output. Package-context phases s
 
 - **ASDL Tools → brmem**: Planning and handoff workflows may use Branch Memory, while Objectives themselves remain checked-in Markdown records.
 - **ASDL Tools → @asdl/pi-extensions**: Pi extensions expose Objective, saved-plan, planned-branch, checkpoint, handoff, grill, and source-control workflows to the local agent runtime.
+- **ASDL Tools → @asdl/ccc**: CCC is the private TypeScript orchestration layer for repo-opinionated Pi/cmux/Graphite/worktree command-and-control workflows while public command names stay stable.
 - **areg → asdl-core.project_config + external `gh`/`npx skills`**: `areg` reads shared project config from `asdl-core`, but its skill-management work is bounded by external GitHub and `npx skills` command surfaces.
 - **brmem → asdl-core.git + asdl-core.clinkr**: brmem uses shared Git gateways and Clinkr command vocabulary to expose branch-scoped text storage.
 - **asdl-handoff → brmem + asdl-core.git + asdl-core.clinkr/console/format/plugin**: handoff artifacts use Branch Memory storage while presenting a user-facing handoff inventory and garbage-collection model.
@@ -62,6 +64,7 @@ These are current map seeds, not final readback output. Package-context phases s
 - **vibechk → git + runner/store boundaries**: vibechk is standalone/no-`asdl-core`; it owns local evaluation workdirs, run bundles, result branches, metrics, and reports without folding into `asdl-core.sessions` or aretro evidence collection.
 - **asdl-dev → git + Graphite + Vercel + Pi text generation**: the private TypeScript CLI owns command semantics for preview URL resolution, checkpoint commits/messages, and Graphite submission verification.
 - **@asdl/pi-extensions → Pi runtime + asdl-dev + repo CLIs**: Pi extensions own discovery adapters, argument restoration/UI behavior, command-output presentation, and runtime CLI bridging over `asdl-dev`, `git`/`gt`/`gh`, `brmem`, `objective`, `slot`, and related repo commands.
+- **@asdl/ccc → @asdl/pi-extensions + lower capabilities**: CCC may become the implementation home for multi-capability command orchestration below stable Pi command surfaces. Lower capabilities such as `@asdl/planned-branch`, `asdl-dev`, handoff, Objective, brmem, Git, and Graphite must not import `@asdl/ccc`.
 
 ## Flagged Ambiguities
 
