@@ -418,11 +418,51 @@ def test_objective_list_updated_branches_json_human_and_markdown(
     }
     assert human.exit_code == 0, human.output
     assert "Updated branches" in human.output
-    assert "feat/alpha" in human.output
+    assert "1 feat/alpha" in human.output
     assert markdown.exit_code == 0, markdown.output
     assert "| objective | status | latest update | updated branches |" in markdown.output
     assert "| alpha | ○ open | — | feat/alpha |" in markdown.output
     assert "| beta | ○ open | — | feat/beta |" in markdown.output
+
+
+def test_objective_list_updated_branches_human_is_compact_at_narrow_width(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    long_slug = "very-long-objective-slug-that-must-stay-visible"
+    long_branch = "feature/very-long-branch-name-that-must-stay-visible"
+    root_path = ".asdl/objectives"
+    _write_objective(tmp_path / root_path, long_slug)
+    ctx = _list_context(
+        repo_root=tmp_path,
+        branches=("master", long_branch),
+        tree_oid_by_ref_path={
+            ("master", root_path): "trunk-tree",
+            (long_branch, root_path): "branch-tree",
+        },
+        path_change_touches_by_ref_path={
+            (f"master..{long_branch}", root_path): (
+                _change_touch(
+                    "long-touch",
+                    paths=(f".asdl/objectives/{long_slug}/objective.md",),
+                ),
+            ),
+        },
+    )
+
+    human = _invoke_list_human(
+        cli_group,
+        ctx,
+        updated_branches=True,
+        terminal_columns=80,
+    )
+
+    assert human.exit_code == 0, human.output
+    assert "Objective" in human.output
+    assert "Updated branches" in human.output
+    assert "very-long-objective-slug-that" in human.output
+    assert "1 feature/very-long-branch-" in human.output
+    assert "  Updated branches:" not in human.output
 
 
 def test_objective_list_updated_branches_empty_branch_column(

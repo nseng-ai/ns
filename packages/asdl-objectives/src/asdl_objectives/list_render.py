@@ -22,6 +22,10 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
         console.print(f"[dim]{_empty_message(result.status_filter)}[/dim]")
         return
 
+    if result.updated_branches_included:
+        _render_updated_branch_records_human(result)
+        return
+
     table = make_table()
     table.add_column(
         "Objective",
@@ -32,17 +36,12 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     )
     table.add_column("Status", no_wrap=True, width=9)
     table.add_column("Latest update", no_wrap=True)
-    if result.updated_branches_included:
-        table.add_column("Updated branches", no_wrap=True)
     for record in result.records:
-        row = [
+        table.add_row(
             record.slug,
             _status_label(record.status),
             _format_latest_update(record),
-        ]
-        if result.updated_branches_included:
-            row.append(_format_updated_branches(record))
-        table.add_row(*row)
+        )
     console.print(table)
 
 
@@ -95,6 +94,36 @@ def _render_metadata_markdown(result: ObjectiveListResult) -> None:
     click.echo(f"Status filter: `{result.status_filter}`")
 
 
+def _render_updated_branch_records_human(result: ObjectiveListResult) -> None:
+    console = get_console()
+    table = make_table()
+    table.add_column(
+        "Objective",
+        style="bold cyan",
+        no_wrap=True,
+        overflow="ellipsis",
+        width=_updated_branches_objective_column_width(result, console.width),
+    )
+    table.add_column(
+        "Updated branches",
+        no_wrap=True,
+        overflow="ellipsis",
+        ratio=3,
+        min_width=20,
+    )
+    for record in result.records:
+        table.add_row(record.slug, _format_updated_branch_summary(record))
+    console.print(table)
+
+
+def _updated_branches_objective_column_width(
+    result: ObjectiveListResult,
+    terminal_width: int,
+) -> int:
+    widest_slug = max(len(record.slug) for record in result.records)
+    return min(widest_slug, max(24, terminal_width - 30))
+
+
 def _status_label(status: ObjectiveStatus) -> str:
     if status == "closed":
         return "✓ closed"
@@ -120,6 +149,12 @@ def _format_updated_branches(record: ObjectiveListRecord) -> str:
     if record.updated_branches:
         return ", ".join(record.updated_branches)
     return "—"
+
+
+def _format_updated_branch_summary(record: ObjectiveListRecord) -> str:
+    if not record.updated_branches:
+        return "—"
+    return f"{len(record.updated_branches)} {', '.join(record.updated_branches)}"
 
 
 def _format_age(iso_timestamp: str | None) -> str:
