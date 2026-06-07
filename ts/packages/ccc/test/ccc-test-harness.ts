@@ -42,7 +42,7 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
-	result?: Partial<ExecResult>;
+	result?: Partial<ExecResult> | undefined;
 	error?: unknown;
 }
 
@@ -250,7 +250,7 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 }
 
 export function step(command: string, args: string[] | undefined, result?: Partial<ExecResult>): ScriptedExec {
-	return { command, ...(args === undefined ? {} : { args }), ...(result === undefined ? {} : { result }) };
+	return { command, ...(args === undefined ? {} : { args }), result };
 }
 
 export function objectiveListStep(slugs: string[]): ScriptedExec {

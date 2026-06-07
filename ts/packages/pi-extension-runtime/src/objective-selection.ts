@@ -118,8 +118,10 @@ async function listActiveObjectives(
 async function changedObjectiveSelection(options: ChangedObjectiveSelectionOptions): Promise<ObjectiveDiffSelection | undefined> {
 	const { host, ctx, objectiveList, spec } = options;
 	const trunkBranch = objectiveList.trunkBranch.trim();
-	const committedChangedSlugs = trunkBranch ? await objectiveDiffChangedSlugs({ host, ctx, spec, trunkBranch }) : [];
-	const dirtyChangedSlugs = await objectiveStatusChangedSlugs({ host, ctx, spec });
+	const [committedChangedSlugs, dirtyChangedSlugs] = await Promise.all([
+		trunkBranch ? objectiveDiffChangedSlugs({ host, ctx, spec, trunkBranch }) : Promise.resolve<string[]>([]),
+		objectiveStatusChangedSlugs({ host, ctx, spec }),
+	]);
 	const allChangedSlugs = sortedUniqueSlugs([...committedChangedSlugs, ...dirtyChangedSlugs]);
 	const dirtyChangedSlugSet = new Set(dirtyChangedSlugs);
 	const dirtyActiveSlugs = objectiveList.records.filter((record) => dirtyChangedSlugSet.has(record.slug));
