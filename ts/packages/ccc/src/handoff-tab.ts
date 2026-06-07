@@ -100,7 +100,17 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 		}
 
 		const launchContext = options.model === undefined ? {} : { model: options.model };
-		const command = buildPiLaunchCommand(options.params.pickupCommand, getPiLaunchOptions(piLaunchHost(options.host), launchContext));
+		const command = buildPiLaunchCommand(
+			options.params.pickupCommand,
+			getPiLaunchOptions(
+				{
+					getThinkingLevel(): ThinkingLevel {
+						return options.host.getThinkingLevel?.() ?? "medium";
+					},
+				},
+				launchContext,
+			),
+		);
 		updateProgress(options, "Launching pickup Pi…", "launching pickup Pi…");
 		const sendOptions: CmuxSendOptions = {
 			workspaceId,
@@ -160,10 +170,3 @@ function setStatus(options: HandoffTabLaunchOptions, value: string | undefined):
 	}
 }
 
-function piLaunchHost(host: HandoffTabLaunchHost): { getThinkingLevel(): ThinkingLevel } {
-	return {
-		getThinkingLevel(): ThinkingLevel {
-			return host.getThinkingLevel?.() ?? "medium";
-		},
-	};
-}
