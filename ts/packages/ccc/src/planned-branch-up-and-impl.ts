@@ -34,8 +34,7 @@ export interface PlannedBranchUpAndImplLaunchOptions {
 	host: PlannedBranchUpAndImplLaunchHost;
 	sessionLauncher: PlannedBranchUpAndImplSessionLauncher;
 	cwd: string;
-	hasUI: boolean;
-	ui: PlannedBranchUpAndImplStatusUI;
+	ui: PlannedBranchUpAndImplStatusUI | undefined;
 	statusKey: string;
 	branch: string;
 	key: string;
@@ -119,7 +118,5 @@ function formatUnknownError(error: unknown): string {
 }
 
 function setStatus(options: PlannedBranchUpAndImplLaunchOptions, value: string | undefined): void {
-	if (options.hasUI) {
-		options.ui.setStatus?.(options.statusKey, value);
-	}
+	options.ui?.setStatus?.(options.statusKey, value);
 }

@@ -88,18 +88,21 @@ function launchOptions(input: {
 	host?: PlannedBranchUpAndImplLaunchHost;
 	sessionLauncher?: PlannedBranchUpAndImplSessionLauncher;
 	statuses?: Array<{ key: string; value: string | undefined }>;
+	hasStatusUI?: boolean;
 } = {}): Parameters<typeof launchPlannedBranchUpAndImpl>[0] {
 	const statuses = input.statuses ?? [];
 	return {
 		host: input.host ?? new FakeHost(),
 		sessionLauncher: input.sessionLauncher ?? new FakeSessionLauncher(),
 		cwd: ROOT,
-		hasUI: true,
-		ui: {
-			setStatus(key, value): void {
-				statuses.push({ key, value });
-			},
-		},
+		ui:
+			input.hasStatusUI === false
+				? undefined
+				: {
+						setStatus(key, value): void {
+							statuses.push({ key, value });
+						},
+					},
 		statusKey: STATUS_KEY,
 		branch: BRANCH,
 		key: KEY,
@@ -132,6 +135,15 @@ describe("planned-branch up-and-impl CCC orchestration", () => {
 			{ key: STATUS_KEY, value: "starting implementation session…" },
 			{ key: STATUS_KEY, value: undefined },
 		]);
+	});
+
+	test("runs without status updates when no UI is available", async () => {
+		const statuses: Array<{ key: string; value: string | undefined }> = [];
+
+		const result = await launchPlannedBranchUpAndImpl(launchOptions({ statuses, hasStatusUI: false }));
+
+		expect(result).toEqual({ type: "launched", branch: BRANCH, key: KEY });
+		expect(statuses).toEqual([]);
 	});
 
 	test("returns checkout failures without starting a new session", async () => {
