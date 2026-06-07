@@ -11,9 +11,7 @@ import {
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
 
-const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
-const OBJECTIVE_STATUS_TIMEOUT_MS = 30_000;
+const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
@@ -88,7 +86,7 @@ async function listActiveObjectives(
 	try {
 		const result = await host.exec("objective", args, {
 			cwd: ctx.cwd,
-			timeout: OBJECTIVE_LIST_TIMEOUT_MS,
+			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
 			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result) };
@@ -145,7 +143,7 @@ async function objectiveDiffChangedSlugs(
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
-			timeout: OBJECTIVE_DIFF_TIMEOUT_MS,
+			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
 			return [];
@@ -174,7 +172,7 @@ async function objectiveStatusChangedSlugs(
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
-			timeout: OBJECTIVE_STATUS_TIMEOUT_MS,
+			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
 			return [];
