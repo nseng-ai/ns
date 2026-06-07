@@ -1,12 +1,9 @@
-import { buildPiLaunchCommand, getPiLaunchOptions } from "../cmux/pi-launch.ts";
 import {
-	createCmuxSurface,
-	identifyCmuxCaller,
-	renameCmuxTab,
-	sendCmuxText,
-	type CmuxSendOptions,
-	type CmuxTabOptions,
-} from "../cmux/focused-terminal-tab.ts";
+	formatHandoffTabLaunchSuccess,
+	launchHandoffTab,
+	type HandoffTabLaunchResult,
+} from "@asdl/ccc/handoff-tab";
+import { identifyCmuxCaller } from "../cmux/focused-terminal-tab.ts";
 import { isRecord, stringField } from "../cmux/primitives.ts";
 import { HANDOFF_NAMESPACE, formatPickupHandoffCommand, handoffSlugToKey, parseFlatHandoffSlug } from "./identity.ts";
 import { deriveHandoffContentSlug } from "./content-slug.ts";
@@ -26,7 +23,9 @@ import {
 	resolveCreateFocus,
 	setStatus,
 } from "./shared.ts";
-import type { CommandContext, ExtensionAPI, ToolContext, ToolDefinition, ToolResult } from "./runtime-types.ts";
+import type { CommandContext, ExtensionAPI, ToolDefinition, ToolResult } from "./runtime-types.ts";
+
+export type { HandoffTabLaunchResult };
 
 export interface HandoffTabRequest {
 	branch: string;
@@ -35,23 +34,11 @@ export interface HandoffTabRequest {
 
 export type HandoffTabRequestBuildResult = { type: "valid"; request: HandoffTabRequest } | { type: "invalid"; message: string };
 
-export type HandoffTabLaunchResult =
-	| { type: "launched"; branch: string; slug: string; tabTitle: string; surfaceId: string; workspaceId: string; command: string }
-	| { type: "failed"; message: string; branch?: string; slug?: string; surfaceId?: string; workspaceId?: string };
-
 interface HandoffTabLaunchParams {
 	branch: string;
 	slug: string;
 	key: string;
 	pickupCommand: string;
-}
-
-interface LaunchHandoffTabOptions {
-	pi: ExtensionAPI;
-	ctx: ToolContext;
-	params: HandoffTabLaunchParams;
-	signal: AbortSignal | undefined;
-	onUpdate: ((update: Partial<ToolResult>) => void) | undefined;
 }
 
 export function buildHandoffTabRequest(options: { branch: string; focus: string }): HandoffTabRequestBuildResult {
@@ -227,109 +214,26 @@ export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
 				return handoffTabToolFailure(parsed.message);
 			}
 
-			onUpdate?.({ content: [{ type: "text", text: "Verifying saved handoff…" }] });
-			setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "verifying saved handoff…");
-			try {
-				const launched = await launchHandoffTab({ pi, ctx, params: parsed.params, signal, onUpdate });
-				if (launched.type === "failed") {
-					return handoffTabToolFailure(launched.message, launched);
-				}
-				return {
-					content: [{ type: "text", text: formatHandoffTabLaunchSuccess(launched) }],
-					details: launched,
-				};
-			} finally {
-				setStatus(ctx, HANDOFF_TAB_STATUS_KEY, undefined);
+			const launched = await launchHandoffTab({
+				host: pi,
+				cwd: ctx.cwd,
+				model: ctx.model,
+				hasUI: ctx.hasUI,
+				ui: ctx.ui,
+				statusKey: HANDOFF_TAB_STATUS_KEY,
+				params: parsed.params,
+				signal,
+				onUpdate,
+				checkHandoffExists: (branch, key) => checkHandoffExists(pi, ctx.cwd, branch, key),
+			});
+			if (launched.type === "failed") {
+				return handoffTabToolFailure(launched.message, launched);
 			}
+			return {
+				content: [{ type: "text", text: formatHandoffTabLaunchSuccess(launched) }],
+				details: launched,
+			};
 		},
-	};
-}
-
-async function launchHandoffTab(options: LaunchHandoffTabOptions): Promise<HandoffTabLaunchResult> {
-	const exists = await checkHandoffExists(options.pi, options.ctx.cwd, options.params.branch, options.params.key);
-	if (exists.type === "missing") {
-		return {
-			type: "failed",
-			branch: options.params.branch,
-			slug: options.params.slug,
-			message: `No handoff ${options.params.slug} found on branch ${options.params.branch}; no cmux tab was opened.`,
-		};
-	}
-	if (exists.type === "failed") {
-		return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: exists.message };
-	}
-
-	options.onUpdate?.({ content: [{ type: "text", text: "Resolving cmux caller context…" }] });
-	setStatus(options.ctx, HANDOFF_TAB_STATUS_KEY, "resolving cmux caller…");
-	const identified = await identifyCmuxCaller(options.pi, options.ctx.cwd);
-	if (identified.type === "failed") {
-		return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: identified.message };
-	}
-
-	options.onUpdate?.({ content: [{ type: "text", text: "Creating focused cmux tab…" }] });
-	setStatus(options.ctx, HANDOFF_TAB_STATUS_KEY, "creating cmux tab…");
-	const created = await createCmuxSurface({ host: options.pi, cwd: options.ctx.cwd, caller: identified.caller, signal: options.signal });
-	if (created.type === "failed") {
-		return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: created.message };
-	}
-
-	const tabTitle = `handoff: ${options.params.slug}`;
-	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
-	options.onUpdate?.({ content: [{ type: "text", text: "Naming cmux tab…" }] });
-	setStatus(options.ctx, HANDOFF_TAB_STATUS_KEY, "naming cmux tab…");
-	const renameOptions: CmuxTabOptions = {
-		workspaceId,
-		surfaceId: created.surface.surfaceId,
-		tabTitle,
-		signal: options.signal,
-	};
-	if (identified.caller.windowId !== undefined) {
-		renameOptions.windowId = identified.caller.windowId;
-	}
-	const renamed = await renameCmuxTab(options.pi, options.ctx.cwd, renameOptions);
-	if (renamed.type === "failed") {
-		return {
-			type: "failed",
-			branch: options.params.branch,
-			slug: options.params.slug,
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			message: `${renamed.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: ${options.params.pickupCommand}`,
-		};
-	}
-
-	const command = buildPiLaunchCommand(options.params.pickupCommand, getPiLaunchOptions(piLaunchHost(options.pi), options.ctx));
-	options.onUpdate?.({ content: [{ type: "text", text: "Launching pickup Pi…" }] });
-	setStatus(options.ctx, HANDOFF_TAB_STATUS_KEY, "launching pickup Pi…");
-	const sendOptions: CmuxSendOptions = {
-		workspaceId,
-		surfaceId: created.surface.surfaceId,
-		text: `${command}\n`,
-		signal: options.signal,
-	};
-	if (identified.caller.windowId !== undefined) {
-		sendOptions.windowId = identified.caller.windowId;
-	}
-	const sent = await sendCmuxText(options.pi, options.ctx.cwd, sendOptions);
-	if (sent.type === "failed") {
-		return {
-			type: "failed",
-			branch: options.params.branch,
-			slug: options.params.slug,
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			message: `${sent.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: run ${command}`,
-		};
-	}
-
-	return {
-		type: "launched",
-		branch: options.params.branch,
-		slug: options.params.slug,
-		tabTitle,
-		surfaceId: created.surface.surfaceId,
-		workspaceId,
-		command,
 	};
 }
 
@@ -371,14 +275,6 @@ function parseHandoffTabLaunchParams(params: unknown): { type: "valid"; params: 
 	};
 }
 
-function piLaunchHost(pi: ExtensionAPI): { getThinkingLevel(): "off" | "minimal" | "low" | "medium" | "high" | "xhigh" } {
-	return {
-		getThinkingLevel(): "off" | "minimal" | "low" | "medium" | "high" | "xhigh" {
-			return pi.getThinkingLevel?.() ?? "medium";
-		},
-	};
-}
-
 function createHandoffTabStartMessage(skill: Awaited<ReturnType<typeof expandHandoffSkill>>, skillReadError: string | undefined): string {
 	if (skill !== undefined) {
 		return "Starting handoff-tab workflow with content-derived slug…";
@@ -395,16 +291,4 @@ function handoffTabToolFailure(message: string, details?: unknown): ToolResult {
 		details,
 		isError: true,
 	};
-}
-
-function formatHandoffTabLaunchSuccess(result: Extract<HandoffTabLaunchResult, { type: "launched" }>): string {
-	return [
-		"Opened handoff pickup tab.",
-		`Handoff: ${result.slug}`,
-		`Branch: ${result.branch}`,
-		`Tab title: ${result.tabTitle}`,
-		`Surface: ${result.surfaceId}`,
-		`Workspace: ${result.workspaceId}`,
-		`Command: ${result.command}`,
-	].join("\n");
 }
