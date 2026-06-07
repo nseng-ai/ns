@@ -194,14 +194,6 @@ Preferred classification path:
    locators, the generated `classification-template`, the `feedback-classifier`
    rules, the strict packet contract, and completeness requirements.
 
-   ```json
-   {
-     "title": "Classify PR feedback",
-     "model": "openai-codex/gpt-5.4-mini:medium",
-     "prompt": "...compact manifest, payload path, locators, template, classifier rules..."
-   }
-   ```
-
 2. Require the summarizer to return only the strict classification packet,
    preserving all prefilled IDs/locators/coverage fields and filling only the
    semantic judgment fields.
