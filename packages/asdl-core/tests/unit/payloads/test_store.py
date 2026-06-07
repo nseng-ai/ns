@@ -191,6 +191,105 @@ def test_from_environment_resolves_and_prepares_store(tmp_path: Path) -> None:
     assert store.payload_dir.is_dir()
 
 
+def test_open_containing_artifact_reopens_existing_artifact_store(tmp_path: Path) -> None:
+    store = _open_store(tmp_path)
+    source_reference = store.write_json_artifact(
+        descriptor="source",
+        role="raw",
+        payload={"value": 1},
+    )
+
+    reopened = PayloadStore.open_containing_artifact(
+        Path(source_reference.payload_path),
+        clock=_fixed_clock,
+    )
+    followup_reference = reopened.write_json_artifact(
+        descriptor="followup",
+        role="summary",
+        payload={"value": 2},
+    )
+
+    assert reopened.root == store.root
+    assert reopened.session_id == store.session_id
+    assert reopened.payload_dir == store.payload_dir
+    assert followup_reference.sequence == 2
+    assert Path(followup_reference.payload_path).parent == store.payload_dir
+
+
+def test_open_containing_artifact_rejects_relative_path() -> None:
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(Path("payload.json"))
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+
+
+def test_open_containing_artifact_rejects_missing_path(tmp_path: Path) -> None:
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(tmp_path / "missing.json")
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+
+
+def test_open_containing_artifact_rejects_non_managed_layout(tmp_path: Path) -> None:
+    payload_path = (
+        tmp_path
+        / "payload-root"
+        / "not-sessions"
+        / "session1"
+        / "payloads"
+        / "20260603t123456z-0001-probe.raw.json"
+    )
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(payload_path)
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+
+
+def test_open_containing_artifact_rejects_unsafe_session_id(tmp_path: Path) -> None:
+    payload_path = (
+        tmp_path
+        / "payload-root"
+        / "sessions"
+        / "BadSession"
+        / "payloads"
+        / "20260603t123456z-0001-probe.raw.json"
+    )
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(payload_path)
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+
+
+def test_open_containing_artifact_rejects_unmanaged_filename(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload-root" / "sessions" / "session1" / "payloads" / "probe.json"
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(payload_path)
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlinks are required for this check")
+def test_open_containing_artifact_rejects_symlink_path(tmp_path: Path) -> None:
+    target_path = tmp_path / "target.json"
+    target_path.write_text("{}", encoding="utf-8")
+    link_path = tmp_path / "payload-link.json"
+    link_path.symlink_to(target_path)
+
+    with pytest.raises(PayloadError) as exc_info:
+        PayloadStore.open_containing_artifact(link_path)
+
+    assert exc_info.value.error_type == "payload_lookup_failed"
+
+
 def test_write_json_artifact_creates_raw_json_reference(tmp_path: Path) -> None:
     store = _open_store(tmp_path)
 

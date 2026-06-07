@@ -274,10 +274,8 @@ def _write_selected_details_artifact(
     source_payload_path: Path,
     artifact: SelectedFeedbackDetailsArtifact,
 ) -> PayloadReference:
-    payload_root = source_payload_path.parent.parent.parent.parent
-    session_id = source_payload_path.parent.parent.name
     try:
-        store = PayloadStore.open(root=payload_root, session_id=session_id)
+        store = PayloadStore.open_containing_artifact(source_payload_path)
         return store.write_json_artifact(
             descriptor="pr-address-selected-feedback-details",
             role="summary",

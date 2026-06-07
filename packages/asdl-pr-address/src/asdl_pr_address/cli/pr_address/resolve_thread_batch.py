@@ -20,6 +20,7 @@ from asdl_pr_address.cli.pr_address.resolve_thread_with_reply import (
     apply_resolution,
     normalize_resolution_request,
 )
+from asdl_pr_address.cli.pr_address.string_values import trim_optional
 
 ResolveThreadBatchItemStatus = Literal["resolved", "failed", "skipped"]
 
@@ -72,7 +73,7 @@ def run_resolve_thread_batch(
 ) -> ClinkrExit[ResolveThreadBatchResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
     payload = _load_payload(request)
-    normalized_requests = _normalize_payload(payload)
+    normalized_requests = normalize_resolve_thread_batch_payload(payload)
 
     results: list[ResolveThreadBatchItemResult] = []
     for index, item in enumerate(normalized_requests):
@@ -122,7 +123,7 @@ def _load_payload(request: ResolveThreadBatchRequest) -> ResolveThreadBatchPaylo
     )
 
 
-def _normalize_payload(
+def normalize_resolve_thread_batch_payload(
     payload: ResolveThreadBatchPayload,
 ) -> tuple[ResolveThreadWithReplyRequest, ...]:
     Ensure.true(
@@ -133,7 +134,7 @@ def _normalize_payload(
 
     seen_thread_ids: set[str] = set()
     normalized: list[ResolveThreadWithReplyRequest] = []
-    batch_commit_sha = _trim_optional(payload.commit_sha)
+    batch_commit_sha = trim_optional(payload.commit_sha)
     for index, item in enumerate(payload.items):
         thread_id = item.thread_id.strip()
         Ensure.truthy(
@@ -154,20 +155,11 @@ def _normalize_payload(
                     thread_id=thread_id,
                     mode=item.mode,
                     message=item.message,
-                    commit_sha=_trim_optional(item.commit_sha) or batch_commit_sha,
+                    commit_sha=trim_optional(item.commit_sha) or batch_commit_sha,
                 )
             )
         )
     return tuple(normalized)
-
-
-def _trim_optional(value: str | None) -> str | None:
-    if value is None:
-        return None
-    stripped = value.strip()
-    if not stripped:
-        return None
-    return stripped
 
 
 def _skipped_results(

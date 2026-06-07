@@ -93,6 +93,22 @@ class PayloadStore:
         )
 
     @classmethod
+    def open_containing_artifact(
+        cls,
+        payload_path: Path,
+        *,
+        clock: Callable[[], datetime] | None = None,
+    ) -> Self:
+        """Open the managed payload store containing an existing artifact path."""
+
+        _validate_contained_artifact_path(payload_path)
+        return cls.open(
+            root=payload_path.parent.parent.parent.parent,
+            session_id=payload_path.parent.parent.name,
+            clock=clock,
+        )
+
+    @classmethod
     def from_environment(
         cls,
         explicit_session_id: str | None = None,
@@ -217,6 +233,55 @@ class PayloadStore:
 
 def _default_clock() -> datetime:
     return datetime.now(UTC)
+
+
+def _validate_contained_artifact_path(payload_path: Path) -> None:
+    if not payload_path.is_absolute():
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact path must be absolute: {payload_path}",
+        )
+    if not payload_path.exists():
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact path does not exist: {payload_path}",
+        )
+    if payload_path.is_symlink():
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact path must not be a symlink: {payload_path}",
+        )
+    if not payload_path.is_file():
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact path must be a regular file: {payload_path}",
+        )
+    if payload_path.parent.name != "payloads":
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact must live under a payloads directory: {payload_path}",
+        )
+
+    session_id = payload_path.parent.parent.name
+    if not is_safe_segment(session_id):
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=f"Payload artifact session id must be a safe segment: {session_id!r}",
+        )
+    if payload_path.parent.parent.parent.name != "sessions":
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=(
+                f"Payload artifact must live under sessions/<session-id>/payloads: {payload_path}"
+            ),
+        )
+    if re.fullmatch(PAYLOAD_FILENAME_PATTERN_TEXT, payload_path.name) is None:
+        raise PayloadError(
+            error_type="payload_lookup_failed",
+            message=(
+                f"Payload artifact filename does not match payload contract: {payload_path.name}"
+            ),
+        )
 
 
 def _payload_timestamps(value: datetime) -> tuple[str, str]:

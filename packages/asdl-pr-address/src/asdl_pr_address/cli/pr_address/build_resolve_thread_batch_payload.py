@@ -20,8 +20,9 @@ from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
 from asdl_pr_address.cli.pr_address.resolve_thread_batch import (
     ResolveThreadBatchItem,
     ResolveThreadBatchPayload,
-    _normalize_payload,
+    normalize_resolve_thread_batch_payload,
 )
+from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
 
 VALID_RESOLUTION_MODES: tuple[str, ...] = get_args(ResolutionReplyMode)
 
@@ -110,7 +111,7 @@ def build_resolve_thread_batch_payload(
 ) -> BuildResolveThreadBatchPayloadResult:
     plan = FeedbackPlanningResult.model_validate(request.plan)
     batch_id = request.batch_id.strip()
-    batch_commit_sha = _trim_optional(request.commit_sha)
+    batch_commit_sha = trim_optional(request.commit_sha)
 
     if not plan.valid:
         return _invalid_result(
@@ -153,7 +154,7 @@ def build_resolve_thread_batch_payload(
     for item in selected_batch.items:
         if item.source_kind != "review_thread":
             continue
-        thread_id = _trim_optional(item.thread_id)
+        thread_id = trim_optional(item.thread_id)
         if thread_id is None:
             errors.append(
                 BuildResolveThreadBatchPayloadError(
@@ -165,13 +166,13 @@ def build_resolve_thread_batch_payload(
             continue
         candidates.append(item)
 
-    selected_thread_ids = {_trim_required(item.thread_id) for item in candidates}
+    selected_thread_ids = {trim_required(item.thread_id) for item in candidates}
     other_batch_by_thread = _other_batch_review_threads(plan=plan, selected_batch_id=batch_id)
     informational_thread_ids = {
         thread_id
         for item in plan.informational
         if item.source_kind == "review_thread"
-        for thread_id in (_trim_optional(item.thread_id),)
+        for thread_id in (trim_optional(item.thread_id),)
         if thread_id is not None
     }
 
@@ -238,7 +239,7 @@ def build_resolve_thread_batch_payload(
             )
 
     for item in candidates:
-        thread_id = _trim_required(item.thread_id)
+        thread_id = trim_required(item.thread_id)
         if thread_id not in decisions_by_thread:
             errors.append(
                 BuildResolveThreadBatchPayloadError(
@@ -252,7 +253,7 @@ def build_resolve_thread_batch_payload(
     payload_items: list[ResolveThreadBatchItem] = []
     skipped_items: list[SkippedResolveThreadItem] = []
     for item in candidates:
-        thread_id = _trim_required(item.thread_id)
+        thread_id = trim_required(item.thread_id)
         if thread_id in duplicate_thread_ids or thread_id not in decisions_by_thread:
             continue
         decision = decisions_by_thread[thread_id]
@@ -385,7 +386,7 @@ def _other_batch_review_threads(
         for item in batch.items:
             if item.source_kind != "review_thread":
                 continue
-            thread_id = _trim_optional(item.thread_id)
+            thread_id = trim_optional(item.thread_id)
             if thread_id is not None:
                 lookup[thread_id] = batch.batch_id
     return lookup
@@ -402,13 +403,13 @@ def _validated_decision_item(
     ResolveThreadBatchItem | None,
     SkippedResolveThreadItem | None,
 ]:
-    thread_id = _trim_required(plan_item.thread_id)
+    thread_id = trim_required(plan_item.thread_id)
     errors: list[BuildResolveThreadBatchPayloadError] = []
     action = decision.action.strip()
-    mode = _trim_optional(decision.mode)
-    message = _trim_optional(decision.message)
-    item_commit_sha = _trim_optional(decision.commit_sha)
-    skip_reason = _trim_optional(decision.skip_reason)
+    mode = trim_optional(decision.mode)
+    message = trim_optional(decision.message)
+    item_commit_sha = trim_optional(decision.commit_sha)
+    skip_reason = trim_optional(decision.skip_reason)
 
     if action == "skip":
         if skip_reason is None:
@@ -441,7 +442,7 @@ def _validated_decision_item(
             None,
             SkippedResolveThreadItem(
                 thread_id=thread_id,
-                skip_reason=_trim_required(skip_reason),
+                skip_reason=trim_required(skip_reason),
                 summary=plan_item.summary,
             ),
         )
@@ -534,7 +535,7 @@ def _canonical_payload_errors(
     batch_id: str,
 ) -> tuple[BuildResolveThreadBatchPayloadError, ...]:
     try:
-        _normalize_payload(payload)
+        normalize_resolve_thread_batch_payload(payload)
     except ClinkrFailure as exc:
         return (
             BuildResolveThreadBatchPayloadError(
@@ -602,19 +603,3 @@ def _no_payload_result(
         payload=None,
         warnings=(warning,),
     )
-
-
-def _trim_optional(value: str | None) -> str | None:
-    if value is None:
-        return None
-    stripped = value.strip()
-    if not stripped:
-        return None
-    return stripped
-
-
-def _trim_required(value: str | None) -> str:
-    trimmed = _trim_optional(value)
-    if trimmed is None:
-        return ""
-    return trimmed
