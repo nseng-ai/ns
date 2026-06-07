@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
-    "./handoff-tab": "./src/handoff-tab.ts"
+    "./handoff-tab": "./src/handoff-tab.ts",
+    "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
