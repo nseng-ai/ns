@@ -6,7 +6,7 @@ The repo-specific command/control behavior currently spread across `@asdl/pi-ext
 
 CCC is the highly opinionated orchestration module for this repository. It is not cmux itself, and it is not every Pi extension. CCC owns the workflows that turn an agent or human work intent into a branch, worktree slot, cmux workspace or tab, child Pi launch, Graphite stack action, and workspace status/presentation. Lower-level packages keep their generic or domain-specific primitives: Branch Memory storage, planned-branch plan persistence and attachment, handoff artifact identity, Objective records, checkpoint primitives, pending-worktree snapshots, command runtime helpers, and runner-subagent mechanics.
 
-The desired outcome is a clean dependency direction and a name future agents can use: **CCC composes lower-level capabilities; lower-level capabilities do not import CCC.** The public slash-command names can remain stable (`/cmux:*`, `/code:*`, `/planned-branch:*`, `/handoff-tab`, `/objective:stack-impl`) while the implementation boundary becomes explicit and testable.
+The desired outcome is a clean dependency direction and a name future agents can use: **CCC composes lower-level capabilities; lower-level capabilities do not import CCC.** Public command families such as `/code:*`, `/planned-branch:*`, `/handoff-tab`, and `/objective:stack-impl` stay stable; the CCC workspace/sidebar suite has since been renamed from `/cmux:*` to the `/ccc:*` prefix (see the roadmap and the 2026-06-07 rename update) so the `ccc` namespace names the orchestration layer while `cmux` is reserved for the external workspace tool. The implementation boundary is explicit and testable.
 
 This Objective should be specified enough that `objective-stack-impl` can implement it as a small Graphite stack without another design session.
 
@@ -19,11 +19,11 @@ In scope:
 - Introduce a private TypeScript workspace package, tentatively `ts/packages/ccc/` with package name `@asdl/ccc`, or an equivalent first slice that can be promoted without changing public command behavior.
 - Keep `.pi/extensions/*.ts` as thin project-local discovery adapters. The adapters should import registration functions from engineered packages rather than contain behavior.
 - Move or wrap the current cmux workspace-opening and sidebar implementation from `ts/packages/pi-extensions/src/cmux.ts` and `ts/packages/pi-extensions/src/cmux/**` into CCC:
-  - `/cmux:workspace:dispatch-plan`
-  - `/cmux:workspace:dispatch-prompt`
-  - `/cmux:workspace:open-branch`
-  - `/cmux:sidebar:pr-summary`
-  - `/cmux:sidebar:objective-summary`
+  - `/ccc:workspace:dispatch-plan` (originally `/cmux:workspace:dispatch-plan`)
+  - `/ccc:workspace:dispatch-prompt` (originally `/cmux:workspace:dispatch-prompt`)
+  - `/ccc:workspace:open-branch` (originally `/cmux:workspace:open-branch`)
+  - `/ccc:sidebar:pr-summary` (originally `/cmux:sidebar:pr-summary`)
+  - `/ccc:sidebar:objective-summary` (originally `/cmux:sidebar:objective-summary`)
   - slot checkout plus `cmux new-workspace` orchestration
   - focused cmux terminal tab/surface helpers when used by CCC launch flows
   - child Pi launch command construction that preserves model/thinking choices
@@ -57,7 +57,7 @@ Planning evidence used for this Objective:
 
 This Objective does not include:
 
-- Renaming public slash commands as a prerequisite. Existing commands should keep working unless a later explicit user decision chooses aliases or renamed surfaces.
+- Renaming public slash commands as a prerequisite. Existing commands should keep working unless a later explicit user decision chooses aliases or renamed surfaces. (A later explicit decision did rename the cmux workspace/sidebar suite to the `/ccc:*` prefix and removed the cmux command-suite shims — see the 2026-06-07 rename update. That was a deliberate namespace choice made during the work, not a prerequisite to starting the extraction.)
 - Making CCC a published, stable, general-purpose package. CCC is private and repo-opinionated.
 - Moving Branch Memory storage semantics, `brmem` refs, Branch Memory namespace rules, or `brmem` CLI behavior into CCC.
 - Moving planned-branch core semantics into CCC. Local plan store, saved-plan path safety, planned-branch slug validation, Branch Memory attachment namespace/key rules, and attached-plan loading stay with `@asdl/planned-branch`.
@@ -75,7 +75,7 @@ This Objective can close when all of the following are true:
 
 - CCC is a named engineered TypeScript module/package with a clear interface and ownership statement. Prefer `ts/packages/ccc/` and `@asdl/ccc`; if a staged internal subtree is used first, it must have a clear path to package extraction.
 - Project-local `.pi/extensions/*` files remain thin discovery adapters and no longer obscure where the repo-opinionated orchestration lives.
-- CCC owns the implementation of the cmux workspace/sidebar command suite while preserving the public command names and tested behavior.
+- CCC owns the implementation of the cmux workspace/sidebar command suite with tested behavior. (The public command prefix for this suite was later renamed from `/cmux:*` to `/ccc:*` by deliberate decision rather than preserved; see the 2026-06-07 rename update.)
 - CCC owns handoff-tab launch orchestration, but handoff lifecycle/storage semantics remain outside CCC.
 - CCC owns `/planned-branch:up-and-impl` orchestration, but planned-branch write/create/impl and the deterministic planned-branch CLI/core remain outside CCC.
 - CCC owns Objective stack implementation orchestration or an equivalent Objective adapter calls into CCC for that orchestration, while Objective record/list/update semantics remain outside CCC.
@@ -158,7 +158,7 @@ Assumptions:
 
 - `ccc-command-and-control` is the right durable Objective slug because it names the new architectural layer rather than one of the older command families.
 - A private `@asdl/ccc` workspace package is preferable to an internal `src/ccc/**` subtree because the desired architecture is a higher-level package that composes lower-level packages.
-- Public command stability matters more than exposing a new `/ccc:*` command namespace in the first implementation. CCC is initially an implementation and documentation boundary.
+- Public command stability initially mattered more than exposing a new `/ccc:*` command namespace; CCC began as an implementation and documentation boundary. **Revised 2026-06-07:** once the extraction was underway, a deliberate decision renamed the cmux workspace/sidebar suite to the `/ccc:*` prefix (and removed the cmux command-suite shims), so the public `/ccc:*` namespace is now adopted for the CCC suite rather than deferred.
 - The existing tests in `ts/packages/pi-extensions/test/` are the best starting coverage for behavior-preserving moves. They should move with implementation slices or be adapted to test through the same public command behavior.
 - `@asdl/planned-branch` is already close to the desired lower primitive shape: its CLI/core expose saved-plan, create, and load operations, and Graphite is explicit as `branchCreation` rather than a hidden default.
 - `asdl-dev` contains useful lower primitives and CLI commands; CCC should wrap or depend on those primitives rather than absorbing the whole package.
@@ -182,4 +182,4 @@ Risks:
 - Keep neutral runtime/session-artifact helpers below CCC; name or extract additional neutral modules only when a second consumer forces that seam.
 - Leave `asdl-dev submit` as a lower CLI mirror by default; CCC should own command-suite placement only if deeper stack policy needs orchestration.
 - Split `worktree-status` before moving it, and move only operational facts/presentation that represent CCC observability.
-- Keep existing public slash-command namespaces for now. A public `/ccc:*` namespace remains a future product decision, not a prerequisite for this Objective.
+- **Updated 2026-06-07:** the public `/ccc:*` namespace decision has been made and landed. The cmux workspace/sidebar suite was renamed from `/cmux:*` to `/ccc:*` (skill `cmux-sidebar` → `ccc-sidebar`, adapter `.pi/extensions/cmux.ts` → `.pi/extensions/ccc.ts`, env var `ASDL_CMUX_SIDEBAR_MODEL` → `ASDL_CCC_SIDEBAR_MODEL`, status key `pi:cmux-sidebar` → `pi:ccc-sidebar`), and the cmux command-suite compatibility shims were removed. `ccc` now names the orchestration layer's command surface while `cmux` is reserved for the external workspace tool. Other public command families (`/code:*`, `/planned-branch:*`, `/handoff-tab`, `/objective:stack-impl`) remain stable.
