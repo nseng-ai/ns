@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import registerCmuxExtension from "../../ccc/src/cmux.ts";
-import { registerCmuxSlotDispatchPromptCommand } from "../../ccc/src/cmux/dispatch-prompt.ts";
-import { registerCmuxSlotDispatchPlanCommand } from "../../ccc/src/cmux/slot-dispatch-plan.ts";
-import { registerCmuxSlotOpenBranchCommand } from "../../ccc/src/cmux/slot-open-branch.ts";
-import { createCmuxSidebarController, registerCmuxSidebarCommands } from "../../ccc/src/cmux/sidebar.ts";
+import registerCmuxExtension from "../src/cmux.ts";
+import { registerCmuxSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
+import { registerCmuxSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
+import { registerCmuxSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
+import { createCmuxSidebarController, registerCmuxSidebarCommands } from "../src/cmux/sidebar.ts";
 import {
 	BRANCH,
 	FAST_MODEL,

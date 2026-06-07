@@ -1,6 +1,6 @@
 # @asdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is a separate private orchestration layer for repo-opinionated command-and-control workflows that may sit underneath stable Pi command surfaces later.
+`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is a separate private orchestration layer for repo-opinionated command-and-control workflows that may sit underneath stable Pi command surfaces later. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
 
 ## Language
 
@@ -29,8 +29,8 @@ The Pi-specific command/tool layer for starting grill sessions and routing user-
 _Avoid_: questionnaire framework, docs editor, generic form engine.
 
 **Command runtime**:
-The package helper layer for invoking external commands from Pi extensions with cwd, timeout, signal, and captured stdout/stderr evidence.
-_Avoid_: shell script, subprocess wrapper unqualified, test fake.
+The neutral helper layer, implemented in `@asdl/pi-extension-runtime` and compatibility-re-exported where needed, for command display formatting, shell quoting, normalized exec results, and bounded stdout/stderr evidence.
+_Avoid_: shell executor, workflow owner, subprocess policy, test fake.
 
 **cmux command suite**:
 The project-local cmux Pi command family registered by `.pi/extensions/cmux.ts`: `/cmux:sidebar:pr-summary`, `/cmux:sidebar:objective-summary`, `/cmux:workspace:dispatch-plan`, `/cmux:workspace:open-branch`, and `/cmux:workspace:dispatch-prompt`. The command names and registration surface are stable even if later implementation slices move orchestration behind CCC.

@@ -66,6 +66,13 @@ export {
 	type PlanCommandExecApi,
 } from "./plan-persistence.ts";
 export {
+	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+	extractPlannedBranchEvidence,
+	formatPlanBranchEvidence,
+	type PlannedBranchOutputDetails,
+	type PlannedBranchOutputStatus,
+} from "./session-artifact.ts";
+export {
 	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 	extractSourceBranchPlanFileEvidenceFromSessionEntry,
 	findLatestSessionSavedPlanFile,

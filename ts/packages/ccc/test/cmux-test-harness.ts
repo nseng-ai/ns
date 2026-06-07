@@ -16,8 +16,8 @@ import type {
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
-} from "../../ccc/src/cmux/types.ts";
-import type { SkillCommandInfo } from "../src/skill-expansion.ts";
+} from "../src/cmux/types.ts";
+import type { SkillCommandInfo } from "@asdl/pi-extension-runtime/skill-expansion";
 
 export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";

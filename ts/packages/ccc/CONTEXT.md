@@ -21,7 +21,7 @@ The dependency direction rule: CCC may depend on lower-level packages, CLIs, and
 _Avoid_: circular helper import, public API promise, command rename.
 
 **Lower capability**:
-A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as planned-branch creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
+A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as `@asdl/pi-extension-runtime` helper contracts, planned-branch creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
 _Avoid_: CCC submodule, orchestrator, command surface.
 
 **Project-local adapter**:

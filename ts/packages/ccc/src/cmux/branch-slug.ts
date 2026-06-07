@@ -3,7 +3,7 @@ import {
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "../../../pi-extensions/src/branch-slug.ts";
+} from "@asdl/pi-extension-runtime/branch-slug";
 import type { TextResult } from "./primitives.ts";
 import type { ExtensionAPI } from "./types.ts";
 

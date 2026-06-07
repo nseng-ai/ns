@@ -2,5 +2,5 @@ export {
 	formatErrorMessage,
 	isRecord,
 	stringField,
-} from "../../../pi-extensions/src/cmux/primitives.ts";
-export type { TextResult } from "../../../pi-extensions/src/cmux/primitives.ts";
+} from "@asdl/pi-extension-runtime/cmux/primitives";
+export type { TextResult } from "@asdl/pi-extension-runtime/cmux/primitives";

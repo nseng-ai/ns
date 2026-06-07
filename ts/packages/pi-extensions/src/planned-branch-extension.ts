@@ -1,11 +1,13 @@
 import { Text, type Component } from "@earendil-works/pi-tui";
 import {
 	PLAN_BRANCH_NAMESPACE,
+	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 	buildImplPlannedBranchPrompt,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
 	deriveTargetBranch,
 	formatLoadedAttachedPlanEvidence,
+	formatPlanBranchEvidence,
 	formatSourceBranchPlanFileEvidence,
 	loadAttachedPlan,
 	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
@@ -13,17 +15,13 @@ import {
 	type BranchCreationMethod,
 	type ExecOptions,
 	type LoadedAttachedPlan,
+	type PlannedBranchEvidence,
+	type PlannedBranchOutputDetails,
 	type SelectedSavedPlanFile,
 	type SourceBranchPlanFileEvidence,
 } from "@asdl/planned-branch";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
-import {
-	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
-	formatPlanBranchEvidence,
-	type PlannedBranchEvidence,
-	type PlannedBranchOutputDetails,
-} from "./planned-branch-output.ts";
 import type { ExecResult } from "./command-runtime.ts";
 
 export type { ExecResult } from "./command-runtime.ts";

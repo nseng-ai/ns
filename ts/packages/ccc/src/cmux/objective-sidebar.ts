@@ -1,8 +1,8 @@
 import * as path from "node:path";
 
-import { formatCommand, formatPlainOutputSection, tailText, type ExecResult } from "../../../pi-extensions/src/command-runtime.ts";
-import { parseMachineEnvelopeData } from "../../../pi-extensions/src/machine-envelope.ts";
-import { parseObjectiveList, type ObjectiveListRecord } from "../../../pi-extensions/src/objective-list.ts";
+import { formatCommand, formatPlainOutputSection, tailText, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
+import { parseObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
 import { formatErrorMessage } from "./primitives.ts";
 import type { ExtensionAPI } from "./types.ts";
 

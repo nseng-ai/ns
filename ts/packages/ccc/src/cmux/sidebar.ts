@@ -1,5 +1,5 @@
-import { objectiveChoiceMap } from "../../../pi-extensions/src/objective-picker.ts";
-import { expandSkillBlock } from "../../../pi-extensions/src/skill-expansion.ts";
+import { objectiveChoiceMap } from "@asdl/pi-extension-runtime/objective-picker";
+import { expandSkillBlock } from "@asdl/pi-extension-runtime/skill-expansion";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,

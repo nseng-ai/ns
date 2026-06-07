@@ -24,12 +24,17 @@
     "packages/ccc": {
       "name": "@asdl/ccc",
       "dependencies": {
+        "@asdl/pi-extension-runtime": "workspace:*",
         "@asdl/planned-branch": "workspace:*",
       },
+    },
+    "packages/pi-extension-runtime": {
+      "name": "@asdl/pi-extension-runtime",
     },
     "packages/pi-extensions": {
       "name": "@asdl/pi-extensions",
       "dependencies": {
+        "@asdl/pi-extension-runtime": "workspace:*",
         "@asdl/planned-branch": "workspace:*",
         "asdl-dev": "workspace:*",
       },
@@ -59,6 +64,8 @@
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.91.1", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-LAmu761tSN9r66ixvmciswUj/ZC+1Q4iAfpedTfSVLeswRwnY3n2Nb6Tsk+cLPP28aLOPWeMgIuTuCcMC6W/iw=="],
 
     "@asdl/ccc": ["@asdl/ccc@workspace:packages/ccc"],
+
+    "@asdl/pi-extension-runtime": ["@asdl/pi-extension-runtime@workspace:packages/pi-extension-runtime"],
 
     "@asdl/pi-extensions": ["@asdl/pi-extensions@workspace:packages/pi-extensions"],
 
