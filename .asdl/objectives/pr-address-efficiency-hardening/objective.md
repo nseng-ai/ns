@@ -87,7 +87,7 @@ Risks:
 
 - A composite helper such as `plan-run` could become an opaque mega-command if it owns too much judgment or hides intermediate validation diagnostics.
 - Managed run-state artifacts could create lifecycle/cleanup confusion if they are not scoped clearly to a payload session and explicit artifact role.
-- File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design.
+- File-based JSON input flags could merely formalize scratch files rather than eliminating unnecessary manual plumbing unless paired with better helper design. Partially de-risked: `resolve-thread-batch --payload-file` runs through the shared `load_json_input` loader with single-source conflict detection and pairs with `build-resolve-thread-batch-payload`, so the file holds a tested generated payload rather than a hand-authored scratch file. Per-batch checkpoint/evidence helpers remain the larger plumbing-reduction step.
 - Shared payload/platform changes could expand the Objective beyond `pr-address`; keep them parked unless they directly unblock this workflow.
 - Over-optimizing for speed could weaken existing safety guarantees: validated classification, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, and no pushing.
 - Cross-harness fallback language remains necessary where runner dispatch cannot choose models per launch.
@@ -95,5 +95,5 @@ Risks:
 ## Open Questions
 
 - What is the right boundary between a composite `plan-run` helper and smaller helpers so deterministic orchestration improves without hiding too much from the agent and user?
-- Should future mutation work favor more `@file`/stdin affordances, a higher-level batch checkpoint helper, or both?
+- The `@file` mutation affordance now exists (`resolve-thread-batch --payload-file`, backed by the shared JSON loader); the remaining question is whether a higher-level batch checkpoint helper should own mutation payload generation and per-batch evidence rather than leaving agents to write payload files.
 - What representative fixture or live-run protocol should count as final closure evidence for the lower-orchestration happy path?

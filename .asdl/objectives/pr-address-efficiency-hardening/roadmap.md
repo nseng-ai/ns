@@ -24,7 +24,7 @@
 
 - [~] Reduce manual GitHub mutation payload assembly.
   - Policy: Agents should build resolution payloads through tested helpers from plan output plus explicit per-thread decisions; mutation should still happen only through helper-mediated GitHub commands.
-  - Evidence: `resolve-thread-batch` accepts stdin or `--payload-json` through the shared JSON loader, and `build-resolve-thread-batch-payload` emits either a validated payload, a no-payload result, or structured semantic errors without mutating GitHub. Scenario tests cover ready payload generation, skip handling, non-thread batches, invalid decisions, thread mismatches, malformed input, and compatibility with `resolve-thread-batch`. Remaining evidence is per-batch checkpoint support for changed files, validation commands, and final audit state.
+  - Evidence: `resolve-thread-batch` accepts stdin, `--payload-json`, or `--payload-file` through the shared JSON loader, so a large generated batch payload can be written to a file instead of inlined in the transcript; `build-resolve-thread-batch-payload` emits either a validated payload, a no-payload result, or structured semantic errors without mutating GitHub. Scenario tests cover ready payload generation, skip handling, non-thread batches, invalid decisions, thread mismatches, malformed input, single-source conflict between `--payload-json` and `--payload-file`, stdin fallback, and compatibility with `resolve-thread-batch`. Remaining evidence is per-batch checkpoint support for changed files, validation commands, and final audit state.
 
 - [ ] Add per-batch evidence/checkpoint support.
   - Policy: Capture workflow evidence without turning run state into a hidden task database.
