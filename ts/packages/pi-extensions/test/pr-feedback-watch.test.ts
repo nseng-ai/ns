@@ -273,13 +273,18 @@ function compactManifest(commentIds: number[] = [10]): object {
 }
 
 describe("pr feedback watch command parsing", () => {
-	test("parses status by default and start options", () => {
-		expect(parseWatchCommandArgs("")).toMatchObject({ type: "valid", action: "status" });
-		expect(parseWatchCommandArgs("start --interval-seconds 10 --allow-dirty --dispatch-existing")).toEqual({
+	test("parses start by default and supports implicit start options", () => {
+		expect(parseWatchCommandArgs("")).toEqual({
+			type: "valid",
+			action: "start",
+			options: { intervalMs: 15_000, allowDirty: false, dispatchExisting: false },
+		});
+		expect(parseWatchCommandArgs("--interval-seconds 10 --allow-dirty --dispatch-existing")).toEqual({
 			type: "valid",
 			action: "start",
 			options: { intervalMs: 10_000, allowDirty: true, dispatchExisting: true },
 		});
+		expect(parseWatchCommandArgs("status")).toMatchObject({ type: "valid", action: "status" });
 	});
 
 	test("rejects unknown actions, unknown options, and too-small intervals", () => {
@@ -377,12 +382,12 @@ describe("pr feedback watch extension", () => {
 		expect(pi.calls).toEqual([]);
 	});
 
-	test("start baselines existing feedback without dispatching", async () => {
+	test("empty command starts and baselines existing feedback without dispatching", async () => {
 		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);

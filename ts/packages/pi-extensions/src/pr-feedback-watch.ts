@@ -300,7 +300,9 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 
 export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_INTERVAL_MS): WatchCommandParseResult {
 	const tokens = rawArgs.trim().length === 0 ? [] : rawArgs.trim().split(/\s+/);
-	const actionToken = tokens[0] ?? "status";
+	const explicitActionToken = tokens[0];
+	const hasExplicitAction = explicitActionToken !== undefined && !explicitActionToken.startsWith("--");
+	const actionToken = hasExplicitAction ? explicitActionToken : "start";
 	if (!isWatchCommandAction(actionToken)) {
 		return { type: "invalid", message: `Unknown pr-feedback-watch action: ${actionToken}` };
 	}
@@ -311,7 +313,8 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		dispatchExisting: false,
 	};
 
-	for (let index = 1; index < tokens.length; index += 1) {
+	const optionStartIndex = hasExplicitAction ? 1 : 0;
+	for (let index = optionStartIndex; index < tokens.length; index += 1) {
 		const token = tokens[index];
 		if (token === "--allow-dirty") {
 			options.allowDirty = true;
