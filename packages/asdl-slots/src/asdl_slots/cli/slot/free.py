@@ -22,6 +22,13 @@ from asdl_slots.cli.slot.selectors import (
 )
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch
+from asdl_slots.lifecycle.free import (
+    SLOT_FREE_ALL_CLEANUP_ACTIONS,
+    execute_cleanup_for_freed_slots,
+    execute_free_plan,
+    plan_cleanup_for_free_targets,
+    plan_free_slots,
+)
 from asdl_slots.lifecycle.outcomes import (
     FreedSlot as LifecycleFreedSlot,
 )
@@ -32,10 +39,6 @@ from asdl_slots.lifecycle.outcomes import (
     SlotFreeOutcome,
     SlotFreePlan,
     SlotLifecycleFailure,
-)
-from asdl_slots.lifecycle.release import (
-    SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
-    SlotReleaseWorkflow,
 )
 from asdl_slots.repo_context import NoRepoSentinel
 
@@ -228,15 +231,15 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
         )
 
     targets, skipped, shape_errors = _resolve_targets(slots_ctx, request, inventory)
-    workflow = SlotReleaseWorkflow(slots_ctx)
-    free_plan = workflow.plan_free_slots(targets, preflight_errors=shape_errors)
+    free_plan = plan_free_slots(slots_ctx, targets, preflight_errors=shape_errors)
     if isinstance(free_plan, SlotLifecycleFailure):
         return ClinkrExit.failure(error_type=free_plan.error_type, message=free_plan.message)
 
-    cleanup_actions = SLOT_RELEASE_ALL_CLEANUP_ACTIONS if request.all else ()
+    cleanup_actions = SLOT_FREE_ALL_CLEANUP_ACTIONS if request.all else ()
 
     if request.dry_run:
-        cleanup_plan = workflow.plan_cleanup(
+        cleanup_plan = plan_cleanup_for_free_targets(
+            slots_ctx,
             free_plan.targets,
             cleanup_actions,
             trunk_branch=free_plan.trunk_branch,
@@ -261,7 +264,8 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
                 error_type="confirmation_required",
                 message="Destructive cleanup requires --yes in JSON mode (or use --dry-run first).",
             )
-        cleanup_preview = workflow.plan_cleanup(
+        cleanup_preview = plan_cleanup_for_free_targets(
+            slots_ctx,
             free_plan.targets,
             cleanup_actions,
             trunk_branch=free_plan.trunk_branch,
@@ -284,17 +288,23 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
                 )
             )
 
-    release_result = workflow.execute_free_release(free_plan, cleanup_actions)
-    if isinstance(release_result, SlotLifecycleFailure):
+    outcome = execute_free_plan(slots_ctx, free_plan)
+    if isinstance(outcome, SlotLifecycleFailure):
         return ClinkrExit.failure(
-            error_type=release_result.error_type,
-            message=release_result.message,
+            error_type=outcome.error_type,
+            message=outcome.message,
         )
 
+    cleanup = execute_cleanup_for_freed_slots(
+        slots_ctx,
+        outcome.freed,
+        cleanup_actions,
+        trunk_branch=free_plan.trunk_branch,
+    )
     result = _outcome_to_result(
-        release_result.outcome,
+        outcome,
         skipped,
-        release_result.cleanup,
+        cleanup,
     )
     if result.cleanup_error_count:
         return ClinkrExit.negative(result, message=_cleanup_error_message(result))
