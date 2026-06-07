@@ -80,7 +80,9 @@ def _valid_resolver_frontmatter() -> dict[str, Any]:
         "files_changed": ["src/example.py"],
         "validation": [
             {
-                "command": "uv run pytest packages/roaster/tests/unit/test_stack_agent_output.py",
+                "command": (
+                    "uv run pytest packages/roaster/tests/unit/stack/command/test_agent_output.py"
+                ),
                 "status": "passed",
                 "output_summary": "passed",
             },
