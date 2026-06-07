@@ -258,9 +258,6 @@ export function parseCreatePlannedBranchFromFileParams(params: unknown): CreateP
 }
 
 export function tryNormalizeBranchCreationMethod(value: unknown): BranchCreationMethod | undefined {
-	if (value === undefined) {
-		return "plain-git";
-	}
 	if (value === "plain-git" || value === "graphite") {
 		return value;
 	}
@@ -268,6 +265,9 @@ export function tryNormalizeBranchCreationMethod(value: unknown): BranchCreation
 }
 
 export function normalizeBranchCreationMethod(value: unknown): BranchCreationMethod {
+	if (value === undefined) {
+		return "plain-git";
+	}
 	const normalized = tryNormalizeBranchCreationMethod(value);
 	if (normalized !== undefined) {
 		return normalized;

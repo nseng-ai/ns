@@ -84,8 +84,8 @@ describe("buildPlannedBranchCreateOperation", () => {
 });
 
 describe("branch creation normalization", () => {
-	test("returns undefined instead of throwing for invalid branch creation methods", () => {
-		expect(tryNormalizeBranchCreationMethod(undefined)).toBe("plain-git");
+	test("returns undefined instead of throwing for absent or invalid branch creation methods", () => {
+		expect(tryNormalizeBranchCreationMethod(undefined)).toBeUndefined();
 		expect(tryNormalizeBranchCreationMethod("graphite")).toBe("graphite");
 		expect(tryNormalizeBranchCreationMethod("plain-git")).toBe("plain-git");
 		expect(tryNormalizeBranchCreationMethod("hg")).toBeUndefined();

@@ -142,14 +142,6 @@ export function buildNewWorkspaceArgs(
 	return args;
 }
 
-/**
- * @deprecated Slot checkout data is already normalized by parseSlotCheckoutEnvelope.
- * Retained as an exported compatibility no-op for existing callers.
- */
-export function slotCheckoutTargetFromData(data: SlotCheckoutTarget): SlotCheckoutTarget {
-	return data;
-}
-
 export function isSlotCheckoutSuccessEnvelope(
 	envelope: SlotCheckoutEnvelope,
 ): envelope is SlotCheckoutSuccessEnvelope {
