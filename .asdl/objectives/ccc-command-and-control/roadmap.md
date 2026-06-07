@@ -25,12 +25,13 @@
   - Policy: direct execution after preview; steer first if a lower package would need a CCC import.
   - Evidence: review follow-up validation should pass `bun run --cwd ts check`, `bun test --cwd ts/packages/ccc`, focused planned-branch/pi-extension tests, `bun run --cwd ts test`, and `git diff --check`.
 
-- [ ] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
+- [~] Move cross-domain launch orchestration into CCC while preserving lower domain ownership.
   - Move the `/planned-branch:up-and-impl` flow out of the planned-branch adapter into CCC-owned orchestration, leaving planned-branch write/create/impl primitives below.
-  - Move handoff-tab launch orchestration into CCC, leaving handoff identity/storage/listing semantics below.
+  - Moved handoff-tab launch orchestration into CCC, leaving handoff identity/storage/listing semantics below.
   - Move Objective stack implementation orchestration into CCC or make the Objective adapter delegate to CCC, leaving Objective record/list/update semantics below.
   - Policy: direct execution after preview; ask first if command names or ownership boundaries need to change.
-  - Evidence: planned-branch, handoff-tab, and Objective adapter tests pass; lower lifecycle commands still work without importing CCC.
+  - Evidence: handoff-tab launch now lives in `@asdl/ccc`, focused cmux terminal-tab helpers moved to CCC with a pi-extension shim, public handoff-tab command/tool names stayed stable, and validation passed with `bun test --cwd ts/packages/ccc`, `bun test --cwd ts/packages/pi-extensions`, `bun run --cwd ts check`, and `bun run --cwd ts test`.
+  - Evidence still needed: planned-branch up-and-impl and Objective adapter orchestration move without lower packages importing CCC.
 
 - [ ] Move repo source-control command/control workflows into CCC.
   - Move `/code:autobranch` and its preparation/transaction modules into CCC because it encodes dirty-worktree-to-Graphite-branch-to-checkpoint policy.
