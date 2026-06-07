@@ -6,6 +6,11 @@
   - Delivered: `pr-address exec classification-template` builds a deterministic fill-in scaffold from `prepare-run` or `get-feedback` compact manifests. It prefills review IDs, thread IDs, comment IDs, item pointers, and minimal valid locator refs while leaving semantic judgment fields for the LLM/agent.
   - Evidence: `feedback_classification.py`, `classification_template.py`, scenario tests, unit tests, and CLI reference now cover filled-template validation, unfilled-template rejection, missing/extra locator fields, wrong covered-comment fields, duplicate IDs, omitted unresolved threads, and resolved-thread omission.
 
+- [ ] Add cost-aware classifier model routing.
+  - Default bounded initial classification to a cheap/fast model or profile when the input is compact feedback plus payload locators, the task is finite-rule classification from the `feedback-classifier` reference, and strict JSON validation runs afterward.
+  - Escalate or retry with a stronger model when validation fails, comments are unusually ambiguous, or the classifier must reason over complex cross-file code context.
+  - Evidence: future pr-address classifier launches can request the cheaper model/profile through a supported per-dispatch interface or documented harness fallback, and tests/docs cover validator-driven escalation behavior without trusting cheap-model output directly.
+
 - [~] Design the managed run-state boundary for pr-address orchestration.
   - Decide which transient artifacts belong in the payload/session store, which can be ordinary `@file` inputs, and which should disappear behind composite helpers. Preserve the distinction between raw feedback payloads, selected-detail artifacts, classification packets, validation wrappers, and GitHub mutation payloads.
   - Progress: PR #1011 promotes generic JSON option/stdin loading into `asdl_core.clinkr.json_input` and keeps `pr-address` classification and thread-resolution helpers as direct consumers, narrowing shared infrastructure to a reusable CLI input boundary rather than embedding pr-address run state in Clinkr.
@@ -36,7 +41,7 @@
   - Evidence: future `pr-address` runs have an obvious end state even when a session pivots before final verification.
 
 - [~] Update the public `pr-address` skill and CLI reference for the improved happy path.
-  - Remove or demote obsolete manual steps once helpers exist. Keep the guarantees: payload by default, classification validation before planning, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, no push.
+  - Remove or demote obsolete manual steps once helpers exist. Keep the guarantees: payload by default, classification validation before planning, cost-aware classifier dispatch with validator-driven escalation where the harness supports it, user approval for cross-cutting/complex work, helper-mediated GitHub mutations, no push.
   - Progress: the CLI reference documents `classification-template`, `validate-feedback-classification`, `plan-feedback`, stdin/option JSON input for classification validation, planning, and thread resolution, the deterministic template and planning contracts, and artifact-backed batch selected-detail lookup. The public skill now routes validated classifications through `plan-feedback`, prefers `read-feedback-details` for multi-body lookup, and keeps `read-feedback-detail` as a one-off inline/debug helper.
   - Remaining evidence: the main public skill should continue to shed manual mutation/finalization instructions as checkpoint and finalization helpers land.
 
