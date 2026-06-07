@@ -195,7 +195,7 @@ async function runCmuxMutation<TType extends "renamed" | "sent">(options: RunCmu
 }
 
 function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExecOptions {
-	return { cwd, timeout: CMUX_TIMEOUT_MS, signal };
+	return signal === undefined ? { cwd, timeout: CMUX_TIMEOUT_MS } : { cwd, timeout: CMUX_TIMEOUT_MS, signal };
 }
 
 function formatExecFailure(commandDisplay: string, result: ExecResult): string {
