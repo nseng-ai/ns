@@ -11,7 +11,7 @@ from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure
-from asdl_pr_address.cli.pr_address.string_values import trim_optional
+from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
 
 ResolutionProvenanceKind = Literal["local_branch", "pr"]
 
@@ -109,7 +109,7 @@ def _validate_local_branch_provenance(
     if shape_error is not None:
         Ensure.fail(error_type="invalid_request", message=shape_error)
 
-    branch = trim_optional(provenance_input.branch) or ""
+    branch = trim_required(provenance_input.branch)
     if not git_gateway.branch_exists(branch):
         Ensure.fail(
             error_type="invalid_request",

@@ -149,8 +149,8 @@ def _load_payload(request: ResolveThreadBatchRequest) -> ResolveThreadBatchPaylo
 def normalize_resolve_thread_batch_payload(
     payload: ResolveThreadBatchPayload,
     *,
-    pr_gateway: PRGateway | None = None,
-    git_gateway: GitGateway | None = None,
+    pr_gateway: PRGateway,
+    git_gateway: GitGateway,
 ) -> tuple[NormalizedResolveThreadWithReplyRequest, ...]:
     Ensure.true(
         bool(payload.items),

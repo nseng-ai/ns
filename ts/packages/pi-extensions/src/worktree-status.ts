@@ -197,8 +197,8 @@ export interface GtStatus {
 
 export interface GraphiteMetadataLoaderOptions {
 	cwd: string;
-	signal?: AbortSignal;
-	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
+	signal?: AbortSignal | undefined;
+	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
 export type GraphiteMetadataLoader = (options: GraphiteMetadataLoaderOptions) => Promise<GraphiteMetadataStatus>;
@@ -206,9 +206,9 @@ export type GraphiteMetadataLoader = (options: GraphiteMetadataLoaderOptions) =>
 export interface LoadGtStatusOptions {
 	pi: ExecGateway;
 	cwd: string;
-	signal?: AbortSignal;
-	metadataLoader?: GraphiteMetadataLoader;
-	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
+	signal?: AbortSignal | undefined;
+	metadataLoader?: GraphiteMetadataLoader | undefined;
+	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
 export interface WorktreeStatus {
@@ -581,7 +581,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeStatus> {
 	const [brmem, gt] = await Promise.all([
 		loadBrmemStatus(pi, cwd, signal),
-		loadGtStatus(signal === undefined ? { pi, cwd } : { pi, cwd, signal }),
+		loadGtStatus({ pi, cwd, signal }),
 	]);
 
 	return { brmem, gt };
@@ -592,8 +592,8 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
 	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = {
 		cwd,
-		...(signal === undefined ? {} : { signal }),
-		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
+		signal,
+		onDiagnostic: options.onDiagnostic,
 	};
 	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);
@@ -691,8 +691,8 @@ async function loadCurrentGraphiteMetadataStatusAsync(options: GraphiteMetadataL
 	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
 
 	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
+		signal: options.signal,
+		onDiagnostic: options.onDiagnostic,
 	};
 	return loadGraphiteMetadataStatusInWorker({ commonGitDir: gitPaths.commonGitDir, currentBranch }, workerOptions);
 }

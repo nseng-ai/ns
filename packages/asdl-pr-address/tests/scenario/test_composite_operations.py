@@ -1249,6 +1249,40 @@ def test_build_resolve_thread_batch_payload_rejects_planned_without_provenance(
     assert fake.resolved_thread_ids == ()
 
 
+def test_build_resolve_thread_batch_payload_rejects_pre_existing_provenance(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[_plan_batch("single_file", [_thread_plan_item("PRRT_old")])]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "decisions": [
+            {
+                "thread_id": "PRRT_old",
+                "action": "resolve",
+                "mode": "pre_existing",
+                "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+            }
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert [error["code"] for error in output["data"]["errors"]] == [
+        "pre_existing_has_resolution_fields"
+    ]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
 def test_build_resolve_thread_batch_payload_rejects_planned_commit_sha(
     cli_group: ClinkrGroup,
 ) -> None:

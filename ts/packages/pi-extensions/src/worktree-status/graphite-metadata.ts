@@ -58,10 +58,10 @@ export type GraphiteMetadataWorkerDiagnostic =
 	| { type: "worker-timeout"; timeoutMs: number };
 
 export interface LoadGraphiteMetadataStatusInWorkerOptions {
-	signal?: AbortSignal;
-	timeoutMs?: number;
-	workerFactory?: GraphiteMetadataWorkerFactory;
-	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
+	signal?: AbortSignal | undefined;
+	timeoutMs?: number | undefined;
+	workerFactory?: GraphiteMetadataWorkerFactory | undefined;
+	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
 interface GraphiteMetadataSqlRow {

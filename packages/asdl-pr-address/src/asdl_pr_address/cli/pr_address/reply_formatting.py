@@ -116,6 +116,8 @@ def _resolution_summary(
 
 
 def _planned_resolution_summary(*, message: str | None, provenance: ResolutionProvenance) -> str:
+    if message is None:
+        raise ValueError("mode='planned' requires a non-empty message")
     lines = [f"Planned follow-up: {message}", "", "Provenance:"]
     if provenance.kind == "local_branch":
         branch = _required_provenance_field(

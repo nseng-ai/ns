@@ -544,13 +544,15 @@ def _validated_decision_item(
                         thread_id=thread_id,
                     )
                 )
-    if mode == "pre_existing" and (message is not None or item_commit_sha is not None):
+    if mode == "pre_existing" and (
+        message is not None or item_commit_sha is not None or provenance is not None
+    ):
         errors.append(
             BuildResolveThreadBatchPayloadError(
                 code="pre_existing_has_resolution_fields",
                 message=(
                     f"mode='pre_existing' decision for thread {thread_id} must not include "
-                    "non-empty message or commit_sha fields."
+                    "non-empty message, commit_sha, or provenance fields."
                 ),
                 batch_id=batch_id,
                 thread_id=thread_id,

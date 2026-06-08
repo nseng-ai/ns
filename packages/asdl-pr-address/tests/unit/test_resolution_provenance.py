@@ -79,6 +79,18 @@ def test_planned_local_branch_summary_rejects_missing_branch() -> None:
     assert str(excinfo.value) == "kind='local_branch' provenance requires branch"
 
 
+def test_planned_summary_rejects_missing_message() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        _resolution_summary(
+            mode="planned",
+            message=None,
+            commit_sha=None,
+            provenance=ResolutionProvenance(kind="local_branch", branch="reuse-worker"),
+        )
+
+    assert str(excinfo.value) == "mode='planned' requires a non-empty message"
+
+
 def test_planned_pr_summary_rejects_missing_pr_url() -> None:
     with pytest.raises(ValueError) as excinfo:
         _resolution_summary(
