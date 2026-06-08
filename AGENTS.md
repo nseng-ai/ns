@@ -2,6 +2,10 @@
 
 A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Installed skills are discovered natively from the on-disk skill directories and their `SKILL.md` frontmatter. `AGENTS.md` is for project instructions, not a hand-maintained skill index.
 
+### Planning and Estimates
+
+- Do not provide calendar-time or effort-duration estimates for engineering work unless the user explicitly asks for them. Prefer dependency order, migration shape, scope/risk notes, and concrete next actions.
+
 ### Package Import Rules
 
 - Packages in this repo do **not** publicly re-export symbols from `__init__.py`. Package `__init__.py` files should be empty or contain only a docstring.
