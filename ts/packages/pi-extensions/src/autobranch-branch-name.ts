@@ -18,7 +18,7 @@ export async function chooseAvailableBranchName(
 	input: BranchNameAvailabilityInput,
 	baseSlug: string,
 ): Promise<({ ok: true } & AvailableBranchName) | { ok: false }> {
-	const candidates = branchNameCandidates(baseSlug);
+	const candidates = branchNameCandidates((_, suffix) => trimBranchSlugToLength(baseSlug, MAX_BRANCH_SLUG_LENGTH - suffix.length) + suffix);
 	const available = await findAvailableBranchName(input, candidates);
 	if (!available) {
 		return { ok: false };
@@ -43,12 +43,9 @@ export async function findAvailableBranchName<TName extends string>(
 	return undefined;
 }
 
-function* branchNameCandidates(baseSlug: string): Iterable<{ name: string; hasSuffix: boolean }> {
+export function* branchNameCandidates<TName extends string>(nameBuilder: (index: number, suffix: string) => TName): Iterable<{ name: TName; hasSuffix: boolean }> {
 	for (let index = 0; index < 50; index += 1) {
 		const suffix = index === 0 ? "" : `-${index + 1}`;
-		yield {
-			name: trimBranchSlugToLength(baseSlug, MAX_BRANCH_SLUG_LENGTH - suffix.length) + suffix,
-			hasSuffix: index > 0,
-		};
+		yield { name: nameBuilder(index, suffix), hasSuffix: index > 0 };
 	}
 }

@@ -29,7 +29,7 @@ export interface AutobranchFlowInput {
 	setStatus: (message: string | undefined) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
-	now?: () => number;
+	now?: (() => number) | undefined;
 }
 
 export function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
@@ -70,7 +70,7 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 			exec: input.exec,
 			notify: input.notify,
 			setStatus: input.setStatus,
-			...(input.now ? { now: input.now } : {}),
+			now: input.now,
 		});
 		return;
 	}
@@ -111,7 +111,7 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		exec: input.exec,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
 		setStatus: input.setStatus,
-		...(input.now ? { now: input.now } : {}),
+		now: input.now,
 	});
 	if (!transaction.ok) {
 		input.notify(formatAutobranchTransactionFailure(transaction, prepared.plan.branchName), "error");

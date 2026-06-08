@@ -14,7 +14,7 @@ export interface AutobranchTransactionInput {
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
 	setStatus: (message: string | undefined) => void;
-	now?: () => number;
+	now?: (() => number) | undefined;
 }
 
 export type AutobranchTransactionResult =

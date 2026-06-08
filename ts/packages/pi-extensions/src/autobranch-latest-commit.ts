@@ -1,7 +1,7 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
-import { chooseAvailableBranchName, findAvailableBranchName } from "./autobranch-branch-name.ts";
+import { branchNameCandidates, chooseAvailableBranchName, findAvailableBranchName } from "./autobranch-branch-name.ts";
 import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "./branch-slug.ts";
 import { shortSha } from "./land-stack/command-exec.ts";
@@ -23,7 +23,7 @@ export interface LatestCommitAutobranchInput {
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	notify: (message: string, level: NoticeLevel) => void;
 	setStatus: (message: string | undefined) => void;
-	now?: () => number;
+	now?: (() => number) | undefined;
 }
 
 interface LatestCommitFacts {
@@ -87,7 +87,7 @@ export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobr
 		plan: prepared.plan,
 		exec: input.exec,
 		setStatus: input.setStatus,
-		...(input.now ? { now: input.now } : {}),
+		now: input.now,
 	});
 	if (!transaction.ok) {
 		input.notify(formatLatestCommitTransactionFailure(transaction), "error");
@@ -149,7 +149,7 @@ export interface LatestCommitTransactionInput {
 	plan: LatestCommitAutobranchPlan;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	setStatus: (message: string | undefined) => void;
-	now?: () => number;
+	now?: (() => number) | undefined;
 }
 
 export async function runLatestCommitAutobranchTransaction(input: LatestCommitTransactionInput): Promise<LatestCommitTransactionResult> {
@@ -438,18 +438,11 @@ async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInp
 		.filter((segment) => segment.length > 0)
 		.join("/") || "branch";
 	const base = `autobranch-backup/${sanitizedSource}/${timestamp}`;
-	const available = await findAvailableBranchName(input, backupBranchNameCandidates(base));
+	const available = await findAvailableBranchName(input, branchNameCandidates((_, suffix) => `${base}${suffix}`));
 	if (!available) {
 		return { ok: false };
 	}
 	return { ok: true, name: available.name };
-}
-
-function* backupBranchNameCandidates(base: string): Iterable<{ name: string; hasSuffix: boolean }> {
-	for (let index = 0; index < 50; index += 1) {
-		const suffix = index === 0 ? "" : `-${index + 1}`;
-		yield { name: `${base}${suffix}`, hasSuffix: index > 0 };
-	}
 }
 
 function sanitizeBackupBranchSegment(value: string): string {
