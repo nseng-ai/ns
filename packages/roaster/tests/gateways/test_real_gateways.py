@@ -6,30 +6,11 @@ from pathlib import Path
 import pytest
 
 from asdl_core.project_config import AsdlProjectConfigError
-from roaster.gateways.agent_runner.gateway import AgentRunnerRequest, AgentRunnerUnavailable
-from roaster.gateways.agent_runner.real import RealAgentRunnerGateway
 from roaster.gateways.local_diff import real as local_diff_real
 from roaster.gateways.local_diff.real import RealLocalDiffGateway
 from roaster.gateways.review_catalog import real as review_catalog_real
 from roaster.gateways.review_catalog.real import RealReviewCatalogGateway
 from roaster.models import LocalDiff, ReviewSource
-
-
-def test_real_agent_runner_fails_closed_until_explicit_runner_is_wired() -> None:
-    result = RealAgentRunnerGateway().run_agent(
-        AgentRunnerRequest(
-            kind="triage",
-            prompt_resource="stack_triage.md",
-            prompt_override=None,
-            model="sonnet",
-            cwd=Path("/repo"),
-            input_markdown="# Input\n",
-            allowed_tools=("Read", "Bash"),
-        )
-    )
-
-    assert isinstance(result, AgentRunnerUnavailable)
-    assert "not wired to a supported local runner" in result.message
 
 
 def test_real_review_catalog_loads_review_source(

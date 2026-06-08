@@ -3,12 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from roaster.gateways.agent_runner.fake import FakeAgentRunnerGateway
-from roaster.gateways.agent_runner.gateway import (
-    AgentRunCompleted,
-    AgentRunnerExecutionFailed,
-    AgentRunnerRequest,
-)
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
 from roaster.harness.fake import FakeHarnessRuntime
@@ -27,18 +21,6 @@ from roaster.models import (
     ReviewSource,
     RoasterFailure,
 )
-
-
-def _agent_request() -> AgentRunnerRequest:
-    return AgentRunnerRequest(
-        kind="triage",
-        prompt_resource="stack_triage.md",
-        prompt_override=None,
-        model="sonnet",
-        cwd=Path("/repo"),
-        input_markdown="# Input\n",
-        allowed_tools=("Read", "Bash"),
-    )
 
 
 def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
@@ -60,27 +42,6 @@ def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
         ),
         review_format="findings",
     )
-
-
-def test_fake_agent_runner_returns_configured_response_and_records_requests() -> None:
-    response = AgentRunCompleted(output_markdown="---\nschema_version: roaster.stack.triage.v1\n")
-    gateway = FakeAgentRunnerGateway(responses=(response,))
-
-    result = gateway.run_agent(_agent_request())
-
-    assert result is response
-    assert gateway.requests == (_agent_request(),)
-    assert gateway.responses == (response,)
-
-
-def test_fake_agent_runner_returns_configured_error() -> None:
-    error = AgentRunnerExecutionFailed(message="runner failed")
-    gateway = FakeAgentRunnerGateway(errors=(error,))
-
-    result = gateway.run_agent(_agent_request())
-
-    assert result is error
-    assert gateway.errors == (error,)
 
 
 def test_fake_load_review_source_returns_configured_source() -> None:
