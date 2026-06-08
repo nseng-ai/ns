@@ -35,6 +35,9 @@ from asdl_pr_address.cli.pr_address.stack_feedback import (
     run_stack_feedback_plan,
     run_stack_feedback_prep,
 )
+from asdl_pr_address.cli.pr_address.stack_feedback_diff_current import (
+    run_stack_feedback_diff_current,
+)
 from asdl_pr_address.cli.pr_address.summarize_feedback import run_summarize_feedback
 from asdl_pr_address.cli.pr_address.unresolve_thread import run_unresolve_thread
 from asdl_pr_address.cli.pr_address.validate_feedback_classification import (
@@ -69,6 +72,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_resolve_thread,
             run_resolve_thread_batch,
             run_resolve_thread_with_reply,
+            run_stack_feedback_diff_current,
             run_stack_feedback_plan,
             run_stack_feedback_prep,
             run_summarize_feedback,
