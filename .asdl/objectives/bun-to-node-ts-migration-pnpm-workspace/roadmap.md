@@ -20,8 +20,8 @@
 - [x] Update user-facing and agent-facing command documentation for the pnpm workflow.
       Evidence: active `asdl-dev` fallback and submit docs now use `pnpm --dir ts run asdl-dev ...`, the `asdl-dev` README documents the Node `>=24.12.0` and pnpm `>=10.14.0` baseline, planned-branch validation docs now describe the `justfile`/`ts/` pnpm workspace contract instead of an underlying Bun invocation, and docs-site deploy command docs were re-inspected as already pnpm-based. Broad historical/template Bun-reference cleanup and package-local `bun test --sequential` migration remain sibling/later Objective work.
 
-- [ ] Record dependency-resolution and command evidence after migration.
-      Capture meaningful findings from representative installs, script runs, docs-site build/deploy command checks, and patch handling. Evidence belongs in Semantic Updates, not as routine validation-only roadmap rows.
+- [x] Record dependency-resolution and command evidence after migration.
+      Evidence: Semantic Updates now record the migrated `ts/` and `docs-site/` pnpm lockfile/install/check/test/build surfaces, pnpm-native Pi patch representation with lockfile `patch_hash`, root `justfile` and CI command shape, expected local Node v24.2.0 unsupported-engine warnings against the Node `>=24.12.0` baseline, and intentional temporary state for Vitest/runtime/Bun-reference sibling work.
 
 ## Parked
 
