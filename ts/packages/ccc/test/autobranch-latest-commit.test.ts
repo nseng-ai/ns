@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
-import { prepareLatestCommitAutobranchPlan, type LatestCommitAutobranchPlan } from "../src/autobranch-latest-commit-preparation.ts";
-import { runLatestCommitAutobranchTransaction, type LatestCommitTransactionInput } from "../src/autobranch-latest-commit-transaction.ts";
-import { buildSlugModelArgs } from "../src/model-slug.ts";
+import { prepareLatestCommitAutobranchPlan, type LatestCommitAutobranchPlan } from "../src/autobranch/latest-commit-preparation.ts";
+import { runLatestCommitAutobranchTransaction, type LatestCommitTransactionInput } from "../src/autobranch/latest-commit-transaction.ts";
+import { buildSlugModelArgs } from "../src/autobranch/model-slug.ts";
 
 interface PreparationHarnessOptions {
 	slug?: string;

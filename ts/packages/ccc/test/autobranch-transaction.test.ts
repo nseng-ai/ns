@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch-transaction.ts";
+import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch/transaction.ts";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
-	stashPushFails?: boolean;
-	stashRefMissing?: boolean;
-	gtCreateFails?: boolean;
-	stashPopFails?: boolean;
+	shouldStashPushFail?: boolean;
+	isStashRefMissing?: boolean;
+	shouldGtCreateFail?: boolean;
+	shouldStashPopFail?: boolean;
 	commitResult?: { summary: string } | { error: string };
 }
 
@@ -23,16 +23,16 @@ function createHarness(options: HarnessOptions = {}) {
 			events.push(`exec:${command} ${args.join(" ")}`);
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
-				return options.stashPushFails ? fail("stash push failed") : ok("Saved working directory\n");
+				return options.shouldStashPushFail ? fail("stash push failed") : ok("Saved working directory\n");
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "list") {
-				return options.stashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
+				return options.isStashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
-				return options.stashPopFails ? fail("stash conflict") : ok("restored\n");
+				return options.shouldStashPopFail ? fail("stash conflict") : ok("restored\n");
 			}
 			if (command === "gt" && args[0] === "create") {
-				return options.gtCreateFails ? fail("gt create failed") : ok("created\n");
+				return options.shouldGtCreateFail ? fail("gt create failed") : ok("created\n");
 			}
 			return ok();
 		},
@@ -61,7 +61,7 @@ describe("runAutobranchTransaction", () => {
 	});
 
 	test("stash failure returns stash_failed and does not call Graphite", async () => {
-		const harness = createHarness({ stashPushFails: true });
+		const harness = createHarness({ shouldStashPushFail: true });
 
 		const result = await runAutobranchTransaction(harness.input);
 
@@ -71,7 +71,7 @@ describe("runAutobranchTransaction", () => {
 	});
 
 	test("missing stash ref returns stash_ref_missing and does not call Graphite", async () => {
-		const harness = createHarness({ stashRefMissing: true });
+		const harness = createHarness({ isStashRefMissing: true });
 
 		const result = await runAutobranchTransaction(harness.input);
 
@@ -86,7 +86,7 @@ describe("runAutobranchTransaction", () => {
 	});
 
 	test("Graphite failure restores the stash and returns restored true", async () => {
-		const harness = createHarness({ gtCreateFails: true });
+		const harness = createHarness({ shouldGtCreateFail: true });
 
 		const result = await runAutobranchTransaction(harness.input);
 
@@ -96,7 +96,7 @@ describe("runAutobranchTransaction", () => {
 	});
 
 	test("Graphite failure plus restore failure returns restored false", async () => {
-		const harness = createHarness({ gtCreateFails: true, stashPopFails: true });
+		const harness = createHarness({ shouldGtCreateFail: true, shouldStashPopFail: true });
 
 		const result = await runAutobranchTransaction(harness.input);
 
@@ -111,7 +111,7 @@ describe("runAutobranchTransaction", () => {
 	});
 
 	test("restore failure after branch creation does not commit", async () => {
-		const harness = createHarness({ stashPopFails: true });
+		const harness = createHarness({ shouldStashPopFail: true });
 
 		const result = await runAutobranchTransaction(harness.input);
 

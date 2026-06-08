@@ -1,6 +1,6 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 
-import { formatCommandDetails, withStatus } from "./autobranch-shared.ts";
+import { formatCommandDetails, withStatus } from "./shared.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;

@@ -1,8 +1,8 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "./branch-slug.ts";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
 import { deriveSlugWithModel, formatSlugModelFailure, type SlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";
-import { truncateText } from "./autobranch-shared.ts";
+import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;
 
@@ -61,7 +61,8 @@ export function buildBranchSlugPrompt(input: BranchSlugPromptInput): string {
 	}
 	lines.push("Rules:", ...BRANCH_SLUG_RULES, "");
 	for (const section of input.evidenceSections) {
-		const content = section.content.trim() || section.emptyText || "";
+		const trimmedContent = section.content.trim();
+		const content = trimmedContent.length > 0 ? trimmedContent : (section.emptyText ?? "");
 		lines.push(`## ${section.heading}`, section.maxChars === undefined ? content : truncateText(content, section.maxChars));
 	}
 	return lines.join("\n");

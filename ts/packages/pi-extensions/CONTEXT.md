@@ -1,6 +1,6 @@
 # @asdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows and owns the `ccc` Pi command prefix for cmux/workspace orchestration. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
+`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected stable non-`ccc` command implementations such as `/code:autobranch`. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
 
 ## Language
 
@@ -51,6 +51,10 @@ _Avoid_: Objective prompt, branch-derived Objective, archived Objective path.
 **Objective stack implementation adapter**:
 The public Pi extension registration surface for `/objective:stack-impl`. The command name remains part of the Objective extension surface, but the stack implementation orchestration behind it is delegated to `@asdl/ccc/objective-stack-impl`; normal Objective record/list/current/update/next/close/archive semantics stay below CCC.
 _Avoid_: CCC command prefix alias, Objective storage owner, stack orchestration implementation body.
+
+**Autobranch adapter**:
+The public Pi extension registration surface for `/code:autobranch`. The command stays in the `code` command family and is discovered through `@asdl/pi-extensions`, but dirty-worktree and latest-commit autobranch orchestration is delegated to `@asdl/ccc/autobranch`.
+_Avoid_: preparation owner, transaction owner, new command name, Graphite policy implementation.
 
 **Deterministic sidebar fields**:
 The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `asdl exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.
@@ -161,12 +165,12 @@ A git commit created from pending worktree changes using a prepared checkpoint m
 _Avoid_: checkpoint message, stash, branch creation.
 
 **Autobranch preparation**:
-The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
-_Avoid_: branch transaction, stash operation, model prompt alone.
+A CCC-owned pre-transaction plan exposed through the `/code:autobranch` adapter: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
+_Avoid_: Pi extension implementation ownership, branch transaction, stash operation, model prompt alone.
 
 **Autobranch transaction**:
-The mutating `/code:autobranch` sequence that creates a Graphite branch from either dirty worktree changes or the latest clean-worktree commit. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit. Latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
-_Avoid_: preparation, plain git branch creation, restack.
+A CCC-owned mutating `/code:autobranch` sequence exposed through the `code` command family. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
+_Avoid_: Pi extension implementation ownership, preparation, plain git branch creation, restack.
 
 **Runner subagent**:
 A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode.

@@ -4,9 +4,9 @@ import { relative, resolve } from "node:path";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
-import { chooseAvailableBranchName } from "./autobranch-branch-name.ts";
-import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./autobranch-slug.ts";
-import { sanitizeBranchName } from "./branch-slug.ts";
+import { chooseAvailableBranchName } from "./branch-name.ts";
+import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./slug.ts";
+import { sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
 
 const GIT_TIMEOUT_MS = 30_000;
 const MAX_UNTRACKED_FILES = 12;
@@ -135,8 +135,8 @@ async function readUntrackedSnippets(input: AutobranchPreparationInput, root: st
 				continue;
 			}
 			const text = buffer.toString("utf8");
-			const truncated = text.length > MAX_UNTRACKED_FILE_CHARS;
-			snippets.push(`## ${file}\n${text.slice(0, MAX_UNTRACKED_FILE_CHARS)}${truncated ? "\n...[truncated]" : ""}`);
+			const isTruncated = text.length > MAX_UNTRACKED_FILE_CHARS;
+			snippets.push(`## ${file}\n${text.slice(0, MAX_UNTRACKED_FILE_CHARS)}${isTruncated ? "\n...[truncated]" : ""}`);
 		} catch (error) {
 			snippets.push(`## ${file}\n[could not read: ${errorMessage(error)}]`);
 		}
@@ -186,7 +186,7 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 		.slice(0, 4)
 		.map((path) => path.split("/").pop() ?? path)
 		.join(" ");
-	return sanitizeBranchName(`update ${basenameWords || snapshot.branch}`);
+	return sanitizeBranchName(`update ${basenameWords.length > 0 ? basenameWords : snapshot.branch}`);
 }
 
 function errorMessage(error: unknown): string {

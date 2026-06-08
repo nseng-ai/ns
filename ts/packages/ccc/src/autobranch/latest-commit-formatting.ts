@@ -1,6 +1,6 @@
-import { shortSha } from "./land-stack/command-exec.ts";
-import type { LatestCommitPreparationResult } from "./autobranch-latest-commit-preparation.ts";
-import type { CreatedBranchRecovery, LatestCommitTransactionResult, SourceResetFailureRecovery } from "./autobranch-latest-commit-transaction.ts";
+import { shortSha } from "./short-sha.ts";
+import type { LatestCommitPreparationResult } from "./latest-commit-preparation.ts";
+import type { CreatedBranchRecovery, LatestCommitTransactionResult, SourceResetFailureRecovery } from "./latest-commit-transaction.ts";
 
 export function formatLatestCommitPreparationFailure(result: Extract<LatestCommitPreparationResult, { ok: false }>): string {
 	switch (result.kind) {
