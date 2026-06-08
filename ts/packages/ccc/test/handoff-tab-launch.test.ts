@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { launchHandoffTab, type HandoffExistsResult, type HandoffTabLaunchHost } from "../src/handoff-tab.ts";
 import { FakeCommandContext, FakePi, step } from "./ccc-test-harness.ts";

@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect } from "vitest";
 
 import type { CommandResult, CommandRunner } from "asdl-dev/src/command-runner.ts";
 

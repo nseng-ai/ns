@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { deploymentRecord, inspectedDeployment } from "../support/builders.ts";
 import {

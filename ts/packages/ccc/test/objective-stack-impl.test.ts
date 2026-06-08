@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { registerObjectiveStackImplCommand } from "../src/objective-stack-impl.ts";
 import {

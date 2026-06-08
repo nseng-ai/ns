@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -228,11 +228,19 @@ const originalCmuxTabId = process.env.CMUX_TAB_ID;
 const originalSidebarModel = process.env.ASDL_CCC_SIDEBAR_MODEL;
 
 export async function resetCmuxTestEnvironment(): Promise<void> {
-	process.env.CMUX_WORKSPACE_ID = originalCmuxWorkspaceId;
-	process.env.CMUX_TAB_ID = originalCmuxTabId;
-	process.env.ASDL_CCC_SIDEBAR_MODEL = originalSidebarModel;
+	restoreEnvValue("CMUX_WORKSPACE_ID", originalCmuxWorkspaceId);
+	restoreEnvValue("CMUX_TAB_ID", originalCmuxTabId);
+	restoreEnvValue("ASDL_CCC_SIDEBAR_MODEL", originalSidebarModel);
 	const dirs = tempDirs.splice(0);
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+}
+
+function restoreEnvValue(name: string, value: string | undefined): void {
+	if (value === undefined) {
+		delete process.env[name];
+		return;
+	}
+	process.env[name] = value;
 }
 
 export function notificationMessages(ctx: FakeCommandContext): string[] {
