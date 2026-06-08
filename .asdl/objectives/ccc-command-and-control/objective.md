@@ -176,10 +176,14 @@ Risks:
 - A new package may require TypeScript workspace/package-manager plumbing that is easy to miss. Include package manifest and workspace checks in the first slice.
 - Some package names or command names may have test assumptions. Preserve public command names initially and let tests catch accidental user-visible rename.
 
+## Open Questions
+
+No active source-control placement question remains after the `/code:submit` decision. Remaining implementation sequencing questions are tracked as roadmap work rather than unresolved Objective scope.
+
 ## Settled Defaults and Remaining Decisions
 
 - Prefer a private `@asdl/ccc` package because the migration needs a coherent higher-level package boundary, not another internal pi-extensions subtree.
 - Keep neutral runtime/session-artifact helpers below CCC; name or extract additional neutral modules only when a second consumer forces that seam.
-- Leave `asdl-dev submit` as a lower CLI mirror by default; CCC should own command-suite placement only if deeper stack policy needs orchestration.
+- Keep `/code:submit` as a pure `asdl-dev submit` Pi mirror for now; CCC should own submit only if a future workflow needs deeper cross-capability orchestration rather than command-suite placement alone.
 - Split `worktree-status` before moving it, and move only operational facts/presentation that represent CCC observability.
 - The public `/ccc:*` namespace is adopted for the CCC workspace/sidebar suite; see the 2026-06-07 rename update for the landed rename inventory and shim-removal details. `ccc` names the orchestration layer's command surface while `cmux` is reserved for the external workspace tool. Other public command families (`/code:*`, `/planned-branch:*`, `/handoff-tab`, `/objective:stack-impl`) remain stable.
