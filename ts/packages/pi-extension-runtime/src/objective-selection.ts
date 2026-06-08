@@ -27,7 +27,9 @@ export interface ObjectiveSelectionHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
 
-interface ObjectiveSelectionUi extends Pick<CommandContext["ui"], "notify" | "setStatus"> {
+interface ObjectiveSelectionUi {
+	notify: CommandContext["ui"]["notify"];
+	setStatus: CommandContext["ui"]["setStatus"];
 	select(title: string, items: string[]): Promise<string | undefined>;
 }
 
@@ -45,7 +47,7 @@ export function objectiveSelectionContextFromCommandContext(ctx: CommandContext)
 		ui: {
 			notify: ctx.ui.notify.bind(ctx.ui),
 			select: select ?? (async () => undefined),
-			...(setStatus === undefined ? {} : { setStatus }),
+			setStatus,
 		},
 		waitForIdle: ctx.waitForIdle.bind(ctx),
 	};

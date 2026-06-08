@@ -62,11 +62,10 @@ async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Pro
 		throw new Error("objective:stack-impl was not registered");
 	}
 
-	const selectIndices = contextOptions.selectIndices;
 	const fakeContext = new FakeCommandContext({
 		cwd: ROOT,
-		...(contextOptions.shouldCancelSelect === undefined ? {} : { shouldCancelSelect: contextOptions.shouldCancelSelect }),
-		...(selectIndices === undefined ? {} : { selectIndices }),
+		shouldCancelSelect: contextOptions.shouldCancelSelect,
+		selectIndices: contextOptions.selectIndices,
 	});
 	await command.handler(args, fakeContext);
 	return {

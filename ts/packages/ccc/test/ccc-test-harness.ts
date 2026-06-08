@@ -56,6 +56,15 @@ export interface Selection {
 	items: string[];
 }
 
+export interface FakeCommandContextOptions {
+	cwd?: string;
+	model?: ModelInfo;
+	fastModel?: ModelInfo;
+	branchEntries?: unknown[];
+	selectIndices?: number[] | undefined;
+	shouldCancelSelect?: boolean | undefined;
+}
+
 export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, CommandDefinition>();
 	readonly execCalls: ExecCall[] = [];
@@ -90,15 +99,18 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		return runScriptedExec({
-			script: this.script,
-			execCalls: this.execCalls,
-			errors: this.errors,
+		this.execCalls.push({ command, args: [...args], options });
+		const expected = this.script.shift();
+		const { result, errorMessage } = runScriptedExec({
+			expected,
 			command,
 			args,
-			options,
 			shouldRequireExpectedArgs: this.shouldRequireExpectedArgs,
 		});
+		if (errorMessage !== undefined) {
+			this.errors.push(errorMessage);
+		}
+		return result;
 	}
 
 	getCommands(): readonly SkillCommandInfo[] {
@@ -161,7 +173,7 @@ export class FakeCommandContext implements CommandContext {
 	shouldCancelSelect = false;
 	private readonly selectIndices: number[];
 
-	constructor(options: { cwd?: string; model?: ModelInfo; fastModel?: ModelInfo; branchEntries?: unknown[]; selectIndices?: number[]; shouldCancelSelect?: boolean } = {}) {
+	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
 		if (options.model !== undefined) {
 			this.model = options.model;
@@ -235,37 +247,35 @@ export function sameArgs(left: string[], right: string[]): boolean {
 }
 
 export interface RunScriptedExecOptions {
-	script: ScriptedExec[];
-	execCalls: ExecCall[];
-	errors: string[];
+	expected: ScriptedExec | undefined;
 	command: string;
 	args: string[];
-	options?: ExecOptions | undefined;
 	shouldRequireExpectedArgs?: boolean;
 }
 
-export function runScriptedExec(options: RunScriptedExecOptions): ExecResult {
-	const { script, execCalls, errors, command, args, options: execOptions, shouldRequireExpectedArgs = false } = options;
-	execCalls.push({ command, args: [...args], options: execOptions });
-	const expected = script.shift();
+export interface RunScriptedExecResult {
+	result: ExecResult;
+	errorMessage?: string;
+}
+
+export function runScriptedExec(options: RunScriptedExecOptions): RunScriptedExecResult {
+	const { expected, command, args, shouldRequireExpectedArgs = false } = options;
 	if (!expected) {
 		const message = `unexpected exec: ${command} ${args.join(" ")}`;
-		errors.push(message);
-		return execResult({ code: 99, stderr: message });
+		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
 	}
 
 	if (expected.command !== command || expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs)) {
 		const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
 		const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
-		errors.push(message);
-		return execResult({ code: 99, stderr: message });
+		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
 	}
 
 	if (expected.error) {
 		throw expected.error;
 	}
 
-	return execResult(expected.result);
+	return { result: execResult(expected.result) };
 }
 
 function expectedArgsMismatch(expectedArgs: string[] | undefined, actualArgs: string[], shouldRequireExpectedArgs: boolean): boolean {
@@ -396,7 +406,7 @@ export async function writeTempSkillMarkdown(skillName: string, markdown: string
 }
 
 export async function writeTempSkill(body: string): Promise<string> {
-	return writeTempSkillMarkdown("ccc-sidebar", `---\nname: ccc-sidebar\n---\n${body}\n`);
+	return writeTempSkillMarkdown("ccc-sidebar", body);
 }
 
 export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string): Promise<string> {
