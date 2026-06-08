@@ -12,5 +12,7 @@ export type {
 	CompletedBrmemRun,
 	FirstAvailableBrmemCommandRun,
 	NoAvailableBrmemCommandRun,
+	RunBrmemCandidateOptions,
+	RunFirstAvailableBrmemCommandOptions,
 	UnavailableBrmemRun,
 } from "@asdl/pi-extension-runtime/brmem-cli";

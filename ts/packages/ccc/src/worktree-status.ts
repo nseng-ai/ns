@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/pi-extension-runtime/brmem-cli";
+import type { PiExecResultLike } from "@asdl/pi-extension-runtime/command-runtime";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -23,12 +24,7 @@ const EMPTY_BRANCH_ICON = "∅";
 const COMMAND_TIMEOUT_MS = 5_000;
 const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
+export type ExecResult = PiExecResultLike;
 
 interface ExecOptions {
 	cwd?: string;
@@ -92,7 +88,6 @@ export interface WorktreeStatus {
 interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
-	display: boolean;
 	details?: unknown;
 }
 
@@ -167,7 +162,11 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
 		if (signal?.aborted) return undefined;
 
-		const run = await runBrmemCandidate(pi, cwd, candidate, ["list", "--format", "json"], {
+		const run = await runBrmemCandidate({
+			gateway: pi,
+			cwd,
+			candidate,
+			brmemArgs: ["list", "--format", "json"],
 			timeoutMs: COMMAND_TIMEOUT_MS,
 			signal,
 		});

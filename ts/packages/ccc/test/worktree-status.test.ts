@@ -162,7 +162,6 @@ describe("worktree status message rendering", () => {
 			{
 				customType: "worktree-status",
 				content: "[gt] (pr: #489) (↓: main) (↑: -) (commits)",
-				display: true,
 				details: { prLinks: [{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/489" }] },
 			},
 			{ expanded: false },
@@ -179,7 +178,6 @@ describe("worktree status message rendering", () => {
 			{
 				customType: "worktree-status",
 				content: "[gt] (pr: #489) (↓: main) (↑: -) (commits)",
-				display: true,
 				details: { prLinks: [{ number: 489, url: "javascript:alert(1)" }] },
 			},
 			{ expanded: false },
