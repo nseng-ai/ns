@@ -21,8 +21,8 @@ pi --mode json -p [--provider <provider> --model <model>] [--thinking <level>] -
 Important details:
 
 - `--mode json -p` gives the parent JSONL session events to parse.
-- `--provider`/`--model` are passed when the parent context has an explicit model or the caller provides a launch override.
-- `--thinking <level>` is passed for non-off thinking levels; `off` is still recorded and displayed as the actual child thinking setting but does not need a CLI flag.
+- `--provider`/`--model` are passed when the parent context has an explicit model or the caller provides a launch override. If the caller provides the runner-subagent `model` string, it is passed as the child Pi `--model` pattern and the parent context model is not inherited.
+- `--thinking <level>` is passed for inherited or explicit non-off thinking levels. If the caller provides the runner-subagent `model` string, parent thinking is not inherited; encode the desired thinking in the model pattern or provide an explicit launch override.
 - `--no-extensions` prevents ordinary project parent extensions from recursively loading in the subagent.
 - `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools when terminal mode is used.
 - `--session <file>` points at a parent-created runner subagent artifact. The returned `sessionFile` is inspectable after blocked/error/cancelled outcomes when Pi writes the session.
@@ -80,7 +80,7 @@ Mixed terminal-plus-sibling behavior is deterministic from the parent's perspect
 
 ## Progress and UI
 
-The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, session path, and optional launch metadata. Launch metadata records the model/provider and thinking level that the child process was asked to use, plus whether model/thinking CLI args were actually passed. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
+The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, session path, and optional launch metadata. Launch metadata records the requested model pattern or observed model/provider, the observed or requested thinking level, and whether model/thinking CLI args were actually passed. Child `model_change` and `thinking_level_change` events update the displayed launch metadata when available, so final progress reflects the child session rather than stale parent context. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
 
 Usage metadata is post-run only. It is collected after the child closes by reading the child session JSONL file and summing only records shaped like assistant messages with `message.usage`. Missing, unreadable, malformed, or usage-free session files are nonfatal and produce `result.usage.status === "unavailable"` with a reason and diagnostic. Context window is omitted unless an authoritative numeric value is available; the helper does not guess it from the model id.
 

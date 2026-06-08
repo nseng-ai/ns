@@ -29,6 +29,39 @@ describe("runner subagent JSON event parser", () => {
 		});
 	});
 
+	test("updates launch metadata from child model and thinking events", () => {
+		const parser = createRunnerSubagentJsonEventParser({
+			launch: {
+				requestedModel: "openai-codex/gpt-5.4-mini:medium",
+				thinkingLevel: "off",
+				hasModelArg: true,
+				hasThinkingArg: false,
+			},
+		});
+
+		parser.pushChunk(jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }));
+		parser.pushChunk(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
+
+		expect(parser.getSnapshot().progress.launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini:medium",
+			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+			thinkingLevel: "off",
+			observedThinkingLevel: "medium",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
+	});
+
+	test("sanitizes child-supplied launch model metadata", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+		parser.pushChunk(jsonLine({ type: "model_change", provider: " openai\ncodex ", modelId: `${"x".repeat(200)}\r\nignored` }));
+
+		expect(parser.getSnapshot().progress.launch?.model).toEqual({
+			provider: "openai codex",
+			id: "x".repeat(160),
+		});
+	});
+
 	test("tracks agent, turn, tool, elapsed, and stop-reason progress", () => {
 		let now = 10;
 		const parser = createRunnerSubagentJsonEventParser({ now: () => now });

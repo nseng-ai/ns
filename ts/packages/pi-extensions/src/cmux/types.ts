@@ -1,3 +1,5 @@
+export { isThinkingLevel } from "@asdl/pi-extension-runtime/cmux/types";
+
 export type {
 	AgentEndContext,
 	AutocompleteItem,

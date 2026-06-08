@@ -52,6 +52,24 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	}
 }
 
+class OneShotThinkingPi extends FakePi {
+	getThinkingLevelCallCount = 0;
+	private readonly oneShotThinkingLevel: ThinkingLevel;
+
+	constructor(dependencies: RunnerSubagentDispatcherDependencies, thinkingLevel: ThinkingLevel) {
+		super(dependencies);
+		this.oneShotThinkingLevel = thinkingLevel;
+	}
+
+	override getThinkingLevel(): ThinkingLevel {
+		this.getThinkingLevelCallCount += 1;
+		if (this.getThinkingLevelCallCount > 1) {
+			throw new Error("getThinkingLevel should only be used while resolving the dispatch launch once.");
+		}
+		return this.oneShotThinkingLevel;
+	}
+}
+
 interface RegisterToolOptions {
 	pi?: FakePi;
 	definitionRoot?: string;
@@ -257,17 +275,39 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
 	});
 
+	test("uses the resolved launch metadata without re-resolving it as launch options", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new OneShotThinkingPi(runner.dependencies, "medium");
+		const tool = registerTool({ pi });
+
+		const running = tool.execute("tool-1", { title: "Slice subagent", prompt: "Do focused work." }, undefined, undefined, {
+			cwd: ROOT,
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+		});
+		const call = await waitForSpawn(runner.calls);
+
+		expect(pi.getThinkingLevelCallCount).toBe(1);
+		expect(call.args).toContain("--thinking");
+		expect(call.args).toContain("medium");
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		await expect(running).resolves.toEqual(expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }));
+		expect(pi.getThinkingLevelCallCount).toBe(1);
+	});
+
 	test("passes optional model to child Pi invocation and reports requested model details", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
-		const pi = new FakePi(runner.dependencies);
+		const pi = new FakePi(runner.dependencies, { thinkingLevel: "high" });
 		const tool = registerTool({ pi });
+		const updates: ToolResult[] = [];
 
 		const running = tool.execute(
 			"tool-1",
-			{ title: "Cheap classifier", prompt: "Classify feedback.", model: " haiku " },
+			{ title: "Cheap classifier", prompt: "Classify feedback.", model: " openai-codex/gpt-5.4-mini:medium " },
 			undefined,
-			undefined,
-			{ cwd: ROOT },
+			(partial) => updates.push(partial),
+			{ cwd: ROOT, model: { provider: "openai-codex", id: "gpt-5.5" } },
 		);
 		const call = await waitForSpawn(runner.calls);
 
@@ -276,19 +316,30 @@ describe("dispatch_runner_subagent extension", () => {
 			"json",
 			"-p",
 			"--model",
-			"haiku",
+			"openai-codex/gpt-5.4-mini:medium",
 			"--no-extensions",
 			"--session",
 			SESSION_FILE,
 			composedFixturePrompt("Classify feedback."),
 		]);
+		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini:medium",
+			thinkingLevel: "off",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
 
+		call.process.emitStdout(jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }));
+		call.process.emitStdout(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
+		expect(updateTexts(updates)).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: medium");
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
 		const result = await running;
+		const text = result.content[0]?.text ?? "";
 		const details = result.details as Record<string, unknown>;
 
-		expect(details.requestedModel).toBe("haiku");
+		expect(text).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: medium");
+		expect(details.requestedModel).toBe("openai-codex/gpt-5.4-mini:medium");
 	});
 
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {

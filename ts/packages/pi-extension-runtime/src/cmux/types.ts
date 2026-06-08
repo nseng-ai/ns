@@ -5,6 +5,13 @@ export type { ExecResult } from "../command-runtime.ts";
 export type NotifyLevel = "info" | "warning" | "error" | "success";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
+const THINKING_LEVEL_SET: ReadonlySet<unknown> = new Set(THINKING_LEVELS);
+
+export function isThinkingLevel(value: unknown): value is ThinkingLevel {
+	return THINKING_LEVEL_SET.has(value);
+}
+
 export interface ModelInfo {
 	provider: string;
 	id: string;

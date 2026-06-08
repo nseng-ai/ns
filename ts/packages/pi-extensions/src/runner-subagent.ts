@@ -27,7 +27,9 @@ export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 
 export interface RunnerSubagentLaunchMetadata {
 	model?: ModelInfo;
+	requestedModel?: string;
 	thinkingLevel: ThinkingLevel;
+	observedThinkingLevel?: ThinkingLevel;
 	hasModelArg: boolean;
 	hasThinkingArg: boolean;
 }
@@ -36,6 +38,16 @@ export interface RunnerSubagentLaunchOptions {
 	model?: ModelInfo;
 	thinkingLevel?: ThinkingLevel;
 }
+
+type RunnerSubagentLaunchInput =
+	| {
+			launch?: RunnerSubagentLaunchOptions;
+			preResolvedLaunch?: never;
+	  }
+	| {
+			launch?: never;
+			preResolvedLaunch: RunnerSubagentLaunchMetadata;
+	  };
 
 export interface RunnerSubagentUsageTotals {
 	input: number;
@@ -91,21 +103,21 @@ export type RunnerSubagentProgressCallback = (update: RunnerSubagentUpdate) => v
 export type RunnerSubagentOptions = {
 	title?: string;
 	prompt: string;
-	model?: string;
+	model?: string | undefined;
 	cwd?: string;
 	signal?: AbortSignal;
 	onProgress?: RunnerSubagentProgressCallback;
-	launch?: RunnerSubagentLaunchOptions;
-} & (
-	| {
-			returnMode?: "terminal";
-			terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
-	  }
-	| {
-			returnMode: "final-text";
-			terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
-	  }
-);
+} & RunnerSubagentLaunchInput &
+	(
+		| {
+				returnMode?: "terminal";
+				terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
+		  }
+		| {
+				returnMode: "final-text";
+				terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
+		  }
+	);
 
 export interface RunnerSubagentTerminalCapture<
 	TInput = unknown,

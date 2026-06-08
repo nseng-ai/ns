@@ -14,6 +14,7 @@ import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
+	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
@@ -135,7 +136,12 @@ export default function dispatchRunnerSubagentExtension(
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
 			const childPrompt = composePiAgentPrompt(runnerDefinition, input);
-			const launch = resolveRunnerSubagentLaunch(pi, ctx, { prompt: childPrompt, returnMode: "final-text" }) ?? defaultRunnerSubagentLaunchMetadata();
+			const launch =
+				resolveRunnerSubagentLaunch(pi, ctx, {
+					prompt: childPrompt,
+					returnMode: "final-text",
+					model: input.model,
+				}) ?? defaultRunnerSubagentLaunchMetadata();
 			const initialUpdate: RunnerSubagentUpdate = {
 				progress: initialDispatchProgress(input.title, launch),
 				activity: emptyRunnerSubagentActivity(),
@@ -155,7 +161,7 @@ export default function dispatchRunnerSubagentExtension(
 						prompt: childPrompt,
 						...(input.model === undefined ? {} : { model: input.model }),
 						returnMode: "final-text",
-						launch,
+						preResolvedLaunch: launch,
 						onProgress: (update) => {
 							const progressText = formatDispatchRunnerSubagentProgress(update.progress);
 							onUpdate?.({
@@ -355,7 +361,7 @@ function validateDispatchRunnerSubagentInput(params: DispatchRunnerSubagentInput
 }
 
 function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
-	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${launch.thinkingLevel}`;
+	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${formatRunnerSubagentThinkingText(launch)}`;
 }
 
 function formatUsageLine(usage: RunnerSubagentUsageMetadata | undefined): string {

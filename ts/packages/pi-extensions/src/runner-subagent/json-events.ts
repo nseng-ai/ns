@@ -1,3 +1,4 @@
+import { isThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
 import {
@@ -71,12 +72,14 @@ interface JsonEvent {
 	[key: string]: unknown;
 }
 
+const MAX_LAUNCH_METADATA_TEXT_CHARS = 160;
+
 export class RunnerSubagentJsonEventParser {
 	private readonly title: string | undefined;
 	private readonly now: () => number;
 	private readonly startTimeMs: number;
 	private readonly terminalToolNames: Set<string>;
-	private readonly launch: RunnerSubagentLaunchMetadata | undefined;
+	private launch: RunnerSubagentLaunchMetadata | undefined;
 	private buffer = "";
 	private state: ParserState = "starting";
 	private currentTool: string | undefined;
@@ -188,6 +191,12 @@ export class RunnerSubagentJsonEventParser {
 			case "session":
 				this.captureSessionHeader(event);
 				return;
+			case "model_change":
+				this.captureModelChange(event);
+				return;
+			case "thinking_level_change":
+				this.captureThinkingLevelChange(event);
+				return;
 			case "agent_start":
 				this.state = "running";
 				return;
@@ -253,6 +262,29 @@ export class RunnerSubagentJsonEventParser {
 		if (typeof headerSessionFile === "string" && headerSessionFile.length > 0) {
 			this.sessionFile = headerSessionFile;
 		}
+	}
+
+	private captureModelChange(event: JsonRecord): void {
+		if (typeof event.provider !== "string" || typeof event.modelId !== "string") return;
+		const provider = sanitizeLaunchMetadataText(event.provider);
+		const modelId = sanitizeLaunchMetadataText(event.modelId);
+		if (provider === undefined || modelId === undefined) return;
+		this.launch = {
+			...this.currentLaunchMetadata(),
+			model: { provider, id: modelId },
+		};
+	}
+
+	private captureThinkingLevelChange(event: JsonRecord): void {
+		if (!isThinkingLevel(event.thinkingLevel)) return;
+		this.launch = {
+			...this.currentLaunchMetadata(),
+			observedThinkingLevel: event.thinkingLevel,
+		};
+	}
+
+	private currentLaunchMetadata(): RunnerSubagentLaunchMetadata {
+		return this.launch ?? { thinkingLevel: "off", hasModelArg: false, hasThinkingArg: false };
 	}
 
 	private captureCurrentTool(event: JsonRecord): void {
@@ -429,6 +461,12 @@ function chunkToString(chunk: string | Uint8Array): string {
 
 function isJsonEvent(value: unknown): value is JsonEvent {
 	return isRecord(value) && typeof value.type === "string";
+}
+
+function sanitizeLaunchMetadataText(value: string): string | undefined {
+	const sanitized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+	if (sanitized.length === 0) return undefined;
+	return sanitized.length <= MAX_LAUNCH_METADATA_TEXT_CHARS ? sanitized : sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
 }
 
 export function isRecord(value: unknown): value is JsonRecord {

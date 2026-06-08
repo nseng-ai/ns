@@ -92,6 +92,35 @@ describe("runner subagent activity widget", () => {
 		).toEqual(["Subagent: (untitled)", "State: starting", "Turns/tools: 0/0"]);
 	});
 
+	test("renders requested model patterns before observed child model events", () => {
+		expect(
+			formatRunnerSubagentActivityWidgetLines(
+				{
+					progress: {
+						state: "starting",
+						toolCount: 0,
+						turnCount: 0,
+						elapsedMs: 0,
+						launch: {
+							requestedModel: "openai-codex/gpt-5.4-mini:medium",
+							thinkingLevel: "off",
+							hasModelArg: true,
+							hasThinkingArg: false,
+						},
+					},
+					activity: {},
+				},
+				{ fallbackTitle: "(untitled)", includeElapsed: false },
+			),
+		).toEqual([
+			"Subagent: (untitled)",
+			"State: starting",
+			"Model: openai-codex/gpt-5.4-mini:medium",
+			"Thinking: off",
+			"Turns/tools: 0/0",
+		]);
+	});
+
 	test("renders honest default model and off thinking metadata", () => {
 		expect(
 			formatRunnerSubagentActivityWidgetLines(
