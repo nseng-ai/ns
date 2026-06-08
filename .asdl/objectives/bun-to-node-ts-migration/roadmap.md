@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Tooling contract child Objective (`bun-to-node-ts-migration-tooling-contract`).
+- [x] Tooling contract child Objective (`bun-to-node-ts-migration-tooling-contract`).
       Create a child Objective to decide the exact pnpm workspace shape, Node v24 baseline, TypeScript CLI execution/build policy, and how to treat `node:sqlite`'s experimental warning.
 
 - [ ] pnpm workspace migration child Objective (`bun-to-node-ts-migration-pnpm-workspace`).
