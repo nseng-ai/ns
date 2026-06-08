@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from asdl_objectives.list_models import ObjectiveListRecord, ObjectiveListResult
-from asdl_objectives.list_render import render_objective_list_markdown
+from asdl_objectives.list_render import render_objective_list_human, render_objective_list_markdown
 from asdl_objectives.list_status import ObjectiveStatus, ObjectiveStatusFilter
 
 
@@ -30,6 +30,33 @@ def test_render_objective_list_markdown_table_has_checkout_local_columns(
     assert "max slice commits" not in output.lower()
 
 
+def test_render_objective_list_human_updated_branches_preserves_core_columns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_human(
+        _result(
+            records=(
+                _record(
+                    "alpha",
+                    latest_update_iso="2026-05-20T10:00:00Z",
+                    updated_branches=("feat/alpha", "feat/shared"),
+                ),
+            ),
+            updated_branches_included=True,
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert "Objective" in output
+    assert "Status" in output
+    assert "Latest update" in output
+    assert "Updated branches" in output
+    assert "alpha" in output
+    assert "○ open" in output
+    assert "feat/alpha" in output
+    assert "feat/shared" in output
+
+
 def test_render_objective_list_markdown_updated_branches_column_when_included(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -49,6 +76,23 @@ def test_render_objective_list_markdown_updated_branches_column_when_included(
     assert "feat/alpha, feat/shared" in output
     assert "| beta | ○ open |" in output
     assert "| — |" in output
+
+
+def test_render_objective_list_markdown_notes_truncated_branch_attribution(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_markdown(
+        _result(
+            records=(_record("alpha", updated_branches=("feat/alpha",)),),
+            updated_branches_included=True,
+            updated_branches_truncated=True,
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert "updated_branches_truncated" not in output
+    assert "limited to newest 50 changed local branches" in output
+    assert "older updated branches may be omitted" in output
 
 
 def test_render_objective_list_markdown_prefixes_dirty_latest_update(
@@ -122,6 +166,7 @@ def _result(
     status_filter: ObjectiveStatusFilter = "active",
     names: bool = False,
     updated_branches_included: bool = False,
+    updated_branches_truncated: bool = False,
 ) -> ObjectiveListResult:
     return ObjectiveListResult(
         trunk_branch="master",
@@ -129,5 +174,6 @@ def _result(
         status_filter=status_filter,
         names_only=names,
         updated_branches_included=updated_branches_included,
+        updated_branches_truncated=updated_branches_truncated,
         records=records,
     )

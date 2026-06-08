@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-from typing import Final
+from typing import Literal
 
 import click
 
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.git.types import GitCommandFailure, LocalBranchTip, PathChangeTouch
+from asdl_core.git.types import GitCommandFailure
 from asdl_objectives.context import (
     ObjectiveCliContext,
     ObjectiveCliUnavailable,
     load_objective_context,
 )
+from asdl_objectives.list_branch_attribution import build_objective_branch_attribution
 from asdl_objectives.list_inventory import ObjectiveRecordStatus, build_objective_checkout_inventory
 from asdl_objectives.list_models import (
     ObjectiveListRecord,
@@ -27,13 +27,9 @@ from asdl_objectives.list_render import (
 )
 from asdl_objectives.list_status import ObjectiveStatusFilter, matches_status_filter
 from asdl_objectives.list_updates import touch_updated_iso
-from asdl_objectives.objective_paths import (
-    ACTIVE_OBJECTIVE_ROOT,
-    active_objective_record_path,
-    objective_slug_from_active_path,
-)
+from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT, active_objective_record_path
 
-_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES: Final = 50
+ObjectiveListMode = Literal["names", "minimal", "with_updated_branches"]
 
 
 @clinkr_operation(
@@ -53,8 +49,7 @@ def run_list_objectives(
     result = _build_objective_list_result_or_failure(
         objective_ctx,
         status_filter=request.status,
-        names_only=request.names,
-        include_updated_branches=not request.names and not request.minimal,
+        mode=_objective_list_mode(request),
     )
     if isinstance(result, GitCommandFailure):
         return ClinkrExit.failure(error_type=result.error_type, message=result.message)
@@ -65,14 +60,18 @@ def build_objective_list_result(
     ctx: ObjectiveCliContext,
     *,
     status_filter: ObjectiveStatusFilter = "active",
+    mode: ObjectiveListMode | None = None,
     names_only: bool = False,
     include_updated_branches: bool = False,
 ) -> ObjectiveListResult:
     result = _build_objective_list_result_or_failure(
         ctx,
         status_filter=status_filter,
-        names_only=names_only,
-        include_updated_branches=include_updated_branches,
+        mode=_legacy_objective_list_mode(
+            mode,
+            names_only=names_only,
+            include_updated_branches=include_updated_branches,
+        ),
     )
     if isinstance(result, GitCommandFailure):
         raise RuntimeError(result.message)
@@ -83,16 +82,8 @@ def _build_objective_list_result_or_failure(
     ctx: ObjectiveCliContext,
     *,
     status_filter: ObjectiveStatusFilter = "active",
-    names_only: bool = False,
-    include_updated_branches: bool = False,
+    mode: ObjectiveListMode = "minimal",
 ) -> ObjectiveListResult | GitCommandFailure:
-    if names_only and include_updated_branches:
-        return GitCommandFailure(
-            message="Objective list names-only output cannot include updated branch attribution.",
-            returncode=None,
-            error_type="invalid_request",
-        )
-
     inventory = build_objective_checkout_inventory(ctx.repo_root)
     filtered_records = tuple(
         record
@@ -100,13 +91,19 @@ def _build_objective_list_result_or_failure(
         if matches_status_filter(record.status, status_filter)
     )
     slugs = tuple(record.slug for record in filtered_records)
-    include_branch_attribution = include_updated_branches and not names_only
+    include_branch_attribution = mode == "with_updated_branches"
     updated_branches_by_slug: dict[str, tuple[str, ...]] = {}
+    updated_branches_truncated = False
     if include_branch_attribution and slugs:
-        updated_branches_result = _build_updated_branches_by_slug(ctx, frozenset(slugs))
-        if isinstance(updated_branches_result, GitCommandFailure):
-            return updated_branches_result
-        updated_branches_by_slug = updated_branches_result
+        attribution = build_objective_branch_attribution(
+            ctx.git,
+            trunk_branch=ctx.trunk_branch,
+            slugs=frozenset(slugs),
+        )
+        if isinstance(attribution, GitCommandFailure):
+            return attribution
+        updated_branches_by_slug = attribution.updated_branches_by_slug
+        updated_branches_truncated = attribution.truncated
 
     records = tuple(
         _build_objective_list_record(
@@ -121,8 +118,9 @@ def _build_objective_list_result_or_failure(
         trunk_branch=ctx.trunk_branch,
         root_path=ACTIVE_OBJECTIVE_ROOT.as_posix(),
         status_filter=status_filter,
-        names_only=names_only,
+        names_only=mode == "names",
         updated_branches_included=include_branch_attribution,
+        updated_branches_truncated=updated_branches_truncated,
         records=records,
     )
 
@@ -148,79 +146,24 @@ def _build_objective_list_record(
     )
 
 
-def _build_updated_branches_by_slug(
-    ctx: ObjectiveCliContext,
-    slugs: frozenset[str],
-) -> dict[str, tuple[str, ...]] | GitCommandFailure:
-    branches = _local_non_trunk_branches(ctx)
-    if not branches:
-        return {slug: () for slug in slugs}
-
-    attributed_branches = branches[:_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES]
-    updated_branches_by_slug: dict[str, list[str]] = {slug: [] for slug in slugs}
-    objective_root = ACTIVE_OBJECTIVE_ROOT.as_posix()
-    changed_branches = _branches_with_objective_tree_changes(
-        ctx,
-        attributed_branches,
-        objective_root,
-    )
-    if isinstance(changed_branches, GitCommandFailure):
-        return changed_branches
-
-    for branch in changed_branches:
-        touches = ctx.git.path_touches_under(f"{ctx.trunk_branch}..{branch}", objective_root)
-        if isinstance(touches, GitCommandFailure):
-            return touches
-
-        for slug in sorted(_objective_slugs_from_touches(touches, slugs)):
-            updated_branches_by_slug[slug].append(branch)
-
-    return {slug: tuple(branch_names) for slug, branch_names in updated_branches_by_slug.items()}
+def _objective_list_mode(request: ObjectiveListRequest) -> ObjectiveListMode:
+    if request.names:
+        return "names"
+    if request.minimal:
+        return "minimal"
+    return "with_updated_branches"
 
 
-def _objective_slugs_from_touches(
-    touches: tuple[PathChangeTouch, ...],
-    slugs: frozenset[str],
-) -> set[str]:
-    touched_slugs: set[str] = set()
-    for touch in touches:
-        for path in touch.paths:
-            slug = objective_slug_from_active_path(path)
-            if slug in slugs:
-                touched_slugs.add(slug)
-    return touched_slugs
-
-
-def _local_non_trunk_branches(ctx: ObjectiveCliContext) -> tuple[str, ...]:
-    branch_tips = sorted(
-        (tip for tip in ctx.git.list_local_branch_tips() if tip.name != ctx.trunk_branch),
-        key=lambda tip: (_branch_tip_age(tip), tip.name),
-    )
-    return tuple(tip.name for tip in branch_tips)
-
-
-def _branch_tip_age(tip: LocalBranchTip) -> timedelta:
-    return datetime.max.replace(tzinfo=UTC) - _branch_tip_datetime(tip)
-
-
-def _branch_tip_datetime(tip: LocalBranchTip) -> datetime:
-    if tip.head_iso is None:
-        return datetime.min.replace(tzinfo=UTC)
-    parsed = datetime.fromisoformat(tip.head_iso)
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
-
-
-def _branches_with_objective_tree_changes(
-    ctx: ObjectiveCliContext,
-    branches: tuple[str, ...],
-    objective_root: str,
-) -> tuple[str, ...] | GitCommandFailure:
-    refs = (ctx.trunk_branch, *branches)
-    tree_oids = ctx.git.tree_oids_at_refs(refs, objective_root)
-    if isinstance(tree_oids, GitCommandFailure):
-        return tree_oids
-
-    trunk_tree_oid = tree_oids.get(ctx.trunk_branch)
-    return tuple(branch for branch in branches if tree_oids.get(branch) != trunk_tree_oid)
+def _legacy_objective_list_mode(
+    mode: ObjectiveListMode | None,
+    *,
+    names_only: bool,
+    include_updated_branches: bool,
+) -> ObjectiveListMode:
+    if mode is not None:
+        return mode
+    if names_only:
+        return "names"
+    if include_updated_branches:
+        return "with_updated_branches"
+    return "minimal"

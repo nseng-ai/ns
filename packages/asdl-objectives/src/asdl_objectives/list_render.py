@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import click
+from rich.table import Table
 
 from asdl_core.console import get_console, make_table
 from asdl_core.format import format_relative_time
@@ -22,27 +23,16 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
         console.print(f"[dim]{_empty_message(result.status_filter)}[/dim]")
         return
 
-    if result.updated_branches_included:
-        _render_updated_branch_records_human(result)
-        return
-
     table = make_table()
-    table.add_column(
-        "Objective",
-        style="bold cyan",
-        no_wrap=True,
-        overflow="ellipsis",
-        ratio=1,
-    )
-    table.add_column("Status", no_wrap=True, width=9)
-    table.add_column("Latest update", no_wrap=True)
+    _add_human_table_columns(table, result)
     for record in result.records:
-        table.add_row(
-            record.slug,
-            _status_label(record.status),
-            _format_latest_update(record),
+        _add_human_record_rows(
+            table,
+            record,
+            include_updated_branches=result.updated_branches_included,
         )
     console.print(table)
+    _render_truncation_note_human(result)
 
 
 def render_objective_list_markdown(result: ObjectiveListResult) -> None:
@@ -64,6 +54,7 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
     click.echo(_markdown_table_row(tuple("---" for _ in columns)))
     for record in result.records:
         click.echo(_markdown_record_row(record, result.updated_branches_included))
+    _render_truncation_note_markdown(result)
 
 
 def _render_slugs(result: ObjectiveListResult) -> None:
@@ -76,6 +67,51 @@ def _render_metadata_human(result: ObjectiveListResult) -> None:
     console.print(f"Root: {result.root_path}")
     console.print(f"Status filter: {result.status_filter}")
     console.print()
+
+
+def _add_human_table_columns(table: Table, result: ObjectiveListResult) -> None:
+    table.add_column(
+        "Objective",
+        style="bold cyan",
+        no_wrap=True,
+        overflow="ellipsis",
+        ratio=2,
+        min_width=24,
+    )
+    table.add_column("Status", no_wrap=True, width=9)
+    table.add_column("Latest update", no_wrap=True)
+    if result.updated_branches_included:
+        table.add_column(
+            "Updated branches",
+            no_wrap=True,
+            overflow="ellipsis",
+            ratio=3,
+            min_width=20,
+        )
+
+
+def _add_human_record_rows(
+    table: Table,
+    record: ObjectiveListRecord,
+    *,
+    include_updated_branches: bool,
+) -> None:
+    core_cells = (record.slug, _status_label(record.status), _format_latest_update(record))
+    if not include_updated_branches:
+        table.add_row(*core_cells)
+        return
+
+    branches = record.updated_branches or ()
+    if not branches:
+        table.add_row(*core_cells, "—")
+        return
+
+    branch_count = len(branches)
+    for index, branch in enumerate(branches, start=1):
+        if index == 1:
+            table.add_row(*core_cells, _format_branch_line(index, branch_count, branch))
+        else:
+            table.add_row("", "", "", _format_branch_line(index, branch_count, branch))
 
 
 def _render_metadata_markdown(result: ObjectiveListResult) -> None:
@@ -104,43 +140,22 @@ def _markdown_table_row(cells: tuple[str, ...]) -> str:
     return f"| {' | '.join(cells)} |"
 
 
-def _render_updated_branch_records_human(result: ObjectiveListResult) -> None:
-    console = get_console()
-    table = make_table()
-    table.add_column(
-        "Objective",
-        style="bold cyan",
-        no_wrap=True,
-        overflow="ellipsis",
-        width=_updated_branches_objective_column_width(result, console.width),
+def _render_truncation_note_human(result: ObjectiveListResult) -> None:
+    if not result.updated_branches_truncated:
+        return
+    get_console().print(
+        "[yellow]Updated branch attribution limited to newest 50 changed local branches.[/yellow]"
     )
-    table.add_column(
-        "Updated branches",
-        no_wrap=True,
-        overflow="ellipsis",
-        ratio=3,
-        min_width=20,
+
+
+def _render_truncation_note_markdown(result: ObjectiveListResult) -> None:
+    if not result.updated_branches_truncated:
+        return
+    click.echo()
+    click.echo(
+        "_Updated branch attribution limited to newest 50 changed local branches; "
+        "older updated branches may be omitted._"
     )
-    for record in result.records:
-        branches = record.updated_branches or ()
-        if not branches:
-            table.add_row(record.slug, "—")
-            continue
-
-        branch_count = len(branches)
-        for index, branch in enumerate(branches, start=1):
-            objective = record.slug if index == 1 else ""
-            table.add_row(objective, _format_branch_line(index, branch_count, branch))
-    console.print(table)
-
-
-def _updated_branches_objective_column_width(
-    result: ObjectiveListResult,
-    terminal_width: int,
-) -> int:
-    widest_objective = max(len(record.slug) for record in result.records)
-    objective_width = max(24, terminal_width // 2)
-    return min(max(12, widest_objective), objective_width)
 
 
 def _status_label(status: ObjectiveStatus) -> str:

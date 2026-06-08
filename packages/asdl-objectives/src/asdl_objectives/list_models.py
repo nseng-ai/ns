@@ -86,4 +86,8 @@ class ObjectiveListResult(ClinkrModel):
         default=False,
         exclude_if=lambda value: not value,
     )
+    updated_branches_truncated: bool = Field(
+        default=False,
+        exclude_if=lambda value: not value,
+    )
     records: tuple[ObjectiveListRecord, ...]
