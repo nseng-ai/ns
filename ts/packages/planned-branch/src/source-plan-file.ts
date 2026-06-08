@@ -57,6 +57,7 @@ export interface SourceBranchPlanFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
+	sourceBranch?: string | undefined;
 	git?: PlannedBranchGitGateway | undefined;
 }
 
@@ -74,6 +75,18 @@ export interface LatestSourceBranchPlanFileEvidence extends PlanStoreDirectoryEv
 	filePath: string;
 	fileName: string;
 	modifiedTimeMs: number;
+}
+
+export interface SourceBranchPlanFileListEntry {
+	slug: string;
+	filePath: string;
+	fileName: string;
+	kind: PlanFileKind;
+	modifiedTimeMs: number;
+}
+
+export interface SourceBranchPlanFileListEvidence extends PlanStoreDirectoryEvidence {
+	plans: SourceBranchPlanFileListEntry[];
 }
 
 export interface SourceBranchPlanFileEvidence {
@@ -201,7 +214,7 @@ export async function resolvePlanStoreDirectory(
 ): Promise<PlanStoreDirectoryEvidence> {
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
 	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
-	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
+	const sourceBranch = await resolveSourceBranch(git, options.cwd, options.signal, options.sourceBranch);
 	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
@@ -230,6 +243,42 @@ export async function findLatestSourceBranchTsPlanFile(
 	options: SourceBranchPlanFileOptions,
 ): Promise<LatestSourceBranchPlanFileEvidence> {
 	return findLatestSourceBranchPlanFileForKind(pi, options, "typescript-recipe");
+}
+
+export async function listSourceBranchPlanFiles(
+	pi: PlanCommandExecApi,
+	options: SourceBranchPlanFileOptions,
+): Promise<SourceBranchPlanFileListEvidence> {
+	const directory = await resolvePlanStoreDirectory(pi, options);
+	const entries = await readPlanStoreDirectoryIfExists(directory);
+	const plans: SourceBranchPlanFileListEntry[] = [];
+
+	for (const entry of entries) {
+		if (!entry.isFile()) {
+			continue;
+		}
+
+		const kind = planFileKindFromPath(entry.name);
+		if (kind === undefined) {
+			continue;
+		}
+
+		const format = PLAN_FILE_FORMATS[kind];
+		const filePath = join(directory.directoryPath, entry.name);
+		const fileStat = await stat(filePath);
+		if (!fileStat.isFile()) {
+			continue;
+		}
+		plans.push({
+			slug: entry.name.slice(0, -format.suffix.length),
+			filePath,
+			fileName: entry.name,
+			kind,
+			modifiedTimeMs: fileStat.mtimeMs,
+		});
+	}
+
+	return { ...directory, plans: plans.sort(compareSourcePlanListEntries) };
 }
 
 async function findLatestSourceBranchPlanFileForKind(
@@ -364,7 +413,20 @@ async function resolveRequiredGitRepoRoot(git: PlannedBranchGitGateway, cwd: str
 	return realpathIfPossible(root.value);
 }
 
-async function resolveCurrentBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveSourceBranch(
+	git: PlannedBranchGitGateway,
+	cwd: string,
+	signal: AbortSignal | undefined,
+	explicitSourceBranch: string | undefined,
+): Promise<string> {
+	if (explicitSourceBranch !== undefined) {
+		const trimmed = explicitSourceBranch.trim();
+		if (trimmed.length === 0) {
+			throw new Error("Source branch must not be empty.");
+		}
+		return trimmed;
+	}
+
 	const branch = await git.sourceBranch({ cwd, signal });
 	if (!branch.ok) {
 		if (branch.error.code === "detached_head") {
@@ -417,6 +479,17 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence, for
 	}
 }
 
+async function readPlanStoreDirectoryIfExists(directory: PlanStoreDirectoryEvidence): Promise<Dirent[]> {
+	try {
+		return await readdir(directory.directoryPath, { withFileTypes: true });
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") {
+			return [];
+		}
+		throw error;
+	}
+}
+
 function compareLatestSourcePlanCandidates(
 	left: { fileName: string; filePath: string; modifiedTimeMs: number },
 	right: { fileName: string; filePath: string; modifiedTimeMs: number },
@@ -425,6 +498,10 @@ function compareLatestSourcePlanCandidates(
 		return right.modifiedTimeMs - left.modifiedTimeMs;
 	}
 	return right.filePath.localeCompare(left.filePath);
+}
+
+function compareSourcePlanListEntries(left: SourceBranchPlanFileListEntry, right: SourceBranchPlanFileListEntry): number {
+	return compareLatestSourcePlanCandidates(left, right);
 }
 
 async function writeExclusiveFile(filePath: string, content: string): Promise<void> {
