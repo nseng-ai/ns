@@ -106,6 +106,11 @@ interface MutablePlan {
 	finalItems: NormalizedPlanItem[];
 }
 
+interface PlanRecipeRuntimeEvaluation {
+	runtime: PlanRecipeRuntime;
+	finish(): Promise<NormalizedPlan>;
+}
+
 export function definePlan(input: DefinePlanInput): TsPlanRecipe {
 	const result = normalizeDefinePlanInput(input);
 	if (result.type === "failure") {
@@ -421,35 +426,37 @@ async function evaluateImperativeRecipe(recipe: ImperativeRecipe, options: Rende
 		return { type: "failure", message: "Preview aborted." };
 	}
 
-	const mutablePlan: MutablePlan = {
-		...recipe.metadata,
+	const evaluation = createPlanRecipeRuntime(recipe.metadata, options);
+
+	try {
+		await recipe.run(evaluation.runtime);
+		const plan = await evaluation.finish();
+		if (isAbortSignalAborted(options.signal)) {
+			return { type: "failure", message: "Preview aborted." };
+		}
+		return { type: "success", value: plan };
+	} catch (error) {
+		return { type: "failure", message: errorToMessage(error) };
+	}
+}
+
+function createPlanRecipeRuntime(
+	metadata: PlanRecipeMetadata,
+	options: RenderRecipeOptions,
+): PlanRecipeRuntimeEvaluation {
+	const plan: MutablePlan = {
+		...metadata,
 		goal: "",
 		phases: [],
 		finalItems: [],
 	};
 	const pendingPhases: Promise<void>[] = [];
-	const runtime = createPlanRecipeRuntime(mutablePlan, pendingPhases, options);
-
-	try {
-		await recipe.run(runtime);
-		await Promise.all(pendingPhases);
-	} catch (error) {
-		return { type: "failure", message: errorToMessage(error) };
-	}
-
-	if (isAbortSignalAborted(options.signal)) {
-		return { type: "failure", message: "Preview aborted." };
-	}
-
-	return { type: "success", value: mutablePlan };
-}
-
-function createPlanRecipeRuntime(
-	plan: MutablePlan,
-	pendingPhases: Promise<void>[],
-	options: RenderRecipeOptions,
-): PlanRecipeRuntime {
 	const activePhases: MutablePlanPhase[] = [];
+
+	async function finish(): Promise<NormalizedPlan> {
+		await Promise.all(pendingPhases);
+		return plan;
+	}
 
 	async function runPhaseBody(phase: MutablePlanPhase, body: PlanRecipePhaseBody): Promise<void> {
 		checkAbort(options.signal);
@@ -481,37 +488,40 @@ function createPlanRecipeRuntime(
 	}
 
 	return {
-		cwd: options.cwd,
-		signal: options.signal,
-		goal(text) {
-			checkAbort(options.signal);
-			plan.goal = normalizeImperativeString(text, "goal");
+		runtime: {
+			cwd: options.cwd,
+			signal: options.signal,
+			goal(text) {
+				checkAbort(options.signal);
+				plan.goal = normalizeImperativeString(text, "goal");
+			},
+			context(text) {
+				checkAbort(options.signal);
+				plan.context = normalizeImperativeString(text, "context");
+			},
+			phase(title, body) {
+				checkAbort(options.signal);
+				const phaseTitle = normalizeImperativeString(title, "phase title");
+				const phase: MutablePlanPhase = { title: phaseTitle, tasks: [], notes: [], validations: [] };
+				plan.phases.push(phase);
+				const phasePromise = runPhaseBody(phase, body);
+				pendingPhases.push(phasePromise);
+				return phasePromise;
+			},
+			task(prompt) {
+				checkAbort(options.signal);
+				recordImperativeItem({ type: "task", prompt: normalizeImperativeString(prompt, "task prompt") });
+			},
+			note(text) {
+				checkAbort(options.signal);
+				recordImperativeItem({ type: "note", text: normalizeImperativeString(text, "note") });
+			},
+			validateWithShell(command) {
+				checkAbort(options.signal);
+				recordImperativeItem({ type: "validation", command: normalizeImperativeString(command, "validation command") });
+			},
 		},
-		context(text) {
-			checkAbort(options.signal);
-			plan.context = normalizeImperativeString(text, "context");
-		},
-		phase(title, body) {
-			checkAbort(options.signal);
-			const phaseTitle = normalizeImperativeString(title, "phase title");
-			const phase: MutablePlanPhase = { title: phaseTitle, tasks: [], notes: [], validations: [] };
-			plan.phases.push(phase);
-			const phasePromise = runPhaseBody(phase, body);
-			pendingPhases.push(phasePromise);
-			return phasePromise;
-		},
-		task(prompt) {
-			checkAbort(options.signal);
-			recordImperativeItem({ type: "task", prompt: normalizeImperativeString(prompt, "task prompt") });
-		},
-		note(text) {
-			checkAbort(options.signal);
-			recordImperativeItem({ type: "note", text: normalizeImperativeString(text, "note") });
-		},
-		validateWithShell(command) {
-			checkAbort(options.signal);
-			recordImperativeItem({ type: "validation", command: normalizeImperativeString(command, "validation command") });
-		},
+		finish,
 	};
 }
 

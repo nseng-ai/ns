@@ -454,9 +454,7 @@ def test_representative_stack_address_happy_path_closure_evidence(
         for batch in stack_plan["batches"]
         for item in batch["items"]
     )
-    assert any(
-        item["source_kind"] == "discussion_comment" for item in stack_plan["informational"]
-    )
+    assert any(item["source_kind"] == "discussion_comment" for item in stack_plan["informational"])
     assert "SECRET_REVIEW_BODY" not in plan_result.output
     assert "SECRET_THREAD_BODY" not in plan_result.output
     assert "SECRET_HUMAN_BODY" not in plan_result.output
@@ -490,8 +488,7 @@ def test_representative_stack_address_happy_path_closure_evidence(
     assert diff_data["valid"] is True
     assert diff_data["safe_to_resolve_planned"] is True
     assert {
-        (item["pr_number"], item["thread_id"])
-        for item in diff_data["planned_still_unresolved"]
+        (item["pr_number"], item["thread_id"]) for item in diff_data["planned_still_unresolved"]
     } == {(101, "PRRT_101"), (102, "PRRT_102")}
     assert diff_data["new_unresolved_threads"] == []
     assert diff_data["missing_or_outdated_planned_threads"] == []
