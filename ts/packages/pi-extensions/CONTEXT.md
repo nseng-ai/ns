@@ -153,11 +153,11 @@ A git commit created from pending worktree changes using a prepared checkpoint m
 _Avoid_: checkpoint message, stash, branch creation.
 
 **Autobranch preparation**:
-The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name, collect warnings, and prepare the checkpoint message without moving work.
+The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
 _Avoid_: branch transaction, stash operation, model prompt alone.
 
 **Autobranch transaction**:
-The mutating `/code:autobranch` sequence that stashes pending changes, creates a Graphite branch, restores the stash, and writes the checkpoint commit with explicit typed failure outcomes.
+The mutating `/code:autobranch` sequence that creates a Graphite branch from either dirty worktree changes or the latest clean-worktree commit. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit. Latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
 _Avoid_: preparation, plain git branch creation, restack.
 
 **Runner subagent**:

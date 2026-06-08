@@ -4,14 +4,7 @@ import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch-preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "../src/branch-slug.ts";
 import { buildSlugModelArgs } from "../src/model-slug.ts";
-
-function ok(stdout = "", stderr = ""): CommandResult {
-	return { code: 0, stdout, stderr };
-}
-
-function fail(stderr: string): CommandResult {
-	return { code: 1, stdout: "", stderr };
-}
+import { fail, ok } from "./autobranch-test-helpers.ts";
 
 interface ExecCall {
 	command: string;
@@ -133,7 +126,7 @@ describe("prepareAutobranchPlan", () => {
 				branchName: "test-branch",
 				baseSlug: "test-branch",
 				slugSource: "requested",
-				usedSuffix: false,
+				hasSuffix: false,
 				checkpointMessage: "[cp] Update app\n\n- Add coverage",
 			},
 			warnings: [],
@@ -169,7 +162,7 @@ describe("prepareAutobranchPlan", () => {
 				branchName: "refactor-slug-prompt",
 				baseSlug: "refactor-slug-prompt",
 				slugSource: "model",
-				usedSuffix: false,
+				hasSuffix: false,
 			});
 			expect(result.warnings).toEqual([]);
 		}
@@ -196,7 +189,7 @@ describe("prepareAutobranchPlan", () => {
 				branchName: "update-app-ts-notes-txt",
 				baseSlug: "update-app-ts-notes-txt",
 				slugSource: "fallback",
-				usedSuffix: false,
+				hasSuffix: false,
 			});
 			expect(result.warnings).toEqual([{ kind: "slug_model_failed", fallbackSlug: "update-app-ts-notes-txt" }]);
 		}
@@ -217,7 +210,7 @@ describe("prepareAutobranchPlan", () => {
 		if (result.ok) {
 			expect(result.plan.branchName).toBe(suffixed);
 			expect(result.plan.baseSlug).toBe(baseSlug);
-			expect(result.plan.usedSuffix).toBe(true);
+			expect(result.plan.hasSuffix).toBe(true);
 			expect(result.plan.branchName.length).toBe(MAX_BRANCH_SLUG_LENGTH);
 		}
 	});

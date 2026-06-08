@@ -31,7 +31,7 @@ export type ExtensionAPI = ExtensionExec & {
 
 export default function autobranchExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Create a Graphite branch from current uncommitted changes, generating the branch name and checkpoint commit message",
+		description: "Create a Graphite branch from current uncommitted changes, or from the latest commit when the worktree is clean",
 		handler: async (args, ctx) => {
 			await createAutobranchCheckpoint(pi, ctx, parseAutobranchArgs(args));
 		},

@@ -10,7 +10,7 @@ import {
 	formatLoadedAttachedPlanEvidence,
 	formatPlanBranchEvidence,
 	formatSourceBranchPlanFileEvidence,
-	loadAttachedPlan,
+	loadPlannedBranchPlan,
 	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
 	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
 	type BranchCreationMethod,
@@ -589,8 +589,8 @@ export default function registerPlannedBranchExtension(
 	});
 
 	pi.registerCommand(IMPL_PLANNED_BRANCH_COMMAND_NAME, {
-		description: "Implement from the attached planned-branch plan.",
-		handler: async (args, ctx) => handleImplPlannedBranchCommand(pi, args, ctx),
+		description: "Implement from the attached or latest saved planned-branch plan.",
+		handler: async (args, ctx) => handleImplPlannedBranchCommand(pi, args, ctx, options),
 	});
 
 	pi.registerTool(buildWriteSourceBranchPlanFileTool(pi, options));
@@ -609,7 +609,12 @@ async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: Comma
 	pi.sendUserMessage(buildWritePlanPrompt(steering, promptBody.body));
 }
 
-async function handleImplPlannedBranchCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function handleImplPlannedBranchCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+	options: PlannedBranchExtensionOptions,
+): Promise<void> {
 	await ctx.waitForIdle();
 	const trimmedArgs = args.trim();
 	if (ctx.hasUI) {
@@ -619,11 +624,15 @@ async function handleImplPlannedBranchCommand(pi: ExtensionAPI, args: string, ct
 	ctx.ui.setStatus(IMPL_PLANNED_BRANCH_STATUS_KEY, "loading attached plan…");
 	try {
 		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};
-		const plan = await loadAttachedPlan(pi, params, { cwd: ctx.cwd });
+		const plan = await loadPlannedBranchPlan(pi, params, {
+			cwd: ctx.cwd,
+			planStoreRoot: resolvePlanStoreRootOption(options),
+			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
+		});
 		presentPlannedBranchMessage(pi, ctx, formatLoadedAttachedPlanEvidence(plan), { status: "success", loadedPlan: plan }, "info");
 		pi.sendUserMessage(buildImplPlannedBranchPrompt(plan));
 	} catch (error) {
-		presentPlannedBranchFailure(pi, ctx, "Failed to load attached planned-branch plan.", error);
+		presentPlannedBranchFailure(pi, ctx, "Failed to load planned-branch plan.", error);
 	} finally {
 		ctx.ui.setStatus(IMPL_PLANNED_BRANCH_STATUS_KEY, undefined);
 	}

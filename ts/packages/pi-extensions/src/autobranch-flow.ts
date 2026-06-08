@@ -5,6 +5,8 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "asdl-dev/src/pending-worktree.ts";
+import { createLatestCommitAutobranchFlow } from "./autobranch-latest-commit.ts";
+import { inspectUpstreamHeadState, type UpstreamHeadState } from "./autobranch-upstream.ts";
 import {
 	prepareAutobranchPlan,
 	type FileStat,
@@ -27,7 +29,7 @@ export interface AutobranchFlowInput {
 	setStatus: (message: string | undefined) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
-	now?: () => number;
+	now?: (() => number) | undefined;
 }
 
 export function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
@@ -61,7 +63,25 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
-		input.notify("Working tree is clean; nothing to move to a new branch.", "warning");
+		await createLatestCommitAutobranchFlow({
+			cwd: input.cwd,
+			args: input.args,
+			snapshot,
+			exec: input.exec,
+			notify: input.notify,
+			setStatus: input.setStatus,
+			now: input.now,
+		});
+		return;
+	}
+
+	await runDirtyAutobranchFlow(input, snapshot);
+}
+
+async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<void> {
+	const upstream = await inspectUpstreamHeadState({ cwd: input.cwd, exec: input.exec });
+	if (upstream.type === "failed") {
+		input.notify(formatDirtyUpstreamFailure(upstream), "error");
 		return;
 	}
 
@@ -91,7 +111,7 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 		exec: input.exec,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
 		setStatus: input.setStatus,
-		...(input.now ? { now: input.now } : {}),
+		now: input.now,
 	});
 	if (!transaction.ok) {
 		input.notify(formatAutobranchTransactionFailure(transaction, prepared.plan.branchName), "error");
@@ -100,7 +120,7 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
 	const clean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
-	const suffix = prepared.plan.usedSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
+	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
 
 	input.notify(
 		[
@@ -111,6 +131,10 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 		].join("\n"),
 		clean ? "success" : "warning",
 	);
+}
+
+function formatDirtyUpstreamFailure(upstream: Extract<UpstreamHeadState, { type: "failed" }>): string {
+	return [`Could not determine whether HEAD is already in the current branch upstream; refusing to autobranch.`, upstream.error].join("\n");
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {

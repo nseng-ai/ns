@@ -1,5 +1,6 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
-import { formatPendingWorktreeCommandDetails } from "asdl-dev/src/pending-worktree.ts";
+
+import { formatCommandDetails, withStatus } from "./autobranch-shared.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
@@ -13,7 +14,7 @@ export interface AutobranchTransactionInput {
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
 	setStatus: (message: string | undefined) => void;
-	now?: () => number;
+	now?: (() => number) | undefined;
 }
 
 export type AutobranchTransactionResult =
@@ -118,21 +119,4 @@ async function restoreStash(input: TransactionExecutionInput, ref: string): Prom
 
 async function createCheckpointCommit(input: Pick<AutobranchTransactionInput, "checkpointMessage" | "commitPreparedCheckpointMessage" | "setStatus">): Promise<{ summary: string } | { error: string }> {
 	return withStatus(input, "creating checkpoint commit…", () => input.commitPreparedCheckpointMessage(input.checkpointMessage));
-}
-
-async function withStatus<T>(
-	input: Pick<AutobranchTransactionInput, "setStatus">,
-	message: string,
-	action: () => Promise<T>,
-): Promise<T> {
-	input.setStatus(message);
-	try {
-		return await action();
-	} finally {
-		input.setStatus(undefined);
-	}
-}
-
-function formatCommandDetails(result: CommandResult): string {
-	return formatPendingWorktreeCommandDetails(result);
 }

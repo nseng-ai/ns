@@ -32,3 +32,5 @@ local.just
 .claude/scheduled_tasks.lock
 .vercel
 .env*
+
+.asdl/tmp

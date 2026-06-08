@@ -3,7 +3,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 
-import { buildImplPlannedBranchPrompt, loadAttachedPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
+import { buildImplPlannedBranchPrompt, formatLoadedAttachedPlanEvidence, loadPlannedBranchPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
 import { createRealPlannedBranchContext, type PlannedBranchContext } from "./context.ts";
 import {
 	createPlannedBranchFromFile,
@@ -223,7 +223,12 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 	}
 
 	const requestedKey = parsed.value.keyOrSlug;
-	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem });
+	const plan = await loadPlannedBranchPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, {
+		cwd: deps.cwd,
+		git: deps.context.git,
+		brmem: deps.context.brmem,
+		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+	});
 	const promptFile = parsed.value.promptFile === undefined ? undefined : normalizePlanFilePath(parsed.value.promptFile);
 	if (promptFile !== undefined) {
 		await writeFile(promptFile, buildImplPlannedBranchPrompt(plan), "utf8");
@@ -242,10 +247,10 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		return 0;
 	}
 	if (promptFile !== undefined) {
-		deps.stdout(`${formatLoadedPlan(plan)}\nImplementation prompt file: ${promptFile}\n`);
+		deps.stdout(`${formatLoadedAttachedPlanEvidence(plan)}\nImplementation prompt file: ${promptFile}\n`);
 		return 0;
 	}
-	deps.stdout(`${formatLoadedPlan(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
+	deps.stdout(`${formatLoadedAttachedPlanEvidence(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
 	return 0;
 }
 
@@ -559,6 +564,8 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 		ref_name: plan.refName,
 		byte_count: plan.byteCount,
 		available_keys: plan.availableKeys,
+		...(plan.source === undefined ? {} : { source: plan.source }),
+		...(plan.sourceFile === undefined ? {} : { source_file: plan.sourceFile }),
 		...(options.promptFile === undefined ? {} : { implementation_prompt_file: options.promptFile }),
 		...(options.attachedPlanContent === undefined ? {} : { attached_plan_content: options.attachedPlanContent }),
 		...(options.implementationPrompt === undefined ? {} : { implementation_prompt: options.implementationPrompt }),
@@ -583,17 +590,6 @@ function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPl
 		`Branch path segment: ${evidence.branchKey}`,
 		`Slug: ${evidence.slug}`,
 		`Modified time ms: ${evidence.modifiedTimeMs}`,
-	].join("\n");
-}
-
-function formatLoadedPlan(plan: LoadedAttachedPlan): string {
-	return [
-		"Loaded attached planned-branch plan.",
-		`Branch: ${plan.branch}`,
-		`Namespace: ${plan.namespace}`,
-		`Selected key: ${plan.selectedKey}`,
-		`Ref: ${plan.refName}`,
-		`Bytes: ${plan.byteCount}`,
 	].join("\n");
 }
 
