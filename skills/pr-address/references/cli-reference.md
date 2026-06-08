@@ -262,10 +262,11 @@ Semantic classification remains LLM-owned. This helper validates and merges
 classification packets; it does not infer arbitrary review meaning from prose.
 
 `stack-feedback-plan` output is a merged stack plan. It is not accepted by
-`build-resolve-thread-batch-payload`, which currently builds per-PR
-`resolve-thread-batch` payloads only from single-PR `plan-feedback` results.
-Until a stack-native resolution payload builder exists, keep the stack plan as
-planning provenance and pass per-PR `plan-feedback` data to the per-PR builder.
+`build-resolve-thread-batch-payload`, which builds per-PR
+`resolve-thread-batch` payloads only from single-PR `plan-feedback` results. For
+stack runs, pass the merged stack plan plus explicit per-thread decisions to
+`build-stack-resolve-thread-payloads`, then pipe each ready per-PR payload to
+`resolve-thread-batch`.
 
 ### `read-feedback-detail`
 
@@ -836,12 +837,114 @@ the mutating helper.
 - Malformed/empty input: `exit_code: 2` with an error type such as
   `invalid_json` or `invalid_request`.
 
+### `build-stack-resolve-thread-payloads`
+
+Build and validate per-PR JSON payloads for `resolve-thread-batch` from a
+validated `stack-feedback-plan` result, one selected stack batch, the batch
+commit SHA, and explicit post-edit decisions. This helper does not mutate
+GitHub.
+
+Use this in stack-address workflows after making and committing an approved
+stack batch. The merged stack plan remains the provenance source; callers do not
+reconstruct per-PR `plan-feedback` wrappers.
+
+**Invocation:** reads JSON from stdin by default. `--payload-json` is also
+available for direct/manual invocation.
+
+```bash
+printf '%s' '{"stack_plan":{...},"batch_id":"local","commit_sha":"abc1234","continue_on_error":true,"decisions":[{"pr_number":1009,"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Fixed in the stack-tip omnibus commit."}]}' \
+  | pr-address exec build-stack-resolve-thread-payloads --format json
+```
+
+**Input fields:**
+
+| Field               | Required | Description                                                                                  |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `stack_plan`        | yes      | `data` object returned by `stack-feedback-plan`; must have `valid == true`                   |
+| `batch_id`          | yes      | Exact merged `data.batches[].batch_id` to build from                                         |
+| `commit_sha`        | mode     | Batch/omnibus commit SHA; required when any `fixed` decision lacks an item-level SHA         |
+| `continue_on_error` | no       | Copied into every generated `resolve-thread-batch` payload                                   |
+| `decisions`         | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch |
+
+Each decision requires `pr_number` and `thread_id`, plus the same resolution
+fields used by the single-PR builder. The `pr_number` requirement lets the
+helper diagnose wrong-PR references deterministically.
+
+Resolve decision:
+
+```json
+{
+  "pr_number": 1009,
+  "thread_id": "PRRT_kw...",
+  "action": "resolve",
+  "mode": "fixed",
+  "message": "Fixed in the stack-tip omnibus commit.",
+  "commit_sha": "optional item-level override",
+  "provenance": {"kind": "local_branch", "branch": "follow-up-branch"}
+}
+```
+
+Skip decision:
+
+```json
+{
+  "pr_number": 1009,
+  "thread_id": "PRRT_kw...",
+  "action": "skip",
+  "skip_reason": "User deferred this thread to a follow-up."
+}
+```
+
+`mode` is `fixed`, `pre_existing`, `explained`, or `planned`, with the same
+mode-specific field rules as `build-resolve-thread-batch-payload`. The helper
+builds inline review-thread payloads only; PR-level reviews and discussion
+comments are reported as ignored non-thread items for other helpers.
+
+**Output fields (under `data`):**
+
+| Field                      | Description                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `valid`                    | Whether the selected stack batch and decisions are semantically valid                            |
+| `payloads_ready`           | Whether at least one per-PR entry has a ready `resolve-thread-batch` payload                     |
+| `batch_id`                 | Selected stack batch ID                                                                          |
+| `review_thread_count`      | Review-thread items in the selected stack batch                                                  |
+| `resolved_thread_count`    | Items included across generated per-PR payloads                                                  |
+| `skipped_thread_count`     | Explicitly skipped review-thread items                                                           |
+| `ignored_non_thread_items` | Selected-batch PR-level reviews or discussion comments that require other helpers                |
+| `skipped_items`            | Explicit skip reasons with PR/thread summaries                                                   |
+| `payloads[]`               | Per-PR entries with `pr_number`, `branch`, counts, `payload_ready`, and optional ready `payload` |
+| `errors`                   | Structured semantic decision errors                                                              |
+| `warnings`                 | No-payload explanations, such as no review-thread items or all threads skipped                   |
+
+For each `data.payloads[]` entry where `payload_ready == true`, pipe that
+entry's `payload` to `resolve-thread-batch`. If `payload_ready == false`, do not
+call the mutating helper for that PR; report warnings/skipped/non-thread items
+instead.
+
+Validation rejects invalid stack plan shape/state, unknown stack batches,
+missing decisions, duplicate `(pr_number, thread_id)` decisions, wrong-PR
+references, decisions for other stack batches, informational thread decisions,
+unknown threads, and the same mode/action/provenance field errors as the
+single-PR builder.
+
+**Output behavior:**
+
+- Valid decisions with at least one resolved thread: `exit_code: 0`,
+  `data.payloads_ready == true`, and ready per-PR payloads can be piped to
+  `resolve-thread-batch`.
+- Valid decisions with no payload needed: `exit_code: 0`,
+  `data.payloads_ready == false`, and `data.warnings` explains why.
+- Well-formed but invalid decisions: `exit_code: 1`, `data.valid == false`, no
+  ready payloads, and `data.errors` describes all known issues.
+- Malformed/empty input: `exit_code: 2` with an error type such as
+  `invalid_json` or `invalid_request`.
+
 ### `resolve-thread-batch`
 
 Reply to and resolve multiple PR review threads with canonical formatting. After
-a batch commit, prefer `build-resolve-thread-batch-payload` to build and validate
-this payload, then call this mutating helper only when `data.payload_ready` is
-true.
+a batch commit, prefer `build-resolve-thread-batch-payload` for single-PR runs or
+`build-stack-resolve-thread-payloads` for stack runs, then call this mutating
+helper only for ready payloads.
 
 **Invocation:** reads JSON from stdin by default. `--payload-json` is also
 available for direct/manual invocation.
@@ -1131,24 +1234,25 @@ Lower-level helpers available via `pr-address exec <command> --format json`.
 The composite helpers above call these internally — use them directly only when
 the workflow requires it. Run `<command> --json-schema` for full schemas.
 
-| Command                              | Description                                                                                                                                                            |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get-feedback`                       | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
-| `read-feedback-detail`               | Detailed above. Read one allowed body/item pointer from a raw payload artifact and return the selected value inline.                                                   |
-| `read-feedback-details`              | Detailed above. Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
-| `classification-template`            | Detailed above. Build a deterministic fill-in classification scaffold from a compact manifest.                                                                         |
-| `validate-feedback-classification`   | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
-| `plan-feedback`                      | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
-| `build-resolve-thread-batch-payload` | Detailed above. Build and validate the non-mutating payload for `resolve-thread-batch` from a selected plan batch and explicit decisions.                              |
-| `finalize-run`                       | Detailed above. Summarize final unresolved, skipped, and checkpoint evidence without mutating GitHub or printing raw feedback bodies.                                  |
-| `summarize-feedback`                 | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
-| `get-pr-for-branch`                  | Look up the open PR for a branch                                                                                                                                       |
-| `get-reviews`                        | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
-| `get-review-comments`                | Fetch review threads for a PR                                                                                                                                          |
-| `get-discussion-comments`            | Fetch discussion comments for a PR                                                                                                                                     |
-| `add-issue-comment`                  | Add a discussion comment to a PR                                                                                                                                       |
-| `add-reaction`                       | Add a reaction to a comment                                                                                                                                            |
-| `add-review-thread-reply`            | Post a reply comment on a PR review thread                                                                                                                             |
-| `resolve-thread`                     | Resolve a PR review thread by its GraphQL node ID                                                                                                                      |
-| `resolve-thread-batch`               | Mutating helper: reply to and resolve multiple PR review threads from one JSON payload.                                                                                |
-| `unresolve-thread`                   | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                           |
+| Command                               | Description                                                                                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get-feedback`                        | Detailed above. Fetch all PR feedback in payload mode by default; `--payload-mode inline` is a debugging escape hatch. Empty-body reviews are filtered out by default. |
+| `read-feedback-detail`                | Detailed above. Read one allowed body/item pointer from a raw payload artifact and return the selected value inline.                                                   |
+| `read-feedback-details`               | Detailed above. Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
+| `classification-template`             | Detailed above. Build a deterministic fill-in classification scaffold from a compact manifest.                                                                         |
+| `validate-feedback-classification`    | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
+| `plan-feedback`                       | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
+| `build-resolve-thread-batch-payload`  | Detailed above. Build and validate the non-mutating payload for `resolve-thread-batch` from a selected single-PR plan batch and explicit decisions.                    |
+| `build-stack-resolve-thread-payloads` | Detailed above. Build and validate non-mutating per-PR payloads for `resolve-thread-batch` from a selected stack plan batch and explicit decisions.                    |
+| `finalize-run`                        | Detailed above. Summarize final unresolved, skipped, and checkpoint evidence without mutating GitHub or printing raw feedback bodies.                                  |
+| `summarize-feedback`                  | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
+| `get-pr-for-branch`                   | Look up the open PR for a branch                                                                                                                                       |
+| `get-reviews`                         | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
+| `get-review-comments`                 | Fetch review threads for a PR                                                                                                                                          |
+| `get-discussion-comments`             | Fetch discussion comments for a PR                                                                                                                                     |
+| `add-issue-comment`                   | Add a discussion comment to a PR                                                                                                                                       |
+| `add-reaction`                        | Add a reaction to a comment                                                                                                                                            |
+| `add-review-thread-reply`             | Post a reply comment on a PR review thread                                                                                                                             |
+| `resolve-thread`                      | Resolve a PR review thread by its GraphQL node ID                                                                                                                      |
+| `resolve-thread-batch`                | Mutating helper: reply to and resolve multiple PR review threads from one JSON payload.                                                                                |
+| `unresolve-thread`                    | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                           |

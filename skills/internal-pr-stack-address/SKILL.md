@@ -68,7 +68,7 @@ Do not trigger from ordinary single-PR review feedback requests; use
   addressed items, passing required checks, and validating helper-built
   resolution payloads.
 - Builds GitHub thread-resolution payloads with
-  `build-resolve-thread-batch-payload`, then mutates only through
+  `build-stack-resolve-thread-payloads`, then mutates only through
   `resolve-thread-batch`; never hand-roll review-thread mutation API calls.
 
 ## Required supporting skills
@@ -363,16 +363,10 @@ informational threads, skipped/deferred items, or top-level human comments
 unless the validated plan and prior user decisions explicitly require that
 action.
 
-Important: the merged `stack-feedback-plan` result is not the input to
-`build-resolve-thread-batch-payload`. That builder currently accepts only a
-per-PR `plan-feedback` result plus one selected per-PR batch. Do not pipe the
-stack plan to it. Until a stack-native payload builder exists, derive or reuse
-the corresponding per-PR `plan-feedback` data for each PR/batch before building
-thread-resolution payloads.
+For each selected `stack-feedback-plan` batch represented in an omnibus commit:
 
-For each PR and selected `plan-feedback` batch represented in an omnibus commit:
-
-1. Build explicit decisions for every review-thread item in that selected batch:
+1. Build explicit decisions for every selected review-thread item, including
+   both `pr_number` and `thread_id`:
    - `action: "resolve"`, `mode: "fixed"`, and stack-tip omnibus wording for
      code changes.
    - `action: "resolve"`, `mode: "explained"`, and a factual explanation for
@@ -380,26 +374,33 @@ For each PR and selected `plan-feedback` batch represented in an omnibus commit:
    - `action: "resolve"`, `mode: "pre_existing"` for moved/restructured
      pre-existing bot comments.
    - `action: "skip"` with `skip_reason` for explicitly deferred threads.
-2. Include `continue_on_error: true` in the builder input.
-3. Build the non-mutating payload:
+2. Include `continue_on_error: true` in the builder input with the validated
+   merged `stack-feedback-plan` data object, selected `batch_id`, batch commit
+   SHA, and decisions.
+3. Build the non-mutating per-PR payloads:
 
    ```bash
    printf '%s' '<builder-input-json>' \
-     | <pr-address-runner> exec build-resolve-thread-batch-payload --format json
+     | <pr-address-runner> exec build-stack-resolve-thread-payloads --format json
    ```
 
-4. If `data.payload_ready == true`, pipe `data.payload` to the mutating helper:
+4. For each `data.payloads[]` entry where `payload_ready == true`, pipe that
+   entry's `payload` to the mutating helper:
 
    ```bash
-   printf '%s' '<data.payload-json>' \
+   printf '%s' '<data.payloads[n].payload-json>' \
      | <pr-address-runner> exec resolve-thread-batch --format json
    ```
 
-5. If `data.payload_ready == false`, do not call `resolve-thread-batch`; report
-   warnings/skipped/non-thread items.
+5. For entries where `payload_ready == false`, do not call
+   `resolve-thread-batch`; report warnings/skipped/non-thread items.
 6. Apply the shared helper exit-code convention: fix builder decision errors
    before mutating GitHub, and report mutating-helper partial failures with
    failed thread IDs and retry/fallback instructions.
+
+`build-resolve-thread-batch-payload` remains the single-PR fallback boundary: it
+accepts `plan-feedback` output, not merged `stack-feedback-plan` output. Do not
+use it for the normal stack path.
 
 Resolution messages must use canonical `pr-address` helper formatting and
 explicit stack-tip omnibus wording, for example:
@@ -453,7 +454,8 @@ Never push or submit unless the user explicitly asks for that extra step.
 - Do not use `--payload-mode inline` except for explicit debugging/migration
   fallback.
 - Do not hand-roll `resolve-thread-batch` payloads; use
-  `build-resolve-thread-batch-payload`.
+  `build-stack-resolve-thread-payloads` for stack runs and
+  `build-resolve-thread-batch-payload` only for single-PR fallback paths.
 - Do not call GitHub mutation helpers until after re-fetch validation,
   successful required checks, committed fixes, and helper-built payload
   validation.
@@ -481,7 +483,9 @@ Already covered by current `pr-address` helpers:
   automation discussion summary: `stack-feedback-plan`.
 - Per-PR unresolved-thread completeness:
   `validate-feedback-classification` plus `plan-feedback`.
-- Per-PR/per-batch resolution payload assembly:
+- Stack-native per-PR resolution payload assembly:
+  `build-stack-resolve-thread-payloads`.
+- Single-PR/per-batch resolution payload assembly:
   `build-resolve-thread-batch-payload`.
 
 Future deterministic helpers to consider:
