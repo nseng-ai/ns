@@ -6,8 +6,9 @@
       Include package-local test scripts, `bun:test` imports, lifecycle hooks, matcher patterns, the known `mock.module` case, `@types/bun`, CI/justfile command paths, and active docs that describe TypeScript test execution. Evidence should distinguish mechanical import/script conversion from behavior-sensitive changes.
       Evidence: Semantic Update `20260608T173137Z-vitest-surface-inventory.md` records package scripts, `bun:test` import counts, the `mock.module` risk, lifecycle/state risk classes, Bun type references, CI/docs surfaces, and baseline command outcomes.
 
-- [ ] Decide and add the Vitest workspace configuration.
+- [x] Decide and add the Vitest workspace configuration.
       Choose the shared-vs-package-local configuration shape, dependency placement, Node/TypeScript execution assumptions, and serial/concurrency policy needed to preserve the current `bun test --sequential` behavior where required.
+      Evidence: Semantic Update `20260608T175255Z-vitest-workspace-config.md` records the shared root config decision, `vitest` dependency placement, explicit-import policy, serial `fileParallelism: false` posture, config-load evidence, and local Node baseline warning.
 
 - [ ] Convert package-local test scripts and `bun:test` imports to Vitest.
       Migrate `asdl-dev`, `ccc`, `pi-extension-runtime`, `pi-extensions`, and `planned-branch` package tests without changing production behavior or hiding genuine test-runner semantic differences.
