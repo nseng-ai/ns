@@ -862,8 +862,9 @@ Validation happens for the whole payload before any GitHub mutation. Duplicate
 `commit_sha`, missing planned provenance, missing local branches, or missing PRs
 produce `exit_code: 2` with no mutation. Planned provenance is captured during
 that pre-mutation validation step, so branch HEAD OIDs and PR states in replies
-are batch-start snapshots. Existing PR provenance may be OPEN, CLOSED, or
-MERGED; the canonical reply includes the observed PR state.
+are explicitly labelled as batch-start snapshots, not live references. Existing
+PR provenance may be OPEN, CLOSED, or MERGED; the canonical reply includes the
+observed PR state snapshot.
 
 **Output fields (under `data`):**
 

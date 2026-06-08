@@ -379,7 +379,9 @@ commit, `mode=pre_existing` for moved/restructured pre-existing comments,
 `mode=explained` for factual false-positive/already-fixed explanations, and
 `mode=planned` only when the user/operator explicitly accepts provenance-backed
 deferral to an existing local branch or PR. Planned mode requires a non-empty
-message and validated provenance; do not use it for vague promises.
+message and validated provenance; do not use it for vague promises. Treat any
+captured branch HEAD OID or PR state in the reply as a batch-start snapshot, not
+a live reference.
 
 Inspect the builder result:
 

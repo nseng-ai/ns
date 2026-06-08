@@ -211,9 +211,16 @@ export interface LoadGtStatusOptions {
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
+export interface LoadWorktreeStatusOptions {
+	signal?: AbortSignal | undefined;
+	metadataLoader?: GraphiteMetadataLoader | undefined;
+	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
+}
+
 export interface WorktreeStatus {
 	brmem: string | undefined;
 	gt: GtStatus;
+	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
 }
 
 interface ActiveSession {
@@ -282,7 +289,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const sequence = ++refreshSequence;
-		const status = await loadWorktreeStatus(pi, session.cwd, session.abortController.signal);
+		const status = await loadWorktreeStatus(pi, session.cwd, { signal: session.abortController.signal });
 		if (sequence !== refreshSequence || !isActiveSession(session)) return;
 
 		const lines = formatWorktreeStatus(status, session.ctx.ui.theme);
@@ -578,13 +585,43 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	});
 }
 
-export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeStatus> {
+export async function loadWorktreeStatus(
+	pi: ExecGateway,
+	cwd: string,
+	optionsOrSignal?: AbortSignal | LoadWorktreeStatusOptions,
+): Promise<WorktreeStatus> {
+	const options = normalizeLoadWorktreeStatusOptions(optionsOrSignal);
+	let gtMetadataDiagnostic: GraphiteMetadataWorkerDiagnostic | undefined;
+	const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
+		gtMetadataDiagnostic = diagnostic;
+		options.onDiagnostic?.(diagnostic);
+	};
 	const [brmem, gt] = await Promise.all([
-		loadBrmemStatus(pi, cwd, signal),
-		loadGtStatus({ pi, cwd, signal }),
+		loadBrmemStatus(pi, cwd, options.signal),
+		loadGtStatus({
+			pi,
+			cwd,
+			signal: options.signal,
+			metadataLoader: options.metadataLoader,
+			onDiagnostic,
+		}),
 	]);
 
-	return { brmem, gt };
+	const status: WorktreeStatus = { brmem, gt };
+	if (gtMetadataDiagnostic !== undefined) status.gtMetadataDiagnostic = gtMetadataDiagnostic;
+	return status;
+}
+
+function normalizeLoadWorktreeStatusOptions(
+	optionsOrSignal: AbortSignal | LoadWorktreeStatusOptions | undefined,
+): LoadWorktreeStatusOptions {
+	if (optionsOrSignal === undefined) return {};
+	if (isAbortSignal(optionsOrSignal)) return { signal: optionsOrSignal };
+	return optionsOrSignal;
+}
+
+function isAbortSignal(value: AbortSignal | LoadWorktreeStatusOptions): value is AbortSignal {
+	return "aborted" in value && "addEventListener" in value;
 }
 
 export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
@@ -804,7 +841,27 @@ export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme
 		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
 	}
 	lines.push(formatGtStatus(status.gt, theme));
+	if (status.gtMetadataDiagnostic !== undefined) {
+		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
+	}
 	return lines;
+}
+
+function formatGraphiteMetadataDiagnostic(diagnostic: GraphiteMetadataWorkerDiagnostic): string {
+	switch (diagnostic.type) {
+		case "worker-timeout":
+			return `[gt] metadata worker timed out after ${diagnostic.timeoutMs}ms`;
+		case "worker-create-failed":
+			return "[gt] metadata worker could not start";
+		case "worker-error":
+			return `[gt] metadata worker error${diagnostic.message === undefined ? "" : `: ${diagnostic.message}`}`;
+		case "worker-failure-response":
+			return `[gt] metadata worker failed: ${diagnostic.message}`;
+		case "worker-malformed-response":
+			return "[gt] metadata worker returned a malformed response";
+		case "worker-post-message-failed":
+			return "[gt] metadata worker could not receive the lookup request";
+	}
 }
 
 export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {

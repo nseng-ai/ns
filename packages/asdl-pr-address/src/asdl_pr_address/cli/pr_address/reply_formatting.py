@@ -127,7 +127,7 @@ def _planned_resolution_summary(*, message: str | None, provenance: ResolutionPr
         )
         lines.append(f"- Local branch: `{branch}`")
         if provenance.branch_head_oid is not None:
-            lines.append(f"- Branch HEAD: `{provenance.branch_head_oid}`")
+            lines.append(f"- Branch HEAD snapshot: `{provenance.branch_head_oid}`")
         return "\n".join(lines)
     if provenance.kind == "pr":
         pr_number = _required_provenance_field(
@@ -151,11 +151,13 @@ def _planned_resolution_summary(*, message: str | None, provenance: ResolutionPr
             kind=provenance.kind,
         )
         lines.append(f"- PR: #{pr_number} {pr_url}")
-        lines.append(f"- PR state: {pr_state}")
+        lines.append(f"- PR state snapshot: {pr_state}")
         if provenance.pr_head_ref_oid is not None:
-            lines.append(f"- PR head: `{pr_head_ref_name}` at `{provenance.pr_head_ref_oid}`")
+            lines.append(
+                f"- PR head snapshot: `{pr_head_ref_name}` at `{provenance.pr_head_ref_oid}`"
+            )
         else:
-            lines.append(f"- PR head: `{pr_head_ref_name}`")
+            lines.append(f"- PR head snapshot: `{pr_head_ref_name}`")
         return "\n".join(lines)
     raise ValueError(f"Unsupported provenance kind: {provenance.kind}")
 

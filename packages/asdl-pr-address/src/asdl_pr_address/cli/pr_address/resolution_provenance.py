@@ -56,6 +56,10 @@ def validate_resolution_provenance(
     pr_gateway: PRGateway | None,
     git_gateway: GitGateway | None,
 ) -> ResolutionProvenance:
+    shape_error = provenance_shape_error(provenance_input)
+    if shape_error is not None:
+        Ensure.fail(error_type="invalid_request", message=shape_error)
+
     if provenance_input.kind == "local_branch":
         return _validate_local_branch_provenance(
             provenance_input,
@@ -105,10 +109,6 @@ def _validate_local_branch_provenance(
     *,
     git_gateway: GitGateway,
 ) -> ResolutionProvenance:
-    shape_error = provenance_shape_error(provenance_input)
-    if shape_error is not None:
-        Ensure.fail(error_type="invalid_request", message=shape_error)
-
     branch = trim_required(provenance_input.branch)
     branch_head_oid = git_gateway.branch_head_oid(branch)
     if isinstance(branch_head_oid, GitCommandFailure):
@@ -132,10 +132,6 @@ def _validate_pr_provenance(
     *,
     pr_gateway: PRGateway,
 ) -> ResolutionProvenance:
-    shape_error = provenance_shape_error(provenance_input)
-    if shape_error is not None:
-        Ensure.fail(error_type="invalid_request", message=shape_error)
-
     pr_number = provenance_input.pr_number
     assert pr_number is not None, "provenance_shape_error must reject missing pr_number"
 

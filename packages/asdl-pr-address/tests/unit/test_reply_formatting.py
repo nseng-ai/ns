@@ -35,7 +35,7 @@ def test_resolution_summary_formats_planned_local_branch_provenance() -> None:
         "\n"
         "Provenance:\n"
         "- Local branch: `reuse-worker`\n"
-        "- Branch HEAD: `abc1234`"
+        "- Branch HEAD snapshot: `abc1234`"
     )
 
 
@@ -56,5 +56,5 @@ def test_resolution_summary_formats_planned_pr_provenance() -> None:
 
     assert "Planned follow-up: Move the fix into the follow-up PR." in summary
     assert "- PR: #1073 https://github.com/dagster-io/asdl/pull/1073" in summary
-    assert "- PR state: OPEN" in summary
-    assert "- PR head: `follow-up` at `def5678`" in summary
+    assert "- PR state snapshot: OPEN" in summary
+    assert "- PR head snapshot: `follow-up` at `def5678`" in summary

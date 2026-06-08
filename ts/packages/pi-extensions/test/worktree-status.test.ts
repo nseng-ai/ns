@@ -16,6 +16,7 @@ import {
 } from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
 	formatGtStatus,
+	formatWorktreeStatus,
 	loadGtStatus,
 	loadWorktreeStatus,
 	renderWorktreeStatusMessage,
@@ -624,6 +625,32 @@ describe("loadWorktreeStatus", () => {
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("(plans: fallback)");
 		});
+	});
+
+	test("surfaces graphite metadata diagnostics from the convenience loader", async () => {
+		const diagnostics: GraphiteMetadataWorkerDiagnostic[] = [];
+		const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
+			diagnostics.push(diagnostic);
+		};
+		const metadataLoader: GraphiteMetadataLoader = async ({ onDiagnostic: actualOnDiagnostic }) => {
+			actualOnDiagnostic?.({ type: "worker-timeout", timeoutMs: 7 });
+			return {
+				type: "tracked",
+				currentBranch: "feature/current",
+				parent: "main",
+				children: [],
+				isCurrentTrunk: false,
+			};
+		};
+		const pi = new OrderlessFakePi([brmemListStep({}), ...basicGitStatusScript()]);
+
+		const status = await loadWorktreeStatus(pi, ROOT, { metadataLoader, onDiagnostic });
+
+		pi.assertDone();
+		expectNoGtCalls(pi);
+		expect(status.gtMetadataDiagnostic).toEqual({ type: "worker-timeout", timeoutMs: 7 });
+		expect(diagnostics).toEqual([{ type: "worker-timeout", timeoutMs: 7 }]);
+		expect(formatWorktreeStatus(status).at(-1)).toBe("[gt] metadata worker timed out after 7ms");
 	});
 
 	test("degrades malformed brmem JSON output nonfatally", async () => {

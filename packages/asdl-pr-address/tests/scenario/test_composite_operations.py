@@ -964,7 +964,7 @@ def test_resolve_thread_with_reply_planned_local_branch_validates_provenance(
     assert data["is_resolved"] is True
     assert "Planned follow-up: Reuse the metadata worker" in data["body"]
     assert "- Local branch: `reuse-worker`" in data["body"]
-    assert "- Branch HEAD: `abc1234`" in data["body"]
+    assert "- Branch HEAD snapshot: `abc1234`" in data["body"]
     assert RESOLUTION_MARKER in data["body"]
     assert data["provenance"] == {
         "kind": "local_branch",
@@ -1011,8 +1011,8 @@ def test_resolve_thread_with_reply_planned_pr_validates_provenance(
     assert exit_code == 0
     data = output["data"]
     assert "- PR: #1073 https://github.com/dagster-io/asdl/pull/1073" in data["body"]
-    assert "- PR state: OPEN" in data["body"]
-    assert "- PR head: `follow-up-fix` at `def5678`" in data["body"]
+    assert "- PR state snapshot: OPEN" in data["body"]
+    assert "- PR head snapshot: `follow-up-fix` at `def5678`" in data["body"]
     assert data["provenance"]["pr_number"] == 1073
     assert fake.resolved_thread_ids == ("PRRT_plan_pr",)
 
