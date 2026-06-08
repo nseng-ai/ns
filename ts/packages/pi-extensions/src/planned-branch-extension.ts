@@ -375,7 +375,7 @@ export const DEFAULT_WRITE_TS_PLAN_PROMPT_BODY = `Plan audience and TypeScript r
 - Default-export the recipe object: \`export default definePlan({ ... })\` or \`export default planRecipe({ title, summary }, (plan) => { ... })\`.
 - Do not default-export raw functions and do not export \`metadata\`; raw functions and named metadata exports intentionally fail during preview and implementation.
 - For \`definePlan\`, include \`goal\` and at least one phase with concrete tasks. Make prompts and tasks self-contained for a fresh downstream implementation session.
-- For \`planRecipe\`, use \`plan.goal\`, \`plan.context\`, \`plan.phase\`, \`phase.task\`, \`plan.task\`, \`plan.note\`, and \`validateWithShell\` where useful. \`plan.cwd\` and \`plan.signal\` are available.
+- For \`planRecipe\`, use \`plan.goal\`, \`plan.context\`, \`plan.phase\`, \`plan.task\`, \`plan.note\`, and \`plan.validateWithShell\` where useful. Calls to \`plan.task\`, \`plan.note\`, and \`plan.validateWithShell\` inside a \`plan.phase\` body are recorded in that phase. \`plan.cwd\` and \`plan.signal\` are available.
 - \`validateWithShell\` records validation commands for the later implementation session and does not execute shell commands during recipe preview or implementation rendering.
 - Keep the source self-contained and embed relevant repository facts, decisions, risks, and validation commands.
 
