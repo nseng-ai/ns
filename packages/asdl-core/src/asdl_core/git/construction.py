@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeAlias
 
+from asdl_core.git import commands
+from asdl_core.git.commands import local_branch_exists, run_git_command
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.real_git_gateway import RealGitGateway
+
+subprocess = commands.subprocess
 
 GitUnavailableReason: TypeAlias = Literal["git_unavailable", "not_in_git_repo"]
 
@@ -20,6 +23,12 @@ class GitUnavailable:
     reason: GitUnavailableReason
     message: str
 
+    @property
+    def cli_error_type(self) -> str:
+        if self.reason == "not_in_git_repo":
+            return "not-a-git-repo"
+        return "git-unavailable"
+
 
 @dataclass(frozen=True)
 class GitContext:
@@ -30,28 +39,10 @@ class GitContext:
     git: GitGateway
 
 
-def _run(
-    cmd: list[str],
-    *,
-    cwd: Path | None,
-    check: bool,
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=check)
-
-
-def _branch_exists(repo_root: Path, branch: str) -> bool:
-    result = _run(
-        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
-        cwd=repo_root,
-        check=False,
-    )
-    return result.returncode == 0
-
-
 def resolve_repo_root(cwd: Path) -> Path | None:
     """Return the git working-tree root for ``cwd``; ``None`` outside a repo."""
 
-    result = _run(
+    result = run_git_command(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=cwd,
         check=False,
@@ -67,7 +58,7 @@ def resolve_repo_root(cwd: Path) -> Path | None:
 def resolve_trunk_branch(repo_root: Path) -> str | None:
     """Resolve the trunk branch name for ``repo_root``; None if unresolvable."""
 
-    result = _run(
+    result = run_git_command(
         ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
         cwd=repo_root,
         check=False,
@@ -76,11 +67,11 @@ def resolve_trunk_branch(repo_root: Path) -> str | None:
         full = result.stdout.strip()
         if full.startswith("origin/"):
             candidate = full[len("origin/") :]
-            if candidate and _branch_exists(repo_root, candidate):
+            if candidate and local_branch_exists(repo_root, candidate):
                 return candidate
 
     for candidate in ("main", "master"):
-        if _branch_exists(repo_root, candidate):
+        if local_branch_exists(repo_root, candidate):
             return candidate
     return None
 

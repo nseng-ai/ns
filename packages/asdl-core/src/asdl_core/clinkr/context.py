@@ -4,11 +4,20 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Self, TypeVar
+from typing import Protocol, Self, TypeVar
 
 import click
 
+from asdl_core.clinkr.failure import ClinkrFailure
+
 T = TypeVar("T")
+U = TypeVar("U", bound="UnavailableContext")
+
+
+class UnavailableContext(Protocol):
+    error_type: str
+    message: str
+
 
 MACHINE_FORMAT_PARAM_NAME = "_clinkr_format"
 
@@ -61,6 +70,25 @@ def load_typed_context(ctx: click.Context, context_type: type[T]) -> T:
             f"context_factory returned {type(result).__name__}, expected {context_type.__name__}."
         )
     return result
+
+
+def load_typed_context_or_fail(
+    ctx: click.Context,
+    context_type: type[T],
+    unavailable_type: type[U],
+) -> T:
+    """Load a typed context or raise a Clinkr failure from a known unavailable value."""
+    runtime = load_clinkr_context_object(ctx)
+    result = runtime.context_factory()
+    if isinstance(result, context_type):
+        return result
+    if isinstance(result, unavailable_type):
+        raise ClinkrFailure(error_type=result.error_type, message=result.message)
+    raise RuntimeError(
+        "context_factory returned "
+        f"{type(result).__name__}, expected {context_type.__name__} or "
+        f"{unavailable_type.__name__}."
+    )
 
 
 def set_machine_mode(ctx: click.Context) -> None:

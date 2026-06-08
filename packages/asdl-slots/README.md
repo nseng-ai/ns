@@ -57,10 +57,10 @@ worktree) report their existing location instead of being moved.
 
 - `-b NEW [BASE]` creates `NEW` from `BASE` (or `HEAD` if omitted) before
   allocation.
-- `--current` redirects the branch on the current worktree into a slot;
-  it refuses if the current worktree is dirty or detached, preflights slot
-  availability before redirecting, then checks the moved branch out into
-  the selected slot.
+- `--current` moves the branch from the current worktree into a slot;
+  it refuses while the current worktree is dirty or detached, and plans
+  slot availability before redirecting so pool-full or branch-in-use
+  failures leave the current checkout untouched.
 
 If the pool is full or has no clean detached slot, checkout fails with
 a `pool_full` error that lists the current assignments. Run

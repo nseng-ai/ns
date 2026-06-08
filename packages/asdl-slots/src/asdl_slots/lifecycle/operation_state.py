@@ -14,12 +14,6 @@ def operation_recovery_instruction(operation: str) -> str:
     return "finish or abort it there"
 
 
-def operation_recovery_sentence(operation: str) -> str:
-    """Return a sentence-start recovery instruction for branch-in-use messages."""
-    instruction = operation_recovery_instruction(operation)
-    return f"{instruction[0].upper()}{instruction[1:]}"
-
-
 def operation_in_progress_detail(
     *,
     branch_name: str | None,
@@ -44,8 +38,10 @@ def slot_operation_in_progress_message(
     action: str,
 ) -> str:
     """Return the full slot-prefixed operation-in-progress message."""
-    branch = branch_name or "unknown branch"
-    return (
-        f"{slot_name} has a {operation} in progress for '{branch}' at {worktree_path}; "
-        f"{operation_recovery_instruction(operation)} before {action}."
+    detail = operation_in_progress_detail(
+        branch_name=branch_name,
+        worktree_path=worktree_path,
+        operation=operation,
+        action=action,
     )
+    return f"{slot_name} has a {detail}"

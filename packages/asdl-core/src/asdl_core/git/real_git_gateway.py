@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
+from asdl_core.git import commands
+from asdl_core.git.commands import local_branch_exists, run_git_command
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import (
     BranchCommitGraph,
@@ -22,14 +23,7 @@ from asdl_core.git.types import (
     WorktreeOccupancy,
 )
 
-
-def _run(
-    cmd: list[str],
-    *,
-    cwd: Path | None,
-    check: bool,
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=check)
+subprocess = commands.subprocess
 
 
 def parse_porcelain_status(stdout: str) -> FileStatus:
@@ -237,17 +231,8 @@ def _worktree_operation(worktree_path: Path) -> tuple[str, str] | None:
     return None
 
 
-def _branch_exists(repo_root: Path, branch: str) -> bool:
-    result = _run(
-        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
-        cwd=repo_root,
-        check=False,
-    )
-    return result.returncode == 0
-
-
 def _ref_exists(repo_root: Path, ref: str) -> bool:
-    result = _run(
+    result = run_git_command(
         ["git", "rev-parse", "--verify", "--quiet", ref],
         cwd=repo_root,
         check=False,
@@ -473,11 +458,11 @@ class RealGitGateway(GitGateway):
         return path.exists()
 
     def get_repository_root(self, cwd: Path) -> Path:
-        result = _run(["git", "rev-parse", "--show-toplevel"], cwd=cwd, check=True)
+        result = run_git_command(["git", "rev-parse", "--show-toplevel"], cwd=cwd, check=True)
         return Path(result.stdout.strip())
 
     def get_git_common_dir(self, cwd: Path) -> Path | None:
-        result = _run(["git", "rev-parse", "--git-common-dir"], cwd=cwd, check=False)
+        result = run_git_command(["git", "rev-parse", "--git-common-dir"], cwd=cwd, check=False)
         if result.returncode != 0:
             return None
         raw = result.stdout.strip()
@@ -489,7 +474,7 @@ class RealGitGateway(GitGateway):
         return path
 
     def get_current_branch(self, cwd: Path) -> str | DetachedHead | GitCommandFailure:
-        result = _run(["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd, check=False)
+        result = run_git_command(["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd, check=False)
         if result.returncode == 0:
             branch = result.stdout.strip()
             if branch:
@@ -506,7 +491,11 @@ class RealGitGateway(GitGateway):
         )
 
     def get_previous_branch(self, cwd: Path) -> str | None:
-        result = _run(["git", "rev-parse", "--abbrev-ref", "@{-1}"], cwd=cwd, check=False)
+        result = run_git_command(
+            ["git", "rev-parse", "--abbrev-ref", "@{-1}"],
+            cwd=cwd,
+            check=False,
+        )
         if result.returncode != 0:
             return None
         branch = result.stdout.strip()
@@ -518,10 +507,10 @@ class RealGitGateway(GitGateway):
         return self._require_trunk_branch()
 
     def branch_exists(self, branch: str) -> bool:
-        return _branch_exists(self._require_repo_root(), branch)
+        return local_branch_exists(self._require_repo_root(), branch)
 
     def list_local_branches(self) -> tuple[str, ...]:
-        result = _run(
+        result = run_git_command(
             ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
             cwd=self._require_repo_root(),
             check=True,
@@ -529,7 +518,7 @@ class RealGitGateway(GitGateway):
         return tuple(line for line in result.stdout.splitlines() if line)
 
     def list_local_branch_tips(self) -> tuple[LocalBranchTip, ...]:
-        result = _run(
+        result = run_git_command(
             [
                 "git",
                 "for-each-ref",
@@ -546,7 +535,7 @@ class RealGitGateway(GitGateway):
         ref: str,
         path: str,
     ) -> tuple[str, ...] | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             ["git", "ls-tree", "-r", "--full-tree", "--name-only", ref, "--", path],
             cwd=self._require_repo_root(),
             check=False,
@@ -568,11 +557,15 @@ class RealGitGateway(GitGateway):
             return GitCommandFailure(message=f"Unknown git ref: {ref}", returncode=1)
 
         treeish = f"{ref}:{path}"
-        exists_result = _run(["git", "cat-file", "-e", treeish], cwd=repo_root, check=False)
+        exists_result = run_git_command(
+            ["git", "cat-file", "-e", treeish],
+            cwd=repo_root,
+            check=False,
+        )
         if exists_result.returncode != 0:
             return ()
 
-        result = _run(
+        result = run_git_command(
             ["git", "ls-tree", "-d", "--name-only", treeish],
             cwd=repo_root,
             check=False,
@@ -611,7 +604,7 @@ class RealGitGateway(GitGateway):
         return parse_tree_oid_batch_check_output(stdout, refs)
 
     def path_exists_at_ref(self, ref: str, path: str) -> bool:
-        result = _run(
+        result = run_git_command(
             ["git", "cat-file", "-e", f"{ref}:{path}"],
             cwd=self._require_repo_root(),
             check=False,
@@ -623,7 +616,7 @@ class RealGitGateway(GitGateway):
         cwd: Path,
         base_ref_name: str,
     ) -> tuple[RestructuredFile, ...] | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             ["git", "diff", "--name-status", "-M", "-C", f"origin/{base_ref_name}...HEAD"],
             cwd=cwd,
             check=False,
@@ -640,7 +633,7 @@ class RealGitGateway(GitGateway):
         return parse_name_status_output(result.stdout)
 
     def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
-        result = _run(
+        result = run_git_command(
             ["git", "worktree", "list", "--porcelain"],
             cwd=self._require_repo_root(),
             check=True,
@@ -679,11 +672,11 @@ class RealGitGateway(GitGateway):
             cmd = ["git", "worktree", "add", "-b", branch, str(path), "HEAD"]
         else:
             cmd = ["git", "worktree", "add", str(path), branch]
-        _run(cmd, cwd=self._require_repo_root(), check=True)
+        run_git_command(cmd, cwd=self._require_repo_root(), check=True)
         return WorktreeInfo(path=path, branch=branch, is_bare=False)
 
     def add_detached_worktree(self, path: Path, ref: str) -> WorktreeInfo:
-        _run(
+        run_git_command(
             ["git", "worktree", "add", "--detach", str(path), ref],
             cwd=self._require_repo_root(),
             check=True,
@@ -691,14 +684,14 @@ class RealGitGateway(GitGateway):
         return WorktreeInfo(path=path, branch=None, is_bare=False)
 
     def remove_worktree(self, path: Path) -> None:
-        _run(
+        run_git_command(
             ["git", "worktree", "remove", str(path)],
             cwd=self._require_repo_root(),
             check=True,
         )
 
     def checkout_branch(self, cwd: Path, branch: str) -> GitCommandFailure | None:
-        result = _run(["git", "checkout", branch], cwd=cwd, check=False)
+        result = run_git_command(["git", "checkout", branch], cwd=cwd, check=False)
         if result.returncode == 0:
             return None
         return GitCommandFailure(
@@ -708,18 +701,22 @@ class RealGitGateway(GitGateway):
         )
 
     def detach_head(self, cwd: Path, ref: str) -> None:
-        _run(["git", "checkout", "--detach", ref], cwd=cwd, check=True)
+        run_git_command(["git", "checkout", "--detach", ref], cwd=cwd, check=True)
 
     def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:
         cmd = ["git", "branch"]
         if force:
             cmd.append("-f")
         cmd.extend([branch, start_point])
-        _run(cmd, cwd=self._require_repo_root(), check=True)
+        run_git_command(cmd, cwd=self._require_repo_root(), check=True)
 
     def delete_local_branch(self, branch: str, *, force: bool) -> GitCommandFailure | None:
         flag = "-D" if force else "-d"
-        result = _run(["git", "branch", flag, branch], cwd=self._require_repo_root(), check=False)
+        result = run_git_command(
+            ["git", "branch", flag, branch],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
         if result.returncode == 0:
             return None
         return GitCommandFailure(
@@ -728,7 +725,7 @@ class RealGitGateway(GitGateway):
         )
 
     def delete_remote_branch(self, remote: str, branch: str) -> GitCommandFailure | None:
-        result = _run(
+        result = run_git_command(
             ["git", "push", remote, "--delete", branch],
             cwd=self._require_repo_root(),
             check=False,
@@ -745,7 +742,7 @@ class RealGitGateway(GitGateway):
         return status.staged or status.modified or status.untracked
 
     def has_uncommitted_changes_under(self, cwd: Path, path: str) -> bool:
-        result = _run(
+        result = run_git_command(
             ["git", "status", "--porcelain", "--untracked-files=all", "--", path],
             cwd=cwd,
             check=True,
@@ -753,7 +750,7 @@ class RealGitGateway(GitGateway):
         return result.stdout.strip() != ""
 
     def get_file_status(self, cwd: Path) -> FileStatus:
-        result = _run(["git", "status", "--porcelain"], cwd=cwd, check=True)
+        result = run_git_command(["git", "status", "--porcelain"], cwd=cwd, check=True)
         return parse_porcelain_status(result.stdout)
 
     def file_last_touched_iso(self, ref: str, path: str) -> str | None:
@@ -763,7 +760,7 @@ class RealGitGateway(GitGateway):
         return touch.committed_iso
 
     def path_last_touched(self, ref: str, path: str) -> PathTouch | None:
-        result = _run(
+        result = run_git_command(
             ["git", "log", "-1", "--format=%H%x00%cI", ref, "--", path],
             cwd=self._require_repo_root(),
             check=False,
@@ -777,7 +774,7 @@ class RealGitGateway(GitGateway):
         ref_or_range: str,
         path: str,
     ) -> tuple[PathChangeTouch, ...] | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             [
                 "git",
                 "log",
@@ -799,7 +796,7 @@ class RealGitGateway(GitGateway):
         return parse_path_change_touches_output(result.stdout, path)
 
     def branch_head_iso(self, branch: str) -> str | None:
-        result = _run(
+        result = run_git_command(
             ["git", "log", "-1", "--format=%cI", branch],
             cwd=self._require_repo_root(),
             check=False,
@@ -810,7 +807,7 @@ class RealGitGateway(GitGateway):
         return stamp or None
 
     def branch_head_oid(self, branch: str) -> str | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             ["git", "rev-parse", branch],
             cwd=self._require_repo_root(),
             check=False,
@@ -828,7 +825,7 @@ class RealGitGateway(GitGateway):
         remote: str,
         branch: str,
     ) -> GitCommandFailure | None:
-        result = _run(["git", "fetch", remote, branch], cwd=cwd, check=False)
+        result = run_git_command(["git", "fetch", remote, branch], cwd=cwd, check=False)
         if result.returncode == 0:
             return None
         return GitCommandFailure(
@@ -837,7 +834,7 @@ class RealGitGateway(GitGateway):
         )
 
     def pull_fast_forward(self, cwd: Path) -> GitCommandFailure | None:
-        result = _run(["git", "pull", "--ff-only"], cwd=cwd, check=False)
+        result = run_git_command(["git", "pull", "--ff-only"], cwd=cwd, check=False)
         if result.returncode == 0:
             return None
         return GitCommandFailure(
@@ -851,7 +848,7 @@ class RealGitGateway(GitGateway):
         ref: str,
         source: str,
     ) -> GitCommandFailure | None:
-        result = _run(["git", "update-ref", ref, source], cwd=cwd, check=False)
+        result = run_git_command(["git", "update-ref", ref, source], cwd=cwd, check=False)
         if result.returncode == 0:
             return None
         return GitCommandFailure(
@@ -860,7 +857,7 @@ class RealGitGateway(GitGateway):
         )
 
     def log_range(self, range_spec: str) -> tuple[CommitSummary, ...] | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             ["git", "log", "--format=%H%x00%aI%x00%s", range_spec],
             cwd=self._require_repo_root(),
             check=False,
@@ -877,7 +874,7 @@ class RealGitGateway(GitGateway):
         self, range_spec: str
     ) -> tuple[tuple[str, str | None], ...] | GitCommandFailure:
         repo_root = self._require_repo_root()
-        sha_result = _run(
+        sha_result = run_git_command(
             ["git", "log", "--no-merges", "--format=%H", range_spec],
             cwd=repo_root,
             check=False,
@@ -907,7 +904,7 @@ class RealGitGateway(GitGateway):
             return BranchCommitGraph(base_branch=base_branch, branch_tips=(), commits=())
 
         repo_root = self._require_repo_root()
-        tips_result = _run(
+        tips_result = run_git_command(
             [
                 "git",
                 "for-each-ref",
@@ -941,7 +938,7 @@ class RealGitGateway(GitGateway):
                 returncode=1,
             )
 
-        rev_list_result = _run(
+        rev_list_result = run_git_command(
             [
                 "git",
                 "rev-list",
@@ -966,7 +963,7 @@ class RealGitGateway(GitGateway):
         )
 
     def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
-        result = _run(
+        result = run_git_command(
             ["git", "merge-base", "--is-ancestor", maybe_ancestor, descendant],
             cwd=self._require_repo_root(),
             check=False,
@@ -974,7 +971,7 @@ class RealGitGateway(GitGateway):
         return result.returncode == 0
 
     def list_branches_merged_into(self, branch: str) -> tuple[str, ...] | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             [
                 "git",
                 "for-each-ref",
@@ -994,7 +991,7 @@ class RealGitGateway(GitGateway):
         return tuple(line for line in result.stdout.splitlines() if line)
 
     def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
-        result = _run(
+        result = run_git_command(
             ["git", "rev-list", "--count", range_spec],
             cwd=self._require_repo_root(),
             check=False,
