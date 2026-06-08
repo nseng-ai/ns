@@ -69,8 +69,7 @@ export type LatestCommitTransactionResult =
 	| { ok: false; kind: "backup_branch_name_unavailable"; sourceBranch: string }
 	| { ok: false; kind: "backup_create_failed"; error: string }
 	| { ok: false; kind: "source_reset_failed"; backupBranch: string; error: string }
-	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: true }
-	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: false; restoreError: string }
+	| ({ ok: false; kind: "graphite_create_failed"; backupBranch: string; branchName: string; createError: string } & CreatedBranchRecovery)
 	| { ok: false; kind: "transaction_upstream_check_failed"; error: string }
 	| { ok: false; kind: "pushed_head_refusal"; upstream: string }
 	| ({ ok: false; kind: "branch_reset_failed"; backupBranch: string; branchName: string; resetError: string } & CreatedBranchRecovery)
@@ -183,17 +182,14 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		input.exec("gt", ["create", input.plan.branchName, "--no-interactive", "--no-ai"], input.cwd, GT_TIMEOUT_MS),
 	);
 	if (created.code !== 0) {
-		const restored = await restoreSourceBranch(input);
-		if (restored.ok) {
-			return { ok: false, kind: "graphite_create_failed", backupBranch: backupBranch.name, createError: formatCommandDetails(created), restored: true };
-		}
+		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
 			ok: false,
 			kind: "graphite_create_failed",
 			backupBranch: backupBranch.name,
+			branchName: input.plan.branchName,
 			createError: formatCommandDetails(created),
-			restored: false,
-			restoreError: restored.error,
+			...recovery,
 		};
 	}
 
@@ -509,6 +505,7 @@ function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransa
 				`Recovery branch: ${result.backupBranch}`,
 				result.createError,
 				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
+				formatCreatedBranchCleanup(result),
 			].join("\n");
 		case "transaction_upstream_check_failed":
 			return `Could not re-check whether HEAD is already in the current branch upstream before moving the latest commit.\n${result.error}`;

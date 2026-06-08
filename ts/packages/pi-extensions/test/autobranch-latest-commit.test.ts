@@ -115,6 +115,7 @@ interface TransactionHarnessOptions {
 	shouldGtCreateFail?: boolean;
 	shouldBranchResetFail?: boolean;
 	shouldDeleteBackupFail?: boolean;
+	shouldDeleteCreatedBranchFail?: boolean;
 	shouldRestoreFail?: boolean;
 	verifyHead?: string;
 	existingBranches?: Set<string>;
@@ -160,7 +161,10 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "branch" && args[1] === "-D") {
 				const branchName = args[2] ?? "";
-				return options.shouldDeleteBackupFail && branchName.startsWith("autobranch-backup/") ? fail("delete failed") : ok("deleted\n");
+				if (branchName.startsWith("autobranch-backup/")) {
+					return options.shouldDeleteBackupFail ? fail("delete failed") : ok("deleted\n");
+				}
+				return options.shouldDeleteCreatedBranchFail ? fail("delete created failed") : ok("deleted\n");
 			}
 			if (command === "git" && args[0] === "branch") {
 				return ok();
@@ -335,7 +339,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		});
 	});
 
-	test("Graphite creation failure restores source and keeps recovery branch", async () => {
+	test("Graphite creation failure restores source and deletes a partial created branch", async () => {
 		const harness = createTransactionHarness({ shouldGtCreateFail: true });
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
@@ -344,11 +348,31 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			ok: false,
 			kind: "graphite_create_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
+			branchName: "latest-commit-branch",
 			createError: "exit 1: gt create failed",
 			restored: true,
+			createdBranchDeleted: true,
 		});
 		expect(eventIndex(harness.events, "exec:git checkout feature/base")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create latest-commit-branch"));
+		expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBeGreaterThan(eventIndex(harness.events, "exec:git checkout feature/base"));
 		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup")).toBe(-1);
+	});
+
+	test("Graphite creation failure reports partial branch deletion failure", async () => {
+		const harness = createTransactionHarness({ shouldGtCreateFail: true, shouldDeleteCreatedBranchFail: true });
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: false,
+			kind: "graphite_create_failed",
+			backupBranch: "autobranch-backup/feature/base/123",
+			branchName: "latest-commit-branch",
+			createError: "exit 1: gt create failed",
+			restored: true,
+			createdBranchDeleted: false,
+			createdBranchDeleteError: "exit 1: delete created failed",
+		});
 	});
 
 	test("new branch reset failure restores source and reports partial branch", async () => {
