@@ -1,10 +1,13 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import { chooseActiveObjectiveSlug, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
+import type { AutocompleteItem, CommandContext, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
+export type { CommandContext, NotifyLevel } from "./cmux/types.ts";
 export type { ExecResult } from "./command-runtime.ts";
+export type ExtensionAPI = Pick<CmuxExtensionAPI, "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
@@ -16,61 +19,6 @@ Shows \`objective list\` output in chat. Output format is controlled by the Pi e
 
 const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
-
-export type NotifyLevel = "info" | "warning" | "error";
-
-export interface AutocompleteItem {
-	value: string;
-	label?: string;
-	description?: string;
-}
-
-type CustomMessageContent = string | Array<{ type: string; text?: string }>;
-
-interface CustomMessage {
-	customType: string;
-	content: CustomMessageContent;
-	display: boolean;
-	details?: unknown;
-}
-
-interface CommandInfo {
-	name: string;
-	source: string;
-	sourceInfo: {
-		path: string;
-		source?: string;
-		scope?: string;
-		origin?: string;
-		baseDir?: string;
-	};
-}
-
-export interface CommandContext {
-	cwd: string;
-	hasUI: boolean;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
-		select(title: string, items: string[]): Promise<string | undefined>;
-		setStatus(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-export interface ExtensionAPI {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
-	getCommands(): CommandInfo[];
-	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
-	sendUserMessage(content: string): void;
-}
 
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
 type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
@@ -226,7 +174,7 @@ async function chooseObjectiveAndInvoke(
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 ): Promise<void> {
-	const slug = await chooseActiveObjectiveSlug(pi, ctx, spec);
+	const slug = await chooseActiveObjectiveSlug(pi, objectiveSelectionContextFromCommandContext(ctx), spec);
 	if (!slug) {
 		return;
 	}
@@ -419,7 +367,7 @@ async function handleCustomCliCommand(
 	const commandDisplay = formatCommand("objective", commandArgs);
 
 	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.commandName, `running ${commandDisplay}…`);
+		ctx.ui.setStatus?.(spec.commandName, `running ${commandDisplay}…`);
 	}
 
 	let result: ExecResult;
@@ -440,7 +388,7 @@ async function handleCustomCliCommand(
 		return;
 	} finally {
 		if (ctx.hasUI) {
-			ctx.ui.setStatus(spec.commandName, undefined);
+			ctx.ui.setStatus?.(spec.commandName, undefined);
 		}
 	}
 

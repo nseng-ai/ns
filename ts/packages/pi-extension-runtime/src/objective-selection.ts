@@ -1,4 +1,5 @@
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
+import type { CommandContext } from "./cmux/types.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
@@ -34,6 +35,22 @@ export interface ObjectiveSelectionContext {
 		setStatus?(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
+}
+
+export function objectiveSelectionContextFromCommandContext(ctx: CommandContext): ObjectiveSelectionContext {
+	const select = ctx.ui.select;
+	const setStatus = ctx.ui.setStatus;
+	const hasSelectableUI = ctx.hasUI === true && select !== undefined;
+	const ui = {
+		notify: (message: string, level?: ObjectiveSelectionNotifyLevel) => ctx.ui.notify(message, level),
+		select: select === undefined ? async () => undefined : (title: string, items: string[]) => select(title, items),
+	};
+	return {
+		cwd: ctx.cwd,
+		hasUI: hasSelectableUI,
+		ui: setStatus === undefined ? ui : { ...ui, setStatus },
+		waitForIdle: () => ctx.waitForIdle(),
+	};
 }
 
 interface ActiveObjectiveListLoaded {

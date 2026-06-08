@@ -66,15 +66,17 @@ export class FakePi implements ExtensionAPI {
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];
 	private readonly skillCommands: SkillCommandInfo[];
+	private readonly requireExpectedArgs: boolean;
 	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> = {
 		agent_end: [],
 		session_start: [],
 	};
 	private thinkingLevel: ThinkingLevel = "medium";
 
-	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[] } = {}) {
+	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[]; requireExpectedArgs?: boolean } = {}) {
 		this.script = [...(options.script ?? [])];
 		this.skillCommands = [...(options.skillCommands ?? [])];
+		this.requireExpectedArgs = options.requireExpectedArgs ?? false;
 	}
 
 	on(event: "agent_end", handler: AgentEndHandler): void;
@@ -95,6 +97,7 @@ export class FakePi implements ExtensionAPI {
 			command,
 			args,
 			options,
+			requireExpectedArgs: this.requireExpectedArgs,
 		});
 	}
 

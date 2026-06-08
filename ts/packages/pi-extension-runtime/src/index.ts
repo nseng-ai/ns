@@ -48,6 +48,7 @@ export {
 } from "./objective-picker.ts";
 export {
 	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionHost,
 	type ObjectiveSelectionNotifyLevel,

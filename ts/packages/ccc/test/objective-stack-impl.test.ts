@@ -3,69 +3,23 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { registerObjectiveStackImplCommand, type ObjectiveStackImplHost } from "../src/objective-stack-impl.ts";
+import { registerObjectiveStackImplCommand } from "../src/objective-stack-impl.ts";
 import {
 	FakeCommandContext,
+	FakePi,
 	ROOT,
 	objectiveListStep,
-	runScriptedExec,
 	skillCommand,
 	step,
-	type ExecCall,
 	type Notification,
 	type ScriptedExec,
 	type Selection,
 } from "./ccc-test-harness.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
-import type { ObjectiveSelectionContext } from "@asdl/pi-extension-runtime/objective-selection";
 
 const TRUNK = "master";
 
-type RegisteredCommand = Parameters<ObjectiveStackImplHost["registerCommand"]>[1];
-type CommandInfo = ReturnType<ObjectiveStackImplHost["getCommands"]>[number];
-
-class FakeHost implements ObjectiveStackImplHost {
-	readonly commands = new Map<string, RegisteredCommand>();
-	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
-	readonly sentUserMessages: string[] = [];
-	private readonly script: ScriptedExec[];
-	private readonly commandInfos: ReturnType<ObjectiveStackImplHost["getCommands"]>;
-
-	constructor(script: ScriptedExec[] = [], commandInfos: ReturnType<ObjectiveStackImplHost["getCommands"]> = []) {
-		this.script = [...script];
-		this.commandInfos = [...commandInfos];
-	}
-
-	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
-	}
-
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
-		return runScriptedExec({
-			script: this.script,
-			execCalls: this.execCalls,
-			errors: this.errors,
-			command,
-			args,
-			options,
-			requireExpectedArgs: true,
-		});
-	}
-
-	getCommands(): ReturnType<ObjectiveStackImplHost["getCommands"]> {
-		return this.commandInfos;
-	}
-
-	sendUserMessage(content: string): void {
-		this.sentUserMessages.push(content);
-	}
-
-	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
-	}
-}
+type CommandInfo = ReturnType<FakePi["getCommands"]>[number];
 
 const STACK_SKILL_MARKDOWN = `---
 name: objective-stack-impl
@@ -100,13 +54,13 @@ interface RunObjectiveStackImplOptions {
 }
 
 async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Promise<{
-	host: FakeHost;
+	host: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
 	const { args, script = [], contextOptions = {}, commandInfos = [] } = options;
-	const host = new FakeHost(script, commandInfos);
+	const host = new FakePi({ script, skillCommands: commandInfos, requireExpectedArgs: true });
 	registerObjectiveStackImplCommand(host);
 	const command = host.commands.get("objective:stack-impl");
 	expect(command).toBeDefined();
@@ -123,17 +77,7 @@ async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Pro
 		fakeContextOptions.selectIndices = selectIndices;
 	}
 	const fakeContext = new FakeCommandContext(fakeContextOptions);
-	const context: ObjectiveSelectionContext = {
-		cwd: fakeContext.cwd,
-		hasUI: fakeContext.hasUI,
-		ui: {
-			notify: fakeContext.ui.notify,
-			select: (title, items) => fakeContext.ui.select!(title, items),
-			setStatus: fakeContext.ui.setStatus!,
-		},
-		waitForIdle: () => fakeContext.waitForIdle(),
-	};
-	await command.handler(args, context);
+	await command.handler(args, fakeContext);
 	return {
 		host,
 		notifications: fakeContext.notifications,
@@ -156,7 +100,7 @@ function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedE
 	});
 }
 
-function expectListActiveObjectivesCall(result: { host: FakeHost }): void {
+function expectListActiveObjectivesCall(result: { host: FakePi }): void {
 	expect(result.host.execCalls[0]).toEqual({
 		command: "objective",
 		args: ["list", "--format", "json"],
@@ -166,7 +110,7 @@ function expectListActiveObjectivesCall(result: { host: FakeHost }): void {
 
 describe("objective stack impl CCC orchestration", () => {
 	test("registers the public objective:stack-impl command", () => {
-		const host = new FakeHost();
+		const host = new FakePi({ requireExpectedArgs: true });
 
 		registerObjectiveStackImplCommand(host);
 
