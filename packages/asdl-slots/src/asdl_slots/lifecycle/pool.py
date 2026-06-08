@@ -6,12 +6,12 @@ from dataclasses import dataclass
 
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotInventory, SlotRecord, build_slot_inventory
+from asdl_slots.lifecycle.operation_state import slot_operation_in_progress_message
 from asdl_slots.lifecycle.outcomes import (
     SlotInitOutcome,
     SlotLifecycleFailure,
     SlotResizeOutcome,
 )
-from asdl_slots.lifecycle.release_target import operation_recovery_instruction
 from asdl_slots.naming import generate_slot_name
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
@@ -154,11 +154,14 @@ def _validate_removals(
     errors: list[str] = []
     for record in to_remove:
         if record.operation is not None:
-            branch = record.branch or "unknown branch"
             errors.append(
-                f"{record.slot_name} has a {record.operation} in progress for "
-                f"'{branch}' at {record.path}; "
-                f"{operation_recovery_instruction(record.operation)} before shrinking the pool."
+                slot_operation_in_progress_message(
+                    slot_name=record.slot_name,
+                    branch_name=record.branch,
+                    worktree_path=record.path,
+                    operation=record.operation,
+                    action="shrinking the pool",
+                )
             )
             continue
         if record.branch is not None:

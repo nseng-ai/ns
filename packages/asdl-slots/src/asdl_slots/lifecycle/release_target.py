@@ -36,37 +36,6 @@ class ReleaseTargetFailure:
         return self.reason
 
 
-def operation_recovery_instruction(operation: str) -> str:
-    if operation == "rebase":
-        return "run `git rebase --continue`/`--abort` there"
-    if operation == "bisect":
-        return "run `git bisect reset` there"
-    return "finish or abort it there"
-
-
-def free_operation_in_progress_message(
-    *,
-    slot_name: str,
-    branch_name: str,
-    worktree_path: Path,
-    operation: str,
-    action: str,
-) -> str:
-    return (
-        f"{slot_name} has a {operation} in progress for '{branch_name}' at {worktree_path}; "
-        f"{operation_recovery_instruction(operation)} before {action}."
-    )
-
-
-def gc_operation_in_progress_message(record: SlotRecord, *, action: str) -> str:
-    branch = record.branch or "unknown branch"
-    assert record.operation is not None
-    return (
-        f"{record.operation} in progress for '{branch}' at {record.path}; "
-        f"{operation_recovery_instruction(record.operation)} before {action}."
-    )
-
-
 def freed_slot_from_record(record: SlotRecord) -> FreedSlot:
     assert record.branch is not None
     return FreedSlot(

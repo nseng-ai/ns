@@ -239,21 +239,28 @@ def test_slot_resize_shrink_refuses_when_assigned(cli_group: ClinkrGroup, tmp_pa
     assert git._remove_worktree_calls == []
 
 
+@pytest.mark.parametrize(
+    ("operation", "recovery_fragment"),
+    [("rebase", "git rebase"), ("bisect", "git bisect reset")],
+)
 def test_slot_resize_shrink_refuses_when_operation_in_progress(
     cli_group: ClinkrGroup,
     tmp_path: Path,
+    operation: str,
+    recovery_fragment: str,
 ) -> None:
     wt_dir = _worktrees_dir(tmp_path)
     slot_02 = wt_dir / "slot-02"
+    branch = f"feat/{operation}"
     ctx = _fake_for_repo(
         tmp_path,
-        branches=("feat/rebase",),
+        branches=(branch,),
         worktrees=(_managed_wt(wt_dir, 1, None), _managed_wt(wt_dir, 2, None)),
         operations_by_path={
             slot_02: WorktreeOccupancy(
                 path=slot_02,
-                branch="feat/rebase",
-                operation="rebase",
+                branch=branch,
+                operation=operation,
             ),
         },
     )
@@ -268,9 +275,9 @@ def test_slot_resize_shrink_refuses_when_operation_in_progress(
     payload = json.loads(result.output)
     assert payload["error_type"] == "resize_unsafe"
     assert "slot-02" in payload["message"]
-    assert "feat/rebase" in payload["message"]
-    assert "rebase" in payload["message"]
-    assert "git rebase" in payload["message"]
+    assert branch in payload["message"]
+    assert operation in payload["message"]
+    assert recovery_fragment in payload["message"]
 
     git = ctx.git
     assert isinstance(git, FakeGitGateway)

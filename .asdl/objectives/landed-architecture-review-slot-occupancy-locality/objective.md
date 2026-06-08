@@ -4,7 +4,7 @@
 
 Slot lifecycle safety should have a clear local home for occupancy decisions involving checked-out branches, rebases, bisects, dirty worktrees, and recovery messages. The archived landed-architecture review identified this as a still-valid but lightly drifted seam; this child Objective owns the current-code re-baseline and any resulting implementation, documentation, or parking decision.
 
-The re-baseline found that the core state model already has reasonable locality: `asdl-core` owns generic Git worktree occupancy facts, and `asdl-slots.inventory` derives slot-local branch and operation facts from them. The remaining locality question is narrower: mutating slot lifecycle commands currently repeat operation-state recovery instructions and operation-in-progress messages. This Objective should only consolidate that repeated handling when it is drift-prone safety/recovery policy, not merely because command-specific wording differs.
+The re-baseline found that the core state model already has reasonable locality: `asdl-core` owns generic Git worktree occupancy facts, and `asdl-slots.inventory` derives slot-local branch and operation facts from them. The remaining locality question was narrower: mutating slot lifecycle commands repeated operation-state recovery instructions and operation-in-progress messages. That drift-prone recovery policy is now consolidated under `asdl-slots.lifecycle` without broadening the state model or moving slot-specific policy into `asdl-core`.
 
 ## Scope
 
@@ -44,8 +44,8 @@ Assumptions:
 - `asdl-slots.inventory` is the right local home for deriving slot records from core Git facts, including `SlotRecord.operation` for rebase/bisect worktrees.
 - Rebase and bisect states are the important non-ordinary occupancy cases to preserve during lifecycle operations.
 - Dirty-worktree checks remain adjacent lifecycle safety policy; they should be reviewed for interactions but not folded into the core operation-state occupancy model by default.
-- If consolidation is warranted, the shared policy home should be under `asdl-slots.lifecycle`, not in CLI renderers or the core Git gateway.
-- The archived umbrella review is provenance for this child Objective, not a binding implementation mandate; current code and tests decide whether to implement, document, or park.
+- The shared policy home is under `asdl-slots.lifecycle`, not in CLI renderers or the core Git gateway.
+- The archived umbrella review was provenance for this child Objective, not a binding implementation mandate; current code and tests decided the narrow helper implementation.
 
 Recorded re-baseline answers:
 
@@ -55,14 +55,18 @@ Recorded re-baseline answers:
 
 Risks:
 
-- Safety checks may be scattered enough that future lifecycle commands accidentally free, reuse, or remove a slot in an unsafe operation state.
-- Recovery messages may duplicate subtle operation-state policy and drift across commands, especially where `free`, `gc`, `resize`, and checkout failures each describe rebase/bisect recovery.
-- A premature shared abstraction could make simple slot commands harder to understand than command-local handling.
-- Tests may miss detached-HEAD operation states unless fake and real-gateway coverage represent rebase/bisect occupancy clearly.
-- The review could conflate dirty-worktree safety with branch occupancy and create a broader abstraction than the rebase/bisect seam needs.
+- The risk that safety checks remain scattered enough for future lifecycle commands to drift is reduced by centralizing rebase/bisect recovery instructions and shared operation-in-progress message fragments in `asdl-slots.lifecycle.operation_state`.
+- The recovery-message drift risk is reduced for `free`, `gc`, shrink `resize`, and checkout rebase/bisect branch-in-use failures; checkout keeps command-specific branch-in-use wording while sharing only recovery instruction text.
+- The premature-abstraction risk was mitigated by keeping the helper small and pure, without a lifecycle state machine, persisted registry, Git gateway redesign, or inventory refactor.
+- Representative tests now cover the helper and targeted rebase/bisect behavior across checkout, free, gc, and shrink resize; existing inventory and checkout-planning tests continue to cover operation fact derivation and allocation behavior.
+- Dirty-worktree safety remains adjacent lifecycle behavior and was not folded into the rebase/bisect recovery helper.
 
 ## Open Questions
 
-- When implementing the selected narrow follow-up, should `slot checkout` share the same lifecycle recovery helper as `free`, `gc`, and shrink `resize`, or should its branch-in-use wording remain command-specific while sharing only recovery instruction text?
-- Is representative bisect coverage sufficient across mutating lifecycle behavior, or should the helper implementation add targeted bisect cases where only rebase is currently covered?
-- After the narrow follow-up lands or is parked, should this Objective gain durable `## Definition of Progress` / `## Runner Policy` prose for any remaining slices, or should it close as a reviewed locality decision?
+None. Checkout shares recovery instruction text while preserving command-specific branch-in-use wording; targeted bisect coverage was added where lifecycle behavior had mostly rebase scenario coverage; no runner policy is needed because the selected narrow outcome completes the Objective.
+
+## Closure
+
+Completed. The current implementation keeps generic Git occupancy facts in `asdl-core`, slot-local operation derivation in `asdl-slots.inventory`, and slot-specific operation recovery policy in a tiny `asdl-slots.lifecycle.operation_state` helper. `slot free`, `slot gc`, shrink `slot resize`, and checkout rebase/bisect branch-in-use failures now share the centralized recovery instruction source while preserving command-specific safety behavior and wording where appropriate.
+
+Evidence: local branch diff against Graphite parent `landed-architecture-review-slot-occupancy-locality`; targeted slot lifecycle tests passed; `just lint`, `just format-check`, `just ty`, and `just test` passed. No persisted slot occupancy registry, broad state-model refactor, or `asdl-core` recovery-policy move was introduced.
