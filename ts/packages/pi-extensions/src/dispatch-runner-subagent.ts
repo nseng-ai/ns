@@ -139,7 +139,7 @@ export default function dispatchRunnerSubagentExtension(
 				resolveRunnerSubagentLaunch(pi, ctx, {
 					prompt: childPrompt,
 					returnMode: "final-text",
-					...(input.model === undefined ? {} : { model: input.model }),
+					model: input.model,
 				}) ?? defaultRunnerSubagentLaunchMetadata();
 			const initialUpdate: RunnerSubagentUpdate = {
 				progress: initialDispatchProgress(input.title, launch),

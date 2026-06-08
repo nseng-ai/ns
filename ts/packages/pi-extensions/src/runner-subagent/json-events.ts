@@ -465,11 +465,8 @@ function isThinkingLevel(value: unknown): value is ThinkingLevel {
 function cloneLaunchMetadata(launch: RunnerSubagentLaunchMetadata | undefined): RunnerSubagentLaunchMetadata | undefined {
 	if (launch === undefined) return undefined;
 	return {
+		...launch,
 		...(launch.model === undefined ? {} : { model: { ...launch.model } }),
-		...(launch.requestedModel === undefined ? {} : { requestedModel: launch.requestedModel }),
-		thinkingLevel: launch.thinkingLevel,
-		hasModelArg: launch.hasModelArg,
-		hasThinkingArg: launch.hasThinkingArg,
 	};
 }
 
