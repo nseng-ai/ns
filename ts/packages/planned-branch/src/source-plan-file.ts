@@ -284,7 +284,7 @@ export async function writeSourceBranchPlanFile(
 	rawParams: unknown,
 	options: SourceBranchPlanFileOptions,
 ): Promise<SourceBranchPlanFileEvidence> {
-	return writeSourceBranchPlanFileForKind(pi, rawParams, options, "markdown");
+	return writeSourceBranchPlanFileForKind({ pi, rawParams, options, kind: "markdown" });
 }
 
 export async function writeSourceBranchTsPlanFile(
@@ -292,15 +292,18 @@ export async function writeSourceBranchTsPlanFile(
 	rawParams: unknown,
 	options: SourceBranchPlanFileOptions,
 ): Promise<SourceBranchPlanFileEvidence> {
-	return writeSourceBranchPlanFileForKind(pi, rawParams, options, "typescript-recipe");
+	return writeSourceBranchPlanFileForKind({ pi, rawParams, options, kind: "typescript-recipe" });
 }
 
-async function writeSourceBranchPlanFileForKind(
-	pi: PlanCommandExecApi,
-	rawParams: unknown,
-	options: SourceBranchPlanFileOptions,
-	kind: PlanFileKind,
-): Promise<SourceBranchPlanFileEvidence> {
+interface WriteSourceBranchPlanFileForKindInput {
+	pi: PlanCommandExecApi;
+	rawParams: unknown;
+	options: SourceBranchPlanFileOptions;
+	kind: PlanFileKind;
+}
+
+async function writeSourceBranchPlanFileForKind(input: WriteSourceBranchPlanFileForKindInput): Promise<SourceBranchPlanFileEvidence> {
+	const { pi, rawParams, options, kind } = input;
 	const params = parseSourceBranchPlanFileParams(rawParams);
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
