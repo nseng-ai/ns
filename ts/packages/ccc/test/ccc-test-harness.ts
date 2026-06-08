@@ -85,6 +85,7 @@ export class FakePi implements ExtensionAPI {
 	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[]; shouldRequireExpectedArgs?: boolean } = {}) {
 		this.script = [...(options.script ?? [])];
 		this.skillCommands = [...(options.skillCommands ?? [])];
+		// Strict by default: undefined ScriptedExec args now count as a mismatch unless callers explicitly disable expected-arg checking.
 		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? true;
 	}
 
