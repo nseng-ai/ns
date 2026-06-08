@@ -72,6 +72,8 @@ interface JsonEvent {
 	[key: string]: unknown;
 }
 
+const MAX_LAUNCH_METADATA_TEXT_CHARS = 160;
+
 export class RunnerSubagentJsonEventParser {
 	private readonly title: string | undefined;
 	private readonly now: () => number;
@@ -101,7 +103,7 @@ export class RunnerSubagentJsonEventParser {
 		this.now = options.now ?? Date.now;
 		this.startTimeMs = options.startTimeMs ?? this.now();
 		this.terminalToolNames = new Set(options.terminalToolNames ?? []);
-		this.launch = cloneLaunchMetadata(options.launch);
+		this.launch = options.launch;
 		this.sessionFile = options.sessionFile;
 	}
 
@@ -264,9 +266,12 @@ export class RunnerSubagentJsonEventParser {
 
 	private captureModelChange(event: JsonRecord): void {
 		if (typeof event.provider !== "string" || typeof event.modelId !== "string") return;
+		const provider = sanitizeLaunchMetadataText(event.provider);
+		const modelId = sanitizeLaunchMetadataText(event.modelId);
+		if (provider === undefined || modelId === undefined) return;
 		this.launch = {
 			...this.currentLaunchMetadata(),
-			model: { provider: event.provider, id: event.modelId },
+			model: { provider, id: modelId },
 		};
 	}
 
@@ -274,7 +279,7 @@ export class RunnerSubagentJsonEventParser {
 		if (!isThinkingLevel(event.thinkingLevel)) return;
 		this.launch = {
 			...this.currentLaunchMetadata(),
-			thinkingLevel: event.thinkingLevel,
+			observedThinkingLevel: event.thinkingLevel,
 		};
 	}
 
@@ -458,12 +463,10 @@ function isJsonEvent(value: unknown): value is JsonEvent {
 	return isRecord(value) && typeof value.type === "string";
 }
 
-function cloneLaunchMetadata(launch: RunnerSubagentLaunchMetadata | undefined): RunnerSubagentLaunchMetadata | undefined {
-	if (launch === undefined) return undefined;
-	return {
-		...launch,
-		...(launch.model === undefined ? {} : { model: { ...launch.model } }),
-	};
+function sanitizeLaunchMetadataText(value: string): string | undefined {
+	const sanitized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+	if (sanitized.length === 0) return undefined;
+	return sanitized.length <= MAX_LAUNCH_METADATA_TEXT_CHARS ? sanitized : sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
 }
 
 export function isRecord(value: unknown): value is JsonRecord {

@@ -29,6 +29,7 @@ export interface RunnerSubagentLaunchMetadata {
 	model?: ModelInfo;
 	requestedModel?: string;
 	thinkingLevel: ThinkingLevel;
+	observedThinkingLevel?: ThinkingLevel;
 	hasModelArg: boolean;
 	hasThinkingArg: boolean;
 }

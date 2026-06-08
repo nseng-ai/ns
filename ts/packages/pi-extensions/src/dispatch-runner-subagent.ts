@@ -14,6 +14,7 @@ import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
+	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
@@ -360,7 +361,7 @@ function validateDispatchRunnerSubagentInput(params: DispatchRunnerSubagentInput
 }
 
 function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
-	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${launch.thinkingLevel}`;
+	return `Model: ${formatRunnerSubagentModelText(launch)}; Thinking: ${formatRunnerSubagentThinkingText(launch)}`;
 }
 
 function formatUsageLine(usage: RunnerSubagentUsageMetadata | undefined): string {

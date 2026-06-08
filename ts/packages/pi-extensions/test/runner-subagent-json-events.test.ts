@@ -45,9 +45,20 @@ describe("runner subagent JSON event parser", () => {
 		expect(parser.getSnapshot().progress.launch).toEqual({
 			requestedModel: "openai-codex/gpt-5.4-mini:medium",
 			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
-			thinkingLevel: "medium",
+			thinkingLevel: "off",
+			observedThinkingLevel: "medium",
 			hasModelArg: true,
 			hasThinkingArg: false,
+		});
+	});
+
+	test("sanitizes child-supplied launch model metadata", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+		parser.pushChunk(jsonLine({ type: "model_change", provider: " openai\ncodex ", modelId: `${"x".repeat(200)}\r\nignored` }));
+
+		expect(parser.getSnapshot().progress.launch?.model).toEqual({
+			provider: "openai codex",
+			id: "x".repeat(160),
 		});
 	});
 

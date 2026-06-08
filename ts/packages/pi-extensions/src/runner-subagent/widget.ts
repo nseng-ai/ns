@@ -2,6 +2,7 @@ import type { RunnerSubagentUpdate } from "../runner-subagent.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
+	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 } from "./presentation.ts";
@@ -19,7 +20,7 @@ export function formatRunnerSubagentActivityWidgetLines(
 	const { progress, activity } = update;
 	const lines = [`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`, `State: ${progress.state}`];
 	if (progress.launch !== undefined) {
-		lines.push(`Model: ${formatRunnerSubagentModelText(progress.launch)}`, `Thinking: ${progress.launch.thinkingLevel}`);
+		lines.push(`Model: ${formatRunnerSubagentModelText(progress.launch)}`, `Thinking: ${formatRunnerSubagentThinkingText(progress.launch)}`);
 	}
 
 	if (activity.assistantPreview !== undefined) lines.push(`Assistant: ${activity.assistantPreview}`);
