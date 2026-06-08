@@ -13,6 +13,9 @@ wheels/
 # JavaScript/TypeScript dependencies
 node_modules/
 
+# Bun lockfile — workspace uses pnpm; ignore stray bun.lock from accidental `bun install`
+ts/bun.lock
+
 # Virtual environments
 .venv
 activate.sh
