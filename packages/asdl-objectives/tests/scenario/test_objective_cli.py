@@ -419,7 +419,8 @@ def test_objective_list_updated_branches_json_human_and_markdown(
     }
     assert human.exit_code == 0, human.output
     assert "Updated branches" in human.output
-    assert "1 feat/alpha" in human.output
+    assert "alpha" in human.output
+    assert "└ feat/alpha" in human.output
     assert markdown.exit_code == 0, markdown.output
     assert "| objective | status | latest update | updated branches |" in markdown.output
     assert "| alpha | ○ open | — | feat/alpha |" in markdown.output
@@ -462,7 +463,9 @@ def test_objective_list_updated_branches_orders_branches_by_latest_tip(
     records = json.loads(result.output)["data"]["records"]
     assert records[0]["updated_branches"] == ["z-newer", "a-older"]
     assert human.exit_code == 0, human.output
-    assert "2 z-newer, a-older" in human.output
+    assert "alpha" in human.output
+    assert "├ 1/2 z-newer" in human.output
+    assert "└ 2/2 a-older" in human.output
 
 
 def test_objective_list_updated_branches_human_is_compact_at_narrow_width(
@@ -501,7 +504,7 @@ def test_objective_list_updated_branches_human_is_compact_at_narrow_width(
     assert "Objective" in human.output
     assert "Updated branches" in human.output
     assert "very-long-objective-slug-that" in human.output
-    assert "1 feature/very-long-branch-" in human.output
+    assert "└ feature/very-long-branch-" in human.output
     assert "  Updated branches:" not in human.output
 
 

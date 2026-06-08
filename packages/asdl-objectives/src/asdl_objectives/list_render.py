@@ -112,7 +112,15 @@ def _render_updated_branch_records_human(result: ObjectiveListResult) -> None:
         min_width=20,
     )
     for record in result.records:
-        table.add_row(record.slug, _format_updated_branch_summary(record))
+        branches = record.updated_branches or ()
+        if not branches:
+            table.add_row(record.slug, "—")
+            continue
+
+        branch_count = len(branches)
+        for index, branch in enumerate(branches, start=1):
+            objective = record.slug if index == 1 else ""
+            table.add_row(objective, _format_branch_line(index, branch_count, branch))
     console.print(table)
 
 
@@ -120,8 +128,13 @@ def _updated_branches_objective_column_width(
     result: ObjectiveListResult,
     terminal_width: int,
 ) -> int:
-    widest_slug = max(len(record.slug) for record in result.records)
-    return min(widest_slug, max(24, terminal_width - 30))
+    widest_objective = max(_branch_objective_width(record) for record in result.records)
+    objective_width = max(24, terminal_width // 2)
+    return min(max(12, widest_objective), objective_width)
+
+
+def _branch_objective_width(record: ObjectiveListRecord) -> int:
+    return len(record.slug)
 
 
 def _status_label(status: ObjectiveStatus) -> str:
@@ -151,10 +164,17 @@ def _format_updated_branches(record: ObjectiveListRecord) -> str:
     return "—"
 
 
-def _format_updated_branch_summary(record: ObjectiveListRecord) -> str:
-    if not record.updated_branches:
-        return "—"
-    return f"{len(record.updated_branches)} {', '.join(record.updated_branches)}"
+def _format_branch_line(index: int, branch_count: int, branch: str) -> str:
+    marker = _branch_tree_marker(index, branch_count)
+    if branch_count == 1:
+        return f"{marker} {branch}"
+    return f"{marker} {index}/{branch_count} {branch}"
+
+
+def _branch_tree_marker(index: int, branch_count: int) -> str:
+    if index == branch_count:
+        return "└"
+    return "├"
 
 
 def _format_age(iso_timestamp: str | None) -> str:
