@@ -1,8 +1,8 @@
 import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
+import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { Database } from "bun:sqlite";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "./brmem-cli.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -213,6 +213,19 @@ interface GraphiteMetadataRow {
 type GraphiteMetadataRowsResult =
 	| { type: "loaded"; rows: ReadonlyMap<string, GraphiteMetadataRow> }
 	| { type: "unavailable"; reason: string };
+
+interface BunSqliteStatement<ReturnType, ParamsType extends readonly unknown[]> {
+	all(...params: ParamsType): ReturnType[];
+}
+
+interface BunSqliteDatabase {
+	query<ReturnType, ParamsType extends readonly unknown[]>(sql: string): BunSqliteStatement<ReturnType, ParamsType>;
+	close(): void;
+}
+
+type BunSqliteDatabaseConstructor = new (filename: string, options: { readonly: true }) => BunSqliteDatabase;
+
+const requireRuntimeModule = createRequire(import.meta.url);
 
 type GraphiteMetadataStatus =
 	| {
@@ -727,7 +740,10 @@ function loadGraphiteMetadataStatus(cwd: string): GraphiteMetadataStatus {
 }
 
 function readGraphiteMetadataRows(dbPath: string): GraphiteMetadataRowsResult {
-	let db: Database | undefined;
+	const Database = loadBunSqliteDatabaseConstructor();
+	if (Database === undefined) return { type: "unavailable", reason: "sqlite-unavailable" };
+
+	let db: BunSqliteDatabase | undefined;
 	try {
 		db = new Database(dbPath, { readonly: true });
 		const columnRows = db.query<GraphiteMetadataColumnRow, []>("PRAGMA table_info(branch_metadata)").all();
@@ -768,6 +784,16 @@ function readGraphiteMetadataRows(dbPath: string): GraphiteMetadataRowsResult {
 				// Closing a read-only status probe must not throw through passive UI refresh.
 			}
 		}
+	}
+}
+
+function loadBunSqliteDatabaseConstructor(): BunSqliteDatabaseConstructor | undefined {
+	try {
+		const sqliteModule = requireRuntimeModule("bun:sqlite") as unknown;
+		if (!isRecord(sqliteModule) || typeof sqliteModule.Database !== "function") return undefined;
+		return sqliteModule.Database as BunSqliteDatabaseConstructor;
+	} catch {
+		return undefined;
 	}
 }
 
