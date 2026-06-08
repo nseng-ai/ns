@@ -3,7 +3,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 
-import { buildImplPlannedBranchPrompt, loadPlannedBranchPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
+import { buildImplPlannedBranchPrompt, formatLoadedAttachedPlanEvidence, loadPlannedBranchPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
 import { createRealPlannedBranchContext, type PlannedBranchContext } from "./context.ts";
 import {
 	createPlannedBranchFromFile,
@@ -247,10 +247,10 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		return 0;
 	}
 	if (promptFile !== undefined) {
-		deps.stdout(`${formatLoadedPlan(plan)}\nImplementation prompt file: ${promptFile}\n`);
+		deps.stdout(`${formatLoadedAttachedPlanEvidence(plan)}\nImplementation prompt file: ${promptFile}\n`);
 		return 0;
 	}
-	deps.stdout(`${formatLoadedPlan(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
+	deps.stdout(`${formatLoadedAttachedPlanEvidence(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
 	return 0;
 }
 
@@ -590,18 +590,6 @@ function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPl
 		`Branch path segment: ${evidence.branchKey}`,
 		`Slug: ${evidence.slug}`,
 		`Modified time ms: ${evidence.modifiedTimeMs}`,
-	].join("\n");
-}
-
-function formatLoadedPlan(plan: LoadedAttachedPlan): string {
-	const title = plan.source === "saved" ? "Loaded saved planned-branch plan from local plan store." : "Loaded attached planned-branch plan.";
-	return [
-		title,
-		`Branch: ${plan.branch}`,
-		`Namespace: ${plan.namespace}`,
-		`Selected key: ${plan.selectedKey}`,
-		`Ref: ${plan.refName}`,
-		`Bytes: ${plan.byteCount}`,
 	].join("\n");
 }
 

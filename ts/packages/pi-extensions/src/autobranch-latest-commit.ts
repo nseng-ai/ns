@@ -53,6 +53,8 @@ export type LatestCommitPreparationResult =
 	| { ok: false; kind: "commit_parent_lookup_failed"; error: string }
 	| { ok: false; kind: "root_commit_refusal"; headSha: string }
 	| { ok: false; kind: "merge_commit_refusal"; headSha: string; parentCount: number }
+	| { ok: false; kind: "child_branch_check_failed"; error: string }
+	| { ok: false; kind: "child_branch_refusal"; children: string[] }
 	| { ok: false; kind: "commit_evidence_failed"; error: string }
 	| { ok: false; kind: "invalid_requested_slug"; requestedSlug: string }
 	| { ok: false; kind: "slug_generation_failed"; error: string }
@@ -63,12 +65,17 @@ type CreatedBranchRecovery =
 	| { restored: true; createdBranchDeleted: false; createdBranchDeleteError: string }
 	| { restored: false; restoreError: string; createdBranchDeleted: false; createdBranchDeleteError: string };
 
+type SourceResetFailureRecovery =
+	| { backupCleanup: "deleted" }
+	| { backupCleanup: "delete_failed"; backupDeleteError: string }
+	| { backupCleanup: "recovery_required"; recoveryCommand: string };
+
 export type LatestCommitTransactionResult =
 	| { ok: true; commitSummary: string; backupDeleted: true }
 	| { ok: true; commitSummary: string; backupDeleted: false; backupBranch: string; backupDeleteError: string }
 	| { ok: false; kind: "backup_branch_name_unavailable"; sourceBranch: string }
 	| { ok: false; kind: "backup_create_failed"; error: string }
-	| { ok: false; kind: "source_reset_failed"; backupBranch: string; error: string }
+	| ({ ok: false; kind: "source_reset_failed"; backupBranch: string; error: string } & SourceResetFailureRecovery)
 	| ({ ok: false; kind: "graphite_create_failed"; backupBranch: string; branchName: string; createError: string } & CreatedBranchRecovery)
 	| { ok: false; kind: "transaction_upstream_check_failed"; error: string }
 	| { ok: false; kind: "pushed_head_refusal"; upstream: string }
@@ -175,7 +182,13 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 
 	const resetSource = await resetSourceBranchToParent(input);
 	if (!resetSource.ok) {
-		return { ok: false, kind: "source_reset_failed", backupBranch: backupBranch.name, error: resetSource.error };
+		return {
+			ok: false,
+			kind: "source_reset_failed",
+			backupBranch: backupBranch.name,
+			error: resetSource.error,
+			...(await recoverFromSourceResetFailure(input, backupBranch.name)),
+		};
 	}
 
 	const created = await withStatus(input, `creating ${input.plan.branchName}…`, () =>
@@ -241,6 +254,8 @@ async function loadLatestCommitFacts(
 					| "trunk_refusal"
 					| "upstream_check_failed"
 					| "pushed_head_refusal"
+					| "child_branch_check_failed"
+					| "child_branch_refusal"
 					| "commit_parent_lookup_failed"
 					| "root_commit_refusal"
 					| "merge_commit_refusal"
@@ -266,6 +281,14 @@ async function loadLatestCommitFacts(
 	}
 	if (upstream.type === "upstream_contains_head") {
 		return { ok: false, kind: "pushed_head_refusal", upstream: upstream.upstream };
+	}
+
+	const children = await inspectGraphiteChildBranches(input);
+	if (!children.ok) {
+		return { ok: false, kind: "child_branch_check_failed", error: children.error };
+	}
+	if (children.children.length > 0) {
+		return { ok: false, kind: "child_branch_refusal", children: children.children };
 	}
 
 	const parents = await input.exec("git", ["rev-list", "--parents", "-n", "1", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
@@ -397,6 +420,23 @@ async function resetSourceBranchToParent(input: LatestCommitTransactionInput): P
 	return { ok: true };
 }
 
+async function recoverFromSourceResetFailure(input: LatestCommitTransactionInput, backupBranch: string): Promise<SourceResetFailureRecovery> {
+	const [currentBranch, currentHead] = await Promise.all([
+		input.exec("git", ["branch", "--show-current"], input.cwd, GIT_TIMEOUT_MS),
+		input.exec("git", ["rev-parse", "HEAD"], input.cwd, GIT_TIMEOUT_MS),
+	]);
+	const sourceUnchanged = currentBranch.code === 0 && currentHead.code === 0 && currentBranch.stdout.trim() === input.plan.sourceBranch && currentHead.stdout.trim() === input.plan.originalHeadSha;
+	if (sourceUnchanged) {
+		const deleted = await input.exec("git", ["branch", "-D", backupBranch], input.cwd, GIT_TIMEOUT_MS);
+		if (deleted.code === 0) {
+			return { backupCleanup: "deleted" };
+		}
+		return { backupCleanup: "delete_failed", backupDeleteError: formatCommandDetails(deleted) };
+	}
+
+	return { backupCleanup: "recovery_required", recoveryCommand: `git checkout ${input.plan.sourceBranch} && git reset --hard ${backupBranch}` };
+}
+
 async function restoreSourceBranch(input: LatestCommitTransactionInput): Promise<{ ok: true } | { ok: false; error: string }> {
 	const checkedOut = await input.exec("git", ["checkout", input.plan.sourceBranch], input.cwd, GIT_TIMEOUT_MS);
 	if (checkedOut.code !== 0) {
@@ -445,6 +485,21 @@ async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInp
 	return { ok: true, name: available.name };
 }
 
+async function inspectGraphiteChildBranches(input: Pick<LatestCommitAutobranchInput, "cwd" | "exec">): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
+	const children = await input.exec("gt", ["children", "--no-interactive"], input.cwd, GT_TIMEOUT_MS);
+	if (children.code !== 0) {
+		return { ok: false, error: formatCommandDetails(children) };
+	}
+	return { ok: true, children: nonEmptyLines(children.stdout) };
+}
+
+function nonEmptyLines(value: string): string[] {
+	return value
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
+}
+
 function sanitizeBackupBranchSegment(value: string): string {
 	return value
 		.toLowerCase()
@@ -467,6 +522,14 @@ function formatLatestCommitPreparationFailure(result: Extract<LatestCommitPrepar
 			return `Could not determine whether HEAD is already in the current branch upstream.\n${result.error}`;
 		case "pushed_head_refusal":
 			return `Refusing to move latest commit because upstream ${result.upstream} already contains HEAD.`;
+		case "child_branch_check_failed":
+			return `Could not inspect Graphite child branches before moving the latest commit.\n${result.error}`;
+		case "child_branch_refusal":
+			return [
+				`Refusing to move latest commit because the source branch has Graphite child branches.`,
+				"Move or restack child branches first:",
+				...result.children.map((child) => `- ${child}`),
+			].join("\n");
 		case "commit_parent_lookup_failed":
 			return `Could not inspect latest commit parents.\n${result.error}`;
 		case "root_commit_refusal":
@@ -491,7 +554,7 @@ function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransa
 		case "backup_create_failed":
 			return [`Failed to create recovery branch before moving latest commit.`, result.error].join("\n");
 		case "source_reset_failed":
-			return [`Failed to reset source branch before Graphite branch creation.`, `Recovery branch: ${result.backupBranch}`, result.error].join("\n");
+			return [`Failed to reset source branch before Graphite branch creation.`, `Recovery branch: ${result.backupBranch}`, result.error, formatSourceResetCleanup(result)].join("\n");
 		case "graphite_create_failed":
 			return [
 				`Failed to create Graphite branch after resetting source branch.`,
@@ -520,6 +583,17 @@ function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransa
 				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
 				formatCreatedBranchCleanup(result),
 			].join("\n");
+	}
+}
+
+function formatSourceResetCleanup(result: SourceResetFailureRecovery): string {
+	switch (result.backupCleanup) {
+		case "deleted":
+			return "Deleted redundant recovery branch because the source branch is still at the original commit.";
+		case "delete_failed":
+			return `Could not delete redundant recovery branch: ${result.backupDeleteError}`;
+		case "recovery_required":
+			return `To restore the source branch to the saved commit, run: ${result.recoveryCommand}`;
 	}
 }
 

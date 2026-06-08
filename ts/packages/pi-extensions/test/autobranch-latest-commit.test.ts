@@ -18,6 +18,8 @@ interface PreparationHarnessOptions {
 	parentsLine?: string;
 	piResult?: CommandResult;
 	existingBranches?: Set<string>;
+	childBranches?: string[];
+	shouldChildrenFail?: boolean;
 }
 
 function createSnapshot(branch = "feature/base"): PendingWorktreeSnapshot {
@@ -36,6 +38,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	const upstreamMode = options.upstreamMode ?? "ahead";
 	const snapshot = createSnapshot(options.currentBranch ?? "feature/base");
 	const existingBranches = options.existingBranches ?? new Set<string>();
+	const childBranches = options.childBranches ?? [];
 	const input = {
 		cwd: "/repo",
 		args: options.slug === undefined ? {} : { slug: options.slug },
@@ -61,6 +64,9 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "merge-base") {
 				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+			}
+			if (command === "gt" && args[0] === "children") {
+				return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
 			}
 			if (command === "git" && args[0] === "rev-list") {
 				return ok(options.parentsLine ?? "abc123def456 parent987654\n");
@@ -117,6 +123,7 @@ interface TransactionHarnessOptions {
 	shouldDeleteBackupFail?: boolean;
 	shouldDeleteCreatedBranchFail?: boolean;
 	shouldRestoreFail?: boolean;
+	shouldSourceResetFail?: boolean;
 	verifyHead?: string;
 	existingBranches?: Set<string>;
 	upstreamMode?: UpstreamMode;
@@ -170,6 +177,9 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return ok(`${options.verifyHead ?? head}\n`);
 			}
 			if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
+				if (currentBranch === "feature/base" && args[2] === "parent987654" && options.shouldSourceResetFail) {
+					return fail("source reset failed");
+				}
 				if (currentBranch === "latest-commit-branch" && args[2] === "abc123def456" && options.shouldBranchResetFail) {
 					return fail("branch reset failed");
 				}
@@ -265,6 +275,15 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		expect(merge).toEqual({ ok: false, kind: "merge_commit_refusal", headSha: "abc123def456", parentCount: 2 });
 	});
 
+	test("refuses source branches with Graphite children before reading commit evidence", async () => {
+		const harness = createPreparationHarness({ upstreamMode: "none", childBranches: ["feature/child"] });
+
+		const result = await prepareLatestCommitAutobranchPlan(harness.input);
+
+		expect(result).toEqual({ ok: false, kind: "child_branch_refusal", children: ["feature/child"] });
+		expect(harness.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(false);
+	});
+
 	test("model slug failure is fatal in latest-commit mode", async () => {
 		const harness = createPreparationHarness({ upstreamMode: "none", piResult: fail("model unavailable") });
 
@@ -334,6 +353,39 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			backupBranch: "autobranch-backup/feature/base/123",
 			backupDeleteError: "exit 1: delete failed",
 		});
+	});
+
+	test("source reset failure deletes redundant backup when source is unchanged", async () => {
+		const harness = createTransactionHarness({ shouldSourceResetFail: true });
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: false,
+			kind: "source_reset_failed",
+			backupBranch: "autobranch-backup/feature/base/123",
+			error: "exit 1: source reset failed",
+			backupCleanup: "deleted",
+		});
+		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123")).toBeGreaterThan(eventIndex(harness.events, "exec:git reset --hard parent987654"));
+		expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
+	});
+
+	test("source reset failure gives recovery command when source diverged", async () => {
+		const harness = createTransactionHarness({ verifyHead: "def456abc789" });
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: false,
+			kind: "source_reset_failed",
+			backupBranch: "autobranch-backup/feature/base/123",
+			error: "Expected HEAD abc123def456, but found def456abc789.",
+			backupCleanup: "recovery_required",
+			recoveryCommand: "git checkout feature/base && git reset --hard autobranch-backup/feature/base/123",
+		});
+		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123")).toBe(-1);
+		expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
 	});
 
 	test("Graphite creation failure restores source and deletes a partial created branch", async () => {
