@@ -15,7 +15,6 @@ This Objective covers slot occupancy locality for managed slot worktrees and rel
 - How mutating `asdl-slots` lifecycle commands allocate, free, protect, skip, or recover occupied slots for `slot checkout`, `slot checkout --current`, `slot free`, `slot gc`, and shrinking `slot resize`.
 - How display consumers such as `slot list` and `slot goto` surface operation state without owning lifecycle safety policy.
 - Whether operation-state recovery-message and operation-in-progress handling should stay command-local, be documented as sufficiently local, or be consolidated into a tiny `asdl-slots.lifecycle` helper.
-- Dirty-worktree handling as adjacent lifecycle safety evidence, not the core rebase/bisect occupancy seam.
 
 ## Non-Goals
 
@@ -33,7 +32,7 @@ This Objective is complete when:
 - the slot occupancy locality review has been re-baselined against current code and representative tests;
 - the roadmap records the selected semantic slices from the re-baseline;
 - the selected outcome has either been implemented with evidence, documented as already local enough, or explicitly parked with rationale;
-- if implementation is selected, the slice stays narrow: a lifecycle-level operation recovery/message helper plus representative tests, without redesigning Git gateway or inventory state unless new evidence requires it;
+- the minimum representative bisect coverage floor has been added or verified before closure;
 - assumptions and risks below have been updated through Semantic Updates as evidence changes.
 
 ## Assumptions and Risks
@@ -47,6 +46,12 @@ Assumptions:
 - Dirty-worktree checks remain adjacent lifecycle safety policy; they should be reviewed for interactions but not folded into the core operation-state occupancy model by default.
 - If consolidation is warranted, the shared policy home should be under `asdl-slots.lifecycle`, not in CLI renderers or the core Git gateway.
 - The archived umbrella review is provenance for this child Objective, not a binding implementation mandate; current code and tests decide whether to implement, document, or park.
+
+Recorded re-baseline answers:
+
+- Independent occupancy safety decisions remain in mutating lifecycle commands: checkout rejects branches already held by managed worktrees, while free/gc/resize protect occupied or operation-in-progress slots before release/removal. Display commands surface the state but should not own the safety policy.
+- Rebase and bisect are modeled as operation facts derived by `asdl-slots.inventory` from generic Git worktree facts; they should not become a new persisted slot registry unless future evidence shows derivation is insufficient.
+- Implementation is justified only when the verification artifact shows checkout recovery wording or operation-in-progress messaging is likely to drift from existing lifecycle helper policy; otherwise the topic may be parked with the artifact and sign-off defined in the roadmap.
 
 Risks:
 

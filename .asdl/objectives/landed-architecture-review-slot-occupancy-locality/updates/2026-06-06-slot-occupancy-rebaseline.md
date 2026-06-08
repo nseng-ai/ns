@@ -14,6 +14,6 @@ The roadmap now separates current-code inspection evidence from the final locali
 
 Assumptions and risks were sharpened to distinguish branch occupancy from dirty-worktree safety and to balance two competing risks: checkout-specific recovery wording may drift from existing lifecycle helper policy, but premature abstraction could make simple slot commands harder to understand.
 
-## Next Action
+## Follow-Ups
 
-Resolve the narrow operation-state recovery outcome in the Objective roadmap: either extend the existing lifecycle helper with any targeted bisect coverage it exposes, or explicitly park the topic with named verification evidence.
+- Carry forward the bisect coverage question as a required verification point: the closing artifact must identify at least one fake-gateway bisect case for lifecycle behavior already covered by rebase, or name the equivalent existing coverage.
