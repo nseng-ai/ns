@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, parseMachineEnvelopeData, stripTerminalEscapes } from "../src/index.ts";
-import { objectiveSelectionContextFromCommandContext } from "../src/objective-selection.ts";
-import type { CommandContext } from "../src/cmux/types.ts";
+import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext } from "../src/objective-selection.ts";
+import type { CommandContext, ExecResult } from "../src/cmux/types.ts";
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {
@@ -46,7 +46,55 @@ describe("pi extension runtime helpers", () => {
 		objectiveCtx.ui.notify("still visible");
 
 		expect(objectiveCtx.hasUI).toBe(true);
-		expect(await objectiveCtx.ui.select("title", ["alpha"])).toBeUndefined();
+		expect(objectiveCtx.ui.select).toBeUndefined();
 		expect(notifications).toEqual(["still visible"]);
+	});
+
+	test("objective selection with notifications but no picker skips picker-only work", async () => {
+		const calls: Array<{ command: string; args: string[] }> = [];
+		const notifications: string[] = [];
+		const ctx: CommandContext = {
+			cwd: "/repo",
+			hasUI: true,
+			ui: {
+				notify: (message) => notifications.push(message),
+			},
+			modelRegistry: { find: () => undefined },
+			waitForIdle: async () => {},
+		};
+		const host = {
+			exec: async (command: string, args: string[]): Promise<ExecResult> => {
+				calls.push({ command, args });
+				if (command !== "objective") {
+					throw new Error(`unexpected command: ${command}`);
+				}
+
+				return {
+					code: 0,
+					killed: false,
+					stderr: "",
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: {
+							trunk_branch: "master",
+							root_path: "/repo",
+							status_filter: "active",
+							names_only: false,
+							records: [{ slug: "alpha", status: "active", latest_update_iso: null }],
+						},
+					}),
+				};
+			},
+		};
+
+		const slug = await chooseActiveObjectiveSlug(host, objectiveSelectionContextFromCommandContext(ctx), {
+			statusKey: "objective:test",
+			selectionTitle: "Select an Objective",
+			compactDiffSuggestion: true,
+		});
+
+		expect(slug).toBeUndefined();
+		expect(calls).toEqual([{ command: "objective", args: ["list", "--format", "json"] }]);
+		expect(notifications).toEqual([]);
 	});
 });

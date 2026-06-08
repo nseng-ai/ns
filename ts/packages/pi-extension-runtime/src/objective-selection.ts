@@ -42,7 +42,7 @@ export interface ObjectiveSelectionHost {
 interface ObjectiveSelectionUi {
 	notify: CommandContext["ui"]["notify"];
 	setStatus: CommandContext["ui"]["setStatus"];
-	select(title: string, items: string[]): Promise<string | undefined>;
+	select?: CommandContext["ui"]["select"];
 }
 
 export interface ObjectiveSelectionContext extends Pick<CommandContext, "cwd" | "waitForIdle"> {
@@ -58,7 +58,7 @@ export function objectiveSelectionContextFromCommandContext(ctx: CommandContext)
 		hasUI: ctx.hasUI === true,
 		ui: {
 			notify: ctx.ui.notify.bind(ctx.ui),
-			select: select ?? (async () => undefined),
+			select,
 			setStatus,
 		},
 		waitForIdle: ctx.waitForIdle.bind(ctx),
@@ -241,8 +241,13 @@ function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): s
 
 async function selectObjectiveSlug(options: SelectObjectiveSlugOptions): Promise<string | undefined> {
 	const { ctx, title, records, selection } = options;
+	const select = ctx.ui.select;
+	if (!select) {
+		return undefined;
+	}
+
 	const choices = objectiveChoiceMap(records, selection);
-	const selected = await ctx.ui.select(title, [...choices.keys()]);
+	const selected = await select(title, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
 		return undefined;
@@ -272,7 +277,12 @@ async function selectChangedObjectivesOrOther(options: SelectChangedObjectivesOr
 		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
 	}
 
-	const selected = await ctx.ui.select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
+	const select = ctx.ui.select;
+	if (!select) {
+		return undefined;
+	}
+
+	const selected = await select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
 		return undefined;
@@ -319,7 +329,7 @@ export async function chooseActiveObjectiveSlug(
 		return undefined;
 	}
 
-	if (!ctx.hasUI) {
+	if (!ctx.hasUI || !ctx.ui.select) {
 		return undefined;
 	}
 
