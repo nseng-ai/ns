@@ -23,6 +23,18 @@ export interface ObjectiveSelectionSpec {
 	compactDiffSuggestion?: boolean;
 }
 
+export interface ObjectiveSkillPromptSpec {
+	fallbackPrompt: string;
+	actionPrompt: string;
+}
+
+export interface BuildObjectiveSkillPromptOptions {
+	spec: ObjectiveSkillPromptSpec;
+	skillBlock: string | undefined;
+	objective: string;
+	postSelectionReminder?: string;
+}
+
 export interface ObjectiveSelectionHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
@@ -43,7 +55,7 @@ export function objectiveSelectionContextFromCommandContext(ctx: CommandContext)
 	const setStatus = ctx.ui.setStatus?.bind(ctx.ui);
 	return {
 		cwd: ctx.cwd,
-		hasUI: ctx.hasUI === true && select !== undefined,
+		hasUI: ctx.hasUI === true,
 		ui: {
 			notify: ctx.ui.notify.bind(ctx.ui),
 			select: select ?? (async () => undefined),
@@ -51,6 +63,19 @@ export function objectiveSelectionContextFromCommandContext(ctx: CommandContext)
 		},
 		waitForIdle: ctx.waitForIdle.bind(ctx),
 	};
+}
+
+export function buildObjectiveSkillPrompt(options: BuildObjectiveSkillPromptOptions): string {
+	const { spec, skillBlock, objective, postSelectionReminder = "" } = options;
+	return `${skillBlock ?? spec.fallbackPrompt}
+
+${spec.actionPrompt}
+
+\`\`\`text
+${objective}
+\`\`\`
+
+Treat this as an explicit user selection. Do not auto-select a different Objective.${postSelectionReminder}`;
 }
 
 interface ActiveObjectiveListLoaded {

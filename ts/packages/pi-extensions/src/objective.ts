@@ -1,5 +1,5 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
@@ -127,25 +127,10 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	},
 ];
 
-function buildObjectiveSkillPrompt(
-	spec: ObjectiveCommandSpec,
-	skillBlock: string | undefined,
-	objective: string,
-): string {
-	const updateReminder =
-		spec.skillName === "objective-update"
-			? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
-			: "";
-
-	return `${skillBlock ?? spec.fallbackPrompt}
-
-${spec.actionPrompt}
-
-\`\`\`text
-${objective}
-\`\`\`
-
-Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
+function objectivePostSelectionReminder(spec: ObjectiveCommandSpec): string {
+	return spec.skillName === "objective-update"
+		? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
+		: "";
 }
 
 async function invokeObjectiveSkill(
@@ -166,7 +151,14 @@ async function invokeObjectiveSkill(
 		);
 	}
 
-	pi.sendUserMessage(buildObjectiveSkillPrompt(spec, skill?.block, objective));
+	pi.sendUserMessage(
+		buildObjectiveSkillPrompt({
+			spec,
+			skillBlock: skill?.block,
+			objective,
+			postSelectionReminder: objectivePostSelectionReminder(spec),
+		}),
+	);
 }
 
 async function chooseObjectiveAndInvoke(

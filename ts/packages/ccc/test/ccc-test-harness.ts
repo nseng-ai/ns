@@ -85,7 +85,7 @@ export class FakePi implements ExtensionAPI {
 	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[]; shouldRequireExpectedArgs?: boolean } = {}) {
 		this.script = [...(options.script ?? [])];
 		this.skillCommands = [...(options.skillCommands ?? [])];
-		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? false;
+		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? true;
 	}
 
 	on(event: "agent_end", handler: AgentEndHandler): void;

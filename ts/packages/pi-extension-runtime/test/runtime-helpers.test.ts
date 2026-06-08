@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, parseMachineEnvelopeData, stripTerminalEscapes } from "../src/index.ts";
+import { objectiveSelectionContextFromCommandContext } from "../src/objective-selection.ts";
+import type { CommandContext } from "../src/cmux/types.ts";
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {
@@ -26,5 +28,25 @@ describe("pi extension runtime helpers", () => {
 
 	test("strips terminal escapes", () => {
 		expect(stripTerminalEscapes("\u001b[31mred\u001b[0m")).toBe("red");
+	});
+
+	test("objective selection context preserves UI notifications without select", async () => {
+		const notifications: string[] = [];
+		const ctx: CommandContext = {
+			cwd: "/repo",
+			hasUI: true,
+			ui: {
+				notify: (message) => notifications.push(message),
+			},
+			modelRegistry: { find: () => undefined },
+			waitForIdle: async () => {},
+		};
+
+		const objectiveCtx = objectiveSelectionContextFromCommandContext(ctx);
+		objectiveCtx.ui.notify("still visible");
+
+		expect(objectiveCtx.hasUI).toBe(true);
+		expect(await objectiveCtx.ui.select("title", ["alpha"])).toBeUndefined();
+		expect(notifications).toEqual(["still visible"]);
 	});
 });

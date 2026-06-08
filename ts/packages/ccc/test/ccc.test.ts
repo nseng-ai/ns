@@ -316,6 +316,7 @@ describe("CCC cmux command suite", () => {
 	test("ccc:workspace:dispatch-prompt opens cmux without sidebar summary", async () => {
 		const promptDir = await makeTempDir();
 		const pi = new FakePi({
+			shouldRequireExpectedArgs: false,
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
