@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Inventory active Bun package-manager surfaces for `ts/`, root orchestration, and `docs-site`.
-      Distinguish install/lockfile/script/deploy references owned by this Objective from test-runner semantics, runtime hardening, and broad prose/template cleanup that belong to sibling Objectives.
+- [x] Inventory active Bun package-manager surfaces for `ts/`, root orchestration, and `docs-site`.
+      Evidence: active package-manager surfaces are `ts/bun.lock`, `docs-site/bun.lock`, root and docs-site Vercel command configuration, Bun-backed `justfile` and CI commands, `ts/package.json` workspace/scripts/patch metadata, and command docs for `asdl-dev` and docs-site. Test imports/scripts, Bun shebang/runtime fallback behavior, and Bun-centric templates are classified as sibling Objective work.
 
 - [ ] Migrate `ts/` to the settled pnpm workspace contract.
       Add pnpm workspace metadata for `packages/*`, package-manager and Node-engine metadata, pnpm lockfile state, and dependency/script changes needed to remove Bun install/run assumptions while preserving source-link behavior for Node v24.12+ native TypeScript type stripping.
