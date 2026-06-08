@@ -1,5 +1,6 @@
 export {
 	NoAttachedPlannedBranchEntriesError,
+	NoAttachedPlannedBranchPlanKindEntriesError,
 	buildImplPlannedBranchPrompt,
 	formatLoadedAttachedPlanEvidence,
 	loadedPlanTitle,
@@ -101,6 +102,7 @@ export {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
+	PLAN_FILE_FORMATS,
 	buildPlanFileName,
 	findLatestSourceBranchPlanFile,
 	findLatestSourceBranchTsPlanFile,
@@ -108,6 +110,7 @@ export {
 	normalizeRepoOriginUrl,
 	resolvePlanStoreDirectory,
 	sanitizePlanPathSegment,
+	planFileFormatForKind,
 	planFileKindFromPath,
 	planFileSuffixForKind,
 	writeSourceBranchPlanFile,

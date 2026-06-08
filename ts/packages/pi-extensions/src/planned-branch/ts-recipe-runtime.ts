@@ -34,6 +34,8 @@ export interface RenderedTsPlanRecipe {
 }
 
 export interface TsPlanRecipeRuntime {
+	readonly cwd: string;
+	readonly signal?: AbortSignal | undefined;
 	goal(text: string): void;
 	context(text: string): Promise<void> | void;
 	note(text: string): Promise<void> | void;
@@ -46,8 +48,15 @@ export interface TsPlanRecipeRuntime {
 }
 
 class RecordingTsPlanRecipeRuntime implements TsPlanRecipeRuntime {
+	readonly cwd: string;
+	readonly signal?: AbortSignal | undefined;
 	private readonly recordedEvents: TsPlanRecipeEvent[] = [];
 	private depth = 0;
+
+	constructor(options: { cwd: string; signal?: AbortSignal | undefined }) {
+		this.cwd = options.cwd;
+		this.signal = options.signal;
+	}
 
 	get events(): readonly TsPlanRecipeEvent[] {
 		return [...this.recordedEvents];
@@ -92,19 +101,28 @@ class RecordingTsPlanRecipeRuntime implements TsPlanRecipeRuntime {
 	}
 
 	private async withNestedBody(body: () => Promise<void> | void): Promise<void> {
+		this.checkAbort();
 		this.depth += 1;
 		try {
 			await body();
+			this.checkAbort();
 		} finally {
 			this.depth -= 1;
 		}
 	}
 
 	private record(type: TsPlanRecipeEventType, text: string): void {
+		this.checkAbort();
 		if (typeof text !== "string" || text.trim().length === 0) {
 			throw new Error(`TypeScript planned-branch recipe call ${type} requires non-empty string text.`);
 		}
 		this.recordedEvents.push({ type, text: text.trim(), depth: this.depth });
+	}
+
+	private checkAbort(): void {
+		if (this.signal?.aborted) {
+			throw new Error("TypeScript planned-branch recipe evaluation was cancelled.");
+		}
 	}
 }
 
@@ -118,6 +136,9 @@ export async function loadTsPlanRecipeFromContent(content: string, options: { ke
 		await writeFile(filePath, content, "utf8");
 		const url = `${pathToFileURL(filePath).href}?v=${Date.now()}-${Math.random().toString(36).slice(2)}`;
 		const moduleValue: unknown = await import(url);
+		if (options.signal?.aborted) {
+			throw new Error("TypeScript planned-branch recipe loading was cancelled after import.");
+		}
 		return parseRecipeModule(moduleValue, options.key);
 	} catch (error) {
 		throw new Error(`Failed to load trusted TypeScript planned-branch recipe ${options.key}: ${formatRecipeError(error)}`);
@@ -130,7 +151,7 @@ export async function renderTsPlanRecipe(recipe: LoadedTsPlanRecipe, options: { 
 	if (options.signal?.aborted) {
 		throw new Error("TypeScript planned-branch recipe rendering was cancelled before evaluation.");
 	}
-	const runtime = new RecordingTsPlanRecipeRuntime();
+	const runtime = new RecordingTsPlanRecipeRuntime(options);
 	try {
 		await recipe.recipe(runtime);
 	} catch (error) {
@@ -152,6 +173,7 @@ export async function buildImplTsPlannedBranchPrompt(plan: LoadedAttachedPlan, o
 		"",
 		"The attached planned-branch TypeScript recipe has been loaded and evaluated by Pi into these implementation instructions.",
 		"Treat the `.plan.ts` source as the source of truth. If the rendered prompt and source conflict, inspect the source and ask before proceeding.",
+		"The trusted recipe runtime records instructions; `pi.shell` records validation commands and does not execute them during recipe evaluation.",
 		"",
 		"## Loaded recipe source",
 		"",

@@ -7,6 +7,7 @@ import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import type { PlanCommandExecApi } from "./plan-persistence.ts";
 import { resolveSelectedSavedPlanFile, resolveSelectedSavedTsPlanFile } from "./saved-plan-selection.ts";
+import { planFileFormatForKind, type PlanFileKind } from "./source-plan-file.ts";
 
 const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
 
@@ -57,6 +58,27 @@ export class NoAttachedPlannedBranchEntriesError extends Error {
 	}
 }
 
+export class NoAttachedPlannedBranchPlanKindEntriesError extends Error {
+	readonly branch: string;
+	readonly kind: PlanFileKind;
+
+	constructor(branch: string, kind: PlanFileKind, availableKeys: readonly string[]) {
+		const format = planFileFormatForKind(kind);
+		super(
+			[
+				`No attached planned-branch ${format.displayName} entries exist on branch \`${branch}\` in namespace \`${PLAN_BRANCH_NAMESPACE}\`.`,
+				`Expected suffix: ${format.suffix}`,
+				"",
+				"Available keys:",
+				formatAvailableKeys([...availableKeys]),
+			].join("\n"),
+		);
+		this.name = "NoAttachedPlannedBranchPlanKindEntriesError";
+		this.branch = branch;
+		this.kind = kind;
+	}
+}
+
 export async function loadPlannedBranchPlan(
 	pi: PlanCommandExecApi,
 	params: LoadAttachedPlanParams,
@@ -77,12 +99,12 @@ async function loadPlannedBranchPlanForKind(
 	pi: PlanCommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
-	kind: "markdown" | "typescript-recipe",
+	kind: PlanFileKind,
 ): Promise<LoadedAttachedPlan> {
 	try {
 		return await loadAttachedPlanForKind(pi, params, options, kind);
 	} catch (error) {
-		if (!(error instanceof NoAttachedPlannedBranchEntriesError) || params.requestedKey !== undefined) {
+		if (!isSavedPlanFallbackEligibleError(error) || params.requestedKey !== undefined) {
 			throw error;
 		}
 
@@ -102,6 +124,10 @@ async function loadPlannedBranchPlanForKind(
 			);
 		}
 	}
+}
+
+function isSavedPlanFallbackEligibleError(error: unknown): error is NoAttachedPlannedBranchEntriesError | NoAttachedPlannedBranchPlanKindEntriesError {
+	return error instanceof NoAttachedPlannedBranchEntriesError || error instanceof NoAttachedPlannedBranchPlanKindEntriesError;
 }
 
 export async function loadAttachedPlan(
@@ -124,7 +150,7 @@ async function loadAttachedPlanForKind(
 	pi: PlanCommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
-	kind: "markdown" | "typescript-recipe",
+	kind: PlanFileKind,
 ): Promise<LoadedAttachedPlan> {
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
 	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
@@ -140,7 +166,7 @@ async function loadAttachedPlanForKind(
 	}
 
 	const selectionInput = params.requestedKey === undefined ? { branch, entries } : { branch, requestedKey: params.requestedKey, entries };
-	const selectedKey = kind === "markdown" ? selectAttachedPlanKey(selectionInput) : selectAttachedTsPlanKey(selectionInput);
+	const selectedKey = selectAttachedPlanKeyForKind(selectionInput, kind);
 	const get = await brmem.getAttachedPlan({ cwd: options.cwd, branch, key: selectedKey, signal: options.signal });
 	if (!get.ok) {
 		throw new Error(get.error.message);
@@ -164,7 +190,7 @@ async function loadSavedPlanFallback(
 	pi: PlanCommandExecApi,
 	branch: string,
 	options: LoadAttachedPlanOptions,
-	kind: "markdown" | "typescript-recipe",
+	kind: PlanFileKind,
 ): Promise<LoadedAttachedPlan> {
 	const selected = await (kind === "markdown" ? resolveSelectedSavedPlanFile : resolveSelectedSavedTsPlanFile)(pi, {
 		cwd: options.cwd,
@@ -221,14 +247,16 @@ function normalizeRequestedAttachedPlanKeyForSuffix(requestedKey: string, suffix
 }
 
 export function selectAttachedPlanKey(input: { branch: string; requestedKey?: string; entries: AttachedPlanEntry[] }): string {
-	return selectAttachedPlanKeyForSuffix(input, ".md");
+	return selectAttachedPlanKeyForKind(input, "markdown");
 }
 
 export function selectAttachedTsPlanKey(input: { branch: string; requestedKey?: string; entries: AttachedPlanEntry[] }): string {
-	return selectAttachedPlanKeyForSuffix(input, ".plan.ts");
+	return selectAttachedPlanKeyForKind(input, "typescript-recipe");
 }
 
-function selectAttachedPlanKeyForSuffix(input: { branch: string; requestedKey?: string; entries: AttachedPlanEntry[] }, suffix: ".md" | ".plan.ts"): string {
+function selectAttachedPlanKeyForKind(input: { branch: string; requestedKey?: string; entries: AttachedPlanEntry[] }, kind: PlanFileKind): string {
+	const format = planFileFormatForKind(kind);
+	const suffix = format.suffix;
 	const matchingEntries = input.entries.filter((entry) => entry.key.endsWith(suffix));
 	const availableKeys = sortedUniqueKeys(matchingEntries);
 	const available = new Set(availableKeys);
@@ -255,14 +283,7 @@ function selectAttachedPlanKeyForSuffix(input: { branch: string; requestedKey?: 
 	}
 
 	if (matchingEntries.length === 0) {
-		throw new Error(
-			[
-				`No attached planned-branch plans with suffix \`${suffix}\` exist on branch \`${input.branch}\` in namespace \`${PLAN_BRANCH_NAMESPACE}\`.`,
-				"",
-				"Available keys:",
-				formatAvailableKeys(sortedUniqueKeys(input.entries)),
-			].join("\n"),
-		);
+		throw new NoAttachedPlannedBranchPlanKindEntriesError(input.branch, kind, sortedUniqueKeys(input.entries));
 	}
 
 	if (matchingEntries.length === 1) {

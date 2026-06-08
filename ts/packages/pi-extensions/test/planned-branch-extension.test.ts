@@ -200,20 +200,29 @@ function resolveWritePlanPromptStep(options: ResolveWritePlanPromptStepOptions =
 	});
 }
 
-function planSlugArgs(content: string): string[] {
-	return buildSlugModelArgs(buildPlanContentSlugPrompt(content));
+function planSlugArgs(content: string, planFileKind: "markdown" | "typescript-recipe" = "markdown"): string[] {
+	return buildSlugModelArgs(buildPlanContentSlugPrompt(content, planFileKind));
 }
 
-function planSlugStep(content: string, slug: string = PLAN_SLUG, result: Partial<ExecResult> = { stdout: `${slug}\n` }): ScriptedExec {
-	return step("pi", planSlugArgs(content), result);
+function planSlugStep(
+	content: string,
+	slug: string = PLAN_SLUG,
+	result: Partial<ExecResult> = { stdout: `${slug}\n` },
+	planFileKind: "markdown" | "typescript-recipe" = "markdown",
+): ScriptedExec {
+	return step("pi", planSlugArgs(content, planFileKind), result);
+}
+
+function tsPlanSlugStep(content: string, slug: string = PLAN_SLUG, result: Partial<ExecResult> = { stdout: `${slug}\n` }): ScriptedExec {
+	return planSlugStep(content, slug, result, "typescript-recipe");
 }
 
 function planSlugExecCall(content: string): { command: string; args: string[] } {
 	return { command: "pi", args: planSlugArgs(content) };
 }
 
-function savedPlanSlugArgs(content: string): string[] {
-	return buildSlugModelArgs(buildSavedPlanContentSlugPrompt(content));
+function savedPlanSlugArgs(content: string, planFileKind: "markdown" | "typescript-recipe" = "markdown"): string[] {
+	return buildSlugModelArgs(buildSavedPlanContentSlugPrompt(content, planFileKind));
 }
 
 interface SavedPlanSlugStepOptions {
@@ -225,6 +234,12 @@ function savedPlanSlugStep(content: string, options: SavedPlanSlugStepOptions = 
 	const slug = options.slug ?? PLAN_SLUG;
 	const result = options.result ?? { stdout: `${slug}\n` };
 	return step("pi", savedPlanSlugArgs(content), result);
+}
+
+function savedTsPlanSlugStep(content: string, options: SavedPlanSlugStepOptions = {}): ScriptedExec {
+	const slug = options.slug ?? PLAN_SLUG;
+	const result = options.result ?? { stdout: `${slug}\n` };
+	return step("pi", savedPlanSlugArgs(content, "typescript-recipe"), result);
 }
 
 function contentSlugEvidence(slug: string = PLAN_SLUG): { slug: string; rawOutput: string; provider: string; model: string } {
@@ -766,6 +781,22 @@ describe("planned-branch:create argument parsing", () => {
 	});
 });
 
+describe("planned-branch slug prompts", () => {
+	test("keeps Markdown and TypeScript recipe prompt wording distinct", () => {
+		const markdownCreatePrompt = buildPlanContentSlugPrompt(DEFAULT_PLAN_CONTENT);
+		const tsCreatePrompt = buildPlanContentSlugPrompt(TS_RECIPE_CONTENT, "typescript-recipe");
+		const markdownSavedPrompt = buildSavedPlanContentSlugPrompt(DEFAULT_PLAN_CONTENT);
+		const tsSavedPrompt = buildSavedPlanContentSlugPrompt(TS_RECIPE_CONTENT, "typescript-recipe");
+
+		expect(markdownCreatePrompt).toContain("Markdown implementation plan content");
+		expect(markdownSavedPrompt).toContain("Markdown implementation plan content");
+		expect(tsCreatePrompt).toContain("trusted TypeScript recipe plan source");
+		expect(tsSavedPrompt).toContain("trusted TypeScript recipe plan source");
+		expect(tsCreatePrompt).not.toContain("Markdown implementation plan");
+		expect(tsSavedPrompt).not.toContain("Markdown implementation plan");
+	});
+});
+
 describe("buildWritePlanPrompt", () => {
 	test("includes local plan store instructions without branch creation", () => {
 		const prompt = buildWritePlanPrompt("add a tiny docs note plan for testing");
@@ -1239,6 +1270,36 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("- Acceptance: /planned-branch:impl-ts sends a rendered prompt.");
 	});
 
+	test("planned-branch:impl-ts falls back to latest saved TypeScript recipe when only Markdown is attached", async () => {
+		const planStoreRoot = await makeTempDir("impl-ts-fallback-plan-store-");
+		const directoryPath = planStoreDirectory(planStoreRoot, IMPL_BRANCH);
+		const filePath = await writePlanStoreFile(directoryPath, PLAN_TS_KEY, 1_800_000_000_000, TS_RECIPE_CONTENT);
+		const events: string[] = [];
+		const pi = new FakePi([
+			gitRootStep(),
+			gitSymbolicHeadStep(IMPL_BRANCH),
+			gitDefaultSymbolicStep(),
+			brmemListStep(IMPL_BRANCH, { stdout: listEnvelope(IMPL_BRANCH, [{ key: PLAN_KEY }]) }),
+			gitRootStep(),
+			gitCurrentBranchStep(IMPL_BRANCH),
+			gitOriginStep(),
+		], events);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("planned-branch:impl-ts");
+		const context = createContext(events);
+
+		await command?.handler("", context.ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "get")).toBe(false);
+		expect(pi.sentMessages[0]?.content).toContain("Loaded saved planned-branch plan from local plan store.");
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain(`Selected key: ${PLAN_TS_KEY}`);
+		expect(pi.sentUserMessages[0]).toContain(`Source file: ${filePath}`);
+		expect(pi.sentUserMessages[0]).toContain("- Do: Add TypeScript planned-branch support.");
+		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:impl-ts", value: undefined });
+	});
+
 	test("planned-branch:create help displays usage without mutation", async () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
@@ -1259,7 +1320,7 @@ describe("plan workflow commands", () => {
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const filePath = await writePlanStoreFile(directoryPath, PLAN_TS_KEY, 1_800_000_000_000, TS_RECIPE_CONTENT);
 		await writePlanStoreFile(directoryPath, PLAN_KEY, 1_900_000_000_000, DEFAULT_PLAN_CONTENT);
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), planSlugStep(TS_RECIPE_CONTENT)]);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), tsPlanSlugStep(TS_RECIPE_CONTENT)]);
 		registerPlannedBranchExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("planned-branch:create-ts");
 		const context = createContext();
@@ -2136,7 +2197,7 @@ describe("write_source_branch_ts_plan_file tool", () => {
 		const sourceBranch = "planned-branches/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const pi = new FakePi([
-			savedPlanSlugStep(TS_RECIPE_CONTENT),
+			savedTsPlanSlugStep(TS_RECIPE_CONTENT),
 			gitRootStep(),
 			gitCurrentBranchStep(sourceBranch),
 			gitOriginStep({ stdout: `${origin}\n` }),

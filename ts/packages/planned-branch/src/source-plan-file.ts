@@ -18,15 +18,32 @@ export interface PlanFileFormat {
 	suffix: PlanFileSuffix;
 	displayName: string;
 	writeCommand: string;
+	createCommand: string;
+	implCommand: string;
+	writeToolName: string;
+	slugPromptContentDescription: string;
 }
 
-const PLAN_FILE_FORMATS = {
-	markdown: { kind: "markdown", suffix: ".md", displayName: "Markdown saved plan", writeCommand: "/planned-branch:write-plan" },
+export const PLAN_FILE_FORMATS = {
+	markdown: {
+		kind: "markdown",
+		suffix: ".md",
+		displayName: "Markdown saved plan",
+		writeCommand: "/planned-branch:write-plan",
+		createCommand: "/planned-branch:create",
+		implCommand: "/planned-branch:impl",
+		writeToolName: "write_source_branch_plan_file",
+		slugPromptContentDescription: "Markdown implementation plan content",
+	},
 	"typescript-recipe": {
 		kind: "typescript-recipe",
 		suffix: ".plan.ts",
 		displayName: "TypeScript recipe saved plan",
 		writeCommand: "/planned-branch:write-ts-plan",
+		createCommand: "/planned-branch:create-ts",
+		implCommand: "/planned-branch:impl-ts",
+		writeToolName: "write_source_branch_ts_plan_file",
+		slugPromptContentDescription: "trusted TypeScript recipe plan source",
 	},
 } as const satisfies Record<PlanFileKind, PlanFileFormat>;
 
@@ -139,8 +156,12 @@ export function sanitizePlanPathSegment(value: string, fallback: string): string
 	return sanitized;
 }
 
+export function planFileFormatForKind(kind: PlanFileKind): PlanFileFormat {
+	return PLAN_FILE_FORMATS[kind];
+}
+
 export function planFileSuffixForKind(kind: PlanFileKind): PlanFileSuffix {
-	return PLAN_FILE_FORMATS[kind].suffix;
+	return planFileFormatForKind(kind).suffix;
 }
 
 export function buildPlanFileName(slug: string, kind: PlanFileKind): string {

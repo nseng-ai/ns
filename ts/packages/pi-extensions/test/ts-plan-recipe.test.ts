@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildImplTsPlannedBranchPrompt, loadTsPlanRecipeFromContent, renderTsPlanRecipe } from "../src/planned-branch/ts-recipe-runtime.ts";
+import { buildImplTsPlannedBranchPrompt, loadTsPlanRecipeFromContent, renderTsPlanRecipe, type LoadedTsPlanRecipe } from "../src/planned-branch/ts-recipe-runtime.ts";
 
 const PLAN_CONTENT = `export const metadata = {
   title: "Prototype TypeScript recipes",
@@ -45,6 +45,37 @@ describe("TypeScript planned-branch recipe runtime", () => {
 		const rendered = await renderTsPlanRecipe(recipe, { cwd: "/repo" });
 
 		expect(rendered.prompt).toContain("- Do: Implement this freeform plan.");
+	});
+
+	test("exposes cwd and signal to trusted recipes", async () => {
+		const controller = new AbortController();
+		const recipe = await loadTsPlanRecipeFromContent(
+			`export default async function plan(pi) {
+				await pi.do(\`Implementation cwd: \${pi.cwd}\`);
+				await pi.acceptance(pi.signal ? "Abort signal is available." : "Abort signal missing.");
+			}`,
+			{ key: "runtime-boundary.plan.ts", cwd: "/repo" },
+		);
+
+		const rendered = await renderTsPlanRecipe(recipe, { cwd: "/repo", signal: controller.signal });
+
+		expect(rendered.prompt).toContain("- Do: Implementation cwd: /repo");
+		expect(rendered.prompt).toContain("- Acceptance: Abort signal is available.");
+	});
+
+	test("stops recording when the recipe abort signal fires during evaluation", async () => {
+		const controller = new AbortController();
+		const recipe: LoadedTsPlanRecipe = {
+			metadata: {},
+			key: "abort-mid-render.plan.ts",
+			recipe: async (pi) => {
+				await pi.do("before abort");
+				controller.abort();
+				await pi.do("after abort");
+			},
+		};
+
+		await expect(renderTsPlanRecipe(recipe, { cwd: "/repo", signal: controller.signal })).rejects.toThrow("cancelled");
 	});
 
 	test("rejects missing default function exports", async () => {

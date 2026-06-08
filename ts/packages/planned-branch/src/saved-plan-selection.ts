@@ -5,6 +5,7 @@ import {
 	buildPlanFileName,
 	findLatestSourceBranchPlanFile,
 	findLatestSourceBranchTsPlanFile,
+	planFileFormatForKind,
 	planFileSuffixForKind,
 	resolvePlanStoreDirectory,
 	type LatestSourceBranchPlanFileEvidence,
@@ -16,8 +17,8 @@ import {
 import { isPathInside, normalizePlanFilePath, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
 import { isRecord } from "./primitives.ts";
 
-export const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
-export const WRITE_SOURCE_BRANCH_TS_PLAN_FILE_TOOL_NAME = "write_source_branch_ts_plan_file";
+export const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = planFileFormatForKind("markdown").writeToolName;
+export const WRITE_SOURCE_BRANCH_TS_PLAN_FILE_TOOL_NAME = planFileFormatForKind("typescript-recipe").writeToolName;
 
 export type ValidatedSessionSavedPlan = LatestSourceBranchPlanFileEvidence & {
 	summary?: string;
@@ -188,7 +189,7 @@ async function findLatestSessionSavedPlanFileForKind(
 	directory: PlanStoreDirectoryEvidence,
 	kind: PlanFileKind,
 ): Promise<LatestSessionSavedPlanResult> {
-	const toolName = kind === "markdown" ? WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME : WRITE_SOURCE_BRANCH_TS_PLAN_FILE_TOOL_NAME;
+	const toolName = planFileFormatForKind(kind).writeToolName;
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const entry = entries[index];
 		const evidence = extractSourceBranchPlanFileEvidenceFromSessionEntry(entry, { toolName });
@@ -229,13 +230,12 @@ async function resolveSelectedSavedPlanFileForKind(
 	options: ResolveSelectedSavedPlanFileOptions,
 	kind: PlanFileKind,
 ): Promise<SelectedSavedPlanFile> {
-	const suffix = planFileSuffixForKind(kind);
-	const createCommand = kind === "markdown" ? "/planned-branch:create" : "/planned-branch:create-ts";
-	const writeCommand = kind === "markdown" ? "/planned-branch:write-plan" : "/planned-branch:write-ts-plan";
+	const format = planFileFormatForKind(kind);
+	const suffix = format.suffix;
 	if (options.explicitPath !== undefined) {
 		const filePath = normalizePlanFilePath(options.explicitPath);
 		if (!isAbsolute(filePath)) {
-			throw new Error(`Plan file path must be absolute or home-relative for ${createCommand}; got ${filePath || "(empty)"}.`);
+			throw new Error(`Plan file path must be absolute or home-relative for ${format.createCommand}; got ${filePath || "(empty)"}.`);
 		}
 
 		const fileName = basename(filePath);
@@ -265,7 +265,7 @@ async function resolveSelectedSavedPlanFileForKind(
 		return { type: "latest", plan: latest, savedPlanFileStem: latest.slug };
 	}
 
-	throw new Error(`No usable saved plan from ${writeCommand} was found in the current session branch.`);
+	throw new Error(`No usable saved plan from ${format.writeCommand} was found in the current session branch.`);
 }
 
 function parseSourceBranchPlanFileEvidence(details: Record<string, unknown>): SourceBranchPlanFileEvidence | undefined {

@@ -13,6 +13,7 @@ import {
 	formatSourceBranchPlanFileEvidence,
 	loadPlannedBranchPlan,
 	loadPlannedBranchTsPlan,
+	planFileFormatForKind,
 	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
 	resolveSelectedSavedTsPlanFile as resolveSelectedSavedTsPlanFilePrimitive,
 	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
@@ -346,9 +347,11 @@ If summary is not useful, omit it from the tool call rather than passing an empt
 export const DEFAULT_WRITE_TS_PLAN_PROMPT_BODY = `Plan audience and TypeScript recipe contract:
 - Produce a complete trusted local TypeScript planned-branch recipe source file, not Markdown.
 - The .plan.ts source is the source of truth for a future Pi-only implementation session and will be evaluated by Pi with local system permissions. Do not present it as safe for untrusted code.
-- Use no imports by default. Default-export an async function such as \`export default async function plan(pi) { ... }\`.
+- Use no imports by default. The source is imported from a temporary file during evaluation, so do not rely on relative module-resolution side effects unless explicitly verified.
+- Default-export an async function such as \`export default async function plan(pi) { ... }\`.
 - Optionally export \`metadata\` with string \`title\` and \`summary\` fields.
 - Prefer recipe runtime calls: \`pi.goal\`, \`pi.context\`, \`pi.phase\`, \`pi.task\`, \`pi.inspect\`, \`pi.do\`, \`pi.acceptance\`, \`pi.shell\`, and \`pi.note\`.
+- The runtime exposes \`pi.cwd\` and \`pi.signal\`; \`pi.shell\` records validation commands for the later implementation session and does not execute shell commands during recipe evaluation.
 - A degenerate \`await pi.do(\`large freeform implementation plan\`)\` recipe is valid when structure is overkill.
 - Make the recipe self-contained for a fresh downstream implementation session and embed relevant repository facts, decisions, risks, and validation commands.
 
@@ -577,12 +580,12 @@ async function resolveCreatePlannedBranchPreviewForKind(
 ): Promise<CreatePlannedBranchPreview> {
 	const selected = planFileKind === "markdown" ? await resolveSelectedSavedPlanFile(pi, args, ctx, options) : await resolveSelectedSavedTsPlanFile(pi, args, ctx, options);
 	const selectedFile = selectedSavedPlanFileInfo(selected);
+	const format = planFileFormatForKind(planFileKind);
 	const statusKey = planFileKind === "markdown" ? PLANNED_BRANCH_STATUS_KEY : CREATE_TS_PLANNED_BRANCH_STATUS_KEY;
 	ctx.ui.setStatus(statusKey, "deriving branch slug from plan content…");
-	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedFile.filePath, cwd: ctx.cwd });
+	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedFile.filePath, cwd: ctx.cwd, planFileKind });
 	const branchCreation = args.branchCreation ?? resolvePlannedBranchDefaultCreation(options);
 	const targetBranch = derivePlannedTargetBranch(args, slugEvidence.slug, options);
-	const keySuffix = planFileKind === "markdown" ? ".md" : ".plan.ts";
 	const base = {
 		slug: slugEvidence.slug,
 		savedPlanFileStem: selected.savedPlanFileStem,
@@ -592,7 +595,7 @@ async function resolveCreatePlannedBranchPreviewForKind(
 		branchCreation,
 		slugEvidence,
 		namespace: PLAN_BRANCH_NAMESPACE,
-		key: `${slugEvidence.slug}${keySuffix}`,
+		key: `${slugEvidence.slug}${format.suffix}`,
 		planFileKind,
 	};
 
@@ -1120,6 +1123,7 @@ function buildWriteSourceBranchTsPlanFileTool(pi: ExtensionAPI, options: Planned
 					content: toolParams.content,
 					cwd: ctx.cwd,
 					...(signal === undefined ? {} : { signal }),
+					planFileKind: "typescript-recipe",
 				});
 				emitWriteSourceTsPlanProgress(
 					onUpdate,
