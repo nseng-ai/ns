@@ -8,7 +8,7 @@ import click
 
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.git.types import GitCommandFailure, LocalBranchTip
+from asdl_core.git.types import GitCommandFailure, LocalBranchTip, PathChangeTouch
 from asdl_objectives.context import (
     ObjectiveCliContext,
     ObjectiveCliUnavailable,
@@ -164,17 +164,23 @@ def _build_updated_branches_by_slug(
         if isinstance(touches, GitCommandFailure):
             return touches
 
-        branch_slugs: set[str] = set()
-        for touch in touches:
-            for path in touch.paths:
-                slug = objective_slug_from_active_path(path)
-                if slug in slugs:
-                    branch_slugs.add(slug)
-
-        for slug in sorted(branch_slugs):
+        for slug in sorted(_objective_slugs_from_touches(touches, slugs)):
             updated_branches_by_slug[slug].append(branch)
 
     return {slug: tuple(branch_names) for slug, branch_names in updated_branches_by_slug.items()}
+
+
+def _objective_slugs_from_touches(
+    touches: tuple[PathChangeTouch, ...],
+    slugs: frozenset[str],
+) -> set[str]:
+    touched_slugs: set[str] = set()
+    for touch in touches:
+        for path in touch.paths:
+            slug = objective_slug_from_active_path(path)
+            if slug in slugs:
+                touched_slugs.add(slug)
+    return touched_slugs
 
 
 def _local_non_trunk_branches(ctx: ObjectiveCliContext) -> tuple[str, ...]:

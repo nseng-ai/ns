@@ -59,22 +59,11 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
         return
 
     click.echo()
-    if result.updated_branches_included:
-        click.echo("| objective | status | latest update | updated branches |")
-        click.echo("| --- | --- | --- | --- |")
-        for record in result.records:
-            click.echo(
-                f"| {record.slug} | {_status_label(record.status)} | "
-                f"{_format_latest_update(record)} | {_format_updated_branches(record)} |"
-            )
-        return
-
-    click.echo("| objective | status | latest update |")
-    click.echo("| --- | --- | --- |")
+    columns = _markdown_columns(result)
+    click.echo(_markdown_table_row(columns))
+    click.echo(_markdown_table_row(tuple("---" for _ in columns)))
     for record in result.records:
-        click.echo(
-            f"| {record.slug} | {_status_label(record.status)} | {_format_latest_update(record)} |"
-        )
+        click.echo(_markdown_record_row(record, result.updated_branches_included))
 
 
 def _render_slugs(result: ObjectiveListResult) -> None:
@@ -92,6 +81,27 @@ def _render_metadata_human(result: ObjectiveListResult) -> None:
 def _render_metadata_markdown(result: ObjectiveListResult) -> None:
     click.echo(f"Root: `{result.root_path}`")
     click.echo(f"Status filter: `{result.status_filter}`")
+
+
+def _markdown_columns(result: ObjectiveListResult) -> tuple[str, ...]:
+    columns = ("objective", "status", "latest update")
+    if result.updated_branches_included:
+        return (*columns, "updated branches")
+    return columns
+
+
+def _markdown_record_row(
+    record: ObjectiveListRecord,
+    include_updated_branches: bool,
+) -> str:
+    cells = (record.slug, _status_label(record.status), _format_latest_update(record))
+    if include_updated_branches:
+        cells = (*cells, _format_updated_branches(record))
+    return _markdown_table_row(cells)
+
+
+def _markdown_table_row(cells: tuple[str, ...]) -> str:
+    return f"| {' | '.join(cells)} |"
 
 
 def _render_updated_branch_records_human(result: ObjectiveListResult) -> None:
