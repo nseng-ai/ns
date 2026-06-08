@@ -11,8 +11,8 @@
 - [x] Preserve or retire the current Pi dependency patch with evidence.
       Evidence: the existing `@earendil-works/pi-ai@0.78.0` patch is preserved as pnpm-native workspace metadata in `ts/pnpm-workspace.yaml`; `ts/pnpm-lock.yaml` records the exact-version patch with a `patch_hash`, so patch application is represented by pnpm instead of removed.
 
-- [ ] Migrate root orchestration and `justfile` TypeScript commands to directory-scoped pnpm.
-      Keep the root orchestration-only. Replace active Bun invocations for TypeScript workspace commands with explicit pnpm commands rooted in `ts/`, and leave test-runner semantics to the Vitest Objective when possible.
+- [x] Migrate root orchestration and `justfile` TypeScript commands to directory-scoped pnpm.
+      Evidence: root `justfile` TypeScript install/check/test recipes now invoke `pnpm --dir {{justfile_directory()}}/ts`, `link-planned-branch` uses `pnpm link`, and the CI `typescript` job sets up pnpm/Node, caches `ts/pnpm-lock.yaml`, and uses `pnpm --dir ts install --frozen-lockfile` plus pnpm check/test runners. Bun remains only as transitional test-runtime setup for package-local `bun test --sequential` scripts. Focused validation passed with the expected local Node v24.2.0 unsupported-engine warning.
 
 - [ ] Migrate `docs-site/` package-manager and deploy commands to pnpm.
       Keep `docs-site/` as a standalone pnpm-managed surface. Update local scripts, lockfile/package-manager metadata, and deploy/build command configuration in scope for package-manager migration.
