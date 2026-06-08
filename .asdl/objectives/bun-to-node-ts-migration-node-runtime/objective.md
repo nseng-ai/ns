@@ -42,23 +42,27 @@ This Objective is complete when:
 
 Assumptions:
 
-- Node v24.12+ remains the supported TypeScript runtime baseline inherited from the tooling contract.
-- Native Node TypeScript type stripping remains the desired project-local runtime strategy; source `.ts` entrypoints and package exports should stay erasable-only rather than requiring a build step by default.
-- The pnpm workspace source-link layout continues to let project-local packages import explicit `.ts` exports without placing TypeScript source under real non-workspace `node_modules` package contents.
-- The completed Vitest migration removed the test-runner need for Bun types, so remaining Bun references are more likely runtime launch paths, fallback commands, docs/templates, or historical prose.
-- The current `sqlite3` CLI Graphite metadata reader is acceptable unless this Objective finds Node runtime compatibility evidence that justifies replacing it.
+- Node v24.12+ remains the supported TypeScript runtime baseline inherited from the tooling contract. Implementation evidence used Node v24.12.0 for direct `.ts` entrypoint and import smoke validation.
+- Native Node TypeScript type stripping remains the desired project-local runtime strategy; source `.ts` entrypoints and package exports stay erasable-only without a build step by default.
+- The pnpm workspace source-link layout continues to let project-local packages import explicit `.ts` exports across package links; checked-in smoke coverage now exercises the relevant project-local Pi adapter and workspace import paths.
+- The completed Vitest migration removed the test-runner need for Bun types; remaining active Bun references in this slice are classified as generic runner safety handling or out-of-scope prose/template cleanup rather than runtime blockers.
+- The current `sqlite3` CLI Graphite metadata reader remains the selected policy. Evidence showed `sqlite3` is available locally while `node:sqlite` still emits an experimental warning, so there is no runtime-compatibility reason to replace the CLI reader in this Objective.
 
 Risks:
 
-- Direct `.ts` CLI bin execution may need careful shebang or wrapper handling because Node's native TypeScript support has version-specific behavior around `import.meta.main`, executable scripts, and warning output.
-- Future non-erasable TypeScript syntax could silently break runtime entrypoints if `erasableSyntaxOnly` or equivalent checks are not enforced.
-- Pi extension loading may cross package boundaries in ways that work in the workspace but not in installed or non-symlinked dependency layouts; this Objective should distinguish project-local compatibility from publish/install guarantees.
-- Replacing the `sqlite3` CLI reader with `node:sqlite` could introduce experimental warning noise; broad warning suppression would be worse than keeping the current CLI reader.
-- Bun command fallbacks such as `bunx` may still appear in active source for third-party tool execution; the Objective must decide whether those are runtime migration targets or deliberate non-Node package-manager fallbacks.
+- Direct `.ts` CLI bin execution risk is de-risked for the supported runtime by Node v24.12.0 direct source smoke tests and pnpm exec smoke commands for `asdl-dev` and `planned-branch`.
+- Future non-erasable TypeScript syntax is mitigated by `compilerOptions.erasableSyntaxOnly: true` plus the TypeScript workspace check.
+- Pi extension loading across workspace package boundaries is de-risked for project-local workspace usage by Node-backed import smoke tests. Published-package or non-workspace install guarantees remain parked outside this Objective.
+- Replacing the `sqlite3` CLI reader with `node:sqlite` would still introduce experimental warning noise, so the accepted policy is to keep the existing adapter-bound external CLI reader.
+- Bun command fallback risk is resolved for active TypeScript runtime paths by replacing the `bunx vercel@latest` fallback with `pnpm dlx vercel@latest`; remaining Bun-shaped hits are classified rather than broadened into template/prose cleanup.
 
 ## Open Questions
 
-- Should CLI `bin` entries continue to point directly at `.ts` source files under Node, or should the supported launch path use package scripts/wrappers that invoke `node` explicitly?
-- Is adding `erasableSyntaxOnly` to `tsconfig.json` sufficient runtime guardrail, or do representative Node smoke tests need to import or execute every exported CLI/extension surface?
-- Should the Graphite metadata reader remain on the external `sqlite3` CLI, or should this Objective replace it with `node:sqlite` behind the existing adapter boundary and targeted warning handling?
-- Which remaining active Bun references are runtime blockers versus deliberate template guidance or historical prose for the later Bun-reference reconciliation Objective?
+- CLI `bin` entries continue to point directly at `.ts` source files. The supported launch path is Node v24.12+ native type stripping, with committed Node shebangs and smoke coverage rather than JavaScript build artifacts.
+- `erasableSyntaxOnly` is now the compiler guardrail, backed by representative Node execution/import smoke tests for CLI and Pi extension runtime surfaces.
+- The Graphite metadata reader remains on the external `sqlite3` CLI. `node:sqlite` is not adopted because it still emits an experimental warning and no concrete Node runtime incompatibility required replacement.
+- Remaining Bun references are classified as generic runner handling (`node|bun` executable-name checks and `/$bunfs/root/` safety filtering), active guidance that explicitly forbids Bun tests, or unrelated substring/prose/template material for the broader Bun-reference reconciliation Objective.
+
+## Closure
+
+Completed as a focused Node runtime compatibility slice. Evidence includes Node v24.12.0 direct execution of `ts/packages/asdl-dev/src/cli.ts --help` and `ts/packages/planned-branch/src/cli.ts --help`, pnpm exec smoke for both CLIs after Node shebang changes, `erasableSyntaxOnly` in the TypeScript workspace config, Node-backed Pi extension/workspace import smoke coverage, replacement of the active Vercel `bunx` fallback with `pnpm dlx`, and reaffirmation of the external `sqlite3` CLI Graphite metadata policy. Validation passed with the TypeScript workspace check, full Vitest workspace suite, `just ts-test`, and dprint check. Follow-up broad Bun-reference reconciliation remains outside this Objective.

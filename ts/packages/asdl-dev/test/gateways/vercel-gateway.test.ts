@@ -59,7 +59,7 @@ function inspectJson(): string {
 describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 	test("uses vercel command and githubCommitRef metadata only", async () => {
 		const runner = new ScriptedCommandRunner([step("vercel", listArgs(), deploymentListJson())]);
-		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["vercel", "bunx"]) });
+		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["vercel", "pnpm"]) });
 
 		const result = await gateway.listReadyPreviewDeployments({
 			project: "asdl-tools",
@@ -90,19 +90,19 @@ describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 		runner.assertDone();
 	});
 
-	test("falls back to bunx vercel@latest when vercel is unavailable", async () => {
-		const runner = new ScriptedCommandRunner([step("bunx", ["vercel@latest", ...listArgs()], JSON.stringify({ deployments: [] }))]);
-		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["bunx"]) });
+	test("falls back to pnpm dlx vercel@latest when vercel is unavailable", async () => {
+		const runner = new ScriptedCommandRunner([step("pnpm", ["dlx", "vercel@latest", ...listArgs()], JSON.stringify({ deployments: [] }))]);
+		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["pnpm"]) });
 
 		expect(await gateway.listReadyPreviewDeployments({ project: "asdl-tools", scope: "schrockns-projects", branch: "feature/demo", cwd: "/repo" })).toEqual({
 			ok: true,
 			value: [],
 		});
-		expect(runner.calls).toEqual([{ command: "bunx", args: ["vercel@latest", ...listArgs()], cwd: "/repo" }]);
+		expect(runner.calls).toEqual([{ command: "pnpm", args: ["dlx", "vercel@latest", ...listArgs()], cwd: "/repo" }]);
 		runner.assertDone();
 	});
 
-	test("returns vercel_cli_unavailable when neither vercel nor bunx is available", async () => {
+	test("returns vercel_cli_unavailable when neither vercel nor pnpm is available", async () => {
 		const runner = new ScriptedCommandRunner([]);
 		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith([]) });
 

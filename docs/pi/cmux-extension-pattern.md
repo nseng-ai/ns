@@ -25,7 +25,7 @@ Current layers:
 | cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                       |
 | Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                     |
 
-Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with Bun tests. Keep generic Pi lifecycle/footer/watch plumbing in `@asdl/pi-extensions`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
+Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@asdl/pi-extensions`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
 Do not put raw cmux mutation sequences in long skill bodies when a tested `asdl exec` command can own them.
 
