@@ -186,14 +186,16 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /code:autobranch."))).toBe(true);
 	});
 
-	test("dirty worktree with unpublished committed work creates a branch for the dirty checkpoint", async () => {
-		const harness = createHarness({ upstreamMode: "ahead" });
+	test("dirty worktree creates a branch for the dirty checkpoint without upstream inspection", async () => {
+		const harness = createHarness();
 
 		await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).toContain("prepare");
 		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
 		expect(eventIndex(harness.events, "exec:gt create test-branch")).toBeGreaterThan(-1);
+		expect(harness.events).not.toContain("exec:git rev-parse --abbrev-ref --symbolic-full-name @{u}");
+		expect(harness.events).not.toContain("exec:git merge-base --is-ancestor HEAD @{u}");
 		expect(harness.notifications.some((notice) => notice.level === "error")).toBe(false);
 		expect(harness.notifications.at(-1)?.message).toContain("New branch: test-branch");
 		expect(harness.notifications.at(-1)?.message).toContain("Stacked on: base-branch");
@@ -210,14 +212,17 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
-	test("dirty worktree with failed upstream check fails hard before preparation", async () => {
+	test("dirty worktree ignores upstream-check failure and continues", async () => {
 		const harness = createHarness({ upstreamMode: "failed" });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
-		expect(harness.events).not.toContain("prepare");
-		expect(eventIndex(harness.events, "exec:git stash push")).toBe(-1);
-		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("refusing to autobranch"))).toBe(true);
+		expect(harness.events).toContain("prepare");
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
+		expect(harness.events).not.toContain("exec:git rev-parse --abbrev-ref --symbolic-full-name @{u}");
+		expect(harness.events).not.toContain("exec:git merge-base --is-ancestor HEAD @{u}");
+		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("refusing to autobranch"))).toBe(false);
+		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {
@@ -232,6 +237,8 @@ describe("createAutobranchCheckpointFlow", () => {
 		const commit = eventIndex(harness.events, "commit");
 		expect(eventIndex(harness.events, "exec:git rev-parse")).toBeLessThan(prepare);
 		expect(eventIndex(harness.events, "exec:git check-ref-format")).toBeLessThan(prepare);
+		expect(harness.events.slice(0, stash)).not.toContain("exec:git rev-parse --abbrev-ref --symbolic-full-name @{u}");
+		expect(harness.events.slice(0, stash)).not.toContain("exec:git merge-base --is-ancestor HEAD @{u}");
 		expect(prepare).toBeLessThan(stash);
 		expect(stash).toBeLessThan(create);
 		expect(create).toBeLessThan(restore);

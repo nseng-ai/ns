@@ -5,12 +5,10 @@ import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
 import { chooseAvailableBranchName } from "./autobranch-branch-name.ts";
-import { truncateText } from "./autobranch-shared.ts";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "./branch-slug.ts";
-import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";
+import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./autobranch-slug.ts";
+import { sanitizeBranchName } from "./branch-slug.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
-const MAX_DIFF_CHARS = 24_000;
 const MAX_UNTRACKED_FILES = 12;
 const MAX_UNTRACKED_FILE_CHARS = 4_000;
 
@@ -96,12 +94,12 @@ type PreparedBaseSlugResult =
 	| Extract<AutobranchPreparationResult, { kind: "invalid_requested_slug" | "slug_generation_failed" }>;
 
 async function prepareBaseSlug(input: AutobranchPreparationInput): Promise<PreparedBaseSlugResult> {
-	if (input.args.slug) {
-		const requestedSlug = sanitizeBranchName(input.args.slug);
-		if (!requestedSlug) {
-			return { ok: false, kind: "invalid_requested_slug", requestedSlug: input.args.slug };
-		}
-		return { ok: true, baseSlug: requestedSlug, source: "requested" };
+	const requested = prepareRequestedBranchSlug(input.args.slug);
+	if (requested.kind === "invalid_requested_slug") {
+		return { ok: false, kind: "invalid_requested_slug", requestedSlug: requested.requestedSlug };
+	}
+	if (requested.kind === "slug") {
+		return { ok: true, baseSlug: requested.baseSlug, source: requested.source };
 	}
 
 	const untracked = await readUntrackedSnippets(input, input.snapshot.root);
@@ -150,17 +148,9 @@ async function generateSlugFromChanges(input: AutobranchPreparationInput, snapsh
 	input.setStatus("generating branch slug…");
 	try {
 		const prompt = buildSlugPrompt(snapshot);
-		const result = await deriveSlugWithModel({
-			cwd: input.cwd,
-			prompt,
-			slugKind: "branch slug",
-			normalizeOutput: sanitizeBranchName,
-			exec: (command, args, options) =>
-				input.exec(command, args, options.cwd ?? input.cwd, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
-		});
-
+		const result = await deriveBranchSlug({ cwd: input.cwd, prompt, exec: input.exec });
 		if (result.ok) {
-			return { ok: true, baseSlug: result.evidence.slug, source: "model" };
+			return { ok: true, baseSlug: result.baseSlug, source: result.source };
 		}
 
 		const fallbackSlug = fallbackSlugFromSnapshot(snapshot);
@@ -168,35 +158,22 @@ async function generateSlugFromChanges(input: AutobranchPreparationInput, snapsh
 			return { ok: true, baseSlug: fallbackSlug, source: "fallback", warning: { kind: "slug_model_failed", fallbackSlug } };
 		}
 
-		return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${formatSlugModelFailure(result.failure)}` };
+		return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${result.formattedFailure}` };
 	} finally {
 		input.setStatus(undefined);
 	}
 }
 
 function buildSlugPrompt(snapshot: AutobranchSnapshot): string {
-	return [
-		"Generate a concise git branch slug for the pending changes below.",
-		"Infer the actual code, docs, or product change from the diff contents.",
-		"Rules:",
-		"- Return only the slug, with no quotes, markdown, or explanation.",
-		"- Use kebab-case lowercase ASCII words separated by hyphens.",
-		`- Keep it at or under ${MAX_BRANCH_SLUG_LENGTH} characters.`,
-		"- Lead with a verb when natural, such as add, fix, refactor, migrate, rename, remove, or update.",
-		"- Do not use slashes, spaces, underscores, punctuation, or special characters.",
-		"- Prefer concrete deliverables and specific nouns from the diff over broad words like changes or cleanup.",
-		"",
-		"## git status --porcelain",
-		snapshot.status.trim() || "(clean)",
-		"",
-		"## git diff HEAD",
-		truncateText(snapshot.diff.trim() || "(no tracked diff)", MAX_DIFF_CHARS),
-		snapshot.untracked ? "" : undefined,
-		snapshot.untracked ? "## untracked file contents" : undefined,
-		snapshot.untracked ? truncateText(snapshot.untracked, MAX_DIFF_CHARS) : undefined,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
+	return buildBranchSlugPrompt({
+		intro: "Generate a concise git branch slug for the pending changes below.",
+		inference: "Infer the actual code, docs, or product change from the diff contents.",
+		evidenceSections: [
+			{ heading: "git status --porcelain", content: snapshot.status, emptyText: "(clean)" },
+			{ heading: "git diff HEAD", content: snapshot.diff, emptyText: "(no tracked diff)", maxChars: MAX_DIFF_CHARS },
+			...(snapshot.untracked ? [{ heading: "untracked file contents", content: snapshot.untracked, maxChars: MAX_DIFF_CHARS }] : []),
+		],
+	});
 }
 
 function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefined {

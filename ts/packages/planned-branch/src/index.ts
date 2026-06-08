@@ -2,6 +2,7 @@ export {
 	NoAttachedPlannedBranchEntriesError,
 	buildImplPlannedBranchPrompt,
 	formatLoadedAttachedPlanEvidence,
+	loadedPlanTitle,
 	loadAttachedPlan,
 	loadPlannedBranchPlan,
 	normalizeRequestedAttachedPlanKey,

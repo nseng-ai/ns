@@ -421,6 +421,7 @@ describe("planned-branch exec", () => {
 			namespace: PLAN_BRANCH_NAMESPACE,
 			selected_key: PLAN_KEY,
 			byte_count: content.length,
+			source: "attached",
 		});
 		expect(payload).not.toHaveProperty("attached_plan_content");
 		expect(payload).not.toHaveProperty("implementation_prompt");
@@ -477,6 +478,7 @@ describe("planned-branch exec", () => {
 			branch,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			selected_key: PLAN_KEY,
+			source: "attached",
 			implementation_prompt_file: promptFile,
 		});
 		expect(payload).not.toHaveProperty("attached_plan_content");
@@ -505,6 +507,7 @@ describe("planned-branch exec", () => {
 			namespace: PLAN_BRANCH_NAMESPACE,
 			selected_key: PLAN_KEY,
 			byte_count: content.length,
+			source: "attached",
 			attached_plan_content: content,
 		});
 		expect(String(payload.implementation_prompt)).toContain("# planned-branch implementation");
