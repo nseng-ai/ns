@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 
 import { runCheckpointCommand, runCheckpointIfPending } from "./checkpoint.ts";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
@@ -453,7 +456,19 @@ function isYesAnswer(answer: string): boolean {
 	return normalized === "y" || normalized === "yes";
 }
 
-if (import.meta.main) {
+if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
 	const confirm = createTerminalConfirmPrompt();
 	process.exitCode = await runCli(process.argv.slice(2), confirm === undefined ? {} : { confirm });
+}
+
+function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {
+	if (argvPath === undefined) return false;
+
+	try {
+		const modulePath = realpathSync(fileURLToPath(metaUrl));
+		const entryPath = realpathSync(resolve(argvPath));
+		return modulePath === entryPath;
+	} catch {
+		return false;
+	}
 }
