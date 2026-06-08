@@ -88,6 +88,7 @@ def run_read_objective(
             _empty_result(
                 status="missing_slug",
                 error="missing_slug",
+                root=root,
                 slug=None,
                 path=None,
                 root_exists=root_exists,
@@ -100,6 +101,7 @@ def run_read_objective(
             _empty_result(
                 status="invalid_slug",
                 error="invalid_slug",
+                root=root,
                 slug=None,
                 path=None,
                 root_exists=root_exists,
@@ -114,6 +116,7 @@ def run_read_objective(
             _empty_result(
                 status="not_found",
                 error="not_found",
+                root=root,
                 slug=request.slug,
                 path=relative_path.as_posix(),
                 root_exists=root_exists,
@@ -144,6 +147,7 @@ def _empty_result(
     *,
     status: ReadObjectiveStatus,
     error: str,
+    root: Path,
     slug: str | None,
     path: str | None,
     root_exists: bool,
@@ -151,7 +155,7 @@ def _empty_result(
     return ReadObjectiveResult(
         status=status,
         error=error,
-        root_path=active_root_relative_path().as_posix(),
+        root_path=root.as_posix(),
         root_exists=root_exists,
         slug=slug,
         path=path,
