@@ -5,6 +5,7 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 ## General diagnostics posture
 
 - Prefer `planned-branch exec resolve-plan` for saved-plan resolution.
+- Prefer `planned-branch exec list-plans [--source-branch <branch>]` for saved-plan local store inventory.
 - Prefer `planned-branch exec load-plan` for attached-plan loading.
 - Use `brmem list/get` read-only only when diagnosing Branch Memory attachment state.
 - Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/planned-branch/plans/`; do not perform broad home-directory traversals.

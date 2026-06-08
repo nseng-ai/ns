@@ -96,6 +96,20 @@ With no explicit file path, resolution finds the newest Markdown plan in the
 current repo/source-branch local plan store directory. Explicit paths may be
 absolute or current-user home-relative and must point to Markdown files.
 
+### List saved plans for a source branch
+
+Agents can list all Markdown and TypeScript recipe saved plans associated with a
+source branch in the current repository:
+
+```text
+planned-branch exec list-plans [--source-branch <branch>] [--format json]
+```
+
+When `--source-branch` is omitted, the command lists plans for the current source
+branch. Missing local plan-store directories are not errors; they return an empty
+list with the resolved repo key, source branch, branch path segment, and directory
+path.
+
 ### Create a planned branch
 
 Pi users run `/planned-branch:create`. Other agents use the

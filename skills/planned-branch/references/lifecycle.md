@@ -56,6 +56,7 @@ CLI surfaces:
 
 - `planned-branch exec write-plan-file`
 - `planned-branch exec resolve-plan`
+- `planned-branch exec list-plans`
 - `planned-branch exec create`
 - `planned-branch exec load-plan`
 

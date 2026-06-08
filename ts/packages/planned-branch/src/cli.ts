@@ -26,9 +26,11 @@ import { normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 import {
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
+	listSourceBranchPlanFiles,
 	writeSourceBranchPlanFile,
 	type LatestSourceBranchPlanFileEvidence,
 	type SourceBranchPlanFileEvidence,
+	type SourceBranchPlanFileListEvidence,
 } from "./source-plan-file.ts";
 import { resolvePlanSourceFile } from "./plan-persistence.ts";
 
@@ -65,6 +67,11 @@ interface WritePlanFileArgs {
 
 interface ResolvePlanArgs {
 	path?: string;
+	format?: "json";
+}
+
+interface ListPlansArgs {
+	sourceBranch?: string;
 	format?: "json";
 }
 
@@ -147,6 +154,8 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 				return await runWritePlanFile(args.slice(1), deps);
 			case "resolve-plan":
 				return await runResolvePlan(args.slice(1), deps);
+			case "list-plans":
+				return await runListPlans(args.slice(1), deps);
 			case "create":
 				return await runCreate(args.slice(1), deps);
 			case "load-plan":
@@ -199,6 +208,28 @@ async function runResolvePlan(args: readonly string[], deps: RequiredCliDeps): P
 		return 0;
 	}
 	deps.stdout(`${formatResolvePlanEvidence(evidence)}\n`);
+	return 0;
+}
+
+async function runListPlans(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
+	const parsed = parseListPlansArgs(args);
+	if (parsed.type === "help") {
+		deps.stdout(listPlansHelp());
+		return 0;
+	}
+	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
+
+	const evidence = await listSourceBranchPlanFiles(deps.context.commands, {
+		cwd: deps.cwd,
+		git: deps.context.git,
+		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+		...(parsed.value.sourceBranch === undefined ? {} : { sourceBranch: parsed.value.sourceBranch }),
+	});
+	if (parsed.value.format === "json") {
+		deps.stdout(`${JSON.stringify({ success: true, ...listPlansJson(evidence) })}\n`);
+		return 0;
+	}
+	deps.stdout(`${formatListPlansEvidence(evidence)}\n`);
 	return 0;
 }
 
@@ -382,6 +413,36 @@ function parseResolvePlanArgs(args: readonly string[]): ParseResult<ResolvePlanA
 		path = arg;
 	}
 	return { type: "ok", value: { ...(path === undefined ? {} : { path }), ...(format === undefined ? {} : { format }) } };
+}
+
+function parseListPlansArgs(args: readonly string[]): ParseResult<ListPlansArgs> {
+	let sourceBranch: string | undefined;
+	let format: "json" | undefined;
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		if (arg === undefined) continue;
+		if (arg === "--help" || arg === "-h") return { type: "help" };
+		if (arg === "--source-branch") {
+			const value = parseFlagValue(args, index, "--source-branch");
+			if (value.type === "error") return value;
+			const trimmed = value.value.trim();
+			if (trimmed.length === 0) return { type: "error", message: "--source-branch must not be empty." };
+			sourceBranch = trimmed;
+			index += 1;
+			continue;
+		}
+		if (arg === "--format") {
+			const value = parseFlagValue(args, index, "--format");
+			if (value.type === "error") return value;
+			const parsed = parseFormat(value.value);
+			if (parsed.type === "error") return parsed;
+			format = parsed.value;
+			index += 1;
+			continue;
+		}
+		return { type: "error", message: `Unknown option: ${arg}` };
+	}
+	return { type: "ok", value: { ...(sourceBranch === undefined ? {} : { sourceBranch }), ...(format === undefined ? {} : { format }) } };
 }
 
 function parseCreateArgs(args: readonly string[]): ParseResult<CreateArgs> {
@@ -627,6 +688,25 @@ function resolvePlanJson(evidence: ResolvePlanEvidence): Record<string, unknown>
 	}
 }
 
+function listPlansJson(evidence: SourceBranchPlanFileListEvidence): Record<string, unknown> {
+	return {
+		repo_root: evidence.repoRoot,
+		repo_key: evidence.repoKey,
+		repo_identity_source: evidence.repoIdentitySource,
+		source_branch: evidence.sourceBranch,
+		branch_key: evidence.branchKey,
+		directory_path: evidence.directoryPath,
+		count: evidence.plans.length,
+		plans: evidence.plans.map((plan) => ({
+			slug: plan.slug,
+			file_path: plan.filePath,
+			file_name: plan.fileName,
+			kind: plan.kind,
+			modified_time_ms: plan.modifiedTimeMs,
+		})),
+	};
+}
+
 function plannedBranchJson(evidence: PlannedBranchEvidence): Record<string, unknown> {
 	return {
 		slug: evidence.slug,
@@ -684,6 +764,32 @@ function formatResolvePlanEvidence(evidence: ResolvePlanEvidence): string {
 		return [`Resolved explicit plan file.`, `Path: ${evidence.filePath}`].join("\n");
 	}
 	return formatLatestSourceBranchPlanFileEvidence(evidence);
+}
+
+function formatListPlansEvidence(evidence: SourceBranchPlanFileListEvidence): string {
+	const lines = [
+		"Saved plans in local plan store.",
+		`Directory: ${evidence.directoryPath}`,
+		`Repo key: ${evidence.repoKey}`,
+		`Repo root: ${evidence.repoRoot}`,
+		`Repo identity source: ${evidence.repoIdentitySource}`,
+		`Source branch: ${evidence.sourceBranch}`,
+		`Branch path segment: ${evidence.branchKey}`,
+		`Count: ${evidence.plans.length}`,
+	];
+	if (evidence.plans.length === 0) {
+		lines.push("No saved plans found.");
+		return lines.join("\n");
+	}
+
+	lines.push("Plans:");
+	for (const plan of evidence.plans) {
+		lines.push(`- ${plan.slug} [${plan.kind}]`);
+		lines.push(`  Path: ${plan.filePath}`);
+		lines.push(`  File: ${plan.fileName}`);
+		lines.push(`  Modified time ms: ${plan.modifiedTimeMs}`);
+	}
+	return lines.join("\n");
 }
 
 function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPlanFileEvidence): string {
@@ -745,6 +851,7 @@ function execHelp(): string {
 		"Operations:",
 		"  write-plan-file    Save a source-branch plan file in the local store.",
 		"  resolve-plan       Resolve an explicit or latest source-branch plan file.",
+		"  list-plans         List saved plans for a source branch in the local store.",
 		"  create             Create a planned branch and attach a plan with Branch Memory.",
 		"  load-plan          Load an attached plan and render the implementation prompt.",
 		"  preview-ts         Preview an attached or saved TypeScript plan recipe.",
@@ -761,6 +868,10 @@ function writePlanFileHelp(): string {
 
 function resolvePlanHelp(): string {
 	return ["Usage: planned-branch exec resolve-plan [absolute-or-home-plan-file.md] [--format json]", ""].join("\n");
+}
+
+function listPlansHelp(): string {
+	return ["Usage: planned-branch exec list-plans [--source-branch <branch>] [--format json]", ""].join("\n");
 }
 
 function createHelp(): string {

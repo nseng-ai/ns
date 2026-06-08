@@ -211,6 +211,7 @@ describe("planned-branch CLI help", () => {
 		const execHelp = runWithFakes(["exec", "--help"], [], { cwd: repoRoot });
 		expect(await execHelp.exit).toBe(0);
 		expect(execHelp.stdout.join("")).toContain("write-plan-file");
+		expect(execHelp.stdout.join("")).toContain("list-plans");
 		expect(execHelp.stdout.join("")).toContain("load-plan");
 		expect(execHelp.stdout.join("")).toContain("preview-ts");
 
@@ -353,6 +354,64 @@ describe("planned-branch exec", () => {
 		});
 		expect(await latest.exit).toBe(0);
 		expect(parseJson(latest)).toMatchObject({ success: true, source: "latest", slug: "newer-plan-file", file_path: newer });
+	});
+
+	test("list-plans returns saved plans for an explicit source branch", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const sourceBranch = "feature/other-source";
+		const planDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(sourceBranch));
+		const currentBranchDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(SOURCE_BRANCH));
+		await mkdir(planDirectory, { recursive: true });
+		await mkdir(currentBranchDirectory, { recursive: true });
+		const markdownPlan = join(planDirectory, PLAN_KEY);
+		const tsPlan = join(planDirectory, PLAN_TS_KEY);
+		await writeFile(markdownPlan, "# Markdown\n", "utf8");
+		await writeFile(tsPlan, TS_RECIPE_CONTENT, "utf8");
+		await writeFile(join(planDirectory, "ignore.txt"), "ignore", "utf8");
+		await writeFile(join(currentBranchDirectory, "other-branch-plan.md"), "ignore", "utf8");
+		await utimes(markdownPlan, new Date(1_000), new Date(1_000));
+		await utimes(tsPlan, new Date(2_000), new Date(2_000));
+
+		const run = runWithFakes(["exec", "list-plans", "--source-branch", sourceBranch, "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+		});
+
+		expect(await run.exit).toBe(0);
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({
+			success: true,
+			repo_key: "gh--owner--repo",
+			source_branch: sourceBranch,
+			branch_key: encodeBranchForPlanPath(sourceBranch),
+			directory_path: planDirectory,
+			count: 2,
+		});
+		const plans = payload.plans as Array<Record<string, unknown>>;
+		expect(plans.map(({ slug, file_name, file_path, kind }) => ({ slug, file_name, file_path, kind }))).toEqual([
+			{ slug: PLAN_SLUG, file_name: PLAN_TS_KEY, file_path: tsPlan, kind: "typescript-recipe" },
+			{ slug: PLAN_SLUG, file_name: PLAN_KEY, file_path: markdownPlan, kind: "markdown" },
+		]);
+		expect(run.git.sourceBranchCalls).toEqual([]);
+	});
+
+	test("list-plans succeeds with an empty list when the branch has no plan store directory", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "list-plans", "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			source_branch: SOURCE_BRANCH,
+			branch_key: encodeBranchForPlanPath(SOURCE_BRANCH),
+			count: 0,
+			plans: [],
+		});
 	});
 
 	test("create makes a plain git branch and attaches the plan in the planned-branch namespace", async () => {

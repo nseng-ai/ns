@@ -55,9 +55,10 @@ js-test: ts-test
 
 # Link the planned-branch bin through pnpm so `planned-branch` is on PATH.
 # The linked CLI uses the Node shebang from the TypeScript workspace source.
+# pnpm requires PNPM_HOME/global-bin-dir; default to the existing Bun bin dir when unset.
 link-planned-branch: ts-install
-    cd {{justfile_directory()}}/ts/packages/planned-branch && pnpm link
-    @echo "linked: planned-branch (pnpm global bin)"
+    cd {{justfile_directory()}}/ts/packages/planned-branch && pnpm_home="${PNPM_HOME:-$HOME/.bun/bin}" && PATH="$pnpm_home:$PATH" PNPM_HOME="$pnpm_home" pnpm link
+    @echo "linked: planned-branch (${PNPM_HOME:-$HOME/.bun/bin})"
 
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
