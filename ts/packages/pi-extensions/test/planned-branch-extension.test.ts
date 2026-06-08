@@ -797,19 +797,19 @@ describe("planned-branch:create argument parsing", () => {
 
 describe("planned-branch:preview-ts argument parsing", () => {
 	test("parses format, help, and one optional requested key", () => {
-		expect(parsePreviewTsPlannedBranchArgs("")).toEqual({ help: false, format: "text" });
+		expect(parsePreviewTsPlannedBranchArgs("")).toEqual({ isHelp: false, format: "text" });
 		expect(parsePreviewTsPlannedBranchArgs("--format mermaid branch-scoped-plan-extension")).toEqual({
-			help: false,
+			isHelp: false,
 			format: "mermaid",
 			requestedKey: "branch-scoped-plan-extension",
 		});
 		expect(parsePreviewTsPlannedBranchArgs("--format=text custom.plan.ts")).toEqual({
-			help: false,
+			isHelp: false,
 			format: "text",
 			requestedKey: "custom.plan.ts",
 		});
-		expect(parsePreviewTsPlannedBranchArgs("--help").help).toBe(true);
-		expect(parsePreviewTsPlannedBranchArgs("-h").help).toBe(true);
+		expect(parsePreviewTsPlannedBranchArgs("--help").isHelp).toBe(true);
+		expect(parsePreviewTsPlannedBranchArgs("-h").isHelp).toBe(true);
 	});
 
 	test("rejects parse errors before loading plans", () => {
