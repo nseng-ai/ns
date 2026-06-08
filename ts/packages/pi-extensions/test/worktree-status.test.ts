@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { stripTerminalEscapes } from "../src/command-runtime.ts";
+import type { GraphiteMetadataWorkerDiagnostic } from "../src/worktree-status/graphite-metadata.ts";
 import {
 	makeGitRepo,
 	makeGraphiteRepo,
@@ -15,6 +16,7 @@ import {
 } from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
 	formatGtStatus,
+	formatWorktreeStatus,
 	loadGtStatus,
 	loadWorktreeStatus,
 	renderWorktreeStatusMessage,
@@ -625,6 +627,32 @@ describe("loadWorktreeStatus", () => {
 		});
 	});
 
+	test("surfaces graphite metadata diagnostics from the convenience loader", async () => {
+		const diagnostics: GraphiteMetadataWorkerDiagnostic[] = [];
+		const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
+			diagnostics.push(diagnostic);
+		};
+		const metadataLoader: GraphiteMetadataLoader = async ({ onDiagnostic: actualOnDiagnostic }) => {
+			actualOnDiagnostic?.({ type: "worker-timeout", timeoutMs: 7 });
+			return {
+				type: "tracked",
+				currentBranch: "feature/current",
+				parent: "main",
+				children: [],
+				isCurrentTrunk: false,
+			};
+		};
+		const pi = new OrderlessFakePi([brmemListStep({}), ...basicGitStatusScript()]);
+
+		const status = await loadWorktreeStatus(pi, ROOT, { metadataLoader, onDiagnostic });
+
+		pi.assertDone();
+		expectNoGtCalls(pi);
+		expect(status.gtMetadataDiagnostic).toEqual({ type: "worker-timeout", timeoutMs: 7 });
+		expect(diagnostics).toEqual([{ type: "worker-timeout", timeoutMs: 7 }]);
+		expect(formatWorktreeStatus(status).at(-1)).toBe("[gt] metadata worker timed out after 7ms");
+	});
+
 	test("degrades malformed brmem JSON output nonfatally", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ...basicGitStatusScript()]);
@@ -702,6 +730,34 @@ describe("loadGtStatus", () => {
 
 		pi.assertDone();
 		expect(formatGtStatus(status)).toBe("[gt] (↓: main) (↑: feature/child) (commits)");
+		expectNoGtCalls(pi);
+	});
+
+	test("threads metadata diagnostics through the async metadata loader", async () => {
+		const diagnostics: GraphiteMetadataWorkerDiagnostic[] = [];
+		const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
+			diagnostics.push(diagnostic);
+		};
+		const metadataLoader: GraphiteMetadataLoader = async ({ cwd, signal, onDiagnostic: actualOnDiagnostic }) => {
+			expect(cwd).toBe(ROOT);
+			expect(signal).toBeUndefined();
+			expect(actualOnDiagnostic).toBe(onDiagnostic);
+			actualOnDiagnostic?.({ type: "worker-timeout", timeoutMs: 1 });
+			return {
+				type: "tracked",
+				currentBranch: "feature/current",
+				parent: "main",
+				children: [],
+				isCurrentTrunk: false,
+			};
+		};
+		const pi = new FakePi([revListStep("main", 1), dirtyStep()]);
+
+		const status = await loadGtStatus({ pi, cwd: ROOT, metadataLoader, onDiagnostic });
+
+		pi.assertDone();
+		expect(formatGtStatus(status)).toBe("[gt] (↓: main) (↑: -) (commits)");
+		expect(diagnostics).toEqual([{ type: "worker-timeout", timeoutMs: 1 }]);
 		expectNoGtCalls(pi);
 	});
 

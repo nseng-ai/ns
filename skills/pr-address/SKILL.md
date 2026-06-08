@@ -372,10 +372,16 @@ Use the composite helpers for GitHub mutations. Read each helper's entry in
 
 For an approved batch that addresses inline threads, commit first, then call
 `build-resolve-thread-batch-payload` with the `plan-feedback` output, the
-selected `batch_id`, the batch commit SHA, and one explicit `resolve` or `skip`
-decision for every review-thread item in that batch. Use `mode=fixed` for code
-changes, `mode=pre_existing` for moved/restructured pre-existing comments, and
-`mode=explained` for factual false-positive/already-fixed explanations.
+selected `batch_id`, the batch commit SHA when the current commit fixed the
+thread, and one explicit `resolve` or `skip` decision for every review-thread
+item in that batch. Use `mode=fixed` for code changes present in the current
+commit, `mode=pre_existing` for moved/restructured pre-existing comments,
+`mode=explained` for factual false-positive/already-fixed explanations, and
+`mode=planned` only when the user/operator explicitly accepts provenance-backed
+deferral to an existing local branch or PR. Planned mode requires a non-empty
+message and validated provenance; do not use it for vague promises. Treat any
+captured branch HEAD OID or PR state in the reply as a batch-start snapshot, not
+a live reference.
 
 Inspect the builder result:
 
@@ -406,7 +412,9 @@ Common footguns (the reference is still the source of truth):
   before mutation; gateway failures may return `exit_code: 1` with partial
   result data.
 - `resolve-thread-with-reply` uses positional fields and `mode` must be one of
-  `pre_existing`, `fixed`, or `explained`. Anything else is rejected.
+  `pre_existing`, `fixed`, `explained`, or `planned`. `planned` also requires
+  `--provenance-json` naming an existing local branch or PR. Anything else is
+  rejected.
 
 Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
 and standard formatting.

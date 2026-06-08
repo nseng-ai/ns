@@ -19,6 +19,10 @@ from asdl_pr_address.cli.pr_address.reply_formatting import (
     ResolutionReplyMode,
     valid_resolution_modes_text,
 )
+from asdl_pr_address.cli.pr_address.resolution_provenance import (
+    ResolutionProvenanceInput,
+    provenance_shape_error,
+)
 from asdl_pr_address.cli.pr_address.resolve_thread_batch import (
     ResolveThreadBatchItem,
     ResolveThreadBatchPayload,
@@ -39,6 +43,7 @@ class ResolveThreadBatchDecision(ClinkrModel):
     mode: str | None = None
     message: str | None = None
     commit_sha: str | None = None
+    provenance: ResolutionProvenanceInput | None = None
     skip_reason: str | None = None
 
 
@@ -409,6 +414,7 @@ def _validated_decision_item(
     message = trim_optional(decision.message)
     item_commit_sha = trim_optional(decision.commit_sha)
     skip_reason = trim_optional(decision.skip_reason)
+    provenance = decision.provenance
 
     if action == "skip":
         if skip_reason is None:
@@ -422,13 +428,18 @@ def _validated_decision_item(
                     thread_id=thread_id,
                 )
             )
-        if mode is not None or message is not None or item_commit_sha is not None:
+        if (
+            mode is not None
+            or message is not None
+            or item_commit_sha is not None
+            or provenance is not None
+        ):
             errors.append(
                 BuildResolveThreadBatchPayloadError(
                     code="skip_decision_has_resolution_fields",
                     message=(
                         f"Skip decision for thread {thread_id} must not include non-empty "
-                        "mode, message, or commit_sha fields."
+                        "mode, message, commit_sha, or provenance fields."
                     ),
                     batch_id=batch_id,
                     thread_id=thread_id,
@@ -477,7 +488,7 @@ def _validated_decision_item(
         )
         return errors, None, None
 
-    if mode in ("fixed", "explained") and message is None:
+    if mode in ("fixed", "explained", "planned") and message is None:
         errors.append(
             BuildResolveThreadBatchPayloadError(
                 code="missing_message",
@@ -500,13 +511,48 @@ def _validated_decision_item(
                 thread_id=thread_id,
             )
         )
-    if mode == "pre_existing" and (message is not None or item_commit_sha is not None):
+    if mode == "planned":
+        if provenance is None:
+            errors.append(
+                BuildResolveThreadBatchPayloadError(
+                    code="missing_provenance",
+                    message=f"mode='planned' decision for thread {thread_id} requires provenance.",
+                    batch_id=batch_id,
+                    thread_id=thread_id,
+                )
+            )
+        if item_commit_sha is not None or batch_commit_sha is not None:
+            errors.append(
+                BuildResolveThreadBatchPayloadError(
+                    code="planned_has_commit_sha",
+                    message=(
+                        f"mode='planned' decision for thread {thread_id} must not include batch or "
+                        "item commit_sha fields."
+                    ),
+                    batch_id=batch_id,
+                    thread_id=thread_id,
+                )
+            )
+        if provenance is not None:
+            error_message = provenance_shape_error(provenance)
+            if error_message is not None:
+                errors.append(
+                    BuildResolveThreadBatchPayloadError(
+                        code="invalid_provenance_shape",
+                        message=f"mode='planned' decision for thread {thread_id}: {error_message}.",
+                        batch_id=batch_id,
+                        thread_id=thread_id,
+                    )
+                )
+    if mode == "pre_existing" and (
+        message is not None or item_commit_sha is not None or provenance is not None
+    ):
         errors.append(
             BuildResolveThreadBatchPayloadError(
                 code="pre_existing_has_resolution_fields",
                 message=(
                     f"mode='pre_existing' decision for thread {thread_id} must not include "
-                    "non-empty message or commit_sha fields."
+                    "non-empty message, commit_sha, or provenance fields."
                 ),
                 batch_id=batch_id,
                 thread_id=thread_id,
@@ -524,6 +570,7 @@ def _validated_decision_item(
                 mode=resolution_mode,
                 message=None,
                 commit_sha=None,
+                provenance=None,
             ),
             None,
         )
@@ -535,6 +582,7 @@ def _validated_decision_item(
             mode=resolution_mode,
             message=message,
             commit_sha=item_commit_sha,
+            provenance=provenance if resolution_mode == "planned" else None,
         ),
         None,
     )

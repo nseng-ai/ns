@@ -659,12 +659,18 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 
 **Positional input fields (all required):**
 
-| Position | Field        | Description                                            |
-| -------- | ------------ | ------------------------------------------------------ |
-| 1        | `thread_id`  | GraphQL node ID (`PRRT_kw...`). No `pr_number` needed. |
-| 2        | `mode`       | `pre_existing`, `fixed`, or `explained` (see below)    |
-| 3        | `message`    | One-line description of what was done                  |
-| 4        | `commit_sha` | The commit SHA that addressed the feedback             |
+| Position | Field        | Description                                                    |
+| -------- | ------------ | -------------------------------------------------------------- |
+| 1        | `thread_id`  | GraphQL node ID (`PRRT_kw...`). No `pr_number` needed.         |
+| 2        | `mode`       | `pre_existing`, `fixed`, `explained`, or `planned` (see below) |
+| 3        | `message`    | One-line description of what was done or planned               |
+| 4        | `commit_sha` | The commit SHA that addressed the feedback; empty for planned  |
+
+**Options:**
+
+| Option              | Required | Description                                            |
+| ------------------- | -------- | ------------------------------------------------------ |
+| `--provenance-json` | planned  | JSON provenance for `mode=planned`; see examples below |
 
 `mode` values:
 
@@ -674,15 +680,21 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
   non-empty `message` and `commit_sha`.
 - `explained` — already-fixed case or false positive. Requires a non-empty
   `message`; `commit_sha` may be an empty string.
+- `planned` — concrete deferred follow-up accepted by the operator/user.
+  Requires a non-empty `message`, an empty `commit_sha`, and
+  `--provenance-json` pointing to an existing local branch or PR. The helper
+  validates provenance before mutating GitHub and formats the reply as planned
+  follow-up, not as a current-commit fix.
 
 **Output fields (under `data`):**
 
-| Field         | Description                               |
-| ------------- | ----------------------------------------- |
-| `thread_id`   | Echo of the input thread ID               |
-| `body`        | The formatted reply body posted to GitHub |
-| `comment`     | The created comment object                |
-| `is_resolved` | Post-mutation resolved state              |
+| Field         | Description                                                      |
+| ------------- | ---------------------------------------------------------------- |
+| `thread_id`   | Echo of the input thread ID                                      |
+| `body`        | The formatted reply body posted to GitHub                        |
+| `comment`     | The created comment object                                       |
+| `is_resolved` | Post-mutation resolved state                                     |
+| `provenance`  | Enriched planned provenance for `mode=planned`; otherwise `null` |
 
 **Example:**
 
@@ -692,6 +704,22 @@ pr-address exec resolve-thread-with-reply \
   fixed \
   "Introduced DetachedHead frozen dataclass as a named sentinel." \
   ac18f2b \
+  --format json
+
+pr-address exec resolve-thread-with-reply \
+  PRRT_kwDOR4YhMs57SeUg \
+  planned \
+  "Reuse the Graphite metadata worker on the follow-up branch." \
+  "" \
+  --provenance-json '{"kind":"local_branch","branch":"reuse-graphite-metadata-worker-refreshes"}' \
+  --format json
+
+pr-address exec resolve-thread-with-reply \
+  PRRT_kwDOR4YhMs57SeUg \
+  planned \
+  "The follow-up PR carries the fix." \
+  "" \
+  --provenance-json '{"kind":"pr","pr_number":1073}' \
   --format json
 ```
 
@@ -732,7 +760,8 @@ Resolve decision:
   "action": "resolve",
   "mode": "fixed",
   "message": "Updated the guard.",
-  "commit_sha": "optional item-level override"
+  "commit_sha": "optional item-level override",
+  "provenance": {"kind": "local_branch", "branch": "follow-up-branch"}
 }
 ```
 
@@ -746,10 +775,14 @@ Skip decision:
 }
 ```
 
-`mode` is `fixed`, `pre_existing`, or `explained`. `fixed` requires a non-empty
-`message` and a batch or item-level `commit_sha`; `explained` requires a
-non-empty `message`; `pre_existing` ignores `message` and `commit_sha` and they
-should be omitted.
+`mode` is `fixed`, `pre_existing`, `explained`, or `planned`. `fixed` requires
+a non-empty `message` and a batch or item-level `commit_sha`; `explained`
+requires a non-empty `message`; `pre_existing` ignores `message` and
+`commit_sha` and they should be omitted. `planned` requires a non-empty
+`message` and syntactically valid provenance, and rejects batch or item-level
+`commit_sha`. The builder checks provenance shape only; the mutating
+`resolve-thread-batch` helper validates that the branch or PR exists before any
+GitHub mutation.
 
 **Output fields (under `data`):**
 
@@ -769,9 +802,11 @@ should be omitted.
 
 Validation rejects missing decisions, duplicate thread IDs, decisions for other
 batches, informational thread decisions, unknown threads, invalid modes, missing
-messages/commit SHAs, and non-empty resolution fields on skip/pre-existing
+messages/commit SHAs, missing planned provenance, planned commit SHA misuse,
+invalid provenance shape, and non-empty resolution fields on skip/pre-existing
 items. It validates any generated payload through the same pre-mutation rules as
-`resolve-thread-batch`.
+`resolve-thread-batch`, except that live branch/PR existence checks happen in
+the mutating helper.
 
 **Output behavior:**
 
@@ -799,6 +834,9 @@ available for direct/manual invocation.
 ```bash
 printf '%s' '{"commit_sha":"abc1234","items":[{"thread_id":"PRRT_kw...","mode":"fixed","message":"Updated the guard."}]}' \
   | pr-address exec resolve-thread-batch --format json
+
+printf '%s' '{"items":[{"thread_id":"PRRT_kw...","mode":"planned","message":"The follow-up PR carries the fix.","provenance":{"kind":"pr","pr_number":1073}}]}' \
+  | pr-address exec resolve-thread-batch --format json
 ```
 
 **Payload fields:**
@@ -811,16 +849,22 @@ printf '%s' '{"commit_sha":"abc1234","items":[{"thread_id":"PRRT_kw...","mode":"
 
 Each `items[]` entry:
 
-| Field        | Required | Description                                                     |
-| ------------ | -------- | --------------------------------------------------------------- |
-| `thread_id`  | yes      | GraphQL review-thread node ID                                   |
-| `mode`       | yes      | `fixed`, `pre_existing`, or `explained`                         |
-| `message`    | mode     | Required for `fixed` and `explained`; ignored by `pre_existing` |
-| `commit_sha` | no       | Item-level override for the top-level commit SHA                |
+| Field        | Required | Description                                                                 |
+| ------------ | -------- | --------------------------------------------------------------------------- |
+| `thread_id`  | yes      | GraphQL review-thread node ID                                               |
+| `mode`       | yes      | `fixed`, `pre_existing`, `explained`, or `planned`                          |
+| `message`    | mode     | Required for `fixed`, `explained`, and `planned`; ignored by `pre_existing` |
+| `commit_sha` | no       | Item-level override for the top-level commit SHA; rejected by `planned`     |
+| `provenance` | planned  | `{kind:"local_branch",branch:"..."}` or `{kind:"pr",pr_number:1073}`        |
 
 Validation happens for the whole payload before any GitHub mutation. Duplicate
-`thread_id` values, empty `items`, malformed JSON, or missing required
-`message` / `commit_sha` produce `exit_code: 2` with no mutation.
+`thread_id` values, empty `items`, malformed JSON, missing required `message` /
+`commit_sha`, missing planned provenance, missing local branches, or missing PRs
+produce `exit_code: 2` with no mutation. Planned provenance is captured during
+that pre-mutation validation step, so branch HEAD OIDs and PR states in replies
+are explicitly labelled as batch-start snapshots, not live references. Existing
+PR provenance may be OPEN, CLOSED, or MERGED; the canonical reply includes the
+observed PR state snapshot.
 
 **Output fields (under `data`):**
 
@@ -834,8 +878,8 @@ Validation happens for the whole payload before any GitHub mutation. Duplicate
 | `results`       | Ordered per-item results                       |
 
 Per-item `status` is `resolved`, `failed`, or `skipped`. Successful items carry
-`body`, `comment`, and `is_resolved`. Failed/skipped items carry
-`error_type`/`error_message`.
+`body`, `comment`, `is_resolved`, and enriched `provenance` for planned items.
+Failed/skipped items carry `error_type`/`error_message`.
 
 Gateway/API mutation failures after validation return `exit_code: 1` with the
 partial result data. By default the command stops at the first failed item and

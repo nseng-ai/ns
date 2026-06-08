@@ -12,10 +12,17 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRReviewComment
+from asdl_core.git.git_gateway import GitGateway
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
+from asdl_pr_address.cli.pr_address.resolution_provenance import (
+    ResolutionProvenance,
+    ResolutionProvenanceInput,
+)
 from asdl_pr_address.cli.pr_address.resolve_thread_with_reply import (
+    NormalizedResolveThreadWithReplyRequest,
     ResolveThreadWithReplyRequest,
     apply_resolution,
     normalize_resolution_request,
@@ -41,6 +48,7 @@ class ResolveThreadBatchItem(ClinkrModel):
     mode: ResolutionReplyMode
     message: str | None = None
     commit_sha: str | None = None
+    provenance: ResolutionProvenanceInput | None = None
 
 
 class ResolveThreadBatchPayload(ClinkrModel):
@@ -59,6 +67,7 @@ class ResolveThreadBatchItemResult(ClinkrModel):
     is_resolved: bool | None = None
     error_type: str | None = None
     error_message: str | None = None
+    provenance: ResolutionProvenance | None = None
 
 
 class ResolveThreadBatchResult(ClinkrModel):
@@ -80,7 +89,11 @@ def run_resolve_thread_batch(
 ) -> ClinkrExit[ResolveThreadBatchResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
     payload = _load_payload(request)
-    normalized_requests = normalize_resolve_thread_batch_payload(payload)
+    normalized_requests = normalize_resolve_thread_batch_payload(
+        payload,
+        pr_gateway=pr_address_context.pr_gateway,
+        git_gateway=pr_address_context.git_gateway,
+    )
 
     results: list[ResolveThreadBatchItemResult] = []
     for index, item in enumerate(normalized_requests):
@@ -111,6 +124,7 @@ def run_resolve_thread_batch(
                 body=resolved.body,
                 comment=resolved.comment,
                 is_resolved=resolved.is_resolved,
+                provenance=resolved.provenance,
             )
         )
 
@@ -134,7 +148,10 @@ def _load_payload(request: ResolveThreadBatchRequest) -> ResolveThreadBatchPaylo
 
 def normalize_resolve_thread_batch_payload(
     payload: ResolveThreadBatchPayload,
-) -> tuple[ResolveThreadWithReplyRequest, ...]:
+    *,
+    pr_gateway: PRGateway,
+    git_gateway: GitGateway,
+) -> tuple[NormalizedResolveThreadWithReplyRequest, ...]:
     Ensure.true(
         bool(payload.items),
         error_type="invalid_request",
@@ -142,7 +159,7 @@ def normalize_resolve_thread_batch_payload(
     )
 
     seen_thread_ids: set[str] = set()
-    normalized: list[ResolveThreadWithReplyRequest] = []
+    normalized: list[NormalizedResolveThreadWithReplyRequest] = []
     batch_commit_sha = trim_optional(payload.commit_sha)
     for index, item in enumerate(payload.items):
         thread_id = item.thread_id.strip()
@@ -158,21 +175,34 @@ def normalize_resolve_thread_batch_payload(
         )
         seen_thread_ids.add(thread_id)
 
+        item_commit_sha = trim_optional(item.commit_sha)
+        effective_commit_sha = item_commit_sha
+        if item.mode == "fixed" and effective_commit_sha is None:
+            effective_commit_sha = batch_commit_sha
+        if item.mode == "planned":
+            Ensure.true(
+                item_commit_sha is None and batch_commit_sha is None,
+                error_type="invalid_request",
+                message=f"items[{index}] mode='planned' must not include commit_sha",
+            )
         normalized.append(
             normalize_resolution_request(
                 ResolveThreadWithReplyRequest(
                     thread_id=thread_id,
                     mode=item.mode,
                     message=item.message,
-                    commit_sha=trim_optional(item.commit_sha) or batch_commit_sha,
-                )
+                    commit_sha=effective_commit_sha,
+                ),
+                pr_gateway=pr_gateway,
+                git_gateway=git_gateway,
+                provenance_input=item.provenance,
             )
         )
     return tuple(normalized)
 
 
 def _skipped_results(
-    items: tuple[ResolveThreadWithReplyRequest, ...],
+    items: tuple[NormalizedResolveThreadWithReplyRequest, ...],
     *,
     start: int,
 ) -> list[ResolveThreadBatchItemResult]:
