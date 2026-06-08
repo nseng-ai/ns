@@ -194,6 +194,7 @@ The stack must be non-empty and have unique PR numbers and branch names.
 | Field                                       | Description                                                             |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
 | `payload_session_id`                        | Payload session used for the stack run                                  |
+| `include_resolved`                          | Whether resolved review threads were included in the stack manifests    |
 | `stack[]`                                   | One compact prep result per PR                                          |
 | `stack[].manifest`                          | Compact get-feedback manifest with locators, not body text              |
 | `stack[].raw_feedback_reference`            | Raw full feedback envelope reference (`role: raw`)                      |
@@ -837,6 +838,71 @@ the mutating helper.
 - Malformed/empty input: `exit_code: 2` with an error type such as
   `invalid_json` or `invalid_request`.
 
+### `stack-feedback-diff-current`
+
+Compare a validated `stack-feedback-plan` result with a freshly fetched current
+`stack-feedback-prep` result before any review-thread resolution mutation. This
+helper is local/read-only: it does not call GitHub, does not mutate GitHub, and
+uses compact manifests only rather than raw feedback bodies.
+
+Run a fresh prep with resolved threads immediately before diffing:
+
+```bash
+printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
+  | pr-address exec stack-feedback-prep \
+      --include-resolved \
+      --payload-session-id pr-stack-address-20260604t120000z-a1 \
+      --format json
+```
+
+Then diff the saved plan against that fresh prep:
+
+```bash
+printf '%s' '{"stack_plan":{...},"current_prep":{...}}' \
+  | pr-address exec stack-feedback-diff-current --format json
+
+pr-address exec stack-feedback-diff-current \
+  --payload-file stack-feedback-diff-input.json \
+  --format json
+```
+
+**Input fields:**
+
+| Field          | Required | Description                                                                                 |
+| -------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `stack_plan`   | yes      | `data` object returned by `stack-feedback-plan`; must have `valid == true`                  |
+| `current_prep` | yes      | Fresh `data` object returned by `stack-feedback-prep --include-resolved` for the same stack |
+
+**Output fields (under `data`):**
+
+| Field                                   | Description                                                                                     |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `valid`                                 | Whether inputs are semantically usable for comparison                                           |
+| `safe_to_resolve_planned`               | Whether planned thread resolution may proceed without reviewing drift                           |
+| `planned_still_unresolved[]`            | Planned actionable review threads still present and unresolved                                  |
+| `planned_already_resolved[]`            | Planned actionable review threads now present as resolved                                       |
+| `new_unresolved_threads[]`              | Current unresolved review threads not covered by actionable or informational stack plan         |
+| `missing_or_outdated_planned_threads[]` | Planned actionable threads absent from current prep or whose location/outdated metadata changed |
+| `warnings`                              | Conservative safety warnings, including missing `include_resolved` provenance                   |
+| `errors`                                | Structured invalid-input errors such as stack PR mismatch or malformed plan/current data        |
+| `summary`                               | Counts for PRs, planned/current thread sets, and every drift category                           |
+
+`safe_to_resolve_planned` is true only when the current prep includes resolved
+threads, every planned actionable review thread is still unresolved with
+matching path/line/start-line/outdated metadata, and no new unresolved current
+threads exist outside the plan's actionable or informational review-thread set.
+
+**Output behavior:**
+
+- No drift and safe provenance: `exit_code: 0`; proceed to
+  `build-stack-resolve-thread-payloads` for the selected stack batch.
+- New unresolved threads: `exit_code: 1`; reclassify/replan or ask the user.
+- Planned already resolved: `exit_code: 1`; skip/rebuild decisions for those
+  threads before mutation.
+- Missing or outdated planned threads: `exit_code: 1`; stop and inspect/replan.
+- Malformed input JSON: `exit_code: 2` with an error type such as
+  `invalid_json` or `invalid_request`.
+
 ### `build-stack-resolve-thread-payloads`
 
 Build and validate per-PR JSON payloads for `resolve-thread-batch` from a
@@ -1243,6 +1309,7 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | `validate-feedback-classification`    | Detailed above. Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `plan-feedback`                       | Detailed above. Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
 | `build-resolve-thread-batch-payload`  | Detailed above. Build and validate the non-mutating payload for `resolve-thread-batch` from a selected single-PR plan batch and explicit decisions.                    |
+| `stack-feedback-diff-current`         | Detailed above. Compare a validated stack plan with fresh current stack feedback before review-thread resolution mutation.                                             |
 | `build-stack-resolve-thread-payloads` | Detailed above. Build and validate non-mutating per-PR payloads for `resolve-thread-batch` from a selected stack plan batch and explicit decisions.                    |
 | `finalize-run`                        | Detailed above. Summarize final unresolved, skipped, and checkpoint evidence without mutating GitHub or printing raw feedback bodies.                                  |
 | `summarize-feedback`                  | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |

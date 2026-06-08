@@ -148,6 +148,7 @@ class StackFeedbackPrepSummary(ClinkrModel):
 
 class StackFeedbackPrepResult(ClinkrModel):
     payload_session_id: str
+    include_resolved: bool = False
     stack: tuple[StackFeedbackPrepPrResult, ...]
     stack_summary_reference: PayloadReference | None = None
     summary: StackFeedbackPrepSummary
@@ -366,6 +367,7 @@ def run_stack_feedback_prep(
 
     result_without_reference = StackFeedbackPrepResult(
         payload_session_id=store.session_id,
+        include_resolved=request.include_resolved,
         stack=tuple(pr_results),
         summary=_prep_summary(pr_results),
     )
