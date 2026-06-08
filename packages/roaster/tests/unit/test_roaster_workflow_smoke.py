@@ -11,6 +11,12 @@ def _roaster_workflow_text() -> str:
     return (_repo_root() / ".github" / "workflows" / "roaster.yml").read_text(encoding="utf-8")
 
 
+def test_roaster_workflow_discovers_only_ci_enabled_reviews() -> None:
+    workflow = _roaster_workflow_text()
+
+    assert "uv run roaster review list --ci-enabled true --format json" in workflow
+
+
 def test_roaster_workflow_posts_inline_findings_before_summary_comment() -> None:
     workflow = _roaster_workflow_text()
 

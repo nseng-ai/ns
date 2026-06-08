@@ -87,6 +87,7 @@ def _request(
             description="Review Python diffs.",
             instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
+            ci=True,
         ),
         target=DiffReviewTarget(
             kind="diff",
@@ -116,6 +117,7 @@ def _document_request(
             description="Review plans and artifacts.",
             instructions="Break false confidence.",
             default_model="sonnet",
+            ci=True,
         ),
         target=DocumentReviewTarget(
             kind="document",
@@ -350,6 +352,7 @@ def test_prompt_fences_are_collision_safe_for_nested_document_and_context_fences
             description="Review plans and artifacts.",
             instructions="Break false confidence.",
             default_model="sonnet",
+            ci=True,
         ),
         target=DocumentReviewTarget(
             kind="document",
@@ -1161,6 +1164,7 @@ def test_prompt_assembly_includes_review_context_without_output_contract(
             description="Review auth-sensitive diffs.",
             instructions="Flag auth regressions.",
             default_model="sonnet",
+            ci=True,
         ),
         local_diff=LocalDiff(
             base_ref="main",

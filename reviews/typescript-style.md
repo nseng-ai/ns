@@ -7,6 +7,7 @@ description: |
   cheap, per-diff detection; resolution stays with the engineer in a later,
   higher-context workflow.
 default_model: haiku
+ci: true
 when_changed:
   - "**/*.ts"
   - "**/*.tsx"

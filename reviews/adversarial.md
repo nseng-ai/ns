@@ -3,7 +3,13 @@ description: |
   Adversarially review the supplied target to break false confidence and surface
   material risks, contradictions, missing assumptions, and execution hazards.
 default_model: sonnet
+ci: false
 ---
+
+<!--
+CI note: this review declares `ci: false`; it is intended for local/manual
+roaster runs and is excluded from roaster GitHub CI discovery.
+-->
 
 Review the supplied target adversarially. Adapt the critique to the target kind:
 for diffs, focus on risks introduced by the changed code; for documents,

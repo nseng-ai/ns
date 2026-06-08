@@ -28,7 +28,13 @@ from roaster.workflow import ENV_HARNESS, list_matching_reviews, run_review_by_k
 
 REVIEW_KEY = "dignified-python"
 SAMPLE_SOURCE = (
-    "---\ndescription: Review Python diffs.\ndefault_model: sonnet\n---\n\nFlag concrete issues.\n"
+    "---\n"
+    "description: Review Python diffs.\n"
+    "default_model: sonnet\n"
+    "ci: true\n"
+    "---\n"
+    "\n"
+    "Flag concrete issues.\n"
 )
 
 
@@ -250,6 +256,7 @@ def test_list_matching_reviews_selects_only_reviews_matching_changed_paths() -> 
         "---\n"
         "description: Review Python diffs.\n"
         "default_model: sonnet\n"
+        "ci: true\n"
         "when_changed:\n"
         "  - '**/*.py'\n"
         "---\n"
@@ -260,6 +267,7 @@ def test_list_matching_reviews_selects_only_reviews_matching_changed_paths() -> 
         "---\n"
         "description: Review TypeScript diffs.\n"
         "default_model: haiku\n"
+        "ci: true\n"
         "when_changed:\n"
         "  - '**/*.ts'\n"
         "---\n"
@@ -290,6 +298,7 @@ def test_list_matching_reviews_returns_noop_result_when_no_reviews_match() -> No
         "---\n"
         "description: Review Python diffs.\n"
         "default_model: sonnet\n"
+        "ci: true\n"
         "when_changed:\n"
         "  - '**/*.py'\n"
         "---\n"
@@ -318,6 +327,7 @@ def test_unsupported_default_model_failure_propagates_after_harness_selection() 
         "---\n"
         "description: Review Python diffs.\n"
         "default_model: gpt-5-mini\n"
+        "ci: true\n"
         "---\n"
         "\n"
         "Flag concrete issues.\n"

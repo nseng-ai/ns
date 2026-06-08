@@ -279,6 +279,7 @@ class ReviewDefinition:
     description: str
     instructions: str
     default_model: str | None
+    ci: bool
     when_changed: tuple[str, ...] = ()
 
 

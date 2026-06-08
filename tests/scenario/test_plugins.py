@@ -322,6 +322,7 @@ def test_roaster_plugin_integration() -> None:
                     "---\n"
                     "description: Review Python diffs for style violations.\n"
                     "default_model: sonnet\n"
+                    "ci: true\n"
                     "---\n"
                     "\n"
                     "Flag concrete issues in the diff.\n"

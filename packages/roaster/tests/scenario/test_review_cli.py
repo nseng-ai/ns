@@ -44,16 +44,19 @@ class _InvalidConfigDiffGateway(LocalDiffGateway):
 def _sample_source(
     *,
     include_default_model: bool = True,
+    ci: bool = True,
     when_changed: tuple[str, ...] = (),
     description: str = "Review Python diffs for style violations.",
 ) -> str:
     default_model_line = "default_model: sonnet\n" if include_default_model else ""
+    ci_line = f"ci: {'true' if ci else 'false'}\n"
     when_changed_lines = "".join(f"  - '{pattern}'\n" for pattern in when_changed)
     when_changed_block = f"when_changed:\n{when_changed_lines}" if when_changed else ""
     return (
         "---\n"
         f"description: {description}\n"
         f"{default_model_line}"
+        f"{ci_line}"
         f"{when_changed_block}"
         "---\n"
         "\n"
@@ -74,9 +77,11 @@ def _build_context(
     paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     if payload is None:
         payload = FindingsReview(findings=())
+    if review_sources_by_key is None:
+        review_sources_by_key = {key: _sample_source() for key in keys or (REVIEW_KEY,)}
     return RoasterCliContext(
         catalog=FakeReviewCatalogGateway(
-            review_sources_by_key=review_sources_by_key or {REVIEW_KEY: _sample_source()},
+            review_sources_by_key=review_sources_by_key,
             review_keys=keys,
             reviews_dir=REVIEWS_DIR,
         ),
@@ -566,9 +571,9 @@ def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     output_lines = result.output.splitlines()
-    assert "- dignified-python" in output_lines
+    assert "- dignified-python (ci: true)" in output_lines
     assert "python/" in output_lines
-    assert "  - typing" in output_lines
+    assert "  - typing (ci: true)" in output_lines
 
 
 def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
@@ -578,7 +583,7 @@ def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(cli_group, ["review", "ls"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
-    assert "dignified-python" in result.output
+    assert "dignified-python (ci: true)" in result.output
 
 
 def test_review_list_groups_nested_keys_under_top_level_dirs(
@@ -593,11 +598,11 @@ def test_review_list_groups_nested_keys_under_top_level_dirs(
 
     assert result.exit_code == 0, result.output
     lines = result.output.splitlines()
-    assert "- dignified-python" in lines
+    assert "- dignified-python (ci: true)" in lines
     assert "python/" in lines
     python_idx = lines.index("python/")
-    assert lines[python_idx + 1] == "  - fakes"
-    assert lines[python_idx + 2] == "  - typing"
+    assert lines[python_idx + 1] == "  - fakes (ci: true)"
+    assert lines[python_idx + 2] == "  - typing (ci: true)"
 
 
 def test_review_list_flat_only_output_has_no_group_headers(
@@ -613,7 +618,7 @@ def test_review_list_flat_only_output_has_no_group_headers(
     assert result.exit_code == 0, result.output
     output_lines = result.output.splitlines()
     for key in ("alpha", "beta", "gamma"):
-        assert f"- {key}" in output_lines
+        assert f"- {key} (ci: true)" in output_lines
     assert not any(line.startswith("  - ") for line in output_lines)
 
 
@@ -629,10 +634,10 @@ def test_review_list_renders_root_entries_before_group_headers(
 
     assert result.exit_code == 0, result.output
     lines = result.output.splitlines()
-    assert lines.index("- alpha") < lines.index("python/")
+    assert lines.index("- alpha (ci: true)") < lines.index("python/")
     assert lines.index("python/") < lines.index("rust/")
-    assert "  - fakes" in lines
-    assert "  - clippy" in lines
+    assert "  - fakes (ci: true)" in lines
+    assert "  - clippy (ci: true)" in lines
 
 
 def test_review_list_json_envelope_preserves_ci_contract(cli_group: ClinkrGroup) -> None:
@@ -648,8 +653,78 @@ def test_review_list_json_envelope_preserves_ci_contract(cli_group: ClinkrGroup)
     assert payload["exit_code"] == 0
     data = payload["data"]
     assert data["keys"] == ["dignified-python", "python/typing"]
+    assert data["reviews"] == [
+        {"key": "dignified-python", "ci": True},
+        {"key": "python/typing", "ci": True},
+    ]
     assert data["count"] == 2
     assert data["reviews_dir"] == str(REVIEWS_DIR)
+
+
+def test_review_list_ci_enabled_true_filters_human_output(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys=("dignified-python", "simplify"),
+        review_sources_by_key={
+            "dignified-python": _sample_source(ci=True),
+            "simplify": _sample_source(ci=False),
+        },
+    )
+
+    result = runner.invoke(cli_group, ["review", "list", "--ci-enabled", "true"], obj=_obj(ctx))
+
+    assert result.exit_code == 0, result.output
+    output_lines = result.output.splitlines()
+    assert "- dignified-python (ci: true)" in output_lines
+    assert "- simplify (ci: false)" not in output_lines
+
+
+def test_review_list_ci_enabled_false_filters_json_output(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys=("dignified-python", "simplify"),
+        review_sources_by_key={
+            "dignified-python": _sample_source(ci=True),
+            "simplify": _sample_source(ci=False),
+        },
+    )
+
+    result = runner.invoke(
+        cli_group,
+        ["review", "list", "--ci-enabled", "false", "--format", "json"],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data["keys"] == ["simplify"]
+    assert data["reviews"] == [{"key": "simplify", "ci": False}]
+    assert data["count"] == 1
+
+
+def test_review_list_fails_on_missing_ci(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys=("dignified-python",),
+        review_sources_by_key={
+            "dignified-python": (
+                "---\n"
+                "description: Review Python diffs for style violations.\n"
+                "default_model: sonnet\n"
+                "---\n"
+                "\n"
+                "Flag concrete issues in the diff.\n"
+            )
+        },
+    )
+
+    result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
+
+    assert result.exit_code != 0
+    assert (
+        "dignified-python: Review definition frontmatter is missing required field `ci`."
+        in result.output
+    )
 
 
 def test_review_run_prints_usage_block_when_present(cli_group: ClinkrGroup) -> None:
