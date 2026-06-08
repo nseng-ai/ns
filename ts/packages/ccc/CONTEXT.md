@@ -44,6 +44,10 @@ _Avoid_: Objective store, Objective CLI semantics, normal Objective update workf
 The CCC-owned implementation behind public `/code:autobranch`, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow.
 _Avoid_: Pi registration adapter, `asdl-dev` checkpoint primitive, plain branch creation helper.
 
+**Land orchestration**:
+The CCC-owned implementation behind public `/code:land`, coordinating GitHub PR inspection, required-`master` base-branch refusal, match-head squash merging with PR title/body, and command-output/failure presentation.
+_Avoid_: Pi registration adapter, `/code:land-stack`, general GitHub lifecycle owner, Graphite stack landing owner.
+
 **Autobranch preparation**:
 The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name and collect facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
 _Avoid_: branch transaction, stash operation, model prompt alone.

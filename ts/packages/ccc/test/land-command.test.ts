@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import landExtension, {
+import {
 	parsePullRequestView,
+	registerLandCommand,
 	type ExecResult,
-	type ExtensionAPI,
-	type ExtensionCommandContext,
+	type LandCommandContext,
+	type LandExtensionAPI,
 	type NotifyLevel,
 } from "../src/land.ts";
 
@@ -13,7 +14,7 @@ const PR_VIEW_ARGS = ["pr", "view", "--json", "number,headRefName,baseRefName,ti
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type RegisteredCommand = Parameters<LandExtensionAPI["registerCommand"]>[1];
 
 interface ExecCall {
 	command: string;
@@ -32,7 +33,7 @@ interface Notification {
 	level: NotifyLevel | undefined;
 }
 
-class FakePi implements ExtensionAPI {
+class FakePi implements LandExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
@@ -87,8 +88,8 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function createContext(options: { cwd?: string; mode?: ExtensionCommandContext["mode"] } = {}): {
-	ctx: ExtensionCommandContext;
+function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"] } = {}): {
+	ctx: LandCommandContext;
 	notifications: Notification[];
 	printed: string[];
 	waitForIdleCalls: () => number;
@@ -97,7 +98,7 @@ function createContext(options: { cwd?: string; mode?: ExtensionCommandContext["
 	const printed: string[] = [];
 	let waits = 0;
 
-	const ctx: ExtensionCommandContext = {
+	const ctx: LandCommandContext = {
 		cwd: options.cwd ?? ROOT,
 		...(options.mode === undefined ? {} : { mode: options.mode }),
 		ui: {
@@ -119,14 +120,14 @@ function createContext(options: { cwd?: string; mode?: ExtensionCommandContext["
 	return { ctx, notifications, printed, waitForIdleCalls: () => waits };
 }
 
-async function runLand(script: ScriptedExec[], options: { mode?: ExtensionCommandContext["mode"] } = {}): Promise<{
+async function runLand(script: ScriptedExec[], options: { mode?: LandCommandContext["mode"] } = {}): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	printed: string[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script);
-	landExtension(pi);
+	registerLandCommand(pi);
 	const command = pi.commands.get("code:land");
 	expect(command).toBeDefined();
 	const context = createContext({ mode: options.mode });
@@ -167,10 +168,10 @@ function expectedMergeArgs(options: { number?: number; sha?: string; title?: str
 	];
 }
 
-describe("code land extension registration", () => {
+describe("code land command registration", () => {
 	test("registers only the namespaced code:land command", () => {
 		const pi = new FakePi();
-		landExtension(pi);
+		registerLandCommand(pi);
 
 		expect([...pi.commands.keys()]).toEqual(["code:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
