@@ -14,11 +14,10 @@ import click
 
 from roaster.findings_publication import (
     FindingsPayloadParseError,
-    FindingsPublicationPolicyError,
     InlinePostingStatus,
     InlinePostingStatusParseError,
+    parse_findings_payload_result,
     parse_inline_posting_status_result,
-    parse_publishable_diff_findings_payload_result,
     render_findings_comment,
 )
 
@@ -36,9 +35,9 @@ from roaster.findings_publication import (
 )
 def format_findings_comment_command(inline_result_file: Path | None) -> None:
     raw = sys.stdin.read()
-    publishable_payload = parse_publishable_diff_findings_payload_result(raw)
-    if isinstance(publishable_payload, FindingsPayloadParseError | FindingsPublicationPolicyError):
-        click.echo(f"format-findings-comment: {publishable_payload.message}", err=True)
+    payload = parse_findings_payload_result(raw)
+    if isinstance(payload, FindingsPayloadParseError):
+        click.echo(f"format-findings-comment: {payload.message}", err=True)
         sys.exit(1)
 
     inline_status: InlinePostingStatus | None = None
@@ -51,4 +50,4 @@ def format_findings_comment_command(inline_result_file: Path | None) -> None:
             sys.exit(1)
         inline_status = inline_result
 
-    click.echo(render_findings_comment(publishable_payload, inline_status=inline_status))
+    click.echo(render_findings_comment(payload, inline_status=inline_status))

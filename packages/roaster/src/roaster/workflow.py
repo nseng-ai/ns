@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
-from roaster.harness.invocation import CLAUDE_CODE_NAME, HarnessReviewRequest, HarnessRuntime
+from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from roaster.models import (
     BaseRefUnavailable,
     DiffReviewTarget,
@@ -58,7 +58,6 @@ def run_review_by_key(
             ResolvedReviewRunPlan(
                 review_name=review_definition.name,
                 model=resolved_model,
-                harness=CLAUDE_CODE_NAME,
                 base_ref=local_diff.base_ref,
                 changed_path_count=len(local_diff.changed_paths),
             )
@@ -66,7 +65,6 @@ def run_review_by_key(
 
     execution_response = harness_runtime.run_review(
         HarnessReviewRequest(
-            harness_name=CLAUDE_CODE_NAME,
             model=resolved_model,
             review_definition=review_definition,
             target=DiffReviewTarget(local_diff=local_diff),

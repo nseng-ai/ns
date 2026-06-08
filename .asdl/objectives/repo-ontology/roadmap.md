@@ -53,7 +53,7 @@ Phase 7 — `asdl-pr-address` context
 
 Phase 8 — `roaster` context
 
-- [ ] Create `packages/roaster/CONTEXT.md` for Roaster review-harness vocabulary: `Roaster`, `ReviewDefinition`, `HarnessRuntime`, `HarnessDefinition`, `HarnessReviewRequest`, `ReviewCatalog`, `ReviewSource`, `ReviewFormat`, findings, inline commentability, severity, frontmatter, findings comments, inline finding posting, and roaster CLI/comment-marker terms.
+- [ ] Create `packages/roaster/CONTEXT.md` for Roaster CI PR-diff findings vocabulary: `Roaster`, `ReviewDefinition`, Claude Code review execution, `ReviewCatalog`, `ReviewSource`, findings, inline commentability, severity, frontmatter, findings comments, inline finding posting, and roaster CLI/comment-marker terms.
 - [ ] Explicitly disambiguate roaster review/finding/comment terms from `asdl-core.gh.PRReview` and `asdl-pr-address` thread/comment vocabulary.
 - [ ] Carry any unresolved Review/Comment or Evidence/finding boundary into the map for Phase 16 rather than broadening the roaster context slice.
 

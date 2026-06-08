@@ -88,36 +88,29 @@ class BaseRefUnavailable:
 
 
 @dataclass(frozen=True)
-class HarnessUnknown:
-    """The requested harness name is not registered."""
-
-    message: str
-
-
-@dataclass(frozen=True)
 class HarnessBinaryMissing:
-    """The harness binary is not on ``PATH``."""
+    """The Claude Code binary is not on ``PATH``."""
 
     message: str
 
 
 @dataclass(frozen=True)
 class HarnessInvocationFailed:
-    """Invoking the harness subprocess failed with an OS error."""
+    """Invoking Claude Code failed with an OS error."""
 
     message: str
 
 
 @dataclass(frozen=True)
 class HarnessExecutionFailed:
-    """The harness subprocess ran but exited non-zero."""
+    """Claude Code ran but exited non-zero."""
 
     message: str
 
 
 @dataclass(frozen=True)
 class ModelNotSupportedByHarness:
-    """The requested model is not supported by the selected harness."""
+    """The requested model is not supported by Claude Code."""
 
     message: str
 
@@ -189,7 +182,6 @@ RoasterFailure: TypeAlias = (
     | ReviewDefinitionNotFound
     | ReviewDefinitionNotAFile
     | BaseRefUnavailable
-    | HarnessUnknown
     | HarnessBinaryMissing
     | HarnessInvocationFailed
     | HarnessExecutionFailed
@@ -227,19 +219,6 @@ class GitInvocationFailedError(RoasterError):
 
 class GitDiffFailedError(RoasterError):
     """`git diff` exited non-zero while building the local diff."""
-
-
-@dataclass(frozen=True)
-class HarnessDetection:
-    """Whether the internal Claude Code harness binary is installed."""
-
-    name: str
-    binary: str
-    path: str | None
-
-    @property
-    def available(self) -> bool:
-        return self.path is not None
 
 
 @dataclass(frozen=True)
@@ -285,9 +264,6 @@ class DiffReviewTarget:
     local_diff: LocalDiff
 
 
-ReviewTarget: TypeAlias = DiffReviewTarget
-
-
 def _reject_blank_string(value: str) -> str:
     if not value.strip():
         raise ValueError("must be non-empty")
@@ -295,7 +271,7 @@ def _reject_blank_string(value: str) -> str:
 
 
 class ReviewFinding(ClinkrModel):
-    """One actionable PR-diff finding emitted by the review harness."""
+    """One actionable PR-diff finding emitted by the reviewer."""
 
     path: str = Field(min_length=1)
     line: StrictInt | None
@@ -397,7 +373,7 @@ ReviewPayload: TypeAlias = FindingsReview
 
 
 class ReviewUsage(ClinkrModel):
-    """Cost and token usage statistics from a harness run."""
+    """Cost and token usage statistics from a Claude Code run."""
 
     input_tokens: int
     output_tokens: int
@@ -445,11 +421,9 @@ class LocalReviewResult(ClinkrModel):
 
 @dataclass(frozen=True)
 class ResolvedReviewRunPlan:
-    """Execution facts resolved before invoking a review harness."""
+    """Execution facts resolved before invoking Claude Code."""
 
     review_name: str
     model: str
-    harness: str
     base_ref: str | None
     changed_path_count: int | None
-    target_label: str = "current branch diff"

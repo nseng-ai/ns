@@ -7,11 +7,10 @@ import re
 import shutil
 import subprocess
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
-from types import MappingProxyType
 from typing import Any, TextIO
 
 from pydantic import ValidationError
@@ -25,10 +24,8 @@ from roaster.models import (
     DiffReviewTarget,
     FindingsReview,
     HarnessBinaryMissing,
-    HarnessDetection,
     HarnessExecutionFailed,
     HarnessInvocationFailed,
-    HarnessUnknown,
     ModelNotSupportedByHarness,
     ReviewDefinition,
     ReviewExecutionResponse,
@@ -44,7 +41,6 @@ BinaryLocator = Callable[[str], str | None]
 class HarnessReviewRequest:
     """Semantic request for running a parsed review through Claude Code."""
 
-    harness_name: str
     model: str
     review_definition: ReviewDefinition
     target: DiffReviewTarget
@@ -52,22 +48,10 @@ class HarnessReviewRequest:
 
 @dataclass(frozen=True)
 class HarnessProcessInvocation:
-    """Concrete subprocess invocation for one harness run."""
+    """Concrete subprocess invocation for one Claude Code run."""
 
     argv: tuple[str, ...]
     stdin: str | None
-
-
-@dataclass(frozen=True)
-class HarnessDefinition:
-    """Internal definition of how to invoke one known harness."""
-
-    name: str
-    binary: str
-    supports_model: Callable[[str], bool]
-    build_invocation: Callable[[HarnessReviewRequest], HarnessProcessInvocation]
-    parse_stdout: Callable[[HarnessReviewRequest, str], ReviewExecutionResponse | RoasterFailure]
-    describe_event: Callable[[str], str | None]
 
 
 CLAUDE_CODE_BINARY = "claude"
@@ -80,7 +64,7 @@ _READ_ONLY_TOOLS = "Bash,Read"
 
 
 def silent_progress(_msg: str) -> None:
-    """Ignore harness progress messages."""
+    """Ignore Claude Code progress messages."""
     return None
 
 
@@ -299,7 +283,7 @@ def _find_result_event(events: list[dict[str, Any]]) -> dict[str, Any] | Roaster
     return ClaudeCodeInvalidResponse(
         message=(
             "Claude Code output did not include a terminal `result` event. "
-            "The harness may have been killed before finishing."
+            "Claude Code may have been killed before finishing."
         ),
     )
 
@@ -393,30 +377,14 @@ def _pump_stdin(stdin_stream: TextIO, stdin_payload: str) -> None:
     try:
         stdin_stream.write(stdin_payload)
     except BrokenPipeError:
-        # The harness may exit before reading stdin; stdout/stderr handling reports failures.
+        # Claude Code may exit before reading stdin; stdout/stderr handling reports failures.
         pass
     finally:
         stdin_stream.close()
 
 
-_CLAUDE_CODE_HARNESS = HarnessDefinition(
-    name=CLAUDE_CODE_NAME,
-    binary=CLAUDE_CODE_BINARY,
-    supports_model=_claude_code_supports_model,
-    build_invocation=_claude_code_build_invocation,
-    parse_stdout=_claude_code_parse_stdout,
-    describe_event=_claude_code_describe_event,
-)
-
-_DEFAULT_HARNESSES: Mapping[str, HarnessDefinition] = MappingProxyType(
-    {
-        _CLAUDE_CODE_HARNESS.name: _CLAUDE_CODE_HARNESS,
-    }
-)
-
-
 class HarnessRuntime:
-    """Run parsed reviews through the internal Claude Code harness."""
+    """Run parsed reviews through Claude Code."""
 
     def __init__(
         self,
@@ -426,48 +394,23 @@ class HarnessRuntime:
     ) -> None:
         self._progress_writer = progress_writer
         self._binary_locator = binary_locator or shutil.which
-        self._harnesses = _DEFAULT_HARNESSES
-
-    def list_harnesses(self) -> tuple[HarnessDetection, ...]:
-        """Return detection information for the internal harness."""
-        detections: list[HarnessDetection] = []
-        for definition in self._harnesses.values():
-            detections.append(
-                HarnessDetection(
-                    name=definition.name,
-                    binary=definition.binary,
-                    path=self._binary_locator(definition.binary),
-                )
-            )
-        return tuple(detections)
 
     def run_review(
         self,
         request: HarnessReviewRequest,
     ) -> ReviewExecutionResponse | RoasterFailure:
         """Execute a semantic review request through Claude Code."""
-        definition = self._harnesses.get(request.harness_name)
-        if definition is None:
-            known = ", ".join(sorted(self._harnesses))
-            return HarnessUnknown(
-                message=f"Unknown harness {request.harness_name!r}. Known harnesses: {known}.",
-            )
-
-        if not definition.supports_model(request.model):
+        if not _claude_code_supports_model(request.model):
             return ModelNotSupportedByHarness(
-                message=(
-                    f"Model {request.model!r} is not supported by harness {definition.name!r}."
-                ),
+                message=f"Model {request.model!r} is not supported by Claude Code.",
             )
 
-        if self._binary_locator(definition.binary) is None:
+        if self._binary_locator(CLAUDE_CODE_BINARY) is None:
             return HarnessBinaryMissing(
-                message=(
-                    f"Harness binary {definition.binary!r} is not on PATH. Install Claude Code."
-                ),
+                message=f"Claude Code binary {CLAUDE_CODE_BINARY!r} is not on PATH.",
             )
 
-        invocation = definition.build_invocation(request)
+        invocation = _claude_code_build_invocation(request)
         stdin_arg = subprocess.PIPE if invocation.stdin is not None else subprocess.DEVNULL
 
         try:
@@ -481,20 +424,18 @@ class HarnessRuntime:
             )
         except FileNotFoundError:
             return HarnessBinaryMissing(
-                message=(
-                    f"Harness binary {definition.binary!r} is not on PATH. Install Claude Code."
-                ),
+                message=f"Claude Code binary {CLAUDE_CODE_BINARY!r} is not on PATH.",
             )
         except OSError as exc:
             return HarnessInvocationFailed(
-                message=f"Unable to invoke {definition.binary!r}: {exc}",
+                message=f"Unable to invoke {CLAUDE_CODE_BINARY!r}: {exc}",
             )
 
         writer_thread: threading.Thread | None = None
         if invocation.stdin is not None:
             if process.stdin is None:
                 return HarnessInvocationFailed(
-                    message=f"Unable to open stdin pipe for harness {definition.name!r}.",
+                    message="Unable to open stdin pipe for Claude Code.",
                 )
             writer_thread = threading.Thread(
                 target=_pump_stdin,
@@ -507,7 +448,7 @@ class HarnessRuntime:
         if process.stdout is not None:
             for line in process.stdout:
                 stdout_lines.append(line)
-                description = definition.describe_event(line)
+                description = _claude_code_describe_event(line)
                 if description is not None:
                     self._progress_writer(description)
 
@@ -523,10 +464,8 @@ class HarnessRuntime:
             last_line = stdout_lines[-1].strip() if stdout_lines else ""
             return HarnessExecutionFailed(
                 message=(
-                    stderr
-                    or last_line
-                    or f"Harness {definition.name!r} exited with status {process.returncode}."
+                    stderr or last_line or f"Claude Code exited with status {process.returncode}."
                 ),
             )
 
-        return definition.parse_stdout(request, "".join(stdout_lines))
+        return _claude_code_parse_stdout(request, "".join(stdout_lines))

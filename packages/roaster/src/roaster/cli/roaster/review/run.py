@@ -27,7 +27,7 @@ from roaster.workflow import run_review_by_key
 
 def _stderr_run_plan(plan: ResolvedReviewRunPlan) -> None:
     click.echo(
-        f"  · resolved model={plan.model} harness={plan.harness} "
+        f"  · resolved model={plan.model} "
         f"base_ref={plan.base_ref} changed_paths={plan.changed_path_count}",
         err=True,
     )

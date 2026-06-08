@@ -36,14 +36,11 @@ class _Fakes:
 def _fakes(
     *,
     review_sources_by_key: dict[str, str] | None = None,
-    paths_by_binary: dict[str, str] | None = None,
     default_response: ReviewExecutionResponse | RoasterFailure | None = None,
     default_diff: LocalDiff | None = None,
 ) -> _Fakes:
     if review_sources_by_key is None:
         review_sources_by_key = {REVIEW_KEY: SAMPLE_SOURCE}
-    if paths_by_binary is None:
-        paths_by_binary = {"claude": "/usr/local/bin/claude"}
     catalog = FakeReviewCatalogGateway(
         review_sources_by_key=review_sources_by_key,
         reviews_dir=Path("/repo/reviews"),
@@ -57,7 +54,6 @@ def _fakes(
         ),
     )
     harness_runtime = FakeHarnessRuntime(
-        paths_by_binary=paths_by_binary,
         default_response=default_response
         or ReviewExecutionResponse(payload=FindingsReview(findings=())),
     )
@@ -85,7 +81,7 @@ def _run(
     )
 
 
-def test_runs_end_to_end_against_diff_with_internal_claude_code_harness() -> None:
+def test_runs_end_to_end_against_diff_with_claude_code() -> None:
     fakes = _fakes()
 
     result = _run(fakes=fakes)
@@ -95,7 +91,6 @@ def test_runs_end_to_end_against_diff_with_internal_claude_code_harness() -> Non
     assert result.model == "sonnet"
     assert result.base_ref == "master"
     executed = fakes.harness_runtime.executed_requests[0]
-    assert executed.harness_name == "claude-code"
     assert executed.review_definition.name == REVIEW_KEY
     assert executed.review_definition.description == "Review Python diffs."
     assert executed.review_definition.instructions == "Flag concrete issues."
@@ -142,14 +137,13 @@ def test_run_review_by_key_reports_resolved_run_plan_before_execution() -> None:
         ResolvedReviewRunPlan(
             review_name=REVIEW_KEY,
             model="sonnet",
-            harness="claude-code",
             base_ref="master",
             changed_path_count=1,
         )
     ]
 
 
-def test_unsupported_default_model_failure_propagates_after_harness_selection() -> None:
+def test_unsupported_default_model_failure_propagates_after_model_resolution() -> None:
     source = (
         "---\n"
         "description: Review Python diffs.\n"
@@ -161,7 +155,7 @@ def test_unsupported_default_model_failure_propagates_after_harness_selection() 
     fakes = _fakes(
         review_sources_by_key={REVIEW_KEY: source},
         default_response=ModelNotSupportedByHarness(
-            message="Model 'gpt-5-mini' is not supported by harness 'claude-code'."
+            message="Model 'gpt-5-mini' is not supported by Claude Code."
         ),
     )
 

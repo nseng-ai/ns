@@ -62,9 +62,8 @@ _DEFAULT_USAGE_PAYLOAD: dict[str, object] = {
 }
 
 
-def _request(*, harness_name: str = "claude-code", model: str = "sonnet") -> HarnessReviewRequest:
+def _request(*, model: str = "sonnet") -> HarnessReviewRequest:
     return HarnessReviewRequest(
-        harness_name=harness_name,
         model=model,
         review_definition=ReviewDefinition(
             name="Dignified Python",
@@ -158,30 +157,6 @@ def _run_with_process(
     return result, captured, fake_process["value"]
 
 
-def test_known_harness_list_contains_claude_code() -> None:
-    runtime = HarnessRuntime(binary_locator=lambda _binary: "/usr/local/bin/claude")
-
-    detections = runtime.list_harnesses()
-
-    assert len(detections) == 1
-    detection = detections[0]
-    assert detection.name == "claude-code"
-    assert detection.binary == "claude"
-    assert detection.path == "/usr/local/bin/claude"
-    assert detection.available is True
-
-
-def test_list_harnesses_reports_unavailable_binary() -> None:
-    detections = HarnessRuntime(binary_locator=lambda _binary: None).list_harnesses()
-
-    assert len(detections) == 1
-    detection = detections[0]
-    assert detection.name == "claude-code"
-    assert detection.binary == "claude"
-    assert detection.path is None
-    assert detection.available is False
-
-
 def test_findings_mode_builds_claude_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     result, captured, process = _run_with_process(monkeypatch)
 
@@ -218,7 +193,6 @@ def test_prompt_fences_are_collision_safe_for_nested_diff_fences(
 ) -> None:
     diff = "diff --git a/app.py b/app.py\n+```python\n+print('hello')\n+```\n"
     request = HarnessReviewRequest(
-        harness_name="claude-code",
         model="sonnet",
         review_definition=ReviewDefinition(
             name="Dignified Python",
@@ -240,7 +214,6 @@ def test_prompt_fences_are_collision_safe_for_nested_diff_fences(
 def test_prompt_is_written_to_stdin_not_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     large_diff = "x" * (200 * 1024)
     request = HarnessReviewRequest(
-        harness_name="claude-code",
         model="sonnet",
         review_definition=_request().review_definition,
         target=DiffReviewTarget(local_diff=LocalDiff(base_ref="main", diff_text=large_diff)),
@@ -283,16 +256,6 @@ def test_unsupported_model_returns_failure(model: str) -> None:
 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "model_not_supported_by_harness"
-
-
-def test_unknown_harness_returns_failure() -> None:
-    runtime = HarnessRuntime(binary_locator=lambda _binary: "/usr/local/bin/claude")
-
-    result = runtime.run_review(_request(harness_name="banana"))
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "harness_unknown"
-    assert "claude-code" in result.message
 
 
 def test_missing_binary_returns_failure() -> None:

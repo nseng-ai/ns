@@ -336,7 +336,6 @@ def test_roaster_plugin_integration() -> None:
             ),
         ),
         harness_runtime=FakeHarnessRuntime(
-            paths_by_binary={"claude": "/usr/local/bin/claude"},
             default_response=ReviewExecutionResponse(
                 payload=FindingsReview(
                     findings=(

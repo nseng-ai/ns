@@ -19,12 +19,10 @@ class FakeHarnessRuntime(HarnessRuntime):
     def __init__(
         self,
         *,
-        paths_by_binary: dict[str, str] | None = None,
         responses_by_review_name: dict[str, ReviewExecutionResponse | RoasterFailure] | None = None,
         default_response: ReviewExecutionResponse | RoasterFailure | None = None,
     ) -> None:
-        paths = dict(paths_by_binary or {})
-        super().__init__(binary_locator=lambda binary: paths.get(binary))
+        super().__init__()
         self._responses_by_review_name = dict(responses_by_review_name or {})
         self._default_response = default_response or ReviewExecutionResponse(
             payload=FindingsReview(findings=())

@@ -32,14 +32,6 @@ class FindingsPayloadParseError:
 
 
 @dataclass(frozen=True)
-class FindingsPublicationPolicyError:
-    """Non-ideal result for valid findings payloads that cannot be published to a PR."""
-
-    message: str
-    error_type: str = "findings_publication_policy_failed"
-
-
-@dataclass(frozen=True)
 class InlinePostingStatusParseError:
     """Non-ideal parse result for malformed inline-posting JSON input."""
 
@@ -84,9 +76,6 @@ class ParsedFindingsCommentBody:
 
 
 FindingsPayloadParseResult: TypeAlias = FindingsPayload | FindingsPayloadParseError
-PublishableFindingsPayloadResult: TypeAlias = (
-    FindingsPayload | FindingsPayloadParseError | FindingsPublicationPolicyError
-)
 InlinePostingStatusParseResult: TypeAlias = InlinePostingStatus | InlinePostingStatusParseError
 FindingsCommentBodyParseResult: TypeAlias = (
     ParsedFindingsCommentBody | FindingsCommentBodyParseError
@@ -169,21 +158,6 @@ def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResu
             return InlinePostingStatusParseError(message="inline result `data` must be an object")
 
     return _parse_inline_posting_status_object(status_data)
-
-
-def parse_publishable_diff_findings_payload_result(raw: str) -> PublishableFindingsPayloadResult:
-    """Parse findings JSON and reject valid local-only findings before PR publication."""
-    payload = parse_findings_payload_result(raw)
-    if isinstance(payload, FindingsPayloadParseError):
-        return payload
-    return ensure_publishable_diff_payload(payload)
-
-
-def ensure_publishable_diff_payload(
-    payload: FindingsPayload,
-) -> FindingsPayload | FindingsPublicationPolicyError:
-    """Return valid CI diff findings payloads for PR publication."""
-    return payload
 
 
 def render_findings_comment(
@@ -332,15 +306,15 @@ def _render_findings_body(payload: FindingsPayload) -> list[str]:
 
 def _finding_table_row(finding: ReviewFinding) -> str:
     return (
-        f"| {_severity_label(finding.severity)} | `{_path_display(finding.path)}` | "
+        f"| {_severity_label(finding.severity)} | `{finding.path}` | "
         f"{_line_display(finding.line)} | {finding.summary} |"
     )
 
 
 def _finding_location(finding: ReviewFinding) -> str:
     if finding.line is None:
-        return _path_display(finding.path)
-    return f"{_path_display(finding.path)}:{finding.line}"
+        return finding.path
+    return f"{finding.path}:{finding.line}"
 
 
 def _severity_label(severity: str) -> str:
@@ -351,22 +325,10 @@ def _line_display(line: int | None) -> str:
     return "—" if line is None else str(line)
 
 
-def _path_display(path: str | None) -> str:
-    return "—" if path is None else path
-
-
 def _coerce_str(value: Any, *, default: str) -> str:
     if isinstance(value, str) and value:
         return value
     return default
-
-
-def _optional_str(value: Any, *, field_name: str) -> str | None | FindingsPayloadParseError:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value or None
-    return FindingsPayloadParseError(message=f"{field_name} must be a string when present")
 
 
 def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:

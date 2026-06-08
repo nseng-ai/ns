@@ -17,7 +17,7 @@ from roaster.context import RoasterCliContext
 from roaster.findings_publication import (
     extract_inline_markers,
     inline_marker_for_finding,
-    parse_publishable_diff_findings_payload_result,
+    parse_findings_payload_result,
     render_inline_body,
 )
 from roaster.inline_commentability import FallbackOnlyFinding, classify_inline_findings
@@ -53,7 +53,7 @@ def post_inline_findings_command(
     request: PostInlineFindingsRequest,
 ) -> ClinkrExit[PostInlineFindingsResult]:
     raw = sys.stdin.read()
-    payload = Ensure.ideal_state(parse_publishable_diff_findings_payload_result(raw))
+    payload = Ensure.ideal_state(parse_findings_payload_result(raw))
 
     pr_gateway = load_typed_context(ctx, RoasterCliContext).pr_gateway
     changed_files = pr_gateway.get_pr_changed_files(request.pr_number)

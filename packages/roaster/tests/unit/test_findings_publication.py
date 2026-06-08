@@ -13,13 +13,11 @@ from roaster.findings_publication import (
     InlinePostingStatus,
     InlinePostingStatusParseError,
     ParsedFindingsCommentBody,
-    ensure_publishable_diff_payload,
     extract_inline_markers,
     inline_marker_for_finding,
     parse_findings_comment_body,
     parse_findings_payload_result,
     parse_inline_posting_status_result,
-    parse_publishable_diff_findings_payload_result,
     preserve_activity_log,
     render_findings_comment,
     render_inline_body,
@@ -262,29 +260,6 @@ def test_parse_missing_optional_payload_fields_uses_defaults() -> None:
     assert payload.base_ref == "unknown"
     assert payload.findings == ()
     assert payload.count == 0
-
-
-def test_ensure_publishable_diff_payload_accepts_payload() -> None:
-    payload = _payload()
-
-    result = ensure_publishable_diff_payload(payload)
-
-    assert result is payload
-
-
-def test_parse_publishable_diff_findings_payload_parses_payload() -> None:
-    raw = json.dumps({"exit_code": 0, "data": {"findings": []}})
-
-    result = parse_publishable_diff_findings_payload_result(raw)
-
-    assert isinstance(result, FindingsPayload)
-
-
-def test_parse_publishable_diff_findings_payload_preserves_parse_errors() -> None:
-    result = parse_publishable_diff_findings_payload_result("not json")
-
-    assert isinstance(result, FindingsPayloadParseError)
-    assert result.error_type == "findings_parse_failed"
 
 
 def test_parse_count_derives_from_findings_when_absent() -> None:

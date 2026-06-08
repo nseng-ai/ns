@@ -56,14 +56,12 @@ def _sample_source(
 def _build_context(
     *,
     payload: ReviewPayload | None = None,
-    harness_detected: bool = True,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
     review_sources_by_key: dict[str, str] | None = None,
     changed_paths: tuple[str, ...] = ("app.py",),
     diff_text: str = "diff --git a/app.py b/app.py\n+print('hello')\n",
 ) -> RoasterCliContext:
-    paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     if payload is None:
         payload = FindingsReview(findings=())
     if review_sources_by_key is None:
@@ -82,7 +80,6 @@ def _build_context(
             ),
         ),
         harness_runtime=FakeHarnessRuntime(
-            paths_by_binary=paths_by_binary,
             default_response=ReviewExecutionResponse(payload=payload, usage=usage),
         ),
         pr_gateway=FakePRGateway(),
@@ -93,13 +90,11 @@ def _build_context(
 def _context(
     *,
     payload: ReviewPayload | None = None,
-    harness_detected: bool = True,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
 ) -> ClinkrContextObject:
     ctx = _build_context(
         payload=payload,
-        harness_detected=harness_detected,
         keys=keys,
         usage=usage,
     )
@@ -148,9 +143,7 @@ def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert (
-        "resolved model=sonnet harness=claude-code base_ref=master changed_paths=1" in result.output
-    )
+    assert "resolved model=sonnet base_ref=master changed_paths=1" in result.output
     assert "Reviewer: dignified-python" in result.output
     assert "Model: sonnet" in result.output
     assert "Base ref: master" in result.output
@@ -169,7 +162,6 @@ def test_review_run_threads_diff_request(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
     executed = ctx.harness_runtime.executed_requests[0]
-    assert executed.harness_name == "claude-code"
     assert executed.review_definition.name == REVIEW_KEY
     assert isinstance(executed.target, DiffReviewTarget)
     assert executed.target.local_diff.base_ref == "master"
