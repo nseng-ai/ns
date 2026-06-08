@@ -1,0 +1,144 @@
+{
+  "manifest": {
+    "payload_mode": "payload",
+    "payload_reference": {
+      "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+      "session_id": "golden-plan-feedback",
+      "descriptor": "feedback",
+      "role": "raw",
+      "created_at_utc": "<TIMESTAMP>",
+      "sequence": 1,
+      "payload_bytes": 1234,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "pr_number": 42,
+    "counts": {
+      "reviews": 1,
+      "review_threads": 1,
+      "unresolved_review_threads": 1,
+      "resolved_review_threads": 0,
+      "thread_comments": 1,
+      "discussion_comments": 1
+    },
+    "reviews": [
+      {
+        "id": "R_approval",
+        "author": "reviewer",
+        "state": "APPROVED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 12,
+          "json_pointer": "/data/reviews/0/body",
+          "item_pointer": "/data/reviews/0",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_approval",
+            "author": "reviewer"
+          }
+        }
+      }
+    ],
+    "review_threads": [
+      {
+        "thread_id": "T_single_file",
+        "path": "src/widget.ts",
+        "line": 17,
+        "start_line": null,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/0",
+        "comments": [
+          {
+            "id": 1001,
+            "author": "reviewer",
+            "path": "src/widget.ts",
+            "line": 17,
+            "start_line": null,
+            "created_at": "2026-06-01T12:05:00Z",
+            "body_locator": {
+              "body_chars": 34,
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/data/review_threads/0/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "thread_id": "T_single_file",
+                "comment_id": 1001,
+                "comment_index": 0,
+                "path": "src/widget.ts",
+                "line": 17,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "reviewer"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "discussion_comments": [
+      {
+        "comment_id": 2001,
+        "author": "ci-bot",
+        "url": "https://github.example/pr/42#issuecomment-2001",
+        "body_locator": {
+          "body_chars": 18,
+          "json_pointer": "/data/discussion_comments/0/body",
+          "item_pointer": "/data/discussion_comments/0",
+          "domain": {
+            "kind": "discussion_comment",
+            "discussion_comment_id": 2001,
+            "author": "ci-bot"
+          }
+        }
+      }
+    ]
+  },
+  "classification": {
+    "schema_version": 1,
+    "reviews": [
+      {
+        "review_id": "R_approval",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/0/body",
+          "item_pointer": "/data/reviews/0"
+        },
+        "summary": "Reviewer approved the PR.",
+        "informational_reason": "approval"
+      }
+    ],
+    "review_threads": [
+      {
+        "thread_id": "T_single_file",
+        "disposition": "actionable",
+        "thread_item_pointer": "/data/review_threads/0",
+        "covered_comments": [
+          {
+            "comment_id": 1001,
+            "body_locator": {
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/data/review_threads/0/comments/0"
+            }
+          }
+        ],
+        "summary": "Widget branch needs a clearer null check.",
+        "action_summary": "Add the missing null guard in src/widget.ts.",
+        "complexity": "single_file"
+      }
+    ],
+    "discussion_comments": [
+      {
+        "comment_id": 2001,
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/discussion_comments/0/body",
+          "item_pointer": "/data/discussion_comments/0"
+        },
+        "summary": "Automation posted a status note.",
+        "informational_reason": "automation"
+      }
+    ]
+  }
+}
