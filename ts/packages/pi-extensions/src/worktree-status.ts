@@ -1,5 +1,4 @@
 import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
-import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
@@ -10,22 +9,16 @@ import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksFromDetails,
-	sanitizeTerminalHyperlinkUrl,
-	terminalHyperlink,
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "./terminal-presentation.ts";
+import {
+	loadGraphiteMetadataStatus,
+	type GraphiteMetadataStatus,
+} from "./worktree-status/graphite-metadata.ts";
 
 const UI_KEY = "worktree-status";
 const EMPTY_BRANCH_ICON = "∅";
-const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
-const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
-const REQUIRED_GRAPHITE_METADATA_COLUMNS = [
-	"branch_name",
-	"parent_branch_name",
-	"children",
-	"validation_result",
-] as const;
 const COMMAND_TIMEOUT_MS = 5_000;
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
@@ -192,63 +185,11 @@ interface GitPaths {
 	headPath: string;
 }
 
-interface GraphiteMetadataColumnRow {
-	name: unknown;
-}
-
-interface GraphiteMetadataSqlRow {
-	branch_name: unknown;
-	parent_branch_name: unknown;
-	children: unknown;
-	validation_result: unknown;
-}
-
-interface GraphiteMetadataRow {
-	branchName: string;
-	parentBranchName?: string;
-	children: readonly string[];
-	validationResult?: string;
-}
-
-type GraphiteMetadataRowsResult =
-	| { type: "loaded"; rows: ReadonlyMap<string, GraphiteMetadataRow> }
-	| { type: "unavailable"; reason: string };
-
-interface BunSqliteStatement<ReturnType, ParamsType extends readonly unknown[]> {
-	all(...params: ParamsType): ReturnType[];
-}
-
-interface BunSqliteDatabase {
-	query<ReturnType, ParamsType extends readonly unknown[]>(sql: string): BunSqliteStatement<ReturnType, ParamsType>;
-	close(): void;
-}
-
-type BunSqliteDatabaseConstructor = new (filename: string, options: { readonly: true }) => BunSqliteDatabase;
-
-const requireRuntimeModule = createRequire(import.meta.url);
-
-type GraphiteMetadataStatus =
-	| {
-			type: "tracked";
-			currentBranch: string;
-			parent: string | undefined;
-			children: readonly string[];
-			isCurrentTrunk: boolean;
-		}
-	| { type: "untracked"; currentBranch: string }
-	| { type: "unavailable"; reason: string; currentBranch?: string };
-
-export interface GtPrStatus {
-	number: number;
-	url: string;
-}
-
 export interface GtStatus {
 	down: string | undefined;
 	up: string;
 	commits: "yes" | "no" | "?" | "n/a";
 	dirty: "yes" | "no";
-	pr?: GtPrStatus;
 }
 
 export interface WorktreeStatus {
@@ -624,8 +565,8 @@ export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: 
 }
 
 export async function loadGtStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtStatus> {
-	const metadata = loadGraphiteMetadataStatus(cwd);
-	const down = await loadDownBranch(pi, cwd, metadata, signal);
+	const metadata = loadCurrentGraphiteMetadataStatus(cwd);
+	const down = loadDownBranch(metadata, signal);
 	const up = loadUpBranch(metadata, signal);
 	const [commits, dirty] = await Promise.all([
 		loadHasCommits(pi, cwd, down, signal),
@@ -712,150 +653,22 @@ function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: str
 	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
 }
 
-function loadGraphiteMetadataStatus(cwd: string): GraphiteMetadataStatus {
+function loadCurrentGraphiteMetadataStatus(cwd: string): GraphiteMetadataStatus {
 	const gitPaths = findGitPaths(cwd);
 	if (gitPaths === undefined) return { type: "unavailable", reason: "not-a-git-repo" };
 
 	const currentBranch = currentBranchName(gitPaths);
 	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
 
-	const dbPath = join(gitPaths.commonGitDir, GRAPHITE_METADATA_DB_NAME);
-	if (!existsSync(dbPath)) return { type: "unavailable", reason: "missing-db", currentBranch };
-
-	const rowsResult = readGraphiteMetadataRows(dbPath);
-	if (rowsResult.type === "unavailable") {
-		return { type: "unavailable", reason: rowsResult.reason, currentBranch };
-	}
-
-	const currentRow = rowsResult.rows.get(currentBranch);
-	if (currentRow === undefined) return { type: "untracked", currentBranch };
-
-	return {
-		type: "tracked",
-		currentBranch,
-		parent: currentRow.parentBranchName,
-		children: currentRow.children,
-		isCurrentTrunk: currentRow.validationResult === "TRUNK",
-	};
+	return loadGraphiteMetadataStatus({ commonGitDir: gitPaths.commonGitDir, currentBranch });
 }
 
-function readGraphiteMetadataRows(dbPath: string): GraphiteMetadataRowsResult {
-	const Database = loadBunSqliteDatabaseConstructor();
-	if (Database === undefined) return { type: "unavailable", reason: "sqlite-unavailable" };
-
-	let db: BunSqliteDatabase | undefined;
-	try {
-		db = new Database(dbPath, { readonly: true });
-		const columnRows = db.query<GraphiteMetadataColumnRow, []>("PRAGMA table_info(branch_metadata)").all();
-		const columnNames = new Set(columnRows.map((row) => row.name).filter((name): name is string => typeof name === "string"));
-		if (REQUIRED_GRAPHITE_METADATA_COLUMNS.some((column) => !columnNames.has(column))) {
-			return { type: "unavailable", reason: "schema-mismatch" };
-		}
-
-		const sqlRows = db
-			.query<GraphiteMetadataSqlRow, []>(
-				"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata",
-			)
-			.all();
-		const rows = new Map<string, GraphiteMetadataRow>();
-		for (const sqlRow of sqlRows) {
-			const branchName = metadataText(sqlRow.branch_name);
-			if (branchName === undefined) continue;
-
-			const row: GraphiteMetadataRow = {
-				branchName,
-				children: parseGraphiteChildren(sqlRow.children),
-			};
-			const parentBranchName = metadataText(sqlRow.parent_branch_name);
-			if (parentBranchName !== undefined) row.parentBranchName = parentBranchName;
-			const validationResult = metadataText(sqlRow.validation_result);
-			if (validationResult !== undefined) row.validationResult = validationResult;
-			rows.set(branchName, row);
-		}
-
-		return { type: "loaded", rows };
-	} catch {
-		return { type: "unavailable", reason: "read-failed" };
-	} finally {
-		if (db !== undefined) {
-			try {
-				db.close();
-			} catch {
-				// Closing a read-only status probe must not throw through passive UI refresh.
-			}
-		}
-	}
-}
-
-function loadBunSqliteDatabaseConstructor(): BunSqliteDatabaseConstructor | undefined {
-	try {
-		const sqliteModule = requireRuntimeModule("bun:sqlite") as unknown;
-		if (!isRecord(sqliteModule) || typeof sqliteModule.Database !== "function") return undefined;
-		return sqliteModule.Database as BunSqliteDatabaseConstructor;
-	} catch {
-		return undefined;
-	}
-}
-
-function parseGraphiteChildren(value: unknown): readonly string[] {
-	if (value == null || value === "") return [];
-	if (typeof value !== "string") return [];
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(value);
-	} catch {
-		return [];
-	}
-
-	if (!Array.isArray(parsed)) return [];
-	return parsed.filter((item): item is string => typeof item === "string");
-}
-
-function metadataText(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const text = value.trim();
-	return text.length > 0 ? text : undefined;
-}
-
-async function loadDownBranch(
-	pi: ExecGateway,
-	cwd: string,
-	metadata: GraphiteMetadataStatus,
-	signal?: AbortSignal,
-): Promise<string | undefined> {
+function loadDownBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string | undefined {
 	if (signal?.aborted) return "-";
-
-	if (metadata.type === "tracked") {
-		if (metadata.parent !== undefined) return metadata.parent;
-		if (metadata.isCurrentTrunk) return undefined;
-	}
-
-	return (await loadPreviousCheckoutLocalBranch(pi, cwd, signal)) ?? "-";
-}
-
-async function loadPreviousCheckoutLocalBranch(
-	pi: ExecGateway,
-	cwd: string,
-	signal?: AbortSignal,
-): Promise<string | undefined> {
-	if (signal?.aborted) return undefined;
-
-	try {
-		const previousRefResult = await pi.exec("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], execOptions(cwd, signal));
-		if (previousRefResult.code !== 0) return undefined;
-
-		const previousRef = firstNonEmptyLine(previousRefResult.stdout);
-		if (!previousRef?.startsWith(LOCAL_BRANCH_REF_PREFIX)) return undefined;
-
-		const verifyResult = await pi.exec("git", ["show-ref", "--verify", previousRef], execOptions(cwd, signal));
-		if (verifyResult.code !== 0) return undefined;
-
-		const branch = previousRef.slice(LOCAL_BRANCH_REF_PREFIX.length);
-		return branch.length > 0 ? branch : undefined;
-	} catch {
-		return undefined;
-	}
+	if (metadata.type !== "tracked") return "-";
+	if (metadata.parent !== undefined) return metadata.parent;
+	if (metadata.isCurrentTrunk) return undefined;
+	return "-";
 }
 
 function loadUpBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string {
@@ -896,25 +709,6 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	} catch {
 		return "no";
 	}
-}
-
-function parseGraphitePrStatusFromBranchInfo(stdout: string): GtPrStatus | undefined {
-	const lines = stdout.split(/\r?\n/).map((line) => line.trim());
-	for (let index = 0; index < lines.length; index += 1) {
-		const line = lines[index] ?? "";
-		const match = /^PR #(\d+)\b/.exec(line);
-		if (!match?.[1]) continue;
-
-		const number = Number.parseInt(match[1], 10);
-		if (!Number.isInteger(number) || number <= 0) return undefined;
-
-		for (const candidate of lines.slice(index + 1, index + 6)) {
-			const sanitizedUrl = sanitizeTerminalHyperlinkUrl(candidate);
-			if (sanitizedUrl) return { number, url: sanitizedUrl };
-		}
-	}
-
-	return undefined;
 }
 
 function currentBranchName(gitPaths: GitPaths): string | undefined {
@@ -989,32 +783,7 @@ export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 					: ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
 	const rest = `${down} (↑: ${status.up})${commits}${dirty}`;
-
-	if (theme) {
-		const pr = status.pr
-			? `${formatStatusSegment(" (pr: ", theme)}${formatPrNumber(status.pr, theme)}${formatStatusSegment(")", theme)}`
-			: "";
-		const line = `${formatStatusSegment("[gt]", theme)}${pr}${formatStatusSegment(rest, theme)}`;
-		return linkStatusLine(line, status.pr);
-	}
-
-	const pr = status.pr ? ` (pr: ${formatPrNumber(status.pr, theme)})` : "";
-	const line = `[gt]${pr}${rest}`;
-	return linkStatusLine(line, status.pr);
-}
-
-function linkStatusLine(line: string, pr: GtPrStatus | undefined): string {
-	if (!pr) return line;
-	const sanitizedUrl = sanitizeTerminalHyperlinkUrl(pr.url);
-	return sanitizedUrl ? terminalHyperlink(line, sanitizedUrl) : line;
-}
-
-function formatPrNumber(pr: GtPrStatus, theme: StatusTheme | undefined): string {
-	const text = `#${pr.number}`;
-	if (!theme) return text;
-
-	const underlined = theme.underline ? theme.underline(text) : text;
-	return theme.fg("accent", underlined);
+	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(rest, theme)}`;
 }
 
 function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
@@ -1277,13 +1046,3 @@ function normalizeWatchFilename(filename: string | Buffer | null): string | unde
 	return typeof filename === "string" ? filename : filename.toString();
 }
 
-function firstNonEmptyLine(value: string): string | undefined {
-	return nonEmptyLines(value)[0];
-}
-
-function nonEmptyLines(value: string): string[] {
-	return value
-		.split(/\r?\n/)
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0);
-}
