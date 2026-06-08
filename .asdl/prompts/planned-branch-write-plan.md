@@ -34,13 +34,14 @@ Subagent orchestration opportunities:
 - Do not imply that planned-branch runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
 
 Review and remediation plan:
-- Plans should include applicable in-session roaster-style reviews after implementation and focused validation.
-- If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include an in-session `typescript-style` review by reading `reviews/typescript-style.md` and applying it to the changed diff.
-- If Python files (`.py`) are likely to change, include an in-session `dignified-python` review by reading `reviews/dignified-python.md` and applying it to the changed diff.
-- If both TypeScript and Python changes are likely, include both reviews. If neither applies, say that no TypeScript/Python roaster review is applicable.
-- Do not invoke the external roaster review runner for this closeout; the current implementation agent performs the review in-session from the review definition files.
+- Plans should include applicable in-session roaster-style reviews after implementation and focused validation, run through focused review subagents.
+- If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include an in-session `typescript-style` review subagent that reads `reviews/typescript-style.md` and applies it to the changed diff.
+- If Python files (`.py`) are likely to change, include an in-session `dignified-python` review subagent that reads `reviews/dignified-python.md` and applies it to the changed diff.
+- If both TypeScript and Python changes are likely, include both review subagents. If neither applies, say that no TypeScript/Python roaster review subagent is applicable.
+- Do not invoke the external roaster review runner for this closeout; the implementation agent launches focused subagents to perform reviews in-session from the review definition files.
+- Plans should instruct the implementation agent to inspect each review subagent's final text/status before acting on findings.
 - Plans should instruct the implementation agent to automatically remediate easy findings: local, mechanical, low-risk fixes that are clearly correct from nearby context and require no product, API, ownership, or design decision.
-- Plans should instruct the implementation agent to re-run focused validation and repeat the applicable in-session review after easy fixes.
+- Plans should instruct the implementation agent to re-run focused validation and repeat the applicable in-session review subagent after easy fixes.
 - Plans should instruct the implementation agent to stop automatic remediation and report complex findings to the user when findings are ambiguous, cross-cutting, behavior-changing, design-sensitive, or not clearly correct. The report should include path/line, why it was deferred, and recommended options.
 
 Workflow:
