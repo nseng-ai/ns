@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { formatCommand, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import {

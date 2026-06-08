@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import asdlDevExtension from "../src/asdl-dev-extension.ts";
 import type { ExtensionAPI } from "../src/cli-command-extension.ts";

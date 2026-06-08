@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { resolveBrmemCommandCandidates } from "../src/brmem-cli.ts";
 

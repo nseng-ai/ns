@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "../src/command-runtime.ts";
 import { makeGraphiteRepo, withTempRoot } from "./worktree-status-fixtures.ts";

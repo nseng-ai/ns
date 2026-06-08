@@ -10,12 +10,13 @@
       Choose the shared-vs-package-local configuration shape, dependency placement, Node/TypeScript execution assumptions, and serial/concurrency policy needed to preserve the current `bun test --sequential` behavior where required.
       Evidence: Semantic Update `20260608T175255Z-vitest-workspace-config.md` records the shared root config decision, `vitest` dependency placement, explicit-import policy, serial `fileParallelism: false` posture, config-load evidence, and local Node baseline warning.
 
-- [~] Convert package-local test scripts and `bun:test` imports to Vitest.
+- [x] Convert package-local test scripts and `bun:test` imports to Vitest.
       Migrate `asdl-dev`, `ccc`, `pi-extension-runtime`, `pi-extensions`, and `planned-branch` package tests without changing production behavior or hiding genuine test-runner semantic differences.
-      Evidence: Semantic Update `20260608T181655Z-low-risk-vitest-package-conversion.md` records that `asdl-dev`, `ccc`, `pi-extension-runtime`, and `planned-branch` package-local scripts and test imports now run through Vitest, while `pi-extensions` remains the intentionally separate behavior-sensitive package.
+      Evidence: Semantic Update `20260608T181655Z-low-risk-vitest-package-conversion.md` records that `asdl-dev`, `ccc`, `pi-extension-runtime`, and `planned-branch` package-local scripts and test imports now run through Vitest. Semantic Update `20260608T182139Z-pi-extensions-vitest-conversion.md` records the `pi-extensions` conversion; no active `ts/packages/**` test file imports from `bun:test` after this slice.
 
-- [ ] Convert Bun-specific mocking and lifecycle behavior with targeted evidence.
+- [x] Convert Bun-specific mocking and lifecycle behavior with targeted evidence.
       Give special attention to `ts/packages/pi-extensions/test/changes.test.ts` and any tests relying on module cache state, cleanup timing, temporary files, or shared process state.
+      Evidence: Semantic Update `20260608T182139Z-pi-extensions-vitest-conversion.md` records the `@earendil-works/pi-ai` `vi.mock`/`vi.hoisted` replacement, matcher cleanup, and full package/workspace Vitest validation.
 
 - [ ] Remove obsolete Bun test-runner dependencies and update active command documentation.
       Remove `@types/bun` or other Bun test-runner-only support when no active runtime need remains, then update `justfile`, CI, package docs, and agent-facing command references that still describe TypeScript tests as Bun-backed.

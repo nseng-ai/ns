@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch/transaction.ts";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 

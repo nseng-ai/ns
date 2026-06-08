@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -415,7 +415,7 @@ async function objectiveCommandCompletions(
 	objectiveExtension(pi);
 	await pi.emitSessionStart(createContext().ctx);
 	const command = pi.commands.get(commandName);
-	expect(command?.getArgumentCompletions).toBeFunction();
+	expect(typeof command?.getArgumentCompletions).toBe("function");
 	if (!command?.getArgumentCompletions) {
 		throw new Error(`${commandName} did not register argument completions`);
 	}
@@ -963,7 +963,7 @@ describe("objective command shared selection policy", () => {
 		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 			const command = pi.commands.get(commandName);
 			expect(command?.argumentHint).toBe("[objective-slug-or-path]");
-			expect(command?.getArgumentCompletions).toBeFunction();
+			expect(typeof command?.getArgumentCompletions).toBe("function");
 		}
 	});
 
