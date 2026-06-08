@@ -62,7 +62,7 @@ def test_build_objective_list_result_reports_checkout_records_and_head_touches(
         (tmp_path, ".asdl/objectives/alpha"),
         (tmp_path, ".asdl/objectives/closed-one"),
     )
-    assert git.list_local_branches_calls == ()
+    assert git.list_local_branch_tips_calls == ()
     assert git.list_tracked_paths_at_ref_calls == ()
     assert git.tree_oids_at_refs_calls == ()
     assert git.path_touches_under_calls == ()
@@ -157,7 +157,7 @@ def test_build_objective_list_result_updated_branches_skips_empty_filtered_recor
 
     assert result.updated_branches_included is True
     assert result.records == ()
-    assert git.list_local_branches_calls == ()
+    assert git.list_local_branch_tips_calls == ()
     assert git.tree_oids_at_refs_calls == ()
     assert git.path_touches_under_calls == ()
 
@@ -218,7 +218,7 @@ def test_build_objective_list_result_updated_branches_uses_branch_first_prefilte
         ("alpha", ("feat/alpha",)),
         ("beta", ("feat/beta",)),
     ]
-    assert git.list_local_branches_calls == ()
+    assert git.list_local_branch_tips_calls == (None,)
     assert git.tree_oids_at_refs_calls == (
         (
             ("master", "feat/alpha", "feat/beta", "feat/branch-only", "feat/same-tree"),
