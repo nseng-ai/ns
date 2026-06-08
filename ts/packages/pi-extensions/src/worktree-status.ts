@@ -2,6 +2,7 @@ import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatc
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { Database } from "bun:sqlite";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "./brmem-cli.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -18,6 +19,13 @@ import {
 const UI_KEY = "worktree-status";
 const EMPTY_BRANCH_ICON = "∅";
 const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
+const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
+const REQUIRED_GRAPHITE_METADATA_COLUMNS = [
+	"branch_name",
+	"parent_branch_name",
+	"children",
+	"validation_result",
+] as const;
 const COMMAND_TIMEOUT_MS = 5_000;
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
@@ -183,6 +191,39 @@ interface GitPaths {
 	commonGitDir: string;
 	headPath: string;
 }
+
+interface GraphiteMetadataColumnRow {
+	name: unknown;
+}
+
+interface GraphiteMetadataSqlRow {
+	branch_name: unknown;
+	parent_branch_name: unknown;
+	children: unknown;
+	validation_result: unknown;
+}
+
+interface GraphiteMetadataRow {
+	branchName: string;
+	parentBranchName?: string;
+	children: readonly string[];
+	validationResult?: string;
+}
+
+type GraphiteMetadataRowsResult =
+	| { type: "loaded"; rows: ReadonlyMap<string, GraphiteMetadataRow> }
+	| { type: "unavailable"; reason: string };
+
+type GraphiteMetadataStatus =
+	| {
+			type: "tracked";
+			currentBranch: string;
+			parent: string | undefined;
+			children: readonly string[];
+			isCurrentTrunk: boolean;
+		}
+	| { type: "untracked"; currentBranch: string }
+	| { type: "unavailable"; reason: string; currentBranch?: string };
 
 export interface GtPrStatus {
 	number: number;
@@ -570,17 +611,15 @@ export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: 
 }
 
 export async function loadGtStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtStatus> {
-	const down = await loadDownBranch(pi, cwd, signal);
-	const [up, commits, dirty, pr] = await Promise.all([
-		loadUpBranch(pi, cwd, signal),
+	const metadata = loadGraphiteMetadataStatus(cwd);
+	const down = await loadDownBranch(pi, cwd, metadata, signal);
+	const up = loadUpBranch(metadata, signal);
+	const [commits, dirty] = await Promise.all([
 		loadHasCommits(pi, cwd, down, signal),
 		loadDirty(pi, cwd, signal),
-		loadGraphitePrStatus(pi, cwd, signal),
 	]);
 
-	const status: GtStatus = { down, up, commits, dirty };
-	if (pr !== undefined) status.pr = pr;
-	return status;
+	return { down, up, commits, dirty };
 }
 
 async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
@@ -660,39 +699,113 @@ function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: str
 	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
 }
 
-async function loadDownBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
-	if (signal?.aborted) return "-";
+function loadGraphiteMetadataStatus(cwd: string): GraphiteMetadataStatus {
+	const gitPaths = findGitPaths(cwd);
+	if (gitPaths === undefined) return { type: "unavailable", reason: "not-a-git-repo" };
 
-	try {
-		const result = await pi.exec("gt", ["parent"], execOptions(cwd, signal));
-		if (result.code === 0) {
-			const parent = firstNonEmptyLine(result.stdout);
-			if (parent) return parent;
-		}
-	} catch {
-		// Fall back below when Graphite parent lookup is unavailable.
+	const currentBranch = currentBranchName(gitPaths);
+	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
+
+	const dbPath = join(gitPaths.commonGitDir, GRAPHITE_METADATA_DB_NAME);
+	if (!existsSync(dbPath)) return { type: "unavailable", reason: "missing-db", currentBranch };
+
+	const rowsResult = readGraphiteMetadataRows(dbPath);
+	if (rowsResult.type === "unavailable") {
+		return { type: "unavailable", reason: rowsResult.reason, currentBranch };
 	}
 
-	const gitPaths = findGitPaths(cwd);
-	const currentBranch = gitPaths ? currentBranchName(gitPaths) : undefined;
-	if (currentBranch !== undefined) {
-		const trunk = await loadGraphiteTrunk(pi, cwd, signal);
-		if (trunk === currentBranch) return undefined;
+	const currentRow = rowsResult.rows.get(currentBranch);
+	if (currentRow === undefined) return { type: "untracked", currentBranch };
+
+	return {
+		type: "tracked",
+		currentBranch,
+		parent: currentRow.parentBranchName,
+		children: currentRow.children,
+		isCurrentTrunk: currentRow.validationResult === "TRUNK",
+	};
+}
+
+function readGraphiteMetadataRows(dbPath: string): GraphiteMetadataRowsResult {
+	let db: Database | undefined;
+	try {
+		db = new Database(dbPath, { readonly: true });
+		const columnRows = db.query<GraphiteMetadataColumnRow, []>("PRAGMA table_info(branch_metadata)").all();
+		const columnNames = new Set(columnRows.map((row) => row.name).filter((name): name is string => typeof name === "string"));
+		if (REQUIRED_GRAPHITE_METADATA_COLUMNS.some((column) => !columnNames.has(column))) {
+			return { type: "unavailable", reason: "schema-mismatch" };
+		}
+
+		const sqlRows = db
+			.query<GraphiteMetadataSqlRow, []>(
+				"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata",
+			)
+			.all();
+		const rows = new Map<string, GraphiteMetadataRow>();
+		for (const sqlRow of sqlRows) {
+			const branchName = metadataText(sqlRow.branch_name);
+			if (branchName === undefined) continue;
+
+			const row: GraphiteMetadataRow = {
+				branchName,
+				children: parseGraphiteChildren(sqlRow.children),
+			};
+			const parentBranchName = metadataText(sqlRow.parent_branch_name);
+			if (parentBranchName !== undefined) row.parentBranchName = parentBranchName;
+			const validationResult = metadataText(sqlRow.validation_result);
+			if (validationResult !== undefined) row.validationResult = validationResult;
+			rows.set(branchName, row);
+		}
+
+		return { type: "loaded", rows };
+	} catch {
+		return { type: "unavailable", reason: "read-failed" };
+	} finally {
+		if (db !== undefined) {
+			try {
+				db.close();
+			} catch {
+				// Closing a read-only status probe must not throw through passive UI refresh.
+			}
+		}
+	}
+}
+
+function parseGraphiteChildren(value: unknown): readonly string[] {
+	if (value == null || value === "") return [];
+	if (typeof value !== "string") return [];
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch {
+		return [];
+	}
+
+	if (!Array.isArray(parsed)) return [];
+	return parsed.filter((item): item is string => typeof item === "string");
+}
+
+function metadataText(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const text = value.trim();
+	return text.length > 0 ? text : undefined;
+}
+
+async function loadDownBranch(
+	pi: ExecGateway,
+	cwd: string,
+	metadata: GraphiteMetadataStatus,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	if (signal?.aborted) return "-";
+
+	if (metadata.type === "tracked") {
+		if (metadata.parent !== undefined) return metadata.parent;
+		if (metadata.isCurrentTrunk) return undefined;
 	}
 
 	return (await loadPreviousCheckoutLocalBranch(pi, cwd, signal)) ?? "-";
-}
-
-async function loadGraphiteTrunk(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
-	if (signal?.aborted) return undefined;
-
-	try {
-		const result = await pi.exec("gt", ["trunk", "--no-interactive"], execOptions(cwd, signal));
-		if (result.code !== 0) return undefined;
-		return firstNonEmptyLine(result.stdout);
-	} catch {
-		return undefined;
-	}
 }
 
 async function loadPreviousCheckoutLocalBranch(
@@ -719,20 +832,12 @@ async function loadPreviousCheckoutLocalBranch(
 	}
 }
 
-async function loadUpBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string> {
+function loadUpBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string {
 	if (signal?.aborted) return "-";
-
-	try {
-		const result = await pi.exec("gt", ["children"], execOptions(cwd, signal));
-		if (result.code !== 0) return "-";
-
-		const children = nonEmptyLines(result.stdout);
-		if (children.length === 0) return "-";
-		if (children.length === 1) return children[0] ?? "-";
-		return "<multiple>";
-	} catch {
-		return "-";
-	}
+	if (metadata.type !== "tracked") return "-";
+	if (metadata.children.length === 0) return "-";
+	if (metadata.children.length === 1) return metadata.children[0] ?? "-";
+	return "<multiple>";
 }
 
 async function loadHasCommits(
@@ -764,35 +869,6 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 		return result.stdout.trim().length > 0 ? "yes" : "no";
 	} catch {
 		return "no";
-	}
-}
-
-async function loadGraphitePrStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtPrStatus | undefined> {
-	if (signal?.aborted) return undefined;
-
-	const gitPaths = findGitPaths(cwd);
-	if (!gitPaths) return undefined;
-
-	const branch = currentBranchName(gitPaths);
-	if (!branch) return undefined;
-
-	return loadGraphitePrStatusFromBranchInfo(pi, cwd, branch, signal);
-}
-
-async function loadGraphitePrStatusFromBranchInfo(
-	pi: ExecGateway,
-	cwd: string,
-	branch: string,
-	signal?: AbortSignal,
-): Promise<GtPrStatus | undefined> {
-	if (signal?.aborted) return undefined;
-
-	try {
-		const result = await pi.exec("gt", ["branch", "info", branch, "--no-interactive"], execOptions(cwd, signal));
-		if (result.code !== 0) return undefined;
-		return parseGraphitePrStatusFromBranchInfo(result.stdout);
-	} catch {
-		return undefined;
 	}
 }
 
