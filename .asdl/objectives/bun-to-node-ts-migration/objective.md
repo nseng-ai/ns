@@ -81,3 +81,9 @@ Risks:
 ## Open Questions
 
 No umbrella setup questions remain open. The child Objectives should own their slice-specific open questions, especially CLI execution policy, `node:sqlite` warning handling, docs-site sequencing, and whether Bun-centric project templates should remain deliberate product guidance.
+
+## Closure
+
+Completed. The umbrella's coordinating work is finished because every active child-creation roadmap item has been marked `[x]` and the corresponding child Objectives have been created for tooling contract, pnpm workspace migration, Vitest migration, Node runtime compatibility, and Bun-reference reconciliation.
+
+The umbrella intentionally does not wait for child implementation, validation, review, parking decisions, or closure. Those details belong to the child Objective records. The remaining unchecked parked rows are conditional product or tooling-direction reconsiderations, not active child-creation work.
