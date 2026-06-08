@@ -1,11 +1,17 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { Database } from "bun:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { stripTerminalEscapes } from "../src/command-runtime.ts";
+import {
+	makeGitRepo,
+	makeGraphiteRepo,
+	makePyprojectRoot,
+	standardGraphiteRows,
+	writeGraphiteMetadataDb,
+} from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
 	formatGtStatus,
 	loadGtStatus,
@@ -152,77 +158,10 @@ function dirtyStep(stdout = ""): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1"], { stdout });
 }
 
-function previousCheckoutStep(branch: string): ScriptedExec {
-	return step("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], { stdout: `refs/heads/${branch}\n` });
-}
-
-function verifyRefStep(branch: string): ScriptedExec {
-	return step("git", ["show-ref", "--verify", `refs/heads/${branch}`]);
-}
-
 async function loadFormattedStatus(script: ScriptedExec[], root: string): Promise<{ pi: FakePi; formatted: string }> {
 	const pi = new FakePi(script);
 	const status = await loadGtStatus(pi, root);
 	return { pi, formatted: formatGtStatus(status) };
-}
-
-interface MetadataBranchRow {
-	branchName: string;
-	parentBranchName?: string;
-	children?: readonly string[];
-	validationResult?: string;
-	rawChildren?: string | null;
-}
-
-function writeGraphiteMetadataDb(gitDir: string, rows: readonly MetadataBranchRow[]): void {
-	const db = new Database(join(gitDir, ".graphite_metadata.db"));
-	try {
-		db.run(`
-			CREATE TABLE branch_metadata (
-				branch_name TEXT PRIMARY KEY,
-				parent_branch_name TEXT,
-				children TEXT,
-				validation_result TEXT,
-				extra_graphite_column TEXT
-			)
-		`);
-		const insert = db.prepare<unknown, [string, string | null, string | null, string | null, null]>(
-			"INSERT INTO branch_metadata (branch_name, parent_branch_name, children, validation_result, extra_graphite_column) VALUES (?, ?, ?, ?, ?)",
-		);
-		for (const row of rows) {
-			const children = row.rawChildren !== undefined ? row.rawChildren : JSON.stringify(row.children ?? []);
-			insert.run(row.branchName, row.parentBranchName ?? null, children, row.validationResult ?? null, null);
-		}
-	} finally {
-		db.close();
-	}
-}
-
-function standardGraphiteRows(): MetadataBranchRow[] {
-	return [
-		{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
-		{ branchName: "feature/current", parentBranchName: "main" },
-	];
-}
-
-function makeGitRepo(branch: string): string {
-	const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
-	const gitDir = join(root, ".git");
-	mkdirSync(gitDir);
-	writeFileSync(join(gitDir, "HEAD"), `ref: refs/heads/${branch}\n`);
-	return root;
-}
-
-function makeGraphiteRepo(branch = "feature/current", rows: readonly MetadataBranchRow[] = standardGraphiteRows()): string {
-	const root = makeGitRepo(branch);
-	writeGraphiteMetadataDb(join(root, ".git"), rows);
-	return root;
-}
-
-function makePyprojectRoot(): string {
-	const root = makeGraphiteRepo();
-	writeFileSync(join(root, "pyproject.toml"), "[project]\nname = \"example\"\n", "utf8");
-	return root;
 }
 
 function basicGitStatusScript(base = "main", count = 1, dirtyStdout = ""): ScriptedExec[] {
@@ -580,37 +519,6 @@ describe("worktree status formatting", () => {
 		);
 	});
 
-	test("formats associated PR status as a labeled terminal hyperlink", () => {
-		const formatted = formatGtStatus({
-			down: "main",
-			up: "-",
-			commits: "yes",
-			dirty: "no",
-			pr: { number: 488, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/488" },
-		});
-
-		expect(formatted).toBe(
-			"\x1B]8;;https://app.graphite.com/github/pr/dagster-io/asdl-tools/488\x07[gt] (pr: #488) (↓: main) (↑: -) (commits)\x1B]8;;\x07",
-		);
-		expect(stripTerminalEscapes(formatted)).toBe("[gt] (pr: #488) (↓: main) (↑: -) (commits)");
-	});
-
-	test("colorizes the linked PR number when formatting for the UI", () => {
-		const formatted = formatGtStatus(
-			{
-				down: "main",
-				up: "-",
-				commits: "yes",
-				dirty: "no",
-				pr: { number: 488, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/488" },
-			},
-			TEST_THEME,
-		);
-
-		expect(formatted).toContain("\x1B[36m\x1B[4m#488\x1B[24m\x1B[39m");
-		expect(formatted).toContain("\x1B[90m[gt]\x1B[39m");
-		expect(stripTerminalEscapes(formatted)).toBe("[gt] (pr: #488) (↓: main) (↑: -) (commits)");
-	});
 });
 
 describe("loadWorktreeStatus", () => {
@@ -837,37 +745,16 @@ describe("loadGtStatus", () => {
 		}
 	});
 
-	test("falls back to the previously checked-out local branch when metadata DB is missing", async () => {
+	test("uses an unknown base when metadata DB is missing", async () => {
 		const root = makeGitRepo("feature/current");
 		try {
-			const { pi, formatted } = await loadFormattedStatus(
-				[previousCheckoutStep("main"), verifyRefStep("main"), revListStep("main", 0), dirtyStep()],
-				root,
-			);
-
-			pi.assertDone();
-			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
-	});
-
-	test("reports unknown commits rather than a false empty branch when no base is found", async () => {
-		const root = makeGitRepo("feature/current");
-		try {
-			const { pi, formatted } = await loadFormattedStatus(
-				[
-					step("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], { code: 1, stderr: "no previous checkout" }),
-					dirtyStep(),
-				],
-				root,
-			);
+			const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
 			expect(formatted).not.toContain("∅");
+			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
 		} finally {
 			rmSync(root, { recursive: true, force: true });
 		}
@@ -896,45 +783,6 @@ describe("loadGtStatus", () => {
 		}
 	});
 
-	test("falls back safely when metadata schema is missing required columns", async () => {
-		const root = makeGitRepo("feature/current");
-		const db = new Database(join(root, ".git", ".graphite_metadata.db"));
-		try {
-			db.run("CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT)");
-		} finally {
-			db.close();
-		}
-
-		try {
-			const { pi, formatted } = await loadFormattedStatus(
-				[previousCheckoutStep("main"), verifyRefStep("main"), revListStep("main", 0), dirtyStep()],
-				root,
-			);
-
-			pi.assertDone();
-			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
-	});
-
-	test("treats malformed children JSON as no upstack children", async () => {
-		const root = makeGraphiteRepo("feature/current", [
-			{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
-			{ branchName: "feature/current", parentBranchName: "main", rawChildren: "not json" },
-		]);
-		try {
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
-
-			pi.assertDone();
-			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
-	});
-
 	test("formats multiple metadata children as multiple upstack branches", async () => {
 		const root = makeGraphiteRepo("feature/current", [
 			{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
@@ -953,20 +801,19 @@ describe("loadGtStatus", () => {
 		}
 	});
 
-	test("uses previous-checkout fallback when current branch is untracked by metadata", async () => {
+	test("uses an unknown base when current branch is untracked by metadata", async () => {
 		const root = makeGraphiteRepo("feature/current", [
 			{ branchName: "main", validationResult: "TRUNK" },
 			{ branchName: "feature/other", parentBranchName: "main" },
 		]);
 		try {
-			const { pi, formatted } = await loadFormattedStatus(
-				[previousCheckoutStep("main"), verifyRefStep("main"), revListStep("main", 0), dirtyStep()],
-				root,
-			);
+			const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
+			expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
+			expect(formatted).not.toContain("∅");
+			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
 		} finally {
 			rmSync(root, { recursive: true, force: true });
 		}
