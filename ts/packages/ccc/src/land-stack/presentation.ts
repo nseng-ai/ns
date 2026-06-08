@@ -1,5 +1,5 @@
-import { formatCommand } from "../command-runtime.ts";
-import { linkifyPrReferences, prLinksFromDetails, truncateDisplayLine } from "../terminal-presentation.ts";
+import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
+import { linkifyPrReferences, prLinksFromDetails, truncateDisplayLine } from "@asdl/pi-extension-runtime/terminal-presentation";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, type LandStackFailure } from "./errors.ts";
@@ -8,7 +8,7 @@ import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import type {
 	CommandStreamMessageDetails,
 	DescendantMaintenancePlan,
-	ExtensionCommandContext,
+	LandStackCommandContext,
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
@@ -296,11 +296,11 @@ export function formatFailureNotification(failure: LandStackFailure): string {
 	return `land-stack stopped: ${detail}`;
 }
 
-export function present(ctx: ExtensionCommandContext, message: string, level: NotifyLevel): void {
+export function present(ctx: LandStackCommandContext, message: string, level: NotifyLevel): void {
 	presentBrief(ctx, message, level, message);
 }
 
-export function presentBrief(ctx: ExtensionCommandContext, fullMessage: string, level: NotifyLevel, uiMessage: string): void {
+export function presentBrief(ctx: LandStackCommandContext, fullMessage: string, level: NotifyLevel, uiMessage: string): void {
 	if (ctx.hasUI) {
 		ctx.ui.notify(uiMessage, level);
 		return;
@@ -312,7 +312,7 @@ export function presentBrief(ctx: ExtensionCommandContext, fullMessage: string, 
 	console.log(fullMessage);
 }
 
-export function setStatus(ctx: ExtensionCommandContext, message: string | undefined): void {
+export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(STATUS_KEY, message ? `land-stack: ${message}` : undefined);
 	}

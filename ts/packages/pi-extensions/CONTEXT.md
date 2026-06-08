@@ -1,6 +1,6 @@
 # @asdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected stable non-`ccc` command implementations such as `/code:autobranch` and `/code:land`. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
+`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected stable non-`ccc` command implementations such as `/code:autobranch`, `/code:land`, and `/code:land-stack`. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
 
 ## Language
 
@@ -59,6 +59,10 @@ _Avoid_: preparation owner, transaction owner, new command name, Graphite policy
 **Land adapter**:
 The public Pi extension registration surface for `/code:land`. The command stays in the `code` command family and is discovered through `@asdl/pi-extensions`, but PR inspection, required-`master` policy, match-head squash merge, and failure presentation are delegated to `@asdl/ccc/land`.
 _Avoid_: PR view/merge policy owner, stack landing owner, new command alias.
+
+**Land-stack adapter**:
+The public Pi extension registration surface for `/code:land-stack`. The command stays in the `code` command family and is discovered through `@asdl/pi-extensions`, but Graphite/GitHub/slot stack landing orchestration is delegated to `@asdl/ccc/land-stack`.
+_Avoid_: stack landing policy owner, direct Graphite/GitHub mutation owner, new command alias.
 
 **Deterministic sidebar fields**:
 The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `asdl exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.

@@ -1,11 +1,11 @@
-import { formatCommand } from "../command-runtime.ts";
+import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
 import { errorMessage } from "./errors.ts";
-import type { BranchPlan, ExtensionAPI, PrSubmitRequirement, PullRequestSnapshot } from "./types.ts";
+import type { BranchPlan, LandStackExtensionAPI, PrSubmitRequirement, PullRequestSnapshot } from "./types.ts";
 
-export async function loadPr(pi: ExtensionAPI, repoRoot: string, branchOrNumber: string): Promise<LandStackResult<PullRequestSnapshot>> {
+export async function loadPr(pi: LandStackExtensionAPI, repoRoot: string, branchOrNumber: string): Promise<LandStackResult<PullRequestSnapshot>> {
 	const args = ["pr", "view", branchOrNumber, "--json", PR_FIELDS];
 	const result = await exec(pi, "gh", args, repoRoot, GH_TIMEOUT_MS);
 	if (result.code !== 0) {

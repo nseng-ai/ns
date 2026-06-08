@@ -1,4 +1,4 @@
-import type { ExecResult, PiExecResultLike } from "../command-runtime.ts";
+import type { ExecResult, PiExecResultLike } from "@asdl/pi-extension-runtime/command-runtime";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -28,7 +28,7 @@ export interface RenderComponent {
 
 export type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
-export interface ExtensionCommandContext {
+export interface LandStackCommandContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
@@ -40,13 +40,13 @@ export interface ExtensionCommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-export interface ExtensionAPI {
+export interface LandStackExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
 			description?: string;
 			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: ExtensionCommandContext): Promise<void> | void;
+			handler(args: string, ctx: LandStackCommandContext): Promise<void> | void;
 		},
 	): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;

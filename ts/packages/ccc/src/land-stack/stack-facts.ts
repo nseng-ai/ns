@@ -1,13 +1,13 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
-import { formatCommand } from "../command-runtime.ts";
+import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
 import { CURRENT_MARKER, GIT_TIMEOUT_MS, GT_TIMEOUT_MS, OTHER_MARKER } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
-import type { ExtensionAPI, ParsedStackOutput, StackSnapshot } from "./types.ts";
+import type { LandStackExtensionAPI, ParsedStackOutput, StackSnapshot } from "./types.ts";
 
-export async function loadRepoRoot(pi: ExtensionAPI, cwd: string): Promise<LandStackResult<string>> {
+export async function loadRepoRoot(pi: LandStackExtensionAPI, cwd: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "git", ["rev-parse", "--show-toplevel"], cwd, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(landStackFailure(`Not inside a git repository.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--show-toplevel"]))}`));
@@ -19,7 +19,7 @@ export async function loadRepoRoot(pi: ExtensionAPI, cwd: string): Promise<LandS
 	return success(root);
 }
 
-export async function loadCurrentBranch(pi: ExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
+export async function loadCurrentBranch(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "git", ["symbolic-ref", "--short", "HEAD"], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(
@@ -35,7 +35,7 @@ export async function loadCurrentBranch(pi: ExtensionAPI, repoRoot: string): Pro
 	return success(branch);
 }
 
-export async function loadTrunk(pi: ExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
+export async function loadTrunk(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "gt", ["trunk", "--no-interactive"], repoRoot, GT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(landStackFailure(`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatCommand("gt", ["trunk", "--no-interactive"]))}`));
@@ -48,7 +48,7 @@ export async function loadTrunk(pi: ExtensionAPI, repoRoot: string): Promise<Lan
 }
 
 export async function loadStackSnapshot(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	current: string,
 	trunk: string,
@@ -146,7 +146,7 @@ export function branchNameFromLine(line: string, markerIndex: number): string {
 	return (annotationIndex === -1 ? tail : tail.slice(0, annotationIndex)).trim();
 }
 
-export async function assertCleanRepo(pi: ExtensionAPI, repoRoot: string): Promise<LandStackOutcome> {
+export async function assertCleanRepo(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackOutcome> {
 	const status = await exec(pi, "git", ["status", "--porcelain=v1"], repoRoot, GIT_TIMEOUT_MS);
 	if (status.code !== 0) {
 		return failure(landStackFailure(`Could not inspect working tree status.\n${formatCommandDetails(status, formatCommand("git", ["status", "--porcelain=v1"]))}`));
@@ -162,7 +162,7 @@ export async function assertCleanRepo(pi: ExtensionAPI, repoRoot: string): Promi
 	return completed();
 }
 
-export async function detectInProgressOperation(pi: ExtensionAPI, repoRoot: string): Promise<string | undefined> {
+export async function detectInProgressOperation(pi: LandStackExtensionAPI, repoRoot: string): Promise<string | undefined> {
 	const refs: Array<{ ref: string; label: string }> = [
 		{ ref: "MERGE_HEAD", label: "A merge" },
 		{ ref: "CHERRY_PICK_HEAD", label: "A cherry-pick" },
@@ -195,7 +195,7 @@ export function resolveGitPath(repoRoot: string, gitPath: string): string {
 	return isAbsolute(gitPath) ? gitPath : resolve(repoRoot, gitPath);
 }
 
-export async function assertLocalBranchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<LandStackOutcome> {
+export async function assertLocalBranchExists(pi: LandStackExtensionAPI, repoRoot: string, branch: string): Promise<LandStackOutcome> {
 	const result = await exec(pi, "git", ["show-ref", "--verify", `refs/heads/${branch}`], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(landStackFailure(`Local branch ${branch} does not exist; refusing to start stack landing.\n${formatCommandDetails(result)}`));
@@ -203,7 +203,7 @@ export async function assertLocalBranchExists(pi: ExtensionAPI, repoRoot: string
 	return completed();
 }
 
-export async function loadLocalSha(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<LandStackResult<string>> {
+export async function loadLocalSha(pi: LandStackExtensionAPI, repoRoot: string, branch: string): Promise<LandStackResult<string>> {
 	const ref = `refs/heads/${branch}^{commit}`;
 	const result = await exec(pi, "git", ["rev-parse", "--verify", ref], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {

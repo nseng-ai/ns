@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatCommand, type ExecResult } from "../src/command-runtime.ts";
+import { formatCommand, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import {
 	isGtDeleteCheckedOutElsewhere,
 	isGtDeleteMissingBranch,
@@ -17,8 +17,8 @@ import { formatFailure, formatPlan, formatSuccessNotification } from "../src/lan
 import { parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
 import type {
 	BranchPlan,
-	ExtensionAPI,
-	ExtensionCommandContext,
+	LandStackExtensionAPI,
+	LandStackCommandContext,
 	LandedPr,
 	LandingPlan,
 	NotifyLevel,
@@ -39,10 +39,10 @@ const STACK_WITH_DESCENDANT = ["◯ main", "◯ feature-a", "◉ feature-b", "�
 const STACK_TO_CURRENT = ["◯ main", "◯ feature-a", "◉ feature-b", ""].join("\n");
 const STACK_SINGLE_BRANCH = ["◯ main", "◉ feature-a", ""].join("\n");
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
-type SentMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0] & {
-	options?: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[1];
+type RegisteredCommand = Parameters<LandStackExtensionAPI["registerCommand"]>[1];
+type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
+type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
+	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
 };
 
 interface ExecCall {
@@ -78,7 +78,7 @@ interface WidgetUpdate {
 	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
 }
 
-class FakePi implements ExtensionAPI {
+class FakePi implements LandStackExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
@@ -98,7 +98,7 @@ class FakePi implements ExtensionAPI {
 		this.messageRenderers.set(customType, renderer);
 	}
 
-	sendMessage(message: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0], options?: SentMessage["options"]): void {
+	sendMessage(message: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0], options?: SentMessage["options"]): void {
 		this.messages.push({ ...message, options });
 	}
 
@@ -177,7 +177,7 @@ function expectedSquashMergeArgs(options: { number: number; sha: string; title?:
 }
 
 function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {}): {
-	ctx: ExtensionCommandContext;
+	ctx: LandStackCommandContext;
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	statuses: StatusUpdate[];
@@ -191,7 +191,7 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 	const confirmAnswers = [...(options.confirms ?? [true])];
 	let waits = 0;
 
-	const ctx: ExtensionCommandContext = {
+	const ctx: LandStackCommandContext = {
 		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
 		ui: {

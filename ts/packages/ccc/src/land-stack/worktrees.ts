@@ -1,14 +1,14 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { formatCommand } from "../command-runtime.ts";
+import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
-import type { ExtensionAPI, WorktreeConflict, WorktreeEntry } from "./types.ts";
+import type { LandStackExtensionAPI, WorktreeConflict, WorktreeEntry } from "./types.ts";
 
 export async function detectWorktreeConflicts(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	currentBranch: string,
 	relevantBranches: string[],
@@ -37,7 +37,7 @@ export async function detectWorktreeConflicts(
 	return success(conflicts);
 }
 
-export async function loadWorktrees(pi: ExtensionAPI, repoRoot: string): Promise<LandStackResult<WorktreeEntry[]>> {
+export async function loadWorktrees(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackResult<WorktreeEntry[]>> {
 	const result = await exec(pi, "git", ["worktree", "list", "--porcelain"], repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(
