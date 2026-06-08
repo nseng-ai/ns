@@ -1,6 +1,7 @@
 export {
 	finalizeBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
+	normalizeBranchSlugText,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
