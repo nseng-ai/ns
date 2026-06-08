@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { CommandContext, ExtensionAPI } from "../src/changes.ts";
 import { formatOutstandingChangesMessage, summarizePorcelainStatus } from "../src/changes-summary.ts";
@@ -11,19 +11,24 @@ type ModelResponse = {
 	content: Array<{ type: string; text?: string }>;
 };
 
+const completionState = vi.hoisted<{ nextCompletion: () => Promise<ModelResponse> }>(() => ({
+	nextCompletion: async () => ({
+		stopReason: "stop",
+		content: [{ type: "text", text: "- Touch src/file.ts implementation\n- Add new-file.ts scaffold" }],
+	}),
+}));
+
+vi.mock("@earendil-works/pi-ai", () => ({
+	completeSimple(): Promise<ModelResponse> {
+		return completionState.nextCompletion();
+	},
+}));
+
 const VALID_SUMMARY = "- Touch src/file.ts implementation\n- Add new-file.ts scaffold";
 
 function textResponse(text: string): ModelResponse {
 	return { stopReason: "stop", content: [{ type: "text", text }] };
 }
-
-let nextCompletion: () => Promise<ModelResponse> = async () => textResponse(VALID_SUMMARY);
-
-mock.module("@earendil-works/pi-ai", () => ({
-	completeSimple(): Promise<ModelResponse> {
-		return nextCompletion();
-	},
-}));
 
 const {
 	default: changesExtension,
@@ -38,7 +43,7 @@ const PREVIOUS_HARNESS = process.env.PI_DRAFT_HARNESS;
 
 beforeEach(() => {
 	delete process.env.PI_DRAFT_HARNESS;
-	nextCompletion = async () => textResponse(VALID_SUMMARY);
+	completionState.nextCompletion = async () => textResponse(VALID_SUMMARY);
 });
 
 afterEach(() => {
@@ -300,7 +305,7 @@ describe("showOutstandingChanges", () => {
 	});
 
 	test("hard-errors when the model returns invalid output", async () => {
-		nextCompletion = async () => textResponse("This is a prose paragraph, not bullet lines.");
+		completionState.nextCompletion = async () => textResponse("This is a prose paragraph, not bullet lines.");
 		const pi = new FakePi(snapshotSteps({ status: " M src/file.ts\n" }));
 		const { ctx, notifications } = createContext();
 
@@ -315,7 +320,7 @@ describe("showOutstandingChanges", () => {
 	});
 
 	test("hard-errors when the model call throws", async () => {
-		nextCompletion = async () => {
+		completionState.nextCompletion = async () => {
 			throw new Error("boom");
 		};
 		const pi = new FakePi(snapshotSteps({ status: " M src/file.ts\n" }));
@@ -333,7 +338,7 @@ describe("showOutstandingChanges", () => {
 	});
 
 	test("hard-errors when the model reports a stop-reason error", async () => {
-		nextCompletion = async () => ({ stopReason: "error", errorMessage: "model exploded", content: [] });
+		completionState.nextCompletion = async () => ({ stopReason: "error", errorMessage: "model exploded", content: [] });
 		const pi = new FakePi(snapshotSteps({ status: " M src/file.ts\n" }));
 		const { ctx, notifications } = createContext();
 

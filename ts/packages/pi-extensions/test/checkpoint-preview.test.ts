@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import checkpointPreviewExtension, {
 	CHECKPOINT_PREVIEW_ALIAS_COMMAND_NAME,

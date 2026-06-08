@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { GrillAskController } from "../src/grill-ui/controller.ts";
 import {

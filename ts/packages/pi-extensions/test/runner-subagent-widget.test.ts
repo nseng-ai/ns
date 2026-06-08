@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import type { RunnerSubagentUpdate } from "../src/runner-subagent.ts";
 import { formatRunnerSubagentActivityWidgetLines } from "../src/runner-subagent/widget.ts";

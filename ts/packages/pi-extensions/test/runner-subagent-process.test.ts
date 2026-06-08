@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { resolvePiInvocation, dispatchRunnerSubagentProcess } from "../src/runner-subagent/subagent-process.ts";
 import type {

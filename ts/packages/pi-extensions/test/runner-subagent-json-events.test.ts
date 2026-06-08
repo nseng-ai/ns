@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { createRunnerSubagentJsonEventParser } from "../src/runner-subagent/json-events.ts";
 
