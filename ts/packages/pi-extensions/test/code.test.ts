@@ -70,6 +70,7 @@ describe("code extension registration", () => {
 			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		);
 		expect(pi.commands.get("code:autobranch")?.description).toContain("latest commit when the worktree is clean");
+		expect(pi.commands.get("code:land")?.description).toBe("Squash-merge the current branch's GitHub PR into master");
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
 		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);

@@ -7,6 +7,7 @@
     "./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
     "./autobranch": "./src/autobranch.ts",
     "./handoff-tab": "./src/handoff-tab.ts",
+    "./land": "./src/land.ts",
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
     "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts"
   },

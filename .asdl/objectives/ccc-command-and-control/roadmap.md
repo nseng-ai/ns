@@ -43,11 +43,12 @@
 
 - [~] Move repo source-control command/control workflows into CCC.
   - Moved `/code:autobranch` and its preparation/transaction modules into CCC because it encodes dirty-worktree-to-Graphite-branch-to-checkpoint policy; `@asdl/pi-extensions` now delegates the public code-command adapter to `@asdl/ccc/autobranch`.
-  - Move `/code:land` and `/code:land-stack` orchestration into CCC because they encode repository Graphite/GitHub/slot landing policy.
+  - Moved `/code:land` PR inspection, required-`master` policy, match-head squash merge, and failure presentation into CCC; `@asdl/pi-extensions` now delegates the public code-command adapter to `@asdl/ccc/land`.
+  - Move `/code:land-stack` orchestration into CCC because it encodes repository Graphite/GitHub/slot landing policy.
   - Keep `asdl-dev` command runners, pending-worktree snapshots, checkpoint primitives, Vercel preview lookup, and lower gateways outside CCC.
   - Decide whether `/code:submit` remains a pure `asdl-dev` mirror or receives a CCC wrapper only for command-suite placement.
   - Policy: direct execution after preview; external PR submission or landing remains out of scope unless explicitly confirmed.
-  - Evidence: autobranch behavior tests now live under CCC and focused CCC/pi-extension test suites pass; landing tests and source-control landing orchestration remain follow-ups; `asdl-dev` remains a lower dependency and must not import CCC.
+  - Evidence: autobranch and land behavior tests now live under CCC and focused CCC/pi-extension test suites pass; `/code:land-stack` source-control landing orchestration remains a follow-up; `asdl-dev` remains a lower dependency and must not import CCC.
 
 - [ ] Split workspace status so CCC observability is explicit but generic Pi footer plumbing stays reusable.
   - Split `worktree-status.ts` into operational facts/presentation that belong with CCC and generic Pi status/footer/session lifecycle pieces that do not.
