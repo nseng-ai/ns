@@ -1,4 +1,4 @@
-import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 import { expandSkillBlock, type SkillExpansionHost } from "@asdl/pi-extension-runtime/skill-expansion";
 import type { CommandDefinition } from "./cmux/types.ts";
 
@@ -40,22 +40,6 @@ export function registerObjectiveStackImplCommand(host: ObjectiveStackImplHost):
 	});
 }
 
-function buildObjectiveStackImplSkillPrompt(
-	spec: ObjectiveStackImplCommandSpec,
-	skillBlock: string | undefined,
-	objective: string,
-): string {
-	return `${skillBlock ?? spec.fallbackPrompt}
-
-${spec.actionPrompt}
-
-\`\`\`text
-${objective}
-\`\`\`
-
-Treat this as an explicit user selection. Do not auto-select a different Objective.`;
-}
-
 interface InvokeObjectiveStackImplSkillOptions {
 	host: ObjectiveStackImplHost;
 	ctx: ObjectiveSelectionContext;
@@ -75,7 +59,7 @@ async function invokeObjectiveStackImplSkill(options: InvokeObjectiveStackImplSk
 		);
 	}
 
-	host.sendUserMessage(buildObjectiveStackImplSkillPrompt(spec, skill?.block, objective));
+	host.sendUserMessage(buildObjectiveSkillPrompt({ spec, skillBlock: skill?.block, objective }));
 }
 
 interface HandleObjectiveStackImplCommandOptions {

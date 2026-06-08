@@ -3,6 +3,7 @@ import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import registerCccExtension from "../src/ccc.ts";
+import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
 import { registerCccSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
@@ -319,7 +320,7 @@ describe("CCC cmux command suite", () => {
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				step("pi", undefined, { stdout: `${BRANCH}\n` }),
+				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),

@@ -1,5 +1,5 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
@@ -29,6 +29,7 @@ interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
+	postSelectionReminder?: string;
 }
 
 export interface ObjectiveListParsedArgs {
@@ -124,29 +125,9 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		fallbackPrompt:
 			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
 		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
+		postSelectionReminder: "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
 	},
 ];
-
-function buildObjectiveSkillPrompt(
-	spec: ObjectiveCommandSpec,
-	skillBlock: string | undefined,
-	objective: string,
-): string {
-	const updateReminder =
-		spec.skillName === "objective-update"
-			? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
-			: "";
-
-	return `${skillBlock ?? spec.fallbackPrompt}
-
-${spec.actionPrompt}
-
-\`\`\`text
-${objective}
-\`\`\`
-
-Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
-}
 
 async function invokeObjectiveSkill(
 	pi: ExtensionAPI,
@@ -166,7 +147,14 @@ async function invokeObjectiveSkill(
 		);
 	}
 
-	pi.sendUserMessage(buildObjectiveSkillPrompt(spec, skill?.block, objective));
+	pi.sendUserMessage(
+		buildObjectiveSkillPrompt({
+			spec,
+			skillBlock: skill?.block,
+			objective,
+			...(spec.postSelectionReminder === undefined ? {} : { postSelectionReminder: spec.postSelectionReminder }),
+		}),
+	);
 }
 
 async function chooseObjectiveAndInvoke(
@@ -381,7 +369,7 @@ async function handleCustomCliCommand(
 			pi,
 			ctx,
 			spec,
-			formatExecStartupFailure(commandDisplay, error),
+			formatExecStartupFailure(commandDisplay, error, OBJECTIVE_COMMAND_FAILURE_OPTIONS),
 			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx),
 			"error",
 		);
@@ -397,7 +385,7 @@ async function handleCustomCliCommand(
 			pi,
 			ctx,
 			spec,
-			formatExecFailure(commandDisplay, result),
+			formatExecFailure(commandDisplay, result, OBJECTIVE_COMMAND_FAILURE_OPTIONS),
 			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx, result),
 			"error",
 		);

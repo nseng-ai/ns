@@ -6,6 +6,7 @@ Moved the orchestration behind public `/objective:stack-impl` into `@asdl/ccc` w
 
 - Added `ts/packages/ccc/src/objective-stack-impl.ts` and exported it as `@asdl/ccc/objective-stack-impl`.
 - Extracted active Objective selection into neutral `@asdl/pi-extension-runtime/objective-selection`, including `objective list --format json`, Objective diff/status checks, changed-first picker behavior, cancellation handling, and no-active-Objective notifications.
+  The shared helper is used by `/objective:stack-impl` and by the existing `/objective:next`, `/objective:current`, and `/objective:update` pickers, so those commands now share the same parallel diff/status evidence collection and combined `checking Objective changes…` status label.
 - Updated `ts/packages/pi-extensions/src/objective.ts` so the Objective extension still registers `/objective:stack-impl` through the public Objective surface, but delegates stack implementation orchestration to CCC.
 - Added focused CCC tests for explicit slug dispatch, skill expansion/fallback prompts, no-arg active Objective selection, changed-Objective grouping, second-picker behavior, cancellation, and zero-active-Objective handling.
 - Updated CCC, pi-extension, runtime, and context-map language to record the ownership boundary.

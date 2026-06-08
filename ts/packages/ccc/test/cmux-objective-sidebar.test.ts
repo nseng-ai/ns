@@ -147,7 +147,7 @@ describe("cmux Objective sidebar", () => {
 		const pi = new FakePi({ script: [objectiveListStep(["alpha-objective"])] });
 		const controller = createCccSidebarController(pi);
 		registerCccSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext({ cancelSelect: true });
+		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
 
 		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
 

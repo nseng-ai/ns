@@ -13,6 +13,7 @@ import {
 } from "./objective-picker.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
+export const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
 
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
@@ -22,35 +23,67 @@ export interface ObjectiveSelectionSpec {
 	compactDiffSuggestion?: boolean;
 }
 
+export interface ObjectiveSkillPromptSpec {
+	fallbackPrompt: string;
+	actionPrompt: string;
+}
+
+export interface BuildObjectiveSkillPromptOptions {
+	spec: ObjectiveSkillPromptSpec;
+	skillBlock: string | undefined;
+	objective: string;
+	postSelectionReminder?: string;
+}
+
 export interface ObjectiveSelectionHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
 
-export interface ObjectiveSelectionContext {
-	cwd: string;
+interface ObjectiveSelectionUi {
+	notify: CommandContext["ui"]["notify"];
+	setStatus: CommandContext["ui"]["setStatus"];
+	select?: CommandContext["ui"]["select"];
+}
+
+interface ObjectivePickerUi extends ObjectiveSelectionUi {
+	select: NonNullable<CommandContext["ui"]["select"]>;
+}
+
+interface ObjectivePickerContext extends ObjectiveSelectionContext {
+	ui: ObjectivePickerUi;
+}
+
+export interface ObjectiveSelectionContext extends Pick<CommandContext, "cwd" | "waitForIdle"> {
 	hasUI: boolean;
-	ui: {
-		notify(message: string, level?: ObjectiveSelectionNotifyLevel): void;
-		select(title: string, items: string[]): Promise<string | undefined>;
-		setStatus?(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
+	ui: ObjectiveSelectionUi;
 }
 
 export function objectiveSelectionContextFromCommandContext(ctx: CommandContext): ObjectiveSelectionContext {
-	const select = ctx.ui.select;
-	const setStatus = ctx.ui.setStatus;
-	const hasSelectableUI = ctx.hasUI === true && select !== undefined;
-	const ui = {
-		notify: (message: string, level?: ObjectiveSelectionNotifyLevel) => ctx.ui.notify(message, level),
-		select: select === undefined ? async () => undefined : (title: string, items: string[]) => select(title, items),
-	};
+	const select = ctx.ui.select?.bind(ctx.ui);
+	const setStatus = ctx.ui.setStatus?.bind(ctx.ui);
 	return {
 		cwd: ctx.cwd,
-		hasUI: hasSelectableUI,
-		ui: setStatus === undefined ? ui : { ...ui, setStatus },
-		waitForIdle: () => ctx.waitForIdle(),
+		hasUI: ctx.hasUI === true,
+		ui: {
+			notify: ctx.ui.notify.bind(ctx.ui),
+			select,
+			setStatus,
+		},
+		waitForIdle: ctx.waitForIdle.bind(ctx),
 	};
+}
+
+export function buildObjectiveSkillPrompt(options: BuildObjectiveSkillPromptOptions): string {
+	const { spec, skillBlock, objective, postSelectionReminder = "" } = options;
+	return `${skillBlock ?? spec.fallbackPrompt}
+
+${spec.actionPrompt}
+
+\`\`\`text
+${objective}
+\`\`\`
+
+Treat this as an explicit user selection. Do not auto-select a different Objective.${postSelectionReminder}`;
 }
 
 interface ActiveObjectiveListLoaded {
@@ -84,14 +117,14 @@ interface ObjectiveStatusChangedSlugsOptions {
 }
 
 interface SelectObjectiveSlugOptions {
-	ctx: ObjectiveSelectionContext;
+	ctx: ObjectivePickerContext;
 	title: string;
 	records: ObjectiveListRecord[];
 	selection: ObjectiveDiffSelection | undefined;
 }
 
 interface SelectChangedObjectivesOrOtherOptions {
-	ctx: ObjectiveSelectionContext;
+	ctx: ObjectivePickerContext;
 	spec: ObjectiveSelectionSpec;
 	objectiveList: ObjectiveList;
 	selection: ObjectiveDiffSelection;
@@ -113,7 +146,7 @@ async function listActiveObjectives(
 			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
-			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result) };
+			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result, OBJECTIVE_COMMAND_FAILURE_OPTIONS) };
 		}
 
 		const parsedList = parseObjectiveList(result.stdout);
@@ -122,7 +155,7 @@ async function listActiveObjectives(
 		}
 		return { type: "loaded", list: parsedList.list };
 	} catch (error) {
-		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error) };
+		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error, OBJECTIVE_COMMAND_FAILURE_OPTIONS) };
 	} finally {
 		if (ctx.hasUI) {
 			ctx.ui.setStatus?.(spec.statusKey, undefined);
@@ -205,6 +238,10 @@ function sortedUniqueSlugs(slugs: string[]): string[] {
 	return [...new Set(slugs)].sort((left, right) => left.localeCompare(right));
 }
 
+function hasObjectivePicker(ctx: ObjectiveSelectionContext): ctx is ObjectivePickerContext {
+	return ctx.hasUI && ctx.ui.select !== undefined;
+}
+
 function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): string {
 	const committedDiffLabel = selection.trunkBranch ? `changed vs ${selection.trunkBranch}` : "";
 	if (selection.changeBasisLabel === committedDiffLabel) {
@@ -216,8 +253,9 @@ function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): s
 
 async function selectObjectiveSlug(options: SelectObjectiveSlugOptions): Promise<string | undefined> {
 	const { ctx, title, records, selection } = options;
+	const select = ctx.ui.select;
 	const choices = objectiveChoiceMap(records, selection);
-	const selected = await ctx.ui.select(title, [...choices.keys()]);
+	const selected = await select(title, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
 		return undefined;
@@ -247,7 +285,8 @@ async function selectChangedObjectivesOrOther(options: SelectChangedObjectivesOr
 		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
 	}
 
-	const selected = await ctx.ui.select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
+	const select = ctx.ui.select;
+	const selected = await select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
 		return undefined;
@@ -279,8 +318,9 @@ export async function chooseActiveObjectiveSlug(
 	await ctx.waitForIdle();
 
 	const objectiveListResult = await listActiveObjectives(host, ctx, spec);
+	const hasPicker = hasObjectivePicker(ctx);
 	if (objectiveListResult.type === "failed") {
-		if (ctx.hasUI) {
+		if (hasPicker) {
 			ctx.ui.notify(objectiveListResult.message, "error");
 		}
 		return undefined;
@@ -288,13 +328,13 @@ export async function chooseActiveObjectiveSlug(
 
 	const objectiveList = objectiveListResult.list;
 	if (objectiveList.records.length === 0) {
-		if (ctx.hasUI) {
+		if (hasPicker) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
 		}
 		return undefined;
 	}
 
-	if (!ctx.hasUI) {
+	if (!hasPicker) {
 		return undefined;
 	}
 

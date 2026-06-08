@@ -21,6 +21,10 @@ export interface TailTextOptions {
 	maxLines?: number;
 }
 
+export interface FormatExecFailureOptions {
+	subject?: string;
+}
+
 const MAX_ERROR_CHARS = 4_000;
 
 export function normalizeExecResult(result: PiExecResultLike): ExecResult {
@@ -73,19 +77,21 @@ export function truncateTail(text: string, maxChars: number): string {
 	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
 }
 
-export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
+export function formatExecFailure(commandDisplay: string, result: ExecResult, options: FormatExecFailureOptions = {}): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
+	const subject = options.subject ?? "command";
 	return truncateTail(
-		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
+		`${subject} failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
 		MAX_ERROR_CHARS,
 	);
 }
 
-export function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
+export function formatExecStartupFailure(commandDisplay: string, error: unknown, options: FormatExecFailureOptions = {}): string {
 	const message = error instanceof Error ? error.message : String(error);
-	return truncateTail(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
+	const subject = options.subject ?? "command";
+	return truncateTail(`${subject} failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
 function applyLineLimit(text: string, maxLines: number | undefined): { text: string; omittedLines: number } {
