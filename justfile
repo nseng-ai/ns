@@ -54,7 +54,7 @@ docs-check: docs-install
 js-test: ts-test
 
 # Link the planned-branch bin through pnpm so `planned-branch` is on PATH.
-# The linked CLI still uses its current Bun shebang until runtime migration work removes it.
+# The linked CLI uses the Node shebang from the TypeScript workspace source.
 link-planned-branch: ts-install
     cd {{justfile_directory()}}/ts/packages/planned-branch && pnpm link
     @echo "linked: planned-branch (pnpm global bin)"

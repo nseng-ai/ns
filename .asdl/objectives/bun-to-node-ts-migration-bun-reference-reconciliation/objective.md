@@ -43,6 +43,7 @@ Assumptions:
 - Active `ts/` package tests are Vitest-backed, and new TypeScript tests should not depend on Bun's test runner.
 - Current project-local TypeScript CLIs and Pi extension runtime paths no longer require Bun after the Node runtime child Objective.
 - Some Bun references are expected to remain because they are historical, provenance-only, compatibility/safety handling, or deliberate template/product guidance.
+- The reconciliation inventory found no active docs-site or GitHub Actions Bun command path after the Node + pnpm + Vitest migration; remaining in-scope hits are stale comments/skill metadata, deliberate standalone Bun template guidance, historical records, or compatibility/provenance handling.
 
 Risks:
 
@@ -53,6 +54,12 @@ Risks:
 
 ## Open Questions
 
-- Which project templates, if any, should remain explicitly Bun-centric as deliberate product guidance?
-- Are docs-site deploy/build references fully in scope for this final reconciliation pass, or are any of them governed by separate docs-site release constraints?
-- Should compatibility references such as generic `node|bun` runtime handling be documented in place, recorded only in Objective tracking, or left as self-explanatory code?
+- Resolved: `skills/create-bun-typescript-project/` remains deliberate Bun-centric product guidance for users who explicitly want standalone Bun projects; the skill now states that it is not the default template for existing Node, pnpm, or Vitest workspaces, or for migrations away from Bun.
+- Resolved: active docs-site and GitHub Actions surfaces did not contain real Bun command/setup paths in the scoped reconciliation search; docs-site remains on pnpm/Node commands.
+- Resolved for this Objective: generic `node|bun` runtime detection and `/$bunfs/root/` safety handling remain as compatibility code, while the active `@earendil-works/pi-ai` patch comment is provenance for a compatibility patch that should be removed only in a focused package-metadata/lockfile follow-up.
+
+## Closure
+
+Completed. The reconciliation pass inventoried remaining Bun references across active repo guidance, TypeScript workspace files, project-local Pi extension surfaces, docs-site/deploy guidance, and relevant templates; updated the stale active `justfile` and restack-skill references; retained and bounded the intentionally Bun-centric project template; and recorded accepted remaining references as deliberate product guidance, historical/provenance-only, compatibility/safety handling, substring noise, or focused follow-up material.
+
+Validation evidence: targeted post-edit search found only accepted out-of-scope/historical matches outside the Bun template, `just dprint-check` passed, and `git diff --check` passed. The active `@earendil-works/pi-ai` patch was locally probed as likely removable under Node barrel export semantics, but package metadata/lockfile removal is intentionally left to a focused follow-up with pnpm install/typecheck/test evidence.
