@@ -6,7 +6,6 @@ import {
 	type PendingWorktreeSnapshot,
 } from "asdl-dev/src/pending-worktree.ts";
 import { createLatestCommitAutobranchFlow } from "./autobranch-latest-commit.ts";
-import { inspectUpstreamHeadState, type UpstreamHeadState } from "./autobranch-upstream.ts";
 import {
 	prepareAutobranchPlan,
 	type FileStat,
@@ -79,12 +78,6 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 }
 
 async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<void> {
-	const upstream = await inspectUpstreamHeadState({ cwd: input.cwd, exec: input.exec });
-	if (upstream.type === "failed") {
-		input.notify(formatDirtyUpstreamFailure(upstream), "error");
-		return;
-	}
-
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
 		args: input.args,
@@ -131,10 +124,6 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		].join("\n"),
 		clean ? "success" : "warning",
 	);
-}
-
-function formatDirtyUpstreamFailure(upstream: Extract<UpstreamHeadState, { type: "failed" }>): string {
-	return [`Could not determine whether HEAD is already in the current branch upstream; refusing to autobranch.`, upstream.error].join("\n");
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {

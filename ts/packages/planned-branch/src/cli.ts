@@ -564,7 +564,7 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 		ref_name: plan.refName,
 		byte_count: plan.byteCount,
 		available_keys: plan.availableKeys,
-		...(plan.source === undefined ? {} : { source: plan.source }),
+		source: plan.source,
 		...(plan.sourceFile === undefined ? {} : { source_file: plan.sourceFile }),
 		...(options.promptFile === undefined ? {} : { implementation_prompt_file: options.promptFile }),
 		...(options.attachedPlanContent === undefined ? {} : { attached_plan_content: options.attachedPlanContent }),
@@ -592,6 +592,7 @@ function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPl
 		`Modified time ms: ${evidence.modifiedTimeMs}`,
 	].join("\n");
 }
+
 
 function writeFailure(message: string, output: { stdout: (text: string) => void; stderr: (text: string) => void; json: boolean }): number {
 	if (output.json) {

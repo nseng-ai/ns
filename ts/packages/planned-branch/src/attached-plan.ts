@@ -23,7 +23,7 @@ export interface LoadedAttachedPlan {
 	content: string;
 	byteCount: number;
 	availableKeys: string[];
-	source?: LoadedPlanSource;
+	source: LoadedPlanSource;
 	sourceFile?: string;
 }
 
@@ -122,6 +122,7 @@ export async function loadAttachedPlan(
 		content: data.content,
 		byteCount: new TextEncoder().encode(data.content).length,
 		availableKeys,
+		source: "attached",
 	};
 }
 
@@ -239,10 +240,13 @@ function renderTemplate(template: string, values: Record<string, string>): strin
 	return rendered;
 }
 
+export function loadedPlanTitle(plan: Pick<LoadedAttachedPlan, "source">): string {
+	return plan.source === "saved" ? "Loaded saved planned-branch plan from local plan store." : "Loaded attached planned-branch plan.";
+}
+
 export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): string {
-	const title = plan.source === "saved" ? "Loaded saved planned-branch plan from local plan store." : "Loaded attached planned-branch plan.";
 	return [
-		title,
+		loadedPlanTitle(plan),
 		`Branch: ${plan.branch}`,
 		`Namespace: ${plan.namespace}`,
 		`Selected key: ${plan.selectedKey}`,

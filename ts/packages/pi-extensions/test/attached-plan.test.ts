@@ -203,6 +203,7 @@ describe("loadAttachedPlan", () => {
 			content: PLAN_CONTENT,
 			byteCount: new TextEncoder().encode(PLAN_CONTENT).length,
 			availableKeys: [PLAN_KEY],
+			source: "attached",
 		});
 	});
 
@@ -391,6 +392,7 @@ describe("buildImplPlannedBranchPrompt", () => {
 			content: PLAN_CONTENT,
 			byteCount: new TextEncoder().encode(PLAN_CONTENT).length,
 			availableKeys: [PLAN_KEY],
+			source: "attached",
 		});
 
 		expect(prompt).toContain("The attached planned-branch plan has been loaded by the planning-layer reader.");
