@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import {
 	previewTsPlanRecipeFromContent,
@@ -23,7 +23,7 @@ export default definePlan({
     },
     {
       title: "Validation",
-      tasks: ["Run cd ts && bun test --sequential packages/pi-extensions/test/ts-plan-recipe.test.ts"],
+      tasks: ["Run cd ts && pnpm exec vitest run --config vitest.config.ts packages/pi-extensions/test/ts-plan-recipe.test.ts"],
     },
   ],
 });

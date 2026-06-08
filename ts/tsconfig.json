@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node", "bun"]
+    "types": ["node"]
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"]
 }
