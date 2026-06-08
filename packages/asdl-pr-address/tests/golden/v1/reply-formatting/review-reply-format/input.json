@@ -1,0 +1,7 @@
+{
+  "function": "review_reply",
+  "kwargs": {
+    "review_author": "alice",
+    "summary_markdown": "Implemented the requested cleanup."
+  }
+}

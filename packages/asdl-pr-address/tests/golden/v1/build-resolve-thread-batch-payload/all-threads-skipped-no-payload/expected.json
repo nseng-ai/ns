@@ -1,0 +1,30 @@
+{
+  "valid": true,
+  "payload_ready": false,
+  "batch_id": "single_file",
+  "commit_sha": "abc123",
+  "continue_on_error": false,
+  "review_thread_count": 1,
+  "resolved_thread_count": 0,
+  "skipped_thread_count": 1,
+  "ignored_non_thread_items": [
+    {
+      "source_kind": "discussion_comment",
+      "review_id": null,
+      "discussion_comment_id": 4101,
+      "summary": "Discussion action."
+    }
+  ],
+  "skipped_items": [
+    {
+      "thread_id": "T_single",
+      "skip_reason": "Will address manually.",
+      "summary": "Single thread action."
+    }
+  ],
+  "payload": null,
+  "errors": [],
+  "warnings": [
+    "All selected review-thread items were explicitly skipped; do not call resolve-thread-batch for this batch."
+  ]
+}

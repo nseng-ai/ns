@@ -1,0 +1,66 @@
+{
+  "manifest_kind": "prepare_run",
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "counts": {
+    "reviews": 1,
+    "review_threads": 1,
+    "thread_comments": 1,
+    "discussion_comments": 1,
+    "resolved_review_threads_omitted": 1
+  },
+  "classification_template": {
+    "schema_version": 1,
+    "reviews": [
+      {
+        "review_id": "R_manifest",
+        "disposition": "<fill: actionable|informational>",
+        "body_locator": {
+          "json_pointer": "/data/reviews/0/body",
+          "item_pointer": "/data/reviews/0"
+        },
+        "summary": "",
+        "action_summary": null,
+        "complexity": null,
+        "pre_existing": false,
+        "informational_reason": null
+      }
+    ],
+    "review_threads": [
+      {
+        "thread_id": "T_manifest",
+        "disposition": "<fill: actionable|informational>",
+        "thread_item_pointer": "/data/review_threads/0",
+        "covered_comments": [
+          {
+            "comment_id": 6001,
+            "body_locator": {
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/data/review_threads/0/comments/0"
+            }
+          }
+        ],
+        "summary": "",
+        "action_summary": null,
+        "complexity": null,
+        "pre_existing": false,
+        "informational_reason": null
+      }
+    ],
+    "discussion_comments": [
+      {
+        "comment_id": 6101,
+        "disposition": "<fill: actionable|informational>",
+        "body_locator": {
+          "json_pointer": "/data/discussion_comments/0/body",
+          "item_pointer": "/data/discussion_comments/0"
+        },
+        "summary": "",
+        "action_summary": null,
+        "complexity": null,
+        "needs_reply": false,
+        "informational_reason": null
+      }
+    ]
+  }
+}

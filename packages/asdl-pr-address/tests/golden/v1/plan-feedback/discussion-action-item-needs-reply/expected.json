@@ -1,0 +1,87 @@
+{
+  "valid": true,
+  "manifest_kind": "get_feedback",
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "validation": {
+    "valid": true,
+    "manifest_kind": "get_feedback",
+    "pr_number": 42,
+    "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+    "counts": {
+      "reviews_expected": 0,
+      "reviews_classified": 0,
+      "review_threads_expected": 0,
+      "review_threads_classified": 0,
+      "thread_comments_expected": 0,
+      "thread_comments_covered": 0,
+      "discussion_comments_expected": 1,
+      "discussion_comments_classified": 1
+    },
+    "errors": []
+  },
+  "counts": {
+    "actionable_items": 1,
+    "informational_items": 0,
+    "batches": 1,
+    "approval_required_batches": 0,
+    "actionable_reviews": 0,
+    "actionable_review_threads": 0,
+    "actionable_discussion_comments": 1,
+    "informational_reviews": 0,
+    "informational_review_threads": 0,
+    "informational_discussion_comments": 0
+  },
+  "batches": [
+    {
+      "batch_id": "local",
+      "complexity": "local",
+      "approval_required": false,
+      "items": [
+        {
+          "source_kind": "discussion_comment",
+          "summary": "Reply needed.",
+          "review_id": null,
+          "review_state": null,
+          "submitted_at": null,
+          "thread_id": null,
+          "discussion_comment_id": 3401,
+          "covered_comment_ids": [],
+          "covered_comments": [],
+          "body_locator": {
+            "body_chars": 13,
+            "json_pointer": "/data/discussion_comments/0/body",
+            "item_pointer": "/data/discussion_comments/0",
+            "domain": {
+              "kind": "discussion_comment",
+              "review_id": null,
+              "thread_id": null,
+              "comment_id": null,
+              "discussion_comment_id": 3401,
+              "comment_index": null,
+              "path": null,
+              "line": null,
+              "start_line": null,
+              "is_resolved": null,
+              "is_outdated": null,
+              "author": "carol"
+            }
+          },
+          "thread_item_pointer": null,
+          "path": null,
+          "line": null,
+          "start_line": null,
+          "is_outdated": null,
+          "author": "carol",
+          "url": "https://github.example/pr/42#issuecomment-3401",
+          "action_summary": "Reply to discussion.",
+          "complexity": "local",
+          "pre_existing": false,
+          "needs_reply": true
+        }
+      ]
+    }
+  ],
+  "informational": [],
+  "warnings": []
+}

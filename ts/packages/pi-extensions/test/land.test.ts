@@ -87,16 +87,19 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function createContext(options: { cwd?: string } = {}): {
+function createContext(options: { cwd?: string; mode?: ExtensionCommandContext["mode"] } = {}): {
 	ctx: ExtensionCommandContext;
 	notifications: Notification[];
+	printed: string[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
+	const printed: string[] = [];
 	let waits = 0;
 
 	const ctx: ExtensionCommandContext = {
 		cwd: options.cwd ?? ROOT,
+		...(options.mode === undefined ? {} : { mode: options.mode }),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -105,21 +108,28 @@ function createContext(options: { cwd?: string } = {}): {
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
+		printOutput: {
+			write(chunk: string): unknown {
+				printed.push(chunk);
+				return undefined;
+			},
+		},
 	};
 
-	return { ctx, notifications, waitForIdleCalls: () => waits };
+	return { ctx, notifications, printed, waitForIdleCalls: () => waits };
 }
 
-async function runLand(script: ScriptedExec[]): Promise<{
+async function runLand(script: ScriptedExec[], options: { mode?: ExtensionCommandContext["mode"] } = {}): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
+	printed: string[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script);
 	landExtension(pi);
 	const command = pi.commands.get("code:land");
 	expect(command).toBeDefined();
-	const context = createContext();
+	const context = createContext({ mode: options.mode });
 	await command?.handler("", context.ctx);
 	return { pi, ...context };
 }
@@ -188,6 +198,39 @@ describe("code land command", () => {
 				level: "info",
 			},
 		]);
+		pi.assertDone();
+	});
+
+	test("prints command results in print mode", async () => {
+		const { pi, notifications, printed } = await runLand(
+			[
+				step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+				step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+			],
+			{ mode: "print" },
+		);
+
+		expect(printed).toEqual([
+			"Running gh pr merge -s with PR title/body as commit message…\n",
+			"Merged pull request #42\nMerged PR #42; squash commit used PR title/body.\n",
+		]);
+		expect(notifications).toEqual([
+			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
+			{
+				message: "Merged pull request #42\nMerged PR #42; squash commit used PR title/body.",
+				level: "info",
+			},
+		]);
+		pi.assertDone();
+	});
+
+	test("prints refusals in print mode", async () => {
+		const { pi, printed } = await runLand(
+			[step("gh", PR_VIEW_ARGS, { stdout: prView({ baseRefName: "develop" }) })],
+			{ mode: "print" },
+		);
+
+		expect(printed).toEqual(["Refusing to land PR #42: base branch is 'develop', not 'master'. Merge not attempted.\n"]);
 		pi.assertDone();
 	});
 

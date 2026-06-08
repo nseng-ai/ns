@@ -1,0 +1,26 @@
+{
+  "valid": true,
+  "ready_to_stop": true,
+  "all_feedback_addressed": true,
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "counts": {
+    "checkpoint_batches": 0,
+    "complete_batches": 0,
+    "incomplete_batches": 0,
+    "unresolved_threads": 0,
+    "unresolved_unskipped_threads": 0,
+    "resolved_threads_from_checkpoints": 0,
+    "failed_threads_from_checkpoints": 0,
+    "skipped_threads": 0,
+    "skipped_non_thread_items": 0
+  },
+  "unresolved_threads": [],
+  "unresolved_unskipped_threads": [],
+  "skipped_items": [],
+  "checkpoint_summaries": [],
+  "errors": [],
+  "warnings": [
+    "No batch checkpoint evidence supplied."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "valid": false,
+  "manifest_kind": "get_feedback",
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "counts": {
+    "reviews_expected": 0,
+    "reviews_classified": 0,
+    "review_threads_expected": 0,
+    "review_threads_classified": 0,
+    "thread_comments_expected": 0,
+    "thread_comments_covered": 0,
+    "discussion_comments_expected": 1,
+    "discussion_comments_classified": 1
+  },
+  "errors": [
+    {
+      "code": "invalid_locator",
+      "message": "discussion comment 2401 body JSON Pointer does not match manifest: expected '/data/discussion_comments/0/body', got '/wrong/discussion'",
+      "kind": "discussion_comment",
+      "identifier": 2401,
+      "path": "classification.discussion_comments[0].body_locator.json_pointer"
+    }
+  ]
+}

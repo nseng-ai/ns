@@ -7,12 +7,20 @@ export interface ExecResult {
 	killed?: boolean;
 }
 
+export type ExtensionMode = "tui" | "rpc" | "json" | "print";
+
+export interface PrintOutput {
+	write(chunk: string): unknown;
+}
+
 export interface ExtensionCommandContext {
 	cwd: string;
+	mode?: ExtensionMode;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 	};
 	waitForIdle(): Promise<void>;
+	printOutput?: PrintOutput;
 }
 
 export interface ExtensionAPI {
@@ -49,19 +57,20 @@ export default function landExtension(pi: ExtensionAPI): void {
 
 			const pr = await loadPullRequest(pi, ctx.cwd);
 			if ("error" in pr) {
-				ctx.ui.notify(pr.error, "error");
+				notify(ctx, pr.error, "error");
 				return;
 			}
 
 			if (pr.baseRefName !== REQUIRED_BASE_BRANCH) {
-				ctx.ui.notify(
+				notify(
+					ctx,
 					`Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not '${REQUIRED_BASE_BRANCH}'. Merge not attempted.`,
 					"error",
 				);
 				return;
 			}
 
-			ctx.ui.notify("Running gh pr merge -s with PR title/body as commit message…", "info");
+			notify(ctx, "Running gh pr merge -s with PR title/body as commit message…", "info");
 
 			const result = await pi.exec(
 				"gh",
@@ -86,14 +95,22 @@ export default function landExtension(pi: ExtensionAPI): void {
 			const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 			if (result.code === 0) {
 				const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
-				ctx.ui.notify(output ? `${output}\n${message}` : message, "info");
+				notify(ctx, output ? `${output}\n${message}` : message, "info");
 				return;
 			}
 
 			const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
-			ctx.ui.notify(output ? `${output}\n${message}` : message, "error");
+			notify(ctx, output ? `${output}\n${message}` : message, "error");
 		},
 	});
+}
+
+function notify(ctx: ExtensionCommandContext, message: string, level: NotifyLevel): void {
+	if (ctx.mode === "print") {
+		const output = message.endsWith("\n") ? message : `${message}\n`;
+		(ctx.printOutput ?? process.stdout).write(output);
+	}
+	ctx.ui.notify(message, level);
 }
 
 export async function loadPullRequest(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<ValidPullRequestView | { error: string }> {

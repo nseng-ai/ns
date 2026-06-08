@@ -1,0 +1,175 @@
+{
+  "plan": {
+    "valid": true,
+    "manifest_kind": "get_feedback",
+    "pr_number": 42,
+    "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+    "validation": {
+      "valid": true,
+      "manifest_kind": "get_feedback",
+      "pr_number": 42,
+      "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+      "counts": {
+        "reviews_expected": 0,
+        "reviews_classified": 0,
+        "review_threads_expected": 1,
+        "review_threads_classified": 1,
+        "thread_comments_expected": 1,
+        "thread_comments_covered": 1,
+        "discussion_comments_expected": 0,
+        "discussion_comments_classified": 0
+      },
+      "errors": []
+    },
+    "counts": {
+      "actionable_items": 1,
+      "informational_items": 0,
+      "batches": 1,
+      "approval_required_batches": 0,
+      "actionable_reviews": 0,
+      "actionable_review_threads": 1,
+      "actionable_discussion_comments": 0,
+      "informational_reviews": 0,
+      "informational_review_threads": 0,
+      "informational_discussion_comments": 0
+    },
+    "batches": [
+      {
+        "batch_id": "single_file",
+        "complexity": "single_file",
+        "approval_required": false,
+        "items": [
+          {
+            "source_kind": "review_thread",
+            "summary": "Single thread action.",
+            "review_id": null,
+            "review_state": null,
+            "submitted_at": null,
+            "thread_id": "T_single",
+            "discussion_comment_id": null,
+            "covered_comment_ids": [
+              4001
+            ],
+            "covered_comments": [
+              {
+                "comment_id": 4001,
+                "author": "reviewer",
+                "path": "src/widget.ts",
+                "line": 17,
+                "start_line": null,
+                "body_locator": {
+                  "body_chars": 16,
+                  "json_pointer": "/data/review_threads/0/comments/0/body",
+                  "item_pointer": "/data/review_threads/0/comments/0",
+                  "domain": {
+                    "kind": "review_thread_comment",
+                    "review_id": null,
+                    "thread_id": "T_single",
+                    "comment_id": 4001,
+                    "discussion_comment_id": null,
+                    "comment_index": 0,
+                    "path": "src/widget.ts",
+                    "line": 17,
+                    "start_line": null,
+                    "is_resolved": false,
+                    "is_outdated": false,
+                    "author": "reviewer"
+                  }
+                }
+              }
+            ],
+            "body_locator": {
+              "body_chars": 16,
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/data/review_threads/0/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "T_single",
+                "comment_id": 4001,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "src/widget.ts",
+                "line": 17,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "reviewer"
+              }
+            },
+            "thread_item_pointer": "/data/review_threads/0",
+            "path": "src/widget.ts",
+            "line": 17,
+            "start_line": null,
+            "is_outdated": false,
+            "author": "reviewer",
+            "url": null,
+            "action_summary": "Address thread.",
+            "complexity": "single_file",
+            "pre_existing": false,
+            "needs_reply": null
+          }
+        ]
+      }
+    ],
+    "informational": [],
+    "warnings": []
+  },
+  "batch_id": "single_file",
+  "commit_sha": "abc123",
+  "changed_files": [
+    "src/widget.ts"
+  ],
+  "validation_commands": [
+    {
+      "command": "uv run pytest",
+      "status": "passed",
+      "exit_code": 0,
+      "summary": "Tests passed."
+    }
+  ],
+  "thread_payload_build": {
+    "valid": true,
+    "payload_ready": true,
+    "batch_id": "single_file",
+    "commit_sha": "abc123",
+    "continue_on_error": false,
+    "review_thread_count": 1,
+    "resolved_thread_count": 1,
+    "skipped_thread_count": 0,
+    "ignored_non_thread_items": [],
+    "skipped_items": [],
+    "payload": {
+      "commit_sha": "abc123",
+      "continue_on_error": false,
+      "items": [
+        {
+          "thread_id": "T_single",
+          "mode": "fixed",
+          "message": "Fixed the guard.",
+          "commit_sha": null,
+          "provenance": null
+        }
+      ]
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "thread_resolution_result": {
+    "total": 1,
+    "resolved": 1,
+    "failed": 0,
+    "skipped": 0,
+    "all_succeeded": true,
+    "results": [
+      {
+        "index": 0,
+        "thread_id": "T_single",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed",
+        "is_resolved": true
+      }
+    ]
+  }
+}

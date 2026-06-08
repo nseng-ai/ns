@@ -1,0 +1,33 @@
+{
+  "payload_mode": "payload",
+  "payload_reference": {
+    "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+    "session_id": "golden-prepare-false",
+    "descriptor": "feedback",
+    "role": "raw",
+    "created_at_utc": "<TIMESTAMP>",
+    "sequence": 1,
+    "payload_bytes": 1234,
+    "content_type": "application/json",
+    "extension": "json"
+  },
+  "found": false,
+  "current_branch": "feature/missing",
+  "number": null,
+  "title": null,
+  "url": null,
+  "head_ref_name": null,
+  "base_ref_name": null,
+  "state": null,
+  "counts": null,
+  "reviews": [],
+  "review_threads": [],
+  "discussion_comments": [],
+  "reopened_thread_ids": [],
+  "restructured_files": [],
+  "warnings": [
+    "No PR found."
+  ],
+  "error": "no PR found",
+  "returncode": 1
+}

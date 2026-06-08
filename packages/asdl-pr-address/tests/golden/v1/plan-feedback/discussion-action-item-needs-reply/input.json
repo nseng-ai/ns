@@ -1,0 +1,72 @@
+{
+  "manifest": {
+    "payload_mode": "payload",
+    "payload_reference": {
+      "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+      "session_id": "golden-discussion-needs-reply",
+      "descriptor": "feedback",
+      "role": "raw",
+      "created_at_utc": "<TIMESTAMP>",
+      "sequence": 1,
+      "payload_bytes": 1234,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "pr_number": 42,
+    "counts": {
+      "reviews": 0,
+      "review_threads": 0,
+      "unresolved_review_threads": 0,
+      "resolved_review_threads": 0,
+      "thread_comments": 0,
+      "discussion_comments": 1
+    },
+    "reviews": [],
+    "review_threads": [],
+    "discussion_comments": [
+      {
+        "comment_id": 3401,
+        "author": "carol",
+        "url": "https://github.example/pr/42#issuecomment-3401",
+        "body_locator": {
+          "body_chars": 13,
+          "json_pointer": "/data/discussion_comments/0/body",
+          "item_pointer": "/data/discussion_comments/0",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 3401,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "carol"
+          }
+        }
+      }
+    ]
+  },
+  "classification": {
+    "schema_version": 1,
+    "reviews": [],
+    "review_threads": [],
+    "discussion_comments": [
+      {
+        "comment_id": 3401,
+        "disposition": "actionable",
+        "body_locator": {
+          "json_pointer": "/data/discussion_comments/0/body",
+          "item_pointer": "/data/discussion_comments/0"
+        },
+        "summary": "Reply needed.",
+        "action_summary": "Reply to discussion.",
+        "complexity": "local",
+        "needs_reply": true
+      }
+    ]
+  }
+}
