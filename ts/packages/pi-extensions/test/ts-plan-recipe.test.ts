@@ -1,96 +1,90 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildImplTsPlannedBranchPrompt, loadTsPlanRecipeFromContent, renderTsPlanRecipe, type LoadedTsPlanRecipe } from "../src/planned-branch/ts-recipe-runtime.ts";
+import {
+	previewTsPlanRecipeFromContent,
+	renderTsPlanRecipeImplementationInstructionsFromContent,
+} from "@asdl/ts-plans/host";
+import { buildImplTsPlannedBranchPrompt } from "../src/planned-branch/ts-recipe-runtime.ts";
 
-const PLAN_CONTENT = `export const metadata = {
+const PLAN_CONTENT = `import { definePlan } from "@asdl/ts-plans";
+
+export default definePlan({
   title: "Prototype TypeScript recipes",
   summary: "Render recipe calls into an implementation prompt.",
-};
-
-export default async function plan(pi) {
-  pi.goal("Prototype TypeScript source-of-truth planned-branch recipes");
-  await pi.context("Markdown planned-branch flows must keep working.");
-  await pi.phase("Implementation", async () => {
-    await pi.task("Add recipe rendering", async () => {
-      await pi.inspect("Read existing planned-branch implementation loading.");
-      await pi.do("Evaluate the recipe with a recording runtime.");
-      await pi.acceptance("/planned-branch:impl-ts sends a rendered prompt.");
-    });
-  });
-  await pi.shell("cd ts && bun test --sequential packages/pi-extensions/test/ts-plan-recipe.test.ts");
-}
+  goal: "Prototype TypeScript source-of-truth planned-branch recipes",
+  context: "Markdown planned-branch flows must keep working.",
+  phases: [
+    {
+      title: "Implementation",
+      tasks: [
+        "Read existing planned-branch implementation loading.",
+        "Evaluate the recipe with @asdl/ts-plans host rendering.",
+      ],
+    },
+    {
+      title: "Validation",
+      tasks: ["Run cd ts && bun test --sequential packages/pi-extensions/test/ts-plan-recipe.test.ts"],
+    },
+  ],
+});
 `;
 
-describe("TypeScript planned-branch recipe runtime", () => {
-	test("loads and renders a default-export async recipe", async () => {
-		const recipe = await loadTsPlanRecipeFromContent(PLAN_CONTENT, { key: "prototype-typescript-recipes.plan.ts", cwd: "/repo" });
-		const rendered = await renderTsPlanRecipe(recipe, { cwd: "/repo" });
-
-		expect(rendered.metadata).toEqual({
-			title: "Prototype TypeScript recipes",
-			summary: "Render recipe calls into an implementation prompt.",
+describe("TypeScript planned-branch recipe host integration", () => {
+	test("previews a definePlan recipe through @asdl/ts-plans", async () => {
+		const result = await previewTsPlanRecipeFromContent(PLAN_CONTENT, {
+			key: "prototype-typescript-recipes.plan.ts",
+			cwd: "/repo",
 		});
-		expect(rendered.events.map((event) => event.type)).toEqual(["goal", "context", "phase", "task", "inspect", "do", "acceptance", "shell"]);
-		expect(rendered.prompt).toContain("Title: Prototype TypeScript recipes");
-		expect(rendered.prompt).toContain("## Phase: Implementation");
-		expect(rendered.prompt).toContain("- Do: Evaluate the recipe with a recording runtime.");
-		expect(rendered.prompt).toContain("Validate with shell: cd ts && bun test --sequential");
+
+		expect(result.type).toBe("success");
+		if (result.type !== "success") return;
+		expect(result.preview.title).toBe("Prototype TypeScript recipes");
+		expect(result.preview.summary).toBe("Render recipe calls into an implementation prompt.");
+		expect(result.preview.trustNotice).toContain("trusted TypeScript code with local system permissions");
+		expect(result.preview.content).toContain("# Prototype TypeScript recipes");
+		expect(result.preview.content).toContain("Goal:\nPrototype TypeScript source-of-truth planned-branch recipes");
+		expect(result.preview.content).toContain("1. Implementation");
+		expect(result.preview.content).toContain("- Task: Evaluate the recipe with @asdl/ts-plans host rendering.");
 	});
 
-	test("renders a degenerate freeform pi.do recipe", async () => {
-		const recipe = await loadTsPlanRecipeFromContent(
-			`export default async function plan(pi) { await pi.do(\`Implement this freeform plan.\`); }`,
-			{ key: "freeform-plan.plan.ts", cwd: "/repo" },
-		);
-		const rendered = await renderTsPlanRecipe(recipe, { cwd: "/repo" });
+	test("renders Mermaid preview content without embedding the trust notice", async () => {
+		const result = await previewTsPlanRecipeFromContent(PLAN_CONTENT, {
+			key: "prototype-typescript-recipes.plan.ts",
+			cwd: "/repo",
+			format: "mermaid",
+		});
 
-		expect(rendered.prompt).toContain("- Do: Implement this freeform plan.");
+		expect(result.type).toBe("success");
+		if (result.type !== "success") return;
+		expect(result.preview.format).toBe("mermaid");
+		expect(result.preview.content.startsWith("flowchart TD")).toBe(true);
+		expect(result.preview.content).not.toContain("Trust boundary");
+		expect(result.preview.trustNotice).toContain("Trust boundary");
 	});
 
-	test("exposes cwd and signal to trusted recipes", async () => {
-		const controller = new AbortController();
-		const recipe = await loadTsPlanRecipeFromContent(
-			`export default async function plan(pi) {
-				await pi.do(\`Implementation cwd: \${pi.cwd}\`);
-				await pi.acceptance(pi.signal ? "Abort signal is available." : "Abort signal missing.");
-			}`,
-			{ key: "runtime-boundary.plan.ts", cwd: "/repo" },
-		);
+	test("rejects old raw default-exported function recipes clearly", async () => {
+		const result = await previewTsPlanRecipeFromContent("export default async function plan() {}", {
+			key: "raw-function.plan.ts",
+			cwd: "/repo",
+		});
 
-		const rendered = await renderTsPlanRecipe(recipe, { cwd: "/repo", signal: controller.signal });
-
-		expect(rendered.prompt).toContain("- Do: Implementation cwd: /repo");
-		expect(rendered.prompt).toContain("- Acceptance: Abort signal is available.");
+		expect(result.type).toBe("failure");
+		if (result.type !== "failure") return;
+		expect(result.message).toContain("Raw default-exported functions are not supported");
 	});
 
-	test("stops recording when the recipe abort signal fires during evaluation", async () => {
-		const controller = new AbortController();
-		const recipe: LoadedTsPlanRecipe = {
-			metadata: {},
-			key: "abort-mid-render.plan.ts",
-			recipe: async (pi) => {
-				await pi.do("before abort");
-				controller.abort();
-				await pi.do("after abort");
-			},
-		};
-
-		await expect(renderTsPlanRecipe(recipe, { cwd: "/repo", signal: controller.signal })).rejects.toThrow("cancelled");
-	});
-
-	test("rejects missing default function exports", async () => {
-		await expect(loadTsPlanRecipeFromContent("export const metadata = {};", { key: "bad.plan.ts", cwd: "/repo" })).rejects.toThrow(
-			"default-export a function",
-		);
-	});
-
-	test("wraps recipe evaluation failures", async () => {
-		const recipe = await loadTsPlanRecipeFromContent(
-			`export default async function plan() { throw new Error("boom"); }`,
-			{ key: "throws.plan.ts", cwd: "/repo" },
+	test("rejects old metadata exports clearly", async () => {
+		const result = await renderTsPlanRecipeImplementationInstructionsFromContent(
+			`import { definePlan } from "@asdl/ts-plans";
+export const metadata = { title: "Old" };
+export default definePlan({ goal: "Goal", phases: [{ title: "Phase", tasks: ["Task"] }] });
+`,
+			{ key: "metadata.plan.ts", cwd: "/repo" },
 		);
 
-		await expect(renderTsPlanRecipe(recipe, { cwd: "/repo" })).rejects.toThrow("Failed to evaluate trusted TypeScript planned-branch recipe");
+		expect(result.type).toBe("failure");
+		if (result.type !== "failure") return;
+		expect(result.message).toContain("Named metadata exports are not supported");
 	});
 
 	test("builds an implementation prompt from loaded attached plan evidence", async () => {
@@ -111,6 +105,7 @@ describe("TypeScript planned-branch recipe runtime", () => {
 		expect(prompt).toContain("# planned-branch TypeScript recipe implementation");
 		expect(prompt).toContain("Selected key: prototype-typescript-recipes.plan.ts");
 		expect(prompt).toContain("Treat the `.plan.ts` source as the source of truth");
-		expect(prompt).toContain("- Acceptance: /planned-branch:impl-ts sends a rendered prompt.");
+		expect(prompt).toContain("validateWithShell` records validation commands and does not execute them");
+		expect(prompt).toContain("- Task: Evaluate the recipe with @asdl/ts-plans host rendering.");
 	});
 });

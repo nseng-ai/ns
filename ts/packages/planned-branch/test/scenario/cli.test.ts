@@ -3,6 +3,9 @@ import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { definePlan } from "@asdl/ts-plans";
+import { TS_PLAN_RECIPE_TRUST_NOTICE } from "@asdl/ts-plans/host";
+
 import { runCli } from "../../src/cli.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
 import { encodeBranchForPlanPath } from "../../src/source-plan-file.ts";
@@ -15,7 +18,21 @@ import { InMemoryPlannedBranchGraphiteGateway, type InMemoryGraphiteGatewayState
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
+const PLAN_TS_KEY = `${PLAN_SLUG}.plan.ts`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
+const TS_RECIPE_CONTENT = buildTsRecipeContent({
+	title: "Preview TS plan",
+	summary: "Preview summary",
+	goal: "Ship TypeScript previews",
+	context: "Existing planned-branch context",
+	phases: [
+		{
+			title: "Inspect CLI",
+			prompt: "Use the planned-branch CLI style.",
+			tasks: ["Load attached TS plan", "Render preview"],
+		},
+	],
+});
 
 interface ExecCall {
 	command: string;
@@ -146,8 +163,37 @@ function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function buildTsRecipeContent(input: Parameters<typeof definePlan>[0]): string {
+	definePlan(input);
+	const serialized = JSON.stringify(input, null, "\t");
+	if (serialized === undefined) {
+		throw new Error("Could not serialize TS recipe input.");
+	}
+	return `import { definePlan } from "@asdl/ts-plans";
+
+export default definePlan(${serialized});
+`;
+}
+
 function parseJson(run: CliRun): Record<string, unknown> {
 	return JSON.parse(run.stdout.join("")) as Record<string, unknown>;
+}
+
+function expectNoGitOrBrmemCalls(run: CliRun): void {
+	expect(run.git.repoRootCalls).toEqual([]);
+	expect(run.git.optionalRepoRootCalls).toEqual([]);
+	expect(run.git.sourceBranchCalls).toEqual([]);
+	expect(run.git.implementationBranchCalls).toEqual([]);
+	expect(run.git.defaultBranchCalls).toEqual([]);
+	expect(run.git.originUrlCalls).toEqual([]);
+	expect(run.git.headCommitCalls).toEqual([]);
+	expect(run.git.validateBranchRefCalls).toEqual([]);
+	expect(run.git.localBranchPresenceCalls).toEqual([]);
+	expect(run.git.createBranchAtHeadCalls).toEqual([]);
+	expect(run.brmem.attachmentPresenceCalls).toEqual([]);
+	expect(run.brmem.attachPlanCalls).toEqual([]);
+	expect(run.brmem.listAttachedPlansCalls).toEqual([]);
+	expect(run.brmem.getAttachedPlanCalls).toEqual([]);
 }
 
 describe("planned-branch CLI help", () => {
@@ -166,6 +212,12 @@ describe("planned-branch CLI help", () => {
 		expect(await execHelp.exit).toBe(0);
 		expect(execHelp.stdout.join("")).toContain("write-plan-file");
 		expect(execHelp.stdout.join("")).toContain("load-plan");
+		expect(execHelp.stdout.join("")).toContain("preview-ts");
+
+		const previewHelp = runWithFakes(["exec", "preview-ts", "--help"], [], { cwd: repoRoot });
+		expect(await previewHelp.exit).toBe(0);
+		expect(previewHelp.stdout.join("")).toContain("Usage: planned-branch exec preview-ts");
+		expect(previewHelp.stdout.join("")).toContain("--preview-format text|mermaid");
 	});
 });
 
@@ -226,6 +278,28 @@ describe("planned-branch CLI parse failures", () => {
 		expect(run.commands.execCalls).toEqual([]);
 		expect(run.brmem.listAttachedPlansCalls).toEqual([]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+	});
+
+	test("rejects preview-ts unknown flags and preview formats before git or brmem calls", async () => {
+		const repoRoot = await makeTempDir();
+		const unknown = runWithFakes(["exec", "preview-ts", "--format", "json", "--bogus"], [], { cwd: repoRoot });
+
+		expect(await unknown.exit).toBe(2);
+		expect(parseJson(unknown)).toEqual({
+			success: false,
+			error: { code: "planned_branch_error", message: "Unknown option: --bogus" },
+		});
+		expect(unknown.commands.execCalls).toEqual([]);
+		expectNoGitOrBrmemCalls(unknown);
+
+		const invalidFormat = runWithFakes(["exec", "preview-ts", "--preview-format", "dot", "--format", "json"], [], { cwd: repoRoot });
+		expect(await invalidFormat.exit).toBe(2);
+		expect(parseJson(invalidFormat)).toEqual({
+			success: false,
+			error: { code: "planned_branch_error", message: "--preview-format must be one of text or mermaid." },
+		});
+		expect(invalidFormat.commands.execCalls).toEqual([]);
+		expectNoGitOrBrmemCalls(invalidFormat);
 	});
 });
 
@@ -514,5 +588,132 @@ describe("planned-branch exec", () => {
 		expect(String(payload.implementation_prompt)).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
+	});
+
+	test("preview-ts JSON loads attached TS plans and returns metadata plus text preview trust", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(["exec", "preview-ts", "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_TS_KEY, content: TS_RECIPE_CONTENT }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({
+			success: true,
+			branch,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			selected_key: PLAN_TS_KEY,
+			byte_count: TS_RECIPE_CONTENT.length,
+			source: "attached",
+			preview_format: "text",
+			trust_notice: TS_PLAN_RECIPE_TRUST_NOTICE,
+			title: "Preview TS plan",
+			summary: "Preview summary",
+		});
+		expect(String(payload.preview_content)).toContain("# Preview TS plan");
+		expect(String(payload.preview_content)).toContain("Goal:\nShip TypeScript previews");
+		expect(String(payload.preview_content)).toContain("- Task: Load attached TS plan");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_TS_KEY }]);
+	});
+
+	test("preview-ts normalizes requested TS plan slugs to .plan.ts", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(["exec", "preview-ts", PLAN_SLUG, "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_TS_KEY, content: TS_RECIPE_CONTENT }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			selected_key: PLAN_TS_KEY,
+			preview_format: "text",
+		});
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_TS_KEY }]);
+	});
+
+	test("preview-ts JSON renders Mermaid content with a separate trust notice", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(["exec", "preview-ts", "--preview-format", "mermaid", "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_TS_KEY, content: TS_RECIPE_CONTENT }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({
+			success: true,
+			selected_key: PLAN_TS_KEY,
+			preview_format: "mermaid",
+			trust_notice: TS_PLAN_RECIPE_TRUST_NOTICE,
+		});
+		expect(String(payload.preview_content).startsWith("flowchart TD")).toBe(true);
+		expect(String(payload.preview_content)).toContain("Preview TS plan");
+		expect(String(payload.preview_content)).not.toContain("Trust boundary");
+	});
+
+	test("preview-ts falls back to latest saved TS plan when no TS plan is attached", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const planDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(SOURCE_BRANCH));
+		await mkdir(planDirectory, { recursive: true });
+		const planFile = join(planDirectory, PLAN_TS_KEY);
+		await writeFile(planFile, TS_RECIPE_CONTENT, "utf8");
+
+		const run = runWithFakes(["exec", "preview-ts", "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+		});
+
+		expect(await run.exit).toBe(0);
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({
+			success: true,
+			branch,
+			namespace: "local-plan-store",
+			selected_key: PLAN_TS_KEY,
+			ref_name: planFile,
+			byte_count: TS_RECIPE_CONTENT.length,
+			source: "saved",
+			source_file: planFile,
+			preview_format: "text",
+		});
+		expect(String(payload.preview_content)).toContain("Goal:\nShip TypeScript previews");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+	});
+
+	test("preview-ts requested missing attached key does not fall back to saved TS plans", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const planDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(SOURCE_BRANCH));
+		await mkdir(planDirectory, { recursive: true });
+		await writeFile(join(planDirectory, PLAN_TS_KEY), TS_RECIPE_CONTENT, "utf8");
+		const run = runWithFakes(["exec", "preview-ts", PLAN_SLUG, "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content: "# Markdown only\n" }] },
+		});
+
+		expect(await run.exit).toBe(2);
+		const payload = parseJson(run);
+		expect(payload.success).toBe(false);
+		expect(String((payload.error as { message: string }).message)).toContain(`Requested attached plan key \`${PLAN_TS_KEY}\` was not found`);
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+		expect(run.git.sourceBranchCalls).toEqual([]);
 	});
 });

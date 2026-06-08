@@ -1,6 +1,12 @@
 import { Text, type Component } from "@earendil-works/pi-tui";
 import { formatPlannedBranchUpAndImplFollowUpFlow, runPlannedBranchUpAndImplLaunch } from "@asdl/ccc/planned-branch-up-and-impl";
 import {
+	TS_PLAN_RECIPE_TRUST_NOTICE,
+	previewTsPlanRecipeFromContent,
+	renderTsPlanRecipeImplementationInstructionsFromContent,
+	type TsPlanRecipePreviewFormat,
+} from "@asdl/ts-plans/host";
+import {
 	PLAN_BRANCH_NAMESPACE,
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
@@ -31,7 +37,6 @@ import type { ExecResult } from "./command-runtime.ts";
 import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
-import { buildImplTsPlannedBranchPrompt } from "./planned-branch/ts-recipe-runtime.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
 export {
@@ -72,6 +77,7 @@ const CREATE_TS_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create-ts";
 const UP_AND_IMPL_COMMAND_NAME = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const IMPL_TS_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl-ts";
+const PREVIEW_TS_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:preview-ts";
 const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
 const WRITE_TS_PLAN_TOOL_STATUS_KEY = "planned-branch:write-ts-plan";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
@@ -79,6 +85,7 @@ const CREATE_TS_PLANNED_BRANCH_STATUS_KEY = "planned-branch:create-ts";
 const UP_AND_IMPL_STATUS_KEY = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 const IMPL_TS_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl-ts";
+const PREVIEW_TS_PLANNED_BRANCH_STATUS_KEY = "planned-branch:preview-ts";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -158,6 +165,12 @@ export interface CreatePlannedBranchArgs {
 	branchName?: string;
 	branchCreation?: BranchCreationMethod;
 	filePath?: string;
+}
+
+export interface PreviewTsPlannedBranchArgs {
+	help: boolean;
+	format: TsPlanRecipePreviewFormat;
+	requestedKey?: string;
 }
 
 export interface CreatePlannedBranchPreview {
@@ -269,6 +282,17 @@ Options:
 With no file path, the command prefers the most recent TypeScript recipe saved plan created in the current session, then falls back to the newest .plan.ts file in the current repo/source branch local plan store directory.
 TypeScript recipe plans are trusted local code evaluated by Pi with local system permissions during /planned-branch:impl-ts.`;
 
+export const PREVIEW_TS_PLANNED_BRANCH_USAGE = `Usage: /planned-branch:preview-ts [--format text|mermaid] [key-or-slug]
+
+Preview a trusted TypeScript planned-branch recipe without starting implementation.
+
+Options:
+  --format text|mermaid  Render text or Mermaid preview output; defaults to text.
+  --help, -h             Show this help.
+
+Resolution is identical to /planned-branch:impl-ts: with a key, load that attached .plan.ts key; without a key, load the default attached .plan.ts; fall back to the saved local .plan.ts only when no attached TypeScript plan exists.
+Trusted local code is evaluated by Pi with local permissions during preview.`;
+
 export const UP_AND_IMPL_USAGE = `Usage: /planned-branch:up-and-impl [options] [absolute-or-home-plan-file.md]
 
 Create a planned branch, attach the saved plan, check out that branch with git, start a new Pi session, and launch /planned-branch:impl for the attached plan in that new session.
@@ -347,13 +371,35 @@ If summary is not useful, omit it from the tool call rather than passing an empt
 export const DEFAULT_WRITE_TS_PLAN_PROMPT_BODY = `Plan audience and TypeScript recipe contract:
 - Produce a complete trusted local TypeScript planned-branch recipe source file, not Markdown.
 - The .plan.ts source is the source of truth for a future Pi-only implementation session and will be evaluated by Pi with local system permissions. Do not present it as safe for untrusted code.
-- Use no imports by default. The source is imported from a temporary file during evaluation, so do not rely on relative module-resolution side effects unless explicitly verified.
-- Default-export an async function such as \`export default async function plan(pi) { ... }\`.
-- Optionally export \`metadata\` with string \`title\` and \`summary\` fields.
-- Prefer recipe runtime calls: \`pi.goal\`, \`pi.context\`, \`pi.phase\`, \`pi.task\`, \`pi.inspect\`, \`pi.do\`, \`pi.acceptance\`, \`pi.shell\`, and \`pi.note\`.
-- The runtime exposes \`pi.cwd\` and \`pi.signal\`; \`pi.shell\` records validation commands for the later implementation session and does not execute shell commands during recipe evaluation.
-- A degenerate \`await pi.do(\`large freeform implementation plan\`)\` recipe is valid when structure is overkill.
-- Make the recipe self-contained for a fresh downstream implementation session and embed relevant repository facts, decisions, risks, and validation commands.
+- Import recipe APIs from @asdl/ts-plans. Prefer \`definePlan\` for declarative plans and use \`planRecipe\` only when runtime construction is clearer.
+- Default-export the recipe object: \`export default definePlan({ ... })\` or \`export default planRecipe({ title, summary }, (plan) => { ... })\`.
+- Do not default-export raw functions and do not export \`metadata\`; raw functions and named metadata exports intentionally fail during preview and implementation.
+- For \`definePlan\`, include \`goal\` and at least one phase with concrete tasks. Make prompts and tasks self-contained for a fresh downstream implementation session.
+- For \`planRecipe\`, use \`plan.goal\`, \`plan.context\`, \`plan.phase\`, \`plan.task\`, \`plan.note\`, and \`plan.validateWithShell\` where useful. Calls to \`plan.task\`, \`plan.note\`, and \`plan.validateWithShell\` inside a \`plan.phase\` body are recorded in that phase. \`plan.cwd\` and \`plan.signal\` are available.
+- \`validateWithShell\` records validation commands for the later implementation session and does not execute shell commands during recipe preview or implementation rendering.
+- Keep the source self-contained and embed relevant repository facts, decisions, risks, and validation commands.
+
+Example shape:
+\`\`\`ts
+import { definePlan } from "@asdl/ts-plans";
+
+export default definePlan({
+  title: "Implement focused change",
+  summary: "One-sentence implementation outcome.",
+  goal: "Describe the user-visible outcome.",
+  context: "Summarize discovered repo facts and constraints.",
+  phases: [
+    {
+      title: "Implementation",
+      tasks: ["Concrete file/symbol-level task for the downstream implementation session."],
+    },
+    {
+      title: "Validation",
+      tasks: ["Run the recorded validation commands and report results."],
+    },
+  ],
+});
+\`\`\`
 
 Workflow:
 1. Inspect the repository and context as needed for the requested work.
@@ -553,6 +599,66 @@ function setBranchCreation(args: CreatePlannedBranchArgs, branchCreation: Branch
 	args.branchCreation = branchCreation;
 }
 
+export function parsePreviewTsPlannedBranchArgs(rawArgs: string): PreviewTsPlannedBranchArgs {
+	const parsed: PreviewTsPlannedBranchArgs = { help: false, format: "text" };
+	const tokens = rawArgs
+		.trim()
+		.split(/\s+/)
+		.filter((token) => token.length > 0);
+	const positional: string[] = [];
+
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index];
+		if (token === undefined) {
+			continue;
+		}
+
+		if (token === "--help" || token === "-h") {
+			parsed.help = true;
+			continue;
+		}
+		if (token === "--format") {
+			const value = tokens[index + 1];
+			if (value === undefined || value.startsWith("-")) {
+				throw new CreatePlannedBranchUsageError("Missing value for --format.");
+			}
+			parsed.format = parsePreviewTsFormat(value);
+			index += 1;
+			continue;
+		}
+		if (token.startsWith("--format=")) {
+			const value = token.slice("--format=".length);
+			if (value.length === 0) {
+				throw new CreatePlannedBranchUsageError("Missing value for --format.");
+			}
+			parsed.format = parsePreviewTsFormat(value);
+			continue;
+		}
+		if (token.startsWith("-")) {
+			throw new CreatePlannedBranchUsageError(`Unknown flag: ${token}`);
+		}
+
+		positional.push(token);
+	}
+
+	if (positional.length > 1) {
+		throw new CreatePlannedBranchUsageError("Expected at most one TypeScript plan key or slug.");
+	}
+	const requestedKey = positional[0];
+	if (requestedKey !== undefined) {
+		parsed.requestedKey = requestedKey;
+	}
+
+	return parsed;
+}
+
+function parsePreviewTsFormat(value: string): TsPlanRecipePreviewFormat {
+	if (value === "text" || value === "mermaid") {
+		return value;
+	}
+	throw new CreatePlannedBranchUsageError(`Invalid --format value: ${value}. Expected text or mermaid.`);
+}
+
 export async function resolveCreatePlannedBranchPreview(
 	pi: ExtensionAPI,
 	args: CreatePlannedBranchArgs,
@@ -687,6 +793,11 @@ export default function registerPlannedBranchExtension(
 		handler: async (args, ctx) => handleImplTsPlannedBranchCommand(pi, args, ctx, options),
 	});
 
+	pi.registerCommand(PREVIEW_TS_PLANNED_BRANCH_COMMAND_NAME, {
+		description: "Preview a trusted TypeScript planned-branch recipe without starting implementation.",
+		handler: async (args, ctx) => handlePreviewTsPlannedBranchCommand(pi, args, ctx, options),
+	});
+
 	pi.registerTool(buildWriteSourceBranchPlanFileTool(pi, options));
 	pi.registerTool(buildWriteSourceBranchTsPlanFileTool(pi, options));
 }
@@ -762,12 +873,74 @@ async function handleImplTsPlannedBranchCommand(
 			planStoreRoot: resolvePlanStoreRootOption(options),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
+		const rendered = await renderTsPlanRecipeImplementationInstructionsFromContent(plan.content, { key: plan.selectedKey, cwd: ctx.cwd });
+		if (rendered.type === "failure") {
+			presentPlannedBranchFailure(pi, ctx, "Failed to load or evaluate TypeScript planned-branch recipe.", rendered.message);
+			return;
+		}
+
 		presentPlannedBranchMessage(pi, ctx, formatLoadedAttachedPlanEvidence(plan), { status: "success", loadedPlan: plan }, "info");
-		pi.sendUserMessage(await buildImplTsPlannedBranchPrompt(plan, { cwd: ctx.cwd }));
+		pi.sendUserMessage(buildImplTsPlannedBranchPrompt(plan, rendered.instructions));
 	} catch (error) {
 		presentPlannedBranchFailure(pi, ctx, "Failed to load or evaluate TypeScript planned-branch recipe.", error);
 	} finally {
 		ctx.ui.setStatus(IMPL_TS_PLANNED_BRANCH_STATUS_KEY, undefined);
+	}
+}
+
+async function handlePreviewTsPlannedBranchCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: CommandContext,
+	options: PlannedBranchExtensionOptions,
+): Promise<void> {
+	await ctx.waitForIdle();
+
+	let args: PreviewTsPlannedBranchArgs;
+	try {
+		args = parsePreviewTsPlannedBranchArgs(rawArgs);
+	} catch (error) {
+		if (error instanceof CreatePlannedBranchUsageError) {
+			presentPlannedBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${PREVIEW_TS_PLANNED_BRANCH_USAGE}`, { status: "usage" }, "error");
+			return;
+		}
+		throw error;
+	}
+
+	if (args.help) {
+		presentPlannedBranchMessage(pi, ctx, PREVIEW_TS_PLANNED_BRANCH_USAGE, { status: "usage" }, "info");
+		return;
+	}
+
+	if (ctx.hasUI) {
+		ctx.ui.notify("Loading TypeScript planned-branch recipe preview…", "info");
+	}
+
+	ctx.ui.setStatus(PREVIEW_TS_PLANNED_BRANCH_STATUS_KEY, "loading TypeScript recipe preview…");
+	try {
+		const params = args.requestedKey === undefined ? {} : { requestedKey: args.requestedKey };
+		const plan = await loadPlannedBranchTsPlan(pi, params, {
+			cwd: ctx.cwd,
+			planStoreRoot: resolvePlanStoreRootOption(options),
+			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
+		});
+		const preview = await previewTsPlanRecipeFromContent(plan.content, { key: plan.selectedKey, cwd: ctx.cwd, format: args.format });
+		if (preview.type === "failure") {
+			presentPlannedBranchFailure(pi, ctx, "Failed to preview TypeScript planned-branch recipe.", preview.message);
+			return;
+		}
+
+		presentPlannedBranchMessage(
+			pi,
+			ctx,
+			formatTsPlanPreviewMessage(plan, preview.preview.content, preview.preview.trustNotice, preview.preview.format),
+			{ status: "success", loadedPlan: plan },
+			"info",
+		);
+	} catch (error) {
+		presentPlannedBranchFailure(pi, ctx, "Failed to preview TypeScript planned-branch recipe.", error);
+	} finally {
+		ctx.ui.setStatus(PREVIEW_TS_PLANNED_BRANCH_STATUS_KEY, undefined);
 	}
 }
 
@@ -1336,6 +1509,48 @@ function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): { filePath:
 		return { filePath: selected.filePath, fileName: selected.fileName };
 	}
 	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
+}
+
+function buildImplTsPlannedBranchPrompt(plan: LoadedAttachedPlan, instructions: string): string {
+	return [
+		"# planned-branch TypeScript recipe implementation",
+		"",
+		"The attached planned-branch TypeScript recipe has been loaded and evaluated by Pi into these implementation instructions.",
+		"Treat the `.plan.ts` source as the source of truth. If the rendered prompt and source conflict, inspect the source and ask before proceeding.",
+		"The trusted recipe runtime records instructions; `validateWithShell` records validation commands and does not execute them during recipe evaluation.",
+		"",
+		"## Loaded recipe source",
+		"",
+		`Branch: ${plan.branch}`,
+		`Namespace: ${plan.namespace}`,
+		`Selected key: ${plan.selectedKey}`,
+		`Ref: ${plan.refName}`,
+		`Bytes: ${plan.byteCount}`,
+		`Source: ${plan.source}`,
+		plan.sourceFile === undefined ? undefined : `Source file: ${plan.sourceFile}`,
+		"",
+		"## Rendered recipe instructions",
+		"",
+		instructions,
+	].filter((line): line is string => line !== undefined).join("\n");
+}
+
+function formatTsPlanPreviewMessage(
+	plan: LoadedAttachedPlan,
+	content: string,
+	trustNotice: string,
+	format: TsPlanRecipePreviewFormat,
+): string {
+	const resolvedTrustNotice = trustNotice.length === 0 ? TS_PLAN_RECIPE_TRUST_NOTICE : trustNotice;
+	return [
+		formatLoadedAttachedPlanEvidence(plan),
+		"",
+		resolvedTrustNotice,
+		"",
+		`## TypeScript recipe preview (${format})`,
+		"",
+		format === "mermaid" ? `\`\`\`mermaid\n${content}\n\`\`\`` : content,
+	].join("\n");
 }
 
 function resolvePlannedBranchDefaultCreation(options: PlannedBranchExtensionOptions): BranchCreationMethod {

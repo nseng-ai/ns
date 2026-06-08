@@ -1,0 +1,15 @@
+{
+	"name": "@asdl/ts-plans",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./host": "./src/host.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit -p tsconfig.json",
+		"test": "bun test --sequential"
+	},
+	"dependencies": {},
+	"devDependencies": {}
+}

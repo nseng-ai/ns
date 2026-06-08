@@ -3,7 +3,15 @@
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 
-import { buildImplPlannedBranchPrompt, formatLoadedAttachedPlanEvidence, loadPlannedBranchPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
+import { previewTsPlanRecipeFromContent, type TsPlanRecipePreview, type TsPlanRecipePreviewFormat } from "@asdl/ts-plans/host";
+
+import {
+	buildImplPlannedBranchPrompt,
+	formatLoadedAttachedPlanEvidence,
+	loadPlannedBranchPlan,
+	loadPlannedBranchTsPlan,
+	type LoadedAttachedPlan,
+} from "./attached-plan.ts";
 import { createRealPlannedBranchContext, type PlannedBranchContext } from "./context.ts";
 import {
 	createPlannedBranchFromFile,
@@ -74,6 +82,12 @@ interface LoadPlanArgs {
 	shouldIncludePrompt: boolean;
 }
 
+interface PreviewTsArgs {
+	keyOrSlug?: string;
+	previewFormat: TsPlanRecipePreviewFormat;
+	format?: "json";
+}
+
 interface JsonFailure {
 	success: false;
 	error: { code: string; message: string };
@@ -134,6 +148,8 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 				return await runCreate(args.slice(1), deps);
 			case "load-plan":
 				return await runLoadPlan(args.slice(1), deps);
+			case "preview-ts":
+				return await runPreviewTs(args.slice(1), deps);
 			default:
 				deps.stderr(`Unknown exec operation: ${operation}\n\n${execHelp()}`);
 				return 2;
@@ -251,6 +267,34 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 		return 0;
 	}
 	deps.stdout(`${formatLoadedAttachedPlanEvidence(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}\n`);
+	return 0;
+}
+
+async function runPreviewTs(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
+	const parsed = parsePreviewTsArgs(args);
+	if (parsed.type === "help") {
+		deps.stdout(previewTsHelp());
+		return 0;
+	}
+	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
+
+	const requestedKey = parsed.value.keyOrSlug;
+	const plan = await loadPlannedBranchTsPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, {
+		cwd: deps.cwd,
+		git: deps.context.git,
+		brmem: deps.context.brmem,
+		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+	});
+	const preview = await previewTsPlanRecipeFromContent(plan.content, { key: plan.selectedKey, cwd: deps.cwd, format: parsed.value.previewFormat });
+	if (preview.type === "failure") {
+		return writeFailure(preview.message, { stdout: deps.stdout, stderr: deps.stderr, json: parsed.value.format === "json" });
+	}
+
+	if (parsed.value.format === "json") {
+		deps.stdout(`${JSON.stringify({ success: true, ...loadedPlanJson(plan), ...previewTsJson(preview.preview) })}\n`);
+		return 0;
+	}
+	deps.stdout(`${formatPreviewTsHuman(plan, preview.preview)}\n`);
 	return 0;
 }
 
@@ -467,9 +511,54 @@ function parseLoadPlanArgs(args: readonly string[]): ParseResult<LoadPlanArgs> {
 	};
 }
 
+function parsePreviewTsArgs(args: readonly string[]): ParseResult<PreviewTsArgs> {
+	let keyOrSlug: string | undefined;
+	let previewFormat: TsPlanRecipePreviewFormat = "text";
+	let format: "json" | undefined;
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		if (arg === undefined) continue;
+		if (arg === "--help" || arg === "-h") return { type: "help" };
+		if (arg === "--format") {
+			const value = parseFlagValue(args, index, "--format");
+			if (value.type === "error") return value;
+			const parsed = parseFormat(value.value);
+			if (parsed.type === "error") return parsed;
+			format = parsed.value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--preview-format") {
+			const value = parseFlagValue(args, index, "--preview-format");
+			if (value.type === "error") return value;
+			const parsed = parsePreviewFormat(value.value);
+			if (parsed.type === "error") return parsed;
+			previewFormat = parsed.value;
+			index += 1;
+			continue;
+		}
+		if (arg.startsWith("-")) return { type: "error", message: `Unknown option: ${arg}` };
+		if (keyOrSlug !== undefined) return { type: "error", message: "preview-ts accepts at most one key or slug." };
+		keyOrSlug = arg;
+	}
+	return {
+		type: "ok",
+		value: {
+			previewFormat,
+			...(keyOrSlug === undefined ? {} : { keyOrSlug }),
+			...(format === undefined ? {} : { format }),
+		},
+	};
+}
+
 function parseFormat(value: string): ValueParseResult<"json"> {
 	if (value === JSON_FORMAT) return { type: "ok", value };
 	return { type: "error", message: "--format must be json." };
+}
+
+function parsePreviewFormat(value: string): ValueParseResult<TsPlanRecipePreviewFormat> {
+	if (value === "text" || value === "mermaid") return { type: "ok", value };
+	return { type: "error", message: "--preview-format must be one of text or mermaid." };
 }
 
 function parseFlagValue(args: readonly string[], index: number, flag: string): ValueParseResult<string> {
@@ -572,6 +661,21 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 	};
 }
 
+function previewTsJson(preview: TsPlanRecipePreview): Record<string, unknown> {
+	return {
+		preview_format: preview.format,
+		preview_content: preview.content,
+		trust_notice: preview.trustNotice,
+		...(preview.title === undefined ? {} : { title: preview.title }),
+		...(preview.summary === undefined ? {} : { summary: preview.summary }),
+	};
+}
+
+function formatPreviewTsHuman(plan: LoadedAttachedPlan, preview: TsPlanRecipePreview): string {
+	const previewContent = preview.format === "mermaid" ? `\`\`\`mermaid\n${preview.content}\n\`\`\`` : preview.content;
+	return [formatLoadedAttachedPlanEvidence(plan), preview.trustNotice, previewContent].join("\n\n");
+}
+
 function formatResolvePlanEvidence(evidence: ResolvePlanEvidence): string {
 	if (evidence.source === "explicit") {
 		return [`Resolved explicit plan file.`, `Path: ${evidence.filePath}`].join("\n");
@@ -640,6 +744,7 @@ function execHelp(): string {
 		"  resolve-plan       Resolve an explicit or latest source-branch plan file.",
 		"  create             Create a planned branch and attach a plan with Branch Memory.",
 		"  load-plan          Load an attached plan and render the implementation prompt.",
+		"  preview-ts         Preview an attached or saved TypeScript plan recipe.",
 		"",
 	].join("\n");
 }
@@ -668,6 +773,13 @@ function loadPlanHelp(): string {
 		"",
 		"JSON output is metadata-only by default. Use --prompt-file for normal agent handoff;",
 		"use --include-content or --include-prompt only when the caller can safely accept large stdout.",
+		"",
+	].join("\n");
+}
+
+function previewTsHelp(): string {
+	return [
+		"Usage: planned-branch exec preview-ts [key-or-slug] [--preview-format text|mermaid] [--format json]",
 		"",
 	].join("\n");
 }
