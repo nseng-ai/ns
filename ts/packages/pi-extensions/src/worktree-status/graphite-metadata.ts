@@ -93,19 +93,37 @@ const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
 
 const requireRuntimeModule = createRequire(import.meta.url);
 
+interface CachedGraphiteMetadataWorker {
+	worker: GraphiteMetadataWorkerHandle;
+	factory: GraphiteMetadataWorkerFactory;
+	isBusy: boolean;
+	shouldTerminateWhenIdle: boolean;
+}
+
+interface AcquiredGraphiteMetadataWorker {
+	worker: GraphiteMetadataWorkerHandle;
+	cached: CachedGraphiteMetadataWorker | undefined;
+	shouldTerminateOnSuccess: boolean;
+}
+
+type GraphiteMetadataWorkerFinishMode = "reuse" | "terminate";
+
+let cachedGraphiteMetadataWorker: CachedGraphiteMetadataWorker | undefined;
+
 export async function loadGraphiteMetadataStatusInWorker(
 	input: GraphiteMetadataLookupInput,
 	options: LoadGraphiteMetadataStatusInWorkerOptions = {},
 ): Promise<GraphiteMetadataStatus> {
 	if (options.signal?.aborted) return unavailableFromWorker(input, "read-timeout");
 
-	let worker: GraphiteMetadataWorkerHandle;
+	let acquired: AcquiredGraphiteMetadataWorker;
 	try {
-		worker = (options.workerFactory ?? createGraphiteMetadataWorker)();
+		acquired = acquireGraphiteMetadataWorker(options.workerFactory ?? createGraphiteMetadataWorker);
 	} catch (error) {
 		emitWorkerDiagnostic(options, { type: "worker-create-failed", error });
 		return unavailableFromWorker(input, "read-failed");
 	}
+	const worker = acquired.worker;
 
 	const timeoutMs = options.timeoutMs ?? GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS;
 	return new Promise((resolve) => {
@@ -113,18 +131,14 @@ export async function loadGraphiteMetadataStatusInWorker(
 		let timeout: ReturnType<typeof setTimeout> | undefined;
 		let abortListener: (() => void) | undefined;
 
-		function finish(status: GraphiteMetadataStatus): void {
+		function finish(status: GraphiteMetadataStatus, mode: GraphiteMetadataWorkerFinishMode): void {
 			if (finished) return;
 			finished = true;
 			if (timeout !== undefined) clearTimeout(timeout);
 			if (abortListener !== undefined) options.signal?.removeEventListener("abort", abortListener);
 			worker.onmessage = null;
 			worker.onerror = null;
-			try {
-				worker.terminate();
-			} catch {
-				// Termination is best-effort cleanup after a degraded passive status lookup.
-			}
+			releaseGraphiteMetadataWorker(acquired, mode);
 			resolve(status);
 		}
 
@@ -132,43 +146,55 @@ export async function loadGraphiteMetadataStatusInWorker(
 			const response = graphiteMetadataWorkerResponseFromValue(event.data);
 			if (response === undefined) {
 				emitWorkerDiagnostic(options, { type: "worker-malformed-response", data: event.data });
-				finish(unavailableFromWorker(input, "read-failed"));
+				finish(unavailableFromWorker(input, "read-failed"), "terminate");
 				return;
 			}
 			if (response.type === "failure") {
 				emitWorkerDiagnostic(options, { type: "worker-failure-response", message: response.message });
-				finish(unavailableFromWorker(input, "read-failed"));
+				finish(unavailableFromWorker(input, "read-failed"), "terminate");
 				return;
 			}
 
-			finish(response.status);
+			finish(response.status, acquired.shouldTerminateOnSuccess ? "terminate" : "reuse");
 		};
 		worker.onerror = (event) => {
 			const diagnostic: GraphiteMetadataWorkerDiagnostic = { type: "worker-error" };
 			if (event.message !== undefined) diagnostic.message = event.message;
 			if (event.error !== undefined) diagnostic.error = event.error;
 			emitWorkerDiagnostic(options, diagnostic);
-			finish(unavailableFromWorker(input, "read-failed"));
+			finish(unavailableFromWorker(input, "read-failed"), "terminate");
 		};
 
-		abortListener = () => finish(unavailableFromWorker(input, "read-timeout"));
+		abortListener = () => finish(unavailableFromWorker(input, "read-timeout"), "terminate");
 		options.signal?.addEventListener("abort", abortListener, { once: true });
 		if (options.signal?.aborted) {
-			finish(unavailableFromWorker(input, "read-timeout"));
+			finish(unavailableFromWorker(input, "read-timeout"), "terminate");
 			return;
 		}
 		timeout = setTimeout(() => {
 			emitWorkerDiagnostic(options, { type: "worker-timeout", timeoutMs });
-			finish(unavailableFromWorker(input, "read-timeout"));
+			finish(unavailableFromWorker(input, "read-timeout"), "terminate");
 		}, timeoutMs);
 
 		try {
 			worker.postMessage({ type: "load_graphite_metadata", input });
 		} catch (error) {
 			emitWorkerDiagnostic(options, { type: "worker-post-message-failed", error });
-			finish(unavailableFromWorker(input, "read-failed"));
+			finish(unavailableFromWorker(input, "read-failed"), "terminate");
 		}
 	});
+}
+
+export function shutdownGraphiteMetadataWorker(): void {
+	const cached = cachedGraphiteMetadataWorker;
+	if (cached === undefined) return;
+	if (cached.isBusy) {
+		cached.shouldTerminateWhenIdle = true;
+		return;
+	}
+
+	cachedGraphiteMetadataWorker = undefined;
+	terminateGraphiteMetadataWorker(cached.worker);
 }
 
 export function graphiteMetadataWorkerRequestFromValue(value: unknown): GraphiteMetadataWorkerRequest | undefined {
@@ -232,6 +258,60 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 
 function createGraphiteMetadataWorker(): GraphiteMetadataWorkerHandle {
 	return new Worker(new URL("./graphite-metadata-worker.ts", import.meta.url), { type: "module" });
+}
+
+function acquireGraphiteMetadataWorker(factory: GraphiteMetadataWorkerFactory): AcquiredGraphiteMetadataWorker {
+	const cached = cachedGraphiteMetadataWorker;
+	if (cached !== undefined) {
+		if (cached.isBusy) {
+			return { worker: factory(), cached: undefined, shouldTerminateOnSuccess: true };
+		}
+		if (cached.factory === factory) {
+			cached.isBusy = true;
+			return { worker: cached.worker, cached, shouldTerminateOnSuccess: false };
+		}
+
+		cachedGraphiteMetadataWorker = undefined;
+		terminateGraphiteMetadataWorker(cached.worker);
+	}
+
+	const worker = factory();
+	const nextCached: CachedGraphiteMetadataWorker = {
+		worker,
+		factory,
+		isBusy: true,
+		shouldTerminateWhenIdle: false,
+	};
+	cachedGraphiteMetadataWorker = nextCached;
+	return { worker, cached: nextCached, shouldTerminateOnSuccess: false };
+}
+
+function releaseGraphiteMetadataWorker(
+	acquired: AcquiredGraphiteMetadataWorker,
+	mode: GraphiteMetadataWorkerFinishMode,
+): void {
+	const cached = acquired.cached;
+	if (cached === undefined) {
+		terminateGraphiteMetadataWorker(acquired.worker);
+		return;
+	}
+
+	if (mode === "reuse" && !cached.shouldTerminateWhenIdle) {
+		cached.isBusy = false;
+		return;
+	}
+
+	if (cachedGraphiteMetadataWorker === cached) cachedGraphiteMetadataWorker = undefined;
+	cached.isBusy = false;
+	terminateGraphiteMetadataWorker(cached.worker);
+}
+
+function terminateGraphiteMetadataWorker(worker: GraphiteMetadataWorkerHandle): void {
+	try {
+		worker.terminate();
+	} catch {
+		// Termination is best-effort cleanup after a degraded passive status lookup.
+	}
 }
 
 function emitWorkerDiagnostic(
