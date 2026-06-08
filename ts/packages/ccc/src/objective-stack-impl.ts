@@ -1,5 +1,6 @@
-import { chooseActiveObjectiveSlug, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 import { expandSkillBlock, type SkillExpansionHost } from "@asdl/pi-extension-runtime/skill-expansion";
+import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
 	commandName: "objective:stack-impl";
@@ -10,13 +11,7 @@ interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
 }
 
 export interface ObjectiveStackImplHost extends ObjectiveSelectionHost, SkillExpansionHost {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			handler(args: string, ctx: ObjectiveSelectionContext): Promise<void> | void;
-		},
-	): void;
+	registerCommand(name: string, options: CommandDefinition): void;
 	sendUserMessage(content: string): void;
 }
 
@@ -36,7 +31,12 @@ export function registerObjectiveStackImplCommand(host: ObjectiveStackImplHost):
 	host.registerCommand(OBJECTIVE_STACK_IMPL_COMMAND.commandName, {
 		description: OBJECTIVE_STACK_IMPL_COMMAND.description,
 		handler: async (args, ctx) =>
-			handleObjectiveStackImplCommand({ host, spec: OBJECTIVE_STACK_IMPL_COMMAND, args, ctx }),
+			handleObjectiveStackImplCommand({
+				host,
+				spec: OBJECTIVE_STACK_IMPL_COMMAND,
+				args,
+				ctx: objectiveSelectionContextFromCommandContext(ctx),
+			}),
 	});
 }
 

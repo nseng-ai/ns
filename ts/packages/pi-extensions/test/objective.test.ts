@@ -151,6 +151,9 @@ function createContext(options: { cancelSelect?: boolean; selectIndex?: number; 
 	const ctx: CommandContext = {
 		cwd: ROOT,
 		hasUI: true,
+		modelRegistry: {
+			find: () => undefined,
+		},
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -189,9 +192,6 @@ function skillCommandInfo(skillName: string, skillPath: string, baseDir: string)
 		source: "skill",
 		sourceInfo: {
 			path: skillPath,
-			source: "project",
-			scope: "project",
-			origin: "top-level",
 			baseDir,
 		},
 	};
