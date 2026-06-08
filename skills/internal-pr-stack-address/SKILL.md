@@ -43,9 +43,11 @@ Do not trigger from ordinary single-PR review feedback requests; use
 - Operates on the full current Graphite stack by default.
 - Requires strict open-PR coverage for stack branches; stop on missing PRs
   unless the user explicitly overrides.
-- Creates or reuses a child branch at the stack tip whose suffix is a
-  meaningful semantic slug derived from the validated stack feedback plan,
-  preserving the stack prefix when present.
+- Creates or reuses one child omnibus branch at the stack tip; verified
+  compatible branches are adopted before any new semantic branch is created.
+- When no compatible branch exists, chooses a specific semantic suffix when the
+  validated stack plan has a coherent theme; otherwise asks in interactive
+  contexts or stops on ambiguity in non-interactive contexts.
 - Does **not** run `gt submit`, `git push`, or `gh pr create` by default.
 - Uses one payload session as the durable stack run record; normal operation
   does not create ad hoc `/tmp` scratch directories.
@@ -248,38 +250,51 @@ provenance. Report the missing helper as a push-down gap.
 
 ### 5. Create or reuse the omnibus branch
 
-Derive the branch name after the stack plan validates. Preserve the stack
+Select the branch action after the stack plan validates. Preserve the stack
 prefix from the stack tip branch when present: if the tip branch has a prefix
-before `/`, use `<stack-prefix>/<branch-slug>`. If the tip has no prefix, use
-`<branch-slug>` or the local Graphite stack convention without inventing a fake
-prefix.
+before `/`, new branch names use `<stack-prefix>/<branch-slug>`. If the tip has
+no prefix, use `<branch-slug>` as the full branch name.
 
-Derive `<branch-slug>` from the validated merged stack plan, especially
-`data.batches`, source paths, action summaries, and the dominant feedback theme.
-Do not derive it from the raw user request alone. Use kebab-case, 3-7 specific
-words, and prefer an action/outcome phrase such as
-`fix-payload-session-validation`, `align-resolution-payload-shape`, or
-`tighten-stack-feedback-planning`.
+Discover compatible existing omnibus branches before deriving a new slug. A
+compatible candidate is one of:
 
-Do not use generic-only slugs like `address-stack-feedback`, `fix-feedback`,
-`address-comments`, `cleanup`, or `misc-fixes`. Do not include dates, random
-IDs, PR numbers, or opaque hashes. If feedback spans several unrelated items,
-prefer the smallest coherent theme represented by the first approved batch, or
-name the common affected workflow/mechanism when the branch truly must cover
-many unrelated fixes. If no meaningful slug can be derived confidently, ask the
-user for the branch slug before creating the branch. Add a numeric suffix only
-when needed.
-
-Before branch creation, show the proposed branch name and let the user override
-it.
+- a verified omnibus branch whose Graphite parent is the current stack tip;
+- a same-prefix branch previously used for this stack-wide feedback workflow,
+  verified from Graphite topology or commit/branch context.
 
 Rerun/idempotency policy:
 
-- If the omnibus branch already exists, reuse it when it is the child of the
-  current stack tip or clearly belongs to this stack.
+- Reuse one verified compatible branch before creating any new branch.
+- Prefer a verified current child omnibus branch.
+- If multiple compatible candidates remain, ask the user which one to use; in
+  non-interactive contexts, stop instead of creating another branch.
+- Do not derive a new semantic slug when an existing compatible branch can be
+  verified, even if a new derivation would choose a different slug.
 - Re-fetch feedback and act only on still-unresolved items.
 - Ignore already-resolved threads with existing `pr-address` resolution markers.
 - Do not create duplicate branches or duplicate resolution replies.
+
+When no compatible branch exists, choose a new branch slug from the validated
+merged stack plan. Derive it from `data.batches`, source paths, action
+summaries, and the shared workflow/mechanism represented by the approved work;
+do not derive it from the raw user request alone. Use kebab-case, 3-7 specific
+words, and prefer a specific action/outcome phrase such as
+`fix-payload-session-validation`, `align-resolution-payload-shape`, or
+`tighten-stack-feedback-planning`. Avoid generic-only semantic slugs that could
+apply to any feedback run. Do not include dates, random IDs, PR numbers, or
+opaque hashes. Add a numeric suffix only when needed.
+
+Derive a semantic slug only when the plan has one coherent theme, one approved
+batch that clearly names the work, or one shared workflow/mechanism across the
+approved work. If batches are unrelated, no shared mechanism is evident, or
+sanitization leaves only a generic phrase, ask an interactive user for a branch
+slug. In non-interactive contexts, do not pause or guess: stop with an ambiguity
+diagnostic.
+
+Show the final branch action immediately before acting: reuse/adopt/create plus
+the branch name. Allow an interactive user to redirect or override before a new
+branch is created or an existing branch is adopted. In non-interactive contexts,
+proceed only with an unambiguous deterministic action.
 
 When creating a new branch, use Graphite from the stack tip:
 
