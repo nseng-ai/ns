@@ -379,9 +379,12 @@ commit, `mode=pre_existing` for moved/restructured pre-existing comments,
 `mode=explained` for factual false-positive/already-fixed explanations, and
 `mode=planned` only when the user/operator explicitly accepts provenance-backed
 deferral to an existing local branch or PR. Planned mode requires a non-empty
-message and validated provenance; do not use it for vague promises. Treat any
-captured branch HEAD OID or PR state in the reply as a batch-start snapshot, not
-a live reference.
+message and validated provenance; do not use it for vague promises. Provenance
+is only valid for `mode=planned`. In batch payloads, planned items reject only
+item-level `commit_sha`; a top-level batch `commit_sha` may be present for fixed
+items in the same payload and is ignored by planned items. Treat any captured
+branch HEAD OID or PR state in the reply as a batch-start snapshot, not a live
+reference.
 
 Inspect the builder result:
 
@@ -413,8 +416,8 @@ Common footguns (the reference is still the source of truth):
   result data.
 - `resolve-thread-with-reply` uses positional fields and `mode` must be one of
   `pre_existing`, `fixed`, `explained`, or `planned`. `planned` also requires
-  `--provenance-json` naming an existing local branch or PR. Anything else is
-  rejected.
+  `--provenance-json` naming an existing local branch or PR; non-planned modes
+  reject provenance. Anything else is rejected.
 
 Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
 and standard formatting.

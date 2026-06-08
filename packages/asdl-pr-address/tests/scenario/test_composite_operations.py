@@ -970,11 +970,6 @@ def test_resolve_thread_with_reply_planned_local_branch_validates_provenance(
         "kind": "local_branch",
         "branch": "reuse-worker",
         "branch_head_oid": "abc1234",
-        "pr_number": None,
-        "pr_url": None,
-        "pr_state": None,
-        "pr_head_ref_name": None,
-        "pr_head_ref_oid": None,
     }
     assert fake.resolved_thread_ids == ("PRRT_plan",)
     assert tuple(thread_id for thread_id, _body in fake.thread_replies) == ("PRRT_plan",)
@@ -1015,6 +1010,43 @@ def test_resolve_thread_with_reply_planned_pr_validates_provenance(
     assert "- PR head snapshot: `follow-up-fix` at `def5678`" in data["body"]
     assert data["provenance"]["pr_number"] == 1073
     assert fake.resolved_thread_ids == ("PRRT_plan_pr",)
+
+
+@pytest.mark.parametrize(
+    ("mode", "message", "commit_sha"),
+    [
+        ("fixed", "Use the LBYL guard.", "abc1234"),
+        ("explained", "This is already covered.", ""),
+        ("pre_existing", "", ""),
+    ],
+)
+def test_resolve_thread_with_reply_rejects_non_planned_provenance_before_mutation(
+    cli_group: ClinkrGroup,
+    mode: str,
+    message: str,
+    commit_sha: str,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        [
+            "resolve-thread-with-reply",
+            "PRRT_bad_provenance",
+            mode,
+            message,
+            commit_sha,
+            "--provenance-json",
+            json.dumps({"kind": "local_branch", "branch": "reuse-worker"}),
+        ],
+        fake,
+    )
+
+    assert exit_code == 2
+    assert output["error_type"] == "invalid_request"
+    assert "provenance is only valid with mode='planned'" in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
 
 
 def test_resolve_thread_with_reply_planned_rejects_missing_branch_before_mutation(
@@ -1211,8 +1243,71 @@ def test_build_resolve_thread_batch_payload_accepts_planned_decision(
             "mode": "planned",
             "message": "Reuse the metadata worker in the follow-up branch.",
             "commit_sha": None,
-            "provenance": {"kind": "local_branch", "branch": "reuse-worker", "pr_number": None},
+            "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
         }
+    ]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+def test_build_resolve_thread_batch_payload_accepts_mixed_fixed_and_planned_batch_commit(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[
+            _plan_batch(
+                "single_file",
+                [_thread_plan_item("PRRT_fixed"), _thread_plan_item("PRRT_planned")],
+            )
+        ]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "decisions": [
+            {
+                "thread_id": "PRRT_fixed",
+                "action": "resolve",
+                "mode": "fixed",
+                "message": "Updated the guard.",
+            },
+            {
+                "thread_id": "PRRT_planned",
+                "action": "resolve",
+                "mode": "planned",
+                "message": "Reuse the metadata worker in the follow-up branch.",
+                "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+            },
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert data["payload_ready"] is True
+    assert data["payload"]["commit_sha"] == "abc1234"
+    assert data["payload"]["items"] == [
+        {
+            "thread_id": "PRRT_fixed",
+            "mode": "fixed",
+            "message": "Updated the guard.",
+            "commit_sha": None,
+            "provenance": None,
+        },
+        {
+            "thread_id": "PRRT_planned",
+            "mode": "planned",
+            "message": "Reuse the metadata worker in the follow-up branch.",
+            "commit_sha": None,
+            "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+        },
     ]
     assert fake.thread_replies == ()
     assert fake.resolved_thread_ids == ()
@@ -1250,6 +1345,50 @@ def test_build_resolve_thread_batch_payload_rejects_planned_without_provenance(
     assert fake.resolved_thread_ids == ()
 
 
+@pytest.mark.parametrize(
+    ("mode", "message", "commit_sha"),
+    [
+        ("fixed", "Updated the guard.", "abc1234"),
+        ("explained", "This is already covered.", None),
+    ],
+)
+def test_build_resolve_thread_batch_payload_rejects_fixed_or_explained_provenance(
+    cli_group: ClinkrGroup,
+    mode: str,
+    message: str,
+    commit_sha: str | None,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[_plan_batch("single_file", [_thread_plan_item("PRRT_non_planned")])]
+    )
+    decision = {
+        "thread_id": "PRRT_non_planned",
+        "action": "resolve",
+        "mode": mode,
+        "message": message,
+        "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+    }
+    if commit_sha is not None:
+        decision["commit_sha"] = commit_sha
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "decisions": [decision],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert [error["code"] for error in output["data"]["errors"]] == ["non_planned_has_provenance"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
 def test_build_resolve_thread_batch_payload_rejects_pre_existing_provenance(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -1277,9 +1416,7 @@ def test_build_resolve_thread_batch_payload_rejects_pre_existing_provenance(
     )
 
     assert exit_code == 1
-    assert [error["code"] for error in output["data"]["errors"]] == [
-        "pre_existing_has_resolution_fields"
-    ]
+    assert [error["code"] for error in output["data"]["errors"]] == ["non_planned_has_provenance"]
     assert fake.thread_replies == ()
     assert fake.resolved_thread_ids == ()
 
@@ -1294,13 +1431,13 @@ def test_build_resolve_thread_batch_payload_rejects_planned_commit_sha(
     request = {
         "plan": plan,
         "batch_id": "single_file",
-        "commit_sha": "abc1234",
         "decisions": [
             {
                 "thread_id": "PRRT_planned",
                 "action": "resolve",
                 "mode": "planned",
                 "message": "Reuse the metadata worker in the follow-up branch.",
+                "commit_sha": "abc1234",
                 "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
             }
         ],
@@ -1699,6 +1836,47 @@ def test_resolve_thread_batch_resolves_planned_with_validated_branch_provenance(
     assert fake.resolved_thread_ids == ("PRRT_planned",)
 
 
+def test_resolve_thread_batch_resolves_mixed_fixed_and_planned_with_batch_commit(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    git_gateway = FakeGitGateway(
+        branches=("reuse-worker",),
+        branch_head_oid_by_branch={"reuse-worker": "def5678"},
+    )
+    payload = {
+        "commit_sha": "abc1234",
+        "items": [
+            {
+                "thread_id": "PRRT_fixed",
+                "mode": "fixed",
+                "message": "Use the LBYL guard here.",
+            },
+            {
+                "thread_id": "PRRT_planned",
+                "mode": "planned",
+                "message": "Reuse the metadata worker in the follow-up branch.",
+                "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+            },
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+        git_gateway=git_gateway,
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert data["resolved"] == 2
+    assert "Fixed in commit abc1234: Use the LBYL guard here." in data["results"][0]["body"]
+    assert "Planned follow-up: Reuse the metadata worker" in data["results"][1]["body"]
+    assert "- Branch HEAD snapshot: `def5678`" in data["results"][1]["body"]
+    assert fake.resolved_thread_ids == ("PRRT_fixed", "PRRT_planned")
+
+
 def test_resolve_thread_batch_rejects_missing_planned_pr_before_any_mutation(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -1845,6 +2023,33 @@ def test_resolve_thread_batch_rejects_payload_json_and_payload_file(
         (
             {"items": [{"thread_id": "PRRT_planned", "mode": "planned", "message": "Later."}]},
             "provenance",
+        ),
+        (
+            {
+                "items": [
+                    {
+                        "thread_id": "PRRT_planned",
+                        "mode": "planned",
+                        "message": "Later.",
+                        "commit_sha": "abc1234",
+                        "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+                    }
+                ]
+            },
+            "item commit_sha",
+        ),
+        (
+            {
+                "items": [
+                    {
+                        "thread_id": "PRRT_explained",
+                        "mode": "explained",
+                        "message": "Already covered.",
+                        "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+                    }
+                ]
+            },
+            "provenance is only valid with mode='planned'",
         ),
     ],
 )

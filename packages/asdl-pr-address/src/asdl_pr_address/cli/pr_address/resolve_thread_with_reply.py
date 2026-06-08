@@ -20,10 +20,12 @@ from asdl_pr_address.cli.pr_address.reply_formatting import (
     format_resolution_reply,
 )
 from asdl_pr_address.cli.pr_address.resolution_provenance import (
-    ResolutionProvenance,
-    ResolutionProvenanceInput,
     parse_resolution_provenance_json,
     validate_resolution_provenance,
+)
+from asdl_pr_address.cli.pr_address.resolution_provenance_models import (
+    ResolutionProvenance,
+    ResolutionProvenanceInput,
 )
 from asdl_pr_address.cli.pr_address.string_values import trim_optional
 
@@ -81,10 +83,22 @@ def normalize_resolution_request(
 ) -> NormalizedResolveThreadWithReplyRequest:
     message = trim_optional(request.message)
     commit_sha = trim_optional(request.commit_sha)
+    provenance_json = trim_optional(request.provenance_json)
+    provenance_was_supplied = provenance_input is not None or provenance_json is not None
+    if request.mode != "planned":
+        Ensure.true(
+            not provenance_was_supplied,
+            error_type="invalid_request",
+            message=(
+                f"mode='{request.mode}' must not include provenance; provenance is only valid "
+                "with mode='planned'"
+            ),
+        )
+
     parsed_provenance = provenance_input
-    if parsed_provenance is None:
+    if request.mode == "planned" and parsed_provenance is None:
         parsed_provenance = parse_resolution_provenance_json(
-            request.provenance_json,
+            provenance_json,
             command_name="resolve-thread-with-reply",
         )
 
