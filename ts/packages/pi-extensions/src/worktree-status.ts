@@ -13,7 +13,7 @@ import {
 	type CustomMessageContent,
 } from "./terminal-presentation.ts";
 import {
-	loadGraphiteMetadataStatus,
+	loadGraphiteMetadataStatusInWorker,
 	type GraphiteMetadataStatus,
 } from "./worktree-status/graphite-metadata.ts";
 
@@ -190,6 +190,17 @@ export interface GtStatus {
 	up: string;
 	commits: "yes" | "no" | "?" | "n/a";
 	dirty: "yes" | "no";
+}
+
+export interface GraphiteMetadataLoaderOptions {
+	cwd: string;
+	signal?: AbortSignal;
+}
+
+export type GraphiteMetadataLoader = (options: GraphiteMetadataLoaderOptions) => Promise<GraphiteMetadataStatus>;
+
+export interface LoadGtStatusOptions {
+	metadataLoader?: GraphiteMetadataLoader;
 }
 
 export interface WorktreeStatus {
@@ -564,8 +575,15 @@ export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: 
 	return { brmem, gt };
 }
 
-export async function loadGtStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtStatus> {
-	const metadata = loadCurrentGraphiteMetadataStatus(cwd);
+export async function loadGtStatus(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+	options: LoadGtStatusOptions = {},
+): Promise<GtStatus> {
+	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
+	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = signal === undefined ? { cwd } : { cwd, signal };
+	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);
 	const up = loadUpBranch(metadata, signal);
 	const [commits, dirty] = await Promise.all([
@@ -653,14 +671,15 @@ function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: str
 	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
 }
 
-function loadCurrentGraphiteMetadataStatus(cwd: string): GraphiteMetadataStatus {
-	const gitPaths = findGitPaths(cwd);
+async function loadCurrentGraphiteMetadataStatusAsync(options: GraphiteMetadataLoaderOptions): Promise<GraphiteMetadataStatus> {
+	const gitPaths = findGitPaths(options.cwd);
 	if (gitPaths === undefined) return { type: "unavailable", reason: "not-a-git-repo" };
 
 	const currentBranch = currentBranchName(gitPaths);
 	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
 
-	return loadGraphiteMetadataStatus({ commonGitDir: gitPaths.commonGitDir, currentBranch });
+	const workerOptions = options.signal === undefined ? {} : { signal: options.signal };
+	return loadGraphiteMetadataStatusInWorker({ commonGitDir: gitPaths.commonGitDir, currentBranch }, workerOptions);
 }
 
 function loadDownBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string | undefined {

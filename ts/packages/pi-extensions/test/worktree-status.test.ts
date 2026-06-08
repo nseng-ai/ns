@@ -21,6 +21,7 @@ import worktreeStatusExtension, {
 	type ExecResult,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type GraphiteMetadataLoader,
 	type StatusTheme,
 } from "../src/worktree-status.ts";
 
@@ -719,6 +720,42 @@ describe("loadWorktreeStatus", () => {
 });
 
 describe("loadGtStatus", () => {
+	test("uses an injected async metadata loader before deriving downstack and upstack status", async () => {
+		const metadataLoader: GraphiteMetadataLoader = async ({ cwd, signal }) => {
+			expect(cwd).toBe(ROOT);
+			expect(signal).toBeUndefined();
+			return {
+				type: "tracked",
+				currentBranch: "feature/current",
+				parent: "main",
+				children: ["feature/child"],
+				isCurrentTrunk: false,
+			};
+		};
+		const pi = new FakePi([revListStep("main", 3), dirtyStep()]);
+
+		const status = await loadGtStatus(pi, ROOT, undefined, { metadataLoader });
+
+		pi.assertDone();
+		expect(formatGtStatus(status)).toBe("[gt] (↓: main) (↑: feature/child) (commits)");
+		expectNoGtCalls(pi);
+	});
+
+	test("degrades when the async metadata loader reports unavailable", async () => {
+		const metadataLoader: GraphiteMetadataLoader = async () => ({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
+		});
+		const pi = new FakePi([dirtyStep()]);
+
+		const status = await loadGtStatus(pi, ROOT, undefined, { metadataLoader });
+
+		pi.assertDone();
+		expect(formatGtStatus(status)).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
+		expectNoGtCalls(pi);
+	});
+
 	test("uses Graphite metadata parent and shows the empty icon for zero commits", async () => {
 		const root = makeGraphiteRepo();
 		try {
