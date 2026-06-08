@@ -11,7 +11,7 @@
 - [x] Vitest migration child Objective (`bun-to-node-ts-migration-vitest`).
       Create a child Objective to convert TypeScript tests from `bun:test` to Vitest while preserving behavior for lifecycle hooks, matcher usage, and Bun module mocking cases.
 
-- [ ] Node runtime compatibility child Objective (`bun-to-node-ts-migration-node-runtime`).
+- [x] Node runtime compatibility child Objective (`bun-to-node-ts-migration-node-runtime`).
       Create a child Objective to harden project-local Pi extension modules and TypeScript CLIs under Node, including smoke coverage for Bun-only APIs and the Graphite metadata reader replacement.
 
 - [ ] Bun-reference reconciliation child Objective (`bun-to-node-ts-migration-bun-reference-reconciliation`).
