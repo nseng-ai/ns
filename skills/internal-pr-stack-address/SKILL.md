@@ -93,6 +93,10 @@ Load these when their domain is touched:
   precondition failure, or unsupported state and should stop the run.
 - Use payload artifact references and `read-feedback-details` for body lookup.
   Use `read-feedback-detail` only for exact one-off lookup/debugging.
+- Normal stack operation must use `--stdout-mode compact` for
+  `stack-feedback-prep` and `stack-feedback-plan`. Save helper stdout to local
+  files with `>` and print only small `jq` summaries; do not `tee` full helper
+  JSON into the transcript.
 - Do not use `--payload-mode inline` except for explicit debugging or migration.
 
 ### 1. Preflight and stack PR coverage
@@ -133,14 +137,22 @@ Fetch the initial unresolved-only stack snapshot:
 printf '%s' '<stack-json>' \
   | <pr-address-runner> exec stack-feedback-prep \
       --payload-session-id <payload-session-id> \
-      --format json
+      --stdout-mode compact \
+      --format json \
+  > stack-prep.compact.json
+
+jq '{exit_code, summary:.data.summary, stack:(.data.stack|map({pr_number, branch, counts:.counts}))}' \
+  stack-prep.compact.json
 ```
 
 Rules:
 
 - Initial classification defaults to unresolved review threads only.
-- Preserve every `data.stack[]` entry: manifest, raw feedback reference,
-  classification template, summary references, and `discussion_triage`.
+- Use compact stdout for transcript-visible summaries. Load the full prep data
+  for classification/planning from `data.stack_summary_reference.payload_path`.
+- Preserve every full prep `stack[]` entry from that artifact: manifest, raw
+  feedback reference, classification template, summary references, and
+  `discussion_triage`.
 - Include PRs with no feedback in the scan summary, but produce no plan items.
 - Treat `discussion_triage` as advisory. Every review, unresolved review thread,
   and discussion comment still needs exactly one classification.
@@ -150,7 +162,8 @@ Rules:
 For each PR with feedback:
 
 1. Read `skills/pr-address/references/feedback-classifier.md`.
-2. Start from `classification_template.classification_template`.
+2. Start from `classification_template.classification_template` in the full prep
+   artifact.
 3. Classify with compact manifests, payload locators, generated template,
    classifier rules, and strict JSON output. Prefer one focused subagent per PR
    when model routing is available; otherwise classify directly from the same
@@ -160,24 +173,32 @@ For each PR with feedback:
 
 ### 3. Validate and merge the stack plan
 
-Run `stack-feedback-plan` with the prep data and one classification per PR:
+Run `stack-feedback-plan` with the full prep artifact data and one classification
+per PR:
 
 ```bash
 printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | <pr-address-runner> exec stack-feedback-plan \
       --payload-session-id <payload-session-id> \
-      --format json
+      --stdout-mode compact \
+      --format json \
+  > stack-plan.compact.json
+
+jq '{exit_code, valid:.data.valid, summary:.data.summary, batches:(.data.batches|map({batch_id, item_count, approval_required}))}' \
+  stack-plan.compact.json
 ```
 
 Rules:
 
 - Proceed only when the helper exits `0`, `data.valid == true`, and
   `data.validation.all_valid == true`.
-- Use `data.batches` as the merged stack plan; it preserves PR provenance and
-  deterministic `pre_existing`, `local`, `single_file`, `cross_cutting`,
+- Use compact `data.batches` for the transcript-visible execution plan.
+- Load the full stack plan from `data.stack_plan_reference.payload_path` before
+  drift checks and payload building; that full artifact preserves PR provenance
+  and deterministic `pre_existing`, `local`, `single_file`, `cross_cutting`,
   `complex` ordering.
-- Preserve `data.informational`; never hide unresolved review threads inside
-  informational counts.
+- Preserve full-plan `informational`; never hide unresolved review threads
+  inside informational counts.
 - Use `data.decision_docket` for approval-required work, informational review
   thread decisions, and non-automation discussion comments that may need reply.
 - Display a compact plan before editing: PR number/branch, source kind, review
@@ -253,10 +274,14 @@ printf '%s' '<same-stack-json>' \
   | <pr-address-runner> exec stack-feedback-prep \
       --include-resolved \
       --payload-session-id <payload-session-id> \
-      --format json
+      --stdout-mode compact \
+      --format json \
+  > stack-current-prep.compact.json
 ```
 
-Then compare the saved validated stack plan to that fresh prep:
+Then load the full current prep from
+`data.stack_summary_reference.payload_path` and compare the saved full validated
+stack plan to that fresh full prep:
 
 ```bash
 printf '%s' '{"stack_plan":{...},"current_prep":{...}}' \
@@ -336,7 +361,9 @@ printf '%s' '<same-stack-json>' \
   | <pr-address-runner> exec stack-feedback-prep \
       --include-resolved \
       --payload-session-id <payload-session-id> \
-      --format json
+      --stdout-mode compact \
+      --format json \
+  > stack-final-prep.compact.json
 ```
 
 Per-PR `get-feedback --include-resolved` is acceptable when per-PR evidence is

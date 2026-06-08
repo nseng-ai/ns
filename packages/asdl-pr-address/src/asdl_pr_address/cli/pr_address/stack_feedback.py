@@ -49,6 +49,7 @@ from asdl_pr_address.cli.pr_address.get_feedback import GetFeedbackInlineResult
 from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
 DiscussionTriageHint: TypeAlias = Literal["automation", "human_like", "needs_agent_review"]
+StackFeedbackStdoutMode: TypeAlias = Literal["full", "compact"]
 DiscussionTriageReason: TypeAlias = Literal[
     "vercel_status",
     "graphite_status",
@@ -101,6 +102,14 @@ class StackFeedbackPrepRequest(ClinkrModel):
         str | None,
         click.Option(["--payload-session-id"], type=click.STRING, required=False),
     ] = None
+    stdout_mode: Annotated[
+        StackFeedbackStdoutMode,
+        click.Option(
+            ["--stdout-mode"],
+            type=click.Choice(["full", "compact"]),
+            default="full",
+        ),
+    ] = "full"
     include_resolved: bool = False
     include_empty_reviews: bool = False
 
@@ -154,6 +163,35 @@ class StackFeedbackPrepResult(ClinkrModel):
     summary: StackFeedbackPrepSummary
 
 
+class StackDiscussionTriageCompactSummary(ClinkrModel):
+    automation_like: int
+    human_like: int
+    needs_agent_review: int
+    by_reason: dict[DiscussionTriageReason, int]
+
+
+class StackFeedbackPrepCompactPrResult(ClinkrModel):
+    pr_number: int
+    branch: str
+    title: str | None = None
+    url: str | None = None
+    head_ref_name: str | None = None
+    base_ref_name: str | None = None
+    counts: FeedbackCounts
+    raw_feedback_reference: PayloadReference
+    manifest_summary_reference: PayloadReference
+    classification_template_reference: PayloadReference
+    discussion_triage_summary: StackDiscussionTriageCompactSummary
+
+
+class StackFeedbackPrepCompactResult(ClinkrModel):
+    payload_session_id: str
+    include_resolved: bool = False
+    summary: StackFeedbackPrepSummary
+    stack_summary_reference: PayloadReference
+    stack: tuple[StackFeedbackPrepCompactPrResult, ...]
+
+
 class StackFeedbackClassificationInput(ClinkrModel):
     pr_number: int
     classification: dict[str, object]
@@ -173,6 +211,14 @@ class StackFeedbackPlanRequest(ClinkrModel):
         str | None,
         click.Option(["--payload-session-id"], type=click.STRING, required=False),
     ] = None
+    stdout_mode: Annotated[
+        StackFeedbackStdoutMode,
+        click.Option(
+            ["--stdout-mode"],
+            type=click.Choice(["full", "compact"]),
+            default="full",
+        ),
+    ] = "full"
 
 
 class StackFeedbackPlanValidationPrResult(ClinkrModel):
@@ -290,6 +336,48 @@ class StackFeedbackPlanResult(ClinkrModel):
     summary: StackFeedbackPlanSummary | None = None
 
 
+class StackFeedbackPlanCompactItem(ClinkrModel):
+    pr_number: int
+    branch: str
+    source_kind: PlanSourceKind
+    review_id: str | None = None
+    thread_id: str | None = None
+    discussion_comment_id: int | None = None
+    path: str | None = None
+    line: int | None = None
+    summary: str
+    action_summary: str | None = None
+    complexity: str | None = None
+    approval_required: bool = False
+
+
+class StackFeedbackPlanCompactBatch(ClinkrModel):
+    batch_id: str
+    complexity: str
+    approval_required: bool
+    item_count: int
+    items: tuple[StackFeedbackPlanCompactItem, ...]
+
+
+class StackFeedbackPlanCompactInformationalSummary(ClinkrModel):
+    total: int
+    user_decision_required: int
+    by_reason: dict[str, int]
+
+
+class StackFeedbackPlanCompactResult(ClinkrModel):
+    valid: bool
+    payload_session_id: str
+    pr_count: int
+    validation: StackFeedbackPlanValidationSummary
+    batches: tuple[StackFeedbackPlanCompactBatch, ...] = ()
+    informational_summary: StackFeedbackPlanCompactInformationalSummary | None = None
+    automation_discussion_summary: StackFeedbackAutomationDiscussionSummary | None = None
+    decision_docket: tuple[StackFeedbackDecisionDocketItem, ...] = ()
+    stack_plan_reference: PayloadReference | None = None
+    summary: StackFeedbackPlanSummary | None = None
+
+
 @clinkr_operation(
     name="stack-feedback-prep",
     help="Fetch stack PR feedback, write payload artifacts, and build classification templates.",
@@ -297,7 +385,7 @@ class StackFeedbackPlanResult(ClinkrModel):
 def run_stack_feedback_prep(
     ctx: click.Context,
     request: StackFeedbackPrepRequest,
-) -> ClinkrExit[StackFeedbackPrepResult]:
+) -> ClinkrExit[StackFeedbackPrepResult | StackFeedbackPrepCompactResult]:
     store = open_clinkr_payload_store(request.payload_session_id)
     payload = _load_prep_payload(request)
     _validate_stack_input(payload.stack)
@@ -376,11 +464,12 @@ def run_stack_feedback_prep(
         descriptor="pr-address-stack-feedback-prep",
         payload=result_without_reference.model_dump(mode="json"),
     )
-    return ClinkrExit.ok(
-        result_without_reference.model_copy(
-            update={"stack_summary_reference": stack_summary_reference}
-        )
+    result = result_without_reference.model_copy(
+        update={"stack_summary_reference": stack_summary_reference}
     )
+    if request.stdout_mode == "compact":
+        return ClinkrExit.ok(_compact_prep_result(result))
+    return ClinkrExit.ok(result)
 
 
 @clinkr_operation(
@@ -390,7 +479,7 @@ def run_stack_feedback_prep(
 def run_stack_feedback_plan(
     ctx: click.Context,
     request: StackFeedbackPlanRequest,
-) -> ClinkrExit[StackFeedbackPlanResult]:
+) -> ClinkrExit[StackFeedbackPlanResult | StackFeedbackPlanCompactResult]:
     del ctx
     store = open_clinkr_payload_store(request.payload_session_id)
     payload = _load_plan_payload(request)
@@ -409,13 +498,24 @@ def run_stack_feedback_plan(
         ),
     )
     if not validation_summary.all_valid:
-        return ClinkrExit.negative(
-            StackFeedbackPlanResult(
+        if request.stdout_mode == "compact":
+            negative_result: StackFeedbackPlanResult | StackFeedbackPlanCompactResult = (
+                StackFeedbackPlanCompactResult(
+                    valid=False,
+                    payload_session_id=store.session_id,
+                    pr_count=len(payload.prep.stack),
+                    validation=validation_summary,
+                )
+            )
+        else:
+            negative_result = StackFeedbackPlanResult(
                 valid=False,
                 payload_session_id=store.session_id,
                 pr_count=len(payload.prep.stack),
                 validation=validation_summary,
-            ),
+            )
+        return ClinkrExit.negative(
+            negative_result,
             message="Stack feedback classification failed validation; no stack plan produced.",
         )
 
@@ -431,8 +531,98 @@ def run_stack_feedback_plan(
         descriptor="pr-address-stack-feedback-plan",
         payload=result_without_reference.model_dump(mode="json"),
     )
-    return ClinkrExit.ok(
-        result_without_reference.model_copy(update={"stack_plan_reference": stack_plan_reference})
+    result = result_without_reference.model_copy(
+        update={"stack_plan_reference": stack_plan_reference}
+    )
+    if request.stdout_mode == "compact":
+        return ClinkrExit.ok(_compact_plan_result(result))
+    return ClinkrExit.ok(result)
+
+
+def _compact_prep_result(result: StackFeedbackPrepResult) -> StackFeedbackPrepCompactResult:
+    if result.stack_summary_reference is None:
+        raise AssertionError("stack prep compact output requires a stack summary reference")
+    return StackFeedbackPrepCompactResult(
+        payload_session_id=result.payload_session_id,
+        include_resolved=result.include_resolved,
+        summary=result.summary,
+        stack_summary_reference=result.stack_summary_reference,
+        stack=tuple(_compact_prep_pr_result(pr_result) for pr_result in result.stack),
+    )
+
+
+def _compact_prep_pr_result(
+    pr_result: StackFeedbackPrepPrResult,
+) -> StackFeedbackPrepCompactPrResult:
+    return StackFeedbackPrepCompactPrResult(
+        pr_number=pr_result.pr_number,
+        branch=pr_result.branch,
+        title=pr_result.title,
+        url=pr_result.url,
+        head_ref_name=pr_result.head_ref_name,
+        base_ref_name=pr_result.base_ref_name,
+        counts=pr_result.counts,
+        raw_feedback_reference=pr_result.raw_feedback_reference,
+        manifest_summary_reference=pr_result.manifest_summary_reference,
+        classification_template_reference=pr_result.classification_template_reference,
+        discussion_triage_summary=StackDiscussionTriageCompactSummary(
+            automation_like=pr_result.discussion_triage.automation_like,
+            human_like=pr_result.discussion_triage.human_like,
+            needs_agent_review=pr_result.discussion_triage.needs_agent_review,
+            by_reason=pr_result.discussion_triage.by_reason,
+        ),
+    )
+
+
+def _compact_plan_result(result: StackFeedbackPlanResult) -> StackFeedbackPlanCompactResult:
+    return StackFeedbackPlanCompactResult(
+        valid=result.valid,
+        payload_session_id=result.payload_session_id,
+        pr_count=result.pr_count,
+        validation=result.validation,
+        batches=tuple(_compact_plan_batch(batch) for batch in result.batches),
+        informational_summary=_compact_informational_summary(result.informational),
+        automation_discussion_summary=result.automation_discussion_summary,
+        decision_docket=result.decision_docket,
+        stack_plan_reference=result.stack_plan_reference,
+        summary=result.summary,
+    )
+
+
+def _compact_plan_batch(batch: StackFeedbackPlanBatch) -> StackFeedbackPlanCompactBatch:
+    return StackFeedbackPlanCompactBatch(
+        batch_id=batch.batch_id,
+        complexity=batch.complexity,
+        approval_required=batch.approval_required,
+        item_count=len(batch.items),
+        items=tuple(_compact_plan_item(item) for item in batch.items),
+    )
+
+
+def _compact_plan_item(item: StackFeedbackPlanItem) -> StackFeedbackPlanCompactItem:
+    return StackFeedbackPlanCompactItem(
+        pr_number=item.pr_number,
+        branch=item.branch,
+        source_kind=item.source_kind,
+        review_id=item.review_id,
+        thread_id=item.thread_id,
+        discussion_comment_id=item.discussion_comment_id,
+        path=item.path,
+        line=item.line,
+        summary=item.summary,
+        action_summary=item.action_summary,
+        complexity=item.complexity,
+        approval_required=item.approval_required,
+    )
+
+
+def _compact_informational_summary(
+    informational: tuple[StackFeedbackPlanInformationalItem, ...],
+) -> StackFeedbackPlanCompactInformationalSummary:
+    return StackFeedbackPlanCompactInformationalSummary(
+        total=len(informational),
+        user_decision_required=sum(1 for item in informational if item.user_decision_required),
+        by_reason=dict(Counter(item.informational_reason for item in informational)),
     )
 
 

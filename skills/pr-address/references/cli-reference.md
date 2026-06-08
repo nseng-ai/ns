@@ -170,7 +170,9 @@ available.
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
   | pr-address exec stack-feedback-prep \
       --payload-session-id pr-stack-address-20260604t120000z-a1 \
-      --format json
+      --stdout-mode compact \
+      --format json \
+  > stack-prep.compact.json
 ```
 
 **Input fields:**
@@ -185,11 +187,12 @@ printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
 | `stack[].base_ref_name` | no       | PR base ref for provenance                                                              |
 | `include_resolved`      | no       | Include resolved review threads in manifests (default false)                            |
 | `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
+| `stdout_mode`           | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows    |
 | `payload_session_id`    | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules     |
 
 The stack must be non-empty and have unique PR numbers and branch names.
 
-**Output fields (under `data`):**
+**Full output fields (under `data`, default `--stdout-mode full`):**
 
 | Field                                       | Description                                                             |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
@@ -204,6 +207,14 @@ The stack must be non-empty and have unique PR numbers and branch names.
 | `stack[].discussion_triage`                 | Advisory automation/human/direct-request summary for top-level comments |
 | `stack_summary_reference`                   | Whole-stack prep summary artifact (`role: summary`)                     |
 | `summary`                                   | Stack-level PR, feedback, automation, and needs-agent-review counts     |
+
+`--stdout-mode compact` keeps the machine-readable full prep in
+`data.stack_summary_reference.payload_path` and omits inline `manifest`,
+`classification_template`, and `discussion_triage.items` from stdout. Compact
+`data.stack[]` entries include PR metadata, `counts`, `raw_feedback_reference`,
+`manifest_summary_reference`, `classification_template_reference`, and
+`discussion_triage_summary` counts/by-reason. Use the referenced full prep
+artifact as the `prep` input to `stack-feedback-plan`.
 
 `discussion_triage` is conservative and advisory. Obvious Vercel, Graphite,
 roaster summary, GitHub Actions, and bot status comments are summarized as
@@ -224,22 +235,25 @@ also available.
 printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
       --payload-session-id pr-stack-address-20260604t120000z-a1 \
-      --format json
+      --stdout-mode compact \
+      --format json \
+  > stack-plan.compact.json
 ```
 
 **Input fields:**
 
-| Field                              | Required | Description                                                                         |
-| ---------------------------------- | -------- | ----------------------------------------------------------------------------------- |
-| `prep`                             | yes      | Complete `data` object from `stack-feedback-prep`                                   |
-| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                     |
-| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                      |
-| `payload_session_id`               | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+| Field                              | Required | Description                                                                          |
+| ---------------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `prep`                             | yes      | Complete `data` object from `stack-feedback-prep`                                    |
+| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                      |
+| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                       |
+| `payload_session_id`               | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules  |
+| `stdout_mode`                      | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows |
 
 Every prep PR must have exactly one classification. Unknown, duplicate, or
 missing PR classifications fail with `exit_code: 2`.
 
-**Output fields (under `data`):**
+**Full output fields (under `data`, default `--stdout-mode full`):**
 
 | Field                           | Description                                                                                           |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -253,6 +267,17 @@ missing PR classifications fail with `exit_code: 2`.
 | `decision_docket[]`             | Approval-required work and non-automation discussion decisions to ask about                           |
 | `stack_plan_reference`          | Stack plan summary artifact (`role: summary`) when `valid` is true                                    |
 | `summary`                       | Actionable, approval-required, informational, and automation counts                                   |
+
+`--stdout-mode compact` writes the full merged plan to
+`data.stack_plan_reference.payload_path` and omits verbose inline planning data
+such as full `informational[]`, `body_locator`, `thread_item_pointer`, covered
+comment locator metadata, and title/url fields. Compact stdout includes
+`validation`, `summary`, `automation_discussion_summary`, `decision_docket`,
+`informational_summary`, and display-oriented `batches[]` with `item_count` plus
+items carrying PR/branch, source kind, review/thread/comment IDs, path/line,
+summary, action summary, complexity, and approval requirement. Use the referenced
+full plan artifact for `stack-feedback-diff-current` and
+`build-stack-resolve-thread-payloads`.
 
 If validation fails, the command returns `exit_code: 1`, includes structured
 `data.validation.per_pr[]` diagnostics, does not write a merged stack plan, and
