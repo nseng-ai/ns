@@ -6,6 +6,8 @@ export {
 } from "./branch-slug.ts";
 export {
 	formatCommand,
+	formatExecFailure,
+	formatExecStartupFailure,
 	formatOutputSection,
 	formatPlainOutputSection,
 	formatShellArg,
@@ -13,6 +15,7 @@ export {
 	shellQuote,
 	stripTerminalEscapes,
 	tailText,
+	truncateTail,
 	type ExecResult,
 	type PiExecResultLike,
 	type TailTextOptions,
@@ -43,6 +46,13 @@ export {
 	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
+export {
+	chooseActiveObjectiveSlug,
+	type ObjectiveSelectionContext,
+	type ObjectiveSelectionHost,
+	type ObjectiveSelectionNotifyLevel,
+	type ObjectiveSelectionSpec,
+} from "./objective-selection.ts";
 export {
 	expandSkillBlock,
 	type ExpandedSkillBlock,

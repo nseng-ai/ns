@@ -32,6 +32,10 @@ _Avoid_: CCC package, lower capability, hidden command alias.
 The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/ccc:workspace:*` and `/ccc:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
 _Avoid_: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
+**Objective stack implementation orchestration**:
+The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/archive semantics remain lower capabilities.
+_Avoid_: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ccc:*` alias for stack implementation.
+
 **Orchestration candidate**:
-An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, planned-branch up-and-impl, handoff-tab, Objective stack implementation, autobranch/land, and worktree-status behavior.
+An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, planned-branch up-and-impl, handoff-tab, autobranch/land, and worktree-status behavior.
 _Avoid_: moved implementation, immediate dependency, completed consolidation.

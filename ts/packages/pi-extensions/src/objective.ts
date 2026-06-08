@@ -1,23 +1,12 @@
-import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
+import { chooseActiveObjectiveSlug, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+
+import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
-import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
-import {
-	VIEW_OTHER_OBJECTIVES_CHOICE,
-	changedActiveObjectiveSelection,
-	objectiveChoiceMap,
-	objectiveDiffPickerTitle,
-	objectiveRecordsWithChangedFirst,
-	parseObjectiveDiffChangedSlugs,
-	parseObjectiveStatusChangedSlugs,
-	type ObjectiveDiffSelection,
-} from "./objective-picker.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
-const OBJECTIVE_STATUS_TIMEOUT_MS = 30_000;
-const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
 
@@ -86,23 +75,9 @@ export interface ExtensionAPI {
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
 type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
 
-export interface ObjectiveSelectionSpec {
-	statusKey: string;
-	selectionTitle: string;
-	compactDiffSuggestion?: boolean;
-}
-
 interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	commandName: ObjectiveCommandName;
 	skillName: ObjectiveSkillName;
-	description: string;
-	fallbackPrompt: string;
-	actionPrompt: string;
-}
-
-interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
-	commandName: "objective:stack-impl";
-	skillName: "objective-stack-impl";
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
@@ -135,18 +110,6 @@ interface CustomCliArgsParseInvalid {
 type CustomCliArgsParseResult = CustomCliArgsParseValid | CustomCliArgsParseInvalid;
 
 type ForbiddenObjectiveListArgsParseResult = { type: "valid" } | CustomCliArgsParseInvalid;
-
-interface ActiveObjectiveListLoaded {
-	type: "loaded";
-	list: ObjectiveList;
-}
-
-interface ActiveObjectiveListFailed {
-	type: "failed";
-	message: string;
-}
-
-type ActiveObjectiveListLoadResult = ActiveObjectiveListLoaded | ActiveObjectiveListFailed;
 
 interface ObjectiveListStatusParseValid {
 	type: "valid";
@@ -216,172 +179,6 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	},
 ];
 
-const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
-	commandName: "objective:stack-impl",
-	skillName: "objective-stack-impl",
-	description: "Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
-	statusKey: "objective:stack-impl",
-	selectionTitle: "Select an active Objective for stack implementation",
-	compactDiffSuggestion: true,
-	fallbackPrompt:
-		"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
-	actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
-};
-
-function truncateTail(text: string, maxChars: number): string {
-	const tail = tailText(text, { maxChars });
-	if (tail === text) {
-		return text;
-	}
-
-	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
-}
-
-function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateTail(
-		`objective command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-		MAX_ERROR_CHARS,
-	);
-}
-
-function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
-}
-
-async function listActiveObjectives(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveSelectionSpec,
-): Promise<ActiveObjectiveListLoadResult> {
-	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, "listing active Objectives…");
-	}
-
-	const args = ["list", "--format", "json"];
-	try {
-		const result = await pi.exec("objective", args, {
-			cwd: ctx.cwd,
-			timeout: OBJECTIVE_LIST_TIMEOUT_MS,
-		});
-		if (result.code !== 0 || result.killed) {
-			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result) };
-		}
-
-		const parsedList = parseObjectiveList(result.stdout);
-		if (parsedList.type === "invalid") {
-			return { type: "failed", message: parsedList.message };
-		}
-		return { type: "loaded", list: parsedList.list };
-	} catch (error) {
-		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error) };
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus(spec.statusKey, undefined);
-		}
-	}
-}
-
-async function changedObjectiveSelection(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	objectiveList: ObjectiveList,
-	spec: ObjectiveSelectionSpec,
-): Promise<ObjectiveDiffSelection | undefined> {
-	const trunkBranch = objectiveList.trunkBranch.trim();
-	const committedChangedSlugs = trunkBranch
-		? await objectiveDiffChangedSlugs(pi, ctx, spec, trunkBranch)
-		: [];
-	const dirtyChangedSlugs = await objectiveStatusChangedSlugs(pi, ctx, spec);
-	const allChangedSlugs = sortedUniqueSlugs([...committedChangedSlugs, ...dirtyChangedSlugs]);
-	const dirtyChangedSlugSet = new Set(dirtyChangedSlugs);
-	const dirtyActiveSlugs = objectiveList.records.filter((record) => dirtyChangedSlugSet.has(record.slug));
-	const changeBasisLabel = dirtyActiveSlugs.length > 0
-		? trunkBranch
-			? `changed in checkout or vs ${trunkBranch}`
-			: "changed in checkout"
-		: trunkBranch
-			? `changed vs ${trunkBranch}`
-			: "changed";
-
-	return changedActiveObjectiveSelection(objectiveList, trunkBranch, allChangedSlugs, changeBasisLabel);
-}
-
-async function objectiveDiffChangedSlugs(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveSelectionSpec,
-	trunkBranch: string,
-): Promise<string[]> {
-	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".asdl/objectives"];
-	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, `checking Objective diff vs ${trunkBranch}…`);
-	}
-
-	try {
-		const result = await pi.exec("git", args, {
-			cwd: ctx.cwd,
-			timeout: OBJECTIVE_DIFF_TIMEOUT_MS,
-		});
-		if (result.code !== 0 || result.killed) {
-			return [];
-		}
-
-		return parseObjectiveDiffChangedSlugs(result.stdout);
-	} catch {
-		return [];
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus(spec.statusKey, undefined);
-		}
-	}
-}
-
-async function objectiveStatusChangedSlugs(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveSelectionSpec,
-): Promise<string[]> {
-	const args = ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"];
-	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, "checking checkout Objective changes…");
-	}
-
-	try {
-		const result = await pi.exec("git", args, {
-			cwd: ctx.cwd,
-			timeout: OBJECTIVE_STATUS_TIMEOUT_MS,
-		});
-		if (result.code !== 0 || result.killed) {
-			return [];
-		}
-
-		return parseObjectiveStatusChangedSlugs(result.stdout);
-	} catch {
-		return [];
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus(spec.statusKey, undefined);
-		}
-	}
-}
-
-function sortedUniqueSlugs(slugs: string[]): string[] {
-	return [...new Set(slugs)].sort((left, right) => left.localeCompare(right));
-}
-
-function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): string {
-	const committedDiffLabel = selection.trunkBranch ? `changed vs ${selection.trunkBranch}` : "";
-	if (selection.changeBasisLabel === committedDiffLabel) {
-		return `from objective diff vs ${selection.trunkBranch}`;
-	}
-
-	return `with changes ${selection.changeBasisLabel.replace(/^changed\s+/, "")}`;
-}
-
 function buildObjectiveSkillPrompt(
 	spec: ObjectiveCommandSpec,
 	skillBlock: string | undefined,
@@ -403,103 +200,6 @@ ${objective}
 Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
 }
 
-function buildObjectiveStackImplSkillPrompt(
-	spec: ObjectiveStackImplCommandSpec,
-	skillBlock: string | undefined,
-	objective: string,
-): string {
-	return `${skillBlock ?? spec.fallbackPrompt}
-
-${spec.actionPrompt}
-
-\`\`\`text
-${objective}
-\`\`\`
-
-Treat this as an explicit user selection. Do not auto-select a different Objective.`;
-}
-
-async function invokeObjectiveStackImplSkill(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveStackImplCommandSpec,
-	objective: string,
-): Promise<void> {
-	await ctx.waitForIdle();
-
-	const skill = await expandSkillBlock(pi, spec.skillName);
-	if (ctx.hasUI) {
-		ctx.ui.notify(
-			skill
-				? `Invoking ${spec.commandName} for ${objective}.`
-				: `${spec.skillName} skill was not found; using fallback prompt.`,
-			skill ? "info" : "warning",
-		);
-	}
-
-	pi.sendUserMessage(buildObjectiveStackImplSkillPrompt(spec, skill?.block, objective));
-}
-
-async function selectObjectiveSlug(
-	ctx: CommandContext,
-	title: string,
-	records: ObjectiveListRecord[],
-	selection: ObjectiveDiffSelection | undefined,
-): Promise<string | undefined> {
-	const choices = objectiveChoiceMap(records, selection);
-	const selected = await ctx.ui.select(title, [...choices.keys()]);
-	if (!selected) {
-		ctx.ui.notify("Objective selection cancelled.", "info");
-		return undefined;
-	}
-
-	const slug = choices.get(selected);
-	if (!slug) {
-		ctx.ui.notify("Objective selection could not be resolved.", "error");
-		return undefined;
-	}
-
-	return slug;
-}
-
-async function selectChangedObjectivesOrOther(
-	ctx: CommandContext,
-	spec: ObjectiveSelectionSpec,
-	objectiveList: ObjectiveList,
-	selection: ObjectiveDiffSelection,
-): Promise<string | undefined> {
-	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.slug));
-	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.slug));
-	if (changedRecords.length === 0) {
-		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.records, undefined);
-	}
-
-	const choices = objectiveChoiceMap(changedRecords, selection);
-	const items = [...choices.keys()];
-	if (otherRecords.length > 0) {
-		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
-	}
-
-	const selected = await ctx.ui.select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
-	if (!selected) {
-		ctx.ui.notify("Objective selection cancelled.", "info");
-		return undefined;
-	}
-
-	if (selected === VIEW_OTHER_OBJECTIVES_CHOICE) {
-		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other active Objectives)`, otherRecords, undefined);
-	}
-
-	const slug = choices.get(selected);
-	if (!slug) {
-		ctx.ui.notify("Objective selection could not be resolved.", "error");
-		return undefined;
-	}
-
-	return slug;
-}
-
 async function invokeObjectiveSkill(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
@@ -519,54 +219,6 @@ async function invokeObjectiveSkill(
 	}
 
 	pi.sendUserMessage(buildObjectiveSkillPrompt(spec, skill?.block, objective));
-}
-
-export async function chooseActiveObjectiveSlug(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveSelectionSpec,
-): Promise<string | undefined> {
-	await ctx.waitForIdle();
-
-	const objectiveListResult = await listActiveObjectives(pi, ctx, spec);
-	if (objectiveListResult.type === "failed") {
-		if (ctx.hasUI) {
-			ctx.ui.notify(objectiveListResult.message, "error");
-		}
-		return undefined;
-	}
-
-	const objectiveList = objectiveListResult.list;
-	if (objectiveList.records.length === 0) {
-		if (ctx.hasUI) {
-			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
-		}
-		return undefined;
-	}
-
-	if (!ctx.hasUI) {
-		return undefined;
-	}
-
-	const changedSelection = await changedObjectiveSelection(pi, ctx, objectiveList, spec);
-	if (changedSelection && spec.compactDiffSuggestion) {
-		return selectChangedObjectivesOrOther(ctx, spec, objectiveList, changedSelection);
-	}
-
-	if (changedSelection) {
-		const plural = changedSelection.changedActiveSlugs.length === 1 ? "" : "s";
-		const basis = changedSelectionNotificationBasis(changedSelection);
-		ctx.ui.notify(
-			`Found changed Objective${plural} ${changedSelection.changedActiveSlugs.join(", ")} ${basis}.`,
-			"info",
-		);
-	}
-	return selectObjectiveSlug(
-		ctx,
-		spec.selectionTitle,
-		objectiveRecordsWithChangedFirst(objectiveList.records, changedSelection),
-		changedSelection,
-	);
 }
 
 async function chooseObjectiveAndInvoke(
@@ -596,33 +248,6 @@ async function handleObjectiveCommand(
 		}
 
 		await chooseObjectiveAndInvoke(pi, ctx, spec);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		if (ctx.hasUI) {
-			ctx.ui.notify(message, "error");
-		}
-	}
-}
-
-async function handleObjectiveStackImplCommand(
-	pi: ExtensionAPI,
-	spec: ObjectiveStackImplCommandSpec,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
-	const explicitObjective = args.trim();
-	try {
-		if (explicitObjective) {
-			await invokeObjectiveStackImplSkill(pi, ctx, spec, explicitObjective);
-			return;
-		}
-
-		const slug = await chooseActiveObjectiveSlug(pi, ctx, spec);
-		if (!slug) {
-			return;
-		}
-
-		await invokeObjectiveStackImplSkill(pi, ctx, spec, slug);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {
@@ -925,8 +550,5 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 		});
 	}
 
-	pi.registerCommand(OBJECTIVE_STACK_IMPL_COMMAND.commandName, {
-		description: OBJECTIVE_STACK_IMPL_COMMAND.description,
-		handler: async (args, ctx) => handleObjectiveStackImplCommand(pi, OBJECTIVE_STACK_IMPL_COMMAND, args, ctx),
-	});
+	registerObjectiveStackImplCommand(pi);
 }

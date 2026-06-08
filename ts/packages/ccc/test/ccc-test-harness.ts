@@ -42,7 +42,8 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
-	result: Partial<ExecResult>;
+	result?: Partial<ExecResult> | undefined;
+	error?: unknown;
 }
 
 export interface Notification {
@@ -87,20 +88,14 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (!expected) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		if (expected.command !== command || (expected.args !== undefined && !sameArgs(expected.args, args))) {
-			const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
-			const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
-		}
-		return execResult(expected.result);
+		return runScriptedExec({
+			script: this.script,
+			execCalls: this.execCalls,
+			errors: this.errors,
+			command,
+			args,
+			options,
+		});
 	}
 
 	getCommands(): readonly SkillCommandInfo[] {
@@ -236,6 +231,48 @@ export function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+export interface RunScriptedExecOptions {
+	script: ScriptedExec[];
+	execCalls: ExecCall[];
+	errors: string[];
+	command: string;
+	args: string[];
+	options?: ExecOptions | undefined;
+	requireExpectedArgs?: boolean;
+}
+
+export function runScriptedExec(options: RunScriptedExecOptions): ExecResult {
+	const { script, execCalls, errors, command, args, options: execOptions, requireExpectedArgs = false } = options;
+	execCalls.push({ command, args: [...args], options: execOptions });
+	const expected = script.shift();
+	if (!expected) {
+		const message = `unexpected exec: ${command} ${args.join(" ")}`;
+		errors.push(message);
+		return execResult({ code: 99, stderr: message });
+	}
+
+	if (expected.command !== command || expectedArgsMismatch(expected.args, args, requireExpectedArgs)) {
+		const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
+		const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
+		errors.push(message);
+		return execResult({ code: 99, stderr: message });
+	}
+
+	if (expected.error) {
+		throw expected.error;
+	}
+
+	return execResult(expected.result);
+}
+
+function expectedArgsMismatch(expectedArgs: string[] | undefined, actualArgs: string[], requireExpectedArgs: boolean): boolean {
+	if (expectedArgs === undefined) {
+		return requireExpectedArgs;
+	}
+
+	return !sameArgs(expectedArgs, actualArgs);
+}
+
 export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
@@ -245,7 +282,7 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-export function step(command: string, args: string[] | undefined, result: Partial<ExecResult>): ScriptedExec {
+export function step(command: string, args: string[] | undefined, result?: Partial<ExecResult>): ScriptedExec {
 	return { command, ...(args === undefined ? {} : { args }), result };
 }
 
