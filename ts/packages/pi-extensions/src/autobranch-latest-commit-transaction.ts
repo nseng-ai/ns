@@ -3,7 +3,7 @@ import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./autobranch-branch-name.ts";
 import { formatCommandDetails, withStatus } from "./autobranch-shared.ts";
 import { inspectUpstreamHeadState } from "./autobranch-upstream.ts";
-import { sanitizeBranchName } from "./branch-slug.ts";
+import { normalizeBranchSlugText } from "./branch-slug.ts";
 import type { LatestCommitAutobranchPlan } from "./autobranch-latest-commit-preparation.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -214,16 +214,5 @@ async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInp
 }
 
 function sanitizeBackupBranchSegment(value: string): string {
-	return (
-		sanitizeBranchName(value)?.slice(0, MAX_BACKUP_SEGMENT_CHARS).replace(/-+$/g, "") ||
-		value
-			.toLowerCase()
-			.normalize("NFKD")
-			.replace(/[\u0300-\u036f]/g, "")
-			.replace(/[^a-z0-9]+/g, "-")
-			.replace(/-+/g, "-")
-			.replace(/^-|-$/g, "")
-			.slice(0, MAX_BACKUP_SEGMENT_CHARS)
-			.replace(/-+$/g, "")
-	);
+	return normalizeBranchSlugText(value).slice(0, MAX_BACKUP_SEGMENT_CHARS).replace(/-+$/g, "");
 }

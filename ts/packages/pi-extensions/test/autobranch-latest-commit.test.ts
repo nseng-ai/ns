@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
-import { fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
+import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 import { prepareLatestCommitAutobranchPlan, type LatestCommitAutobranchPlan } from "../src/autobranch-latest-commit-preparation.ts";
 import { runLatestCommitAutobranchTransaction, type LatestCommitTransactionInput } from "../src/autobranch-latest-commit-transaction.ts";
 import { buildSlugModelArgs } from "../src/model-slug.ts";
@@ -123,17 +123,19 @@ interface TransactionHarnessOptions {
 	verifyHead?: string;
 	existingBranches?: Set<string>;
 	upstreamMode?: UpstreamMode;
+	sourceBranch?: string;
 }
 
 function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	const events: string[] = [];
-	let currentBranch = "feature/base";
+	const sourceBranch = options.sourceBranch ?? "feature/base";
+	let currentBranch = sourceBranch;
 	let head = "abc123def456";
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const upstreamMode = options.upstreamMode ?? "ahead";
 	const input: LatestCommitTransactionInput = {
 		cwd: "/repo",
-		plan: basePlan(),
+		plan: basePlan({ sourceBranch }),
 		now: () => 123,
 		setStatus: (message) => {
 			events.push(`status:${message ?? "clear"}`);
@@ -173,7 +175,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return ok(`${options.verifyHead ?? head}\n`);
 			}
 			if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
-				if (currentBranch === "feature/base" && args[2] === "parent987654" && options.shouldSourceResetFail) {
+				if (currentBranch === sourceBranch && args[2] === "parent987654" && options.shouldSourceResetFail) {
 					return fail("source reset failed");
 				}
 				if (currentBranch === "latest-commit-branch" && args[2] === "abc123def456" && options.shouldBranchResetFail) {
@@ -200,10 +202,6 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		},
 	};
 	return { input, events };
-}
-
-function eventIndex(events: string[], prefix: string): number {
-	return events.findIndex((event) => event.startsWith(prefix));
 }
 
 function occupiedBackupBranches(): Set<string> {
@@ -349,6 +347,16 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			backupBranch: "autobranch-backup/feature/base/123",
 			backupDeleteError: "exit 1: delete failed",
 		});
+	});
+
+	test("normalizes recovery branch source segments", async () => {
+		const longSegment = "A".repeat(40);
+		const harness = createTransactionHarness({ sourceBranch: `Féature/###/UPPER punctuation!!!/${longSegment}` });
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: true, commitSummary: "abc123d Add latest commit support", backupDeleted: true });
+		expect(eventIndex(harness.events, `exec:git branch autobranch-backup/feature/upper-punctuation/${"a".repeat(32)}/123 abc123def456`)).toBeGreaterThan(-1);
 	});
 
 	test("source reset failure deletes redundant backup when source is unchanged", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch-flow.ts";
-import { fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
+import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	args?: AutobranchFlowInput["args"];
@@ -49,6 +49,12 @@ function createHarness(options: HarnessOptions = {}) {
 				}
 				return ok("origin/base-branch\n");
 			}
+			if (command === "git" && args[0] === "for-each-ref") {
+				if (upstreamMode === "failed") {
+					return fail("bad upstream state", 128);
+				}
+				return upstreamMode === "none" ? ok() : ok("origin/base-branch\n");
+			}
 			if (command === "git" && args[0] === "rev-parse" && args[1] === "HEAD") {
 				return ok(`${head}\n`);
 			}
@@ -79,6 +85,15 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 				return ok(`${currentBranch}\n`);
+			}
+			if (command === "git" && args[0] === "for-each-ref") {
+				if (upstreamMode === "none") {
+					return ok();
+				}
+				if (upstreamMode === "failed") {
+					return fail("for-each-ref upstream failed");
+				}
+				return ok(`origin/${currentBranch}\n`);
 			}
 			if (command === "git" && args[0] === "branch" && args[1] !== "-D") {
 				return ok();
@@ -145,10 +160,6 @@ function createHarness(options: HarnessOptions = {}) {
 	};
 
 	return { input, events, notifications, preparedSnapshots };
-}
-
-function eventIndex(events: string[], prefix: string): number {
-	return events.findIndex((event) => event.startsWith(prefix));
 }
 
 describe("createAutobranchCheckpointFlow", () => {
