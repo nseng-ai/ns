@@ -43,6 +43,9 @@ importers:
       '@asdl/planned-branch':
         specifier: workspace:*
         version: link:../planned-branch
+      asdl-dev:
+        specifier: workspace:*
+        version: link:../asdl-dev
 
   packages/pi-extension-runtime: {}
 

@@ -1,6 +1,6 @@
-# cmux Extension Pattern for Pi
+# CCC Workspace/Sidebar Pattern for Pi
 
-This guide captures the repo-local pattern for Pi commands that open cmux workspaces or update cmux sidebar/workspace-card metadata. It is based on the project-local cmux command suite and installed cmux CLI behavior verified during that work.
+This guide captures the repo-local pattern for Pi commands that open cmux workspaces or update cmux sidebar/workspace-card metadata. The current project command surface is the CCC workspace/sidebar suite; `cmux` remains the external workspace tool that CCC operates.
 
 ## Use this pattern when
 
@@ -15,17 +15,17 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                               | Responsibility                                                           |
-| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
-| Pi discovery adapter   | `.pi/extensions/cmux.ts`                     | Thin adapter that registers the repo cmux command suite                  |
-| Engineered TS package  | `ts/packages/pi-extensions/src/cmux.ts`      | Wires shared cmux controllers and command modules                        |
-| cmux command modules   | `ts/packages/pi-extensions/src/cmux/`        | Implements `/cmux:workspace:*` and `/cmux:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/cmux-sidebar/SKILL.md`               | Tells the model what PR sidebar fields to generate                       |
-| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the old status pill    |
-| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                         |
-| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                       |
+| Layer                  | Path / command                               | Responsibility                                                         |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| Pi discovery adapter   | `.pi/extensions/ccc.ts`                      | Thin adapter that registers the repo CCC command suite                 |
+| Engineered TS package  | `ts/packages/ccc/src/ccc.ts`                 | Wires shared CCC workspace/sidebar controllers and command modules     |
+| CCC cmux modules       | `ts/packages/ccc/src/cmux/`                  | Implements `/ccc:workspace:*` and `/ccc:sidebar:*` behavior with tests |
+| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                | Tells the model what PR sidebar fields to generate                     |
+| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the old status pill  |
+| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                       |
+| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                     |
 
-Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable cmux command behavior under `ts/packages/pi-extensions/src/cmux/` with Bun tests.
+Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with Bun tests. Keep generic Pi lifecycle/footer/watch plumbing in `@asdl/pi-extensions`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
 Do not put raw cmux mutation sequences in long skill bodies when a tested `asdl exec` command can own them.
 
@@ -33,38 +33,38 @@ Do not put raw cmux mutation sequences in long skill bodies when a tested `asdl 
 
 The project-local adapter registers:
 
-- `/cmux:sidebar:pr-summary`
-- `/cmux:sidebar:objective-summary [objective-slug-or-path]`
-- `/cmux:workspace:open-branch [branch]`
-- `/cmux:workspace:dispatch-plan [--dry-run]`
-- `/cmux:workspace:dispatch-prompt <prompt>`
+- `/ccc:sidebar:pr-summary`
+- `/ccc:sidebar:objective-summary [objective-slug-or-path]`
+- `/ccc:workspace:open-branch [branch]`
+- `/ccc:workspace:dispatch-plan [--dry-run]`
+- `/ccc:workspace:dispatch-prompt <prompt>`
 
-`open` commands only open a cmux workspace. `dispatch` commands open a cmux workspace and immediately start child Pi execution. There are no legacy aliases for the old cmux command names.
+`open` commands only open a cmux workspace. `dispatch` commands open a cmux workspace and immediately start child Pi execution. Old cmux-prefixed compatibility aliases are not current project commands unless reintroduced by an explicit future migration.
 
-There is no legacy `/cmux:set-workspace-summary` alias.
+There is no legacy `set-workspace-summary` alias.
 
-`/cmux-refresh-meta` was intentionally removed and not replaced. It only refreshed the current workspace name/description and did not open a new workspace; future metadata refresh behavior should be designed around `asdl exec cmux-workspace-summary`, not raw cmux mutations.
+The old refresh-meta command was intentionally removed and not replaced. It only refreshed the current workspace name/description and did not open a new workspace; future metadata refresh behavior should be designed around `asdl exec cmux-workspace-summary`, not raw cmux mutations.
 
 ## Duplicate command troubleshooting
 
-If `/reload` shows duplicate cmux commands with numeric suffixes, the canonical project source should still be `.pi/extensions/cmux.ts` plus `ts/packages/pi-extensions/src/cmux/`. Check only the known user-local extension directory for stale migrated files:
+If `/reload` shows duplicate CCC workspace/sidebar commands with numeric suffixes, the canonical project source should still be `.pi/extensions/ccc.ts` plus `ts/packages/ccc/src/cmux/`. Check only the known user-local extension directory for stale migrated files:
 
 ```bash
 find /Users/schrockn/.pi/agent/extensions -maxdepth 2 \
-  \( -name 'cmux*.ts' -o -path '*/shared/branch-slug.ts' \) -print | sort
+  \( -name 'ccc*.ts' -o -name 'cmux*.ts' -o -path '*/shared/branch-slug.ts' \) -print | sort
 ```
 
-Remove stale user-local cmux files only after confirming the project adapter registers the command suite. Do not run a broad home-directory search for duplicate Pi resources.
+Remove stale user-local extension files only after confirming the project adapter registers the command suite. Do not run a broad home-directory search for duplicate Pi resources.
 
 ## Automatic sidebar updates are disabled
 
 Workspace-opening commands currently do not auto-run sidebar updates after success:
 
-- `/cmux:workspace:dispatch-plan`
-- `/cmux:workspace:open-branch`
-- `/cmux:workspace:dispatch-prompt`
+- `/ccc:workspace:dispatch-plan`
+- `/ccc:workspace:open-branch`
+- `/ccc:workspace:dispatch-prompt`
 
-The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during the future cmux extension consolidation pass rather than inferred from `cmux workspace list` in this slice.
+The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during a future CCC/cmux targeting pass rather than inferred from `cmux workspace list` in this slice.
 
 The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
 
@@ -84,7 +84,7 @@ The PR sidebar skill and deterministic Objective sidebar extension do not pass `
 
 PR sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up PR turn to a faster model and minimal thinking:
 
-- env override: `ASDL_CMUX_SIDEBAR_MODEL=provider/model`
+- env override: `ASDL_CCC_SIDEBAR_MODEL=provider/model`
 - default: `openai-codex/gpt-5.4-mini`
 - thinking level: `minimal`
 
@@ -92,7 +92,7 @@ The controller restores the previous model and thinking level on `agent_end`. If
 
 ## PR prompt shape
 
-For `/cmux:sidebar:pr-summary`, the model should generate only these fields:
+For `/ccc:sidebar:pr-summary`, the model should generate only these fields:
 
 - `title`
 - `description`
@@ -107,9 +107,9 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 ## Variants
 
-`/cmux:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `cmux-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
+`/ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/cmux:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("asdl", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `cmux-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("asdl", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
@@ -169,7 +169,7 @@ That design would keep semantic PR summarization in a model while making quoting
 
 ## Validation checklist
 
-After changing cmux-related Pi resources:
+After changing CCC workspace/sidebar Pi resources:
 
 ```bash
 just ts-check
@@ -193,9 +193,9 @@ Then reload Pi:
 Finally smoke-test from inside cmux:
 
 ```text
-/cmux:sidebar:pr-summary
-/cmux:sidebar:objective-summary <objective-slug>
-/cmux:workspace:dispatch-plan --dry-run
-/cmux:workspace:open-branch <branch>
-/cmux:workspace:dispatch-prompt <prompt>
+/ccc:sidebar:pr-summary
+/ccc:sidebar:objective-summary <objective-slug>
+/ccc:workspace:dispatch-plan --dry-run
+/ccc:workspace:open-branch <branch>
+/ccc:workspace:dispatch-prompt <prompt>
 ```

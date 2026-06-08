@@ -436,4 +436,3 @@ function findGitPaths(cwd: string): GitPaths | undefined {
 		dir = parent;
 	}
 }
-

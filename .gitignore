@@ -27,6 +27,7 @@ activate.sh
 **/node_modules/
 
 # Local
+.DS_Store
 .env
 .vercel/
 CLAUDE.local.md
