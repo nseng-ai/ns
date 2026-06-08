@@ -40,16 +40,16 @@ ts-test: ts-install
     pnpm --dir {{justfile_directory()}}/ts run test
 
 docs-install:
-    bun install --cwd docs-site
+    pnpm --dir {{justfile_directory()}}/docs-site install
 
 docs-dev: docs-install
-    bun run --cwd docs-site dev
+    pnpm --dir {{justfile_directory()}}/docs-site run dev
 
 docs-build: docs-install
-    bun run --cwd docs-site build
+    pnpm --dir {{justfile_directory()}}/docs-site run build
 
 docs-check: docs-install
-    bun run --cwd docs-site check
+    pnpm --dir {{justfile_directory()}}/docs-site run check
 
 js-test: ts-test
 

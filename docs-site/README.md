@@ -16,8 +16,8 @@ just docs-check
 
 The repository root `vercel.json` is configured for a Vercel project whose Root Directory is the repository root:
 
-- Install Command: `bun install --cwd docs-site --frozen-lockfile`
-- Build Command: `bun run --cwd docs-site build`
+- Install Command: `pnpm --dir docs-site install --frozen-lockfile`
+- Build Command: `pnpm --dir docs-site run build`
 - Output Directory: `docs-site/dist`
 
 Alternatively, set the Vercel project Root Directory to `docs-site`; in that mode Vercel uses `docs-site/vercel.json` and the output directory is `dist`.
