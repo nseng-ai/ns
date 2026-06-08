@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Inventory current TypeScript tooling entry points and record the contract-relevant facts.
+- [x] Inventory current TypeScript tooling entry points and record the contract-relevant facts.
       Focus on package manifests, workspace boundaries, lockfiles, `justfile` targets, TypeScript CLI launch paths, project-local Pi extension loading, docs-site scripts, and any current Bun-only assumptions that affect policy. Evidence should distinguish policy-setting facts from implementation chores for later child Objectives.
 
 - [ ] Decide the Node baseline and TypeScript execution/build policy.
