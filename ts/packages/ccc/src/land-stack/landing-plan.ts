@@ -1,4 +1,4 @@
-import { formatCommand } from "../command-runtime.ts";
+import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
 import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
@@ -15,7 +15,7 @@ import {
 import type {
 	BranchPlan,
 	DescendantMaintenancePlan,
-	ExtensionAPI,
+	LandStackExtensionAPI,
 	LandingPlan,
 	RestackRequirement,
 	StackSnapshot,
@@ -24,7 +24,7 @@ import type {
 import { detectWorktreeConflicts, formatManualWorktreeConflict } from "./worktrees.ts";
 
 export async function buildLandingPlan(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	cwd: string,
 	options: { allowSubmitRequiredState?: boolean } = {},
 ): Promise<LandStackResult<LandingPlan>> {
@@ -125,7 +125,7 @@ function buildDescendantMaintenancePlan(
 }
 
 export async function collectSubmitRestackRequirements(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	stack: StackSnapshot,
 ): Promise<LandStackResult<RestackRequirement[]>> {

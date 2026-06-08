@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "../command-runtime.ts";
+import { formatCommand, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import {
 	exec,
 	execRaw,
@@ -15,8 +15,8 @@ import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type {
 	CommandStreamFinish,
 	DescendantMaintenancePlan,
-	ExtensionAPI,
-	ExtensionCommandContext,
+	LandStackExtensionAPI,
+	LandStackCommandContext,
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
@@ -40,8 +40,8 @@ interface OptionalDescendantGraphiteCommandResult {
 }
 
 export async function confirmAndSubmitRequiredPrUpdates(
-	pi: ExtensionAPI,
-	ctx: ExtensionCommandContext,
+	pi: LandStackExtensionAPI,
+	ctx: LandStackCommandContext,
 	plan: LandingPlan,
 ): Promise<LandStackOutcome> {
 	const submitArgs = submitUpdateArgs(plan.stack.current);
@@ -141,8 +141,8 @@ export function formatRemainingSubmitRequirements(requirements: PrSubmitRequirem
 }
 
 export async function confirmAndFreeManagedSlots(
-	pi: ExtensionAPI,
-	ctx: ExtensionCommandContext,
+	pi: LandStackExtensionAPI,
+	ctx: LandStackCommandContext,
 	plan: LandingPlan,
 ): Promise<LandStackOutcome> {
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
@@ -245,12 +245,12 @@ function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 }
 
 export async function runMergeLoop(
-	pi: ExtensionAPI,
-	ctx: ExtensionCommandContext,
+	pi: LandStackExtensionAPI,
+	ctx: LandStackCommandContext,
 	plan: LandingPlan,
 	landed: LandedPr[],
 	warnings: LandingWarning[],
-	options: { commandStream?: LandStackCommandStream; unstreamedPi?: ExtensionAPI } = {},
+	options: { commandStream?: LandStackCommandStream; unstreamedPi?: LandStackExtensionAPI } = {},
 ): Promise<LandStackOutcome> {
 	const { repoRoot, stack } = plan;
 
@@ -458,8 +458,8 @@ export async function runMergeLoop(
 }
 
 async function runOptionalDescendantGraphiteCommand(
-	pi: ExtensionAPI,
-	options: { commandStream?: LandStackCommandStream; unstreamedPi?: ExtensionAPI },
+	pi: LandStackExtensionAPI,
+	options: { commandStream?: LandStackCommandStream; unstreamedPi?: LandStackExtensionAPI },
 	repoRoot: string,
 	commandDisplay: string,
 	command: string,
@@ -577,7 +577,7 @@ function skippedDescendantNotificationAction(maintenance: Extract<DescendantMain
 }
 
 async function deleteFinalLocalGraphiteBranch(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	commandStream: LandStackCommandStream,
 	repoRoot: string,
 	branch: string,

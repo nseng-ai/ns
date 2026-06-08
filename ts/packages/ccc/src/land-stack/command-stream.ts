@@ -1,29 +1,29 @@
-import { formatCommand, normalizeExecResult, type ExecResult } from "../command-runtime.ts";
+import { formatCommand, normalizeExecResult, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "../terminal-presentation.ts";
+} from "@asdl/pi-extension-runtime/terminal-presentation";
 import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE } from "./constants.ts";
 import { errorMessage } from "./errors.ts";
 import type {
 	CommandStreamMessageDetails,
 	CustomMessage,
-	ExtensionAPI,
-	ExtensionCommandContext,
+	LandStackExtensionAPI,
+	LandStackCommandContext,
 	LandedPr,
 	RenderComponent,
 	RenderTheme,
 } from "./types.ts";
 
 export class LandStackCommandStream {
-	private readonly pi: ExtensionAPI;
-	private readonly ctx: ExtensionCommandContext;
+	private readonly pi: LandStackExtensionAPI;
+	private readonly ctx: LandStackCommandContext;
 
-	constructor(pi: ExtensionAPI, ctx: ExtensionCommandContext) {
+	constructor(pi: LandStackExtensionAPI, ctx: LandStackCommandContext) {
 		this.pi = pi;
 		this.ctx = ctx;
 	}
@@ -76,7 +76,7 @@ export class LandStackCommandStream {
 	}
 }
 
-export function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackCommandStream): ExtensionAPI {
+export function withCommandStreaming(pi: LandStackExtensionAPI, commandStream: LandStackCommandStream): LandStackExtensionAPI {
 	return {
 		registerCommand(name, options) {
 			pi.registerCommand(name, options);

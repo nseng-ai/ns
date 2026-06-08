@@ -8,6 +8,7 @@
     "./autobranch": "./src/autobranch.ts",
     "./handoff-tab": "./src/handoff-tab.ts",
     "./land": "./src/land.ts",
+    "./land-stack": "./src/land-stack.ts",
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
     "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts"
   },

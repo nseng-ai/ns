@@ -4,10 +4,10 @@ import {
 	stripTerminalEscapes,
 	tailText,
 	type ExecResult,
-} from "../command-runtime.ts";
+} from "@asdl/pi-extension-runtime/command-runtime";
 import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
 import { errorMessage } from "./errors.ts";
-import type { CommandStreamFinish, ExtensionAPI } from "./types.ts";
+import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 export interface CheckedOutElsewhere {
 	branch: string;
@@ -15,7 +15,7 @@ export interface CheckedOutElsewhere {
 }
 
 export async function exec(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	command: string,
 	args: string[],
 	cwd: string,
@@ -26,7 +26,7 @@ export async function exec(
 }
 
 export async function execRaw(
-	pi: ExtensionAPI,
+	pi: LandStackExtensionAPI,
 	command: string,
 	args: string[],
 	cwd: string,
