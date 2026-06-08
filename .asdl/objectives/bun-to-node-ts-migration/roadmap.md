@@ -14,8 +14,8 @@
 - [x] Node runtime compatibility child Objective (`bun-to-node-ts-migration-node-runtime`).
       Create a child Objective to harden project-local Pi extension modules and TypeScript CLIs under Node, including smoke coverage for Bun-only APIs and the Graphite metadata reader replacement.
 
-- [ ] Bun-reference reconciliation child Objective (`bun-to-node-ts-migration-bun-reference-reconciliation`).
-      Create a child Objective to review active docs, scripts, deployment configuration, and templates for stale Bun assumptions, leaving only deliberate and documented references outside the migration target.
+- [x] Bun-reference reconciliation child Objective (`bun-to-node-ts-migration-bun-reference-reconciliation`).
+      Created a child Objective to review active docs, scripts, deployment configuration, and templates for stale Bun assumptions, leaving only deliberate and documented references outside the migration target.
 
 ## Parked
 

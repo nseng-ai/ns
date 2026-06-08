@@ -23,6 +23,10 @@ both the source and what runs. The result is an opinionated, production-ready
 layout that passes `bun run check`, `bunx tsc --noEmit`, and
 `bun test --sequential` on first run.
 
+This skill is intentionally Bun-centric product guidance. Use it when the user
+wants a Bun project; do not treat it as the default TypeScript template for
+existing Node, pnpm, or Vitest workspaces, or for migrations away from Bun.
+
 ## Stack
 
 | Concern                   | Tool                                                                     |

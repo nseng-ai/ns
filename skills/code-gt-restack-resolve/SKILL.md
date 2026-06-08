@@ -12,7 +12,6 @@ allowed-tools:
   - "Bash(git rebase *)"
   - "Bash(slot gt *)"
   - "Bash(just *)"
-  - "Bash(bun run *)"
   - Read
   - Edit
   - Grep
