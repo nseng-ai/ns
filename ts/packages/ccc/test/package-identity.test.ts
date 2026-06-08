@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { CCC_PACKAGE_IDENTITY } from "../src/index.ts";
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { listAsdlDevCommands, runCli } from "asdl-dev/src/cli.ts";
 import { DEFAULT_PROJECT, DEFAULT_SCOPE } from "asdl-dev/src/preview-url.ts";

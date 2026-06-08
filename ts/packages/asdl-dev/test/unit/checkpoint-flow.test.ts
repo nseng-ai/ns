@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/src/text-generation.ts";

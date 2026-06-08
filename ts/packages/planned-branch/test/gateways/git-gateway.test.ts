@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { RealPlannedBranchGitGateway } from "../../src/git-gateway.ts";
 import type { ExecResult } from "../../src/command-runtime.ts";
