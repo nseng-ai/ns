@@ -280,8 +280,7 @@ def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_overrid
     assert "Subagent model routing:" in resolution.content
     assert "For implementation/editing subagents:" in resolution.content
     assert (
-        "Do not set `dispatch_runner_subagent.model` to a cheap/review model."
-        in resolution.content
+        "Do not set `dispatch_runner_subagent.model` to a cheap/review model." in resolution.content
     )
     assert "Never reuse review model guidance for implementation" in resolution.content
     assert (
