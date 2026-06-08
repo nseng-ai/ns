@@ -148,7 +148,8 @@ async function createTempRecipeFile(content: string, key: string): Promise<TempR
 	const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 	const tempParent = join(packageRoot, ".ts-plan-preview-tmp");
 	await mkdir(tempParent, { recursive: true });
-	const safeKey = key.replaceAll(/[^A-Za-z0-9_.-]/g, "-").slice(0, 80) || "recipe";
+	const sanitizedKey = key.replaceAll(/[^A-Za-z0-9_.-]/g, "-").slice(0, 80);
+	const safeKey = sanitizedKey.length > 0 ? sanitizedKey : "recipe";
 	const directoryPath = await mkdtemp(join(tempParent, `${safeKey}-`));
 	const filePath = join(directoryPath, "recipe.plan.ts");
 	await writeFile(filePath, content);

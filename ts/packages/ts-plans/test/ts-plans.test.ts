@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
-import { definePlan } from "../src/index.ts";
+import { definePlan, type DefinePlanInput } from "../src/index.ts";
 import {
 	TS_PLAN_RECIPE_TRUST_NOTICE,
 	previewTsPlanRecipeFromContent,
@@ -14,6 +14,10 @@ const writtenByValidationPath = join(process.cwd(), "ts-plan-validation-should-n
 
 class ClassPayload {
 	readonly title = "class payload";
+}
+
+function defineInvalidPlan(input: unknown): void {
+	definePlan(input as DefinePlanInput);
 }
 
 afterEach(async () => {
@@ -115,31 +119,27 @@ describe("declarative payload validation", () => {
 
 	test("rejects non-string tasks", () => {
 		expect(() =>
-			definePlan({
+			defineInvalidPlan({
 				goal: "Goal",
 				phases: [{ title: "Phase", tasks: ["Task", 1] }],
-			} as unknown as Parameters<typeof definePlan>[0]),
+			}),
 		).toThrow("tasks[1] must be a string");
 	});
 
 	test("rejects Dates", () => {
-		expect(() => definePlan({ ...validPlan, context: new Date() } as unknown as Parameters<typeof definePlan>[0])).toThrow(
-			"plan.context must be a string",
-		);
+		expect(() => defineInvalidPlan({ ...validPlan, context: new Date() })).toThrow("plan.context must be a string");
 	});
 
 	test("rejects Maps", () => {
-		expect(() => definePlan(new Map() as unknown as Parameters<typeof definePlan>[0])).toThrow("plain object");
+		expect(() => defineInvalidPlan(new Map())).toThrow("plain object");
 	});
 
 	test("rejects functions", () => {
-		expect(() => definePlan({ ...validPlan, summary: () => "bad" } as unknown as Parameters<typeof definePlan>[0])).toThrow(
-			"plan.summary must be JSON-like data",
-		);
+		expect(() => defineInvalidPlan({ ...validPlan, summary: () => "bad" })).toThrow("plan.summary must be JSON-like data");
 	});
 
 	test("rejects class instances", () => {
-		expect(() => definePlan(new ClassPayload() as unknown as Parameters<typeof definePlan>[0])).toThrow("plain object");
+		expect(() => defineInvalidPlan(new ClassPayload())).toThrow("plain object");
 	});
 });
 
@@ -153,10 +153,10 @@ export default planRecipe({ title: "Imperative", summary: "Runtime summary" }, a
 	plan.context("Runtime context");
 	plan.note("cwd=" + plan.cwd);
 	plan.note("signal=" + String(plan.signal instanceof AbortSignal));
-	await plan.phase("Runtime phase", async (phase) => {
-		phase.task("Do the runtime task");
-		phase.note("Remember this");
-		phase.validateWithShell("echo validate only");
+	await plan.phase("Runtime phase", async () => {
+		plan.task("Do the runtime task");
+		plan.note("Remember this");
+		plan.validateWithShell("echo validate only");
 	});
 	plan.task("Final task");
 	plan.validateWithShell("touch ${writtenByValidationPath}");

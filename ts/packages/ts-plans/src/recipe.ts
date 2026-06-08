@@ -30,13 +30,7 @@ export interface PlanRecipeRuntime {
 	validateWithShell(command: string): void;
 }
 
-export interface PlanRecipePhaseRuntime {
-	task(prompt: string): void;
-	note(text: string): void;
-	validateWithShell(command: string): void;
-}
-
-export type PlanRecipePhaseBody = (phase: PlanRecipePhaseRuntime) => void | Promise<void>;
+export type PlanRecipePhaseBody = () => void | Promise<void>;
 export type PlanRecipeFunction = (plan: PlanRecipeRuntime) => void | Promise<void>;
 
 export interface TsPlanRecipe {
@@ -401,17 +395,13 @@ function normalizeBrandedRecipe(value: unknown): ValidationResult<BrandedRecipe>
 		return { type: "failure", message: "Default export must be a branded ts-plans recipe from definePlan(...) or planRecipe(...)." };
 	}
 
-	if (value.kind !== "declarative" && value.kind !== "imperative") {
-		return { type: "failure", message: "Default export is not a valid ts-plans recipe." };
-	}
-
-	return { type: "success", value: value as unknown as BrandedRecipe };
+	return { type: "success", value };
 }
 
-function hasPlanRecipeBrand(value: unknown): value is Record<string, unknown> & TsPlanRecipe {
+function hasPlanRecipeBrand(value: unknown): value is BrandedRecipe {
 	if (!isPlainRecord(value)) return false;
-	const branded = value as { readonly [PLAN_RECIPE_BRAND]?: unknown };
-	return branded[PLAN_RECIPE_BRAND] === true;
+	const branded = value as { readonly [PLAN_RECIPE_BRAND]?: unknown; readonly kind?: unknown };
+	return branded[PLAN_RECIPE_BRAND] === true && (branded.kind === "declarative" || branded.kind === "imperative");
 }
 
 function isAbortSignalAborted(signal: AbortSignal | undefined): boolean {
@@ -459,48 +449,76 @@ function createPlanRecipeRuntime(
 	pendingPhases: Promise<void>[],
 	options: RenderRecipeOptions,
 ): PlanRecipeRuntime {
+	const activePhases: MutablePlanPhase[] = [];
+
+	async function runPhaseBody(phase: MutablePlanPhase, body: PlanRecipePhaseBody): Promise<void> {
+		checkAbort(options.signal);
+		activePhases.push(phase);
+		try {
+			await body();
+			checkAbort(options.signal);
+		} finally {
+			activePhases.pop();
+		}
+	}
+
+	function recordImperativeItem(item: NormalizedPlanItem): void {
+		const phase = activePhases.at(-1);
+		if (phase === undefined) {
+			plan.finalItems.push(item);
+			return;
+		}
+
+		if (item.type === "task") {
+			phase.tasks.push(item.prompt);
+			return;
+		}
+		if (item.type === "note") {
+			phase.notes.push(item.text);
+			return;
+		}
+		phase.validations.push(item.command);
+	}
+
 	return {
 		cwd: options.cwd,
 		signal: options.signal,
 		goal(text) {
+			checkAbort(options.signal);
 			plan.goal = normalizeImperativeString(text, "goal");
 		},
 		context(text) {
+			checkAbort(options.signal);
 			plan.context = normalizeImperativeString(text, "context");
 		},
 		phase(title, body) {
+			checkAbort(options.signal);
 			const phaseTitle = normalizeImperativeString(title, "phase title");
 			const phase: MutablePlanPhase = { title: phaseTitle, tasks: [], notes: [], validations: [] };
 			plan.phases.push(phase);
-			const phaseRuntime = createPhaseRuntime(phase);
-			const phasePromise = Promise.resolve(body(phaseRuntime));
+			const phasePromise = runPhaseBody(phase, body);
 			pendingPhases.push(phasePromise);
 			return phasePromise;
 		},
 		task(prompt) {
-			plan.finalItems.push({ type: "task", prompt: normalizeImperativeString(prompt, "task prompt") });
+			checkAbort(options.signal);
+			recordImperativeItem({ type: "task", prompt: normalizeImperativeString(prompt, "task prompt") });
 		},
 		note(text) {
-			plan.finalItems.push({ type: "note", text: normalizeImperativeString(text, "note") });
+			checkAbort(options.signal);
+			recordImperativeItem({ type: "note", text: normalizeImperativeString(text, "note") });
 		},
 		validateWithShell(command) {
-			plan.finalItems.push({ type: "validation", command: normalizeImperativeString(command, "validation command") });
+			checkAbort(options.signal);
+			recordImperativeItem({ type: "validation", command: normalizeImperativeString(command, "validation command") });
 		},
 	};
 }
 
-function createPhaseRuntime(phase: MutablePlanPhase): PlanRecipePhaseRuntime {
-	return {
-		task(prompt) {
-			phase.tasks.push(normalizeImperativeString(prompt, "task prompt"));
-		},
-		note(text) {
-			phase.notes.push(normalizeImperativeString(text, "note"));
-		},
-		validateWithShell(command) {
-			phase.validations.push(normalizeImperativeString(command, "validation command"));
-		},
-	};
+function checkAbort(signal: AbortSignal | undefined): void {
+	if (isAbortSignalAborted(signal)) {
+		throw new Error("Preview aborted.");
+	}
 }
 
 function normalizeImperativeString(value: unknown, label: string): string {
