@@ -1,0 +1,1648 @@
+{
+  "exit_code": 0,
+  "data": {
+    "payload_mode": "payload",
+    "payload_reference": {
+      "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t234059z-0007-pr-address-get-feedback-pr-1062.raw.json",
+      "session_id": "pr-address-20260607t232840z-a1",
+      "descriptor": "pr-address-get-feedback-pr-1062",
+      "role": "raw",
+      "created_at_utc": "2026-06-07T23:40:59Z",
+      "sequence": 7,
+      "payload_bytes": 61984,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "pr_number": 1062,
+    "counts": {
+      "reviews": 0,
+      "review_threads": 26,
+      "unresolved_review_threads": 9,
+      "resolved_review_threads": 17,
+      "thread_comments": 43,
+      "discussion_comments": 6
+    },
+    "reviews": [],
+    "review_threads": [
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsdqH",
+        "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+        "line": 24,
+        "start_line": 24,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/0",
+        "comments": [
+          {
+            "id": 3370223441,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 24,
+            "start_line": null,
+            "created_at": "2026-06-07T22:59:18Z",
+            "body_locator": {
+              "body_chars": 409,
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/data/review_threads/0/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqH",
+                "comment_id": 3370223441,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 24,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285794,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 24,
+            "start_line": null,
+            "created_at": "2026-06-07T23:39:58Z",
+            "body_locator": {
+              "body_chars": 218,
+              "json_pointer": "/data/review_threads/0/comments/1/body",
+              "item_pointer": "/data/review_threads/0/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqH",
+                "comment_id": 3370285794,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 24,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsdqJ",
+        "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+        "line": 33,
+        "start_line": 33,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/1",
+        "comments": [
+          {
+            "id": 3370223444,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 33,
+            "start_line": null,
+            "created_at": "2026-06-07T22:59:18Z",
+            "body_locator": {
+              "body_chars": 415,
+              "json_pointer": "/data/review_threads/1/comments/0/body",
+              "item_pointer": "/data/review_threads/1/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqJ",
+                "comment_id": 3370223444,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 33,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285807,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 33,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:00Z",
+            "body_locator": {
+              "body_chars": 224,
+              "json_pointer": "/data/review_threads/1/comments/1/body",
+              "item_pointer": "/data/review_threads/1/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqJ",
+                "comment_id": 3370285807,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 33,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsdqK",
+        "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+        "line": 34,
+        "start_line": 34,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/2",
+        "comments": [
+          {
+            "id": 3370223445,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 34,
+            "start_line": null,
+            "created_at": "2026-06-07T22:59:18Z",
+            "body_locator": {
+              "body_chars": 421,
+              "json_pointer": "/data/review_threads/2/comments/0/body",
+              "item_pointer": "/data/review_threads/2/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqK",
+                "comment_id": 3370223445,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 34,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285835,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 34,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:01Z",
+            "body_locator": {
+              "body_chars": 230,
+              "json_pointer": "/data/review_threads/2/comments/1/body",
+              "item_pointer": "/data/review_threads/2/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqK",
+                "comment_id": 3370285835,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 34,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsdqL",
+        "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+        "line": 35,
+        "start_line": 35,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/3",
+        "comments": [
+          {
+            "id": 3370223446,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 35,
+            "start_line": null,
+            "created_at": "2026-06-07T22:59:18Z",
+            "body_locator": {
+              "body_chars": 423,
+              "json_pointer": "/data/review_threads/3/comments/0/body",
+              "item_pointer": "/data/review_threads/3/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqL",
+                "comment_id": 3370223446,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 35,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285850,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 35,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:03Z",
+            "body_locator": {
+              "body_chars": 232,
+              "json_pointer": "/data/review_threads/3/comments/1/body",
+              "item_pointer": "/data/review_threads/3/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqL",
+                "comment_id": 3370285850,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 35,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsdqM",
+        "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+        "line": 36,
+        "start_line": 36,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/4",
+        "comments": [
+          {
+            "id": 3370223447,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 36,
+            "start_line": null,
+            "created_at": "2026-06-07T22:59:18Z",
+            "body_locator": {
+              "body_chars": 413,
+              "json_pointer": "/data/review_threads/4/comments/0/body",
+              "item_pointer": "/data/review_threads/4/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqM",
+                "comment_id": 3370223447,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 36,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285882,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 36,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:05Z",
+            "body_locator": {
+              "body_chars": 222,
+              "json_pointer": "/data/review_threads/4/comments/1/body",
+              "item_pointer": "/data/review_threads/4/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsdqM",
+                "comment_id": 3370285882,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 36,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseL5",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 471,
+        "start_line": 471,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/5",
+        "comments": [
+          {
+            "id": 3370226638,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 471,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:50Z",
+            "body_locator": {
+              "body_chars": 759,
+              "json_pointer": "/data/review_threads/5/comments/0/body",
+              "item_pointer": "/data/review_threads/5/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseL5",
+                "comment_id": 3370226638,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 471,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseL_",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 541,
+        "start_line": 541,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/6",
+        "comments": [
+          {
+            "id": 3370226643,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 541,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:50Z",
+            "body_locator": {
+              "body_chars": 564,
+              "json_pointer": "/data/review_threads/6/comments/0/body",
+              "item_pointer": "/data/review_threads/6/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseL_",
+                "comment_id": 3370226643,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 541,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseMB",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 548,
+        "start_line": 548,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/7",
+        "comments": [
+          {
+            "id": 3370226646,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 548,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:50Z",
+            "body_locator": {
+              "body_chars": 482,
+              "json_pointer": "/data/review_threads/7/comments/0/body",
+              "item_pointer": "/data/review_threads/7/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMB",
+                "comment_id": 3370226646,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 548,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285933,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 548,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:06Z",
+            "body_locator": {
+              "body_chars": 221,
+              "json_pointer": "/data/review_threads/7/comments/1/body",
+              "item_pointer": "/data/review_threads/7/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMB",
+                "comment_id": 3370285933,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 548,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseME",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 437,
+        "start_line": 437,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/8",
+        "comments": [
+          {
+            "id": 3370226650,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 437,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:50Z",
+            "body_locator": {
+              "body_chars": 879,
+              "json_pointer": "/data/review_threads/8/comments/0/body",
+              "item_pointer": "/data/review_threads/8/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseME",
+                "comment_id": 3370226650,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 437,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseMH",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 537,
+        "start_line": 537,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/9",
+        "comments": [
+          {
+            "id": 3370226653,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 537,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:50Z",
+            "body_locator": {
+              "body_chars": 708,
+              "json_pointer": "/data/review_threads/9/comments/0/body",
+              "item_pointer": "/data/review_threads/9/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMH",
+                "comment_id": 3370226653,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 537,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286229,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 537,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:21Z",
+            "body_locator": {
+              "body_chars": 239,
+              "json_pointer": "/data/review_threads/9/comments/1/body",
+              "item_pointer": "/data/review_threads/9/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMH",
+                "comment_id": 3370286229,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 537,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseMI",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 88,
+        "start_line": 88,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/10",
+        "comments": [
+          {
+            "id": 3370226654,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 88,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:51Z",
+            "body_locator": {
+              "body_chars": 648,
+              "json_pointer": "/data/review_threads/10/comments/0/body",
+              "item_pointer": "/data/review_threads/10/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMI",
+                "comment_id": 3370226654,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 88,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseML",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 10,
+        "start_line": 10,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/11",
+        "comments": [
+          {
+            "id": 3370226657,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 10,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:51Z",
+            "body_locator": {
+              "body_chars": 862,
+              "json_pointer": "/data/review_threads/11/comments/0/body",
+              "item_pointer": "/data/review_threads/11/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseML",
+                "comment_id": 3370226657,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 10,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseMM",
+        "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+        "line": 12,
+        "start_line": 12,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/12",
+        "comments": [
+          {
+            "id": 3370226658,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+            "line": 12,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:51Z",
+            "body_locator": {
+              "body_chars": 531,
+              "json_pointer": "/data/review_threads/12/comments/0/body",
+              "item_pointer": "/data/review_threads/12/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMM",
+                "comment_id": 3370226658,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+                "line": 12,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285967,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+            "line": 12,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:08Z",
+            "body_locator": {
+              "body_chars": 213,
+              "json_pointer": "/data/review_threads/12/comments/1/body",
+              "item_pointer": "/data/review_threads/12/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMM",
+                "comment_id": 3370285967,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+                "line": 12,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HseMO",
+        "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+        "line": 12,
+        "start_line": 12,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/13",
+        "comments": [
+          {
+            "id": 3370226660,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+            "line": 12,
+            "start_line": null,
+            "created_at": "2026-06-07T23:00:51Z",
+            "body_locator": {
+              "body_chars": 613,
+              "json_pointer": "/data/review_threads/13/comments/0/body",
+              "item_pointer": "/data/review_threads/13/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HseMO",
+                "comment_id": 3370226660,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+                "line": 12,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6Hsg00",
+        "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+        "line": 14,
+        "start_line": 14,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/14",
+        "comments": [
+          {
+            "id": 3370241418,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+            "line": 14,
+            "start_line": null,
+            "created_at": "2026-06-07T23:06:33Z",
+            "body_locator": {
+              "body_chars": 433,
+              "json_pointer": "/data/review_threads/14/comments/0/body",
+              "item_pointer": "/data/review_threads/14/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6Hsg00",
+                "comment_id": 3370241418,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+                "line": 14,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370285995,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+            "line": 14,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:10Z",
+            "body_locator": {
+              "body_chars": 204,
+              "json_pointer": "/data/review_threads/14/comments/1/body",
+              "item_pointer": "/data/review_threads/14/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6Hsg00",
+                "comment_id": 3370285995,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+                "line": 14,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6Hsg01",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 57,
+        "start_line": 57,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/15",
+        "comments": [
+          {
+            "id": 3370241421,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 57,
+            "start_line": null,
+            "created_at": "2026-06-07T23:06:33Z",
+            "body_locator": {
+              "body_chars": 440,
+              "json_pointer": "/data/review_threads/15/comments/0/body",
+              "item_pointer": "/data/review_threads/15/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6Hsg01",
+                "comment_id": 3370241421,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 57,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286027,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 57,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:12Z",
+            "body_locator": {
+              "body_chars": 204,
+              "json_pointer": "/data/review_threads/15/comments/1/body",
+              "item_pointer": "/data/review_threads/15/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6Hsg01",
+                "comment_id": 3370286027,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 57,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6Hsg03",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 315,
+        "start_line": 315,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/16",
+        "comments": [
+          {
+            "id": 3370241423,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 315,
+            "start_line": null,
+            "created_at": "2026-06-07T23:06:33Z",
+            "body_locator": {
+              "body_chars": 538,
+              "json_pointer": "/data/review_threads/16/comments/0/body",
+              "item_pointer": "/data/review_threads/16/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6Hsg03",
+                "comment_id": 3370241423,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 315,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286074,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 315,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:13Z",
+            "body_locator": {
+              "body_chars": 184,
+              "json_pointer": "/data/review_threads/16/comments/1/body",
+              "item_pointer": "/data/review_threads/16/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6Hsg03",
+                "comment_id": 3370286074,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 315,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HshIx",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 437,
+        "start_line": 437,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/17",
+        "comments": [
+          {
+            "id": 3370243308,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 437,
+            "start_line": null,
+            "created_at": "2026-06-07T23:07:16Z",
+            "body_locator": {
+              "body_chars": 970,
+              "json_pointer": "/data/review_threads/17/comments/0/body",
+              "item_pointer": "/data/review_threads/17/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshIx",
+                "comment_id": 3370243308,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 437,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HshIy",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 541,
+        "start_line": 541,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/18",
+        "comments": [
+          {
+            "id": 3370243309,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 541,
+            "start_line": null,
+            "created_at": "2026-06-07T23:07:16Z",
+            "body_locator": {
+              "body_chars": 677,
+              "json_pointer": "/data/review_threads/18/comments/0/body",
+              "item_pointer": "/data/review_threads/18/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshIy",
+                "comment_id": 3370243309,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 541,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HshI0",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 537,
+        "start_line": 537,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/19",
+        "comments": [
+          {
+            "id": 3370243313,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 537,
+            "start_line": null,
+            "created_at": "2026-06-07T23:07:16Z",
+            "body_locator": {
+              "body_chars": 578,
+              "json_pointer": "/data/review_threads/19/comments/0/body",
+              "item_pointer": "/data/review_threads/19/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI0",
+                "comment_id": 3370243313,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 537,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286302,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 537,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:23Z",
+            "body_locator": {
+              "body_chars": 221,
+              "json_pointer": "/data/review_threads/19/comments/1/body",
+              "item_pointer": "/data/review_threads/19/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI0",
+                "comment_id": 3370286302,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 537,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HshI4",
+        "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+        "line": 76,
+        "start_line": 76,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/20",
+        "comments": [
+          {
+            "id": 3370243317,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+            "line": 76,
+            "start_line": null,
+            "created_at": "2026-06-07T23:07:16Z",
+            "body_locator": {
+              "body_chars": 903,
+              "json_pointer": "/data/review_threads/20/comments/0/body",
+              "item_pointer": "/data/review_threads/20/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI4",
+                "comment_id": 3370243317,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+                "line": 76,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HshI5",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 319,
+        "start_line": 319,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/21",
+        "comments": [
+          {
+            "id": 3370243319,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 319,
+            "start_line": null,
+            "created_at": "2026-06-07T23:07:16Z",
+            "body_locator": {
+              "body_chars": 734,
+              "json_pointer": "/data/review_threads/21/comments/0/body",
+              "item_pointer": "/data/review_threads/21/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI5",
+                "comment_id": 3370243319,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 319,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286107,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 319,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:15Z",
+            "body_locator": {
+              "body_chars": 238,
+              "json_pointer": "/data/review_threads/21/comments/1/body",
+              "item_pointer": "/data/review_threads/21/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI5",
+                "comment_id": 3370286107,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 319,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HshI7",
+        "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+        "line": 12,
+        "start_line": 12,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/22",
+        "comments": [
+          {
+            "id": 3370243321,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+            "line": 12,
+            "start_line": null,
+            "created_at": "2026-06-07T23:07:16Z",
+            "body_locator": {
+              "body_chars": 521,
+              "json_pointer": "/data/review_threads/22/comments/0/body",
+              "item_pointer": "/data/review_threads/22/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI7",
+                "comment_id": 3370243321,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+                "line": 12,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286134,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+            "line": 12,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:17Z",
+            "body_locator": {
+              "body_chars": 228,
+              "json_pointer": "/data/review_threads/22/comments/1/body",
+              "item_pointer": "/data/review_threads/22/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HshI7",
+                "comment_id": 3370286134,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+                "line": 12,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsiP_",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 216,
+        "start_line": 216,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/23",
+        "comments": [
+          {
+            "id": 3370249159,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 216,
+            "start_line": null,
+            "created_at": "2026-06-07T23:09:45Z",
+            "body_locator": {
+              "body_chars": 1559,
+              "json_pointer": "/data/review_threads/23/comments/0/body",
+              "item_pointer": "/data/review_threads/23/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsiP_",
+                "comment_id": 3370249159,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 216,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286336,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 216,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:25Z",
+            "body_locator": {
+              "body_chars": 229,
+              "json_pointer": "/data/review_threads/23/comments/1/body",
+              "item_pointer": "/data/review_threads/23/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsiP_",
+                "comment_id": 3370286336,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 216,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsiQA",
+        "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+        "line": 86,
+        "start_line": 86,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/24",
+        "comments": [
+          {
+            "id": 3370249160,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+            "line": 86,
+            "start_line": null,
+            "created_at": "2026-06-07T23:09:45Z",
+            "body_locator": {
+              "body_chars": 1525,
+              "json_pointer": "/data/review_threads/24/comments/0/body",
+              "item_pointer": "/data/review_threads/24/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsiQA",
+                "comment_id": 3370249160,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+                "line": 86,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286157,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+            "line": 86,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:18Z",
+            "body_locator": {
+              "body_chars": 246,
+              "json_pointer": "/data/review_threads/24/comments/1/body",
+              "item_pointer": "/data/review_threads/24/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsiQA",
+                "comment_id": 3370286157,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+                "line": 86,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "thread_id": "PRRT_kwDOR4YhMs6HsiQB",
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 117,
+        "start_line": 117,
+        "is_resolved": true,
+        "is_outdated": false,
+        "comment_count": 2,
+        "item_pointer": "/data/review_threads/25",
+        "comments": [
+          {
+            "id": 3370249161,
+            "author": "github-actions",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 117,
+            "start_line": null,
+            "created_at": "2026-06-07T23:09:45Z",
+            "body_locator": {
+              "body_chars": 1843,
+              "json_pointer": "/data/review_threads/25/comments/0/body",
+              "item_pointer": "/data/review_threads/25/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsiQB",
+                "comment_id": 3370249161,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 117,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "github-actions"
+              }
+            }
+          },
+          {
+            "id": 3370286191,
+            "author": "schrockn",
+            "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+            "line": 117,
+            "start_line": null,
+            "created_at": "2026-06-07T23:40:20Z",
+            "body_locator": {
+              "body_chars": 234,
+              "json_pointer": "/data/review_threads/25/comments/1/body",
+              "item_pointer": "/data/review_threads/25/comments/1",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "PRRT_kwDOR4YhMs6HsiQB",
+                "comment_id": 3370286191,
+                "discussion_comment_id": null,
+                "comment_index": 1,
+                "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+                "line": 117,
+                "start_line": null,
+                "is_resolved": true,
+                "is_outdated": false,
+                "author": "schrockn"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "discussion_comments": [
+      {
+        "comment_id": 4644349977,
+        "author": "vercel[bot]",
+        "url": "https://github.com/dagster-io/asdl-tools/pull/1062#issuecomment-4644349977",
+        "body_locator": {
+          "body_chars": 2005,
+          "json_pointer": "/data/discussion_comments/0/body",
+          "item_pointer": "/data/discussion_comments/0",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 4644349977,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "vercel[bot]"
+          }
+        }
+      },
+      {
+        "comment_id": 4644350339,
+        "author": "schrockn",
+        "url": "https://github.com/dagster-io/asdl-tools/pull/1062#issuecomment-4644350339",
+        "body_locator": {
+          "body_chars": 673,
+          "json_pointer": "/data/discussion_comments/1/body",
+          "item_pointer": "/data/discussion_comments/1",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 4644350339,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "schrockn"
+          }
+        }
+      },
+      {
+        "comment_id": 4644353006,
+        "author": "github-actions[bot]",
+        "url": "https://github.com/dagster-io/asdl-tools/pull/1062#issuecomment-4644353006",
+        "body_locator": {
+          "body_chars": 436,
+          "json_pointer": "/data/discussion_comments/2/body",
+          "item_pointer": "/data/discussion_comments/2",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 4644353006,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "github-actions[bot]"
+          }
+        }
+      },
+      {
+        "comment_id": 4644355061,
+        "author": "github-actions[bot]",
+        "url": "https://github.com/dagster-io/asdl-tools/pull/1062#issuecomment-4644355061",
+        "body_locator": {
+          "body_chars": 2266,
+          "json_pointer": "/data/discussion_comments/3/body",
+          "item_pointer": "/data/discussion_comments/3",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 4644355061,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "github-actions[bot]"
+          }
+        }
+      },
+      {
+        "comment_id": 4644358479,
+        "author": "github-actions[bot]",
+        "url": "https://github.com/dagster-io/asdl-tools/pull/1062#issuecomment-4644358479",
+        "body_locator": {
+          "body_chars": 5726,
+          "json_pointer": "/data/discussion_comments/4/body",
+          "item_pointer": "/data/discussion_comments/4",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 4644358479,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "github-actions[bot]"
+          }
+        }
+      },
+      {
+        "comment_id": 4644379962,
+        "author": "github-actions[bot]",
+        "url": "https://github.com/dagster-io/asdl-tools/pull/1062#issuecomment-4644379962",
+        "body_locator": {
+          "body_chars": 5892,
+          "json_pointer": "/data/discussion_comments/5/body",
+          "item_pointer": "/data/discussion_comments/5",
+          "domain": {
+            "kind": "discussion_comment",
+            "review_id": null,
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": 4644379962,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "github-actions[bot]"
+          }
+        }
+      }
+    ]
+  }
+}

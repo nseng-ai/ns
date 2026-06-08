@@ -1,0 +1,106 @@
+{
+  "exit_code": 0,
+  "data": {
+    "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t232900z-0002-pr-address-prepare-run-pr-1062.raw.json",
+    "selected_payload_reference": {
+      "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260608t000517z-0009-pr-address-selected-feedback-details.summary.json",
+      "session_id": "pr-address-20260607t232840z-a1",
+      "descriptor": "pr-address-selected-feedback-details",
+      "role": "summary",
+      "created_at_utc": "2026-06-08T00:05:17Z",
+      "sequence": 9,
+      "payload_bytes": 8454,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "details": [
+      {
+        "json_pointer": "/data/review_threads/5/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/0/value",
+        "value_kind": "string",
+        "value_chars": 759,
+        "body_chars": 759,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/6/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/1/value",
+        "value_kind": "string",
+        "value_chars": 564,
+        "body_chars": 564,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/8/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/2/value",
+        "value_kind": "string",
+        "value_chars": 879,
+        "body_chars": 879,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/10/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/3/value",
+        "value_kind": "string",
+        "value_chars": 648,
+        "body_chars": 648,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/11/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/4/value",
+        "value_kind": "string",
+        "value_chars": 862,
+        "body_chars": 862,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/13/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/5/value",
+        "value_kind": "string",
+        "value_chars": 613,
+        "body_chars": 613,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/17/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/6/value",
+        "value_kind": "string",
+        "value_chars": 970,
+        "body_chars": 970,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/18/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/7/value",
+        "value_kind": "string",
+        "value_chars": 677,
+        "body_chars": 677,
+        "object_keys": null
+      },
+      {
+        "json_pointer": "/data/review_threads/20/comments/0/body",
+        "detail_kind": "thread_comment_body",
+        "artifact_json_pointer": "/details/8/value",
+        "value_kind": "string",
+        "value_chars": 903,
+        "body_chars": 903,
+        "object_keys": null
+      }
+    ],
+    "counts": {
+      "requested": 9,
+      "selected": 9,
+      "body_values": 9,
+      "item_values": 0
+    }
+  }
+}

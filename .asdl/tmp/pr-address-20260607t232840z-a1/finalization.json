@@ -1,0 +1,155 @@
+{
+  "exit_code": 0,
+  "data": {
+    "valid": true,
+    "ready_to_stop": true,
+    "all_feedback_addressed": true,
+    "pr_number": 1062,
+    "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260608t001038z-0011-pr-address-get-feedback-pr-1062.raw.json",
+    "counts": {
+      "checkpoint_batches": 3,
+      "complete_batches": 3,
+      "incomplete_batches": 0,
+      "unresolved_threads": 0,
+      "unresolved_unskipped_threads": 0,
+      "resolved_threads_from_checkpoints": 26,
+      "failed_threads_from_checkpoints": 0,
+      "skipped_threads": 0,
+      "skipped_non_thread_items": 0
+    },
+    "unresolved_threads": [],
+    "unresolved_unskipped_threads": [],
+    "skipped_items": [],
+    "checkpoint_summaries": [
+      {
+        "batch_id": "local",
+        "valid": true,
+        "batch_complete": true,
+        "commit_sha": "ad4ca42983169f008b8b59313c6a6a2d149ce782",
+        "changed_files": [
+          "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+          "ts/packages/pi-extensions/src/autobranch-flow.ts",
+          "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "ts/packages/pi-extensions/src/autobranch-preparation.ts",
+          "ts/packages/pi-extensions/test/autobranch-flow.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-preparation.test.ts"
+        ],
+        "checkpoint_reference": {
+          "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t234049z-0005-pr-address-batch-checkpoint.summary.json",
+          "session_id": "pr-address-20260607t232840z-a1",
+          "descriptor": "pr-address-batch-checkpoint",
+          "role": "summary",
+          "created_at_utc": "2026-06-07T23:40:49Z",
+          "sequence": 5,
+          "payload_bytes": 11090,
+          "content_type": "application/json",
+          "extension": "json"
+        },
+        "resolved_thread_ids": [
+          "PRRT_kwDOR4YhMs6HsdqH",
+          "PRRT_kwDOR4YhMs6HsdqJ",
+          "PRRT_kwDOR4YhMs6HsdqK",
+          "PRRT_kwDOR4YhMs6HsdqL",
+          "PRRT_kwDOR4YhMs6HsdqM",
+          "PRRT_kwDOR4YhMs6HseMB",
+          "PRRT_kwDOR4YhMs6HseMM",
+          "PRRT_kwDOR4YhMs6Hsg00",
+          "PRRT_kwDOR4YhMs6Hsg01",
+          "PRRT_kwDOR4YhMs6Hsg03",
+          "PRRT_kwDOR4YhMs6HshI5",
+          "PRRT_kwDOR4YhMs6HshI7",
+          "PRRT_kwDOR4YhMs6HsiQA",
+          "PRRT_kwDOR4YhMs6HsiQB"
+        ],
+        "failed_thread_ids": [],
+        "skipped_thread_ids": [],
+        "non_thread_outcomes": [],
+        "failed_validation_commands": []
+      },
+      {
+        "batch_id": "single_file",
+        "valid": true,
+        "batch_complete": true,
+        "commit_sha": "ad4ca42983169f008b8b59313c6a6a2d149ce782",
+        "changed_files": [
+          "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+          "ts/packages/pi-extensions/src/autobranch-flow.ts",
+          "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "ts/packages/pi-extensions/src/autobranch-preparation.ts",
+          "ts/packages/pi-extensions/test/autobranch-flow.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-preparation.test.ts"
+        ],
+        "checkpoint_reference": {
+          "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t234049z-0006-pr-address-batch-checkpoint.summary.json",
+          "session_id": "pr-address-20260607t232840z-a1",
+          "descriptor": "pr-address-batch-checkpoint",
+          "role": "summary",
+          "created_at_utc": "2026-06-07T23:40:49Z",
+          "sequence": 6,
+          "payload_bytes": 3704,
+          "content_type": "application/json",
+          "extension": "json"
+        },
+        "resolved_thread_ids": [
+          "PRRT_kwDOR4YhMs6HseMH",
+          "PRRT_kwDOR4YhMs6HshI0",
+          "PRRT_kwDOR4YhMs6HsiP_"
+        ],
+        "failed_thread_ids": [],
+        "skipped_thread_ids": [],
+        "non_thread_outcomes": [],
+        "failed_validation_commands": []
+      },
+      {
+        "batch_id": "cross_cutting",
+        "valid": true,
+        "batch_complete": true,
+        "commit_sha": "09ea58fe567133b6919aa26d28978ecb79399987",
+        "changed_files": [
+          "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+          "ts/packages/pi-extensions/src/autobranch-flow.ts",
+          "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "ts/packages/pi-extensions/src/autobranch-preparation.ts",
+          "ts/packages/pi-extensions/src/autobranch-shared.ts",
+          "ts/packages/pi-extensions/src/autobranch-transaction.ts",
+          "ts/packages/pi-extensions/src/autobranch-upstream.ts",
+          "ts/packages/pi-extensions/test/autobranch-flow.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-preparation.test.ts",
+          "ts/packages/pi-extensions/test/autobranch-test-helpers.ts",
+          "ts/packages/pi-extensions/test/autobranch-transaction.test.ts"
+        ],
+        "checkpoint_reference": {
+          "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260608t001022z-0010-pr-address-batch-checkpoint.summary.json",
+          "session_id": "pr-address-20260607t232840z-a1",
+          "descriptor": "pr-address-batch-checkpoint",
+          "role": "summary",
+          "created_at_utc": "2026-06-08T00:10:22Z",
+          "sequence": 10,
+          "payload_bytes": 8118,
+          "content_type": "application/json",
+          "extension": "json"
+        },
+        "resolved_thread_ids": [
+          "PRRT_kwDOR4YhMs6HseL5",
+          "PRRT_kwDOR4YhMs6HseL_",
+          "PRRT_kwDOR4YhMs6HseME",
+          "PRRT_kwDOR4YhMs6HseMI",
+          "PRRT_kwDOR4YhMs6HseML",
+          "PRRT_kwDOR4YhMs6HseMO",
+          "PRRT_kwDOR4YhMs6HshIx",
+          "PRRT_kwDOR4YhMs6HshIy",
+          "PRRT_kwDOR4YhMs6HshI4"
+        ],
+        "failed_thread_ids": [],
+        "skipped_thread_ids": [],
+        "non_thread_outcomes": [],
+        "failed_validation_commands": []
+      }
+    ],
+    "errors": [],
+    "warnings": []
+  }
+}

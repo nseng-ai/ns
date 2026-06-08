@@ -1,0 +1,20 @@
+{
+  "exit_code": 0,
+  "data": {
+    "valid": true,
+    "manifest_kind": "prepare_run",
+    "pr_number": 1062,
+    "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t232900z-0002-pr-address-prepare-run-pr-1062.raw.json",
+    "counts": {
+      "reviews_expected": 0,
+      "reviews_classified": 0,
+      "review_threads_expected": 26,
+      "review_threads_classified": 26,
+      "thread_comments_expected": 26,
+      "thread_comments_covered": 26,
+      "discussion_comments_expected": 6,
+      "discussion_comments_classified": 6
+    },
+    "errors": []
+  }
+}

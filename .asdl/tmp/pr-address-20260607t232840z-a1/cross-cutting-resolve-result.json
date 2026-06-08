@@ -1,0 +1,183 @@
+{
+  "exit_code": 0,
+  "data": {
+    "total": 9,
+    "resolved": 9,
+    "failed": 0,
+    "skipped": 0,
+    "all_succeeded": true,
+    "results": [
+      {
+        "index": 0,
+        "thread_id": "PRRT_kwDOR4YhMs6HseL5",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Extracted shared autobranch status and command-detail helpers for both transaction paths.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:48Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323572,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Extracted shared autobranch status and command-detail helpers for both transaction paths.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:48Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 471,
+          "created_at": "2026-06-08T00:09:49Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 1,
+        "thread_id": "PRRT_kwDOR4YhMs6HseL_",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Moved the shared truncation helper into autobranch-shared.ts and reused it from both prompt builders.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:50Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323605,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Moved the shared truncation helper into autobranch-shared.ts and reused it from both prompt builders.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:50Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 541,
+          "created_at": "2026-06-08T00:09:51Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 2,
+        "thread_id": "PRRT_kwDOR4YhMs6HseME",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Reused the shared branch availability probe for latest-commit backup branch names.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:52Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323632,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Reused the shared branch availability probe for latest-commit backup branch names.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:52Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 437,
+          "created_at": "2026-06-08T00:09:52Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 3,
+        "thread_id": "PRRT_kwDOR4YhMs6HseMI",
+        "mode": "explained",
+        "status": "resolved",
+        "body": "Kept the conditional spread because exactOptionalPropertyTypes rejects passing now: undefined to optional-only inputs.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:54Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323679,
+          "body": "Kept the conditional spread because exactOptionalPropertyTypes rejects passing now: undefined to optional-only inputs.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:54Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 88,
+          "created_at": "2026-06-08T00:09:54Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 4,
+        "thread_id": "PRRT_kwDOR4YhMs6HseML",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Moved upstream-head inspection into a shared autobranch-upstream.ts module used by both flows.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:55Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323729,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Moved upstream-head inspection into a shared autobranch-upstream.ts module used by both flows.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:55Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 10,
+          "created_at": "2026-06-08T00:09:56Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 5,
+        "thread_id": "PRRT_kwDOR4YhMs6HseMO",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Extracted shared autobranch test ok/fail helpers and UpstreamMode into autobranch-test-helpers.ts.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:57Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323759,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Extracted shared autobranch test ok/fail helpers and UpstreamMode into autobranch-test-helpers.ts.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:57Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+          "line": 12,
+          "created_at": "2026-06-08T00:09:58Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 6,
+        "thread_id": "PRRT_kwDOR4YhMs6HshIx",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Reused the shared branch availability probe for latest-commit backup branch names.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:59Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323780,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Reused the shared branch availability probe for latest-commit backup branch names.\n\nAddressed via _pr-address_ at 2026-06-08T00:09:59Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 437,
+          "created_at": "2026-06-08T00:09:59Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 7,
+        "thread_id": "PRRT_kwDOR4YhMs6HshIy",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Moved the shared truncation helper into autobranch-shared.ts and reused it from both prompt builders.\n\nAddressed via _pr-address_ at 2026-06-08T00:10:01Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323810,
+          "body": "Fixed in commit 09ea58fe567133b6919aa26d28978ecb79399987: Moved the shared truncation helper into autobranch-shared.ts and reused it from both prompt builders.\n\nAddressed via _pr-address_ at 2026-06-08T00:10:01Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+          "line": 541,
+          "created_at": "2026-06-08T00:10:01Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      },
+      {
+        "index": 8,
+        "thread_id": "PRRT_kwDOR4YhMs6HshI4",
+        "mode": "explained",
+        "status": "resolved",
+        "body": "Kept the conditional spread because exactOptionalPropertyTypes rejects passing now: undefined to optional-only inputs.\n\nAddressed via _pr-address_ at 2026-06-08T00:10:03Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3370323866,
+          "body": "Kept the conditional spread because exactOptionalPropertyTypes rejects passing now: undefined to optional-only inputs.\n\nAddressed via _pr-address_ at 2026-06-08T00:10:03Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/pi-extensions/src/autobranch-flow.ts",
+          "line": 76,
+          "created_at": "2026-06-08T00:10:03Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      }
+    ]
+  }
+}

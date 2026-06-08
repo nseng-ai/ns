@@ -1,0 +1,120 @@
+{
+  "exit_code": 0,
+  "data": {
+    "valid": true,
+    "batch_complete": true,
+    "batch_id": "single_file",
+    "complexity": "single_file",
+    "approval_required": false,
+    "pr_number": 1062,
+    "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t232900z-0002-pr-address-prepare-run-pr-1062.raw.json",
+    "checkpoint_reference": {
+      "payload_path": "/var/folders/9r/wfby6pcs4mgbfb_lg0ndgb180000gn/T/asdl/sessions/pr-address-20260607t232840z-a1/payloads/20260607t234049z-0006-pr-address-batch-checkpoint.summary.json",
+      "session_id": "pr-address-20260607t232840z-a1",
+      "descriptor": "pr-address-batch-checkpoint",
+      "role": "summary",
+      "created_at_utc": "2026-06-07T23:40:49Z",
+      "sequence": 6,
+      "payload_bytes": 3704,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "commit_sha": "ad4ca42983169f008b8b59313c6a6a2d149ce782",
+    "changed_files": [
+      "ts/packages/pi-extensions/src/autobranch-branch-name.ts",
+      "ts/packages/pi-extensions/src/autobranch-flow.ts",
+      "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+      "ts/packages/pi-extensions/src/autobranch-preparation.ts",
+      "ts/packages/pi-extensions/test/autobranch-flow.test.ts",
+      "ts/packages/pi-extensions/test/autobranch-latest-commit.test.ts",
+      "ts/packages/pi-extensions/test/autobranch-preparation.test.ts"
+    ],
+    "validation_commands": [
+      {
+        "command": "bun test --cwd ts/packages/pi-extensions --sequential test/autobranch-latest-commit.test.ts test/autobranch-flow.test.ts test/autobranch-preparation.test.ts",
+        "status": "passed",
+        "exit_code": 0,
+        "summary": "31 targeted Bun tests passed"
+      },
+      {
+        "command": "bun run --cwd ts/packages/pi-extensions check",
+        "status": "passed",
+        "exit_code": 0,
+        "summary": "TypeScript package check passed"
+      }
+    ],
+    "selected_items": [
+      {
+        "source_kind": "review_thread",
+        "summary": "Bot flagged a no-op wrapper around an existing helper.",
+        "action_summary": "Delete formatCommandDetails and call formatPendingWorktreeCommandDetails directly at its call sites.",
+        "review_id": null,
+        "thread_id": "PRRT_kwDOR4YhMs6HseMH",
+        "discussion_comment_id": null,
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 537,
+        "start_line": 537,
+        "covered_comment_ids": [
+          3370226653
+        ],
+        "needs_reply": null,
+        "pre_existing": false,
+        "author": "github-actions",
+        "url": null
+      },
+      {
+        "source_kind": "review_thread",
+        "summary": "Bot flagged a no-op passthrough wrapper.",
+        "action_summary": "Delete formatCommandDetails and call formatPendingWorktreeCommandDetails directly.",
+        "review_id": null,
+        "thread_id": "PRRT_kwDOR4YhMs6HshI0",
+        "discussion_comment_id": null,
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 537,
+        "start_line": 537,
+        "covered_comment_ids": [
+          3370243313
+        ],
+        "needs_reply": null,
+        "pre_existing": false,
+        "author": "github-actions",
+        "url": null
+      },
+      {
+        "source_kind": "review_thread",
+        "summary": "Bot found recovery paths that leave an orphaned Graphite branch after a failed reset or verification.",
+        "action_summary": "Delete the created branch during both recovery paths and report whether cleanup succeeded.",
+        "review_id": null,
+        "thread_id": "PRRT_kwDOR4YhMs6HsiP_",
+        "discussion_comment_id": null,
+        "path": "ts/packages/pi-extensions/src/autobranch-latest-commit.ts",
+        "line": 216,
+        "start_line": 216,
+        "covered_comment_ids": [
+          3370249159
+        ],
+        "needs_reply": null,
+        "pre_existing": false,
+        "author": "github-actions",
+        "url": null
+      }
+    ],
+    "thread_summary": {
+      "review_thread_count": 3,
+      "payload_ready": true,
+      "resolved_thread_ids": [
+        "PRRT_kwDOR4YhMs6HseMH",
+        "PRRT_kwDOR4YhMs6HshI0",
+        "PRRT_kwDOR4YhMs6HsiP_"
+      ],
+      "failed_thread_ids": [],
+      "skipped_thread_ids": [],
+      "skipped_threads": [],
+      "ignored_non_thread_count": 0,
+      "all_succeeded": true
+    },
+    "non_thread_outcomes": [],
+    "errors": [],
+    "warnings": []
+  }
+}

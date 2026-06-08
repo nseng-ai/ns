@@ -1,0 +1,580 @@
+{
+  "schema_version": 1,
+  "reviews": [],
+  "review_threads": [
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsdqH",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/0",
+      "covered_comments": [
+        {
+          "comment_id": 3370223441,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/0/comments/0/body",
+            "item_pointer": "/data/review_threads/0/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean flag name that does not use a predicate prefix.",
+      "action_summary": "Rename trunkFails to a predicate-prefixed boolean name such as shouldTrunkFail.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsdqJ",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/1",
+      "covered_comments": [
+        {
+          "comment_id": 3370223444,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/1/comments/0/body",
+            "item_pointer": "/data/review_threads/1/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean flag name that does not use a predicate prefix.",
+      "action_summary": "Rename gtCreateFails to a predicate-prefixed boolean name such as shouldGtCreateFail.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsdqK",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/2",
+      "covered_comments": [
+        {
+          "comment_id": 3370223445,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/2/comments/0/body",
+            "item_pointer": "/data/review_threads/2/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean flag name that does not use a predicate prefix.",
+      "action_summary": "Rename branchResetFails to a predicate-prefixed boolean name such as shouldBranchResetFail.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsdqL",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/3",
+      "covered_comments": [
+        {
+          "comment_id": 3370223446,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/3/comments/0/body",
+            "item_pointer": "/data/review_threads/3/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean flag name that does not use a predicate prefix.",
+      "action_summary": "Rename deleteBackupFails to a predicate-prefixed boolean name such as shouldDeleteBackupFail.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsdqM",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/4",
+      "covered_comments": [
+        {
+          "comment_id": 3370223447,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/4/comments/0/body",
+            "item_pointer": "/data/review_threads/4/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean flag name that does not use a predicate prefix.",
+      "action_summary": "Rename restoreFails to a predicate-prefixed boolean name such as shouldRestoreFail.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseL5",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/5",
+      "covered_comments": [
+        {
+          "comment_id": 3370226638,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/5/comments/0/body",
+            "item_pointer": "/data/review_threads/5/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found duplicated helper implementations across autobranch files.",
+      "action_summary": "Extract withStatus and formatCommandDetails into a shared helper and import them from both autobranch files.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseL_",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/6",
+      "covered_comments": [
+        {
+          "comment_id": 3370226643,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/6/comments/0/body",
+            "item_pointer": "/data/review_threads/6/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found truncate duplicated from a sibling autobranch file.",
+      "action_summary": "Move truncate into a shared utility and reuse it from both files.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseMB",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/7",
+      "covered_comments": [
+        {
+          "comment_id": 3370226646,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/7/comments/0/body",
+            "item_pointer": "/data/review_threads/7/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot noted shortSha is already exported elsewhere and should be reused.",
+      "action_summary": "Import the existing shortSha export instead of keeping a second copy in this file.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseME",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/8",
+      "covered_comments": [
+        {
+          "comment_id": 3370226650,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/8/comments/0/body",
+            "item_pointer": "/data/review_threads/8/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found duplicated branch-name availability probing.",
+      "action_summary": "Refactor backup-branch selection to reuse the shared available-branch-name primitive instead of repeating the probe loop.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseMH",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/9",
+      "covered_comments": [
+        {
+          "comment_id": 3370226653,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/9/comments/0/body",
+            "item_pointer": "/data/review_threads/9/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a no-op wrapper around an existing helper.",
+      "action_summary": "Delete formatCommandDetails and call formatPendingWorktreeCommandDetails directly at its call sites.",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseMI",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/10",
+      "covered_comments": [
+        {
+          "comment_id": 3370226654,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/10/comments/0/body",
+            "item_pointer": "/data/review_threads/10/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot suggested simplifying conditional spreads for the optional now field.",
+      "action_summary": "Replace the conditional now spreads with direct optional properties in the affected files.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseML",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/11",
+      "covered_comments": [
+        {
+          "comment_id": 3370226657,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/11/comments/0/body",
+            "item_pointer": "/data/review_threads/11/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot wants upstream inspection logic moved out of the child implementation file.",
+      "action_summary": "Move inspectUpstreamHeadState into a shared module and update both callers to import it there.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseMM",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/12",
+      "covered_comments": [
+        {
+          "comment_id": 3370226658,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/12/comments/0/body",
+            "item_pointer": "/data/review_threads/12/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged an exported interface that is not used.",
+      "action_summary": "Remove the dead AvailableBranchName export or make the return type use it.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HseMO",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/13",
+      "covered_comments": [
+        {
+          "comment_id": 3370226660,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/13/comments/0/body",
+            "item_pointer": "/data/review_threads/13/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found duplicated test helpers across the autobranch test files.",
+      "action_summary": "Extract ok, fail, and UpstreamMode into a shared test helper module and import them from both tests.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Hsg00",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/14",
+      "covered_comments": [
+        {
+          "comment_id": 3370241418,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/14/comments/0/body",
+            "item_pointer": "/data/review_threads/14/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean field name that lacks a predicate prefix.",
+      "action_summary": "Rename usedSuffix to a predicate-prefixed name such as hasSuffix.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Hsg01",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/15",
+      "covered_comments": [
+        {
+          "comment_id": 3370241421,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/15/comments/0/body",
+            "item_pointer": "/data/review_threads/15/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a boolean field name that lacks a predicate prefix.",
+      "action_summary": "Rename usedSuffix to a predicate-prefixed name such as hasSuffix.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Hsg03",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/16",
+      "covered_comments": [
+        {
+          "comment_id": 3370241423,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/16/comments/0/body",
+            "item_pointer": "/data/review_threads/16/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot suggested using nullish coalescing instead of || for commitSummary defaulting.",
+      "action_summary": "Change commitSummary to use ?? instead of ||.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HshIx",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/17",
+      "covered_comments": [
+        {
+          "comment_id": 3370243308,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/17/comments/0/body",
+            "item_pointer": "/data/review_threads/17/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found duplicated branch-name availability probing.",
+      "action_summary": "Refactor backup-branch selection to share the available-ref loop with chooseAvailableBranchName.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HshIy",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/18",
+      "covered_comments": [
+        {
+          "comment_id": 3370243309,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/18/comments/0/body",
+            "item_pointer": "/data/review_threads/18/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found truncate duplicated verbatim from a sibling file.",
+      "action_summary": "Move truncate into a shared utility and import it from both files.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HshI0",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/19",
+      "covered_comments": [
+        {
+          "comment_id": 3370243313,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/19/comments/0/body",
+            "item_pointer": "/data/review_threads/19/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged a no-op passthrough wrapper.",
+      "action_summary": "Delete formatCommandDetails and call formatPendingWorktreeCommandDetails directly.",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HshI4",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/20",
+      "covered_comments": [
+        {
+          "comment_id": 3370243317,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/20/comments/0/body",
+            "item_pointer": "/data/review_threads/20/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot suggested simplifying repeated conditional spreads for now.",
+      "action_summary": "Replace all now conditional spreads in the affected files with direct optional properties.",
+      "complexity": "cross_cutting",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HshI5",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/21",
+      "covered_comments": [
+        {
+          "comment_id": 3370243319,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/21/comments/0/body",
+            "item_pointer": "/data/review_threads/21/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged git log --oneline as a redundant subprocess for commitSummary.",
+      "action_summary": "Build commitSummary from the already-fetched SHA and subject instead of spawning git log --oneline.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HshI7",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/22",
+      "covered_comments": [
+        {
+          "comment_id": 3370243321,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/22/comments/0/body",
+            "item_pointer": "/data/review_threads/22/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot flagged an exported interface that is never used.",
+      "action_summary": "Remove the dead AvailableBranchName export or switch chooseAvailableBranchName to use it.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsiP_",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/23",
+      "covered_comments": [
+        {
+          "comment_id": 3370249159,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/23/comments/0/body",
+            "item_pointer": "/data/review_threads/23/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot found recovery paths that leave an orphaned Graphite branch after a failed reset or verification.",
+      "action_summary": "Delete the created branch during both recovery paths and report whether cleanup succeeded.",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsiQA",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/24",
+      "covered_comments": [
+        {
+          "comment_id": 3370249160,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/24/comments/0/body",
+            "item_pointer": "/data/review_threads/24/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot warned that dirty-worktree autobranch now stops on an upstream-check failure.",
+      "action_summary": "Let the dirty-worktree flow proceed when upstream inspection fails; only hard-stop on head_not_in_upstream.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6HsiQB",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/25",
+      "covered_comments": [
+        {
+          "comment_id": 3370249161,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/25/comments/0/body",
+            "item_pointer": "/data/review_threads/25/comments/0"
+          }
+        }
+      ],
+      "summary": "Bot warned that upstream classification relies on fragile git error text matching.",
+      "action_summary": "Use a more stable exit-code-based upstream check instead of relying on localized error strings.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "discussion_comments": [
+    {
+      "comment_id": 4644349977,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/0/body",
+        "item_pointer": "/data/discussion_comments/0"
+      },
+      "summary": "Vercel preview/status update comment.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    },
+    {
+      "comment_id": 4644350339,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/1/body",
+        "item_pointer": "/data/discussion_comments/1"
+      },
+      "summary": "Graphite stack status comment.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    },
+    {
+      "comment_id": 4644353006,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/2/body",
+        "item_pointer": "/data/discussion_comments/2"
+      },
+      "summary": "Roaster run summary reporting no findings for dignified-python.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    },
+    {
+      "comment_id": 4644355061,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/3/body",
+        "item_pointer": "/data/discussion_comments/3"
+      },
+      "summary": "Roaster summary reporting three typescript-style findings.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    },
+    {
+      "comment_id": 4644358479,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/4/body",
+        "item_pointer": "/data/discussion_comments/4"
+      },
+      "summary": "Roaster summary reporting six simplify findings.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    },
+    {
+      "comment_id": 4644379962,
+      "disposition": "informational",
+      "body_locator": {
+        "json_pointer": "/data/discussion_comments/5/body",
+        "item_pointer": "/data/discussion_comments/5"
+      },
+      "summary": "Roaster summary reporting three adversarial findings.",
+      "action_summary": null,
+      "complexity": null,
+      "needs_reply": false,
+      "informational_reason": "automation"
+    }
+  ]
+}
