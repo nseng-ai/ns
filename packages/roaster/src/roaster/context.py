@@ -6,9 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from asdl_core.gh.pr_gateway import PRGateway
-from brmem.gateway import BranchMemoryGateway
-from roaster.gateways.agent_runner.gateway import AgentRunnerGateway
-from roaster.gateways.graphite_stack.gateway import GraphiteStackGateway
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
 from roaster.harness.invocation import HarnessRuntime
@@ -23,6 +20,3 @@ class RoasterCliContext:
     harness_runtime: HarnessRuntime
     pr_gateway: PRGateway
     cwd: Path
-    branch_memory: BranchMemoryGateway | None = None
-    agent_runner: AgentRunnerGateway | None = None
-    graphite_stack: GraphiteStackGateway | None = None

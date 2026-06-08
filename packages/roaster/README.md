@@ -74,101 +74,11 @@ reviewer instructions, target guidance, output schema, or materiality rules.
 When a document target is run with a reviewer that appears diff-specific,
 roaster emits a deterministic warning but still runs the review.
 
-## Graphite stack workflow
+## Orchestration
 
-`roaster stack run <profile-slug>` is the roaster-specific Graphite workflow
-for turning review findings into a generated stack of resolver branches. Start
-with a safe dry run:
-
-```bash
-mkdir -p .roaster/profiles
-$EDITOR .roaster/profiles/thermonuclear-stack.md
-roaster stack run thermonuclear-stack --dry-run --target-branch feature/impl
-```
-
-The command is no-mutation even when it cannot proceed: with the current real
-CLI adapter, an unwired local agent runner fails closed with an actionable
-message instead of guessing how to run an agent.
-
-Profile files live at `.roaster/profiles/<slug>.md`. They are loose markdown
-guidance for humans and agents: roaster reads the raw text, but it does **not**
-deterministically parse headings, frontmatter, checklists, or other markdown
-structure. Deterministic workflow facts come from CLI flags and checked code.
-
-The default packaged stack prompts are:
-
-- `stack_triage.md` — triages reviewer findings into accepted/rejected/merged
-  findings and resolver batches.
-- `stack_resolver.md` — instructs a resolver agent to work exactly one batch
-  and report validation/safety evidence.
-
-Use `--triage-prompt` and `--resolver-prompt` to pass prompt override guidance
-for those phases. The packaged defaults remain the baseline prompt resources
-when overrides are not supplied.
-
-### Run state and dashboard
-
-Stack run artifacts are stored in Branch Memory namespace `roaster-runs` on the
-implementation branch. Canonical key shapes are:
-
-- `indexes/<impl-branch-slug>/<profile-slug>.md`
-- `runs/<impl-branch-slug>/<profile-slug>/<run-slug>/manifest.md`
-- `runs/<impl-branch-slug>/<profile-slug>/<run-slug>/triage.md`
-- `runs/<impl-branch-slug>/<profile-slug>/<run-slug>/batches/<batch-slug>/resolver.md`
-
-By default, a rerun resumes the latest run recorded for the implementation
-branch/profile pair. Pass `--new-run` to allocate a fresh ordinal run slug, or
-`--run-slug <slug>` for an explicit stable slug.
-
-The run manifest is the durable audit/resume source of truth. In addition to
-run identity and batch slugs, it records per-batch status, generated branch
-names, resolver artifact locators, resolver/failure summaries when known,
-dashboard comment linkage, and generated stack submission success/failure. The
-raw triage and resolver markdown artifacts remain separate Branch Memory entries
-so a later agent can inspect exactly what was accepted and attempted.
-
-The current MVP publishes a persistent dashboard issue comment on the target PR
-and updates that marker comment on reruns. The dashboard is the durable review
-surface for humans. This path does not post inline comments, does not resolve
-review threads, and does not discover or edit generated resolver PR bodies.
-Generated PR marker/body helpers are pure, deferred rendering/parsing utilities;
-they are not wired into production publication until an explicit PR discovery
-and PR body update gateway contract exists.
-
-### Dry run and mutation boundaries
-
-`--dry-run` is safe: it performs planning, runs reviewer/triage collection
-through the configured testable gateways, and reports intended Branch Memory,
-dashboard, and Graphite actions without writing Branch Memory, posting dashboard
-comments, creating branches, or invoking `gt`.
-
-A non-dry-run stack run is explicitly Graphite/`gt`-based. The product path
-requires Graphite, creates or updates generated resolver branches, and runs
-`gt submit --no-interactive` after generated branches are prepared. Explicit
-`--target-branch` runs fail closed unless Graphite can resolve the branch's
-attach tip and `--target-pr` supplies a dashboard PR. Before any generated
-branch mutation, roaster persists run artifacts and publishes the PR dashboard
-so the attempted mutation has an inspectable record.
-
-The real adapter surface is intentionally guarded. The real agent runner fails
-closed until a supported local runner is explicitly wired, and automatic real
-Graphite stack discovery is not implemented; pass explicit `--target-branch`
-and `--target-pr` when exercising the current boundary. Do not treat this as a
-fully autonomous production workflow yet.
-
-Roaster stops instead of mutating further when it sees invalid triage output,
-invalid resolver output/status, validation failures or missing validation
-evidence, resolver safety flags, Branch Memory write failures, dashboard
-publication failures, Graphite command failures, or unavailable required real
-adapters.
-
-Manual smoke guidance:
-
-- `roaster stack run <profile> --dry-run --target-branch <branch>` is the safe
-  smoke test and is appropriate for local validation.
-- Real mutation smoke should only run on disposable Graphite branches/PRs. It
-  is not required by automated tests, and automated tests must not exercise live
-  GitHub or Graphite mutation.
+`roaster` no longer owns multi-branch stack orchestration. Use planning and
+agent workflows outside roaster for multi-branch remediation; roaster remains
+focused on running markdown-defined reviews and harness operations.
 
 ## Project config
 
