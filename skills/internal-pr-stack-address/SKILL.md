@@ -43,8 +43,9 @@ Do not trigger from ordinary single-PR review feedback requests; use
 - Operates on the full current Graphite stack by default.
 - Requires strict open-PR coverage for stack branches; stop on missing PRs
   unless the user explicitly overrides.
-- Creates or reuses a child branch at the stack tip named
-  `<stack-prefix>/address-stack-feedback` by default.
+- Creates or reuses a child branch at the stack tip whose suffix is a
+  meaningful semantic slug derived from the validated stack feedback plan,
+  preserving the stack prefix when present.
 - Does **not** run `gt submit`, `git push`, or `gh pr create` by default.
 - Uses one payload session as the durable stack run record; normal operation
   does not create ad hoc `/tmp` scratch directories.
@@ -247,9 +248,30 @@ provenance. Report the missing helper as a push-down gap.
 
 ### 5. Create or reuse the omnibus branch
 
-Default branch name: `<stack-prefix>/address-stack-feedback`, where
-`<stack-prefix>` is the prefix before `/` from the stack's top branch when
-present. Add a numeric suffix only when needed.
+Derive the branch name after the stack plan validates. Preserve the stack
+prefix from the stack tip branch when present: if the tip branch has a prefix
+before `/`, use `<stack-prefix>/<branch-slug>`. If the tip has no prefix, use
+`<branch-slug>` or the local Graphite stack convention without inventing a fake
+prefix.
+
+Derive `<branch-slug>` from the validated merged stack plan, especially
+`data.batches`, source paths, action summaries, and the dominant feedback theme.
+Do not derive it from the raw user request alone. Use kebab-case, 3-7 specific
+words, and prefer an action/outcome phrase such as
+`fix-payload-session-validation`, `align-resolution-payload-shape`, or
+`tighten-stack-feedback-planning`.
+
+Do not use generic-only slugs like `address-stack-feedback`, `fix-feedback`,
+`address-comments`, `cleanup`, or `misc-fixes`. Do not include dates, random
+IDs, PR numbers, or opaque hashes. If feedback spans several unrelated items,
+prefer the smallest coherent theme represented by the first approved batch, or
+name the common affected workflow/mechanism when the branch truly must cover
+many unrelated fixes. If no meaningful slug can be derived confidently, ask the
+user for the branch slug before creating the branch. Add a numeric suffix only
+when needed.
+
+Before branch creation, show the proposed branch name and let the user override
+it.
 
 Rerun/idempotency policy:
 
