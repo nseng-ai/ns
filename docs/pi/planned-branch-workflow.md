@@ -53,12 +53,7 @@ Resolution goes through the deterministic root CLI operation:
 asdl exec resolve-prompt planned-branch-write-plan --format json
 ```
 
-In `asdl-tools`, this checked-in prompt is an intentional repo-local policy
-override. It customizes future write-plan turns to consider subagent
-orchestration opportunities and to record either useful context-bounded
-work-item waves or an explicit `none` with rationale.
-
-This customization affects only saved-plan content policy in this repository.
+Editing this repo-local prompt customizes future write-plan content policy only.
 The embedded fallback defaults, saved-plan storage mechanics, branch creation,
 and Branch Memory attachment contracts are unchanged.
 
