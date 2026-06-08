@@ -103,7 +103,10 @@ def _validate_local_branch_provenance(
 
     branch_head_oid = git_gateway.branch_head_oid(branch)
     if isinstance(branch_head_oid, GitCommandFailure):
-        branch_head_oid = None
+        Ensure.fail(
+            error_type=branch_head_oid.error_type,
+            message=f"Failed to validate planned provenance local branch {branch}: {branch_head_oid.message}",
+        )
 
     return ResolutionProvenance(
         kind="local_branch",
@@ -122,8 +125,7 @@ def _validate_pr_provenance(
         Ensure.fail(error_type="invalid_request", message=shape_error)
 
     pr_number = provenance_input.pr_number
-    if pr_number is None:
-        Ensure.fail(error_type="invalid_request", message="kind='pr' provenance requires pr_number")
+    assert pr_number is not None, "provenance_shape_error must reject missing pr_number"
 
     pr = pr_gateway.get_pr(pr_number)
     if isinstance(pr, PRLookupMiss):

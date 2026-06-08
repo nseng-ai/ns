@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { isRecord } from "../cmux/primitives.ts";
 
 const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
+const BRANCH_METADATA_REQUIRED_COLUMNS = ["branch_name", "parent_branch_name", "children", "validation_result"] as const;
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",
@@ -241,7 +242,7 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 			currentBranch: input.currentBranch,
 			parent: metadataText(row.parent_branch_name),
 			children: parseGraphiteChildren(row.children),
-			isCurrentTrunk: metadataText(row.validation_result)?.toUpperCase() === "TRUNK",
+			isCurrentTrunk: isGraphiteTrunkValidationResult(row.validation_result),
 		};
 	} catch {
 		return { type: "unavailable", reason: "read-failed", currentBranch: input.currentBranch };
@@ -373,7 +374,13 @@ function hasExpectedBranchMetadataSchema(db: BunSqliteDatabase): boolean {
 		const name = metadataText(row.name);
 		if (name !== undefined) columnNames.add(name);
 	}
-	return ["branch_name", "parent_branch_name", "children", "validation_result"].every((columnName) => columnNames.has(columnName));
+	return BRANCH_METADATA_REQUIRED_COLUMNS.every((columnName) => columnNames.has(columnName));
+}
+
+function isGraphiteTrunkValidationResult(value: unknown): boolean {
+	// Graphite's private metadata DB currently marks the configured trunk with this validation result.
+	// Keep the sentinel isolated so future schema drift is visible through the schema-mismatch path above.
+	return metadataText(value)?.toUpperCase() === "TRUNK";
 }
 
 function parseGraphiteChildren(value: unknown): readonly string[] {

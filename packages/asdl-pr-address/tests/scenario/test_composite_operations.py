@@ -1044,6 +1044,37 @@ def test_resolve_thread_with_reply_planned_rejects_missing_branch_before_mutatio
     assert fake.resolved_thread_ids == ()
 
 
+def test_resolve_thread_with_reply_planned_rejects_branch_head_failure_before_mutation(
+    cli_group: ClinkrGroup,
+) -> None:
+    class FailingBranchHeadGitGateway(FakeGitGateway):
+        def branch_head_oid(self, branch: str) -> str | GitCommandFailure:
+            return GitCommandFailure(message=f"rev-parse failed for {branch}", returncode=128)
+
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        [
+            "resolve-thread-with-reply",
+            "PRRT_plan_bad_head",
+            "planned",
+            "Will be fixed on a branch with an unreadable HEAD.",
+            "",
+            "--provenance-json",
+            json.dumps({"kind": "local_branch", "branch": "reuse-worker"}),
+        ],
+        fake,
+        git_gateway=FailingBranchHeadGitGateway(branches=("reuse-worker",)),
+    )
+
+    assert exit_code == 2
+    assert output["error_type"] == "git_failed"
+    assert "rev-parse failed for reuse-worker" in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
 def test_build_resolve_thread_batch_payload_builds_ready_payload_and_matches_batch_contract(
     cli_group: ClinkrGroup,
 ) -> None:

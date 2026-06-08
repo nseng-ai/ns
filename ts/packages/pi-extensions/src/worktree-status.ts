@@ -16,6 +16,7 @@ import {
 	loadGraphiteMetadataStatusInWorker,
 	shutdownGraphiteMetadataWorker,
 	type GraphiteMetadataStatus,
+	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "./worktree-status/graphite-metadata.ts";
 
@@ -197,6 +198,7 @@ export interface GtStatus {
 export interface GraphiteMetadataLoaderOptions {
 	cwd: string;
 	signal?: AbortSignal;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 export type GraphiteMetadataLoader = (options: GraphiteMetadataLoaderOptions) => Promise<GraphiteMetadataStatus>;
@@ -206,6 +208,7 @@ export interface LoadGtStatusOptions {
 	cwd: string;
 	signal?: AbortSignal;
 	metadataLoader?: GraphiteMetadataLoader;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 export interface WorktreeStatus {
@@ -576,9 +579,10 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 }
 
 export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeStatus> {
-	const loadGtStatusOptions: LoadGtStatusOptions = { pi, cwd };
-	if (signal !== undefined) loadGtStatusOptions.signal = signal;
-	const [brmem, gt] = await Promise.all([loadBrmemStatus(pi, cwd, signal), loadGtStatus(loadGtStatusOptions)]);
+	const [brmem, gt] = await Promise.all([
+		loadBrmemStatus(pi, cwd, signal),
+		loadGtStatus(signal === undefined ? { pi, cwd } : { pi, cwd, signal }),
+	]);
 
 	return { brmem, gt };
 }
@@ -586,8 +590,11 @@ export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: 
 export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
 	const { pi, cwd, signal } = options;
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
-	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = { cwd };
-	if (signal !== undefined) metadataLoaderOptions.signal = signal;
+	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = {
+		cwd,
+		...(signal === undefined ? {} : { signal }),
+		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
+	};
 	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);
 	const up = loadUpBranch(metadata, signal);
@@ -683,8 +690,10 @@ async function loadCurrentGraphiteMetadataStatusAsync(options: GraphiteMetadataL
 	const currentBranch = currentBranchName(gitPaths);
 	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
 
-	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {};
-	if (options.signal !== undefined) workerOptions.signal = options.signal;
+	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
+	};
 	return loadGraphiteMetadataStatusInWorker({ commonGitDir: gitPaths.commonGitDir, currentBranch }, workerOptions);
 }
 
