@@ -11,6 +11,7 @@ import objectiveExtension, {
 	type ExtensionAPI,
 	type NotifyLevel,
 } from "../src/objective.ts";
+import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/cmux/types.ts";
 
 const ROOT = "/repo";
 const TRUNK = "master";
@@ -43,7 +44,7 @@ type CommandInfo = ReturnType<ExtensionAPI["getCommands"]>[number];
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: { cwd?: string; timeout?: number } | undefined;
+	options: ExecOptions | undefined;
 }
 
 interface ScriptedExec {
@@ -63,6 +64,10 @@ interface Selection {
 	items: string[];
 }
 
+type EventName = "agent_end" | "session_start";
+type AgentEndHandler = (_event: unknown, ctx: AgentEndContext) => Promise<void> | void;
+type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promise<void> | void;
+
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
@@ -71,17 +76,27 @@ class FakePi implements ExtensionAPI {
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedExec[];
 	private readonly commandInfos: ReturnType<ExtensionAPI["getCommands"]>;
+	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> = {
+		agent_end: [],
+		session_start: [],
+	};
 
 	constructor(script: ScriptedExec[] = [], commandInfos: ReturnType<ExtensionAPI["getCommands"]> = []) {
 		this.script = [...script];
 		this.commandInfos = [...commandInfos];
 	}
 
+	on(event: "agent_end", handler: AgentEndHandler): void;
+	on(event: "session_start", handler: SessionStartHandler): void;
+	on(event: EventName, handler: AgentEndHandler | SessionStartHandler): void {
+		this.eventHandlers[event].push(handler);
+	}
+
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const expected = this.script.shift();
 		if (!expected) {
@@ -113,6 +128,12 @@ class FakePi implements ExtensionAPI {
 
 	sendUserMessage(content: string): void {
 		this.sentUserMessages.push(content);
+	}
+
+	async emitSessionStart(ctx: SessionStartContext): Promise<void> {
+		for (const handler of this.eventHandlers.session_start) {
+			await (handler as SessionStartHandler)({}, ctx);
+		}
 	}
 
 	assertDone(): void {
@@ -318,6 +339,20 @@ function expectPromptSelectsObjective(
 }
 
 function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
+	return objectiveListFromRecords(
+		slugs.map((slug, index) => ({
+			slug,
+			status: "open",
+			latestUpdateIso: `2026-01-0${index + 1}T00:00:00Z`,
+		})),
+		trunkBranch,
+	);
+}
+
+function objectiveListFromRecords(
+	records: Array<{ slug: string; status: string; latestUpdateIso: string | null }>,
+	trunkBranch: string = TRUNK,
+): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
@@ -325,10 +360,10 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 			root_path: ".asdl/objectives",
 			status_filter: "active",
 			names_only: false,
-			records: slugs.map((slug, index) => ({
-				slug,
-				status: "open",
-				latest_update_iso: `2026-01-0${index + 1}T00:00:00Z`,
+			records: records.map((record) => ({
+				slug: record.slug,
+				status: record.status,
+				latest_update_iso: record.latestUpdateIso,
 			})),
 		},
 	});
@@ -336,6 +371,21 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 
 function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
 	return step("objective", ["list", "--minimal", "--format", "json"], { stdout: objectiveList(slugs, trunkBranch) });
+}
+
+function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: string }>): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			records,
+		},
+	});
+}
+
+function candidateStep(slugs: string[]): ScriptedExec {
+	return step("objective", ["exec", "list-candidates", "--format", "json"], {
+		stdout: objectiveCandidatesFromRecords(slugs.map((slug) => ({ slug, status: "open" }))),
+	});
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
@@ -354,6 +404,23 @@ function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedE
 
 function completionValues(prefix: string): string[] {
 	return completeObjectiveListArgs(prefix)?.map((item) => item.value) ?? [];
+}
+
+async function objectiveCommandCompletions(
+	commandName: ObjectiveCommandName,
+	prefix: string,
+	script: ScriptedExec[],
+): Promise<{ pi: FakePi; items: Awaited<ReturnType<NonNullable<RegisteredCommand["getArgumentCompletions"]>>> }> {
+	const pi = new FakePi(script);
+	objectiveExtension(pi);
+	await pi.emitSessionStart(createContext().ctx);
+	const command = pi.commands.get(commandName);
+	expect(command?.getArgumentCompletions).toBeFunction();
+	if (!command?.getArgumentCompletions) {
+		throw new Error(`${commandName} did not register argument completions`);
+	}
+	const items = await command.getArgumentCompletions(prefix);
+	return { pi, items };
 }
 
 function expectInvalidObjectiveListArgs(result: ReturnType<typeof parseObjectiveListArgs>, pattern: RegExp): void {
@@ -888,6 +955,85 @@ describe("objective picker suggestion", () => {
 });
 
 describe("objective command shared selection policy", () => {
+	test("slug picker commands register an argument hint and completer", () => {
+		const pi = new FakePi();
+
+		objectiveExtension(pi);
+
+		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
+			const command = pi.commands.get(commandName);
+			expect(command?.argumentHint).toBe("[objective-slug-or-path]");
+			expect(command?.getArgumentCompletions).toBeFunction();
+		}
+	});
+
+	test("objective:next completions return fast active Objective slug candidates", async () => {
+		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
+			step("objective", ["exec", "list-candidates", "--format", "json"], {
+				stdout: objectiveCandidatesFromRecords([
+					{ slug: "alpha", status: "open" },
+					{ slug: "bravo", status: "open" },
+				]),
+			}),
+		]);
+
+		pi.assertDone();
+		expect(pi.execCalls[0]).toEqual({
+			command: "objective",
+			args: ["exec", "list-candidates", "--format", "json"],
+			options: { cwd: ROOT, timeout: 30_000 },
+		});
+		expect(items).toEqual([
+			{ value: "alpha", label: "alpha", description: "open" },
+			{ value: "bravo", label: "bravo", description: "open" },
+		]);
+	});
+
+	test("slug completions filter by prefix and use the fresh cache", async () => {
+		const pi = new FakePi([candidateStep(["alpha", "bravo"])]);
+		objectiveExtension(pi);
+		await pi.emitSessionStart(createContext().ctx);
+		const command = pi.commands.get("objective:next");
+
+		const allItems = await command?.getArgumentCompletions?.("");
+		const filteredItems = await command?.getArgumentCompletions?.("br");
+
+		pi.assertDone();
+		expect(allItems?.map((item) => item.value)).toEqual(["alpha", "bravo"]);
+		expect(filteredItems?.map((item) => item.value)).toEqual(["bravo"]);
+		expect(pi.execCalls).toHaveLength(1);
+	});
+
+	test("slug completions reject unsupported multi-arg input without loading candidates", async () => {
+		const { pi, items } = await objectiveCommandCompletions("objective:next", "alpha bravo", []);
+
+		pi.assertDone();
+		expect(items).toBeNull();
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("slug completions fail quietly for candidate command failures", async () => {
+		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
+			step("objective", ["exec", "list-candidates", "--format", "json"], { code: 1, stderr: "failed" }),
+		]);
+
+		pi.assertDone();
+		expect(items).toBeNull();
+		expect(pi.sentMessages).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+	});
+
+	test("slug completions fail quietly for malformed objective candidate JSON", async () => {
+		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
+			step("objective", ["exec", "list-candidates", "--format", "json"], { stdout: "{" }),
+		]);
+
+		pi.assertDone();
+		expect(items).toBeNull();
+		expect(pi.sentMessages).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+	});
+
 	test("empty-args picker commands never invoke the removed --current list flag", async () => {
 		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 			const result = await runObjectiveCommand(commandName, "", [listStep([])]);

@@ -395,6 +395,7 @@ def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: objective exec" in result.output
     assert "Commands for use by objective skills." in result.output
+    assert "list-candidates" in result.output
     assert "runner-subagent-usage" in result.output
     assert "read-objective" in result.output
 
@@ -403,6 +404,58 @@ def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: objective exec read-objective" in result.output
     assert "Read one Objective record by explicit slug" in result.output
+
+
+def test_objective_exec_list_candidates_returns_active_slug_status_only(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "alpha")
+    _write_objective(root, "bravo", closed=True)
+    _write_objective(root, "charlie")
+    git = FakeGitGateway(repo_root=tmp_path, branches=("master",), trunk_branch="master")
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "list-candidates", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload == {
+        "exit_code": 0,
+        "data": {
+            "records": [
+                {"slug": "alpha", "status": "open"},
+                {"slug": "charlie", "status": "open"},
+            ],
+        },
+    }
+    assert all(set(record) == {"slug", "status"} for record in payload["data"]["records"])
+    assert git.path_last_touched_calls == ()
+    assert git.has_uncommitted_changes_under_calls == ()
+
+
+def test_objective_exec_list_candidates_unavailable_context_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "list-candidates", "--format", "json"],
+        obj=build_clinkr_context_object(
+            lambda: ObjectiveCliUnavailable("Not inside a git repository.")
+        ),
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.output) == {
+        "exit_code": 2,
+        "error_type": "not_in_repo",
+        "message": "Not inside a git repository.",
+    }
 
 
 def test_objective_exec_runner_subagent_usage_json(

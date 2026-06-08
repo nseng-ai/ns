@@ -1,17 +1,21 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
+import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
-import type { AutocompleteItem, CommandContext, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
+import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
-export type { CommandContext, NotifyLevel } from "./cmux/types.ts";
+export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
 export type { ExecResult } from "./command-runtime.ts";
-export type ExtensionAPI = Pick<CmuxExtensionAPI, "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
+export type ExtensionAPI = Pick<CmuxExtensionAPI, "on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
+const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
+const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = ["exec", "list-candidates", "--format", "json"] as const;
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--minimal] [--status all|active|open|closed] [--help]
 
@@ -82,6 +86,15 @@ interface CustomCliMessageDetails {
 	stdoutChars?: number;
 	stderrChars?: number;
 }
+
+interface ObjectiveCandidateRecord {
+	slug: string;
+	status: string;
+}
+
+type ObjectiveCandidatesParseResult =
+	| { type: "valid"; records: ObjectiveCandidateRecord[] }
+	| { type: "invalid"; message: string };
 
 interface CustomCliCommandSpec {
 	commandName: string;
@@ -308,6 +321,138 @@ function matchingCompletions(candidates: readonly string[], currentToken: string
 	return filtered.length > 0 ? filtered.map((value) => ({ value, label: value })) : null;
 }
 
+function createObjectiveCommandCompleter(pi: ExtensionAPI): (prefix: string) => Promise<AutocompleteItem[] | null> {
+	let cachedCwd: string | undefined;
+	let cachedItems: AutocompleteItem[] | null | undefined;
+	let cacheLoadedAtMs = 0;
+	let inFlightLoad: Promise<AutocompleteItem[] | null> | undefined;
+
+	pi.on("session_start", (_event, ctx) => {
+		cachedCwd = ctx.cwd;
+		cachedItems = undefined;
+		cacheLoadedAtMs = 0;
+		inFlightLoad = undefined;
+	});
+
+	async function getObjectiveCompletionItems(): Promise<AutocompleteItem[] | null> {
+		const now = Date.now();
+		if (cachedItems !== undefined && now - cacheLoadedAtMs <= OBJECTIVE_COMPLETION_CACHE_TTL_MS) {
+			return cachedItems;
+		}
+
+		if (inFlightLoad !== undefined) {
+			return inFlightLoad;
+		}
+
+		const loadPromise = loadObjectiveCompletionItems(pi, cachedCwd).then((items) => {
+			cachedItems = items;
+			cacheLoadedAtMs = Date.now();
+			return items;
+		});
+		inFlightLoad = loadPromise.finally(() => {
+			inFlightLoad = undefined;
+		});
+		return inFlightLoad;
+	}
+
+	return async (prefix) => {
+		const query = prefix.trim();
+		if (/\s/.test(query)) {
+			return null;
+		}
+
+		const items = await getObjectiveCompletionItems();
+		if (items === null) {
+			return null;
+		}
+
+		const filtered = items.filter((item) => item.value.startsWith(query));
+		return filtered.length > 0 ? filtered : null;
+	};
+}
+
+async function loadObjectiveCompletionItems(
+	pi: ExtensionAPI,
+	cwd: string | undefined,
+): Promise<AutocompleteItem[] | null> {
+	let result: ExecResult;
+	try {
+		result = await pi.exec("objective", [...ACTIVE_OBJECTIVE_CANDIDATES_ARGS], objectiveCompletionExecOptions(cwd));
+	} catch {
+		// Autocomplete is keystroke-triggered; startup failures should quietly remove suggestions.
+		return null;
+	}
+
+	if (result.code !== 0 || result.killed) {
+		return null;
+	}
+
+	const parsed = parseObjectiveCandidates(result.stdout);
+	if (parsed.type === "invalid") {
+		return null;
+	}
+
+	return parsed.records.map(objectiveCompletionItem);
+}
+
+function objectiveCompletionExecOptions(cwd: string | undefined): ExecOptions {
+	if (cwd === undefined) {
+		return { timeout: OBJECTIVE_LIST_TIMEOUT_MS };
+	}
+	return { cwd, timeout: OBJECTIVE_LIST_TIMEOUT_MS };
+}
+
+function objectiveCompletionItem(record: ObjectiveCandidateRecord): AutocompleteItem {
+	if (record.status === "") {
+		return { value: record.slug, label: record.slug };
+	}
+	return { value: record.slug, label: record.slug, description: record.status };
+}
+
+function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResult {
+	const envelope = parseMachineEnvelopeData(stdout, { label: "objective candidates JSON" });
+	if (envelope.type === "invalid") {
+		return { type: "invalid", message: envelope.message };
+	}
+
+	const records = envelope.data.records;
+	if (!Array.isArray(records)) {
+		return { type: "invalid", message: "Invalid objective candidates JSON: expected records." };
+	}
+
+	const parsedRecords: ObjectiveCandidateRecord[] = [];
+	for (let index = 0; index < records.length; index += 1) {
+		const parsedRecord = parseObjectiveCandidateRecord(records[index], index);
+		if (parsedRecord.type === "invalid") {
+			return parsedRecord;
+		}
+		parsedRecords.push(parsedRecord.record);
+	}
+
+	return { type: "valid", records: parsedRecords };
+}
+
+function parseObjectiveCandidateRecord(
+	value: unknown,
+	index: number,
+): { type: "valid"; record: ObjectiveCandidateRecord } | { type: "invalid"; message: string } {
+	if (!isRecord(value)) {
+		return { type: "invalid", message: `Invalid Objective candidate at index ${index}: expected an object.` };
+	}
+
+	const slug = value.slug;
+	const status = value.status;
+	if (typeof slug !== "string" || typeof status !== "string") {
+		return { type: "invalid", message: `Invalid Objective candidate at index ${index}: expected slug and status.` };
+	}
+
+	return { type: "valid", record: { slug, status } };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const OBJECTIVE_LIST_SPEC: CustomCliCommandSpec = {
 	commandName: OBJECTIVE_LIST_COMMAND_NAME,
 	messageType: OBJECTIVE_LIST_MESSAGE_TYPE,
@@ -471,6 +616,8 @@ function presentCustomCliMessage(
 }
 
 export default function objectiveExtension(pi: ExtensionAPI): void {
+	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
+
 	for (const { spec, description } of CUSTOM_CLI_COMMANDS) {
 		pi.registerCommand(spec.commandName, {
 			description,
@@ -482,6 +629,8 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 	for (const spec of OBJECTIVE_COMMANDS) {
 		pi.registerCommand(spec.commandName, {
 			description: spec.description,
+			argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
+			getArgumentCompletions: objectiveCommandCompleter,
 			handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
 		});
 	}
