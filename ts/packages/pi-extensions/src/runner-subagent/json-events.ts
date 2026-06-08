@@ -1,4 +1,3 @@
-import type { ThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
 import {
@@ -7,6 +6,7 @@ import {
 	toolInputPreviewFromEvent,
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
+import { isThinkingLevel } from "./guards.ts";
 
 export interface RunnerSubagentJsonEventParserOptions {
 	title?: string;
@@ -456,10 +456,6 @@ function chunkToString(chunk: string | Uint8Array): string {
 
 function isJsonEvent(value: unknown): value is JsonEvent {
 	return isRecord(value) && typeof value.type === "string";
-}
-
-function isThinkingLevel(value: unknown): value is ThinkingLevel {
-	return value === "off" || value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh";
 }
 
 function cloneLaunchMetadata(launch: RunnerSubagentLaunchMetadata | undefined): RunnerSubagentLaunchMetadata | undefined {
