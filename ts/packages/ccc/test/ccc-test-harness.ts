@@ -398,19 +398,15 @@ export async function makeTempDir(): Promise<string> {
 	return dir;
 }
 
-async function writeSkillMarkdownFile(content: string): Promise<string> {
+export async function writeSelfContainedSkillMarkdown(content: string): Promise<string> {
 	const dir = await makeTempDir();
 	const path = join(dir, "SKILL.md");
 	await writeFile(path, content, "utf8");
 	return path;
 }
 
-export async function writeSelfContainedSkillMarkdown(markdown: string): Promise<string> {
-	return writeSkillMarkdownFile(markdown);
-}
-
 export async function writeTempSkillMarkdown(skillName: string, body: string): Promise<string> {
-	return writeSkillMarkdownFile(`---\nname: ${skillName}\n---\n${body}\n`);
+	return writeSelfContainedSkillMarkdown(`---\nname: ${skillName}\n---\n${body}\n`);
 }
 
 export async function writeTempSkill(body: string): Promise<string> {
