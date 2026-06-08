@@ -40,6 +40,48 @@ import {
 
 afterEach(resetCmuxTestEnvironment);
 
+function gptNanoTextArgs(prompt: string): string[] {
+	return [
+		"--provider",
+		"openai",
+		"--model",
+		"gpt-5.4-nano",
+		"--thinking",
+		"low",
+		"--no-session",
+		"--no-extensions",
+		"--no-skills",
+		"--no-prompt-templates",
+		"--no-context-files",
+		"--no-tools",
+		"--mode",
+		"text",
+		"--print",
+		prompt,
+	];
+}
+
+function dispatchPromptSlugPrompt(prompt: string): string {
+	return [
+		"Generate a concise git branch slug for this work item.",
+		"The content is a user task prompt that will run in a new branch workspace.",
+		"Infer the actual code/product change or outcome. Do not name the document, prompt, plan, context, storage workflow, or how this work item was initiated.",
+		"Ignore metadata and provenance such as saved-plan filenames, source labels, suggested slugs, objective-next output, branch-create handoff text, and brmem storage details.",
+		"If a command name appears only because it generated or initiated the plan, do not include it. Include command/product names only when the proposed work directly changes that command/product.",
+		"Rules:",
+		"- Return only the slug, with no quotes, markdown, or explanation.",
+		"- Use kebab-case: lowercase ASCII words separated by hyphens.",
+		"- Keep it at or under 50 characters.",
+		"- Lead with a verb when natural, such as add-, fix-, refactor-, migrate-, rename-, remove-, or update-.",
+		"- Do not use spaces, underscores, slashes, punctuation, or special characters.",
+		"- Do not include generic suffixes like -plan, -prompt, -context, -branch, -task, or -suggestion unless they are the real feature name.",
+		"- Prefer concrete deliverables and specific nouns from the work item over broad words like changes, cleanup, or improvements.",
+		"",
+		"Content:",
+		prompt,
+	].join("\n");
+}
+
 describe("CCC cmux command suite", () => {
 	test("registers the project CCC command suite", () => {
 		const pi = new FakePi();
@@ -316,11 +358,10 @@ describe("CCC cmux command suite", () => {
 	test("ccc:workspace:dispatch-prompt opens cmux without sidebar summary", async () => {
 		const promptDir = await makeTempDir();
 		const pi = new FakePi({
-			shouldRequireExpectedArgs: false,
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				step("pi", undefined, { stdout: `${BRANCH}\n` }),
+				step("pi", gptNanoTextArgs(dispatchPromptSlugPrompt("Implement the cmux dispatch flow")), { stdout: `${BRANCH}\n` }),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),

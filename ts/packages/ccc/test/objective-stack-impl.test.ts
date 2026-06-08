@@ -12,7 +12,7 @@ import {
 	type Notification,
 	type ScriptedExec,
 	type Selection,
-	writeTempSkillMarkdown,
+	writeSelfContainedSkillMarkdown,
 } from "./ccc-test-harness.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 
@@ -33,7 +33,7 @@ Use the selected Objective.
 let stackSkillPath = "";
 
 beforeAll(async () => {
-	stackSkillPath = await writeTempSkillMarkdown("objective-stack-impl", STACK_SKILL_MARKDOWN);
+	stackSkillPath = await writeSelfContainedSkillMarkdown(STACK_SKILL_MARKDOWN);
 });
 
 afterAll(async () => {

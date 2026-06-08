@@ -259,7 +259,7 @@ export interface RunScriptedExecResult {
 }
 
 export function runScriptedExec(options: RunScriptedExecOptions): RunScriptedExecResult {
-	const { expected, command, args, shouldRequireExpectedArgs = false } = options;
+	const { expected, command, args, shouldRequireExpectedArgs = true } = options;
 	if (!expected) {
 		const message = `unexpected exec: ${command} ${args.join(" ")}`;
 		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
@@ -397,12 +397,19 @@ export async function makeTempDir(): Promise<string> {
 	return dir;
 }
 
-export async function writeTempSkillMarkdown(skillName: string, markdown: string): Promise<string> {
+async function writeSkillMarkdownFile(content: string): Promise<string> {
 	const dir = await makeTempDir();
 	const path = join(dir, "SKILL.md");
-	const content = markdown.startsWith("---") ? markdown : `---\nname: ${skillName}\n---\n${markdown}\n`;
 	await writeFile(path, content, "utf8");
 	return path;
+}
+
+export async function writeSelfContainedSkillMarkdown(markdown: string): Promise<string> {
+	return writeSkillMarkdownFile(markdown);
+}
+
+export async function writeTempSkillMarkdown(skillName: string, body: string): Promise<string> {
+	return writeSkillMarkdownFile(`---\nname: ${skillName}\n---\n${body}\n`);
 }
 
 export async function writeTempSkill(body: string): Promise<string> {

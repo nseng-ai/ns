@@ -127,12 +127,6 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	},
 ];
 
-function objectivePostSelectionReminder(spec: ObjectiveCommandSpec): string {
-	return spec.skillName === "objective-update"
-		? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
-		: "";
-}
-
 async function invokeObjectiveSkill(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
@@ -156,7 +150,9 @@ async function invokeObjectiveSkill(
 			spec,
 			skillBlock: skill?.block,
 			objective,
-			postSelectionReminder: objectivePostSelectionReminder(spec),
+			postSelectionReminder: spec.skillName === "objective-update"
+				? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
+				: "",
 		}),
 	);
 }
