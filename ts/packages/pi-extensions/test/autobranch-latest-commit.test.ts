@@ -118,6 +118,7 @@ interface TransactionHarnessOptions {
 	shouldRestoreFail?: boolean;
 	verifyHead?: string;
 	existingBranches?: Set<string>;
+	upstreamMode?: UpstreamMode;
 }
 
 function createTransactionHarness(options: TransactionHarnessOptions = {}) {
@@ -125,6 +126,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	let currentBranch = "feature/base";
 	let head = "abc123def456";
 	const existingBranches = options.existingBranches ?? new Set<string>();
+	const upstreamMode = options.upstreamMode ?? "ahead";
 	const input: LatestCommitTransactionInput = {
 		cwd: "/repo",
 		plan: basePlan(),
@@ -134,6 +136,18 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		},
 		exec: async (command, args) => {
 			events.push(`exec:${command} ${args.join(" ")}`);
+			if (command === "git" && args[0] === "rev-parse" && args.at(-1) === "@{u}") {
+				if (upstreamMode === "none") {
+					return fail("fatal: no upstream configured for branch 'feature/base'", 128);
+				}
+				if (upstreamMode === "failed") {
+					return fail("bad upstream state", 128);
+				}
+				return ok("origin/feature/base\n");
+			}
+			if (command === "git" && args[0] === "merge-base") {
+				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+			}
 			if (command === "git" && args[0] === "check-ref-format") {
 				return ok();
 			}
@@ -264,6 +278,24 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 });
 
 describe("runLatestCommitAutobranchTransaction", () => {
+	test("rechecks upstream before mutation", async () => {
+		const pushed = createTransactionHarness({ upstreamMode: "contains" });
+
+		const pushedResult = await runLatestCommitAutobranchTransaction(pushed.input);
+
+		expect(pushedResult).toEqual({ ok: false, kind: "pushed_head_refusal", upstream: "origin/feature/base" });
+		expect(eventIndex(pushed.events, "exec:git branch autobranch-backup/")).toBe(-1);
+		expect(eventIndex(pushed.events, "exec:git reset --hard")).toBe(-1);
+		expect(eventIndex(pushed.events, "exec:gt create")).toBe(-1);
+
+		const failed = createTransactionHarness({ upstreamMode: "failed" });
+
+		const failedResult = await runLatestCommitAutobranchTransaction(failed.input);
+
+		expect(failedResult).toEqual({ ok: false, kind: "transaction_upstream_check_failed", error: "exit 128: bad upstream state" });
+		expect(eventIndex(failed.events, "exec:git branch autobranch-backup/")).toBe(-1);
+	});
+
 	test("backup branch name exhaustion fails before mutation", async () => {
 		const harness = createTransactionHarness({ existingBranches: occupiedBackupBranches() });
 

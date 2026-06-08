@@ -71,6 +71,8 @@ export type LatestCommitTransactionResult =
 	| { ok: false; kind: "source_reset_failed"; backupBranch: string; error: string }
 	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: true }
 	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: false; restoreError: string }
+	| { ok: false; kind: "transaction_upstream_check_failed"; error: string }
+	| { ok: false; kind: "pushed_head_refusal"; upstream: string }
 	| ({ ok: false; kind: "branch_reset_failed"; backupBranch: string; branchName: string; resetError: string } & CreatedBranchRecovery)
 	| ({ ok: false; kind: "head_verify_failed"; backupBranch: string; branchName: string; actualHead: string } & CreatedBranchRecovery);
 
@@ -152,6 +154,14 @@ export interface LatestCommitTransactionInput {
 }
 
 export async function runLatestCommitAutobranchTransaction(input: LatestCommitTransactionInput): Promise<LatestCommitTransactionResult> {
+	const upstream = await inspectUpstreamHeadState(input);
+	if (upstream.type === "failed") {
+		return { ok: false, kind: "transaction_upstream_check_failed", error: upstream.error };
+	}
+	if (upstream.type === "upstream_contains_head") {
+		return { ok: false, kind: "pushed_head_refusal", upstream: upstream.upstream };
+	}
+
 	const backupBranch = await chooseAvailableBackupBranchName(input, input.plan.sourceBranch, input.now?.() ?? Date.now());
 	if (!backupBranch.ok) {
 		return { ok: false, kind: "backup_branch_name_unavailable", sourceBranch: input.plan.sourceBranch };
@@ -277,11 +287,13 @@ async function loadLatestCommitFacts(
 		return { ok: false, kind: "merge_commit_refusal", headSha, parentCount: parentShas.length };
 	}
 
-	const message = await input.exec("git", ["log", "-1", "--format=%B"], input.cwd, GIT_TIMEOUT_MS);
+	const [message, diff] = await Promise.all([
+		input.exec("git", ["log", "-1", "--format=%B"], input.cwd, GIT_TIMEOUT_MS),
+		input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], input.cwd, GIT_TIMEOUT_MS),
+	]);
 	if (message.code !== 0) {
 		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(message) };
 	}
-	const diff = await input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], input.cwd, GIT_TIMEOUT_MS);
 	if (diff.code !== 0) {
 		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(diff) };
 	}
@@ -498,6 +510,10 @@ function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransa
 				result.createError,
 				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
 			].join("\n");
+		case "transaction_upstream_check_failed":
+			return `Could not re-check whether HEAD is already in the current branch upstream before moving the latest commit.\n${result.error}`;
+		case "pushed_head_refusal":
+			return `Refusing to move latest commit because upstream ${result.upstream} now contains HEAD.`;
 		case "branch_reset_failed":
 			return [
 				`Created Graphite branch ${result.branchName}, but failed to move it to the original commit.`,
