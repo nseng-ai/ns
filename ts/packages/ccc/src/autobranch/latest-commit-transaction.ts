@@ -1,10 +1,10 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 
-import { branchNameCandidates, findAvailableBranchName } from "./autobranch-branch-name.ts";
-import { formatCommandDetails, withStatus } from "./autobranch-shared.ts";
-import { inspectUpstreamHeadState } from "./autobranch-upstream.ts";
-import { normalizeBranchSlugText } from "./branch-slug.ts";
-import type { LatestCommitAutobranchPlan } from "./autobranch-latest-commit-preparation.ts";
+import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
+import { formatCommandDetails, withStatus } from "./shared.ts";
+import { inspectUpstreamHeadState } from "./upstream.ts";
+import { normalizeBranchSlugText } from "@asdl/pi-extension-runtime/branch-slug";
+import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 const GT_TIMEOUT_MS = 120_000;
@@ -111,7 +111,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 			kind: "head_verify_failed",
 			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
-			actualHead: actualHead || formatCommandDetails(verified),
+			actualHead: actualHead.length > 0 ? actualHead : formatCommandDetails(verified),
 			...recovery,
 		};
 	}
@@ -129,7 +129,7 @@ async function resetSourceBranchToParent(input: LatestCommitTransactionInput): P
 		return { ok: false, error: formatCommandDetails(currentBranch) };
 	}
 	if (currentBranch.stdout.trim() !== input.plan.sourceBranch) {
-		return { ok: false, error: `Expected to be on ${input.plan.sourceBranch}, but current branch is ${currentBranch.stdout.trim() || "(detached)"}.` };
+		return { ok: false, error: `Expected to be on ${input.plan.sourceBranch}, but current branch is ${currentBranch.stdout.trim().length > 0 ? currentBranch.stdout.trim() : "(detached)"}.` };
 	}
 
 	const currentHead = await input.exec("git", ["rev-parse", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
@@ -152,8 +152,8 @@ async function recoverFromSourceResetFailure(input: LatestCommitTransactionInput
 		input.exec("git", ["branch", "--show-current"], input.cwd, GIT_TIMEOUT_MS),
 		input.exec("git", ["rev-parse", "HEAD"], input.cwd, GIT_TIMEOUT_MS),
 	]);
-	const sourceUnchanged = currentBranch.code === 0 && currentHead.code === 0 && currentBranch.stdout.trim() === input.plan.sourceBranch && currentHead.stdout.trim() === input.plan.originalHeadSha;
-	if (sourceUnchanged) {
+	const isSourceUnchanged = currentBranch.code === 0 && currentHead.code === 0 && currentBranch.stdout.trim() === input.plan.sourceBranch && currentHead.stdout.trim() === input.plan.originalHeadSha;
+	if (isSourceUnchanged) {
 		const deleted = await input.exec("git", ["branch", "-D", backupBranch], input.cwd, GIT_TIMEOUT_MS);
 		if (deleted.code === 0) {
 			return { backupCleanup: "deleted" };
@@ -199,12 +199,12 @@ async function restoreSourceAndDeleteCreatedBranch(input: LatestCommitTransactio
 }
 
 async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInput, sourceBranch: string, timestamp: number): Promise<{ ok: true; name: string } | { ok: false }> {
-	const sanitizedSource =
-		sourceBranch
-			.split("/")
-			.map((segment) => sanitizeBackupBranchSegment(segment))
-			.filter((segment) => segment.length > 0)
-			.join("/") || "branch";
+	const normalizedSource = sourceBranch
+		.split("/")
+		.map((segment) => sanitizeBackupBranchSegment(segment))
+		.filter((segment) => segment.length > 0)
+		.join("/");
+	const sanitizedSource = normalizedSource.length > 0 ? normalizedSource : "branch";
 	const base = `autobranch-backup/${sanitizedSource}/${timestamp}`;
 	const available = await findAvailableBranchName(input, branchNameCandidates((_, suffix) => `${base}${suffix}`));
 	if (!available) {

@@ -1,11 +1,11 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
-import { formatLatestCommitPreparationFailure, formatLatestCommitTransactionFailure } from "./autobranch-latest-commit-formatting.ts";
-import { prepareLatestCommitAutobranchPlan } from "./autobranch-latest-commit-preparation.ts";
-import { runLatestCommitAutobranchTransaction } from "./autobranch-latest-commit-transaction.ts";
-import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
-import { shortSha } from "./land-stack/command-exec.ts";
+import { formatLatestCommitPreparationFailure, formatLatestCommitTransactionFailure } from "./latest-commit-formatting.ts";
+import { prepareLatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
+import { runLatestCommitAutobranchTransaction } from "./latest-commit-transaction.ts";
+import type { ParsedAutobranchArgs } from "./preparation.ts";
+import { shortSha } from "./short-sha.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 
@@ -41,16 +41,16 @@ export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobr
 	}
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
-	const clean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
+	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
 	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
 	const lines = [
 		`New branch: ${prepared.plan.branchName}${suffix}`,
 		`Moved commit: ${transaction.commitSummary}`,
 		`Source branch ${prepared.plan.sourceBranch} reset to ${shortSha(prepared.plan.parentSha)}.`,
-		clean ? "Working directory is clean." : "Warning: working directory is not clean after latest-commit autobranch.",
+		isClean ? "Working directory is clean." : "Warning: working directory is not clean after latest-commit autobranch.",
 	];
 	if (!transaction.backupDeleted) {
 		lines.push(`Warning: recovery branch ${transaction.backupBranch} could not be deleted: ${transaction.backupDeleteError}`);
 	}
-	input.notify(lines.join("\n"), clean && transaction.backupDeleted ? "success" : "warning");
+	input.notify(lines.join("\n"), isClean && transaction.backupDeleted ? "success" : "warning");
 }

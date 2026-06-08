@@ -41,13 +41,13 @@
   - Evidence: handoff-tab launch and planned-branch up-and-impl launch orchestration now live in `@asdl/ccc`; public `handoff-tab`, `handoff_tab_launch`, `/planned-branch:write-plan`, `/planned-branch:create`, `/planned-branch:up-and-impl`, and `/planned-branch:impl` surfaces stayed stable; lower packages still do not import CCC; and validation passed with `bun test --cwd ts/packages/ccc --sequential`, `bun test --cwd ts/packages/pi-extensions --sequential`, `bun run --cwd ts check`, `bun run --cwd ts test`, `just dprint-check`, and `git diff --check`.
   - Evidence: Objective stack implementation orchestration now lives in `@asdl/ccc/objective-stack-impl`; `@asdl/pi-extensions` preserves public `/objective:stack-impl` registration and delegates to CCC; Objective active-selection mechanics live in neutral `@asdl/pi-extension-runtime/objective-selection` and are shared by `/objective:next`, `/objective:current`, `/objective:update`, and `/objective:stack-impl`; validation passed with `bun test --cwd ts/packages/pi-extension-runtime --sequential`, `bun test --cwd ts/packages/ccc --sequential`, `bun test --cwd ts/packages/pi-extensions --sequential`, `bun run --cwd ts check`, and import-direction checks.
 
-- [ ] Move repo source-control command/control workflows into CCC.
-  - Move `/code:autobranch` and its preparation/transaction modules into CCC because it encodes dirty-worktree-to-Graphite-branch-to-checkpoint policy.
+- [~] Move repo source-control command/control workflows into CCC.
+  - Moved `/code:autobranch` and its preparation/transaction modules into CCC because it encodes dirty-worktree-to-Graphite-branch-to-checkpoint policy; `@asdl/pi-extensions` now delegates the public code-command adapter to `@asdl/ccc/autobranch`.
   - Move `/code:land` and `/code:land-stack` orchestration into CCC because they encode repository Graphite/GitHub/slot landing policy.
   - Keep `asdl-dev` command runners, pending-worktree snapshots, checkpoint primitives, Vercel preview lookup, and lower gateways outside CCC.
   - Decide whether `/code:submit` remains a pure `asdl-dev` mirror or receives a CCC wrapper only for command-suite placement.
   - Policy: direct execution after preview; external PR submission or landing remains out of scope unless explicitly confirmed.
-  - Evidence: autobranch and landing tests pass after the move; `asdl-dev` tests still pass and do not import CCC.
+  - Evidence: autobranch behavior tests now live under CCC and focused CCC/pi-extension test suites pass; landing tests and source-control landing orchestration remain follow-ups; `asdl-dev` remains a lower dependency and must not import CCC.
 
 - [ ] Split workspace status so CCC observability is explicit but generic Pi footer plumbing stays reusable.
   - Split `worktree-status.ts` into operational facts/presentation that belong with CCC and generic Pi status/footer/session lifecycle pieces that do not.

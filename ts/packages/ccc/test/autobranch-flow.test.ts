@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
-import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch-flow.ts";
+import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch/flow.ts";
 import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
@@ -9,13 +9,13 @@ interface HarnessOptions {
 	piResult?: CommandResult;
 	prepareResult?: { ok: true; message: string } | { ok: false; error: string };
 	commitResult?: { summary: string } | { error: string };
-	stashPushFails?: boolean;
-	stashListFails?: boolean;
-	stashRefMissing?: boolean;
+	shouldStashPushFail?: boolean;
+	shouldStashListFail?: boolean;
+	isStashRefMissing?: boolean;
 	shouldGtCreateFail?: boolean;
-	stashPopFails?: boolean;
-	detachedHead?: boolean;
-	cleanWorktree?: boolean;
+	shouldStashPopFail?: boolean;
+	isDetachedHead?: boolean;
+	isCleanWorktree?: boolean;
 	upstreamMode?: UpstreamMode;
 }
 
@@ -57,11 +57,11 @@ function createHarness(options: HarnessOptions = {}) {
 				return upstreamMode === "ahead" ? { code: 1, stdout: "", stderr: "" } : ok();
 			}
 			if (command === "git" && args[0] === "symbolic-ref") {
-				return options.detachedHead ? fail("not a symbolic ref") : ok("base-branch\n");
+				return options.isDetachedHead ? fail("not a symbolic ref") : ok("base-branch\n");
 			}
 			if (command === "git" && args[0] === "status") {
 				statusCalls += 1;
-				return ok(statusCalls === 1 ? (options.cleanWorktree ? "" : " M file.ts\n") : "");
+				return ok(statusCalls === 1 ? (options.isCleanWorktree ? "" : " M file.ts\n") : "");
 			}
 			if (command === "git" && args[0] === "diff" && args[1] === "HEAD^") {
 				return ok("diff --git a/file.ts b/file.ts\n+committed\n");
@@ -116,16 +116,16 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
-				return options.stashPushFails ? fail("stash push failed") : ok("Saved working directory\n");
+				return options.shouldStashPushFail ? fail("stash push failed") : ok("Saved working directory\n");
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "list") {
-				if (options.stashListFails) {
+				if (options.shouldStashListFail) {
 					return fail("stash list failed");
 				}
-				return options.stashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
+				return options.isStashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
-				return options.stashPopFails ? fail("stash conflict") : ok("restored\n");
+				return options.shouldStashPopFail ? fail("stash conflict") : ok("restored\n");
 			}
 			if (command === "gt" && args[0] === "trunk") {
 				return ok("master\n");
@@ -171,7 +171,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("clean worktree extracts the latest commit instead of preparing a checkpoint", async () => {
-		const harness = createHarness({ cleanWorktree: true, upstreamMode: "none" });
+		const harness = createHarness({ isCleanWorktree: true, upstreamMode: "none" });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
@@ -185,7 +185,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("detached HEAD reports the autobranch-specific checkout guidance", async () => {
-		const harness = createHarness({ detachedHead: true });
+		const harness = createHarness({ isDetachedHead: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
@@ -267,7 +267,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("stash push failure stops before Graphite branch creation", async () => {
-		const harness = createHarness({ stashPushFails: true });
+		const harness = createHarness({ shouldStashPushFail: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
@@ -282,7 +282,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("missing stash ref stops before Graphite branch creation", async () => {
-		const harness = createHarness({ stashRefMissing: true });
+		const harness = createHarness({ isStashRefMissing: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
@@ -309,7 +309,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("Graphite creation failure plus stash restoration failure reports both problems", async () => {
-		const harness = createHarness({ shouldGtCreateFail: true, stashPopFails: true });
+		const harness = createHarness({ shouldGtCreateFail: true, shouldStashPopFail: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
@@ -326,7 +326,7 @@ describe("createAutobranchCheckpointFlow", () => {
 	});
 
 	test("stash restoration failure after branch creation stops before commit", async () => {
-		const harness = createHarness({ stashPopFails: true });
+		const harness = createHarness({ shouldStashPopFail: true });
 
 		await createAutobranchCheckpointFlow(harness.input);
 

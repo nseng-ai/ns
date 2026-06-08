@@ -5,15 +5,15 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "asdl-dev/src/pending-worktree.ts";
-import { createLatestCommitAutobranchFlow } from "./autobranch-latest-commit.ts";
+import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
 import {
 	prepareAutobranchPlan,
 	type FileStat,
 	type AutobranchPreparationResult,
 	type AutobranchPreparationWarning,
 	type ParsedAutobranchArgs,
-} from "./autobranch-preparation.ts";
-import { runAutobranchTransaction, type AutobranchTransactionResult } from "./autobranch-transaction.ts";
+} from "./preparation.ts";
+import { runAutobranchTransaction, type AutobranchTransactionResult } from "./transaction.ts";
 
 export const AUTOBRANCH_COMMAND_NAME = "code:autobranch";
 const GIT_TIMEOUT_MS = 30_000;
@@ -112,7 +112,7 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 	}
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
-	const clean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
+	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
 	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
 
 	input.notify(
@@ -120,9 +120,9 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 			`New branch: ${prepared.plan.branchName}${suffix}`,
 			`Stacked on: ${snapshot.branch}`,
 			`Commit: ${transaction.commitSummary}`,
-			clean ? "Working directory is clean." : "Warning: working directory is not clean after checkpoint.",
+			isClean ? "Working directory is clean." : "Warning: working directory is not clean after checkpoint.",
 		].join("\n"),
-		clean ? "success" : "warning",
+		isClean ? "success" : "warning",
 	);
 }
 

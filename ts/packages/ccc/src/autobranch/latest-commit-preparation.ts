@@ -1,12 +1,12 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
-import { chooseAvailableBranchName } from "./autobranch-branch-name.ts";
-import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./autobranch-slug.ts";
-import { formatCommandDetails } from "./autobranch-shared.ts";
-import { inspectUpstreamHeadState } from "./autobranch-upstream.ts";
-import type { ParsedAutobranchArgs } from "./autobranch-preparation.ts";
-import { shortSha } from "./land-stack/command-exec.ts";
+import { chooseAvailableBranchName } from "./branch-name.ts";
+import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./slug.ts";
+import { formatCommandDetails } from "./shared.ts";
+import { inspectUpstreamHeadState } from "./upstream.ts";
+import type { ParsedAutobranchArgs } from "./preparation.ts";
+import { shortSha } from "./short-sha.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 const GT_TIMEOUT_MS = 120_000;

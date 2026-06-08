@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
-import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch-preparation.ts";
-import { MAX_BRANCH_SLUG_LENGTH } from "../src/branch-slug.ts";
-import { buildSlugModelArgs } from "../src/model-slug.ts";
+import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch/preparation.ts";
+import { MAX_BRANCH_SLUG_LENGTH } from "@asdl/pi-extension-runtime/branch-slug";
+import { buildSlugModelArgs } from "../src/autobranch/model-slug.ts";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface ExecCall {
@@ -19,7 +19,7 @@ interface HarnessOptions {
 	existingBranches?: Set<string>;
 	invalidBranches?: Set<string>;
 	untrackedFiles?: Record<string, string | Uint8Array>;
-	untrackedListFails?: boolean;
+	shouldUntrackedListFail?: boolean;
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -48,7 +48,7 @@ function createHarness(options: HarnessOptions = {}) {
 			calls.push({ command, args });
 			events.push(`exec:${command} ${args.join(" ")}`);
 			if (command === "git" && args[0] === "ls-files") {
-				return options.untrackedListFails ? fail("ls-files failed") : ok(Object.keys(untrackedFiles).join("\0"));
+				return options.shouldUntrackedListFail ? fail("ls-files failed") : ok(Object.keys(untrackedFiles).join("\0"));
 			}
 			if (command === "pi") {
 				return options.piResult ?? ok("model generated branch\n");
