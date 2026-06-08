@@ -30,7 +30,7 @@ def test_render_objective_list_markdown_table_has_checkout_local_columns(
     assert "max slice commits" not in output.lower()
 
 
-def test_render_objective_list_markdown_updated_branches_column_is_opt_in(
+def test_render_objective_list_markdown_updated_branches_column_when_included(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     render_objective_list_markdown(

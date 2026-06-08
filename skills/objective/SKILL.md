@@ -102,7 +102,7 @@ Roadmap rows represent semantic Objective work: deliverables, decisions, de-risk
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.asdl/objectives/`) and ask the user to choose. Use `objective list --names` only for machine-readable active-slug extraction.
+2. If no slug or path is explicit, run `objective list --minimal --format md` to enumerate active checkout-local Objectives (`open` records in `.asdl/objectives/`) and ask the user to choose. Use `objective list --names` only for machine-readable active-slug extraction.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one active Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple active Objectives exist, ask instead.
@@ -113,7 +113,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Repository status
 
-Use `objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.asdl/objectives/`. Archived records under `.asdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The default list command has no branch projection, current-branch mode, detail view, or third active status. Use `objective list --branches` only when you need an explicit local-branch update summary for the already-listed checkout-local Objectives; do not treat those branch names as Objective selection. Use `objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
+Use `objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.asdl/objectives/`, with local branch attribution included. Archived records under `.asdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The default list command has local branch attribution, but no Graphite branch projection, current-branch mode, detail view, or third active status. Do not treat listed branch names as Objective selection. Use `objective list --minimal` when you need the compact Objective/status/latest-update view without branch attribution. Use `objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
 
 ## Tracking Gate
 

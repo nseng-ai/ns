@@ -13,11 +13,11 @@ const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
 
-const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--status all|active|open|closed] [--help]
+const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--minimal] [--status all|active|open|closed] [--help]
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
+const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--minimal", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
@@ -211,7 +211,7 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListArgsParseR
 			help = true;
 			continue;
 		}
-		if (token === "--names") {
+		if (token === "--names" || token === "--minimal") {
 			args.push(token);
 			continue;
 		}

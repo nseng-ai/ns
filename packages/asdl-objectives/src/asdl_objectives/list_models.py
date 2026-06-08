@@ -31,13 +31,13 @@ class ObjectiveListRequest(ClinkrModel):
             help="Filter Objective records by checkout-local status.",
         ),
     ] = "active"
-    updated_branches: Annotated[
+    minimal: Annotated[
         bool,
         click.Option(
-            ["--branches"],
+            ["--minimal"],
             is_flag=True,
             default=False,
-            help="Include local branches with committed updates to listed Objectives.",
+            help="Hide local branch attribution and show the compact Objective list.",
         ),
     ] = False
 

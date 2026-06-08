@@ -29,7 +29,7 @@ The parent agent owns planning, slice selection, subagent prompt construction, s
 2. If no Objective is explicit, do not infer it from branch name, changed files, package names, PR titles, or keyword matches. Run:
 
    ```bash
-   objective list --format md
+   objective list --minimal --format md
    ```
 
    Show the open candidates and ask the user to choose before doing implementation work.

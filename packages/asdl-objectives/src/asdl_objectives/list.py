@@ -43,15 +43,6 @@ def run_list_objectives(
     ctx: click.Context,
     request: ObjectiveListRequest,
 ) -> ClinkrExit[ObjectiveListResult]:
-    if request.names and request.updated_branches:
-        return ClinkrExit.failure(
-            error_type="incompatible_options",
-            message=(
-                "--branches cannot be combined with --names because --names emits "
-                "Objective slugs only."
-            ),
-        )
-
     objective_ctx = load_objective_context(ctx)
     if isinstance(objective_ctx, ObjectiveCliUnavailable):
         return ClinkrExit.failure(error_type="not_in_repo", message=objective_ctx.message)
@@ -60,7 +51,7 @@ def run_list_objectives(
         objective_ctx,
         status_filter=request.status,
         names_only=request.names,
-        include_updated_branches=request.updated_branches,
+        include_updated_branches=not request.names and not request.minimal,
     )
     if isinstance(result, GitCommandFailure):
         return ClinkrExit.failure(error_type=result.error_type, message=result.message)
@@ -72,7 +63,7 @@ def build_objective_list_result(
     *,
     status_filter: ObjectiveStatusFilter = "active",
     names_only: bool = False,
-    include_updated_branches: bool = False,
+    include_updated_branches: bool = True,
 ) -> ObjectiveListResult:
     result = _build_objective_list_result_or_failure(
         ctx,
@@ -90,7 +81,7 @@ def _build_objective_list_result_or_failure(
     *,
     status_filter: ObjectiveStatusFilter = "active",
     names_only: bool = False,
-    include_updated_branches: bool = False,
+    include_updated_branches: bool = True,
 ) -> ObjectiveListResult | GitCommandFailure:
     inventory = build_objective_checkout_inventory(ctx.repo_root)
     filtered_records = tuple(
@@ -99,8 +90,9 @@ def _build_objective_list_result_or_failure(
         if matches_status_filter(record.status, status_filter)
     )
     slugs = tuple(record.slug for record in filtered_records)
+    include_branch_attribution = include_updated_branches and not names_only
     updated_branches_by_slug: dict[str, tuple[str, ...]] = {}
-    if include_updated_branches and slugs:
+    if include_branch_attribution and slugs:
         updated_branches_result = _build_updated_branches_by_slug(ctx, frozenset(slugs))
         if isinstance(updated_branches_result, GitCommandFailure):
             return updated_branches_result
@@ -113,7 +105,7 @@ def _build_objective_list_result_or_failure(
             record.status,
             updated_branches=updated_branches_by_slug.get(record.slug, ()),
         )
-        if include_updated_branches
+        if include_branch_attribution
         else _build_objective_list_record(ctx, record.slug, record.status)
         for record in filtered_records
     )
@@ -122,7 +114,7 @@ def _build_objective_list_result_or_failure(
         root_path=ACTIVE_OBJECTIVE_ROOT.as_posix(),
         status_filter=status_filter,
         names_only=names_only,
-        updated_branches_included=include_updated_branches,
+        updated_branches_included=include_branch_attribution,
         records=records,
     )
 

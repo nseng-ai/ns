@@ -27,7 +27,11 @@ def test_build_objective_list_result_reports_checkout_records_and_head_touches(
     )
     ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
 
-    result = build_objective_list_result(ctx, status_filter="all")
+    result = build_objective_list_result(
+        ctx,
+        status_filter="all",
+        include_updated_branches=False,
+    )
 
     assert result == ObjectiveListResult(
         trunk_branch="master",

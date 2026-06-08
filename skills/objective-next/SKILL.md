@@ -26,7 +26,7 @@ The Objective slug directory is durable identity. Command/product/prose renames 
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
 2. If the selected path is under `.asdl/objective-archive/`, stop and ask whether to unarchive before recommending next work.
-3. If no slug or path is explicit, run `objective list --format md` to enumerate active checkout-local open candidates and ask the user to choose.
+3. If no slug or path is explicit, run `objective list --minimal --format md` to enumerate active checkout-local open candidates and ask the user to choose.
 4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.

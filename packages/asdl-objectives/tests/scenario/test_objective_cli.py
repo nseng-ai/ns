@@ -59,7 +59,8 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
     assert "List Objective records in the current checkout" in result.output
     assert "--names" in result.output
     assert "--status" in result.output
-    assert "--branches" in result.output
+    assert "--minimal" in result.output
+    assert "--branches" not in result.output
     assert "--updated-branches" not in result.output
     assert "--current" not in result.output
     assert "--view" not in result.output
@@ -89,6 +90,7 @@ def test_objective_list_empty_result(cli_group: ClinkrGroup, tmp_path: Path) -> 
             "root_path": ".asdl/objectives",
             "status_filter": "active",
             "names_only": False,
+            "updated_branches_included": True,
             "records": [],
         },
     }
@@ -128,14 +130,24 @@ def test_objective_list_open_and_closed_records_from_current_filesystem(
     assert closed_result.exit_code == 0, closed_result.output
     assert all_result.exit_code == 0, all_result.output
     assert json.loads(default_result.output)["data"]["records"] == [
-        {"slug": "open-one", "status": "open", "latest_update_iso": None}
+        {"slug": "open-one", "status": "open", "latest_update_iso": None, "updated_branches": []}
     ]
     assert json.loads(closed_result.output)["data"]["records"] == [
-        {"slug": "closed-one", "status": "closed", "latest_update_iso": None}
+        {
+            "slug": "closed-one",
+            "status": "closed",
+            "latest_update_iso": None,
+            "updated_branches": [],
+        }
     ]
     assert json.loads(all_result.output)["data"]["records"] == [
-        {"slug": "closed-one", "status": "closed", "latest_update_iso": None},
-        {"slug": "open-one", "status": "open", "latest_update_iso": None},
+        {
+            "slug": "closed-one",
+            "status": "closed",
+            "latest_update_iso": None,
+            "updated_branches": [],
+        },
+        {"slug": "open-one", "status": "open", "latest_update_iso": None, "updated_branches": []},
     ]
 
 
@@ -150,7 +162,7 @@ def test_objective_list_includes_untracked_objective_directory(
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["data"]["records"] == [
-        {"slug": "new-one", "status": "open", "latest_update_iso": None}
+        {"slug": "new-one", "status": "open", "latest_update_iso": None, "updated_branches": []}
     ]
 
 
@@ -206,9 +218,9 @@ def test_objective_list_latest_committed_update_from_head(
         },
     )
 
-    result = _invoke_list_json(cli_group, ctx, status="all")
-    human = _invoke_list_human(cli_group, ctx, status="all")
-    markdown = _invoke_list_md(cli_group, ctx, status="all")
+    result = _invoke_list_json(cli_group, ctx, minimal=True, status="all")
+    human = _invoke_list_human(cli_group, ctx, minimal=True, status="all")
+    markdown = _invoke_list_md(cli_group, ctx, minimal=True, status="all")
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["data"]["records"] == [
@@ -237,7 +249,7 @@ def test_objective_list_dirty_record_json_contract_unchanged(
         uncommitted_changes_by_cwd_path={(tmp_path, ".asdl/objectives/alpha"): True},
     )
 
-    result = _invoke_list_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx, minimal=True)
 
     assert result.exit_code == 0, result.output
     records = json.loads(result.output)["data"]["records"]
@@ -255,8 +267,8 @@ def test_objective_list_dirty_record_human_and_markdown_show_marker(
         uncommitted_changes_by_cwd_path={(tmp_path, ".asdl/objectives/alpha"): True},
     )
 
-    human = _invoke_list_human(cli_group, ctx)
-    markdown = _invoke_list_md(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx, minimal=True)
+    markdown = _invoke_list_md(cli_group, ctx, minimal=True)
 
     assert human.exit_code == 0, human.output
     assert markdown.exit_code == 0, markdown.output
@@ -309,6 +321,11 @@ def test_objective_list_removed_options_and_status_reject(
     in_flight = _invoke_list_json(cli_group, ctx, status="in-flight")
     current = _invoke_list_json(cli_group, ctx, current=True)
     detail_view = _invoke_list_json(cli_group, ctx, view="detail")
+    branches = CliRunner().invoke(
+        cli_group,
+        ["list", "--branches", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
 
     assert in_flight.exit_code != 0
     assert "Invalid value for '--status'" in in_flight.output
@@ -317,6 +334,8 @@ def test_objective_list_removed_options_and_status_reject(
     assert "No such option: --current" in current.output
     assert detail_view.exit_code != 0
     assert "No such option: --view" in detail_view.output
+    assert branches.exit_code != 0
+    assert "No such option: --branches" in branches.output
 
 
 def test_objective_list_names_outputs_filtered_slugs_only(
@@ -379,13 +398,13 @@ def test_objective_list_updated_branches_json_human_and_markdown(
         },
     )
 
-    default_result = _invoke_list_json(cli_group, ctx, status="all")
-    result = _invoke_list_json(cli_group, ctx, updated_branches=True, status="all")
-    human = _invoke_list_human(cli_group, ctx, updated_branches=True, status="all")
-    markdown = _invoke_list_md(cli_group, ctx, updated_branches=True, status="all")
+    minimal_result = _invoke_list_json(cli_group, ctx, minimal=True, status="all")
+    result = _invoke_list_json(cli_group, ctx, status="all")
+    human = _invoke_list_human(cli_group, ctx, status="all")
+    markdown = _invoke_list_md(cli_group, ctx, status="all")
 
-    assert default_result.exit_code == 0, default_result.output
-    default_data = json.loads(default_result.output)["data"]
+    assert minimal_result.exit_code == 0, minimal_result.output
+    default_data = json.loads(minimal_result.output)["data"]
     assert "updated_branches_included" not in default_data
     assert all("updated_branches" not in record for record in default_data["records"])
 
@@ -456,8 +475,8 @@ def test_objective_list_updated_branches_orders_branches_by_latest_tip(
         },
     )
 
-    result = _invoke_list_json(cli_group, ctx, updated_branches=True)
-    human = _invoke_list_human(cli_group, ctx, updated_branches=True, terminal_columns=120)
+    result = _invoke_list_json(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx, terminal_columns=120)
 
     assert result.exit_code == 0, result.output
     records = json.loads(result.output)["data"]["records"]
@@ -496,7 +515,6 @@ def test_objective_list_updated_branches_human_is_compact_at_narrow_width(
     human = _invoke_list_human(
         cli_group,
         ctx,
-        updated_branches=True,
         terminal_columns=80,
     )
 
@@ -515,8 +533,8 @@ def test_objective_list_updated_branches_empty_branch_column(
     _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
     ctx = _list_context(repo_root=tmp_path, branches=("master",))
 
-    result = _invoke_list_json(cli_group, ctx, updated_branches=True)
-    markdown = _invoke_list_md(cli_group, ctx, updated_branches=True)
+    result = _invoke_list_json(cli_group, ctx)
+    markdown = _invoke_list_md(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["data"]["records"] == [
@@ -529,19 +547,6 @@ def test_objective_list_updated_branches_empty_branch_column(
     ]
     assert markdown.exit_code == 0, markdown.output
     assert "| alpha | ○ open | — | — |" in markdown.output
-
-
-def test_objective_list_updated_branches_rejects_names(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-) -> None:
-    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
-    ctx = _list_context(repo_root=tmp_path)
-
-    result = _invoke_list_json(cli_group, ctx, names=True, updated_branches=True)
-
-    assert result.exit_code == 2
-    assert "--branches cannot be combined with --names" in result.output
 
 
 def test_objective_list_updated_branches_surfaces_git_failures(
@@ -561,7 +566,7 @@ def test_objective_list_updated_branches_surfaces_git_failures(
         },
     )
 
-    result = _invoke_list_json(cli_group, ctx, updated_branches=True)
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 2
     assert json.loads(result.output) == {
@@ -1413,7 +1418,7 @@ def _invoke_list_json(
     status: str | None = None,
     current: bool = False,
     names: bool = False,
-    updated_branches: bool = False,
+    minimal: bool = False,
 ) -> Result:
     args = _list_args(
         format_mode="json",
@@ -1421,7 +1426,7 @@ def _invoke_list_json(
         status=status,
         current=current,
         names=names,
-        updated_branches=updated_branches,
+        minimal=minimal,
     )
     return CliRunner().invoke(
         cli_group,
@@ -1438,7 +1443,7 @@ def _invoke_list_human(
     status: str | None = None,
     current: bool = False,
     names: bool = False,
-    updated_branches: bool = False,
+    minimal: bool = False,
     terminal_columns: int | None = None,
 ) -> Result:
     args = _list_args(
@@ -1446,7 +1451,7 @@ def _invoke_list_human(
         status=status,
         current=current,
         names=names,
-        updated_branches=updated_branches,
+        minimal=minimal,
     )
     env = None
     if terminal_columns is not None:
@@ -1467,7 +1472,7 @@ def _invoke_list_md(
     status: str | None = None,
     current: bool = False,
     names: bool = False,
-    updated_branches: bool = False,
+    minimal: bool = False,
 ) -> Result:
     args = _list_args(
         format_mode="md",
@@ -1475,7 +1480,7 @@ def _invoke_list_md(
         status=status,
         current=current,
         names=names,
-        updated_branches=updated_branches,
+        minimal=minimal,
     )
     return CliRunner().invoke(
         cli_group,
@@ -1491,15 +1496,15 @@ def _list_args(
     status: str | None = None,
     current: bool = False,
     names: bool = False,
-    updated_branches: bool = False,
+    minimal: bool = False,
 ) -> list[str]:
     args = ["list"]
     if current:
         args.append("--current")
     if names:
         args.append("--names")
-    if updated_branches:
-        args.append("--branches")
+    if minimal:
+        args.append("--minimal")
     if status is not None:
         args.extend(("--status", status))
     if view is not None:
