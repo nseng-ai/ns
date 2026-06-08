@@ -52,6 +52,14 @@ _Avoid_: Pi registration adapter, Graphite stack landing owner, general GitHub l
 The CCC-owned implementation behind public `/code:land-stack`, coordinating current Graphite stack-path inspection, PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
 _Avoid_: Pi registration adapter, single-PR land command, generic GitHub lifecycle owner, lower Graphite/GitHub gateway.
 
+**Worktree status observability**:
+The CCC-owned operational model and presentation for repository status surfaced through the `worktree-status` Pi renderer: Branch Memory scope summaries, Graphite metadata-derived down/up state, branch-local commit marker, dirty marker, Graphite metadata diagnostics, and PR hyperlink rendering.
+_Avoid_: Pi footer lifecycle, session manager, filesystem watcher scheduling, Branch Memory storage owner, Graphite primitive owner.
+
+**Graphite metadata status**:
+A passive CCC worktree-status fact derived from Graphite's local metadata database to identify the current branch parent, children, and trunk state without shelling out to `gt branch info` for presentation.
+_Avoid_: Graphite command gateway, mutation policy, full stack lifecycle owner.
+
 **Autobranch preparation**:
 The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name and collect facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
 _Avoid_: branch transaction, stash operation, model prompt alone.

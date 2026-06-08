@@ -14,7 +14,8 @@
     "./terminal-presentation": "./src/terminal-presentation.ts",
     "./cmux/pi-launch": "./src/cmux/pi-launch.ts",
     "./cmux/primitives": "./src/cmux/primitives.ts",
-    "./cmux/types": "./src/cmux/types.ts"
+    "./cmux/types": "./src/cmux/types.ts",
+    "./brmem-cli": "./src/brmem-cli.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

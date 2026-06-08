@@ -50,18 +50,18 @@
   - Policy: direct execution after preview; external PR submission or landing remains out of scope unless explicitly confirmed.
   - Evidence: autobranch, land, and land-stack behavior tests now live under CCC and focused CCC/pi-extension test suites pass; `asdl-dev` remains a lower dependency and must not import CCC. The source-control placement decision is settled: CCC owns the three repo-opinionated orchestration flows, while `/code:submit` stays below CCC until a future cross-capability workflow needs orchestration.
 
-- [ ] Split workspace status so CCC observability is explicit but generic Pi footer plumbing stays reusable.
+- [x] Split workspace status so CCC observability is explicit but generic Pi footer plumbing stays reusable.
   - Split `worktree-status.ts` into operational facts/presentation that belong with CCC and generic Pi status/footer/session lifecycle pieces that do not.
   - Keep brmem/Graphite/dirty/PR operational status readable as CCC observability without making Branch Memory or Graphite primitives CCC-owned.
   - Policy: direct execution after preview; prefer split-before-move over wholesale move.
-  - Evidence: worktree-status tests pass; module names make ownership clear.
+  - Evidence: operational worktree-status facts/presentation moved to `@asdl/ccc/worktree-status`; Graphite metadata lookup moved to `@asdl/ccc/worktree-status/graphite-metadata`; neutral Branch Memory command helper moved to `@asdl/pi-extension-runtime/brmem-cli`; `@asdl/pi-extensions` keeps the automatic Pi lifecycle/footer adapter and delegates operational rendering to CCC; focused tests pass for pi-extension-runtime, CCC, and pi-extensions, and `bun run --cwd ts check` passes.
 
-- [ ] Finalize migration evidence and Objective tracking.
+- [x] Finalize migration evidence and Objective tracking.
   - Run relevant TypeScript and Markdown checks.
   - Record a Semantic Update summarizing the implemented slices, validation, import-direction evidence, and any parked follow-ups.
   - Leave PR submission and Objective closure for explicit user inspection/request.
   - Policy: direct execution after preview.
-  - Evidence: `just ts-check`, `just ts-test`, `just dprint-check`, and `git diff --check` pass or unrelated blockers are recorded.
+  - Evidence: new Semantic Update `2026-06-08-split-worktree-status-observability.md` records the split; `bun run --cwd ts check`, `bun run --cwd ts test`, `just dprint-check`, `git diff --check`, and import-direction checks pass.
 
 ## Parked
 
