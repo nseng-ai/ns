@@ -29,6 +29,7 @@ interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
+	postSelectionReminder?: string;
 }
 
 export interface ObjectiveListParsedArgs {
@@ -124,6 +125,7 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		fallbackPrompt:
 			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
 		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
+		postSelectionReminder: "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
 	},
 ];
 
@@ -150,9 +152,7 @@ async function invokeObjectiveSkill(
 			spec,
 			skillBlock: skill?.block,
 			objective,
-			postSelectionReminder: spec.skillName === "objective-update"
-				? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
-				: "",
+			postSelectionReminder: spec.postSelectionReminder,
 		}),
 	);
 }

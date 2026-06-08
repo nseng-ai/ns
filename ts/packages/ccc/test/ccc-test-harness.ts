@@ -61,8 +61,8 @@ export interface FakeCommandContextOptions {
 	model?: ModelInfo;
 	fastModel?: ModelInfo;
 	branchEntries?: unknown[];
-	selectIndices?: number[] | undefined;
-	shouldCancelSelect?: boolean | undefined;
+	selectIndices?: number[];
+	shouldCancelSelect?: boolean;
 }
 
 export class FakePi implements ExtensionAPI {
