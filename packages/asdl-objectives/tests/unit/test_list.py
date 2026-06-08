@@ -5,10 +5,11 @@ from pathlib import Path
 import pytest
 
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import PathChangeTouch, PathTouch
+from asdl_core.git.types import PathTouch
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.list import build_objective_list_result
 from asdl_objectives.list_models import ObjectiveListRecord, ObjectiveListResult
+from asdl_objectives.testing import change_touch
 
 
 def test_build_objective_list_result_reports_checkout_records_and_head_touches(
@@ -181,27 +182,27 @@ def test_build_objective_list_result_updated_branches_uses_branch_first_prefilte
         },
         path_change_touches_by_ref_path={
             ("master..feat/alpha", root_path): (
-                _change_touch(
+                change_touch(
                     "alpha-latest",
                     paths=(
                         ".asdl/objectives/alpha/objective.md",
                         ".asdl/objectives/alpha/updates/again.md",
                     ),
                 ),
-                _change_touch(
+                change_touch(
                     "alpha-older",
                     paths=(".asdl/objectives/alpha/roadmap.md",),
                 ),
             ),
             ("master..feat/beta", root_path): (
-                _change_touch("beta-touch", paths=(".asdl/objectives/beta/objective.md",)),
-                _change_touch(
+                change_touch("beta-touch", paths=(".asdl/objectives/beta/objective.md",)),
+                change_touch(
                     "closed-touch",
                     paths=(".asdl/objectives/closed-one/objective.md",),
                 ),
             ),
             ("master..feat/branch-only", root_path): (
-                _change_touch(
+                change_touch(
                     "branch-only-touch",
                     paths=(".asdl/objectives/branch-only/objective.md",),
                 ),
@@ -247,8 +248,8 @@ def test_build_objective_list_result_updated_branches_honors_status_filter(
         },
         path_change_touches_by_ref_path={
             ("master..feat/mixed", root_path): (
-                _change_touch("alpha-touch", paths=(".asdl/objectives/alpha/objective.md",)),
-                _change_touch(
+                change_touch("alpha-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+                change_touch(
                     "closed-touch",
                     paths=(".asdl/objectives/closed-one/objective.md",),
                 ),
@@ -294,15 +295,6 @@ def test_objective_list_result_json_omits_dirty_state() -> None:
         "latest_update_iso",
         "updated_branches",
     }
-
-
-def _change_touch(
-    oid: str,
-    *,
-    paths: tuple[str, ...],
-    committed_iso: str = "2026-05-20T10:00:00Z",
-) -> PathChangeTouch:
-    return PathChangeTouch(oid=oid, committed_iso=committed_iso, paths=paths)
 
 
 def _objective_dir(repo_root: Path, slug: str, *, closed: bool = False) -> Path:

@@ -15,6 +15,7 @@ from asdl_objectives.context import (
     ObjectiveCliUnavailable,
 )
 from asdl_objectives.main import build_cli
+from asdl_objectives.testing import change_touch
 
 
 @pytest.fixture(scope="module")
@@ -380,17 +381,17 @@ def test_objective_list_updated_branches_json_human_and_markdown(
         },
         path_change_touches_by_ref_path={
             ("master..feat/alpha", root_path): (
-                _change_touch("alpha-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+                change_touch("alpha-touch", paths=(".asdl/objectives/alpha/objective.md",)),
             ),
             ("master..feat/beta", root_path): (
-                _change_touch("beta-touch", paths=(".asdl/objectives/beta/roadmap.md",)),
-                _change_touch(
+                change_touch("beta-touch", paths=(".asdl/objectives/beta/roadmap.md",)),
+                change_touch(
                     "closed-touch",
                     paths=(".asdl/objectives/closed-one/objective.md",),
                 ),
             ),
             ("master..feat/branch-only", root_path): (
-                _change_touch(
+                change_touch(
                     "branch-only-touch",
                     paths=(".asdl/objectives/branch-only/objective.md",),
                 ),
@@ -462,10 +463,10 @@ def test_objective_list_updated_branches_orders_branches_by_latest_tip(
         },
         path_change_touches_by_ref_path={
             ("master..a-older", root_path): (
-                _change_touch("older-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+                change_touch("older-touch", paths=(".asdl/objectives/alpha/objective.md",)),
             ),
             ("master..z-newer", root_path): (
-                _change_touch("newer-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+                change_touch("newer-touch", paths=(".asdl/objectives/alpha/objective.md",)),
             ),
         },
         branch_head_iso_by_branch={
@@ -504,7 +505,7 @@ def test_objective_list_updated_branches_human_is_compact_at_narrow_width(
         },
         path_change_touches_by_ref_path={
             (f"master..{long_branch}", root_path): (
-                _change_touch(
+                change_touch(
                     "long-touch",
                     paths=(f".asdl/objectives/{long_slug}/objective.md",),
                 ),
@@ -1280,15 +1281,6 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
 
 def _touch(oid: str, committed_iso: str) -> PathTouch:
     return PathTouch(oid=oid, committed_iso=committed_iso)
-
-
-def _change_touch(
-    oid: str,
-    *,
-    paths: tuple[str, ...],
-    committed_iso: str = "2026-05-20T10:00:00Z",
-) -> PathChangeTouch:
-    return PathChangeTouch(oid=oid, committed_iso=committed_iso, paths=paths)
 
 
 def _assert_no_branch_projection_fields(data: dict[str, object]) -> None:
