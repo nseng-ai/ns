@@ -14,7 +14,7 @@ prompt_file=$(mktemp "${TMPDIR:-/tmp}/planned-branch-impl.XXXXXX.md")
 planned-branch exec load-plan [key-or-slug] --prompt-file "$prompt_file" --format json
 ```
 
-Reads the current branch by default and selects an attached plan from Branch Memory namespace `planned-branch`. The optional argument may be `my-plan` or `my-plan.md`. JSON output is bounded metadata by default and includes `implementation_prompt_file` when `--prompt-file` is passed. Do not use `--include-content` or `--include-prompt` during normal agent operation; those flags can exceed harness stdout limits on large plans.
+Reads the current branch by default and selects an attached plan from Branch Memory namespace `planned-branch`. If the current branch has no attached planned-branch entries and no explicit key was requested, it falls back to the current session's saved plan evidence or the latest `.md` file in the current repo/source-branch local plan store. The optional argument may be `my-plan` or `my-plan.md` and is treated as an attached Branch Memory key selector. JSON output is bounded metadata by default and includes `implementation_prompt_file` when `--prompt-file` is passed. Do not use `--include-content` or `--include-prompt` during normal agent operation; those flags can exceed harness stdout limits on large plans.
 
 ## Workflow
 
@@ -26,6 +26,6 @@ Reads the current branch by default and selects an attached plan from Branch Mem
 
 ## Recovery
 
-- No entry on the current branch: ask whether to switch to the implementation branch or run `planned-branch-create` first.
+- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `planned-branch-create`, switch to the implementation branch, or pass an explicit saved plan to `/planned-branch:create` first.
 - Multiple attached plans: rerun `load-plan <key-or-slug>` with the desired key from the error output.
 - Current branch is trunk/default/detached: stop and ask for the intended implementation branch.

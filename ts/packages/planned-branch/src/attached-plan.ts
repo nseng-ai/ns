@@ -1,15 +1,19 @@
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
 import { RealPlannedBranchBrmemGateway, type AttachedPlanEntry, type PlannedBranchBrmemGateway } from "./brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import type { PlanCommandExecApi } from "./plan-persistence.ts";
+import { resolveSelectedSavedPlanFile } from "./saved-plan-selection.ts";
 
 const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
 
 export type { AttachedPlanEntry } from "./brmem-gateway.ts";
 export { parseBrmemGetContent, parseBrmemListEntries } from "./brmem-gateway.ts";
+
+export type LoadedPlanSource = "attached" | "saved";
 
 export interface LoadedAttachedPlan {
 	branch: string;
@@ -19,6 +23,8 @@ export interface LoadedAttachedPlan {
 	content: string;
 	byteCount: number;
 	availableKeys: string[];
+	source?: LoadedPlanSource;
+	sourceFile?: string;
 }
 
 export interface LoadAttachedPlanParams {
@@ -30,6 +36,55 @@ export interface LoadAttachedPlanOptions {
 	signal?: AbortSignal | undefined;
 	git?: PlannedBranchGitGateway | undefined;
 	brmem?: PlannedBranchBrmemGateway | undefined;
+	planStoreRoot?: string | undefined;
+	sessionEntries?: readonly unknown[] | undefined;
+}
+
+export class NoAttachedPlannedBranchEntriesError extends Error {
+	readonly branch: string;
+
+	constructor(branch: string) {
+		super(
+			[
+				`No planned-branch entries on branch \`${branch}\`.`,
+				"",
+				"Create a saved plan with `planned-branch exec write-plan-file`, attach it with",
+				"`planned-branch exec create`, or provide a branch/key that already has a canonical plan.",
+			].join("\n"),
+		);
+		this.name = "NoAttachedPlannedBranchEntriesError";
+		this.branch = branch;
+	}
+}
+
+export async function loadPlannedBranchPlan(
+	pi: PlanCommandExecApi,
+	params: LoadAttachedPlanParams,
+	options: LoadAttachedPlanOptions,
+): Promise<LoadedAttachedPlan> {
+	try {
+		return await loadAttachedPlan(pi, params, options);
+	} catch (error) {
+		if (!(error instanceof NoAttachedPlannedBranchEntriesError) || params.requestedKey !== undefined) {
+			throw error;
+		}
+
+		try {
+			return await loadSavedPlanFallback(pi, error.branch, options);
+		} catch (fallbackError) {
+			throw new Error(
+				[
+					"Failed to load an attached planned-branch plan and no saved-plan fallback could be loaded.",
+					"",
+					"Attached-plan failure:",
+					error.message,
+					"",
+					"Saved-plan fallback failure:",
+					fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+				].join("\n"),
+			);
+		}
+	}
 }
 
 export async function loadAttachedPlan(
@@ -47,14 +102,7 @@ export async function loadAttachedPlan(
 
 	const entries = list.value;
 	if (entries.length === 0) {
-		throw new Error(
-			[
-				`No planned-branch entries on branch \`${branch}\`.`,
-				"",
-				"Create a saved plan with `planned-branch exec write-plan-file`, attach it with",
-				"`planned-branch exec create`, or provide a branch/key that already has a canonical plan.",
-			].join("\n"),
-		);
+		throw new NoAttachedPlannedBranchEntriesError(branch);
 	}
 
 	const selectionInput = params.requestedKey === undefined ? { branch, entries } : { branch, requestedKey: params.requestedKey, entries };
@@ -75,6 +123,40 @@ export async function loadAttachedPlan(
 		byteCount: new TextEncoder().encode(data.content).length,
 		availableKeys,
 	};
+}
+
+async function loadSavedPlanFallback(
+	pi: PlanCommandExecApi,
+	branch: string,
+	options: LoadAttachedPlanOptions,
+): Promise<LoadedAttachedPlan> {
+	const selected = await resolveSelectedSavedPlanFile(pi, {
+		cwd: options.cwd,
+		git: options.git,
+		planStoreRoot: options.planStoreRoot,
+		sessionEntries: options.sessionEntries,
+		shouldFallbackToLatest: true,
+	});
+	const fileInfo = selectedSavedPlanFileInfo(selected);
+	const content = await readFile(fileInfo.filePath, "utf8");
+	return {
+		branch,
+		namespace: "local-plan-store",
+		selectedKey: fileInfo.fileName,
+		refName: fileInfo.filePath,
+		content,
+		byteCount: new TextEncoder().encode(content).length,
+		availableKeys: [fileInfo.fileName],
+		source: "saved",
+		sourceFile: fileInfo.filePath,
+	};
+}
+
+function selectedSavedPlanFileInfo(selected: Awaited<ReturnType<typeof resolveSelectedSavedPlanFile>>): { filePath: string; fileName: string } {
+	if (selected.type === "explicit") {
+		return { filePath: selected.filePath, fileName: selected.fileName };
+	}
+	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 }
 
 export function normalizeRequestedAttachedPlanKey(requestedKey: string): string {
@@ -136,7 +218,10 @@ export function selectAttachedPlanKey(input: { branch: string; requestedKey?: st
 }
 
 export function buildImplPlannedBranchPrompt(plan: LoadedAttachedPlan): string {
+	const isSavedPlan = plan.source === "saved";
 	return renderTemplate(PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE, {
+		loaded_plan_description: isSavedPlan ? "saved planned-branch plan from the local plan store" : "attached planned-branch plan",
+		plan_label: isSavedPlan ? "SAVED PLAN" : "ATTACHED PLAN",
 		branch: plan.branch,
 		namespace: plan.namespace,
 		selected_key: plan.selectedKey,
@@ -155,8 +240,9 @@ function renderTemplate(template: string, values: Record<string, string>): strin
 }
 
 export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): string {
+	const title = plan.source === "saved" ? "Loaded saved planned-branch plan from local plan store." : "Loaded attached planned-branch plan.";
 	return [
-		"Loaded attached planned-branch plan.",
+		title,
 		`Branch: ${plan.branch}`,
 		`Namespace: ${plan.namespace}`,
 		`Selected key: ${plan.selectedKey}`,

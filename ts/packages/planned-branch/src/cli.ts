@@ -3,7 +3,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 
-import { buildImplPlannedBranchPrompt, loadAttachedPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
+import { buildImplPlannedBranchPrompt, loadPlannedBranchPlan, type LoadedAttachedPlan } from "./attached-plan.ts";
 import { createRealPlannedBranchContext, type PlannedBranchContext } from "./context.ts";
 import {
 	createPlannedBranchFromFile,
@@ -223,7 +223,12 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 	}
 
 	const requestedKey = parsed.value.keyOrSlug;
-	const plan = await loadAttachedPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, { cwd: deps.cwd, git: deps.context.git, brmem: deps.context.brmem });
+	const plan = await loadPlannedBranchPlan(deps.context.commands, requestedKey === undefined ? {} : { requestedKey }, {
+		cwd: deps.cwd,
+		git: deps.context.git,
+		brmem: deps.context.brmem,
+		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+	});
 	const promptFile = parsed.value.promptFile === undefined ? undefined : normalizePlanFilePath(parsed.value.promptFile);
 	if (promptFile !== undefined) {
 		await writeFile(promptFile, buildImplPlannedBranchPrompt(plan), "utf8");
@@ -559,6 +564,8 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 		ref_name: plan.refName,
 		byte_count: plan.byteCount,
 		available_keys: plan.availableKeys,
+		...(plan.source === undefined ? {} : { source: plan.source }),
+		...(plan.sourceFile === undefined ? {} : { source_file: plan.sourceFile }),
 		...(options.promptFile === undefined ? {} : { implementation_prompt_file: options.promptFile }),
 		...(options.attachedPlanContent === undefined ? {} : { attached_plan_content: options.attachedPlanContent }),
 		...(options.implementationPrompt === undefined ? {} : { implementation_prompt: options.implementationPrompt }),
@@ -587,8 +594,9 @@ function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPl
 }
 
 function formatLoadedPlan(plan: LoadedAttachedPlan): string {
+	const title = plan.source === "saved" ? "Loaded saved planned-branch plan from local plan store." : "Loaded attached planned-branch plan.";
 	return [
-		"Loaded attached planned-branch plan.",
+		title,
 		`Branch: ${plan.branch}`,
 		`Namespace: ${plan.namespace}`,
 		`Selected key: ${plan.selectedKey}`,

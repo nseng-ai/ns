@@ -428,6 +428,36 @@ describe("planned-branch exec", () => {
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
 
+	test("load-plan falls back to the latest saved source-branch plan when no plan is attached", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(SOURCE_BRANCH));
+		await mkdir(planDirectory, { recursive: true });
+		const planFile = join(planDirectory, PLAN_KEY);
+		const content = "# Saved Plan\n\n- Implement directly from the saved plan.\n";
+		await writeFile(planFile, content, "utf8");
+		const run = runWithFakes(["exec", "load-plan", "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { implementationBranch: SOURCE_BRANCH, defaultBranch: "main" },
+		});
+
+		expect(await run.exit).toBe(0);
+		run.commands.assertDone();
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			branch: SOURCE_BRANCH,
+			namespace: "local-plan-store",
+			selected_key: PLAN_KEY,
+			ref_name: planFile,
+			byte_count: content.length,
+			source: "saved",
+			source_file: planFile,
+		});
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+	});
+
 	test("load-plan writes the implementation prompt to a file for bounded JSON output", async () => {
 		const repoRoot = await makeTempDir();
 		const promptFile = join(await makeTempDir(), "implementation-prompt.md");

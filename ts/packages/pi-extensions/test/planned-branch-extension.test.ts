@@ -1081,6 +1081,39 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
+	test("planned-branch:impl falls back to the latest saved plan when no plan is attached", async () => {
+		const planStoreRoot = await makeTempDir("impl-source-plan-store-");
+		const directoryPath = planStoreDirectory(planStoreRoot, SOURCE_BRANCH);
+		const planContent = "# Saved Impl Plan\n\n- Implement from the saved plan.\n";
+		const filePath = await writePlanStoreFile(directoryPath, PLAN_KEY, 1_800_000_000_000, planContent);
+		const pi = new FakePi([
+			gitRootStep(),
+			gitSymbolicHeadStep(SOURCE_BRANCH),
+			gitDefaultSymbolicStep(),
+			brmemListStep(SOURCE_BRANCH, { stdout: listEnvelope(SOURCE_BRANCH, []) }),
+			gitRootStep(),
+			gitCurrentBranchStep(SOURCE_BRANCH),
+			gitOriginStep(),
+		]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("planned-branch:impl");
+		const context = createContext();
+
+		await command?.handler("", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.content).toContain("Loaded saved planned-branch plan from local plan store.");
+		expect(pi.sentMessages[0]?.content).toContain(`Selected key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Ref: ${filePath}`);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("The saved planned-branch plan from the local plan store has been loaded");
+		expect(pi.sentUserMessages[0]).toContain(`Namespace: local-plan-store`);
+		expect(pi.sentUserMessages[0]).toContain(`Ref: ${filePath}`);
+		expect(pi.sentUserMessages[0]).toContain(`----- BEGIN SAVED PLAN -----\n${planContent}\n----- END SAVED PLAN -----`);
+		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
+	});
+
 	test("planned-branch:impl presents load failures without sending an implementation prompt", async () => {
 		const pi = new FakePi([gitRootStep(), gitSymbolicHeadStep("main"), gitDefaultSymbolicStep({ stdout: "origin/main\n" })]);
 		registerPlannedBranchExtension(pi);
@@ -1093,7 +1126,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.customType).toBe("planned-branch-output");
-		expect(pi.sentMessages[0]?.content).toContain("Failed to load attached planned-branch plan.");
+		expect(pi.sentMessages[0]?.content).toContain("Failed to load planned-branch plan.");
 		expect(pi.sentMessages[0]?.content).toContain("Refusing to implement directly on trunk (`main`)");
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:impl", value: undefined });

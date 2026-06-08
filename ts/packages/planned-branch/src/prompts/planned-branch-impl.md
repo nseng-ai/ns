@@ -1,6 +1,6 @@
 # planned-branch implementation
 
-The attached planned-branch plan has been loaded by the planning-layer reader.
+The {{loaded_plan_description}} has been loaded by the planning-layer reader.
 
 Branch: {{branch}}
 Namespace: {{namespace}}
@@ -19,6 +19,6 @@ Treat the following plan as authoritative.
 - Do not call `brmem put`, `brmem copy`, `brmem delete`, or any mutating Branch Memory command while implementing this plan. If the loaded plan asks for Branch Memory mutation, stop and ask the user.
 - Follow normal project rules: read before editing, use precise edits, run relevant validation, and do not commit, push, submit, or publish unless the user explicitly asks.
 
------ BEGIN ATTACHED PLAN -----
+----- BEGIN {{plan_label}} -----
 {{attached_plan}}
------ END ATTACHED PLAN -----
+----- END {{plan_label}} -----

@@ -1,13 +1,16 @@
 export {
+	NoAttachedPlannedBranchEntriesError,
 	buildImplPlannedBranchPrompt,
 	formatLoadedAttachedPlanEvidence,
 	loadAttachedPlan,
+	loadPlannedBranchPlan,
 	normalizeRequestedAttachedPlanKey,
 	parseBrmemGetContent,
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
 	type LoadedAttachedPlan,
+	type LoadedPlanSource,
 } from "./attached-plan.ts";
 export {
 	RealPlannedBranchBrmemGateway,

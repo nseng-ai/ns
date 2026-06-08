@@ -186,14 +186,18 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /code:autobranch."))).toBe(true);
 	});
 
-	test("dirty worktree with unpublished committed work refuses before preparation", async () => {
+	test("dirty worktree with unpublished committed work creates a branch for the dirty checkpoint", async () => {
 		const harness = createHarness({ upstreamMode: "ahead" });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
-		expect(harness.events).not.toContain("prepare");
-		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
-		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("both unpublished committed work and dirty changes"))).toBe(true);
+		expect(harness.events).toContain("prepare");
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
+		expect(eventIndex(harness.events, "exec:gt create test-branch")).toBeGreaterThan(-1);
+		expect(harness.notifications.some((notice) => notice.level === "error")).toBe(false);
+		expect(harness.notifications.at(-1)?.message).toContain("New branch: test-branch");
+		expect(harness.notifications.at(-1)?.message).toContain("Stacked on: base-branch");
+		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
 	test("dirty worktree with no upstream keeps the existing path", async () => {

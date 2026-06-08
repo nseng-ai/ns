@@ -80,10 +80,6 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 
 async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<void> {
 	const upstream = await inspectUpstreamHeadState({ cwd: input.cwd, exec: input.exec });
-	if (upstream.type === "head_not_in_upstream") {
-		input.notify(formatDirtyMixedStateRefusal(upstream), "error");
-		return;
-	}
 	if (upstream.type === "failed") {
 		input.notify(formatDirtyUpstreamFailure(upstream), "error");
 		return;
@@ -135,13 +131,6 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		].join("\n"),
 		clean ? "success" : "warning",
 	);
-}
-
-function formatDirtyMixedStateRefusal(upstream: Extract<UpstreamHeadState, { type: "head_not_in_upstream" }>): string {
-	return [
-		`Current branch has both unpublished committed work and dirty changes; upstream ${upstream.upstream} does not contain HEAD.`,
-		"Clean up the dirty worktree, branch the latest commit first, or use the stackify workflow for multi-part local work.",
-	].join("\n");
 }
 
 function formatDirtyUpstreamFailure(upstream: Extract<UpstreamHeadState, { type: "failed" }>): string {
