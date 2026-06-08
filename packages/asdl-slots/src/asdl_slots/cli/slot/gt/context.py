@@ -5,8 +5,8 @@ from dataclasses import dataclass
 import click
 
 from asdl_core.clinkr.context import load_clinkr_context_object
+from asdl_core.gt.construction import build_gt_gateway
 from asdl_core.gt.gateway import GtGateway
-from asdl_core.gt.real_gateway import RealGtGateway
 from asdl_slots.cli.slot.context import build_slots_context
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.repo_context import NoRepoSentinel
@@ -23,7 +23,7 @@ def build_slot_gt_context() -> SlotGtContext | NoRepoSentinel:
         case NoRepoSentinel() as sentinel:
             return sentinel
         case SlotsCliContext() as slots_ctx:
-            return SlotGtContext(slots=slots_ctx, gt=RealGtGateway())
+            return SlotGtContext(slots=slots_ctx, gt=build_gt_gateway())
 
 
 def load_slot_gt_context(ctx: click.Context) -> SlotGtContext | NoRepoSentinel:
@@ -34,7 +34,7 @@ def load_slot_gt_context(ctx: click.Context) -> SlotGtContext | NoRepoSentinel:
         case SlotGtContext() as gt_ctx:
             return gt_ctx
         case SlotsCliContext() as slots_ctx:
-            return SlotGtContext(slots=slots_ctx, gt=RealGtGateway())
+            return SlotGtContext(slots=slots_ctx, gt=build_gt_gateway())
         case _:
             raise RuntimeError(
                 "context_factory returned "
