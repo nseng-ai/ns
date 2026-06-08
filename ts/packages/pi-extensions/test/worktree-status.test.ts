@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -162,7 +162,7 @@ function dirtyStep(stdout = ""): ScriptedExec {
 
 async function loadFormattedStatus(script: ScriptedExec[], root: string): Promise<{ pi: FakePi; formatted: string }> {
 	const pi = new FakePi(script);
-	const status = await loadGtStatus(pi, root);
+	const status = await loadGtStatus({ pi, cwd: root });
 	return { pi, formatted: formatGtStatus(status) };
 }
 
@@ -203,8 +203,7 @@ describe("worktree status extension registration", () => {
 	});
 
 	test("sets brmem and gt footer status on separate lines", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -237,14 +236,11 @@ describe("worktree status extension registration", () => {
 				"[brmem] (planned-branch: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)",
 			);
 			await pi.sessionShutdown?.();
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("renders singular handoff footer scope before rendering gt on the next line", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -281,17 +277,14 @@ describe("worktree status extension registration", () => {
 				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] (↓: main) (↑: -) (commits)",
 			);
 			await pi.sessionShutdown?.();
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("custom footer reads cwd branch from worktree instead of stale footer data", async () => {
-		const root = makeGraphiteRepo("current-branch", [
+		await withTempRoot(makeGraphiteRepo("current-branch", [
 			{ branchName: "main", children: ["current-branch"], validationResult: "TRUNK" },
 			{ branchName: "current-branch", parentBranchName: "main" },
-		]);
-		try {
+		]), async (root) => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -369,14 +362,11 @@ describe("worktree status extension registration", () => {
 			expect(footerLines[0]).toBe(`${root} (current-branch)`);
 			expect(footerLines[0]).not.toContain("stale-branch");
 			await pi.sessionShutdown?.();
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("custom footer renders multiline worktree status as separate footer lines", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -458,9 +448,7 @@ describe("worktree status extension registration", () => {
 				"[gt] (↓: main) (↑: -) (commits)",
 			]);
 			await pi.sessionShutdown?.();
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 });
 
@@ -525,8 +513,7 @@ describe("worktree status formatting", () => {
 
 describe("loadWorktreeStatus", () => {
 	test("returns unavailable brmem status without throwing when the CLI is unavailable", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
 				...basicGitStatusScript(),
@@ -538,14 +525,11 @@ describe("loadWorktreeStatus", () => {
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("unavailable");
 			expect(status.gt).toEqual({ down: "main", up: "-", commits: "yes", dirty: "no" });
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("uses a later brmem candidate after an earlier candidate is unavailable", async () => {
-		const root = makePyprojectRoot();
-		try {
+		await withTempRoot(makePyprojectRoot(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
 				uvBrmemListStep(root, {
@@ -562,14 +546,11 @@ describe("loadWorktreeStatus", () => {
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("(plans: adapter)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("formats base namespace brmem entries from canonical namespace strings", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -590,14 +571,11 @@ describe("loadWorktreeStatus", () => {
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("(base: scratch) (plans: adapter)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("does not normalize legacy handoffs or session-artifact handoff paths", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -623,14 +601,11 @@ describe("loadWorktreeStatus", () => {
 			expect(status.brmem).toBe(
 				"(handoff: resume-resource-audit-session.md) (handoffs: resume-resource-audit-session.md) (session-artifacts: handoffs, logs)",
 			);
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("uses a later brmem candidate after an earlier candidate returns a nonzero envelope", async () => {
-		const root = makePyprojectRoot();
-		try {
+		await withTempRoot(makePyprojectRoot(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }) }),
 				uvBrmemListStep(root, {
@@ -647,14 +622,11 @@ describe("loadWorktreeStatus", () => {
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("(plans: fallback)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("degrades malformed brmem JSON output nonfatally", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ...basicGitStatusScript()]);
 
 			const status = await loadWorktreeStatus(pi, root);
@@ -663,14 +635,11 @@ describe("loadWorktreeStatus", () => {
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("unavailable");
 			expect(status.gt.down).toBe("main");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("ignores malformed brmem entries while formatting valid ones", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({
 					stdout: JSON.stringify({
@@ -694,14 +663,11 @@ describe("loadWorktreeStatus", () => {
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("(plans: adapter)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("treats a non-array brmem entries field as no scopes without throwing", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: "nope" } }) }),
 				...basicGitStatusScript(),
@@ -713,9 +679,7 @@ describe("loadWorktreeStatus", () => {
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBeUndefined();
 			expect(status.gt.down).toBe("main");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 });
 
@@ -734,7 +698,7 @@ describe("loadGtStatus", () => {
 		};
 		const pi = new FakePi([revListStep("main", 3), dirtyStep()]);
 
-		const status = await loadGtStatus(pi, ROOT, undefined, { metadataLoader });
+		const status = await loadGtStatus({ pi, cwd: ROOT, metadataLoader });
 
 		pi.assertDone();
 		expect(formatGtStatus(status)).toBe("[gt] (↓: main) (↑: feature/child) (commits)");
@@ -749,7 +713,7 @@ describe("loadGtStatus", () => {
 		});
 		const pi = new FakePi([dirtyStep()]);
 
-		const status = await loadGtStatus(pi, ROOT, undefined, { metadataLoader });
+		const status = await loadGtStatus({ pi, cwd: ROOT, metadataLoader });
 
 		pi.assertDone();
 		expect(formatGtStatus(status)).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
@@ -757,30 +721,24 @@ describe("loadGtStatus", () => {
 	});
 
 	test("uses Graphite metadata parent and shows the empty icon for zero commits", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 0), dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("uses Graphite metadata parent and shows commits when branch-local commits exist", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 2), dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
 			expect(formatted).not.toContain("∅");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("uses an unknown base when metadata DB is missing", async () => {
@@ -796,44 +754,40 @@ describe("loadGtStatus", () => {
 	});
 
 	test("omits downstack and skips previous-checkout fallback on Graphite trunk", async () => {
-		const root = makeGraphiteRepo("master", [
-			{ branchName: "master", children: ["feature/one", "feature/two"], validationResult: "TRUNK" },
-			{ branchName: "feature/one", parentBranchName: "master" },
-			{ branchName: "feature/two", parentBranchName: "master" },
-		]);
+		await withTempRoot(
+			makeGraphiteRepo("master", [
+				{ branchName: "master", children: ["feature/one", "feature/two"], validationResult: "TRUNK" },
+				{ branchName: "feature/one", parentBranchName: "master" },
+				{ branchName: "feature/two", parentBranchName: "master" },
+			]),
+			async (root) => {
+				const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
 
-		try {
-			const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
-
-			pi.assertDone();
-			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] (↑: <multiple>)");
-			expect(formatted).not.toContain("(↓:");
-			expect(formatted).not.toContain("commits");
-			expect(formatted).not.toContain("∅");
-			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
-			expect(pi.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(false);
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+				pi.assertDone();
+				expectNoGtCalls(pi);
+				expect(formatted).toBe("[gt] (↑: <multiple>)");
+				expect(formatted).not.toContain("(↓:");
+				expect(formatted).not.toContain("commits");
+				expect(formatted).not.toContain("∅");
+				expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
+				expect(pi.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(false);
+			},
+		);
 	});
 
 	test("formats multiple metadata children as multiple upstack branches", async () => {
-		const root = makeGraphiteRepo("feature/current", [
+		await withTempRoot(makeGraphiteRepo("feature/current", [
 			{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
 			{ branchName: "feature/current", parentBranchName: "main", children: ["feature/one", "feature/two"] },
 			{ branchName: "feature/one", parentBranchName: "feature/current" },
 			{ branchName: "feature/two", parentBranchName: "feature/current" },
-		]);
-		try {
+		]), async (root) => {
 			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: main) (↑: <multiple>) (commits)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("uses an unknown base when current branch is untracked by metadata", async () => {
@@ -855,51 +809,42 @@ describe("loadGtStatus", () => {
 	});
 
 	test("reads metadata from a linked worktree common git dir", async () => {
-		const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
-		const commonGitDir = join(root, "common.git");
-		const worktreeGitDir = join(root, "worktrees", "feature-current");
-		mkdirSync(commonGitDir, { recursive: true });
-		mkdirSync(worktreeGitDir, { recursive: true });
-		writeFileSync(join(root, ".git"), `gitdir: ${worktreeGitDir}\n`);
-		writeFileSync(join(worktreeGitDir, "HEAD"), "ref: refs/heads/feature/current\n");
-		writeFileSync(join(worktreeGitDir, "commondir"), `${commonGitDir}\n`);
-		writeGraphiteMetadataDb(commonGitDir, standardGraphiteRows());
+		await withTempRoot(mkdtempSync(join(tmpdir(), "worktree-status-")), async (root) => {
+			const commonGitDir = join(root, "common.git");
+			const worktreeGitDir = join(root, "worktrees", "feature-current");
+			mkdirSync(commonGitDir, { recursive: true });
+			mkdirSync(worktreeGitDir, { recursive: true });
+			writeFileSync(join(root, ".git"), `gitdir: ${worktreeGitDir}\n`);
+			writeFileSync(join(worktreeGitDir, "HEAD"), "ref: refs/heads/feature/current\n");
+			writeFileSync(join(worktreeGitDir, "commondir"), `${commonGitDir}\n`);
+			writeGraphiteMetadataDb(commonGitDir, standardGraphiteRows());
 
-		try {
 			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("combines dirty state with empty state", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 0), dirtyStep(" M file.txt\n")], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅ (x)");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("does not load passive PR status from gt branch info", async () => {
-		const root = makeGraphiteRepo();
-		try {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
 			expect(formatted).not.toContain("pr:");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 });
