@@ -5,8 +5,8 @@
 - [x] Inventory current TypeScript tooling entry points and record the contract-relevant facts.
       Focus on package manifests, workspace boundaries, lockfiles, `justfile` targets, TypeScript CLI launch paths, project-local Pi extension loading, docs-site scripts, and any current Bun-only assumptions that affect policy. Evidence should distinguish policy-setting facts from implementation chores for later child Objectives.
 
-- [ ] Decide the Node baseline and TypeScript execution/build policy.
-      Choose the Node version expectation and the strategy for running or building TypeScript CLIs and Pi extension modules. Evidence should include a small compatibility probe or concrete source inspection sufficient to justify the selected strategy and its constraints.
+- [x] Decide the Node baseline and TypeScript execution/build policy.
+      Use Node v24.12+ as the TypeScript tooling runtime baseline. Keep project-local TypeScript CLIs and Pi extension modules on native Node type stripping with erasable-only TypeScript source; defer build-to-JavaScript artifacts unless later package-boundary evidence requires them.
 
 - [ ] Decide the pnpm workspace contract for downstream migration.
       Define the intended workspace shape, package-manager boundary, script expectations, and lockfile direction. Leave mechanical manifest, lockfile, and docs-site script edits to the pnpm workspace child Objective unless a minimal probe is needed to validate the decision.
