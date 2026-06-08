@@ -1,17 +1,21 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
+import { parseObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
 import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
-import type { AutocompleteItem, CommandContext, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
+import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
-export type { CommandContext, NotifyLevel } from "./cmux/types.ts";
+export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
 export type { ExecResult } from "./command-runtime.ts";
-export type ExtensionAPI = Pick<CmuxExtensionAPI, "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
+export type ExtensionAPI = Pick<CmuxExtensionAPI, "on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
+const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
+const ACTIVE_OBJECTIVE_LIST_ARGS = ["list", "--minimal", "--format", "json"] as const;
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--minimal] [--status all|active|open|closed] [--help]
 
@@ -30,6 +34,13 @@ interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	fallbackPrompt: string;
 	actionPrompt: string;
 	postSelectionReminder?: string;
+}
+
+interface ObjectiveCompletionCache {
+	cwd: string | undefined;
+	items: AutocompleteItem[] | null | undefined;
+	loadedAtMs: number;
+	inFlight: Promise<AutocompleteItem[] | null> | undefined;
 }
 
 export interface ObjectiveListParsedArgs {
@@ -308,6 +319,107 @@ function matchingCompletions(candidates: readonly string[], currentToken: string
 	return filtered.length > 0 ? filtered.map((value) => ({ value, label: value })) : null;
 }
 
+function createObjectiveCommandCompleter(pi: ExtensionAPI): (prefix: string) => Promise<AutocompleteItem[] | null> {
+	const cache: ObjectiveCompletionCache = {
+		cwd: undefined,
+		items: undefined,
+		loadedAtMs: 0,
+		inFlight: undefined,
+	};
+
+	pi.on("session_start", (_event, ctx) => {
+		cache.cwd = ctx.cwd;
+		cache.items = undefined;
+		cache.loadedAtMs = 0;
+		cache.inFlight = undefined;
+	});
+
+	return async (prefix) => {
+		const query = prefix.trim();
+		if (/\s/.test(query)) {
+			return null;
+		}
+
+		const items = await getObjectiveCompletionItems(pi, cache);
+		if (items === null) {
+			return null;
+		}
+
+		const filtered = items.filter((item) => item.value.startsWith(query));
+		return filtered.length > 0 ? filtered : null;
+	};
+}
+
+async function getObjectiveCompletionItems(
+	pi: ExtensionAPI,
+	cache: ObjectiveCompletionCache,
+): Promise<AutocompleteItem[] | null> {
+	const now = Date.now();
+	if (cache.items !== undefined && now - cache.loadedAtMs <= OBJECTIVE_COMPLETION_CACHE_TTL_MS) {
+		return cache.items;
+	}
+
+	if (cache.inFlight !== undefined) {
+		return cache.inFlight;
+	}
+
+	const loadPromise = loadObjectiveCompletionItems(pi, cache.cwd).then((items) => {
+		cache.items = items;
+		cache.loadedAtMs = Date.now();
+		return items;
+	});
+	cache.inFlight = loadPromise.finally(() => {
+		cache.inFlight = undefined;
+	});
+	return cache.inFlight;
+}
+
+async function loadObjectiveCompletionItems(
+	pi: ExtensionAPI,
+	cwd: string | undefined,
+): Promise<AutocompleteItem[] | null> {
+	let result: ExecResult;
+	try {
+		result = await pi.exec("objective", [...ACTIVE_OBJECTIVE_LIST_ARGS], objectiveCompletionExecOptions(cwd));
+	} catch {
+		// Autocomplete is keystroke-triggered; startup failures should quietly remove suggestions.
+		return null;
+	}
+
+	if (result.code !== 0 || result.killed) {
+		return null;
+	}
+
+	const parsed = parseObjectiveList(result.stdout);
+	if (parsed.type === "invalid") {
+		return null;
+	}
+
+	return parsed.list.records.map(objectiveCompletionItem);
+}
+
+function objectiveCompletionExecOptions(cwd: string | undefined): ExecOptions {
+	if (cwd === undefined) {
+		return { timeout: OBJECTIVE_LIST_TIMEOUT_MS };
+	}
+	return { cwd, timeout: OBJECTIVE_LIST_TIMEOUT_MS };
+}
+
+function objectiveCompletionItem(record: ObjectiveListRecord): AutocompleteItem {
+	const description = objectiveCompletionDescription(record);
+	if (description === undefined) {
+		return { value: record.slug, label: record.slug };
+	}
+	return { value: record.slug, label: record.slug, description };
+}
+
+function objectiveCompletionDescription(record: ObjectiveListRecord): string | undefined {
+	if (record.status && record.latestUpdateIso) {
+		return `${record.status} — latest update ${record.latestUpdateIso}`;
+	}
+	return record.status ? record.status : undefined;
+}
+
 const OBJECTIVE_LIST_SPEC: CustomCliCommandSpec = {
 	commandName: OBJECTIVE_LIST_COMMAND_NAME,
 	messageType: OBJECTIVE_LIST_MESSAGE_TYPE,
@@ -471,6 +583,8 @@ function presentCustomCliMessage(
 }
 
 export default function objectiveExtension(pi: ExtensionAPI): void {
+	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
+
 	for (const { spec, description } of CUSTOM_CLI_COMMANDS) {
 		pi.registerCommand(spec.commandName, {
 			description,
@@ -482,6 +596,8 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 	for (const spec of OBJECTIVE_COMMANDS) {
 		pi.registerCommand(spec.commandName, {
 			description: spec.description,
+			argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
+			getArgumentCompletions: objectiveCommandCompleter,
 			handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
 		});
 	}
