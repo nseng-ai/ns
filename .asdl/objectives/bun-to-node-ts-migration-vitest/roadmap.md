@@ -12,17 +12,19 @@
 
 - [x] Convert package-local test scripts and `bun:test` imports to Vitest.
       Migrate `asdl-dev`, `ccc`, `pi-extension-runtime`, `pi-extensions`, and `planned-branch` package tests without changing production behavior or hiding genuine test-runner semantic differences.
-      Evidence: Semantic Update `20260608T181655Z-low-risk-vitest-package-conversion.md` records that `asdl-dev`, `ccc`, `pi-extension-runtime`, and `planned-branch` package-local scripts and test imports now run through Vitest. Semantic Update `20260608T182139Z-pi-extensions-vitest-conversion.md` records the `pi-extensions` conversion; no active `ts/packages/**` test file imports from `bun:test` after this slice.
+      Evidence: Semantic Update `20260608T181655Z-low-risk-vitest-package-conversion.md` records that `asdl-dev`, `ccc`, `pi-extension-runtime`, and `planned-branch` package-local scripts and test imports now run through Vitest. Semantic Update `20260608T182139Z-pi-extensions-vitest-conversion.md` records the `pi-extensions` conversion. Semantic Updates `20260608T184644Z-post-restack-ts-plans-vitest-conversion.md` and `20260608T184809Z-post-restack-additional-vitest-imports.md` record post-restack conversions for newly surfaced active test files; no active `ts/packages/**` test file imports from `bun:test` after this slice.
 
 - [x] Convert Bun-specific mocking and lifecycle behavior with targeted evidence.
       Give special attention to `ts/packages/pi-extensions/test/changes.test.ts` and any tests relying on module cache state, cleanup timing, temporary files, or shared process state.
       Evidence: Semantic Update `20260608T182139Z-pi-extensions-vitest-conversion.md` records the `@earendil-works/pi-ai` `vi.mock`/`vi.hoisted` replacement, matcher cleanup, and full package/workspace Vitest validation.
 
-- [ ] Remove obsolete Bun test-runner dependencies and update active command documentation.
+- [x] Remove obsolete Bun test-runner dependencies and update active command documentation.
       Remove `@types/bun` or other Bun test-runner-only support when no active runtime need remains, then update `justfile`, CI, package docs, and agent-facing command references that still describe TypeScript tests as Bun-backed.
+      Evidence: Semantic Update `20260608T182547Z-final-vitest-migration-evidence.md` records removal of `@types/bun`, the `bun` tsconfig type entry, `ts/bun.lock`, and the transitional CI Bun setup step, plus updated agent guidance for Vitest-backed TypeScript package tests.
 
-- [ ] Record final Vitest migration evidence and downstream guidance.
+- [x] Record final Vitest migration evidence and downstream guidance.
       Evidence should include representative package-level and workspace-level test commands, any Node baseline caveats, any deliberately retained serial execution, and follow-ups for Node runtime compatibility or Bun-reference reconciliation.
+      Evidence: Semantic Updates `20260608T182547Z-final-vitest-migration-evidence.md`, `20260608T184644Z-post-restack-ts-plans-vitest-conversion.md`, and `20260608T184809Z-post-restack-additional-vitest-imports.md` record package/workspace validation, the local Node baseline warning, deliberately retained serial Vitest execution, post-restack active-test conversions, and intentionally out-of-scope Bun references.
 
 ## Parked
 

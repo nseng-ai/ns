@@ -11,7 +11,7 @@ This child Objective owns the migration from Bun's test API to Vitest for the pn
 This Objective covers the Vitest migration for the TypeScript workspace under `ts/`:
 
 - add Vitest test-runner dependencies and configuration where they belong in the pnpm `ts/` workspace;
-- replace package-local `"test": "bun test --sequential"` scripts with Vitest-backed scripts for `asdl-dev`, `ccc`, `pi-extension-runtime`, `pi-extensions`, and `planned-branch`;
+- replace package-local `"test": "bun test --sequential"` scripts with Vitest-backed scripts for `asdl-dev`, `ccc`, `pi-extension-runtime`, `pi-extensions`, `planned-branch`, and the post-restack `ts-plans` package;
 - convert `bun:test` imports across TypeScript tests to Vitest equivalents while preserving `describe`, `test`, `expect`, lifecycle hooks, and async behavior;
 - convert the known Bun module-mocking case in `ts/packages/pi-extensions/test/changes.test.ts` from `mock.module` to an appropriate Vitest mocking shape;
 - remove Bun test-runner type dependencies from the active TypeScript workspace when no longer needed;
@@ -45,22 +45,27 @@ Assumptions:
 
 - Node v24.12+ remains the TypeScript tooling baseline inherited from the tooling contract.
 - The pnpm workspace contract is already in place: `ts/` is a pnpm workspace for `packages/*`, and root orchestration delegates into it.
-- The workspace can use one root `ts/vitest.config.ts` with `vitest` in the root `ts/` dev dependencies; package-local Vitest configs are unnecessary unless later package-specific setup evidence appears.
+- The workspace can use one root `ts/vitest.config.ts` with `vitest` in the root `ts/` dev dependencies; package-local Vitest configs proved unnecessary for this migration.
 - Vitest can execute the existing TypeScript tests without requiring built JavaScript artifacts or changing production module boundaries.
-- The migration should keep explicit `vitest` imports rather than global test APIs.
-- The initial Vitest configuration should preserve the previous `bun test --sequential` posture with `fileParallelism: false`; later concurrency relaxation needs package-specific evidence.
-- Most `bun:test` imports map mechanically to Vitest imports, but lifecycle-hook and mocking behavior still need targeted review.
-- The current `pnpm --dir ts run test` command is intentionally transitional because package-local test scripts still invoke Bun; this Objective should remove that transitional Bun runtime dependency.
+- The migration keeps explicit `vitest` imports rather than global test APIs.
+- The Vitest configuration preserves the previous `bun test --sequential` posture with `fileParallelism: false`; concurrency relaxation remains a separate evidence-driven decision.
+- Most `bun:test` imports mapped mechanically to Vitest imports; the known lifecycle, matcher, and mocking differences were handled with targeted evidence.
+- `pnpm --dir ts run test` now runs the shared Vitest config directly and no longer depends on package-local Bun test scripts.
 
 Risks:
 
-- Vitest mocking semantics may not exactly match Bun's `mock.module`; the `@earendil-works/pi-ai` module-mocking test in `pi-extensions` needs careful conversion and evidence.
-- Bun and Vitest may differ in module cache reset, fake timers, environment globals, snapshot/matcher details, or async cleanup timing; preserve behavior with targeted tests rather than blind import replacement.
-- Tests that pass sequentially under Bun may expose ordering or shared-state assumptions under Vitest; keep serial execution where needed and record any deliberate concurrency policy.
-- Removing `@types/bun` may reveal accidental use of Bun-specific runtime types outside tests; classify those findings for Node runtime compatibility rather than silently adding new Bun dependencies.
-- Local validation may run on a Node version below the documented `>=24.12.0` baseline; distinguish baseline failures from local environment warnings.
+- The `@earendil-works/pi-ai` module-mocking risk was de-risked with a `vi.mock` plus `vi.hoisted` state conversion in `ts/packages/pi-extensions/test/changes.test.ts` and targeted package/workspace validation.
+- Known Bun/Vitest matcher and lifecycle differences were addressed without enabling globals or changing production module boundaries; serial file execution remains deliberately retained.
+- Removing `@types/bun` did not reveal an active TypeScript test-runner need for Bun types; non-test runtime/shebang compatibility remains out of scope for this Objective.
+- Local validation ran on Node `v24.2.0`, below the documented `>=24.12.0` baseline, so pnpm emitted expected unsupported-engine warnings while the commands otherwise passed.
 
 ## Open Questions
 
-- What is the least invasive Vitest replacement for the existing `mock.module("@earendil-works/pi-ai", ...)` case?
-- After conversion, does any active non-test TypeScript code still require Bun types, or can `@types/bun` be removed entirely from the workspace?
+- Resolved: the least invasive Vitest replacement for `mock.module("@earendil-works/pi-ai", ...)` is a `vi.mock` registration backed by `vi.hoisted` mutable state, preserving the existing dynamic-import ordering.
+- Resolved: no active test-runner need for Bun types remained after conversion, so `@types/bun` and the `bun` tsconfig type entry were removed from the active TypeScript workspace.
+
+## Closure
+
+Completed. The `ts/` workspace now runs active TypeScript tests through Vitest, package-local scripts are Vitest-backed, no active `ts/packages/**` test file imports from `bun:test`, and the known Bun `mock.module` case has a Vitest equivalent. Bun test-runner-only type/config/lockfile and CI setup support were removed, while out-of-scope runtime/template Bun references remain for separate migration or reconciliation work.
+
+Evidence: Semantic Updates through `20260608T184809Z-post-restack-additional-vitest-imports.md`; `pnpm --dir ts run check`, `pnpm --dir ts run test`, `just ts-check`, `just ts-test`, and `just dprint-check` passed locally with the expected Node baseline warning under local Node `v24.2.0`.

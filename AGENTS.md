@@ -93,9 +93,11 @@ When writing, reviewing, or refactoring TypeScript, strictly follow the `typescr
 - Load the relevant `.agents/skills/typescript-style/references/` document before designing TypeScript abstractions covered by the skill, including backend/provider boundaries, error handling, plugin/extension APIs, stateful workflow/context code, or TUI code.
 - Treat the skill as the default TypeScript authority while still honoring the skill's precedence rules for explicit project tooling, public API compatibility, and established local conventions.
 
-### Bun Test Execution
+### TypeScript Test Execution
 
-When running Bun tests directly, always include the `--sequential` flag: use `bun test --sequential`, not the bare Bun test invocation. Package `test` scripts that call Bun's test runner directly must include `--sequential`; workspace-level test orchestration may also use `bun run --workspaces --sequential` as an additional guard.
+Current `ts/` package tests are Vitest-backed. Use pnpm/Vitest commands such as `pnpm --dir ts run test`, targeted package scripts (for example `pnpm --dir ts/packages/<package> run test`), or `just ts-test`. Do not add new package tests that depend on Bun's test runner.
+
+If you are working in an out-of-scope template or standalone Bun project that intentionally still uses Bun's test runner, run direct Bun tests sequentially: `bun test --sequential`.
 
 ### How to use skills
 
