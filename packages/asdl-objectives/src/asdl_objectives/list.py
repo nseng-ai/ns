@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import click
 
@@ -63,7 +63,7 @@ def build_objective_list_result(
     *,
     status_filter: ObjectiveStatusFilter = "active",
     names_only: bool = False,
-    include_updated_branches: bool = True,
+    include_updated_branches: bool = False,
 ) -> ObjectiveListResult:
     result = _build_objective_list_result_or_failure(
         ctx,
@@ -81,7 +81,7 @@ def _build_objective_list_result_or_failure(
     *,
     status_filter: ObjectiveStatusFilter = "active",
     names_only: bool = False,
-    include_updated_branches: bool = True,
+    include_updated_branches: bool = False,
 ) -> ObjectiveListResult | GitCommandFailure:
     if names_only and include_updated_branches:
         return GitCommandFailure(
@@ -150,10 +150,10 @@ def _build_updated_branches_by_slug(
     slugs: frozenset[str],
 ) -> dict[str, tuple[str, ...]] | GitCommandFailure:
     branches = _local_non_trunk_branches(ctx)
-    updated_branches_by_slug: dict[str, list[str]] = {slug: [] for slug in slugs}
     if not branches:
         return {slug: () for slug in slugs}
 
+    updated_branches_by_slug: dict[str, list[str]] = {slug: [] for slug in slugs}
     objective_root = ACTIVE_OBJECTIVE_ROOT.as_posix()
     changed_branches = _branches_with_objective_tree_changes(ctx, branches, objective_root)
     if isinstance(changed_branches, GitCommandFailure):
@@ -186,16 +186,13 @@ def _objective_slugs_from_touches(
 def _local_non_trunk_branches(ctx: ObjectiveCliContext) -> tuple[str, ...]:
     branch_tips = sorted(
         (tip for tip in ctx.git.list_local_branch_tips() if tip.name != ctx.trunk_branch),
-        key=lambda tip: tip.name,
+        key=lambda tip: (_branch_tip_age(tip), tip.name),
     )
-    return tuple(
-        tip.name
-        for tip in sorted(
-            branch_tips,
-            key=_branch_tip_datetime,
-            reverse=True,
-        )
-    )
+    return tuple(tip.name for tip in branch_tips)
+
+
+def _branch_tip_age(tip: LocalBranchTip) -> timedelta:
+    return datetime.max.replace(tzinfo=UTC) - _branch_tip_datetime(tip)
 
 
 def _branch_tip_datetime(tip: LocalBranchTip) -> datetime:

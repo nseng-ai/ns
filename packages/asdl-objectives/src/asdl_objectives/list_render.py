@@ -138,13 +138,9 @@ def _updated_branches_objective_column_width(
     result: ObjectiveListResult,
     terminal_width: int,
 ) -> int:
-    widest_objective = max(_branch_objective_width(record) for record in result.records)
+    widest_objective = max(len(record.slug) for record in result.records)
     objective_width = max(24, terminal_width // 2)
     return min(max(12, widest_objective), objective_width)
-
-
-def _branch_objective_width(record: ObjectiveListRecord) -> int:
-    return len(record.slug)
 
 
 def _status_label(status: ObjectiveStatus) -> str:
