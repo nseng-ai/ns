@@ -357,7 +357,7 @@ function updateSignature(update: RunnerSubagentUpdate): string {
 		String(update.progress.toolCount),
 		String(update.progress.turnCount),
 		update.progress.sessionFile ?? "",
-		update.progress.launch === undefined ? "" : JSON.stringify(update.progress.launch),
+		JSON.stringify(update.progress.launch ?? null),
 		update.activity.assistantPreview ?? "",
 		update.activity.currentToolInputPreview ?? "",
 		update.activity.lastToolName ?? "",
