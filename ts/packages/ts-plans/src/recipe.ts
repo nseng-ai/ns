@@ -54,10 +54,12 @@ export interface RenderedRecipe {
 
 export type RenderRecipeResult = { type: "success"; rendered: RenderedRecipe } | { type: "failure"; message: string };
 
-type RecipeKind = "declarative" | "imperative";
-type NormalizedPlanItem = { type: "note"; text: string } | { type: "validation"; command: string } | { type: "task"; prompt: string };
+export type TsPlanRecipeItem =
+	| { type: "note"; text: string }
+	| { type: "validation"; command: string }
+	| { type: "task"; prompt: string };
 
-interface NormalizedPlanPhase {
+export interface TsPlanRecipePhase {
 	title: string;
 	prompt?: string;
 	tasks: readonly string[];
@@ -65,14 +67,27 @@ interface NormalizedPlanPhase {
 	validations: readonly string[];
 }
 
-interface NormalizedPlan {
+export interface TsPlanRecipeModel {
 	title?: string;
 	summary?: string;
 	goal: string;
 	context?: string;
-	phases: readonly NormalizedPlanPhase[];
-	finalItems: readonly NormalizedPlanItem[];
+	phases: readonly TsPlanRecipePhase[];
+	finalItems: readonly TsPlanRecipeItem[];
 }
+
+export interface InspectTsPlanRecipeOptions {
+	key: string;
+	cwd: string;
+	signal?: AbortSignal | undefined;
+}
+
+export type InspectTsPlanRecipeResult = { type: "success"; model: TsPlanRecipeModel } | { type: "failure"; message: string };
+
+type RecipeKind = "declarative" | "imperative";
+type NormalizedPlanItem = TsPlanRecipeItem;
+type NormalizedPlanPhase = TsPlanRecipePhase;
+type NormalizedPlan = TsPlanRecipeModel;
 
 interface DeclarativeRecipe extends TsPlanRecipe {
 	kind: "declarative";
@@ -144,7 +159,7 @@ export function planRecipe(metadata: PlanRecipeMetadata, fn: PlanRecipeFunction)
 	return recipe;
 }
 
-export async function renderTsPlanRecipe(value: unknown, options: RenderRecipeOptions): Promise<RenderRecipeResult> {
+export async function inspectTsPlanRecipe(value: unknown, options: InspectTsPlanRecipeOptions): Promise<InspectTsPlanRecipeResult> {
 	if (isAbortSignalAborted(options.signal)) {
 		return { type: "failure", message: "Preview aborted." };
 	}
@@ -159,7 +174,16 @@ export async function renderTsPlanRecipe(value: unknown, options: RenderRecipeOp
 		return planResult;
 	}
 
-	const rendered = renderNormalizedPlan(planResult.value, options.format);
+	return { type: "success", model: planResult.value };
+}
+
+export async function renderTsPlanRecipe(value: unknown, options: RenderRecipeOptions): Promise<RenderRecipeResult> {
+	const inspected = await inspectTsPlanRecipe(value, options);
+	if (inspected.type === "failure") {
+		return inspected;
+	}
+
+	const rendered = renderNormalizedPlan(inspected.model, options.format);
 	return { type: "success", rendered };
 }
 
@@ -413,7 +437,7 @@ function isAbortSignalAborted(signal: AbortSignal | undefined): boolean {
 	return signal?.aborted === true;
 }
 
-async function evaluateRecipe(recipe: BrandedRecipe, options: RenderRecipeOptions): Promise<ValidationResult<NormalizedPlan>> {
+async function evaluateRecipe(recipe: BrandedRecipe, options: InspectTsPlanRecipeOptions): Promise<ValidationResult<NormalizedPlan>> {
 	if (recipe.kind === "declarative") {
 		return { type: "success", value: recipe.plan };
 	}
@@ -421,7 +445,7 @@ async function evaluateRecipe(recipe: BrandedRecipe, options: RenderRecipeOption
 	return evaluateImperativeRecipe(recipe, options);
 }
 
-async function evaluateImperativeRecipe(recipe: ImperativeRecipe, options: RenderRecipeOptions): Promise<ValidationResult<NormalizedPlan>> {
+async function evaluateImperativeRecipe(recipe: ImperativeRecipe, options: InspectTsPlanRecipeOptions): Promise<ValidationResult<NormalizedPlan>> {
 	if (isAbortSignalAborted(options.signal)) {
 		return { type: "failure", message: "Preview aborted." };
 	}
@@ -442,7 +466,7 @@ async function evaluateImperativeRecipe(recipe: ImperativeRecipe, options: Rende
 
 function createPlanRecipeRuntime(
 	metadata: PlanRecipeMetadata,
-	options: RenderRecipeOptions,
+	options: InspectTsPlanRecipeOptions,
 ): PlanRecipeRuntimeEvaluation {
 	const plan: MutablePlan = {
 		...metadata,

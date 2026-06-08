@@ -1,0 +1,17 @@
+{
+	"name": "@asdl/ts-plan-viewer",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"ts-plan-viewer": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit -p tsconfig.json",
+		"test": "bun test --sequential"
+	},
+	"dependencies": {
+		"@asdl/planned-branch": "workspace:*",
+		"@asdl/ts-plans": "workspace:*"
+	},
+	"devDependencies": {}
+}

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { definePlan, type DefinePlanInput } from "../src/index.ts";
 import {
 	TS_PLAN_RECIPE_TRUST_NOTICE,
+	inspectTsPlanRecipeFromContent,
 	previewTsPlanRecipeFromContent,
 	renderTsPlanRecipeImplementationInstructionsFromContent,
 } from "../src/host.ts";
@@ -52,6 +53,44 @@ export default definePlan({
 		expect(result.preview.content).toContain("Context:\nExisting context");
 		expect(result.preview.content).toContain("1. Phase one");
 		expect(result.preview.content).toContain("- Task: Task A");
+	});
+
+	test("inspects a structured model without rendering text", async () => {
+		const result = await inspectTsPlanRecipeFromContent(
+			`import { definePlan } from "@asdl/ts-plans";
+
+export default definePlan({
+	title: "  Inspect title  ",
+	summary: " Inspect summary ",
+	goal: " Inspect goal ",
+	context: " Inspect context ",
+	phases: [
+		{ title: " Phase one ", prompt: " Phase prompt ", tasks: [" Task A ", "Task B"] },
+	],
+});
+`,
+			{ key: "declarative-inspect", cwd: process.cwd() },
+		);
+
+		expect(result.type).toBe("success");
+		if (result.type !== "success") return;
+		expect(result.trustNotice).toBe(TS_PLAN_RECIPE_TRUST_NOTICE);
+		expect(result.model).toEqual({
+			title: "Inspect title",
+			summary: "Inspect summary",
+			goal: "Inspect goal",
+			context: "Inspect context",
+			phases: [
+				{
+					title: "Phase one",
+					prompt: "Phase prompt",
+					tasks: ["Task A", "Task B"],
+					notes: [],
+					validations: [],
+				},
+			],
+			finalItems: [],
+		});
 	});
 
 	test("allows empty tasks when prompt is non-empty", () => {
@@ -175,6 +214,50 @@ export default planRecipe({ title: "Imperative", summary: "Runtime summary" }, a
 		expect(result.preview.content).toContain("1. Runtime phase");
 		expect(result.preview.content).toContain("- Validation: echo validate only");
 		expect(result.preview.content).toContain(`- Validation: touch ${writtenByValidationPath}`);
+		expect(existsSync(writtenByValidationPath)).toBe(false);
+	});
+
+	test("inspects phases, notes, validations, final items, cwd, and signal", async () => {
+		const result = await inspectTsPlanRecipeFromContent(
+			`import { planRecipe } from "@asdl/ts-plans";
+
+export default planRecipe({ title: "Imperative", summary: "Runtime summary" }, async (plan) => {
+	plan.goal("Build the imperative plan");
+	plan.context("Runtime context");
+	plan.note("cwd=" + plan.cwd);
+	plan.note("signal=" + String(plan.signal instanceof AbortSignal));
+	await plan.phase("Runtime phase", async () => {
+		plan.task("Do the runtime task");
+		plan.note("Remember this");
+		plan.validateWithShell("echo validate only");
+	});
+	plan.task("Final task");
+	plan.validateWithShell("touch ${writtenByValidationPath}");
+});
+`,
+			{ key: "imperative-inspect", cwd: process.cwd(), signal: new AbortController().signal },
+		);
+
+		expect(result.type).toBe("success");
+		if (result.type !== "success") return;
+		expect(result.model.title).toBe("Imperative");
+		expect(result.model.summary).toBe("Runtime summary");
+		expect(result.model.goal).toBe("Build the imperative plan");
+		expect(result.model.context).toBe("Runtime context");
+		expect(result.model.phases).toEqual([
+			{
+				title: "Runtime phase",
+				tasks: ["Do the runtime task"],
+				notes: ["Remember this"],
+				validations: ["echo validate only"],
+			},
+		]);
+		expect(result.model.finalItems).toEqual([
+			{ type: "note", text: `cwd=${process.cwd()}` },
+			{ type: "note", text: "signal=true" },
+			{ type: "task", prompt: "Final task" },
+			{ type: "validation", command: `touch ${writtenByValidationPath}` },
+		]);
 		expect(existsSync(writtenByValidationPath)).toBe(false);
 	});
 

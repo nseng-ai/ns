@@ -1,11 +1,17 @@
 export {
 	definePlan,
+	inspectTsPlanRecipe,
 	planRecipe,
 	type DefinePlanInput,
 	type DefinePlanPhaseInput,
+	type InspectTsPlanRecipeOptions,
+	type InspectTsPlanRecipeResult,
 	type PlanRecipeFunction,
 	type PlanRecipeMetadata,
 	type PlanRecipePhaseBody,
 	type PlanRecipeRuntime,
 	type TsPlanRecipe,
+	type TsPlanRecipeItem,
+	type TsPlanRecipeModel,
+	type TsPlanRecipePhase,
 } from "./recipe.ts";

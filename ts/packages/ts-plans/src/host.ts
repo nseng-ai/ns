@@ -2,9 +2,9 @@ import { mkdtemp, mkdir, rm, rmdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { renderTsPlanRecipe, type TsPlanRecipePreviewFormat } from "./recipe.ts";
+import { inspectTsPlanRecipe, renderTsPlanRecipe, type TsPlanRecipeModel, type TsPlanRecipePreviewFormat } from "./recipe.ts";
 
-export type { TsPlanRecipePreviewFormat } from "./recipe.ts";
+export type { TsPlanRecipeModel, TsPlanRecipePreviewFormat } from "./recipe.ts";
 
 export interface PreviewTsPlanRecipeOptions {
 	key: string;
@@ -13,8 +13,18 @@ export interface PreviewTsPlanRecipeOptions {
 	signal?: AbortSignal | undefined;
 }
 
+export interface InspectTsPlanRecipeFromContentOptions {
+	key: string;
+	cwd: string;
+	signal?: AbortSignal | undefined;
+}
+
 export type PreviewTsPlanRecipeResult =
 	| { type: "success"; preview: TsPlanRecipePreview }
+	| { type: "failure"; message: string };
+
+export type InspectTsPlanRecipeFromContentResult =
+	| { type: "success"; model: TsPlanRecipeModel; trustNotice: string }
 	| { type: "failure"; message: string };
 
 export interface TsPlanRecipePreview {
@@ -65,6 +75,18 @@ export async function previewTsPlanRecipeFromContent(
 	};
 }
 
+export async function inspectTsPlanRecipeFromContent(
+	content: string,
+	options: InspectTsPlanRecipeFromContentOptions,
+): Promise<InspectTsPlanRecipeFromContentResult> {
+	const inspected = await inspectRecipeContent(content, options);
+	if (inspected.type === "failure") {
+		return inspected;
+	}
+
+	return { type: "success", model: inspected.model, trustNotice: TS_PLAN_RECIPE_TRUST_NOTICE };
+}
+
 export async function renderTsPlanRecipeImplementationInstructionsFromContent(
 	content: string,
 	options: RenderTsPlanRecipeImplementationInstructionsOptions,
@@ -86,6 +108,30 @@ async function renderRecipeContent(
 	content: string,
 	options: RequiredPreviewOptions,
 ): Promise<{ type: "success"; rendered: { content: string; title?: string; summary?: string } } | { type: "failure"; message: string }> {
+	const loaded = await loadValidatedRecipeModuleFromContent(content, options);
+	if (loaded.type === "failure") {
+		return loaded;
+	}
+
+	return renderTsPlanRecipe(loaded.module.defaultExport, options);
+}
+
+async function inspectRecipeContent(
+	content: string,
+	options: InspectTsPlanRecipeFromContentOptions,
+): Promise<{ type: "success"; model: TsPlanRecipeModel } | { type: "failure"; message: string }> {
+	const loaded = await loadValidatedRecipeModuleFromContent(content, options);
+	if (loaded.type === "failure") {
+		return loaded;
+	}
+
+	return inspectTsPlanRecipe(loaded.module.defaultExport, options);
+}
+
+async function loadValidatedRecipeModuleFromContent(
+	content: string,
+	options: LoadRecipeModuleOptions,
+): Promise<{ type: "success"; module: LoadedRecipeModule & { defaultExport: unknown } } | { type: "failure"; message: string }> {
 	if (options.signal?.aborted === true) {
 		return { type: "failure", message: "Preview aborted." };
 	}
@@ -103,19 +149,22 @@ async function renderRecipeContent(
 		return { type: "failure", message: "Recipe module must have a default export from definePlan(...) or planRecipe(...)." };
 	}
 
-	return renderTsPlanRecipe(loaded.module.defaultExport, options);
+	return { type: "success", module: { ...loaded.module, defaultExport: loaded.module.defaultExport } };
 }
 
-interface RequiredPreviewOptions {
+interface LoadRecipeModuleOptions {
 	key: string;
 	cwd: string;
-	format: TsPlanRecipePreviewFormat;
 	signal?: AbortSignal | undefined;
+}
+
+interface RequiredPreviewOptions extends LoadRecipeModuleOptions {
+	format: TsPlanRecipePreviewFormat;
 }
 
 async function loadRecipeModuleFromContent(
 	content: string,
-	options: RequiredPreviewOptions,
+	options: LoadRecipeModuleOptions,
 ): Promise<{ type: "success"; module: LoadedRecipeModule } | { type: "failure"; message: string }> {
 	const tempRecipe = await createTempRecipeFile(content, options.key);
 	try {

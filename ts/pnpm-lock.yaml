@@ -83,6 +83,15 @@ importers:
         specifier: workspace:*
         version: link:../ts-plans
 
+  packages/ts-plan-viewer:
+    dependencies:
+      '@asdl/planned-branch':
+        specifier: workspace:*
+        version: link:../planned-branch
+      '@asdl/ts-plans':
+        specifier: workspace:*
+        version: link:../ts-plans
+
   packages/ts-plans: {}
 
 packages:
