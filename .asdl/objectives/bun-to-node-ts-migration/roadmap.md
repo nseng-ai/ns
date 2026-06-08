@@ -5,7 +5,7 @@
 - [x] Tooling contract child Objective (`bun-to-node-ts-migration-tooling-contract`).
       Create a child Objective to decide the exact pnpm workspace shape, Node v24 baseline, TypeScript CLI execution/build policy, and how to treat `node:sqlite`'s experimental warning.
 
-- [ ] pnpm workspace migration child Objective (`bun-to-node-ts-migration-pnpm-workspace`).
+- [x] pnpm workspace migration child Objective (`bun-to-node-ts-migration-pnpm-workspace`).
       Create a child Objective to replace active Bun lock/install/run assumptions for the TypeScript workspace and docs-site where in scope, including `justfile`, deploy/build commands, and user-facing docs.
 
 - [ ] Vitest migration child Objective (`bun-to-node-ts-migration-vitest`).
