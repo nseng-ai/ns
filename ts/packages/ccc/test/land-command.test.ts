@@ -7,7 +7,7 @@ import {
 	type LandCommandContext,
 	type LandExtensionAPI,
 	type NotifyLevel,
-} from "../src/land.ts";
+} from "@asdl/ccc/land";
 
 const ROOT = "/repo";
 const PR_VIEW_ARGS = ["pr", "view", "--json", "number,headRefName,baseRefName,title,body,headRefOid"];

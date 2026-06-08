@@ -167,13 +167,14 @@ describe("runBrmemCandidate", () => {
 			}),
 		]);
 
-		const run = await runBrmemCandidate(
+		const run = await runBrmemCandidate({
 			gateway,
-			ROOT,
+			cwd: ROOT,
 			candidate,
-			["put", "plans/key.md", "--file", "/tmp/plan with space.md"],
-			{ timeoutMs: 1234, signal },
-		);
+			brmemArgs: ["put", "plans/key.md", "--file", "/tmp/plan with space.md"],
+			timeoutMs: 1234,
+			signal,
+		});
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
@@ -200,7 +201,7 @@ describe("runBrmemCandidate", () => {
 		const candidate = { command: "brmem", prefixArgs: [] };
 		const gateway = new FakeGateway([errorStep("brmem", ["list"], new Error("spawn ENOENT"))]);
 
-		const run = await runBrmemCandidate(gateway, ROOT, candidate, ["list"], { timeoutMs: 1000 });
+		const run = await runBrmemCandidate({ gateway, cwd: ROOT, candidate, brmemArgs: ["list"], timeoutMs: 1000 });
 
 		gateway.assertDone();
 		if (run.type !== "unavailable") {
@@ -219,7 +220,7 @@ describe("runBrmemCandidate", () => {
 			const candidate = { command: "brmem", prefixArgs: [] };
 			const gateway = new FakeGateway([step("brmem", ["check", "plan.md"], result)]);
 
-			const run = await runBrmemCandidate(gateway, ROOT, candidate, ["check", "plan.md"], { timeoutMs: 1000 });
+			const run = await runBrmemCandidate({ gateway, cwd: ROOT, candidate, brmemArgs: ["check", "plan.md"], timeoutMs: 1000 });
 
 			gateway.assertDone();
 			expect(run.type).toBe("completed");
@@ -236,7 +237,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 			step("uv", ["run", "--directory", root, "brmem", "list", "--format", "json"], { code: 0, stdout: "{}" }),
 		]);
 
-		const run = await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
+		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: root, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
@@ -254,7 +255,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 			step("uv", ["run", "--directory", root, "brmem", "list", "--format", "json"], { code: 0, stdout: "{}" }),
 		]);
 
-		const run = await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
+		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: root, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
@@ -275,7 +276,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 			}),
 		]);
 
-		const run = await runFirstAvailableBrmemCommand(gateway, root, ["list", "--format", "json"], { timeoutMs: 1000 });
+		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: root, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
 
 		gateway.assertDone();
 		expect(run.type).toBe("unavailable");

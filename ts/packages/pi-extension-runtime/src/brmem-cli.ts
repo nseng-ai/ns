@@ -52,6 +52,23 @@ export interface NoAvailableBrmemCommandRun {
 
 export type FirstAvailableBrmemCommandRun = CompletedBrmemRun | NoAvailableBrmemCommandRun;
 
+export interface RunBrmemCandidateOptions {
+	gateway: BrmemExecGateway;
+	cwd: string;
+	candidate: BrmemCommandCandidate;
+	brmemArgs: readonly string[];
+	timeoutMs: number;
+	signal?: AbortSignal | undefined;
+}
+
+export interface RunFirstAvailableBrmemCommandOptions {
+	gateway: BrmemExecGateway;
+	cwd: string;
+	brmemArgs: readonly string[];
+	timeoutMs: number;
+	signal?: AbortSignal | undefined;
+}
+
 export function resolveBrmemCommandCandidates(
 	cwd: string,
 	options: { exists?: (path: string) => boolean } = {},
@@ -84,19 +101,14 @@ export function resolveBrmemCommandCandidates(
 	return candidates;
 }
 
-export async function runBrmemCandidate(
-	gateway: BrmemExecGateway,
-	cwd: string,
-	candidate: BrmemCommandCandidate,
-	brmemArgs: readonly string[],
-	options: { timeoutMs: number; signal?: AbortSignal | undefined },
-): Promise<BrmemCandidateRun> {
+export async function runBrmemCandidate(options: RunBrmemCandidateOptions): Promise<BrmemCandidateRun> {
+	const { gateway, cwd, candidate, brmemArgs, timeoutMs, signal } = options;
 	const args = [...candidate.prefixArgs, ...brmemArgs];
 	const displayCommand = formatCommand(candidate.command, args);
 
 	try {
 		const result = normalizeExecResult(
-			await gateway.exec(candidate.command, args, execOptions(cwd, options.timeoutMs, options.signal)),
+			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)),
 		);
 		if (isLikelyCommandNotFound(result)) {
 			return {
@@ -130,14 +142,12 @@ export async function runBrmemCandidate(
 }
 
 export async function runFirstAvailableBrmemCommand(
-	gateway: BrmemExecGateway,
-	cwd: string,
-	brmemArgs: readonly string[],
-	options: { timeoutMs: number; signal?: AbortSignal | undefined },
+	options: RunFirstAvailableBrmemCommandOptions,
 ): Promise<FirstAvailableBrmemCommandRun> {
+	const { gateway, cwd, brmemArgs, timeoutMs, signal } = options;
 	const failures: UnavailableBrmemRun[] = [];
 	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
-		const run = await runBrmemCandidate(gateway, cwd, candidate, brmemArgs, options);
+		const run = await runBrmemCandidate({ gateway, cwd, candidate, brmemArgs, timeoutMs, signal });
 		if (run.type === "completed") return run;
 		failures.push(run);
 	}
