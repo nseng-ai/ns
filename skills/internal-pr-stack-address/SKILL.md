@@ -363,6 +363,13 @@ informational threads, skipped/deferred items, or top-level human comments
 unless the validated plan and prior user decisions explicitly require that
 action.
 
+Important: the merged `stack-feedback-plan` result is not the input to
+`build-resolve-thread-batch-payload`. That builder currently accepts only a
+per-PR `plan-feedback` result plus one selected per-PR batch. Do not pipe the
+stack plan to it. Until a stack-native payload builder exists, derive or reuse
+the corresponding per-PR `plan-feedback` data for each PR/batch before building
+thread-resolution payloads.
+
 For each PR and selected `plan-feedback` batch represented in an omnibus commit:
 
 1. Build explicit decisions for every review-thread item in that selected batch:

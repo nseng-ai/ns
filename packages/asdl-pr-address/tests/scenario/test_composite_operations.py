@@ -124,6 +124,49 @@ def _minimal_feedback_plan(
     }
 
 
+def _minimal_stack_feedback_plan() -> dict:
+    return {
+        "valid": True,
+        "payload_session_id": "session1",
+        "pr_count": 1,
+        "validation": {"all_valid": True, "per_pr": []},
+        "batches": [
+            {
+                "batch_id": "single_file",
+                "complexity": "single_file",
+                "approval_required": False,
+                "items": [
+                    {
+                        "pr_number": 101,
+                        "branch": "branch-one",
+                        "source_batch_id": "single_file",
+                        "source_kind": "review_thread",
+                        "summary": "Inline thread requires action.",
+                        "action_summary": "Apply the requested change.",
+                        "complexity": "single_file",
+                        "thread_id": "PRRT_101",
+                    }
+                ],
+            }
+        ],
+        "informational": [],
+        "automation_discussion_summary": {
+            "automation_like": 0,
+            "human_like": 0,
+            "needs_agent_review": 0,
+            "by_reason": {},
+        },
+        "decision_docket": [],
+        "stack_plan_reference": None,
+        "summary": {
+            "actionable_items": 1,
+            "approval_required_items": 0,
+            "informational_items": 0,
+            "automation_discussion_comments": 0,
+        },
+    }
+
+
 def _plan_batch(batch_id: str, items: list[dict], *, complexity: str = "single_file") -> dict:
     return {
         "batch_id": batch_id,
@@ -1205,6 +1248,87 @@ def test_build_resolve_thread_batch_payload_builds_ready_payload_and_matches_bat
     assert batch_exit_code == 0
     assert batch_output["data"]["resolved"] == 2
     assert fake.resolved_thread_ids == ("PRRT_fixed", "PRRT_explained")
+
+
+def test_build_resolve_thread_batch_payload_rejects_stack_plan_under_plan_concisely(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    request = {
+        "plan": _minimal_stack_feedback_plan(),
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "decisions": [
+            {
+                "thread_id": "PRRT_101",
+                "action": "resolve",
+                "mode": "fixed",
+                "message": "Fixed in the omnibus commit.",
+            }
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload"],
+        fake,
+        input_text=json.dumps(request),
+    )
+
+    assert exit_code == 1
+    assert output["exit_code"] == 1
+    data = output["data"]
+    assert data["valid"] is False
+    assert data["payload_ready"] is False
+    assert data["payload"] is None
+    assert data["errors"] == [
+        {
+            "code": "stack_feedback_plan_not_supported",
+            "message": (
+                "build-resolve-thread-batch-payload expects per-PR plan-feedback data, "
+                "not merged stack-feedback-plan output. Until a stack-native resolution "
+                "payload builder exists, pass a per-PR plan-feedback result for the "
+                "selected PR/batch."
+            ),
+            "batch_id": "single_file",
+            "thread_id": None,
+        }
+    ]
+    assert "extra_forbidden" not in json.dumps(output)
+    assert "ValidationError" not in json.dumps(output)
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _minimal_stack_feedback_plan(),
+        {"exit_code": 0, "data": _minimal_stack_feedback_plan()},
+    ],
+)
+def test_build_resolve_thread_batch_payload_rejects_direct_stack_plan_concisely(
+    cli_group: ClinkrGroup,
+    payload: dict,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload"],
+        fake,
+        input_text=json.dumps(payload),
+    )
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "invalid_request"
+    assert "per-PR plan-feedback" in output["message"]
+    assert "stack-feedback-plan" in output["message"]
+    assert "extra_forbidden" not in output["message"]
+    assert "ValidationError" not in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
 
 
 def test_build_resolve_thread_batch_payload_accepts_planned_decision(

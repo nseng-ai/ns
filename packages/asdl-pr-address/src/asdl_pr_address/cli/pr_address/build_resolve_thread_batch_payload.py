@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from typing import Annotated, cast
 
 import click
+from pydantic import ValidationError
 
+from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
@@ -26,6 +30,18 @@ from asdl_pr_address.cli.pr_address.resolve_thread_batch import (
     ResolveThreadBatchPayload,
 )
 from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
+
+STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported"
+STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE = (
+    "build-resolve-thread-batch-payload expects per-PR plan-feedback data, "
+    "not merged stack-feedback-plan output. Until a stack-native resolution "
+    "payload builder exists, pass a per-PR plan-feedback result for the "
+    "selected PR/batch."
+)
+INVALID_PLAN_SHAPE_MESSAGE = (
+    "plan must be the data object returned by per-PR plan-feedback. "
+    "Do not pass stack-feedback-plan output or raw feedback manifests."
+)
 
 
 class BuildResolveThreadBatchPayloadRequest(ClinkrModel):
@@ -102,6 +118,8 @@ def run_build_resolve_thread_batch_payload(
     result = build_resolve_thread_batch_payload(payload)
     if result.valid:
         return ClinkrExit.ok(result)
+    if _has_single_error_code(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE):
+        return ClinkrExit.negative(result, message=STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE)
     return ClinkrExit.negative(
         result,
         message="Resolve-thread batch payload decisions failed validation; no payload produced.",
@@ -111,9 +129,38 @@ def run_build_resolve_thread_batch_payload(
 def build_resolve_thread_batch_payload(
     request: BuildResolveThreadBatchPayloadInput,
 ) -> BuildResolveThreadBatchPayloadResult:
-    plan = FeedbackPlanningResult.model_validate(request.plan)
     batch_id = request.batch_id.strip()
     batch_commit_sha = trim_optional(request.commit_sha)
+
+    if _looks_like_stack_feedback_plan(request.plan):
+        return _invalid_result(
+            batch_id=batch_id,
+            commit_sha=batch_commit_sha,
+            continue_on_error=request.continue_on_error,
+            errors=(
+                BuildResolveThreadBatchPayloadError(
+                    code=STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE,
+                    message=STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE,
+                    batch_id=batch_id,
+                ),
+            ),
+        )
+
+    try:
+        plan = FeedbackPlanningResult.model_validate(request.plan)
+    except ValidationError:
+        return _invalid_result(
+            batch_id=batch_id,
+            commit_sha=batch_commit_sha,
+            continue_on_error=request.continue_on_error,
+            errors=(
+                BuildResolveThreadBatchPayloadError(
+                    code="invalid_plan_shape",
+                    message=INVALID_PLAN_SHAPE_MESSAGE,
+                    batch_id=batch_id,
+                ),
+            ),
+        )
 
     if not plan.valid:
         return _invalid_result(
@@ -354,8 +401,57 @@ def _load_payload(
         command_name="build-resolve-thread-batch-payload",
         input_description="JSON payload",
         option_name="--payload-json",
-        parser=BuildResolveThreadBatchPayloadInput.model_validate_json,
+        parser=_parse_payload,
     )
+
+
+def _parse_payload(raw_payload: str) -> BuildResolveThreadBatchPayloadInput:
+    payload: object = json.loads(raw_payload)
+    stack_plan_candidate = _clinkr_data_candidate(payload)
+    if _looks_like_stack_feedback_plan(stack_plan_candidate):
+        Ensure.fail(
+            error_type="invalid_request",
+            message=STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE,
+        )
+    return BuildResolveThreadBatchPayloadInput.model_validate(payload)
+
+
+def _clinkr_data_candidate(value: object) -> object:
+    if not isinstance(value, Mapping):
+        return value
+    mapping = cast(Mapping[str, object], value)
+    data = mapping.get("data")
+    if "exit_code" in mapping and isinstance(data, dict):
+        return data
+    return value
+
+
+def _looks_like_stack_feedback_plan(value: object) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    mapping = cast(Mapping[str, object], value)
+    validation = mapping.get("validation")
+    validation_is_stack = isinstance(validation, Mapping) and (
+        "per_pr" in validation or "all_valid" in validation
+    )
+    stack_only_markers = (
+        "pr_count" in mapping,
+        "payload_session_id" in mapping,
+        "decision_docket" in mapping,
+        "automation_discussion_summary" in mapping,
+        "stack_plan_reference" in mapping,
+        validation_is_stack,
+    )
+    return sum(int(marker) for marker in stack_only_markers) >= 3
+
+
+def _has_single_error_code(
+    result: BuildResolveThreadBatchPayloadResult,
+    error_code: str,
+) -> bool:
+    if len(result.errors) != 1:
+        return False
+    return result.errors[0].code == error_code
 
 
 def _ignored_non_thread_items(
