@@ -152,7 +152,7 @@ async function invokeObjectiveSkill(
 			spec,
 			skillBlock: skill?.block,
 			objective,
-			postSelectionReminder: spec.postSelectionReminder,
+			...(spec.postSelectionReminder === undefined ? {} : { postSelectionReminder: spec.postSelectionReminder }),
 		}),
 	);
 }

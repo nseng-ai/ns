@@ -9,6 +9,7 @@ import {
 	resetCmuxTestEnvironment,
 	skillCommand,
 	step,
+	type FakeCommandContextOptions,
 	type Notification,
 	type ScriptedExec,
 	type Selection,
@@ -62,11 +63,14 @@ async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Pro
 		throw new Error("objective:stack-impl was not registered");
 	}
 
-	const fakeContext = new FakeCommandContext({
-		cwd: ROOT,
-		shouldCancelSelect: contextOptions.shouldCancelSelect,
-		selectIndices: contextOptions.selectIndices,
-	});
+	const fakeContextOptions: FakeCommandContextOptions = { cwd: ROOT };
+	if (contextOptions.shouldCancelSelect !== undefined) {
+		fakeContextOptions.shouldCancelSelect = contextOptions.shouldCancelSelect;
+	}
+	if (contextOptions.selectIndices !== undefined) {
+		fakeContextOptions.selectIndices = contextOptions.selectIndices;
+	}
+	const fakeContext = new FakeCommandContext(fakeContextOptions);
 	await command.handler(args, fakeContext);
 	return {
 		host,
