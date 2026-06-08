@@ -59,6 +59,16 @@ Risks:
 
 ## Open Questions
 
-- What exact pnpm patch metadata should represent the current Pi dependency patch, and what evidence would allow its later removal?
-- Which Bun command references are active package-manager workflow references owned here versus stale documentation/template references that should wait for Bun-reference reconciliation?
-- Do docs-site deployment settings need separate host-side configuration changes beyond local `package.json` script and lockfile migration?
+Resolved or carried forward by closure:
+
+- The current Pi dependency patch is represented as pnpm-native `patchedDependencies` metadata in `ts/pnpm-workspace.yaml`, and `ts/pnpm-lock.yaml` records the exact-version `patch_hash`. Patch removal remains parked until later representative Pi extension/runtime evidence proves it unnecessary.
+- Active package-manager command references owned by this Objective were classified and migrated to pnpm. Historical docs, Bun-centric templates, test API references, and broad Bun-reference cleanup remain sibling/later Objective work.
+- Docs-site local, CI, Vercel, and README command surfaces were migrated to standalone pnpm. If Vercel root-directory mode later needs host-side package-manager selection help, evaluate an explicit Corepack activation prefix without turning the repository root into a workspace.
+
+## Closure
+
+Completed on 2026-06-08. The Objective's pnpm package-manager slice is done: `ts/` is a pnpm workspace for `packages/*`, `docs-site/` is a standalone pnpm-managed docs surface, and the repository root remains orchestration-only through directory-scoped `justfile` and CI commands.
+
+Completion evidence is recorded across Semantic Updates for active Bun surface inventory, `ts/` workspace migration, root orchestration migration, docs-site migration, pnpm command documentation, and final dependency/command evidence consolidation. The final local validation pass ran `just dprint-check`, `just ts-check`, `just js-test`, `just docs-check`, and `just docs-build`; pnpm emitted the expected unsupported-engine warnings because the local shell used Node `v24.2.0`, below the documented Node `>=24.12.0` baseline used by CI.
+
+Caveats and follow-ups are intentionally outside this closed Objective: package-local `bun test --sequential` and `bun:test` conversion belong to the Vitest child Objective; TypeScript CLI shebang/runtime hardening belongs to Node runtime compatibility work; broad historical/template Bun-reference cleanup belongs to the Bun-reference reconciliation work; and Pi patch retirement remains parked until representative evidence proves it safe.

@@ -17,11 +17,11 @@
 - [x] Migrate `docs-site/` package-manager and deploy commands to pnpm.
       Evidence: `docs-site/package.json` now declares `pnpm@10.14.0` and Node `>=24.12.0` engine metadata, `docs-site/pnpm-lock.yaml` is committed lockfile state, and `docs-site/bun.lock` is removed. Root docs recipes, the docs-build CI job, both Vercel command configs, and active docs-site deployment command docs now use pnpm while keeping `docs-site/` standalone and the repository root orchestration-only. Focused validation passed with the expected local Node v24.2.0 unsupported-engine warning.
 
-- [ ] Update user-facing and agent-facing command documentation for the pnpm workflow.
-      Document the Node v24.12+ baseline, how to install and run the TypeScript workspace and docs-site commands, and any intentional temporary state that remains for sibling migration Objectives.
+- [x] Update user-facing and agent-facing command documentation for the pnpm workflow.
+      Evidence: active `asdl-dev` fallback and submit docs now use `pnpm --dir ts run asdl-dev ...`, the `asdl-dev` README documents the Node `>=24.12.0` and pnpm `>=10.14.0` baseline, planned-branch validation docs now describe the `justfile`/`ts/` pnpm workspace contract instead of an underlying Bun invocation, and docs-site deploy command docs were re-inspected as already pnpm-based. Broad historical/template Bun-reference cleanup and package-local `bun test --sequential` migration remain sibling/later Objective work.
 
-- [ ] Record dependency-resolution and command evidence after migration.
-      Capture meaningful findings from representative installs, script runs, docs-site build/deploy command checks, and patch handling. Evidence belongs in Semantic Updates, not as routine validation-only roadmap rows.
+- [x] Record dependency-resolution and command evidence after migration.
+      Evidence: Semantic Updates now record the migrated `ts/` and `docs-site/` pnpm lockfile/install/check/test/build surfaces, pnpm-native Pi patch representation with lockfile `patch_hash`, root `justfile` and CI command shape, expected local Node v24.2.0 unsupported-engine warnings against the Node `>=24.12.0` baseline, and intentional temporary state for Vitest/runtime/Bun-reference sibling work.
 
 ## Parked
 

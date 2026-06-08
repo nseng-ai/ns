@@ -278,4 +278,5 @@ Related public surfaces:
 
 For docs-only changes, run `just dprint-check` or `dprint check`. If TypeScript
 behavior changes, validate with `just ts-check` and `just ts-test`. The
-`justfile` remains the source of truth for the underlying Bun invocation.
+`justfile` remains the source of truth for these validation commands and now
+delegates TypeScript package-manager work through the `ts/` pnpm workspace.
