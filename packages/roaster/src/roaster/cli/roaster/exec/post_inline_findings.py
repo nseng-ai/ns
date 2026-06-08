@@ -77,7 +77,11 @@ def post_inline_findings_command(
             PRInlineCommentInput(
                 path=inlineable.target.path,
                 line=inlineable.target.line,
-                body=render_inline_body(marker, inlineable.finding),
+                body=render_inline_body(
+                    marker,
+                    inlineable.finding,
+                    review_name=payload.review_name,
+                ),
             )
         )
 

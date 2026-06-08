@@ -298,11 +298,12 @@ def extract_inline_markers(body: str) -> tuple[str, ...]:
     return tuple(markers)
 
 
-def render_inline_body(marker: str, finding: ReviewFinding) -> str:
+def render_inline_body(marker: str, finding: ReviewFinding, *, review_name: str) -> str:
     return "\n".join(
         [
             marker,
             f"**{finding.severity}: {finding.summary}**",
+            f"_Review: `{review_name}`._",
             "",
             finding.details,
             "",
