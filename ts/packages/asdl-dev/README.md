@@ -18,7 +18,7 @@ asdl-dev preview-url --branch feature/demo
 asdl-dev preview-url --json
 ```
 
-If the repo environment has not been loaded, run the same CLI with `bun run --cwd ts asdl-dev ...`.
+If the repo environment has not been loaded, run the same CLI through the `ts/` pnpm workspace, for example `pnpm --dir ts run asdl-dev preview-url`. The migrated TypeScript workspace expects Node `>=24.12.0` and pnpm `>=10.14.0`.
 
 Default output is only the resolved preview URL plus a newline, suitable for shells and agents.
 
@@ -64,8 +64,8 @@ It selects the newest READY preview deployment returned by that query, inspects 
 Checkpoint outstanding worktree changes with `asdl-dev cp`, submit the current Graphite stack with `gt submit -nps --ai`, then verify that `gt pr` reports a PR for the current branch.
 
 ```bash
-bun run --cwd ts asdl-dev submit
-bun run --cwd ts asdl-dev submit --restack
+pnpm --dir ts run asdl-dev submit
+pnpm --dir ts run asdl-dev submit --restack
 ```
 
 Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same model environment variables as `cp`. After that, it runs a dry-run first. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
