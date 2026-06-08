@@ -66,17 +66,17 @@ export class FakePi implements ExtensionAPI {
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];
 	private readonly skillCommands: SkillCommandInfo[];
-	private readonly requireExpectedArgs: boolean;
+	private readonly shouldRequireExpectedArgs: boolean;
 	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> = {
 		agent_end: [],
 		session_start: [],
 	};
 	private thinkingLevel: ThinkingLevel = "medium";
 
-	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[]; requireExpectedArgs?: boolean } = {}) {
+	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[]; shouldRequireExpectedArgs?: boolean } = {}) {
 		this.script = [...(options.script ?? [])];
 		this.skillCommands = [...(options.skillCommands ?? [])];
-		this.requireExpectedArgs = options.requireExpectedArgs ?? false;
+		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? false;
 	}
 
 	on(event: "agent_end", handler: AgentEndHandler): void;
@@ -97,7 +97,7 @@ export class FakePi implements ExtensionAPI {
 			command,
 			args,
 			options,
-			requireExpectedArgs: this.requireExpectedArgs,
+			shouldRequireExpectedArgs: this.shouldRequireExpectedArgs,
 		});
 	}
 
@@ -158,16 +158,16 @@ export class FakeCommandContext implements CommandContext {
 	model?: ModelInfo;
 	waitCount = 0;
 	shouldConfirm = true;
-	cancelSelect = false;
+	shouldCancelSelect = false;
 	private readonly selectIndices: number[];
 
-	constructor(options: { cwd?: string; model?: ModelInfo; fastModel?: ModelInfo; branchEntries?: unknown[]; selectIndices?: number[]; cancelSelect?: boolean } = {}) {
+	constructor(options: { cwd?: string; model?: ModelInfo; fastModel?: ModelInfo; branchEntries?: unknown[]; selectIndices?: number[]; shouldCancelSelect?: boolean } = {}) {
 		this.cwd = options.cwd ?? ROOT;
 		if (options.model !== undefined) {
 			this.model = options.model;
 		}
 		this.selectIndices = [...(options.selectIndices ?? [0])];
-		this.cancelSelect = options.cancelSelect ?? false;
+		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
 		this.modelRegistry = {
 			find: (provider, modelId) => {
 				const fastModel = options.fastModel;
@@ -192,7 +192,7 @@ export class FakeCommandContext implements CommandContext {
 			confirm: async () => this.shouldConfirm,
 			select: async (title, items) => {
 				this.selections.push({ title, items: [...items] });
-				if (this.cancelSelect) {
+				if (this.shouldCancelSelect) {
 					return undefined;
 				}
 				const index = this.selectIndices.shift() ?? 0;
@@ -241,11 +241,11 @@ export interface RunScriptedExecOptions {
 	command: string;
 	args: string[];
 	options?: ExecOptions | undefined;
-	requireExpectedArgs?: boolean;
+	shouldRequireExpectedArgs?: boolean;
 }
 
 export function runScriptedExec(options: RunScriptedExecOptions): ExecResult {
-	const { script, execCalls, errors, command, args, options: execOptions, requireExpectedArgs = false } = options;
+	const { script, execCalls, errors, command, args, options: execOptions, shouldRequireExpectedArgs = false } = options;
 	execCalls.push({ command, args: [...args], options: execOptions });
 	const expected = script.shift();
 	if (!expected) {
@@ -254,7 +254,7 @@ export function runScriptedExec(options: RunScriptedExecOptions): ExecResult {
 		return execResult({ code: 99, stderr: message });
 	}
 
-	if (expected.command !== command || expectedArgsMismatch(expected.args, args, requireExpectedArgs)) {
+	if (expected.command !== command || expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs)) {
 		const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
 		const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 		errors.push(message);
@@ -268,9 +268,9 @@ export function runScriptedExec(options: RunScriptedExecOptions): ExecResult {
 	return execResult(expected.result);
 }
 
-function expectedArgsMismatch(expectedArgs: string[] | undefined, actualArgs: string[], requireExpectedArgs: boolean): boolean {
+function expectedArgsMismatch(expectedArgs: string[] | undefined, actualArgs: string[], shouldRequireExpectedArgs: boolean): boolean {
 	if (expectedArgs === undefined) {
-		return requireExpectedArgs;
+		return shouldRequireExpectedArgs;
 	}
 
 	return !sameArgs(expectedArgs, actualArgs);
@@ -387,11 +387,16 @@ export async function makeTempDir(): Promise<string> {
 	return dir;
 }
 
-export async function writeTempSkill(body: string): Promise<string> {
+export async function writeTempSkillMarkdown(skillName: string, markdown: string): Promise<string> {
 	const dir = await makeTempDir();
 	const path = join(dir, "SKILL.md");
-	await writeFile(path, `---\nname: ccc-sidebar\n---\n${body}\n`, "utf8");
+	const content = markdown.startsWith("---") ? markdown : `---\nname: ${skillName}\n---\n${markdown}\n`;
+	await writeFile(path, content, "utf8");
 	return path;
+}
+
+export async function writeTempSkill(body: string): Promise<string> {
+	return writeTempSkillMarkdown("ccc-sidebar", `---\nname: ccc-sidebar\n---\n${body}\n`);
 }
 
 export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string): Promise<string> {

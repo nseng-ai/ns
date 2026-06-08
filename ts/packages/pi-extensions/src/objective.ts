@@ -19,6 +19,7 @@ Shows \`objective list\` output in chat. Output format is controlled by the Pi e
 
 const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
+const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
 
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
 type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
@@ -381,7 +382,7 @@ async function handleCustomCliCommand(
 			pi,
 			ctx,
 			spec,
-			formatExecStartupFailure(commandDisplay, error),
+			formatExecStartupFailure(commandDisplay, error, OBJECTIVE_COMMAND_FAILURE_OPTIONS),
 			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx),
 			"error",
 		);
@@ -397,7 +398,7 @@ async function handleCustomCliCommand(
 			pi,
 			ctx,
 			spec,
-			formatExecFailure(commandDisplay, result),
+			formatExecFailure(commandDisplay, result, OBJECTIVE_COMMAND_FAILURE_OPTIONS),
 			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx, result),
 			"error",
 		);

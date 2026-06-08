@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatCommand, parseMachineEnvelopeData, stripTerminalEscapes } from "../src/index.ts";
+import { formatCommand, formatExecFailure, formatExecStartupFailure, parseMachineEnvelopeData, stripTerminalEscapes } from "../src/index.ts";
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {
@@ -14,6 +14,14 @@ describe("pi extension runtime helpers", () => {
 			type: "valid",
 			data: { success: true },
 		});
+	});
+
+	test("formats exec failures with an optional command subject", () => {
+		const result = { stdout: "", stderr: "boom", code: 2, killed: false };
+		expect(formatExecFailure("objective list", result, { subject: "objective command" }).startsWith("objective command failed (exit code 2)."))
+			.toBe(true);
+		expect(formatExecStartupFailure("objective list", new Error("missing"), { subject: "objective command" }).startsWith("objective command failed before completion."))
+			.toBe(true);
 	});
 
 	test("strips terminal escapes", () => {

@@ -13,6 +13,7 @@ import {
 } from "./objective-picker.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
+const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
 
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
@@ -26,30 +27,27 @@ export interface ObjectiveSelectionHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
 
-export interface ObjectiveSelectionContext {
-	cwd: string;
+interface ObjectiveSelectionUi extends Pick<CommandContext["ui"], "notify" | "setStatus"> {
+	select(title: string, items: string[]): Promise<string | undefined>;
+}
+
+export interface ObjectiveSelectionContext extends Pick<CommandContext, "cwd" | "waitForIdle"> {
 	hasUI: boolean;
-	ui: {
-		notify(message: string, level?: ObjectiveSelectionNotifyLevel): void;
-		select(title: string, items: string[]): Promise<string | undefined>;
-		setStatus?(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
+	ui: ObjectiveSelectionUi;
 }
 
 export function objectiveSelectionContextFromCommandContext(ctx: CommandContext): ObjectiveSelectionContext {
-	const select = ctx.ui.select;
-	const setStatus = ctx.ui.setStatus;
-	const hasSelectableUI = ctx.hasUI === true && select !== undefined;
-	const ui = {
-		notify: (message: string, level?: ObjectiveSelectionNotifyLevel) => ctx.ui.notify(message, level),
-		select: select === undefined ? async () => undefined : (title: string, items: string[]) => select(title, items),
-	};
+	const select = ctx.ui.select?.bind(ctx.ui);
+	const setStatus = ctx.ui.setStatus?.bind(ctx.ui);
 	return {
 		cwd: ctx.cwd,
-		hasUI: hasSelectableUI,
-		ui: setStatus === undefined ? ui : { ...ui, setStatus },
-		waitForIdle: () => ctx.waitForIdle(),
+		hasUI: ctx.hasUI === true && select !== undefined,
+		ui: {
+			notify: ctx.ui.notify.bind(ctx.ui),
+			select: select ?? (async () => undefined),
+			...(setStatus === undefined ? {} : { setStatus }),
+		},
+		waitForIdle: ctx.waitForIdle.bind(ctx),
 	};
 }
 
@@ -113,7 +111,7 @@ async function listActiveObjectives(
 			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
-			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result) };
+			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result, OBJECTIVE_COMMAND_FAILURE_OPTIONS) };
 		}
 
 		const parsedList = parseObjectiveList(result.stdout);
@@ -122,7 +120,7 @@ async function listActiveObjectives(
 		}
 		return { type: "loaded", list: parsedList.list };
 	} catch (error) {
-		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error) };
+		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error, OBJECTIVE_COMMAND_FAILURE_OPTIONS) };
 	} finally {
 		if (ctx.hasUI) {
 			ctx.ui.setStatus?.(spec.statusKey, undefined);
