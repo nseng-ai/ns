@@ -50,14 +50,14 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			if (command === "gt" && args[0] === "trunk") {
 				return options.shouldTrunkFail ? fail("gt trunk failed") : ok("master\n");
 			}
-			if (command === "git" && args[0] === "rev-parse" && args.at(-1) === "@{u}") {
-				if (upstreamMode === "none") {
-					return fail("fatal: no upstream configured for branch 'feature/base'", 128);
-				}
+			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
+				return ok(`${snapshot.branch}\n`);
+			}
+			if (command === "git" && args[0] === "for-each-ref") {
 				if (upstreamMode === "failed") {
 					return fail("bad upstream state", 128);
 				}
-				return ok("origin/feature/base\n");
+				return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
 			}
 			if (command === "git" && args[0] === "merge-base") {
 				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
@@ -137,14 +137,11 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		},
 		exec: async (command, args) => {
 			events.push(`exec:${command} ${args.join(" ")}`);
-			if (command === "git" && args[0] === "rev-parse" && args.at(-1) === "@{u}") {
-				if (upstreamMode === "none") {
-					return fail("fatal: no upstream configured for branch 'feature/base'", 128);
-				}
+			if (command === "git" && args[0] === "for-each-ref") {
 				if (upstreamMode === "failed") {
 					return fail("bad upstream state", 128);
 				}
-				return ok("origin/feature/base\n");
+				return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
 			}
 			if (command === "git" && args[0] === "merge-base") {
 				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
