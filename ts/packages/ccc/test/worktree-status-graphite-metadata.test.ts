@@ -13,7 +13,7 @@ import {
 	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
-} from "../src/worktree-status/graphite-metadata.ts";
+} from "@asdl/ccc/worktree-status/graphite-metadata";
 import { makeGitRepo, withTempRoot, runSqliteStatements, writeGraphiteMetadataDb } from "./worktree-status-fixtures.ts";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {

@@ -75,3 +75,17 @@ export {
 	type PrLink,
 	type PrLinksDetails,
 } from "./terminal-presentation.ts";
+export {
+	formatBrmemUnavailableError,
+	formatBrmemUnavailableMessage,
+	resolveBrmemCommandCandidates,
+	runBrmemCandidate,
+	runFirstAvailableBrmemCommand,
+	type BrmemCandidateRun,
+	type BrmemCommandCandidate,
+	type BrmemExecGateway,
+	type CompletedBrmemRun,
+	type FirstAvailableBrmemCommandRun,
+	type NoAvailableBrmemCommandRun,
+	type UnavailableBrmemRun,
+} from "./brmem-cli.ts";

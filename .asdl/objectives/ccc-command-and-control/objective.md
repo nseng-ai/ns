@@ -187,3 +187,15 @@ No active source-control placement question remains after the `/code:submit` dec
 - Keep `/code:submit` as a pure `asdl-dev submit` Pi mirror for now; CCC should own submit only if a future workflow needs deeper cross-capability orchestration rather than command-suite placement alone.
 - Split `worktree-status` before moving it, and move only operational facts/presentation that represent CCC observability.
 - The public `/ccc:*` namespace is adopted for the CCC workspace/sidebar suite; see the 2026-06-07 rename update for the landed rename inventory and shim-removal details. `ccc` names the orchestration layer's command surface while `cmux` is reserved for the external workspace tool. Other public command families (`/code:*`, `/planned-branch:*`, `/handoff-tab`, `/objective:stack-impl`) remain stable.
+
+## Closure
+
+Outcome: completed.
+
+CCC is now a private engineered TypeScript package (`@asdl/ccc`) with durable context language and a tested ownership boundary. The project-local Pi adapters remain discovery/registration surfaces while CCC owns the repo-opinionated orchestration slices identified by this Objective: the `/ccc:*` workspace/sidebar suite, handoff-tab launch, `/planned-branch:up-and-impl` launch orchestration, Objective stack implementation orchestration, `/code:autobranch`, `/code:land`, `/code:land-stack`, and worktree-status observability facts/presentation.
+
+Lower-layer ownership remains intact. Planned-branch storage/attachment/loading, handoff lifecycle/storage, Objective records/list/update semantics, Branch Memory behavior, runner-subagent machinery, `asdl-dev` primitives, command runtime helpers, machine-envelope parsing, terminal presentation, and the neutral Branch Memory command helper live outside CCC. The final worktree-status split put CCC observability in `@asdl/ccc/worktree-status`, kept generic Pi footer/session lifecycle plumbing in `@asdl/pi-extensions`, and moved shared command discovery into `@asdl/pi-extension-runtime`.
+
+Completion evidence is recorded across the roadmap and Semantic Updates, culminating in `2026-06-08-split-worktree-status-observability.md`. Validation evidence recorded for the final slice includes `bun test --cwd ts/packages/pi-extension-runtime --sequential`, `bun test --cwd ts/packages/ccc --sequential`, `bun test --cwd ts/packages/pi-extensions --sequential`, `bun run --cwd ts check`, `bun run --cwd ts test`, `just dprint-check`, `git diff --check`, and import-direction checks showing no lower-package imports of `@asdl/ccc`.
+
+Accepted caveats and follow-ups: `/code:submit` intentionally remains a pure `asdl-dev submit` Pi mirror unless a future cross-capability workflow justifies CCC ownership; publishing CCC, broad helper consolidation, and replacing public command families remain parked possibilities rather than active Objective scope. PR submission, restack, and landing are ordinary branch workflow outside this Objective closure.

@@ -64,6 +64,14 @@ _Avoid_: PR view/merge policy owner, stack landing owner, new command alias.
 The public Pi extension registration surface for `/code:land-stack`. The command stays in the `code` command family and is discovered through `@asdl/pi-extensions`, but Graphite/GitHub/slot stack landing orchestration is delegated to `@asdl/ccc/land-stack`.
 _Avoid_: stack landing policy owner, direct Graphite/GitHub mutation owner, new command alias.
 
+**Worktree status adapter**:
+The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to `@asdl/ccc/worktree-status`.
+_Avoid_: CCC observability fact owner, Graphite metadata parser owner, Branch Memory scope formatter, visible slash command.
+
+**Pi footer lifecycle**:
+The generic Pi runtime behavior for composing footer lines from cwd, current branch, session name, extension status lines, model/provider, context usage, tokens, and cost. It remains in `@asdl/pi-extensions` because it is Pi session plumbing rather than CCC observability.
+_Avoid_: worktree-status fact model, Graphite stack status, Branch Memory storage.
+
 **Deterministic sidebar fields**:
 The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `asdl exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.
 _Avoid_: generated Objective summary, arbitrary prose compression, model draft.

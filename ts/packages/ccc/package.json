@@ -10,7 +10,9 @@
     "./land": "./src/land.ts",
     "./land-stack": "./src/land-stack.ts",
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
-    "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts"
+    "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts",
+    "./worktree-status": "./src/worktree-status.ts",
+    "./worktree-status/graphite-metadata": "./src/worktree-status/graphite-metadata.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

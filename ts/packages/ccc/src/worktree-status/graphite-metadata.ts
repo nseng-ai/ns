@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Worker as ThreadWorker } from "node:worker_threads";
 
-import { isRecord } from "../cmux/primitives.ts";
+import { isRecord } from "@asdl/pi-extension-runtime/cmux/primitives";
 
 const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
 const BRANCH_METADATA_REQUIRED_COLUMNS = ["branch_name", "parent_branch_name", "children", "validation_result"] as const;
