@@ -11,7 +11,7 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
-from asdl_handoff.cli.handoff.context import HandoffCliContext
+from asdl_handoff.cli.handoff.context import HandoffCliContext, HandoffCliUnavailable
 from asdl_handoff.cli.main import build_cli
 from brmem.fake import FakeBranchMemoryGateway
 from brmem.gateway import BranchMemoryGateway
@@ -76,6 +76,25 @@ def test_handoff_version(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "0.1.0" in result.output
+
+
+def test_handoff_unavailable_context_returns_clinkr_failure(cli_group: ClinkrGroup) -> None:
+    unavailable = HandoffCliUnavailable(
+        error_type="not-a-git-repo",
+        message="handoff inventory, list, delete, and gc need git branch state.",
+    )
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: unavailable),
+    )
+
+    assert result.exit_code == 2
+    assert _json_output(result.output) == {
+        "exit_code": 2,
+        "error_type": "not-a-git-repo",
+        "message": "handoff inventory, list, delete, and gc need git branch state.",
+    }
 
 
 def test_handoff_list_help_uses_all_and_include_deleted_flags(cli_group: ClinkrGroup) -> None:

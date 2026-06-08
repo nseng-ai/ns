@@ -8,10 +8,9 @@ import click
 
 from asdl_core.clinkr.context import load_clinkr_context_object
 from asdl_core.gh.pr_gateway import RealPRGateway
+from asdl_core.git.construction import GitUnavailable, build_git_context
 from asdl_slots.context import SlotsCliContext
-from asdl_slots.errors import SlotAllocationError
 from asdl_slots.gateway.real_clipboard import RealClipboardGateway
-from asdl_slots.gateway.real_git import build_real_slots_git_gateway
 from asdl_slots.gateway.real_storage import RealSlotsStorageGateway
 from asdl_slots.repo_context import SLOTS_ROOT, NoRepoSentinel, discover_repo_or_sentinel
 
@@ -26,20 +25,46 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     cwd = Path.cwd()
     slots_root = SLOTS_ROOT
     storage = RealSlotsStorageGateway()
-    try:
-        discovery_git = build_real_slots_git_gateway(repo_root=cwd)
-    except SlotAllocationError as exc:
-        return NoRepoSentinel(message=str(exc))
-    repo = discover_repo_or_sentinel(cwd, slots_root=slots_root, git=discovery_git)
+    git_context = build_git_context(cwd)
+    if isinstance(git_context, GitUnavailable):
+        return _no_repo_from_unavailable(git_context)
+    if git_context.trunk_branch is None:
+        return _no_trunk_sentinel()
+
+    repo = discover_repo_or_sentinel(cwd, slots_root=slots_root, git=git_context.git)
     if isinstance(repo, NoRepoSentinel):
         return repo
+
+    final_git_context = git_context
+    if repo.root != git_context.repo_root:
+        final_git_context = build_git_context(repo.root)
+        if isinstance(final_git_context, GitUnavailable):
+            return _no_repo_from_unavailable(final_git_context)
+        if final_git_context.trunk_branch is None:
+            return _no_trunk_sentinel()
+
     return SlotsCliContext(
         repo=repo,
-        git=build_real_slots_git_gateway(repo_root=repo.root),
+        git=final_git_context.git,
         storage=storage,
         clipboard=RealClipboardGateway(),
         pr=RealPRGateway(),
         slots_root=slots_root,
+    )
+
+
+def _no_repo_from_unavailable(git_context: GitUnavailable) -> NoRepoSentinel:
+    if git_context.reason == "git_unavailable":
+        return NoRepoSentinel(message="`git` binary not found on PATH; slots requires git.")
+    return NoRepoSentinel(message=git_context.message)
+
+
+def _no_trunk_sentinel() -> NoRepoSentinel:
+    return NoRepoSentinel(
+        message=(
+            "Cannot resolve trunk branch (origin/HEAD, main, or master); "
+            "slots requires a git repository with a resolvable trunk."
+        )
     )
 
 

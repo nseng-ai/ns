@@ -10,7 +10,7 @@ import click
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.git.real_git_gateway import resolve_repo_root
+from asdl_core.git.construction import resolve_repo_root
 from asdl_core.prompts.errors import PromptError
 from asdl_core.prompts.models import PromptResolution
 from asdl_core.prompts.resolver import resolve_prompt

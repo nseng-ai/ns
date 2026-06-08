@@ -7,12 +7,11 @@ from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.context import BrmemCliContext
+from brmem.context import load_brmem_context
 from brmem.key_validation import check_key
 from brmem.ref_layout import (
     EntryRef,
@@ -66,7 +65,7 @@ def run_get(
     ctx: click.Context,
     request: GetRequest,
 ) -> ClinkrExit[GetResult]:
-    brmem_context = load_typed_context(ctx, BrmemCliContext)
+    brmem_context = load_brmem_context(ctx)
     branch = (
         request.branch
         if request.branch is not None

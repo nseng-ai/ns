@@ -10,7 +10,7 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
-from brmem.context import BrmemCliContext
+from brmem.context import BrmemCliContext, BrmemCliUnavailable
 from brmem.fake import FakeBranchMemoryGateway
 from brmem.main import build_cli
 from brmem.ref_layout import BASE_NAMESPACE, namespace_display_label
@@ -86,6 +86,25 @@ def test_brmem_version(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "version" in result.output
+
+
+def test_brmem_unavailable_context_returns_clinkr_failure(cli_group: ClinkrGroup) -> None:
+    unavailable = BrmemCliUnavailable(
+        error_type="not-a-git-repo",
+        message="brmem requires a git repository because entries are stored in git refs.",
+    )
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--namespace", "scratch", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: unavailable),
+    )
+
+    assert result.exit_code == 2
+    assert _json_output(result.output) == {
+        "exit_code": 2,
+        "error_type": "not-a-git-repo",
+        "message": "brmem requires a git repository because entries are stored in git refs.",
+    }
 
 
 # ---------------------------------------------------------------------------

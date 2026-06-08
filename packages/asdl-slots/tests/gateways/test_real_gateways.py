@@ -12,8 +12,6 @@ from asdl_core.git.real_git_gateway import (
     parse_worktree_list_output,
 )
 from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
-from asdl_slots.gateway import real_git
-from asdl_slots.gateway.real_git import build_real_slots_git_gateway
 from asdl_slots.gateway.real_storage import RealSlotsStorageGateway
 
 
@@ -22,46 +20,6 @@ def test_real_gateway_instantiates() -> None:
     gateway = RealGitGateway(repo_root=Path("/r"), trunk_branch="main")
     assert isinstance(gateway, RealGitGateway)
     assert gateway.get_trunk_branch() == "main"
-
-
-def test_build_real_slots_git_gateway_resolves_trunk(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = {"count": 0}
-
-    def fake_resolve(_repo_root: Path) -> str:
-        calls["count"] += 1
-        return "master"
-
-    monkeypatch.setattr(real_git, "_resolve_trunk_branch", fake_resolve)
-
-    gateway = build_real_slots_git_gateway(repo_root=Path("/r"))
-
-    assert gateway.get_trunk_branch() == "master"
-    assert calls["count"] == 1
-
-
-def test_build_real_slots_git_gateway_raises_when_trunk_unresolvable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from asdl_slots.errors import SlotAllocationError
-
-    monkeypatch.setattr(real_git, "_resolve_trunk_branch", lambda _repo_root: None)
-
-    with pytest.raises(SlotAllocationError, match="trunk"):
-        build_real_slots_git_gateway(repo_root=Path("/r"))
-
-
-def test_build_real_slots_git_gateway_raises_on_missing_git(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from asdl_slots.errors import SlotAllocationError
-
-    def raise_missing(_repo_root: Path) -> str:
-        raise FileNotFoundError("git: not found")
-
-    monkeypatch.setattr(real_git, "_resolve_trunk_branch", raise_missing)
-
-    with pytest.raises(SlotAllocationError, match="git"):
-        build_real_slots_git_gateway(repo_root=Path("/r"))
 
 
 def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> None:
