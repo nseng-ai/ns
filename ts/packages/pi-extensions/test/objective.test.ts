@@ -373,6 +373,21 @@ function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
 	return step("objective", ["list", "--minimal", "--format", "json"], { stdout: objectiveList(slugs, trunkBranch) });
 }
 
+function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: string }>): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			records,
+		},
+	});
+}
+
+function candidateStep(slugs: string[]): ScriptedExec {
+	return step("objective", ["exec", "list-candidates", "--format", "json"], {
+		stdout: objectiveCandidatesFromRecords(slugs.map((slug) => ({ slug, status: "open" }))),
+	});
+}
+
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
 	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".asdl/objectives"], {
 		stdout,
@@ -952,12 +967,12 @@ describe("objective command shared selection policy", () => {
 		}
 	});
 
-	test("objective:next completions return active Objective slugs with metadata", async () => {
+	test("objective:next completions return fast active Objective slug candidates", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["list", "--minimal", "--format", "json"], {
-				stdout: objectiveListFromRecords([
-					{ slug: "alpha", status: "open", latestUpdateIso: "2026-01-01T00:00:00Z" },
-					{ slug: "bravo", status: "active", latestUpdateIso: null },
+			step("objective", ["exec", "list-candidates", "--format", "json"], {
+				stdout: objectiveCandidatesFromRecords([
+					{ slug: "alpha", status: "open" },
+					{ slug: "bravo", status: "open" },
 				]),
 			}),
 		]);
@@ -965,17 +980,17 @@ describe("objective command shared selection policy", () => {
 		pi.assertDone();
 		expect(pi.execCalls[0]).toEqual({
 			command: "objective",
-			args: ["list", "--minimal", "--format", "json"],
+			args: ["exec", "list-candidates", "--format", "json"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
 		expect(items).toEqual([
-			{ value: "alpha", label: "alpha", description: "open — latest update 2026-01-01T00:00:00Z" },
-			{ value: "bravo", label: "bravo", description: "active" },
+			{ value: "alpha", label: "alpha", description: "open" },
+			{ value: "bravo", label: "bravo", description: "open" },
 		]);
 	});
 
 	test("slug completions filter by prefix and use the fresh cache", async () => {
-		const pi = new FakePi([listStep(["alpha", "bravo"])]);
+		const pi = new FakePi([candidateStep(["alpha", "bravo"])]);
 		objectiveExtension(pi);
 		await pi.emitSessionStart(createContext().ctx);
 		const command = pi.commands.get("objective:next");
@@ -989,7 +1004,7 @@ describe("objective command shared selection policy", () => {
 		expect(pi.execCalls).toHaveLength(1);
 	});
 
-	test("slug completions reject unsupported multi-arg input without running objective list", async () => {
+	test("slug completions reject unsupported multi-arg input without loading candidates", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "alpha bravo", []);
 
 		pi.assertDone();
@@ -997,9 +1012,9 @@ describe("objective command shared selection policy", () => {
 		expect(pi.execCalls).toEqual([]);
 	});
 
-	test("slug completions fail quietly for objective list command failures", async () => {
+	test("slug completions fail quietly for candidate command failures", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["list", "--minimal", "--format", "json"], { code: 1, stderr: "failed" }),
+			step("objective", ["exec", "list-candidates", "--format", "json"], { code: 1, stderr: "failed" }),
 		]);
 
 		pi.assertDone();
@@ -1008,9 +1023,9 @@ describe("objective command shared selection policy", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
-	test("slug completions fail quietly for malformed objective list JSON", async () => {
+	test("slug completions fail quietly for malformed objective candidate JSON", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["list", "--minimal", "--format", "json"], { stdout: "{" }),
+			step("objective", ["exec", "list-candidates", "--format", "json"], { stdout: "{" }),
 		]);
 
 		pi.assertDone();
