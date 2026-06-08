@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Final, Literal, get_args
 
-ResolutionReplyMode = Literal["fixed", "pre_existing", "explained"]
+from asdl_pr_address.cli.pr_address.resolution_provenance import ResolutionProvenance
+
+ResolutionReplyMode = Literal["fixed", "pre_existing", "explained", "planned"]
 VALID_RESOLUTION_MODES: Final[tuple[str, ...]] = get_args(ResolutionReplyMode)
 
 RESOLUTION_MARKER: Final[str] = "<!-- pr-address:resolved -->"
@@ -23,6 +25,7 @@ def format_resolution_reply(
     mode: ResolutionReplyMode,
     message: str | None,
     commit_sha: str | None,
+    provenance: ResolutionProvenance | None = None,
 ) -> str:
     """Format the reply body for an inline review thread resolution.
 
@@ -30,11 +33,17 @@ def format_resolution_reply(
 
     - mode="fixed" requires non-empty ``message`` and ``commit_sha``.
     - mode="explained" requires non-empty ``message``.
-    - mode="pre_existing" ignores ``message`` and ``commit_sha``.
+    - mode="pre_existing" ignores ``message``, ``commit_sha``, and ``provenance``.
+    - mode="planned" requires non-empty ``message`` and validated ``provenance``.
 
     Values are used verbatim; no trimming or validation is performed here.
     """
-    summary = _resolution_summary(mode=mode, message=message, commit_sha=commit_sha)
+    summary = _resolution_summary(
+        mode=mode,
+        message=message,
+        commit_sha=commit_sha,
+        provenance=provenance,
+    )
     return "\n".join(
         [
             summary,
@@ -88,6 +97,7 @@ def _resolution_summary(
     mode: ResolutionReplyMode,
     message: str | None,
     commit_sha: str | None,
+    provenance: ResolutionProvenance | None = None,
 ) -> str:
     if mode == "pre_existing":
         return PRE_EXISTING_REPLY
@@ -95,9 +105,33 @@ def _resolution_summary(
         return f"Fixed in commit {commit_sha}: {message}"
     if mode == "explained":
         return f"{message}"
+    if mode == "planned":
+        if provenance is None:
+            raise ValueError("mode='planned' requires validated provenance")
+        return _planned_resolution_summary(message=message, provenance=provenance)
     raise ValueError(
         f"Unsupported resolution mode: {mode}. Valid modes: {valid_resolution_modes_text()}"
     )
+
+
+def _planned_resolution_summary(*, message: str | None, provenance: ResolutionProvenance) -> str:
+    lines = [f"Planned follow-up: {message}", "", "Provenance:"]
+    if provenance.kind == "local_branch":
+        lines.append(f"- Local branch: `{provenance.branch}`")
+        if provenance.branch_head_oid is not None:
+            lines.append(f"- Branch HEAD: `{provenance.branch_head_oid}`")
+        return "\n".join(lines)
+    if provenance.kind == "pr":
+        lines.append(f"- PR: #{provenance.pr_number} {provenance.pr_url}")
+        lines.append(f"- PR state: {provenance.pr_state}")
+        if provenance.pr_head_ref_oid is not None:
+            lines.append(
+                f"- PR head: `{provenance.pr_head_ref_name}` at `{provenance.pr_head_ref_oid}`"
+            )
+        else:
+            lines.append(f"- PR head: `{provenance.pr_head_ref_name}`")
+        return "\n".join(lines)
+    raise ValueError(f"Unsupported provenance kind: {provenance.kind}")
 
 
 def _quote_lines(text: str) -> tuple[str, ...]:

@@ -935,6 +935,115 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
     assert RESOLUTION_MARKER in data["body"]
 
 
+def test_resolve_thread_with_reply_planned_local_branch_validates_provenance(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    git_gateway = FakeGitGateway(
+        branches=("reuse-worker",),
+        branch_head_oid_by_branch={"reuse-worker": "abc1234"},
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        [
+            "resolve-thread-with-reply",
+            "PRRT_plan",
+            "planned",
+            "Reuse the metadata worker on the follow-up branch.",
+            "",
+            "--provenance-json",
+            json.dumps({"kind": "local_branch", "branch": "reuse-worker"}),
+        ],
+        fake,
+        git_gateway=git_gateway,
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert data["is_resolved"] is True
+    assert "Planned follow-up: Reuse the metadata worker" in data["body"]
+    assert "- Local branch: `reuse-worker`" in data["body"]
+    assert "- Branch HEAD: `abc1234`" in data["body"]
+    assert RESOLUTION_MARKER in data["body"]
+    assert data["provenance"] == {
+        "kind": "local_branch",
+        "branch": "reuse-worker",
+        "branch_head_oid": "abc1234",
+        "pr_number": None,
+        "pr_url": None,
+        "pr_state": None,
+        "pr_head_ref_name": None,
+        "pr_head_ref_oid": None,
+    }
+    assert fake.resolved_thread_ids == ("PRRT_plan",)
+    assert tuple(thread_id for thread_id, _body in fake.thread_replies) == ("PRRT_plan",)
+
+
+def test_resolve_thread_with_reply_planned_pr_validates_provenance(
+    cli_group: ClinkrGroup,
+) -> None:
+    pr = PRSummary(
+        number=1073,
+        title="Follow-up fix",
+        url="https://github.com/dagster-io/asdl/pull/1073",
+        head_ref_name="follow-up-fix",
+        base_ref_name="master",
+        state="OPEN",
+        head_ref_oid="def5678",
+    )
+    fake = FakePRGateway(prs=(pr,))
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        [
+            "resolve-thread-with-reply",
+            "PRRT_plan_pr",
+            "planned",
+            "The follow-up PR carries the fix.",
+            "",
+            "--provenance-json",
+            json.dumps({"kind": "pr", "pr_number": 1073}),
+        ],
+        fake,
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert "- PR: #1073 https://github.com/dagster-io/asdl/pull/1073" in data["body"]
+    assert "- PR state: OPEN" in data["body"]
+    assert "- PR head: `follow-up-fix` at `def5678`" in data["body"]
+    assert data["provenance"]["pr_number"] == 1073
+    assert fake.resolved_thread_ids == ("PRRT_plan_pr",)
+
+
+def test_resolve_thread_with_reply_planned_rejects_missing_branch_before_mutation(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        [
+            "resolve-thread-with-reply",
+            "PRRT_plan_missing",
+            "planned",
+            "Will be fixed on a missing branch.",
+            "",
+            "--provenance-json",
+            json.dumps({"kind": "local_branch", "branch": "missing-branch"}),
+        ],
+        fake,
+        git_gateway=FakeGitGateway(),
+    )
+
+    assert exit_code == 2
+    assert output["error_type"] == "invalid_request"
+    assert "does not exist" in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
 def test_build_resolve_thread_batch_payload_builds_ready_payload_and_matches_batch_contract(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -1010,12 +1119,14 @@ def test_build_resolve_thread_batch_payload_builds_ready_payload_and_matches_bat
                 "mode": "fixed",
                 "message": "Updated the guard.",
                 "commit_sha": None,
+                "provenance": None,
             },
             {
                 "thread_id": "PRRT_explained",
                 "mode": "explained",
                 "message": "This path is already covered by the documented contract.",
                 "commit_sha": None,
+                "provenance": None,
             },
         ],
     }
@@ -1030,6 +1141,115 @@ def test_build_resolve_thread_batch_payload_builds_ready_payload_and_matches_bat
     assert batch_exit_code == 0
     assert batch_output["data"]["resolved"] == 2
     assert fake.resolved_thread_ids == ("PRRT_fixed", "PRRT_explained")
+
+
+def test_build_resolve_thread_batch_payload_accepts_planned_decision(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[_plan_batch("single_file", [_thread_plan_item("PRRT_planned")])]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "decisions": [
+            {
+                "thread_id": "PRRT_planned",
+                "action": "resolve",
+                "mode": "planned",
+                "message": "Reuse the metadata worker in the follow-up branch.",
+                "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+            }
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload"],
+        fake,
+        input_text=json.dumps(request),
+    )
+
+    assert exit_code == 0
+    payload = output["data"]["payload"]
+    assert payload["items"] == [
+        {
+            "thread_id": "PRRT_planned",
+            "mode": "planned",
+            "message": "Reuse the metadata worker in the follow-up branch.",
+            "commit_sha": None,
+            "provenance": {"kind": "local_branch", "branch": "reuse-worker", "pr_number": None},
+        }
+    ]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+def test_build_resolve_thread_batch_payload_rejects_planned_without_provenance(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[_plan_batch("single_file", [_thread_plan_item("PRRT_planned")])]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "decisions": [
+            {
+                "thread_id": "PRRT_planned",
+                "action": "resolve",
+                "mode": "planned",
+                "message": "Reuse the metadata worker in the follow-up branch.",
+            }
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert [error["code"] for error in output["data"]["errors"]] == ["missing_provenance"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
+def test_build_resolve_thread_batch_payload_rejects_planned_commit_sha(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    plan = _minimal_feedback_plan(
+        batches=[_plan_batch("single_file", [_thread_plan_item("PRRT_planned")])]
+    )
+    request = {
+        "plan": plan,
+        "batch_id": "single_file",
+        "commit_sha": "abc1234",
+        "decisions": [
+            {
+                "thread_id": "PRRT_planned",
+                "action": "resolve",
+                "mode": "planned",
+                "message": "Reuse the metadata worker in the follow-up branch.",
+                "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+            }
+        ],
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["build-resolve-thread-batch-payload", "--payload-json", json.dumps(request)],
+        fake,
+    )
+
+    assert exit_code == 1
+    assert [error["code"] for error in output["data"]["errors"]] == ["planned_has_commit_sha"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
 
 
 def test_build_resolve_thread_batch_payload_supports_explicit_skip_decisions(
@@ -1378,6 +1598,75 @@ def test_resolve_thread_batch_resolves_mixed_payload_from_stdin(
     assert all(RESOLUTION_MARKER in result["body"] for result in data["results"])
 
 
+def test_resolve_thread_batch_resolves_planned_with_validated_branch_provenance(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    git_gateway = FakeGitGateway(
+        branches=("reuse-worker",),
+        branch_head_oid_by_branch={"reuse-worker": "abc1234"},
+    )
+    payload = {
+        "items": [
+            {
+                "thread_id": "PRRT_planned",
+                "mode": "planned",
+                "message": "Reuse the metadata worker in the follow-up branch.",
+                "provenance": {"kind": "local_branch", "branch": "reuse-worker"},
+            }
+        ]
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+        git_gateway=git_gateway,
+    )
+
+    assert exit_code == 0
+    result = output["data"]["results"][0]
+    assert result["status"] == "resolved"
+    assert "Planned follow-up: Reuse the metadata worker" in result["body"]
+    assert result["provenance"]["branch"] == "reuse-worker"
+    assert result["provenance"]["branch_head_oid"] == "abc1234"
+    assert fake.resolved_thread_ids == ("PRRT_planned",)
+
+
+def test_resolve_thread_batch_rejects_missing_planned_pr_before_any_mutation(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakePRGateway()
+    git_gateway = FakeGitGateway(
+        branches=("reuse-worker",),
+        branch_head_oid_by_branch={"reuse-worker": "abc1234"},
+    )
+    payload = {
+        "items": [
+            {"thread_id": "PRRT_first", "mode": "pre_existing"},
+            {
+                "thread_id": "PRRT_missing_pr",
+                "mode": "planned",
+                "message": "Will be handled in the missing PR.",
+                "provenance": {"kind": "pr", "pr_number": 404},
+            },
+        ]
+    }
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["resolve-thread-batch", "--payload-json", json.dumps(payload)],
+        fake,
+        git_gateway=git_gateway,
+    )
+
+    assert exit_code == 2
+    assert output["error_type"] == "invalid_request"
+    assert "PR does not exist" in output["message"]
+    assert fake.thread_replies == ()
+    assert fake.resolved_thread_ids == ()
+
+
 def test_resolve_thread_batch_accepts_payload_json_option(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -1486,6 +1775,10 @@ def test_resolve_thread_batch_rejects_payload_json_and_payload_file(
         (
             {"items": [{"thread_id": "PRRT_explained", "mode": "explained", "message": " "}]},
             "message",
+        ),
+        (
+            {"items": [{"thread_id": "PRRT_planned", "mode": "planned", "message": "Later."}]},
+            "provenance",
         ),
     ],
 )

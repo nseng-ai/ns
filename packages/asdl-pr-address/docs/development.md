@@ -66,6 +66,9 @@ The current operation set, by category:
   `classification-template`, `validate-feedback-classification`
 - **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
   `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
+  - `resolve-thread-with-reply` / `resolve-thread-batch` share canonical
+    resolution modes: `fixed`, `pre_existing`, `explained`, and
+    provenance-validated `planned` follow-up.
 - **Replies / comments / reactions**: `reply-to-review`,
   `reply-to-discussion`, `add-issue-comment`, `add-reaction`
 
