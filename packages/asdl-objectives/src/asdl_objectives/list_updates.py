@@ -26,7 +26,7 @@ class ObjectiveUpdateAttribution:
 def touch_updated_iso(touch: PathTouch | None) -> str | None:
     if touch is None:
         return None
-    if _parse_iso_datetime(touch.committed_iso) is None:
+    if parse_iso_datetime(touch.committed_iso) is None:
         return None
     return touch.committed_iso
 
@@ -36,7 +36,7 @@ def latest_touch_candidate(
 ) -> ObjectiveTouchCandidate | None:
     parsed_candidates: list[tuple[datetime, ObjectiveTouchCandidate]] = []
     for candidate in candidates:
-        parsed_dt = _parse_iso_datetime(candidate.touch.committed_iso)
+        parsed_dt = parse_iso_datetime(candidate.touch.committed_iso)
         if parsed_dt is not None:
             parsed_candidates.append((parsed_dt, candidate))
 
@@ -93,7 +93,7 @@ def _distance_from_touch(git: GitGateway, candidate: ObjectiveTouchCandidate) ->
     return distance
 
 
-def _parse_iso_datetime(iso_timestamp: str) -> datetime | None:
+def parse_iso_datetime(iso_timestamp: str) -> datetime | None:
     try:
         parsed = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
     except ValueError:

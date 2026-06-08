@@ -2,15 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import PathTouch
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.list import (
-    _MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES,
-    build_objective_list_result,
-)
+from asdl_objectives.list import build_objective_list_result
+from asdl_objectives.list_branch_attribution import MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS
 from asdl_objectives.list_models import ObjectiveListRecord, ObjectiveListResult
 from asdl_objectives.testing import change_touch
 
@@ -83,15 +79,19 @@ def test_build_objective_list_result_active_filters_to_open_records(tmp_path: Pa
     assert result.status_filter == "active"
 
 
-def test_build_objective_list_result_rejects_names_with_updated_branches(
+def test_build_objective_list_result_names_mode_wins_over_legacy_branch_flag(
     tmp_path: Path,
 ) -> None:
     _objective_dir(tmp_path, "alpha")
-    git = FakeGitGateway(repo_root=tmp_path, branches=("master",), trunk_branch="master")
+    git = FakeGitGateway(repo_root=tmp_path, branches=("master", "feat/a"), trunk_branch="master")
     ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
 
-    with pytest.raises(RuntimeError, match="names-only output"):
-        build_objective_list_result(ctx, names_only=True, include_updated_branches=True)
+    result = build_objective_list_result(ctx, names_only=True, include_updated_branches=True)
+
+    assert result.names_only is True
+    assert result.updated_branches_included is False
+    assert [record.slug for record in result.records] == ["alpha"]
+    assert git.list_local_branch_tips_calls == ()
 
 
 def test_build_objective_list_result_marks_dirty_records(tmp_path: Path) -> None:
@@ -241,9 +241,9 @@ def test_build_objective_list_result_updated_branches_caps_per_branch_walks(
     _objective_dir(tmp_path, "alpha")
     root_path = ".asdl/objectives"
     attributed_branches = tuple(
-        f"feat/{index:02d}" for index in range(_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES)
+        f"feat/{index:02d}" for index in range(MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS)
     )
-    overflow_branch = f"feat/{_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES:02d}"
+    overflow_branch = f"feat/{MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS:02d}"
     git = FakeGitGateway(
         repo_root=tmp_path,
         branches=("master", *attributed_branches, overflow_branch),
@@ -251,6 +251,7 @@ def test_build_objective_list_result_updated_branches_caps_per_branch_walks(
         tree_oid_by_ref_path={
             ("master", root_path): "trunk-tree",
             **{(branch, root_path): f"{branch}-tree" for branch in attributed_branches},
+            (overflow_branch, root_path): f"{overflow_branch}-tree",
         },
         path_change_touches_by_ref_path={
             ("master..feat/00", root_path): (
@@ -266,7 +267,10 @@ def test_build_objective_list_result_updated_branches_caps_per_branch_walks(
     result = build_objective_list_result(ctx, include_updated_branches=True)
 
     assert result.records[0].updated_branches == ("feat/00",)
-    assert git.tree_oids_at_refs_calls == ((("master", *attributed_branches), root_path),)
+    assert result.updated_branches_truncated is True
+    assert git.tree_oids_at_refs_calls == (
+        (("master", *attributed_branches, overflow_branch), root_path),
+    )
     assert git.path_touches_under_calls == tuple(
         (f"master..{branch}", root_path) for branch in attributed_branches
     )
