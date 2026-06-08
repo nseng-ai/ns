@@ -64,8 +64,12 @@ _Avoid_: current command behavior, workspace-opening sidebar automation, workspa
 A reviewed Markdown implementation plan written before an implementation branch exists.
 _Avoid_: attached plan, Branch Memory entry, checked-in plan.
 
+**TypeScript saved plan**:
+A trusted `.plan.ts` recipe in the Local plan store for the Pi-only planned-branch TypeScript prototype. It is local code evaluated by Pi with local system permissions, not sandboxed input.
+_Avoid_: Markdown saved plan, rendered prompt, public CLI contract, safe untrusted recipe.
+
 **Local plan store**:
-The machine-local pre-branch store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md` used by `/planned-branch:write-plan`, `/planned-branch:create`, and the `planned-branch` CLI.
+The machine-local pre-branch store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/`. Markdown saved plans use `<slug>.md`; TypeScript saved plans use `<slug>.plan.ts`. Existing Markdown planned-branch commands and the public CLI contract remain Markdown-oriented unless explicitly using TS prototype commands.
 _Avoid_: Branch Memory namespace, repo docs directory, objective update.
 
 **Saved-plan filename slug**:
@@ -85,8 +89,16 @@ An implementation branch created from a saved plan and carrying that plan as bra
 _Avoid_: brmem branch, Objective branch, plan branch.
 
 **Attached plan**:
-The canonical implementation plan stored on a planned branch in Branch Memory namespace `planned-branch` with key `<planned-branch-slug>.md`.
+The canonical Markdown implementation plan stored on a planned branch in Branch Memory namespace `planned-branch` with key `<planned-branch-slug>.md`.
 _Avoid_: saved plan, local plan store file, prompt template.
+
+**TypeScript attached plan**:
+The trusted `.plan.ts` recipe source attached on a planned branch in Branch Memory namespace `planned-branch` with key `<planned-branch-slug>.plan.ts` for `/planned-branch:impl-ts`.
+_Avoid_: rendered implementation prompt, Markdown attached plan, sandboxed workflow.
+
+**Recipe render**:
+The Pi-only step where `/planned-branch:impl-ts` evaluates a trusted TypeScript attached plan through a recording runtime and renders normal implementation instructions for the agent.
+_Avoid_: live scheduler, Branch Memory attachment, source plan itself.
 
 **Branch Memory attachment**:
 The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `planned-branch` namespace contract.

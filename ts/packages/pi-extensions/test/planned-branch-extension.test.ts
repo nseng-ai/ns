@@ -9,9 +9,11 @@ import registerPlannedBranchExtension, {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	PLAN_BRANCH_NAMESPACE,
 	buildWritePlanPrompt,
+	buildWriteTsPlanPrompt,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	findLatestSourceBranchPlanFile,
+	findLatestSourceBranchTsPlanFile,
 	formatCreatePlannedBranchPreview,
 	formatSourceBranchPlanFileEvidence,
 	isPathInside,
@@ -20,6 +22,7 @@ import registerPlannedBranchExtension, {
 	parseCreatePlannedBranchArgs,
 	validatePlanSlug,
 	writeSourceBranchPlanFile,
+	writeSourceBranchTsPlanFile,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
@@ -38,6 +41,7 @@ const REPO_ROOT = resolve(TEST_DIR, "../../../..");
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
+const PLAN_TS_KEY = `${PLAN_SLUG}.plan.ts`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "source-branch";
 const TARGET_BRANCH = "planned-branches/wire-create-plan-branch-command";
@@ -45,6 +49,13 @@ const IMPL_BRANCH = `planned-branches/${PLAN_SLUG}`;
 const IMPL_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${IMPL_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const DEFAULT_PLAN_CONTENT = "# Test Plan\n\nDo the work.\n";
 const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Implement from it.\n";
+const TS_RECIPE_CONTENT = `export const metadata = { title: "TypeScript recipe plan" };
+export default async function plan(pi) {
+  pi.goal("Implement the TypeScript recipe plan");
+  await pi.do("Add TypeScript planned-branch support.");
+  await pi.acceptance("/planned-branch:impl-ts sends a rendered prompt.");
+}
+`;
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
@@ -335,11 +346,19 @@ function sourcePlanEvidence(input: { slug: string; filePath: string; sourceBranc
 }
 
 function sourcePlanToolResultEntry(evidence: SourceBranchPlanFileEvidence): unknown {
+	return sourcePlanToolResultEntryForTool(evidence, "write_source_branch_plan_file");
+}
+
+function sourceTsPlanToolResultEntry(evidence: SourceBranchPlanFileEvidence): unknown {
+	return sourcePlanToolResultEntryForTool(evidence, "write_source_branch_ts_plan_file");
+}
+
+function sourcePlanToolResultEntryForTool(evidence: SourceBranchPlanFileEvidence, toolName: string): unknown {
 	return {
 		type: "message",
 		message: {
 			role: "toolResult",
-			toolName: "write_source_branch_plan_file",
+			toolName,
 			isError: false,
 			content: [],
 			details: evidence,
@@ -698,6 +717,22 @@ describe("source branch plan path helpers", () => {
 		expect(evidence.slug).toBe("zeta-source-plan");
 		expect(evidence.filePath).toBe(expectedPath);
 	});
+
+	test("finds the newest saved TypeScript recipe plan file without selecting Markdown", async () => {
+		const planStoreRoot = await makeTempDir("source-ts-plan-store-");
+		const sourceBranch = "main";
+		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
+		await writePlanStoreFile(directoryPath, "newer-markdown-plan.md", 1_900_000_000_000);
+		const expectedPath = await writePlanStoreFile(directoryPath, "typescript-recipe-plan.plan.ts", 1_800_000_000_000, TS_RECIPE_CONTENT);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
+
+		const evidence = await findLatestSourceBranchTsPlanFile(pi, { cwd: ROOT, planStoreRoot });
+
+		pi.assertDone();
+		expect(evidence.slug).toBe("typescript-recipe-plan");
+		expect(evidence.filePath).toBe(expectedPath);
+		expect(evidence.fileName).toBe("typescript-recipe-plan.plan.ts");
+	});
 });
 
 describe("planned-branch:create argument parsing", () => {
@@ -939,15 +974,19 @@ describe("plan workflow commands", () => {
 
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"planned-branch:create",
+			"planned-branch:create-ts",
 			"planned-branch:impl",
+			"planned-branch:impl-ts",
 			"planned-branch:up-and-impl",
 			"planned-branch:write-plan",
+			"planned-branch:write-ts-plan",
 		]);
 		expect(pi.commands.has("up-impl")).toBe(false);
 		expect(pi.commands.has("create-plan-file")).toBe(false);
 		expect(pi.commands.has("create-brmem-plan-branch")).toBe(false);
 		expect(pi.commands.has("create-latest-plan-branch")).toBe(false);
 		expect(pi.tools.has("write_source_branch_plan_file")).toBe(true);
+		expect(pi.tools.has("write_source_branch_ts_plan_file")).toBe(true);
 		expect(pi.tools.has("create_brmem_plan_branch_from_file")).toBe(false);
 		expect(pi.tools.has("persist_brmem_plan")).toBe(false);
 	});
@@ -1043,6 +1082,23 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("malformed")]);
 		expect(context.notifications).toEqual([]);
+	});
+
+	test("planned-branch:write-ts-plan waits and dispatches a TypeScript recipe prompt", async () => {
+		const events: string[] = [];
+		const pi = new FakePi([], events);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:write-ts-plan");
+		const context = createContext(events);
+
+		await command?.handler("  prototype recipes  ", context.ctx);
+
+		pi.assertDone();
+		expect(context.waits()).toBe(1);
+		expect(pi.sentUserMessages).toEqual([buildWriteTsPlanPrompt("prototype recipes")]);
+		expect(pi.sentUserMessages[0]).toContain("write_source_branch_ts_plan_file");
+		expect(pi.sentUserMessages[0]).toContain(".plan.ts");
+		expect(pi.sentUserMessages[0]).toContain("trusted local TypeScript");
 	});
 
 	test("planned-branch:impl waits, loads the attached plan, and sends an implementation prompt", async () => {
@@ -1154,6 +1210,35 @@ describe("plan workflow commands", () => {
 		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:impl", value: undefined });
 	});
 
+	test("planned-branch:impl-ts loads an attached TypeScript recipe and sends a rendered prompt", async () => {
+		const events: string[] = [];
+		const refName = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${IMPL_BRANCH.replaceAll("/", "---")}:${PLAN_TS_KEY}`;
+		const pi = new FakePi(implLoadSuccessScript({ key: PLAN_TS_KEY, content: TS_RECIPE_CONTENT, refName }), events);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:impl-ts");
+		const context = createContext(events);
+
+		await command?.handler("   ", context.ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
+			{ command: "git", args: ["symbolic-ref", "--short", "HEAD"] },
+			{ command: "git", args: ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"] },
+			{ command: "brmem", args: ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
+			{ command: "brmem", args: ["get", PLAN_TS_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
+		]);
+		expect(context.statuses).toEqual([
+			{ key: "planned-branch:impl-ts", value: "loading attached TypeScript recipe…" },
+			{ key: "planned-branch:impl-ts", value: undefined },
+		]);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("# planned-branch TypeScript recipe implementation");
+		expect(pi.sentUserMessages[0]).toContain(`Selected key: ${PLAN_TS_KEY}`);
+		expect(pi.sentUserMessages[0]).toContain("- Do: Add TypeScript planned-branch support.");
+		expect(pi.sentUserMessages[0]).toContain("- Acceptance: /planned-branch:impl-ts sends a rendered prompt.");
+	});
+
 	test("planned-branch:create help displays usage without mutation", async () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
@@ -1166,6 +1251,44 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain(CREATE_PLANNED_BRANCH_USAGE);
+	});
+
+	test("planned-branch:create-ts dry-run resolves latest TypeScript plan store without mutating", async () => {
+		const planStoreRoot = await makeTempDir("source-ts-plan-store-");
+		const sourceBranch = "main";
+		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
+		const filePath = await writePlanStoreFile(directoryPath, PLAN_TS_KEY, 1_800_000_000_000, TS_RECIPE_CONTENT);
+		await writePlanStoreFile(directoryPath, PLAN_KEY, 1_900_000_000_000, DEFAULT_PLAN_CONTENT);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), planSlugStep(TS_RECIPE_CONTENT)]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("planned-branch:create-ts");
+		const context = createContext();
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.content).toContain("Dry run: no branch was created and no TypeScript recipe plan was attached.");
+		expect(pi.sentMessages[0]?.content).toContain(`Path: ${filePath}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_TS_KEY}`);
+		expect(pi.sentMessages[0]?.details).toMatchObject({
+			status: "dry-run",
+			preview: { filePath, key: PLAN_TS_KEY, planFileKind: "typescript-recipe" },
+		});
+	});
+
+	test("planned-branch:create-ts rejects explicit Markdown paths", async () => {
+		const filePath = await makeNamedPlanFile(PLAN_KEY, DEFAULT_PLAN_CONTENT);
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:create-ts");
+
+		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
+
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.content).toContain("Failed to resolve TypeScript saved plan file or derive branch slug.");
+		expect(pi.sentMessages[0]?.content).toContain("Plan file must use a .plan.ts filename");
 	});
 
 	test("planned-branch:create dry-run resolves latest local plan store without mutating", async () => {
@@ -2007,7 +2130,68 @@ describe("write_source_branch_plan_file tool", () => {
 	});
 });
 
+describe("write_source_branch_ts_plan_file tool", () => {
+	test("describes and writes trusted TypeScript recipe plans", async () => {
+		const planStoreRoot = await makeTempDir("source-ts-plan-store-");
+		const sourceBranch = "planned-branches/add-widget";
+		const origin = "git@github.com:owner/repo.git";
+		const pi = new FakePi([
+			savedPlanSlugStep(TS_RECIPE_CONTENT),
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep({ stdout: `${origin}\n` }),
+		]);
+		registerPlannedBranchExtension(pi, { planStoreRoot });
+		const tool = registeredTool(pi, "write_source_branch_ts_plan_file");
+
+		expect(tool.description).toContain("<slug>.plan.ts");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/planned-branch:write-ts-plan");
+		const result = await tool.execute("tool-call", { content: TS_RECIPE_CONTENT, summary: "Recipe prototype." }, undefined, undefined, { cwd: ROOT });
+
+		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const expectedPath = join(planStoreRoot, repoKey, branchKey, PLAN_TS_KEY);
+		pi.assertDone();
+		expect(result.content[0]?.text).toContain(`Path: ${expectedPath}`);
+		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
+		expect(result.details).toMatchObject({ slug: PLAN_SLUG, filePath: expectedPath, slugEvidence: contentSlugEvidence() });
+		expect(await readFile(expectedPath, "utf8")).toBe(TS_RECIPE_CONTENT);
+	});
+
+	test("rejects assistant-provided slugs", async () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const tool = registeredTool(pi, "write_source_branch_ts_plan_file");
+
+		await expect(tool.execute("tool-call", { slug: PLAN_SLUG, content: TS_RECIPE_CONTENT }, undefined, undefined, { cwd: ROOT })).rejects.toThrow(
+			"do not pass `slug`",
+		);
+		expect(pi.execCalls).toEqual([]);
+	});
+});
+
 describe("writeSourceBranchPlanFile", () => {
+	test("writes a source branch TypeScript recipe saved plan file", async () => {
+		const planStoreRoot = await makeTempDir("source-ts-plan-store-");
+		const sourceBranch = "planned-branches/add-widget";
+		const origin = "git@github.com:owner/repo.git";
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ stdout: `${origin}\n` })]);
+
+		const evidence = await writeSourceBranchTsPlanFile(
+			pi,
+			{ slug: PLAN_SLUG, content: TS_RECIPE_CONTENT, summary: "Plan as TypeScript recipe." },
+			{ cwd: ROOT, planStoreRoot },
+		);
+
+		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const expectedPath = join(planStoreRoot, repoKey, branchKey, PLAN_TS_KEY);
+
+		pi.assertDone();
+		expect(evidence).toMatchObject({ slug: PLAN_SLUG, filePath: expectedPath, summary: "Plan as TypeScript recipe." });
+		expect(await readFile(expectedPath, "utf8")).toBe(TS_RECIPE_CONTENT);
+	});
+
 	test("writes a source branch saved plan file with origin identity evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "planned-branches/add-widget";

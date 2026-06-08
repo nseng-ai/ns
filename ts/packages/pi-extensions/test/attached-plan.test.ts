@@ -3,10 +3,13 @@ import { describe, expect, test } from "bun:test";
 import {
 	buildImplPlannedBranchPrompt,
 	loadAttachedPlan,
+	loadAttachedTsPlan,
 	normalizeRequestedAttachedPlanKey,
+	normalizeRequestedAttachedTsPlanKey,
 	parseBrmemGetContent,
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
+	selectAttachedTsPlanKey,
 	type AttachedPlanEntry,
 } from "@asdl/planned-branch";
 import { PLAN_BRANCH_NAMESPACE, type ExecOptions, type PlanCommandExecApi } from "@asdl/planned-branch";
@@ -16,6 +19,7 @@ const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_BRANCH = `planned-branches/${PLAN_SLUG}`;
 const PLAN_KEY = `${PLAN_SLUG}.md`;
+const PLAN_TS_KEY = `${PLAN_SLUG}.plan.ts`;
 const PLAN_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${PLAN_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const PLAN_CONTENT = "# Attached Plan\n\n- Preserve all Markdown.\n- Then implement.\n";
 
@@ -219,6 +223,22 @@ describe("loadAttachedPlan", () => {
 		expect(exactPlan.selectedKey).toBe(PLAN_KEY);
 	});
 
+	test("loads TypeScript recipe plans without selecting Markdown entries", async () => {
+		const pi = new FakePi(
+			successfulLoadScript({
+				key: PLAN_TS_KEY,
+				entries: [{ key: PLAN_KEY }, { key: PLAN_TS_KEY }],
+				content: "export default async function plan(pi) { await pi.do('work'); }",
+			}),
+		);
+
+		const plan = await loadAttachedTsPlan(pi, {}, { cwd: ROOT });
+
+		pi.assertDone();
+		expect(plan.selectedKey).toBe(PLAN_TS_KEY);
+		expect(pi.execCalls.at(-1)?.args).toEqual(["get", PLAN_TS_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_BRANCH, "--format", "json"]);
+	});
+
 	test("falls back to the only entry when branch segment does not match", async () => {
 		const branch = "planned-branches/different-segment";
 		const pi = new FakePi(successfulLoadScript({ branch, key: PLAN_KEY, entries: [{ key: PLAN_KEY }] }));
@@ -253,6 +273,16 @@ describe("loadAttachedPlan", () => {
 		expect(() => normalizeRequestedAttachedPlanKey("   ")).toThrow("empty");
 		expect(() => normalizeRequestedAttachedPlanKey("/abs.md")).toThrow("must not start");
 		expect(() => normalizeRequestedAttachedPlanKey("../escape")).toThrow("must not contain");
+		expect(normalizeRequestedAttachedTsPlanKey(PLAN_SLUG)).toBe(PLAN_TS_KEY);
+	});
+
+	test("reports TypeScript multiple entry ambiguity with TypeScript keys only", () => {
+		expect(() =>
+			selectAttachedTsPlanKey({
+				branch: "planned-branches/no-match",
+				entries: [attachedPlanEntry("beta.plan.ts"), attachedPlanEntry("ignored.md"), attachedPlanEntry("alpha.plan.ts")],
+			}),
+		).toThrow(/Multiple attached plans[\s\S]*- alpha\.plan\.ts[\s\S]*- beta\.plan\.ts/);
 	});
 
 	test("reports no entries with recovery guidance", async () => {
