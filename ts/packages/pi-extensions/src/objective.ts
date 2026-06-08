@@ -1,5 +1,5 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
@@ -19,7 +19,6 @@ Shows \`objective list\` output in chat. Output format is controlled by the Pi e
 
 const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
-const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
 
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
 type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";

@@ -13,7 +13,7 @@ import {
 } from "./objective-picker.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
-const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
+export const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
 
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
