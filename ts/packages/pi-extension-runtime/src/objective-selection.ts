@@ -45,6 +45,14 @@ interface ObjectiveSelectionUi {
 	select?: CommandContext["ui"]["select"];
 }
 
+interface ObjectivePickerUi extends ObjectiveSelectionUi {
+	select: NonNullable<CommandContext["ui"]["select"]>;
+}
+
+interface ObjectivePickerContext extends ObjectiveSelectionContext {
+	ui: ObjectivePickerUi;
+}
+
 export interface ObjectiveSelectionContext extends Pick<CommandContext, "cwd" | "waitForIdle"> {
 	hasUI: boolean;
 	ui: ObjectiveSelectionUi;
@@ -109,14 +117,14 @@ interface ObjectiveStatusChangedSlugsOptions {
 }
 
 interface SelectObjectiveSlugOptions {
-	ctx: ObjectiveSelectionContext;
+	ctx: ObjectivePickerContext;
 	title: string;
 	records: ObjectiveListRecord[];
 	selection: ObjectiveDiffSelection | undefined;
 }
 
 interface SelectChangedObjectivesOrOtherOptions {
-	ctx: ObjectiveSelectionContext;
+	ctx: ObjectivePickerContext;
 	spec: ObjectiveSelectionSpec;
 	objectiveList: ObjectiveList;
 	selection: ObjectiveDiffSelection;
@@ -242,10 +250,6 @@ function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): s
 async function selectObjectiveSlug(options: SelectObjectiveSlugOptions): Promise<string | undefined> {
 	const { ctx, title, records, selection } = options;
 	const select = ctx.ui.select;
-	if (!select) {
-		return undefined;
-	}
-
 	const choices = objectiveChoiceMap(records, selection);
 	const selected = await select(title, [...choices.keys()]);
 	if (!selected) {
@@ -278,10 +282,6 @@ async function selectChangedObjectivesOrOther(options: SelectChangedObjectivesOr
 	}
 
 	const select = ctx.ui.select;
-	if (!select) {
-		return undefined;
-	}
-
 	const selected = await select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
@@ -333,9 +333,10 @@ export async function chooseActiveObjectiveSlug(
 		return undefined;
 	}
 
-	const changedSelection = await changedObjectiveSelection({ host, ctx, objectiveList, spec });
+	const pickerCtx: ObjectivePickerContext = { ...ctx, ui: { ...ctx.ui, select: ctx.ui.select } };
+	const changedSelection = await changedObjectiveSelection({ host, ctx: pickerCtx, objectiveList, spec });
 	if (changedSelection && spec.compactDiffSuggestion) {
-		return selectChangedObjectivesOrOther({ ctx, spec, objectiveList, selection: changedSelection });
+		return selectChangedObjectivesOrOther({ ctx: pickerCtx, spec, objectiveList, selection: changedSelection });
 	}
 
 	if (changedSelection) {
@@ -347,7 +348,7 @@ export async function chooseActiveObjectiveSlug(
 		);
 	}
 	return selectObjectiveSlug({
-		ctx,
+		ctx: pickerCtx,
 		title: spec.selectionTitle,
 		records: objectiveRecordsWithChangedFirst(objectiveList.records, changedSelection),
 		selection: changedSelection,
