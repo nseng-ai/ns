@@ -10,9 +10,9 @@
   - Policy: Use a cheap/fast runner model pattern only for ordinary bounded classification, and require deterministic validation plus escalation to a stronger/default model for schema failures, omissions, ambiguity, or complex cross-file reasoning.
   - Evidence: Pi `dispatch_runner_subagent` accepts an optional model pattern, passes it to child Pi as `--model`, and reports `requestedModel` without claiming the resolved model. Runner tests, TypeScript checks, and dprint checks covered the model option path; the public `pr-address` skill and classifier references document the routing policy.
 
-- [~] Design the managed run-state boundary for `pr-address` orchestration.
+- [x] Design the managed run-state boundary for `pr-address` orchestration.
   - Policy: Keep raw feedback payloads, selected-detail artifacts, classification packets, validation wrappers, and GitHub mutation payloads clearly scoped; avoid normal ad-hoc `/tmp/pr-address-*.json` state.
-  - Evidence: PR #1011 narrowed shared infrastructure to generic JSON option/stdin loading while keeping `pr-address` classification and thread-resolution semantics in `pr-address` helpers. Remaining evidence is that normal validation and mutation paths no longer require ad-hoc JSON scratch files.
+  - Evidence: PR #1011 narrowed shared infrastructure to generic JSON option/stdin loading while keeping `pr-address` classification and thread-resolution semantics in `pr-address` helpers. Later helper slices completed the normal boundary: selected details are same-session artifacts, classification/planning consume validated payload-backed envelopes, resolution payloads are helper-built and accepted through stdin/JSON/file inputs, batch checkpoints preserve compact evidence, finalization consumes compact manifests/checkpoints, and stack runs use stack-native prep/plan/diff/payload helpers rather than manual scratch wrappers.
 
 - [x] Improve selected-detail payload ergonomics.
   - Policy: Selected body/item lookup should be payload/artifact-backed and should return compact references, not feedback body dumps in the main transcript.
@@ -56,7 +56,7 @@
 
 ## Closure Evidence
 
-A representative fixture, dry run, or live PR-addressing run with PR-level feedback, unresolved inline threads, discussion comments, and at least two batch types is required to close the Objective. Treat that as closure evidence for the roadmap, not as a separate implementation work unit.
+Closure evidence is provided by `packages/asdl-pr-address/tests/scenario/test_stack_feedback_operations.py::test_representative_stack_address_happy_path_closure_evidence`. The scenario fixture includes PR-level review feedback, unresolved inline review threads, PR discussion comments, and three batch types (`local`, `cross_cutting`, and `complex`). It exercises `stack-feedback-prep`, `stack-feedback-plan`, fresh `stack-feedback-prep --include-resolved`, `stack-feedback-diff-current`, `build-stack-resolve-thread-payloads`, helper-mediated `resolve-thread-batch` mutation against an in-memory fake, and final stack-wide verification with `stack-feedback-prep --include-resolved`.
 
 ## Parked
 

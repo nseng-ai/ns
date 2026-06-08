@@ -97,7 +97,17 @@ Risks:
 
 ## Open Questions
 
-- What is the right boundary between a composite `plan-run` helper and smaller helpers so deterministic orchestration improves without hiding too much from the agent and user?
-- The `@file` mutation affordance now exists (`resolve-thread-batch --payload-file`, backed by the shared JSON loader), generated mutation payloads come from `build-resolve-thread-batch-payload`, per-batch evidence is recorded by `record-batch-checkpoint`, and final verification is aggregated by `finalize-run` from fresh compact feedback plus checkpoint results. A future enhancement could decide whether to dereference checkpoint artifacts directly, but the normal happy path no longer depends on that decision.
-- What representative fixture or live-run protocol should count as final closure evidence for the lower-orchestration happy path?
-- Should stack-wide helpers be a thin adapter over existing per-PR planning/payload models, or should they introduce a first-class stack run artifact that owns plan, diff, payload, and finalization references?
+No closure-blocking open questions remain.
+
+- The Objective landed on smaller, inspectable helpers rather than an opaque `plan-run` command: classification scaffolding, validated planning, selected-detail lookup, mutation payload building, batch checkpoints, finalization, stack current-feedback diffing, and stack-native payload building each own deterministic state without hiding approval gates.
+- The `@file` mutation affordance now exists (`resolve-thread-batch --payload-file`, backed by the shared JSON loader), generated mutation payloads come from helper builders, per-batch evidence is recorded by `record-batch-checkpoint`, and final verification is aggregated by `finalize-run` or stack-wide include-resolved prep evidence from compact feedback. A future enhancement could dereference checkpoint artifacts directly, but the normal happy path no longer depends on that decision.
+- Representative closure evidence is the scenario fixture `test_representative_stack_address_happy_path_closure_evidence`, which covers PR-level review feedback, unresolved inline review threads, discussion comments, multiple stack batch types, helper-built payloads, fake-only mutation, and final include-resolved verification.
+- A first-class stack run artifact remains a possible future enhancement, but closure accepts the current thin stack helper chain because the validated plan, current-feedback diff, per-PR payload generation, and final verification steps are all deterministic and tested.
+
+## Closure
+
+Completed on 2026-06-08. `pr-address` now has a materially lower-orchestration happy path: deterministic helpers own payload discipline, classification scaffolding, validation, planning, mutation payload construction, checkpoint/finalization evidence, stack current-feedback reconciliation, and stack-native resolution payload generation while the agent retains semantic judgment and code-change responsibility.
+
+Closure evidence is the representative stack scenario `packages/asdl-pr-address/tests/scenario/test_stack_feedback_operations.py::test_representative_stack_address_happy_path_closure_evidence`. It covers PR-level review feedback, unresolved inline review threads, PR discussion comments, at least two batch types, stack prep, stack planning, fresh include-resolved current prep, current-feedback diffing, helper-built resolve-thread payloads, fake-only helper-mediated thread mutation, and final include-resolved stack verification without leaking raw sentinel bodies.
+
+Parked ideas remain intentionally out of scope: fully automatic classification, broad payload artifact lifecycle/GC policy, and cross-harness UI affordances. Those do not block closure because the durable helper chain, public guidance, and representative fixture satisfy the completion criteria without requiring live GitHub mutation.

@@ -11,7 +11,7 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_core.gh.types import PRDiscussionComment, PRReviewComment, PRReviewThread
+from asdl_core.gh.types import PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread
 from asdl_core.git.testing import FakeGitGateway
 from asdl_pr_address.cli.main import build_cli
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
@@ -64,42 +64,67 @@ def _summary_thread(
     )
 
 
+def _discussion_comments() -> dict[int, list[PRDiscussionComment]]:
+    return {
+        101: [
+            PRDiscussionComment(
+                id=201,
+                author="vercel[bot]",
+                body="[vc]: SECRET_VERCEL_BODY deployment succeeded.",
+                url="https://example.com/201",
+            ),
+            PRDiscussionComment(
+                id=202,
+                author="roaster[bot]",
+                body="<!-- roaster: summary --> SECRET_ROASTER_BODY summary.",
+                url="https://example.com/202",
+            ),
+            PRDiscussionComment(
+                id=203,
+                author="alice",
+                body="SECRET_HUMAN_BODY FYI this looks good to me.",
+                url="https://example.com/203",
+            ),
+        ],
+        102: [
+            PRDiscussionComment(
+                id=204,
+                author="github-actions[bot]",
+                body="SECRET_ACTIONS_BODY GitHub Actions checks completed.",
+                url="https://example.com/204",
+            )
+        ],
+    }
+
+
 def _feedback_fake() -> FakePRGateway:
     return FakePRGateway(
         review_threads={
             101: [_summary_thread("PRRT_101", comment_id=1001)],
             102: [_summary_thread("PRRT_102", comment_id=1002)],
         },
-        discussion_comments={
+        discussion_comments=_discussion_comments(),
+    )
+
+
+def _representative_feedback_fake() -> FakePRGateway:
+    return FakePRGateway(
+        reviews={
             101: [
-                PRDiscussionComment(
-                    id=201,
-                    author="vercel[bot]",
-                    body="[vc]: SECRET_VERCEL_BODY deployment succeeded.",
-                    url="https://example.com/201",
-                ),
-                PRDiscussionComment(
-                    id=202,
-                    author="roaster[bot]",
-                    body="<!-- roaster: summary --> SECRET_ROASTER_BODY summary.",
-                    url="https://example.com/202",
-                ),
-                PRDiscussionComment(
-                    id=203,
-                    author="alice",
-                    body="SECRET_HUMAN_BODY FYI this looks good to me.",
-                    url="https://example.com/203",
-                ),
-            ],
-            102: [
-                PRDiscussionComment(
-                    id=204,
-                    author="github-actions[bot]",
-                    body="SECRET_ACTIONS_BODY GitHub Actions checks completed.",
-                    url="https://example.com/204",
+                PRReview(
+                    id="PRR_101",
+                    author="reviewer",
+                    body="SECRET_REVIEW_BODY please revisit the stack-wide design.",
+                    state="CHANGES_REQUESTED",
+                    submitted_at="2026-05-23T00:00:00Z",
                 )
-            ],
+            ]
         },
+        review_threads={
+            101: [_summary_thread("PRRT_101", comment_id=1001)],
+            102: [_summary_thread("PRRT_102", comment_id=1002)],
+        },
+        discussion_comments=_discussion_comments(),
     )
 
 
@@ -151,6 +176,22 @@ def _classification_for_prep_pr(prep_pr: dict) -> dict:
             for comment in prep_pr["manifest"]["discussion_comments"]
         ],
     }
+
+
+def _representative_classification_for_prep_pr(prep_pr: dict) -> dict:
+    classification = _classification_for_prep_pr(prep_pr)
+    classification["reviews"] = [
+        {
+            "review_id": review["id"],
+            "disposition": "actionable",
+            "body_locator": _locator_ref(review["body_locator"]),
+            "summary": "PR-level review requires stack-wide design follow-up.",
+            "action_summary": "Address the PR-level review request.",
+            "complexity": "complex",
+        }
+        for review in prep_pr["manifest"]["reviews"]
+    ]
+    return classification
 
 
 def _discussion_classification(comment: dict, *, automation_ids: set[int]) -> dict:
@@ -343,6 +384,195 @@ def test_stack_feedback_plan_validates_and_merges_stack_plan(
     assert {item["discussion_comment_id"] for item in data["decision_docket"]} == {203, None}
     assert data["stack_plan_reference"]["role"] == "summary"
     assert Path(data["stack_plan_reference"]["payload_path"]).exists()
+
+
+def test_representative_stack_address_happy_path_closure_evidence(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fake = _representative_feedback_fake()
+    env = _payload_env(tmp_path)
+
+    prep_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-prep",
+            "--stack-json",
+            json.dumps(_stack_input()),
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(fake)),
+        env=env,
+    )
+
+    assert prep_result.exit_code == 0, prep_result.output
+    prep = json.loads(prep_result.output)["data"]
+    assert prep["summary"]["prs"] == 2
+    assert prep["summary"]["unresolved_review_threads"] == 2
+    assert prep["summary"]["automation_discussion_comments"] == 3
+    assert prep["stack"][0]["manifest"]["reviews"][0]["id"] == "PRR_101"
+    assert "SECRET_REVIEW_BODY" not in prep_result.output
+    assert "SECRET_THREAD_BODY" not in prep_result.output
+    assert "SECRET_HUMAN_BODY" not in prep_result.output
+
+    classifications = [
+        {
+            "pr_number": prep_pr["pr_number"],
+            "classification": _representative_classification_for_prep_pr(prep_pr),
+        }
+        for prep_pr in prep["stack"]
+    ]
+    plan_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-plan",
+            "--payload-json",
+            json.dumps({"prep": prep, "classifications": classifications}),
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(fake)),
+        env=env,
+    )
+
+    assert plan_result.exit_code == 0, plan_result.output
+    stack_plan = json.loads(plan_result.output)["data"]
+    assert stack_plan["valid"] is True
+    assert stack_plan["validation"]["all_valid"] is True
+    assert [batch["batch_id"] for batch in stack_plan["batches"]] == [
+        "local",
+        "cross_cutting",
+        "complex",
+    ]
+    assert stack_plan["summary"]["actionable_items"] == 3
+    assert stack_plan["summary"]["informational_items"] == 4
+    assert any(
+        item["source_kind"] == "review" and item["review_id"] == "PRR_101"
+        for batch in stack_plan["batches"]
+        for item in batch["items"]
+    )
+    assert any(
+        item["source_kind"] == "discussion_comment" for item in stack_plan["informational"]
+    )
+    assert "SECRET_REVIEW_BODY" not in plan_result.output
+    assert "SECRET_THREAD_BODY" not in plan_result.output
+    assert "SECRET_HUMAN_BODY" not in plan_result.output
+
+    current_prep_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-prep",
+            "--include-resolved",
+            "--stack-json",
+            json.dumps(_stack_input()),
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(fake)),
+        env=env,
+    )
+    assert current_prep_result.exit_code == 0, current_prep_result.output
+    current_prep = json.loads(current_prep_result.output)["data"]
+    assert current_prep["include_resolved"] is True
+
+    diff_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "stack-feedback-diff-current", "--format", "json"],
+        obj=_obj(_ctx(fake)),
+        input=json.dumps({"stack_plan": stack_plan, "current_prep": current_prep}),
+    )
+    assert diff_result.exit_code == 0, diff_result.output
+    diff_data = json.loads(diff_result.output)["data"]
+    assert diff_data["valid"] is True
+    assert diff_data["safe_to_resolve_planned"] is True
+    assert {
+        (item["pr_number"], item["thread_id"])
+        for item in diff_data["planned_still_unresolved"]
+    } == {(101, "PRRT_101"), (102, "PRRT_102")}
+    assert diff_data["new_unresolved_threads"] == []
+    assert diff_data["missing_or_outdated_planned_threads"] == []
+    assert "SECRET_THREAD_BODY" not in diff_result.output
+
+    for batch_id, pr_number, thread_id in (
+        ("local", 102, "PRRT_102"),
+        ("cross_cutting", 101, "PRRT_101"),
+    ):
+        payload_result = CliRunner().invoke(
+            cli_group,
+            ["exec", "build-stack-resolve-thread-payloads", "--format", "json"],
+            obj=_obj(_ctx(fake)),
+            input=json.dumps(
+                {
+                    "stack_plan": stack_plan,
+                    "batch_id": batch_id,
+                    "commit_sha": "abc1234",
+                    "continue_on_error": True,
+                    "decisions": [
+                        {
+                            "pr_number": pr_number,
+                            "thread_id": thread_id,
+                            "action": "resolve",
+                            "mode": "fixed",
+                            "message": "Fixed in the stack-tip omnibus commit.",
+                        }
+                    ],
+                }
+            ),
+        )
+        assert payload_result.exit_code == 0, payload_result.output
+        payload_data = json.loads(payload_result.output)["data"]
+        assert payload_data["payloads_ready"] is True
+        assert payload_data["review_thread_count"] == 1
+        assert payload_data["resolved_thread_count"] == 1
+        assert payload_data["payloads"][0]["pr_number"] == pr_number
+        assert payload_data["payloads"][0]["payload"]["items"][0]["thread_id"] == thread_id
+        assert "SECRET_THREAD_BODY" not in payload_result.output
+
+        resolve_result = CliRunner().invoke(
+            cli_group,
+            ["exec", "resolve-thread-batch", "--format", "json"],
+            obj=_obj(_ctx(fake)),
+            input=json.dumps(payload_data["payloads"][0]["payload"]),
+        )
+        assert resolve_result.exit_code == 0, resolve_result.output
+        resolve_data = json.loads(resolve_result.output)["data"]
+        assert resolve_data["all_succeeded"] is True
+        assert resolve_data["resolved"] == 1
+
+    assert set(fake.resolved_thread_ids) == {"PRRT_101", "PRRT_102"}
+    assert {thread_id for thread_id, _body in fake.thread_replies} == {"PRRT_101", "PRRT_102"}
+
+    final_prep_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-prep",
+            "--include-resolved",
+            "--stack-json",
+            json.dumps(_stack_input()),
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(fake)),
+        env=env,
+    )
+    assert final_prep_result.exit_code == 0, final_prep_result.output
+    final_prep = json.loads(final_prep_result.output)["data"]
+    assert final_prep["summary"]["unresolved_review_threads"] == 0
+    final_threads = [
+        thread
+        for prep_pr in final_prep["stack"]
+        for thread in prep_pr["manifest"]["review_threads"]
+    ]
+    assert {thread["thread_id"] for thread in final_threads} == {"PRRT_101", "PRRT_102"}
+    assert all(thread["is_resolved"] is True for thread in final_threads)
+    assert "SECRET_REVIEW_BODY" not in final_prep_result.output
+    assert "SECRET_THREAD_BODY" not in final_prep_result.output
+    assert "SECRET_HUMAN_BODY" not in final_prep_result.output
 
 
 def test_build_stack_resolve_thread_payloads_builds_one_pr_payload_from_stack_plan(
