@@ -27,7 +27,7 @@ Reference audit docs have been moved into this Objective at:
 
 Those reference docs are part of the Objective context and should be consulted before implementing, parking, or rejecting any roadmap row.
 
-After the first four projects shipped and the Git slice of the `asdl-core` converter row landed, the remaining active implementation focus is intentionally narrowed to two rows: finish the `asdl-core` GitHub response mapping / Graphite metadata reader disposition, and deepen `asdl-pr-address` feedback snapshot / prepare-run policy. The `roaster`, `areg`, `vibechk`, and `packagechk` rows are parked with reasons in the roadmap rather than pursued under this Objective.
+After the first four projects shipped and the Git and GitHub slices of the `asdl-core` converter row landed, the remaining active implementation focus is intentionally narrowed to two rows: finish the `asdl-core` Graphite metadata reader disposition, and deepen `asdl-pr-address` feedback snapshot / prepare-run policy. The `roaster`, `areg`, `vibechk`, and `packagechk` rows are parked with reasons in the roadmap rather than pursued under this Objective.
 
 ## Non-Goals
 
@@ -65,5 +65,5 @@ Completion does not require every row to ship. It requires that none of the ten 
 
 ## Open Questions
 
-- Should the remaining `asdl-core` adapter-conversion/disposition row be finished as one slice, or split into separate GitHub response mapping and Graphite metadata disposition slices?
+- Should the remaining `asdl-core` Graphite metadata reader disposition be an extraction slice, or should it be parked with reason because current code is already cohesive enough that extraction would be churn?
 - Should parked cleanup items from `asdl-handoff`, `aretro`, `brmem`, `roaster`, `areg`, `vibechk`, or `packagechk` ever be collected into a separate cleanup Objective, or should they remain opportunistic local refactors?
