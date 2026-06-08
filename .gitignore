@@ -32,6 +32,3 @@ local.just
 .claude/scheduled_tasks.lock
 .vercel
 .env*
-
-# Local agent scratch artifacts
-.pi/pr-address-run/
