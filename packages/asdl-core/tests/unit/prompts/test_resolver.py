@@ -255,9 +255,24 @@ def test_checked_in_subagent_launch_prompt_matches_embedded_default() -> None:
     assert checked_in_prompt.read_text(encoding="utf-8") == embedded_prompt
 
 
-def test_checked_in_planned_branch_write_plan_prompt_matches_embedded_default() -> None:
-    checked_in_prompt = _repo_root() / ".asdl" / "prompts" / "planned-branch-write-plan.md"
+def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_override() -> None:
+    repo_root = _repo_root()
+    checked_in_prompt = repo_root / ".asdl" / "prompts" / "planned-branch-write-plan.md"
+    checked_in_content = checked_in_prompt.read_text(encoding="utf-8")
     embedded_prompt = load_embedded_default_prompt("planned-branch-write-plan")
 
     assert embedded_prompt is not None
-    assert checked_in_prompt.read_text(encoding="utf-8") == embedded_prompt
+    assert checked_in_content != embedded_prompt
+
+    resolution = resolve_prompt("planned-branch-write-plan", repo_root=repo_root)
+
+    assert resolution.provenance.source == "repo"
+    assert resolution.provenance.prompt_path == checked_in_prompt
+    assert resolution.content == checked_in_content
+    assert "Subagent orchestration opportunities" in resolution.content
+    assert "none" in resolution.content
+    assert "rationale" in resolution.content
+    assert "launch-readiness" in resolution.content
+    assert "ordered waves" in resolution.content
+    assert "sequential" in resolution.content
+    assert "parent validation" in resolution.content
