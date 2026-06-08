@@ -34,7 +34,7 @@ The selected slug directory is durable identity and immutable during an update: 
 
 1. Use an explicit user-provided slug/path under `.asdl/objectives/<slug>/`.
 2. If the selected path is under `.asdl/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
-3. Otherwise run `objective list --format md` immediately.
+3. Otherwise run `objective list --minimal --format md` immediately.
 4. If exactly one active Objective exists and update intent is explicit, ask before evidence/mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
 5. If multiple active Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
 6. If none exist, say so and suggest `objective-create` when appropriate.
@@ -168,7 +168,7 @@ The final response may include exact command output when useful; durable Objecti
 
 ## Stop / ask
 
-- Objective selection is ambiguous or absent after presenting `objective list --format md` options.
+- Objective selection is ambiguous or absent after presenting `objective list --minimal --format md` options.
 - The selected path is under `.asdl/objective-archive/`; ask whether to unarchive before updating Objective tracking.
 - Update intent remains ambiguous after the invocation-intent confirmation.
 - The exactly-one open Objective confirmation is pending.

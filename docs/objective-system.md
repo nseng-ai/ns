@@ -199,19 +199,25 @@ Contract:
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
+- Include local non-trunk branch attribution by default for the listed checkout-local Objective records. `--names` remains slug-only.
+- Provide a `--minimal` flag that hides local branch attribution and shows the compact Objective/status/latest-update list.
 - Compute `latest_update_iso` from the newest committed update touching `.asdl/objectives/<slug>/` when available; otherwise report `null`.
 - Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.asdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
-- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state.
-- Do not parse Markdown prose, summarize Objective bodies, project records across branches, choose a canonical branch, or depend on Graphite.
-- The shipped command has no branch projection, third active status, current-branch mode, or detail view.
+- By default, report local branches whose net `.asdl/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.asdl/objectives/`.
+- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state. By default, `data.updated_branches_included` is true and each record contains an `updated_branches` array. With `--minimal` or `--names`, branch-attribution fields are omitted.
+- Do not parse Markdown prose, summarize Objective bodies, choose a canonical branch, or depend on Graphite.
+- The shipped command has no Graphite branch projection, third active status, current-branch mode, or detail view.
 
 Shipped CLI:
 
-- Run `objective list` for the default active/open Objective inventory.
-- Run `objective list --format md` for markdown output.
-- Run `objective list --format json` for the machine envelope.
+- Run `objective list` for the default active/open Objective inventory with local branch attribution.
+- Run `objective list --format md` for markdown output with local branch attribution.
+- Run `objective list --format json` for the machine envelope with local branch attribution.
+- Run `objective list --minimal` for the compact active/open Objective inventory without local branch attribution.
 - Run `objective list --status all` to include open and closed active-root Objective records.
 - Run `objective list --status closed` for closed active-root Objective records.
+- Run `objective list --status all --format md` for a Markdown table with local branch attribution.
+- Run `objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
 - Run `objective list --names` to print active slugs, one per line.
 
 ### `objective-create`

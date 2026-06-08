@@ -302,7 +302,7 @@ async function runObjectiveList(args: string, script: ScriptedExec[] = []): Prom
 function expectListActiveObjectivesCall(result: { pi: FakePi }): void {
 	expect(result.pi.execCalls[0]).toEqual({
 		command: "objective",
-		args: ["list", "--format", "json"],
+		args: ["list", "--minimal", "--format", "json"],
 		options: { cwd: ROOT, timeout: 30_000 },
 	});
 }
@@ -335,7 +335,7 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 }
 
 function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
-	return step("objective", ["list", "--format", "json"], { stdout: objectiveList(slugs, trunkBranch) });
+	return step("objective", ["list", "--minimal", "--format", "json"], { stdout: objectiveList(slugs, trunkBranch) });
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
@@ -365,7 +365,7 @@ function expectInvalidObjectiveListArgs(result: ReturnType<typeof parseObjective
 
 describe("objective:list command", () => {
 	test("completions advertise checkout-local options and status values", () => {
-		expect(completionValues("")).toEqual(["--names", "--status", "--help", "-h"]);
+		expect(completionValues("")).toEqual(["--names", "--minimal", "--status", "--help", "-h"]);
 		expect(completionValues("")).not.toContain("--current");
 		expect(completionValues("")).not.toContain("--view");
 		expect(completionValues("--status ")).toEqual(["all", "active", "open", "closed"]);
@@ -374,10 +374,10 @@ describe("objective:list command", () => {
 	});
 
 	test("parses accepted checkout-local list arguments", () => {
-		expect(parseObjectiveListArgs("--names --status all")).toEqual({
+		expect(parseObjectiveListArgs("--names --minimal --status all")).toEqual({
 			type: "valid",
 			args: {
-				args: ["--names", "--status", "all"],
+				args: ["--names", "--minimal", "--status", "all"],
 				help: false,
 			},
 		});
@@ -403,14 +403,14 @@ describe("objective:list command", () => {
 	});
 
 	test("forwards accepted status arguments with markdown format controlled by the extension", async () => {
-		const result = await runObjectiveList("--names --status all", [
-			step("objective", ["list", "--names", "--status", "all", "--format", "markdown"], { stdout: "alpha\n" }),
+		const result = await runObjectiveList("--names --minimal --status all", [
+			step("objective", ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"], { stdout: "alpha\n" }),
 		]);
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls[0]).toEqual({
 			command: "objective",
-			args: ["list", "--names", "--status", "all", "--format", "markdown"],
+			args: ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
 		expect(result.pi.sentMessages[0]?.content).toBe("alpha");
@@ -893,14 +893,14 @@ describe("objective command shared selection policy", () => {
 			const result = await runObjectiveCommand(commandName, "", [listStep([])]);
 
 			result.pi.assertDone();
-			expect(result.pi.execCalls[0]?.args).toEqual(["list", "--format", "json"]);
+			expect(result.pi.execCalls[0]?.args).toEqual(["list", "--minimal", "--format", "json"]);
 			expect(result.pi.execCalls[0]?.args).not.toContain("--current");
 		}
 
 		const stackResult = await runObjectiveStackImpl("", [listStep([])]);
 
 		stackResult.pi.assertDone();
-		expect(stackResult.pi.execCalls[0]?.args).toEqual(["list", "--format", "json"]);
+		expect(stackResult.pi.execCalls[0]?.args).toEqual(["list", "--minimal", "--format", "json"]);
 		expect(stackResult.pi.execCalls[0]?.args).not.toContain("--current");
 	});
 
@@ -954,7 +954,7 @@ describe("objective command shared selection policy", () => {
 
 			test("invalid objective list JSON notifies and sends no prompt", async () => {
 				const result = await runObjectiveCommand(commandName, "", [
-					step("objective", ["list", "--format", "json"], { stdout: "{" }),
+					step("objective", ["list", "--minimal", "--format", "json"], { stdout: "{" }),
 				]);
 
 				result.pi.assertDone();

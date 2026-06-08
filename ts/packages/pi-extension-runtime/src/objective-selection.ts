@@ -139,7 +139,7 @@ async function listActiveObjectives(
 		ctx.ui.setStatus?.(spec.statusKey, "listing active Objectives…");
 	}
 
-	const args = ["list", "--format", "json"];
+	const args = ["list", "--minimal", "--format", "json"];
 	try {
 		const result = await host.exec("objective", args, {
 			cwd: ctx.cwd,

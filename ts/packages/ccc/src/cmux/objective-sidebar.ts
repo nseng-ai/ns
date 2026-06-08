@@ -98,7 +98,7 @@ export async function listObjectiveSidebarChoices(
 	pi: Pick<ExtensionAPI, "exec">,
 	cwd: string,
 ): Promise<ObjectiveSidebarChoicesLoadResult> {
-	const args = ["list", "--format", "json"];
+	const args = ["list", "--minimal", "--format", "json"];
 	let result: ExecResult;
 	try {
 		result = await pi.exec("objective", args, { cwd, timeout: OBJECTIVE_READ_TIMEOUT_MS });

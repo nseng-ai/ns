@@ -301,7 +301,7 @@ export function step(command: string, args: string[] | undefined, result?: Parti
 }
 
 export function objectiveListStep(slugs: string[]): ScriptedExec {
-	return step("objective", ["list", "--format", "json"], {
+	return step("objective", ["list", "--minimal", "--format", "json"], {
 		stdout: JSON.stringify({
 			exit_code: 0,
 			data: {

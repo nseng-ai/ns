@@ -131,7 +131,7 @@ describe("cmux Objective sidebar", () => {
 			},
 		]);
 		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
-			["objective", ["list", "--format", "json"]],
+			["objective", ["list", "--minimal", "--format", "json"]],
 			["objective", ["exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
 			["asdl", ["exec", "cmux-workspace-summary", "--title", expectedTitle, "--description", expectedDescription, "--format", "json"]],

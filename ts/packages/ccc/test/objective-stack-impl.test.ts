@@ -97,7 +97,7 @@ function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedE
 function expectListActiveObjectivesCall(result: { host: FakePi }): void {
 	expect(result.host.execCalls[0]).toEqual({
 		command: "objective",
-		args: ["list", "--format", "json"],
+		args: ["list", "--minimal", "--format", "json"],
 		options: { cwd: ROOT, timeout: 30_000 },
 	});
 }

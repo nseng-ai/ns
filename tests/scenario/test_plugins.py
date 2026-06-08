@@ -122,6 +122,7 @@ def test_objective_plugin_integration(tmp_path: Path) -> None:
         "root_path": ".asdl/objectives",
         "status_filter": "active",
         "names_only": False,
+        "updated_branches_included": True,
         "records": [],
     }
 

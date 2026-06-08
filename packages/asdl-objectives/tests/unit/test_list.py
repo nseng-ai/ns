@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import PathTouch
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.list import build_objective_list_result
+from asdl_objectives.list import (
+    _MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES,
+    build_objective_list_result,
+)
 from asdl_objectives.list_models import ObjectiveListRecord, ObjectiveListResult
+from asdl_objectives.testing import change_touch
 
 
 def test_build_objective_list_result_reports_checkout_records_and_head_touches(
@@ -27,7 +33,11 @@ def test_build_objective_list_result_reports_checkout_records_and_head_touches(
     )
     ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
 
-    result = build_objective_list_result(ctx, status_filter="all")
+    result = build_objective_list_result(
+        ctx,
+        status_filter="all",
+        include_updated_branches=False,
+    )
 
     assert result == ObjectiveListResult(
         trunk_branch="master",
@@ -55,8 +65,10 @@ def test_build_objective_list_result_reports_checkout_records_and_head_touches(
         (tmp_path, ".asdl/objectives/alpha"),
         (tmp_path, ".asdl/objectives/closed-one"),
     )
+    assert git.list_local_branch_tips_calls == ()
     assert git.list_tracked_paths_at_ref_calls == ()
     assert git.tree_oids_at_refs_calls == ()
+    assert git.path_touches_under_calls == ()
 
 
 def test_build_objective_list_result_active_filters_to_open_records(tmp_path: Path) -> None:
@@ -69,6 +81,17 @@ def test_build_objective_list_result_active_filters_to_open_records(tmp_path: Pa
 
     assert [record.slug for record in result.records] == ["alpha"]
     assert result.status_filter == "active"
+
+
+def test_build_objective_list_result_rejects_names_with_updated_branches(
+    tmp_path: Path,
+) -> None:
+    _objective_dir(tmp_path, "alpha")
+    git = FakeGitGateway(repo_root=tmp_path, branches=("master",), trunk_branch="master")
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    with pytest.raises(RuntimeError, match="names-only output"):
+        build_objective_list_result(ctx, names_only=True, include_updated_branches=True)
 
 
 def test_build_objective_list_result_marks_dirty_records(tmp_path: Path) -> None:
@@ -122,6 +145,170 @@ def test_build_objective_list_result_checks_only_filtered_records(tmp_path: Path
     )
 
 
+def test_build_objective_list_result_updated_branches_skips_empty_filtered_records(
+    tmp_path: Path,
+) -> None:
+    _objective_dir(tmp_path, "closed-one", closed=True)
+    git = FakeGitGateway(
+        repo_root=tmp_path,
+        branches=("master", "feat/objective"),
+        trunk_branch="master",
+    )
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    result = build_objective_list_result(ctx, include_updated_branches=True)
+
+    assert result.updated_branches_included is True
+    assert result.records == ()
+    assert git.list_local_branch_tips_calls == ()
+    assert git.tree_oids_at_refs_calls == ()
+    assert git.path_touches_under_calls == ()
+
+
+def test_build_objective_list_result_updated_branches_uses_branch_first_prefilter(
+    tmp_path: Path,
+) -> None:
+    _objective_dir(tmp_path, "alpha")
+    _objective_dir(tmp_path, "beta")
+    _objective_dir(tmp_path, "closed-one", closed=True)
+    root_path = ".asdl/objectives"
+    git = FakeGitGateway(
+        repo_root=tmp_path,
+        branches=("feat/same-tree", "feat/beta", "master", "feat/branch-only", "feat/alpha"),
+        trunk_branch="master",
+        tree_oid_by_ref_path={
+            ("master", root_path): "trunk-tree",
+            ("feat/alpha", root_path): "alpha-tree",
+            ("feat/beta", root_path): "beta-tree",
+            ("feat/branch-only", root_path): "branch-only-tree",
+            ("feat/same-tree", root_path): "trunk-tree",
+        },
+        path_change_touches_by_ref_path={
+            ("master..feat/alpha", root_path): (
+                change_touch(
+                    "alpha-latest",
+                    paths=(
+                        ".asdl/objectives/alpha/objective.md",
+                        ".asdl/objectives/alpha/updates/again.md",
+                    ),
+                ),
+                change_touch(
+                    "alpha-older",
+                    paths=(".asdl/objectives/alpha/roadmap.md",),
+                ),
+            ),
+            ("master..feat/beta", root_path): (
+                change_touch("beta-touch", paths=(".asdl/objectives/beta/objective.md",)),
+                change_touch(
+                    "closed-touch",
+                    paths=(".asdl/objectives/closed-one/objective.md",),
+                ),
+            ),
+            ("master..feat/branch-only", root_path): (
+                change_touch(
+                    "branch-only-touch",
+                    paths=(".asdl/objectives/branch-only/objective.md",),
+                ),
+            ),
+        },
+    )
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    result = build_objective_list_result(ctx, include_updated_branches=True)
+
+    assert result.updated_branches_included is True
+    assert [(record.slug, record.updated_branches) for record in result.records] == [
+        ("alpha", ("feat/alpha",)),
+        ("beta", ("feat/beta",)),
+    ]
+    assert git.list_local_branch_tips_calls == (None,)
+    assert git.tree_oids_at_refs_calls == (
+        (
+            ("master", "feat/alpha", "feat/beta", "feat/branch-only", "feat/same-tree"),
+            root_path,
+        ),
+    )
+    assert git.path_touches_under_calls == (
+        ("master..feat/alpha", root_path),
+        ("master..feat/beta", root_path),
+        ("master..feat/branch-only", root_path),
+    )
+
+
+def test_build_objective_list_result_updated_branches_caps_per_branch_walks(
+    tmp_path: Path,
+) -> None:
+    _objective_dir(tmp_path, "alpha")
+    root_path = ".asdl/objectives"
+    attributed_branches = tuple(
+        f"feat/{index:02d}" for index in range(_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES)
+    )
+    overflow_branch = f"feat/{_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES:02d}"
+    git = FakeGitGateway(
+        repo_root=tmp_path,
+        branches=("master", *attributed_branches, overflow_branch),
+        trunk_branch="master",
+        tree_oid_by_ref_path={
+            ("master", root_path): "trunk-tree",
+            **{(branch, root_path): f"{branch}-tree" for branch in attributed_branches},
+        },
+        path_change_touches_by_ref_path={
+            ("master..feat/00", root_path): (
+                change_touch("included-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+            ),
+            (f"master..{overflow_branch}", root_path): (
+                change_touch("overflow-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+            ),
+        },
+    )
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    result = build_objective_list_result(ctx, include_updated_branches=True)
+
+    assert result.records[0].updated_branches == ("feat/00",)
+    assert git.tree_oids_at_refs_calls == ((("master", *attributed_branches), root_path),)
+    assert git.path_touches_under_calls == tuple(
+        (f"master..{branch}", root_path) for branch in attributed_branches
+    )
+
+
+def test_build_objective_list_result_updated_branches_honors_status_filter(
+    tmp_path: Path,
+) -> None:
+    _objective_dir(tmp_path, "alpha")
+    _objective_dir(tmp_path, "closed-one", closed=True)
+    root_path = ".asdl/objectives"
+    git = FakeGitGateway(
+        repo_root=tmp_path,
+        branches=("master", "feat/mixed"),
+        trunk_branch="master",
+        tree_oid_by_ref_path={
+            ("master", root_path): "trunk-tree",
+            ("feat/mixed", root_path): "mixed-tree",
+        },
+        path_change_touches_by_ref_path={
+            ("master..feat/mixed", root_path): (
+                change_touch("alpha-touch", paths=(".asdl/objectives/alpha/objective.md",)),
+                change_touch(
+                    "closed-touch",
+                    paths=(".asdl/objectives/closed-one/objective.md",),
+                ),
+            ),
+        },
+    )
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    result = build_objective_list_result(
+        ctx,
+        status_filter="closed",
+        include_updated_branches=True,
+    )
+
+    assert [(record.slug, record.updated_branches) for record in result.records] == [
+        ("closed-one", ("feat/mixed",)),
+    ]
+
+
 def test_objective_list_result_json_omits_dirty_state() -> None:
     result = ObjectiveListResult(
         trunk_branch="master",
@@ -141,10 +328,12 @@ def test_objective_list_result_json_omits_dirty_state() -> None:
     dumped = result.model_dump(mode="json")
 
     assert dumped["records"] == [{"slug": "alpha", "status": "open", "latest_update_iso": None}]
+    assert "updated_branches_included" not in dumped
     assert set(ObjectiveListRecord.model_json_schema()["properties"]) == {
         "slug",
         "status",
         "latest_update_iso",
+        "updated_branches",
     }
 
 

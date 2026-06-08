@@ -133,7 +133,7 @@ def test_fake_path_exists_at_ref_returns_seeded_existence() -> None:
     )
 
 
-def test_fake_list_local_branch_tips_returns_sorted_branches_and_seeded_timestamps() -> None:
+def test_fake_list_local_branch_tips_returns_sorted_branches_and_tracks_call() -> None:
     gateway = FakeGitGateway(
         branches=("feat/b", "main", "feat/a"),
         branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
@@ -144,6 +144,7 @@ def test_fake_list_local_branch_tips_returns_sorted_branches_and_seeded_timestam
         LocalBranchTip(name="feat/b", head_iso=None),
         LocalBranchTip(name="main", head_iso=None),
     )
+    assert gateway.list_local_branch_tips_calls == (None,)
 
 
 def test_fake_delete_local_branch_removes_branch_and_tracks_call() -> None:
