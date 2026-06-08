@@ -782,6 +782,10 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("launch-readiness quality bar");
 		expect(checkedInContent).toContain("Prefer ordered waves");
 		expect(checkedInContent).toContain("recommend sequential dispatch and parent validation");
+		expect(checkedInContent).toContain("dispatch_runner_subagent.model");
+		expect(checkedInContent).toContain("default_model: haiku");
+		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
+		expect(checkedInContent).toContain("openai-codex/gpt-5.5:high");
 	});
 });
 
