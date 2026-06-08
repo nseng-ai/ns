@@ -358,9 +358,13 @@ If the bot is wrong:
 Use the composite helpers for GitHub mutations. Read each helper's entry in
 `references/cli-reference.md` before calling it — do not guess the JSON shape:
 
-- `build-resolve-thread-batch-payload` — after a batch commit, validate explicit
-  per-thread resolve/skip decisions against the selected `plan-feedback` batch
-  and produce the non-mutating payload for `resolve-thread-batch`
+- `build-resolve-thread-batch-payload` — after a single-PR batch commit,
+  validate explicit per-thread resolve/skip decisions against the selected
+  `plan-feedback` batch and produce the non-mutating payload for
+  `resolve-thread-batch`
+- `build-stack-resolve-thread-payloads` — for stack runs, validate explicit
+  per-thread decisions against a selected `stack-feedback-plan` batch and
+  produce per-PR non-mutating payloads for `resolve-thread-batch`
 - `resolve-thread-batch` — mutating helper that replies to and resolves every
   inline thread included in a validated batch payload
 - `record-batch-checkpoint` — non-GitHub helper that validates compact evidence
@@ -412,9 +416,10 @@ Common footguns (the reference is still the source of truth):
 - Missing decisions never mean skip; every review-thread item needs an explicit
   `resolve` or `skip` decision.
 - `build-resolve-thread-batch-payload` is per-PR: pass `plan-feedback` output,
-  not merged `stack-feedback-plan` output. For stack runs, keep the stack plan
-  as planning evidence and use per-PR plan data until stack-native payload
-  building exists.
+  not merged `stack-feedback-plan` output. For stack runs, pass the validated
+  `stack-feedback-plan` output plus explicit `(pr_number, thread_id)` decisions
+  to `build-stack-resolve-thread-payloads`, then call `resolve-thread-batch` per
+  ready payload.
 - `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads fail
   before mutation; gateway failures may return `exit_code: 1` with partial
   result data.

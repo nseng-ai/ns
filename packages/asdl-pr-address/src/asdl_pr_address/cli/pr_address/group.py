@@ -9,6 +9,9 @@ from asdl_pr_address.cli.pr_address.add_review_thread_reply import run_add_revie
 from asdl_pr_address.cli.pr_address.build_resolve_thread_batch_payload import (
     run_build_resolve_thread_batch_payload,
 )
+from asdl_pr_address.cli.pr_address.build_stack_resolve_thread_payloads import (
+    run_build_stack_resolve_thread_payloads,
+)
 from asdl_pr_address.cli.pr_address.classification_template import run_classification_template
 from asdl_pr_address.cli.pr_address.finalize_run import run_finalize_run
 from asdl_pr_address.cli.pr_address.get_discussion_comments import run_get_pr_discussion_comments
@@ -48,6 +51,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_add_pr_discussion_comment_reaction,
             run_add_review_thread_reply,
             run_build_resolve_thread_batch_payload,
+            run_build_stack_resolve_thread_payloads,
             run_finalize_run,
             run_get_pr_discussion_comments,
             run_get_feedback,
