@@ -161,7 +161,7 @@ export default function dispatchRunnerSubagentExtension(
 						prompt: childPrompt,
 						...(input.model === undefined ? {} : { model: input.model }),
 						returnMode: "final-text",
-						launch,
+						preResolvedLaunch: launch,
 						onProgress: (update) => {
 							const progressText = formatDispatchRunnerSubagentProgress(update.progress);
 							onUpdate?.({

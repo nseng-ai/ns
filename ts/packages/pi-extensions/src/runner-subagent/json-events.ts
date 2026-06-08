@@ -1,3 +1,4 @@
+import { isThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
 import {
@@ -6,7 +7,6 @@ import {
 	toolInputPreviewFromEvent,
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
-import { isThinkingLevel } from "./guards.ts";
 
 export interface RunnerSubagentJsonEventParserOptions {
 	title?: string;

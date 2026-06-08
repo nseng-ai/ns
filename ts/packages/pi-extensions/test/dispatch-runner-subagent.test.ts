@@ -52,6 +52,24 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	}
 }
 
+class OneShotThinkingPi extends FakePi {
+	getThinkingLevelCallCount = 0;
+	private readonly oneShotThinkingLevel: ThinkingLevel;
+
+	constructor(dependencies: RunnerSubagentDispatcherDependencies, thinkingLevel: ThinkingLevel) {
+		super(dependencies);
+		this.oneShotThinkingLevel = thinkingLevel;
+	}
+
+	override getThinkingLevel(): ThinkingLevel {
+		this.getThinkingLevelCallCount += 1;
+		if (this.getThinkingLevelCallCount > 1) {
+			throw new Error("getThinkingLevel should only be used while resolving the dispatch launch once.");
+		}
+		return this.oneShotThinkingLevel;
+	}
+}
+
 interface RegisterToolOptions {
 	pi?: FakePi;
 	definitionRoot?: string;
@@ -255,6 +273,27 @@ describe("dispatch_runner_subagent extension", () => {
 			hasThinkingArg: true,
 		});
 		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
+	});
+
+	test("uses the resolved launch metadata without re-resolving it as launch options", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new OneShotThinkingPi(runner.dependencies, "medium");
+		const tool = registerTool({ pi });
+
+		const running = tool.execute("tool-1", { title: "Slice subagent", prompt: "Do focused work." }, undefined, undefined, {
+			cwd: ROOT,
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+		});
+		const call = await waitForSpawn(runner.calls);
+
+		expect(pi.getThinkingLevelCallCount).toBe(1);
+		expect(call.args).toContain("--thinking");
+		expect(call.args).toContain("medium");
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		await expect(running).resolves.toEqual(expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }));
+		expect(pi.getThinkingLevelCallCount).toBe(1);
 	});
 
 	test("passes optional model to child Pi invocation and reports requested model details", async () => {

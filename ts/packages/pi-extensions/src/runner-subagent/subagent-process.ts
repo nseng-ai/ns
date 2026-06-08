@@ -109,7 +109,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const startTimeMs = now();
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
-	const launch = resolveRunnerSubagentLaunch(pi, ctx, options);
+	const launch = options.preResolvedLaunch ?? resolveRunnerSubagentLaunch(pi, ctx, options);
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
 	const updateEmitter = createUpdateEmitter(options.onProgress);
 

@@ -39,6 +39,16 @@ export interface RunnerSubagentLaunchOptions {
 	thinkingLevel?: ThinkingLevel;
 }
 
+type RunnerSubagentLaunchInput =
+	| {
+			launch?: RunnerSubagentLaunchOptions;
+			preResolvedLaunch?: never;
+	  }
+	| {
+			launch?: never;
+			preResolvedLaunch: RunnerSubagentLaunchMetadata;
+	  };
+
 export interface RunnerSubagentUsageTotals {
 	input: number;
 	output: number;
@@ -97,17 +107,17 @@ export type RunnerSubagentOptions = {
 	cwd?: string;
 	signal?: AbortSignal;
 	onProgress?: RunnerSubagentProgressCallback;
-	launch?: RunnerSubagentLaunchOptions;
-} & (
-	| {
-			returnMode?: "terminal";
-			terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
-	  }
-	| {
-			returnMode: "final-text";
-			terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
-	  }
-);
+} & RunnerSubagentLaunchInput &
+	(
+		| {
+				returnMode?: "terminal";
+				terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
+		  }
+		| {
+				returnMode: "final-text";
+				terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
+		  }
+	);
 
 export interface RunnerSubagentTerminalCapture<
 	TInput = unknown,
