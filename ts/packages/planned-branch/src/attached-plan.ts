@@ -84,7 +84,7 @@ export async function loadPlannedBranchPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	return loadPlannedBranchPlanForKind(pi, params, options, "markdown");
+	return loadPlannedBranchPlanForKind({ pi, params, options, kind: "markdown" });
 }
 
 export async function loadPlannedBranchTsPlan(
@@ -92,17 +92,20 @@ export async function loadPlannedBranchTsPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	return loadPlannedBranchPlanForKind(pi, params, options, "typescript-recipe");
+	return loadPlannedBranchPlanForKind({ pi, params, options, kind: "typescript-recipe" });
 }
 
-async function loadPlannedBranchPlanForKind(
-	pi: PlanCommandExecApi,
-	params: LoadAttachedPlanParams,
-	options: LoadAttachedPlanOptions,
-	kind: PlanFileKind,
-): Promise<LoadedAttachedPlan> {
+interface LoadPlannedBranchPlanForKindInput {
+	pi: PlanCommandExecApi;
+	params: LoadAttachedPlanParams;
+	options: LoadAttachedPlanOptions;
+	kind: PlanFileKind;
+}
+
+async function loadPlannedBranchPlanForKind(input: LoadPlannedBranchPlanForKindInput): Promise<LoadedAttachedPlan> {
+	const { pi, params, options, kind } = input;
 	try {
-		return await loadAttachedPlanForKind(pi, params, options, kind);
+		return await loadAttachedPlanForKind({ pi, params, options, kind });
 	} catch (error) {
 		if (!isSavedPlanFallbackEligibleError(error) || params.requestedKey !== undefined) {
 			throw error;
@@ -135,7 +138,7 @@ export async function loadAttachedPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	return loadAttachedPlanForKind(pi, params, options, "markdown");
+	return loadAttachedPlanForKind({ pi, params, options, kind: "markdown" });
 }
 
 export async function loadAttachedTsPlan(
@@ -143,15 +146,18 @@ export async function loadAttachedTsPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	return loadAttachedPlanForKind(pi, params, options, "typescript-recipe");
+	return loadAttachedPlanForKind({ pi, params, options, kind: "typescript-recipe" });
 }
 
-async function loadAttachedPlanForKind(
-	pi: PlanCommandExecApi,
-	params: LoadAttachedPlanParams,
-	options: LoadAttachedPlanOptions,
-	kind: PlanFileKind,
-): Promise<LoadedAttachedPlan> {
+interface LoadAttachedPlanForKindInput {
+	pi: PlanCommandExecApi;
+	params: LoadAttachedPlanParams;
+	options: LoadAttachedPlanOptions;
+	kind: PlanFileKind;
+}
+
+async function loadAttachedPlanForKind(input: LoadAttachedPlanForKindInput): Promise<LoadedAttachedPlan> {
+	const { pi, params, options, kind } = input;
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
 	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
 	const branch = await resolveSafeImplementationBranch(git, options.cwd, options.signal);
