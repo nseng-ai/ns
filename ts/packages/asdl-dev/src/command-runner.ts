@@ -133,9 +133,9 @@ export function resolveVercelCommandPrefix(resolveCommand: CommandResolver): Com
 		return { command: vercel, args: [] };
 	}
 
-	const bunx = resolveCommand("bunx");
-	if (bunx !== undefined) {
-		return { command: bunx, args: ["vercel@latest"] };
+	const pnpm = resolveCommand("pnpm");
+	if (pnpm !== undefined) {
+		return { command: pnpm, args: ["dlx", "vercel@latest"] };
 	}
 
 	return undefined;

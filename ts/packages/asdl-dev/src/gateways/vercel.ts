@@ -110,7 +110,7 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 function vercelUnavailableError(): ErrorInfo {
 	return {
 		code: "vercel_cli_unavailable",
-		message: "Neither vercel nor bunx was found on PATH; cannot query Vercel deployments.",
+		message: "Neither vercel nor pnpm was found on PATH; cannot query Vercel deployments.",
 	};
 }
 
