@@ -39,6 +39,15 @@ class GitContext:
     git: GitGateway
 
 
+def build_git_gateway(
+    *,
+    repo_root: Path | None = None,
+    trunk_branch: str | None = None,
+) -> GitGateway:
+    """Construct the production git gateway for git-backed workflows."""
+    return RealGitGateway(repo_root=repo_root, trunk_branch=trunk_branch)
+
+
 def resolve_repo_root(cwd: Path) -> Path | None:
     """Return the git working-tree root for ``cwd``; ``None`` outside a repo."""
 
@@ -96,5 +105,5 @@ def build_git_context(cwd: Path) -> GitContext | GitUnavailable:
     return GitContext(
         repo_root=repo_root,
         trunk_branch=trunk_branch,
-        git=RealGitGateway(repo_root=repo_root, trunk_branch=trunk_branch),
+        git=build_git_gateway(repo_root=repo_root, trunk_branch=trunk_branch),
     )
