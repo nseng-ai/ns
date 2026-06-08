@@ -27,6 +27,8 @@ Reference audit docs have been moved into this Objective at:
 
 Those reference docs are part of the Objective context and should be consulted before implementing, parking, or rejecting any roadmap row.
 
+After the first four projects shipped and the Git slice of the `asdl-core` converter row landed, the remaining active implementation focus is intentionally narrowed to two rows: finish the `asdl-core` GitHub response mapping / Graphite metadata reader disposition, and deepen `asdl-pr-address` feedback snapshot / prepare-run policy. The `roaster`, `areg`, `vibechk`, and `packagechk` rows are parked with reasons in the roadmap rather than pursued under this Objective.
+
 ## Non-Goals
 
 - Re-running the full per-package audit unless the reference docs are stale or contradicted by current code.
@@ -50,19 +52,18 @@ Completion does not require every row to ship. It requires that none of the ten 
 **Assumptions**
 
 - The reference audit reports accurately reflect the current architecture at Objective creation time.
-- The priority order is a good starting order, but later implementation evidence may justify reordering through Objective updates.
+- The priority order was a good starting order, but later implementation evidence and user direction narrowed the remaining active focus to `asdl-core` adapter conversion/disposition and `asdl-pr-address` feedback workflow deepening.
 - The previous closed `architecture-deepening` Objective is historical context, not an active container for this new priority roadmap.
 - Moving the audit docs into this Objective is acceptable because the Objective should be self-contained even if top-level `docs/` changes later.
 
 **Risks**
 
-- Some audit findings may become stale before implementation begins. Mitigation: reread the relevant package code and the package-specific reference doc before starting a row.
-- `asdl-core` work has high blast radius. Mitigation: keep those rows narrow and preserve existing gateway interfaces unless the row explicitly calls for an interface change.
+- Some audit findings may become stale before implementation begins. Mitigation: reread the relevant package code and the package-specific reference doc before starting an active row; parked rows should be revalidated before any future unpark decision.
+- `asdl-core` work has high blast radius. Mitigation: keep the remaining adapter-conversion/disposition row narrow and preserve existing gateway interfaces unless evidence requires an interface change.
 - `asdl-slots` work revealed that the release workflow and checkout mutation fix should be split across separate branches/slices. The checkout mutation fix shipped separately, and the release/free/gc workflow shipped through staged preview-surface and execution-flow consolidation slices with lifecycle-focused tests plus CLI scenario regression coverage.
 - Moving the audit docs out of top-level `docs/` may surprise future readers looking there. Mitigation: this Objective path is checked in and should be referenced from future updates or handoffs that use the audit.
 
 ## Open Questions
 
-- Should any of the top ten projects become child Objectives before implementation, especially the high-blast-radius `asdl-core` rows?
-- Should the priority order change after re-verifying `asdl-slots` against the current code, given that a previous architecture-deepening Objective already shipped earlier slot lifecycle work?
-- Should parked cleanup items from `asdl-handoff`, `aretro`, or `brmem` ever be collected into a separate cleanup Objective, or should they remain opportunistic local refactors?
+- Should the remaining `asdl-core` adapter-conversion/disposition row be finished as one slice, or split into separate GitHub response mapping and Graphite metadata disposition slices?
+- Should parked cleanup items from `asdl-handoff`, `aretro`, `brmem`, `roaster`, `areg`, `vibechk`, or `packagechk` ever be collected into a separate cleanup Objective, or should they remain opportunistic local refactors?
