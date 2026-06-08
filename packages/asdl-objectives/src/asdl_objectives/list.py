@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Final
 
 import click
 
@@ -31,6 +32,8 @@ from asdl_objectives.objective_paths import (
     active_objective_record_path,
     objective_slug_from_active_path,
 )
+
+_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES: Final = 50
 
 
 @clinkr_operation(
@@ -153,9 +156,14 @@ def _build_updated_branches_by_slug(
     if not branches:
         return {slug: () for slug in slugs}
 
+    attributed_branches = branches[:_MAX_UPDATED_BRANCH_ATTRIBUTION_BRANCHES]
     updated_branches_by_slug: dict[str, list[str]] = {slug: [] for slug in slugs}
     objective_root = ACTIVE_OBJECTIVE_ROOT.as_posix()
-    changed_branches = _branches_with_objective_tree_changes(ctx, branches, objective_root)
+    changed_branches = _branches_with_objective_tree_changes(
+        ctx,
+        attributed_branches,
+        objective_root,
+    )
     if isinstance(changed_branches, GitCommandFailure):
         return changed_branches
 
