@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 
 from asdl_pr_address.cli.pr_address.reply_formatting import _resolution_summary
-from asdl_pr_address.cli.pr_address.resolution_provenance import ResolutionProvenance
+from asdl_pr_address.cli.pr_address.resolution_provenance_models import (
+    LocalBranchResolutionProvenance,
+    PrResolutionProvenance,
+)
 
 
 def test_resolution_summary_rejects_unknown_mode_and_names_valid_modes() -> None:
@@ -23,7 +26,7 @@ def test_resolution_summary_formats_planned_local_branch_provenance() -> None:
         mode="planned",
         message="Reuse the metadata worker.",
         commit_sha=None,
-        provenance=ResolutionProvenance(
+        provenance=LocalBranchResolutionProvenance(
             kind="local_branch",
             branch="reuse-worker",
             branch_head_oid="abc1234",
@@ -44,7 +47,7 @@ def test_resolution_summary_formats_planned_pr_provenance() -> None:
         mode="planned",
         message="Move the fix into the follow-up PR.",
         commit_sha=None,
-        provenance=ResolutionProvenance(
+        provenance=PrResolutionProvenance(
             kind="pr",
             pr_number=1073,
             pr_url="https://github.com/dagster-io/asdl/pull/1073",

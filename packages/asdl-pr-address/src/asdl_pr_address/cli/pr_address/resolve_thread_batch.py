@@ -17,7 +17,7 @@ from asdl_core.gh.types import PRReviewComment
 from asdl_core.git.git_gateway import GitGateway
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import ResolutionReplyMode
-from asdl_pr_address.cli.pr_address.resolution_provenance import (
+from asdl_pr_address.cli.pr_address.resolution_provenance_models import (
     ResolutionProvenance,
     ResolutionProvenanceInput,
 )
@@ -179,11 +179,11 @@ def normalize_resolve_thread_batch_payload(
         effective_commit_sha = item_commit_sha
         if item.mode == "fixed" and effective_commit_sha is None:
             effective_commit_sha = batch_commit_sha
-        if item.mode == "planned":
+        elif item.mode == "planned":
             Ensure.true(
-                item_commit_sha is None and batch_commit_sha is None,
+                item_commit_sha is None,
                 error_type="invalid_request",
-                message=f"items[{index}] mode='planned' must not include commit_sha",
+                message=f"items[{index}] mode='planned' must not include item commit_sha",
             )
         normalized.append(
             normalize_resolution_request(

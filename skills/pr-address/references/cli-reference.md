@@ -668,9 +668,9 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 
 **Options:**
 
-| Option              | Required | Description                                            |
-| ------------------- | -------- | ------------------------------------------------------ |
-| `--provenance-json` | planned  | JSON provenance for `mode=planned`; see examples below |
+| Option              | Required | Description                                                      |
+| ------------------- | -------- | ---------------------------------------------------------------- |
+| `--provenance-json` | planned  | JSON provenance for `mode=planned`; rejected for all other modes |
 
 `mode` values:
 
@@ -779,8 +779,10 @@ Skip decision:
 a non-empty `message` and a batch or item-level `commit_sha`; `explained`
 requires a non-empty `message`; `pre_existing` ignores `message` and
 `commit_sha` and they should be omitted. `planned` requires a non-empty
-`message` and syntactically valid provenance, and rejects batch or item-level
-`commit_sha`. The builder checks provenance shape only; the mutating
+`message` and syntactically valid provenance, and rejects item-level
+`commit_sha`. A top-level batch `commit_sha` may be present for fixed decisions
+in the same payload and is ignored by planned items. Provenance is only valid
+for planned decisions. The builder checks provenance shape only; the mutating
 `resolve-thread-batch` helper validates that the branch or PR exists before any
 GitHub mutation.
 
@@ -802,9 +804,10 @@ GitHub mutation.
 
 Validation rejects missing decisions, duplicate thread IDs, decisions for other
 batches, informational thread decisions, unknown threads, invalid modes, missing
-messages/commit SHAs, missing planned provenance, planned commit SHA misuse,
-invalid provenance shape, and non-empty resolution fields on skip/pre-existing
-items. It validates any generated payload through the same pre-mutation rules as
+messages/commit SHAs, missing planned provenance, planned item-level commit SHA
+misuse, invalid provenance shape, provenance on non-planned decisions, and
+non-empty resolution fields on skip/pre-existing items. It validates any
+generated payload through the same pre-mutation rules as
 `resolve-thread-batch`, except that live branch/PR existence checks happen in
 the mutating helper.
 
@@ -841,26 +844,27 @@ printf '%s' '{"items":[{"thread_id":"PRRT_kw...","mode":"planned","message":"The
 
 **Payload fields:**
 
-| Field               | Required | Description                                  |
-| ------------------- | -------- | -------------------------------------------- |
-| `commit_sha`        | no       | Batch commit SHA used by `fixed` items       |
-| `continue_on_error` | no       | Attempt later items after a mutation failure |
-| `items`             | yes      | Non-empty ordered array of thread jobs       |
+| Field               | Required | Description                                                      |
+| ------------------- | -------- | ---------------------------------------------------------------- |
+| `commit_sha`        | no       | Batch commit SHA used by `fixed` items; ignored by planned items |
+| `continue_on_error` | no       | Attempt later items after a mutation failure                     |
+| `items`             | yes      | Non-empty ordered array of thread jobs                           |
 
 Each `items[]` entry:
 
-| Field        | Required | Description                                                                 |
-| ------------ | -------- | --------------------------------------------------------------------------- |
-| `thread_id`  | yes      | GraphQL review-thread node ID                                               |
-| `mode`       | yes      | `fixed`, `pre_existing`, `explained`, or `planned`                          |
-| `message`    | mode     | Required for `fixed`, `explained`, and `planned`; ignored by `pre_existing` |
-| `commit_sha` | no       | Item-level override for the top-level commit SHA; rejected by `planned`     |
-| `provenance` | planned  | `{kind:"local_branch",branch:"..."}` or `{kind:"pr",pr_number:1073}`        |
+| Field        | Required | Description                                                                                        |
+| ------------ | -------- | -------------------------------------------------------------------------------------------------- |
+| `thread_id`  | yes      | GraphQL review-thread node ID                                                                      |
+| `mode`       | yes      | `fixed`, `pre_existing`, `explained`, or `planned`                                                 |
+| `message`    | mode     | Required for `fixed`, `explained`, and `planned`; ignored by `pre_existing`                        |
+| `commit_sha` | no       | Item-level override for the top-level commit SHA; rejected by `planned`                            |
+| `provenance` | planned  | `{kind:"local_branch",branch:"..."}` or `{kind:"pr",pr_number:1073}`; rejected for all other modes |
 
 Validation happens for the whole payload before any GitHub mutation. Duplicate
 `thread_id` values, empty `items`, malformed JSON, missing required `message` /
-`commit_sha`, missing planned provenance, missing local branches, or missing PRs
-produce `exit_code: 2` with no mutation. Planned provenance is captured during
+`commit_sha`, planned item-level `commit_sha`, non-planned provenance, missing
+planned provenance, missing local branches, or missing PRs produce
+`exit_code: 2` with no mutation. Planned provenance is captured during
 that pre-mutation validation step, so branch HEAD OIDs and PR states in replies
 are explicitly labelled as batch-start snapshots, not live references. Existing
 PR provenance may be OPEN, CLOSED, or MERGED; the canonical reply includes the

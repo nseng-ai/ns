@@ -2,35 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.json_input import load_json_input
-from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure
+from asdl_pr_address.cli.pr_address.resolution_provenance_models import (
+    LocalBranchResolutionProvenance,
+    LocalBranchResolutionProvenanceInput,
+    PrResolutionProvenance,
+    PrResolutionProvenanceInput,
+    ResolutionProvenance,
+    ResolutionProvenanceInput,
+    resolution_provenance_input_adapter,
+)
 from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
-
-ResolutionProvenanceKind = Literal["local_branch", "pr"]
-
-
-class ResolutionProvenanceInput(ClinkrModel):
-    kind: ResolutionProvenanceKind
-    branch: str | None = None
-    pr_number: int | None = None
-
-
-class ResolutionProvenance(ClinkrModel):
-    kind: ResolutionProvenanceKind
-    branch: str | None = None
-    branch_head_oid: str | None = None
-    pr_number: int | None = None
-    pr_url: str | None = None
-    pr_state: str | None = None
-    pr_head_ref_name: str | None = None
-    pr_head_ref_oid: str | None = None
 
 
 def parse_resolution_provenance_json(
@@ -46,7 +33,7 @@ def parse_resolution_provenance_json(
         input_description="provenance JSON",
         option_name="--provenance-json",
         allow_stdin=False,
-        parser=ResolutionProvenanceInput.model_validate_json,
+        parser=resolution_provenance_input_adapter().validate_json,
     )
 
 
@@ -60,7 +47,7 @@ def validate_resolution_provenance(
     if shape_error is not None:
         Ensure.fail(error_type="invalid_request", message=shape_error)
 
-    if provenance_input.kind == "local_branch":
+    if isinstance(provenance_input, LocalBranchResolutionProvenanceInput):
         return _validate_local_branch_provenance(
             provenance_input,
             git_gateway=Ensure.not_none(
@@ -69,7 +56,7 @@ def validate_resolution_provenance(
                 message="local_branch planned provenance requires a git gateway for validation",
             ),
         )
-    if provenance_input.kind == "pr":
+    if isinstance(provenance_input, PrResolutionProvenanceInput):
         return _validate_pr_provenance(
             provenance_input,
             pr_gateway=Ensure.not_none(
@@ -85,30 +72,22 @@ def validate_resolution_provenance(
 
 
 def provenance_shape_error(provenance_input: ResolutionProvenanceInput) -> str | None:
-    if provenance_input.kind == "local_branch":
-        branch = trim_optional(provenance_input.branch)
-        if branch is None:
+    if isinstance(provenance_input, LocalBranchResolutionProvenanceInput):
+        if trim_optional(provenance_input.branch) is None:
             return "kind='local_branch' provenance requires a non-empty branch"
-        if provenance_input.pr_number is not None:
-            return "kind='local_branch' provenance must not include pr_number"
         return None
-    if provenance_input.kind == "pr":
-        if provenance_input.pr_number is None:
-            return "kind='pr' provenance requires pr_number"
+    if isinstance(provenance_input, PrResolutionProvenanceInput):
         if provenance_input.pr_number <= 0:
             return "kind='pr' provenance requires a positive pr_number"
-        branch = trim_optional(provenance_input.branch)
-        if branch is not None:
-            return "kind='pr' provenance must not include branch"
         return None
     return f"Unsupported planned provenance kind: {provenance_input.kind}"
 
 
 def _validate_local_branch_provenance(
-    provenance_input: ResolutionProvenanceInput,
+    provenance_input: LocalBranchResolutionProvenanceInput,
     *,
     git_gateway: GitGateway,
-) -> ResolutionProvenance:
+) -> LocalBranchResolutionProvenance:
     branch = trim_required(provenance_input.branch)
     branch_head_oid = git_gateway.branch_head_oid(branch)
     if isinstance(branch_head_oid, GitCommandFailure):
@@ -120,7 +99,7 @@ def _validate_local_branch_provenance(
             ),
         )
 
-    return ResolutionProvenance(
+    return LocalBranchResolutionProvenance(
         kind="local_branch",
         branch=branch,
         branch_head_oid=branch_head_oid,
@@ -128,30 +107,30 @@ def _validate_local_branch_provenance(
 
 
 def _validate_pr_provenance(
-    provenance_input: ResolutionProvenanceInput,
+    provenance_input: PrResolutionProvenanceInput,
     *,
     pr_gateway: PRGateway,
-) -> ResolutionProvenance:
-    pr_number = provenance_input.pr_number
-    assert pr_number is not None, "provenance_shape_error must reject missing pr_number"
-
-    pr = pr_gateway.get_pr(pr_number)
+) -> PrResolutionProvenance:
+    pr = pr_gateway.get_pr(provenance_input.pr_number)
     if isinstance(pr, PRLookupMiss):
         Ensure.fail(
             error_type="invalid_request",
-            message=f"planned provenance PR does not exist: #{pr_number}",
+            message=f"planned provenance PR does not exist: #{provenance_input.pr_number}",
         )
     if isinstance(pr, PRGatewayFailure):
         Ensure.fail(
             error_type="pr_gateway_failure",
-            message=f"Failed to validate planned provenance PR #{pr_number}: {pr.stderr}",
+            message=(
+                "Failed to validate planned provenance PR "
+                f"#{provenance_input.pr_number}: {pr.stderr}"
+            ),
         )
 
     return _provenance_from_pr_summary(pr)
 
 
-def _provenance_from_pr_summary(pr: PRSummary) -> ResolutionProvenance:
-    return ResolutionProvenance(
+def _provenance_from_pr_summary(pr: PRSummary) -> PrResolutionProvenance:
+    return PrResolutionProvenance(
         kind="pr",
         pr_number=pr.number,
         pr_url=pr.url,
