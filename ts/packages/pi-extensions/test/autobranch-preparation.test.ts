@@ -4,14 +4,7 @@ import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch-preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "../src/branch-slug.ts";
 import { buildSlugModelArgs } from "../src/model-slug.ts";
-
-function ok(stdout = "", stderr = ""): CommandResult {
-	return { code: 0, stdout, stderr };
-}
-
-function fail(stderr: string): CommandResult {
-	return { code: 1, stdout: "", stderr };
-}
+import { fail, ok } from "./autobranch-test-helpers.ts";
 
 interface ExecCall {
 	command: string;

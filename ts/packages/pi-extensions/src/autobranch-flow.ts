@@ -5,11 +5,8 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "asdl-dev/src/pending-worktree.ts";
-import {
-	createLatestCommitAutobranchFlow,
-	inspectUpstreamHeadState,
-	type UpstreamHeadState,
-} from "./autobranch-latest-commit.ts";
+import { createLatestCommitAutobranchFlow } from "./autobranch-latest-commit.ts";
+import { inspectUpstreamHeadState, type UpstreamHeadState } from "./autobranch-upstream.ts";
 import {
 	prepareAutobranchPlan,
 	type FileStat,

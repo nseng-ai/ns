@@ -1,14 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch-transaction.ts";
-
-function ok(stdout = "", stderr = ""): CommandResult {
-	return { code: 0, stdout, stderr };
-}
-
-function fail(stderr: string): CommandResult {
-	return { code: 1, stdout: "", stderr };
-}
+import { fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	stashPushFails?: boolean;

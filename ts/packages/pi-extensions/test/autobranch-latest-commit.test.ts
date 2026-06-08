@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
+import { fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 import {
 	prepareLatestCommitAutobranchPlan,
 	runLatestCommitAutobranchTransaction,
@@ -8,16 +9,6 @@ import {
 	type LatestCommitTransactionInput,
 } from "../src/autobranch-latest-commit.ts";
 import { buildSlugModelArgs } from "../src/model-slug.ts";
-
-function ok(stdout = "", stderr = ""): CommandResult {
-	return { code: 0, stdout, stderr };
-}
-
-function fail(stderr: string, code = 1): CommandResult {
-	return { code, stdout: "", stderr };
-}
-
-type UpstreamMode = "contains" | "ahead" | "none" | "failed";
 
 interface PreparationHarnessOptions {
 	slug?: string;

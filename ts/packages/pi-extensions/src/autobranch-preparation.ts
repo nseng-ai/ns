@@ -5,6 +5,7 @@ import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
 import { chooseAvailableBranchName } from "./autobranch-branch-name.ts";
+import { truncateText } from "./autobranch-shared.ts";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "./branch-slug.ts";
 import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS } from "./model-slug.ts";
 
@@ -189,10 +190,10 @@ function buildSlugPrompt(snapshot: AutobranchSnapshot): string {
 		snapshot.status.trim() || "(clean)",
 		"",
 		"## git diff HEAD",
-		truncate(snapshot.diff.trim() || "(no tracked diff)", MAX_DIFF_CHARS),
+		truncateText(snapshot.diff.trim() || "(no tracked diff)", MAX_DIFF_CHARS),
 		snapshot.untracked ? "" : undefined,
 		snapshot.untracked ? "## untracked file contents" : undefined,
-		snapshot.untracked ? truncate(snapshot.untracked, MAX_DIFF_CHARS) : undefined,
+		snapshot.untracked ? truncateText(snapshot.untracked, MAX_DIFF_CHARS) : undefined,
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
@@ -209,13 +210,6 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 		.map((path) => path.split("/").pop() ?? path)
 		.join(" ");
 	return sanitizeBranchName(`update ${basenameWords || snapshot.branch}`);
-}
-
-function truncate(text: string, maxChars: number): string {
-	if (text.length <= maxChars) {
-		return text;
-	}
-	return `${text.slice(0, maxChars)}\n...[truncated]`;
 }
 
 function errorMessage(error: unknown): string {

@@ -2,16 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch-flow.ts";
-
-function ok(stdout = "", stderr = ""): CommandResult {
-	return { code: 0, stdout, stderr };
-}
-
-function fail(stderr: string): CommandResult {
-	return { code: 1, stdout: "", stderr };
-}
-
-type UpstreamMode = "contains" | "ahead" | "none" | "failed";
+import { fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	args?: AutobranchFlowInput["args"];
