@@ -19,7 +19,7 @@ export async function inspectUpstreamHeadState(input: UpstreamHeadStateInput): P
 	const upstream = await input.exec("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], input.cwd, GIT_TIMEOUT_MS);
 	if (upstream.code !== 0) {
 		const details = `${upstream.stdout}\n${upstream.stderr}`.toLowerCase();
-		if (upstream.code === 128 || details.includes("no upstream") || details.includes("no tracking") || details.includes("has no upstream")) {
+		if (details.includes("no upstream") || details.includes("no tracking") || details.includes("has no upstream")) {
 			return { type: "no_upstream" };
 		}
 		return { type: "failed", error: formatCommandDetails(upstream) };

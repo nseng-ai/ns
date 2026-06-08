@@ -85,7 +85,8 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		return;
 	}
 	if (upstream.type === "failed") {
-		input.notify(formatDirtyUpstreamWarning(upstream), "warning");
+		input.notify(formatDirtyUpstreamFailure(upstream), "error");
+		return;
 	}
 
 	const prepared = await prepareAutobranchPlan({
@@ -143,8 +144,8 @@ function formatDirtyMixedStateRefusal(upstream: Extract<UpstreamHeadState, { typ
 	].join("\n");
 }
 
-function formatDirtyUpstreamWarning(upstream: Extract<UpstreamHeadState, { type: "failed" }>): string {
-	return [`Could not determine whether HEAD is already in the current branch upstream; continuing with dirty-worktree autobranch.`, upstream.error].join("\n");
+function formatDirtyUpstreamFailure(upstream: Extract<UpstreamHeadState, { type: "failed" }>): string {
+	return [`Could not determine whether HEAD is already in the current branch upstream; refusing to autobranch.`, upstream.error].join("\n");
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {

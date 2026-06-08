@@ -120,4 +120,3 @@ async function restoreStash(input: TransactionExecutionInput, ref: string): Prom
 async function createCheckpointCommit(input: Pick<AutobranchTransactionInput, "checkpointMessage" | "commitPreparedCheckpointMessage" | "setStatus">): Promise<{ summary: string } | { error: string }> {
 	return withStatus(input, "creating checkpoint commit…", () => input.commitPreparedCheckpointMessage(input.checkpointMessage));
 }
-

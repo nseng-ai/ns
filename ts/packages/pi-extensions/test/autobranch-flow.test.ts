@@ -206,15 +206,14 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
-	test("dirty worktree with failed upstream check warns and keeps the existing path", async () => {
+	test("dirty worktree with failed upstream check fails hard before preparation", async () => {
 		const harness = createHarness({ upstreamMode: "failed" });
 
 		await createAutobranchCheckpointFlow(harness.input);
 
-		expect(harness.events).toContain("prepare");
-		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
-		expect(harness.notifications.some((notice) => notice.level === "warning" && notice.message.includes("continuing with dirty-worktree autobranch"))).toBe(true);
-		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
+		expect(harness.events).not.toContain("prepare");
+		expect(eventIndex(harness.events, "exec:git stash push")).toBe(-1);
+		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("refusing to autobranch"))).toBe(true);
 	});
 
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {

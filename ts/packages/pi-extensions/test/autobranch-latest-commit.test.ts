@@ -117,12 +117,14 @@ interface TransactionHarnessOptions {
 	shouldDeleteBackupFail?: boolean;
 	shouldRestoreFail?: boolean;
 	verifyHead?: string;
+	existingBranches?: Set<string>;
 }
 
 function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	const events: string[] = [];
 	let currentBranch = "feature/base";
 	let head = "abc123def456";
+	const existingBranches = options.existingBranches ?? new Set<string>();
 	const input: LatestCommitTransactionInput = {
 		cwd: "/repo",
 		plan: basePlan(),
@@ -136,7 +138,8 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return ok();
 			}
 			if (command === "git" && args[0] === "show-ref") {
-				return { code: 1, stdout: "", stderr: "" };
+				const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+				return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
 			}
 			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 				return ok(`${currentBranch}\n`);
@@ -180,6 +183,11 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 
 function eventIndex(events: string[], prefix: string): number {
 	return events.findIndex((event) => event.startsWith(prefix));
+}
+
+function occupiedBackupBranches(): Set<string> {
+	const base = "autobranch-backup/feature/base/123";
+	return new Set(Array.from({ length: 50 }, (_, index) => `${base}${index === 0 ? "" : `-${index + 1}`}`));
 }
 
 describe("prepareLatestCommitAutobranchPlan", () => {
@@ -232,6 +240,9 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		const pushed = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "contains" }).input);
 		expect(pushed).toEqual({ ok: false, kind: "pushed_head_refusal", upstream: "origin/feature/base" });
 
+		const upstreamFailed = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "failed" }).input);
+		expect(upstreamFailed).toEqual({ ok: false, kind: "upstream_check_failed", error: "exit 128: bad upstream state" });
+
 		const root = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "none", parentsLine: "abc123def456\n" }).input);
 		expect(root).toEqual({ ok: false, kind: "root_commit_refusal", headSha: "abc123def456" });
 
@@ -253,6 +264,17 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 });
 
 describe("runLatestCommitAutobranchTransaction", () => {
+	test("backup branch name exhaustion fails before mutation", async () => {
+		const harness = createTransactionHarness({ existingBranches: occupiedBackupBranches() });
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: false, kind: "backup_branch_name_unavailable", sourceBranch: "feature/base" });
+		expect(harness.events.some((event) => event.startsWith("exec:git branch autobranch-backup/"))).toBe(false);
+		expect(eventIndex(harness.events, "exec:git reset --hard")).toBe(-1);
+		expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
+	});
+
 	test("preserves the original commit SHA and deletes the recovery branch on success", async () => {
 		const harness = createTransactionHarness();
 

@@ -66,6 +66,7 @@ type CreatedBranchRecovery =
 export type LatestCommitTransactionResult =
 	| { ok: true; commitSummary: string; backupDeleted: true }
 	| { ok: true; commitSummary: string; backupDeleted: false; backupBranch: string; backupDeleteError: string }
+	| { ok: false; kind: "backup_branch_name_unavailable"; sourceBranch: string }
 	| { ok: false; kind: "backup_create_failed"; error: string }
 	| { ok: false; kind: "source_reset_failed"; backupBranch: string; error: string }
 	| { ok: false; kind: "graphite_create_failed"; backupBranch: string; createError: string; restored: true }
@@ -152,8 +153,12 @@ export interface LatestCommitTransactionInput {
 
 export async function runLatestCommitAutobranchTransaction(input: LatestCommitTransactionInput): Promise<LatestCommitTransactionResult> {
 	const backupBranch = await chooseAvailableBackupBranchName(input, input.plan.sourceBranch, input.now?.() ?? Date.now());
+	if (!backupBranch.ok) {
+		return { ok: false, kind: "backup_branch_name_unavailable", sourceBranch: input.plan.sourceBranch };
+	}
+
 	const backupCreated = await withStatus(input, "creating recovery branch…", () =>
-		input.exec("git", ["branch", backupBranch, input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS),
+		input.exec("git", ["branch", backupBranch.name, input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS),
 	);
 	if (backupCreated.code !== 0) {
 		return { ok: false, kind: "backup_create_failed", error: formatCommandDetails(backupCreated) };
@@ -161,7 +166,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 
 	const resetSource = await resetSourceBranchToParent(input);
 	if (!resetSource.ok) {
-		return { ok: false, kind: "source_reset_failed", backupBranch, error: resetSource.error };
+		return { ok: false, kind: "source_reset_failed", backupBranch: backupBranch.name, error: resetSource.error };
 	}
 
 	const created = await withStatus(input, `creating ${input.plan.branchName}…`, () =>
@@ -170,12 +175,12 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 	if (created.code !== 0) {
 		const restored = await restoreSourceBranch(input);
 		if (restored.ok) {
-			return { ok: false, kind: "graphite_create_failed", backupBranch, createError: formatCommandDetails(created), restored: true };
+			return { ok: false, kind: "graphite_create_failed", backupBranch: backupBranch.name, createError: formatCommandDetails(created), restored: true };
 		}
 		return {
 			ok: false,
 			kind: "graphite_create_failed",
-			backupBranch,
+			backupBranch: backupBranch.name,
 			createError: formatCommandDetails(created),
 			restored: false,
 			restoreError: restored.error,
@@ -190,7 +195,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		return {
 			ok: false,
 			kind: "branch_reset_failed",
-			backupBranch,
+			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
 			resetError: formatCommandDetails(resetBranch),
 			...recovery,
@@ -204,16 +209,16 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		return {
 			ok: false,
 			kind: "head_verify_failed",
-			backupBranch,
+			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
 			actualHead: actualHead || formatCommandDetails(verified),
 			...recovery,
 		};
 	}
 
-	const deleted = await withStatus(input, "cleaning up recovery branch…", () => input.exec("git", ["branch", "-D", backupBranch], input.cwd, GIT_TIMEOUT_MS));
+	const deleted = await withStatus(input, "cleaning up recovery branch…", () => input.exec("git", ["branch", "-D", backupBranch.name], input.cwd, GIT_TIMEOUT_MS));
 	if (deleted.code !== 0) {
-		return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: false, backupBranch, backupDeleteError: formatCommandDetails(deleted) };
+		return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: false, backupBranch: backupBranch.name, backupDeleteError: formatCommandDetails(deleted) };
 	}
 	return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: true };
 }
@@ -418,7 +423,7 @@ async function restoreSourceAndDeleteCreatedBranch(input: LatestCommitTransactio
 	return { restored: true, createdBranchDeleted: true };
 }
 
-async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInput, sourceBranch: string, timestamp: number): Promise<string> {
+async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInput, sourceBranch: string, timestamp: number): Promise<{ ok: true; name: string } | { ok: false }> {
 	const sanitizedSource = sourceBranch
 		.split("/")
 		.map((segment) => sanitizeBackupBranchSegment(segment))
@@ -426,7 +431,10 @@ async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInp
 		.join("/") || "branch";
 	const base = `autobranch-backup/${sanitizedSource}/${timestamp}`;
 	const available = await findAvailableBranchName(input, backupBranchNameCandidates(base));
-	return available?.name ?? `${base}-51`;
+	if (!available) {
+		return { ok: false };
+	}
+	return { ok: true, name: available.name };
 }
 
 function* backupBranchNameCandidates(base: string): Iterable<{ name: string; hasSuffix: boolean }> {
@@ -477,6 +485,8 @@ function formatLatestCommitPreparationFailure(result: Extract<LatestCommitPrepar
 
 function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransactionResult, { ok: false }>): string {
 	switch (result.kind) {
+		case "backup_branch_name_unavailable":
+			return `Could not find an available recovery branch name for ${result.sourceBranch}; refusing to move latest commit.`;
 		case "backup_create_failed":
 			return [`Failed to create recovery branch before moving latest commit.`, result.error].join("\n");
 		case "source_reset_failed":
@@ -513,4 +523,3 @@ function formatCreatedBranchCleanup(result: CreatedBranchRecovery & { branchName
 	}
 	return `Could not delete incomplete branch ${result.branchName}: ${result.createdBranchDeleteError}`;
 }
-
