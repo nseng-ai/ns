@@ -27,6 +27,12 @@ from asdl_pr_address.cli.pr_address.stack_feedback import (
     StackFeedbackPlanItem,
     StackFeedbackPlanResult,
 )
+from asdl_pr_address.cli.pr_address.stack_feedback_thread_index import (
+    informational_review_thread_keys,
+    items_by_thread,
+    other_batch_review_threads,
+    selected_batch_review_thread_items,
+)
 from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
 
 INVALID_STACK_PLAN_SHAPE_MESSAGE = (
@@ -188,7 +194,7 @@ def build_stack_resolve_thread_payloads(
         )
 
     errors: list[BuildStackResolveThreadPayloadsError] = []
-    candidates = _review_thread_candidates(selected_batch)
+    candidates = selected_batch_review_thread_items(selected_batch)
     ignored = _ignored_non_thread_items(selected_batch.items)
     for item in candidates:
         if trim_optional(item.thread_id) is None:
@@ -205,12 +211,12 @@ def build_stack_resolve_thread_payloads(
 
     candidates = tuple(item for item in candidates if trim_optional(item.thread_id) is not None)
     selected_keys = {(item.pr_number, trim_required(item.thread_id)) for item in candidates}
-    selected_by_thread = _items_by_thread(candidates)
-    other_batch_by_key = _other_batch_review_threads(
+    selected_by_thread = items_by_thread(candidates)
+    other_batch_by_key = other_batch_review_threads(
         plan=stack_plan,
         selected_batch_id=batch_id,
     )
-    informational_keys = _informational_review_threads(stack_plan)
+    informational_keys = informational_review_thread_keys(stack_plan)
 
     decisions_by_key, duplicate_keys = _validate_decision_references(
         request=request,
@@ -360,12 +366,6 @@ def _selected_batch(
     return None
 
 
-def _review_thread_candidates(
-    selected_batch: StackFeedbackPlanBatch,
-) -> tuple[StackFeedbackPlanItem, ...]:
-    return tuple(item for item in selected_batch.items if item.source_kind == "review_thread")
-
-
 def _ignored_non_thread_items(
     items: tuple[StackFeedbackPlanItem, ...],
 ) -> tuple[StackIgnoredNonThreadItem, ...]:
@@ -384,46 +384,6 @@ def _ignored_non_thread_items(
             )
         )
     return tuple(ignored)
-
-
-def _items_by_thread(
-    items: tuple[StackFeedbackPlanItem, ...],
-) -> dict[str, tuple[StackFeedbackPlanItem, ...]]:
-    grouped: dict[str, list[StackFeedbackPlanItem]] = defaultdict(list)
-    for item in items:
-        thread_id = trim_optional(item.thread_id)
-        if thread_id is not None:
-            grouped[thread_id].append(item)
-    return {thread_id: tuple(thread_items) for thread_id, thread_items in grouped.items()}
-
-
-def _other_batch_review_threads(
-    *,
-    plan: StackFeedbackPlanResult,
-    selected_batch_id: str,
-) -> dict[tuple[int, str], str]:
-    lookup: dict[tuple[int, str], str] = {}
-    for batch in plan.batches:
-        if batch.batch_id == selected_batch_id:
-            continue
-        for item in batch.items:
-            if item.source_kind != "review_thread":
-                continue
-            thread_id = trim_optional(item.thread_id)
-            if thread_id is not None:
-                lookup[(item.pr_number, thread_id)] = batch.batch_id
-    return lookup
-
-
-def _informational_review_threads(plan: StackFeedbackPlanResult) -> set[tuple[int, str]]:
-    lookup: set[tuple[int, str]] = set()
-    for item in plan.informational:
-        if item.source_kind != "review_thread":
-            continue
-        thread_id = trim_optional(item.thread_id)
-        if thread_id is not None:
-            lookup.add((item.pr_number, thread_id))
-    return lookup
 
 
 def _validate_decision_references(
