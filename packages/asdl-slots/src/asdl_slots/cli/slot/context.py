@@ -9,6 +9,7 @@ import click
 from asdl_core.clinkr.context import load_clinkr_context_object
 from asdl_core.gh.pr_gateway import RealPRGateway
 from asdl_core.git.construction import GitUnavailable, build_git_context
+from asdl_core.git.real_git_gateway import RealGitGateway
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.real_clipboard import RealClipboardGateway
 from asdl_slots.gateway.real_storage import RealSlotsStorageGateway
@@ -35,17 +36,13 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     if isinstance(repo, NoRepoSentinel):
         return repo
 
-    final_git_context = git_context
+    git = git_context.git
     if repo.root != git_context.repo_root:
-        final_git_context = build_git_context(repo.root)
-        if isinstance(final_git_context, GitUnavailable):
-            return _no_repo_from_unavailable(final_git_context)
-        if final_git_context.trunk_branch is None:
-            return _no_trunk_sentinel()
+        git = RealGitGateway(repo_root=repo.root, trunk_branch=git_context.trunk_branch)
 
     return SlotsCliContext(
         repo=repo,
-        git=final_git_context.git,
+        git=git,
         storage=storage,
         clipboard=RealClipboardGateway(),
         pr=RealPRGateway(),

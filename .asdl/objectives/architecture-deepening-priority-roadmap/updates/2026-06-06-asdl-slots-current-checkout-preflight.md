@@ -2,9 +2,9 @@
 
 ## Summary
 
-The `asdl-slots` checkout planning-time mutation fix is now represented as landed Objective state. The local branch diff against Graphite parent `slot-operation-recovery-messaging-helper` changes `plan_current_checkout` so current-worktree redirect planning is pure, simulates the post-redirect inventory for allocation checks, and moves redirect execution into the checkout lifecycle after pool-full and branch-in-use preflight failures have been handled.
+The `asdl-slots` checkout planning-time mutation fix is now represented as landed Objective state across the current stack. The feature changes `plan_current_checkout` so current-worktree redirect planning is pure, simulates the post-redirect inventory for allocation checks, and moves redirect execution into the checkout lifecycle after pool-full and branch-in-use planning failures have been handled.
 
-Evidence includes updated unit tests proving `plan_current_checkout` does not call checkout or detach while planning, plus checkout scenario coverage proving pool-full and no-slot failures preserve the caller's current branch without redirect side effects.
+Evidence includes updated unit tests proving `plan_current_checkout` does not call checkout or detach while planning, plus checkout scenario coverage proving pool-full and no-slot planning failures preserve the caller's current branch without redirect side effects.
 
 ## Objective Impact
 

@@ -61,8 +61,10 @@ def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
                 _entry_from_record(
                     record,
                     "skipped_operation",
-                    message=_operation_in_progress_message(
-                        record,
+                    message=operation_in_progress_detail(
+                        branch_name=record.branch,
+                        worktree_path=record.path,
+                        operation=record.operation,
                         action="running slot gc",
                     ),
                 )
@@ -205,16 +207,6 @@ def _gc_pool_empty_failure() -> SlotLifecycleFailure:
     return SlotLifecycleFailure(
         error_type="pool_empty",
         message="No managed slots configured. Run `slot init --size N` first.",
-    )
-
-
-def _operation_in_progress_message(record: SlotRecord, *, action: str) -> str:
-    assert record.operation is not None
-    return operation_in_progress_detail(
-        branch_name=record.branch,
-        worktree_path=record.path,
-        operation=record.operation,
-        action=action,
     )
 
 

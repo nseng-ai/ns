@@ -2,33 +2,31 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from asdl_slots.lifecycle.operation_state import (
     operation_in_progress_detail,
     operation_recovery_instruction,
-    operation_recovery_sentence,
     slot_operation_in_progress_message,
 )
 
 
-def test_operation_recovery_instruction_rebase() -> None:
-    instruction = operation_recovery_instruction("rebase")
-
-    assert "git rebase --continue" in instruction
-    assert "--abort" in instruction
-
-
-def test_operation_recovery_instruction_bisect() -> None:
-    instruction = operation_recovery_instruction("bisect")
-
-    assert "git bisect reset" in instruction
+@pytest.mark.parametrize(
+    ("operation", "expected"),
+    [
+        ("rebase", "run `git rebase --continue`/`--abort` there"),
+        ("bisect", "run `git bisect reset` there"),
+    ],
+)
+def test_operation_recovery_instruction_known_operations(
+    operation: str,
+    expected: str,
+) -> None:
+    assert operation_recovery_instruction(operation) == expected
 
 
 def test_operation_recovery_instruction_unknown_operation() -> None:
     assert operation_recovery_instruction("cherry-pick") == "finish or abort it there"
-
-
-def test_operation_recovery_sentence_starts_with_capitalized_instruction() -> None:
-    assert operation_recovery_sentence("bisect") == "Run `git bisect reset` there"
 
 
 def test_slot_operation_in_progress_message_includes_context() -> None:

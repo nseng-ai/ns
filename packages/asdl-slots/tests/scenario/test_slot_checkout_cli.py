@@ -853,7 +853,10 @@ def test_slot_checkout_branch_in_main_worktree_redirects(
 
 @pytest.mark.parametrize(
     ("operation", "recovery_fragment"),
-    [("rebase", "git rebase"), ("bisect", "git bisect reset")],
+    [
+        ("rebase", "Run `git rebase --continue`/`--abort` there, then retry."),
+        ("bisect", "Run `git bisect reset` there, then retry."),
+    ],
 )
 def test_slot_checkout_branch_in_use_by_operation_slot(
     cli_group: ClinkrGroup,
