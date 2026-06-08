@@ -214,5 +214,6 @@ async function chooseAvailableBackupBranchName(input: LatestCommitTransactionInp
 }
 
 function sanitizeBackupBranchSegment(value: string): string {
-	return normalizeBranchSlugText(value).slice(0, MAX_BACKUP_SEGMENT_CHARS).replace(/-+$/g, "");
+	const withoutPlanSuffix = normalizeBranchSlugText(value).replace(/(?:-plan)+$/g, "").replace(/-+$/g, "");
+	return withoutPlanSuffix.slice(0, MAX_BACKUP_SEGMENT_CHARS).replace(/(?:-plan)+$/g, "").replace(/-+$/g, "");
 }

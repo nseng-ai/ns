@@ -351,12 +351,12 @@ describe("runLatestCommitAutobranchTransaction", () => {
 
 	test("normalizes recovery branch source segments", async () => {
 		const longSegment = "A".repeat(40);
-		const harness = createTransactionHarness({ sourceBranch: `Féature/###/UPPER punctuation!!!/${longSegment}` });
+		const harness = createTransactionHarness({ sourceBranch: `Féature/fix-plan/###/UPPER punctuation!!!/${longSegment}` });
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
 		expect(result).toEqual({ ok: true, commitSummary: "abc123d Add latest commit support", backupDeleted: true });
-		expect(eventIndex(harness.events, `exec:git branch autobranch-backup/feature/upper-punctuation/${"a".repeat(32)}/123 abc123def456`)).toBeGreaterThan(-1);
+		expect(eventIndex(harness.events, `exec:git branch autobranch-backup/feature/fix/upper-punctuation/${"a".repeat(32)}/123 abc123def456`)).toBeGreaterThan(-1);
 	});
 
 	test("source reset failure deletes redundant backup when source is unchanged", async () => {
