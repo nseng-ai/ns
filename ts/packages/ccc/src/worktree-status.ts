@@ -52,6 +52,8 @@ interface GitPaths {
 	headPath: string;
 }
 
+type GitFileParseResult = { type: "found"; paths: GitPaths | undefined } | { type: "not-gitdir-file" };
+
 export interface GtStatus {
 	down: string | undefined;
 	up: string;
@@ -409,18 +411,8 @@ function findGitPaths(cwd: string): GitPaths | undefined {
 			try {
 				const stat = statSync(gitPath);
 				if (stat.isFile()) {
-					const content = readFileSync(gitPath, "utf8").trim();
-					if (content.startsWith("gitdir: ")) {
-						const gitDir = resolve(dir, content.slice(8).trim());
-						const headPath = join(gitDir, "HEAD");
-						if (!existsSync(headPath)) return undefined;
-
-						const commonDirPath = join(gitDir, "commondir");
-						const commonGitDir = existsSync(commonDirPath)
-							? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim())
-							: gitDir;
-						return { repoDir: dir, gitDir, commonGitDir, headPath };
-					}
+					const gitFileResult = gitPathsFromGitFile(dir, gitPath);
+					if (gitFileResult.type === "found") return gitFileResult.paths;
 				} else if (stat.isDirectory()) {
 					const headPath = join(gitPath, "HEAD");
 					if (!existsSync(headPath)) return undefined;
@@ -435,4 +427,17 @@ function findGitPaths(cwd: string): GitPaths | undefined {
 		if (parent === dir) return undefined;
 		dir = parent;
 	}
+}
+
+function gitPathsFromGitFile(repoDir: string, gitPath: string): GitFileParseResult {
+	const content = readFileSync(gitPath, "utf8").trim();
+	if (!content.startsWith("gitdir: ")) return { type: "not-gitdir-file" };
+
+	const gitDir = resolve(repoDir, content.slice(8).trim());
+	const headPath = join(gitDir, "HEAD");
+	if (!existsSync(headPath)) return { type: "found", paths: undefined };
+
+	const commonDirPath = join(gitDir, "commondir");
+	const commonGitDir = existsSync(commonDirPath) ? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim()) : gitDir;
+	return { type: "found", paths: { repoDir, gitDir, commonGitDir, headPath } };
 }
