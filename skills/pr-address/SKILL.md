@@ -411,6 +411,10 @@ Common footguns (the reference is still the source of truth):
 
 - Missing decisions never mean skip; every review-thread item needs an explicit
   `resolve` or `skip` decision.
+- `build-resolve-thread-batch-payload` is per-PR: pass `plan-feedback` output,
+  not merged `stack-feedback-plan` output. For stack runs, keep the stack plan
+  as planning evidence and use per-PR plan data until stack-native payload
+  building exists.
 - `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads fail
   before mutation; gateway failures may return `exit_code: 1` with partial
   result data.

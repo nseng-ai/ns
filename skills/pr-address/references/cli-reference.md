@@ -261,6 +261,12 @@ sets `data.stack_plan_reference` to `null`. If validation succeeds, it returns
 Semantic classification remains LLM-owned. This helper validates and merges
 classification packets; it does not infer arbitrary review meaning from prose.
 
+`stack-feedback-plan` output is a merged stack plan. It is not accepted by
+`build-resolve-thread-batch-payload`, which currently builds per-PR
+`resolve-thread-batch` payloads only from single-PR `plan-feedback` results.
+Until a stack-native resolution payload builder exists, keep the stack plan as
+planning provenance and pass per-PR `plan-feedback` data to the per-PR builder.
+
 ### `read-feedback-detail`
 
 Read one allowed detail from a payload `.raw.json` feedback envelope. Use this
@@ -728,8 +734,8 @@ On invalid input: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
 ### `build-resolve-thread-batch-payload`
 
 Build and validate the JSON payload for `resolve-thread-batch` from a
-`plan-feedback` result, one selected batch, the batch commit SHA, and explicit
-post-edit decisions. This helper does not mutate GitHub.
+single-PR `plan-feedback` result, one selected batch, the batch commit SHA, and
+explicit post-edit decisions. This helper does not mutate GitHub.
 
 Use this after making and committing an approved batch, before calling the
 mutating `resolve-thread-batch` helper.
@@ -744,13 +750,13 @@ printf '%s' '{"plan":{...},"batch_id":"single_file","commit_sha":"abc1234","deci
 
 **Input fields:**
 
-| Field               | Required | Description                                                                                  |
-| ------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `plan`              | yes      | `data` object returned by `plan-feedback`                                                    |
-| `batch_id`          | yes      | Exact `data.batches[].batch_id` to build from                                                |
-| `commit_sha`        | mode     | Batch commit SHA; required when any `fixed` decision lacks an item-level SHA                 |
-| `continue_on_error` | no       | Copied into the generated `resolve-thread-batch` payload                                     |
-| `decisions`         | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch |
+| Field               | Required | Description                                                                                   |
+| ------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `plan`              | yes      | `data` object returned by single-PR `plan-feedback`; do not pass merged `stack-feedback-plan` |
+| `batch_id`          | yes      | Exact `data.batches[].batch_id` to build from                                                 |
+| `commit_sha`        | mode     | Batch commit SHA; required when any `fixed` decision lacks an item-level SHA                  |
+| `continue_on_error` | no       | Copied into the generated `resolve-thread-batch` payload                                      |
+| `decisions`         | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch  |
 
 Resolve decision:
 
@@ -774,6 +780,12 @@ Skip decision:
   "skip_reason": "User deferred this thread to a follow-up."
 }
 ```
+
+`plan` must be the `data` object from single-PR `plan-feedback`; do not pass
+merged `stack-feedback-plan` output. Stack plans include PR/branch provenance
+and stack-level validation summaries that this per-PR builder intentionally does
+not consume. Stack-plan-shaped input is rejected with a concise
+`stack_feedback_plan_not_supported` or `invalid_request` diagnostic.
 
 `mode` is `fixed`, `pre_existing`, `explained`, or `planned`. `fixed` requires
 a non-empty `message` and a batch or item-level `commit_sha`; `explained`
