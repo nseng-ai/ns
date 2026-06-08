@@ -57,6 +57,15 @@ class ResolveThreadBatchPayload(ClinkrModel):
     items: tuple[ResolveThreadBatchItem, ...]
 
 
+def first_duplicate_payload_thread_id(payload: ResolveThreadBatchPayload) -> str | None:
+    seen_thread_ids: set[str] = set()
+    for item in payload.items:
+        if item.thread_id in seen_thread_ids:
+            return item.thread_id
+        seen_thread_ids.add(item.thread_id)
+    return None
+
+
 class ResolveThreadBatchItemResult(ClinkrModel):
     index: int
     thread_id: str

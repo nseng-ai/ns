@@ -1285,10 +1285,10 @@ def test_build_resolve_thread_batch_payload_rejects_stack_plan_under_plan_concis
         {
             "code": "stack_feedback_plan_not_supported",
             "message": (
-                "build-resolve-thread-batch-payload expects per-PR plan-feedback data, "
-                "not merged stack-feedback-plan output. Until a stack-native resolution "
-                "payload builder exists, pass a per-PR plan-feedback result for the "
-                "selected PR/batch."
+                "build-resolve-thread-batch-payload expects single-PR plan-feedback data, "
+                "not merged stack-feedback-plan output. For stack runs, pass the "
+                "stack-feedback-plan data plus explicit (pr_number, thread_id) decisions to "
+                "build-stack-resolve-thread-payloads."
             ),
             "batch_id": "single_file",
             "thread_id": None,
@@ -1323,7 +1323,7 @@ def test_build_resolve_thread_batch_payload_rejects_direct_stack_plan_concisely(
     assert exit_code == 2
     assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
-    assert "per-PR plan-feedback" in output["message"]
+    assert "single-PR plan-feedback" in output["message"]
     assert "stack-feedback-plan" in output["message"]
     assert "extra_forbidden" not in output["message"]
     assert "ValidationError" not in output["message"]

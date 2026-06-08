@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from typing import Annotated, cast
+from typing import Annotated
 
 import click
 from pydantic import ValidationError
@@ -13,16 +13,14 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.json_input import load_json_input
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_pr_address.cli.pr_address.reply_formatting import (
-    VALID_RESOLUTION_MODES,
-    ResolutionReplyMode,
-    valid_resolution_modes_text,
-)
-from asdl_pr_address.cli.pr_address.resolution_provenance import provenance_shape_error
-from asdl_pr_address.cli.pr_address.resolution_provenance_models import ResolutionProvenanceInput
 from asdl_pr_address.cli.pr_address.resolve_thread_batch import (
     ResolveThreadBatchItem,
     ResolveThreadBatchPayload,
+    first_duplicate_payload_thread_id,
+)
+from asdl_pr_address.cli.pr_address.resolve_thread_payload_decisions import (
+    ThreadResolutionDecisionFields,
+    build_thread_resolution_decision,
 )
 from asdl_pr_address.cli.pr_address.stack_feedback import (
     StackFeedbackPlanBatch,
@@ -43,15 +41,9 @@ class BuildStackResolveThreadPayloadsRequest(ClinkrModel):
     ] = None
 
 
-class StackResolveThreadDecision(ClinkrModel):
+class StackResolveThreadDecision(ThreadResolutionDecisionFields):
     pr_number: int
     thread_id: str
-    action: str
-    mode: str | None = None
-    message: str | None = None
-    commit_sha: str | None = None
-    provenance: ResolutionProvenanceInput | None = None
-    skip_reason: str | None = None
 
 
 class BuildStackResolveThreadPayloadsInput(ClinkrModel):
@@ -196,7 +188,7 @@ def build_stack_resolve_thread_payloads(
         )
 
     errors: list[BuildStackResolveThreadPayloadsError] = []
-    candidates = _review_thread_candidates(batch_id=batch_id, selected_batch=selected_batch)
+    candidates = _review_thread_candidates(selected_batch)
     ignored = _ignored_non_thread_items(selected_batch.items)
     for item in candidates:
         if trim_optional(item.thread_id) is None:
@@ -369,11 +361,8 @@ def _selected_batch(
 
 
 def _review_thread_candidates(
-    *,
-    batch_id: str,
     selected_batch: StackFeedbackPlanBatch,
 ) -> tuple[StackFeedbackPlanItem, ...]:
-    del batch_id
     return tuple(item for item in selected_batch.items if item.source_kind == "review_thread")
 
 
@@ -551,49 +540,25 @@ def _validated_decision_item(
     StackSkippedResolveThreadItem | None,
 ]:
     thread_id = trim_required(plan_item.thread_id)
-    errors: list[BuildStackResolveThreadPayloadsError] = []
-    action = decision.action.strip()
-    mode = trim_optional(decision.mode)
-    message = trim_optional(decision.message)
-    item_commit_sha = trim_optional(decision.commit_sha)
-    skip_reason = trim_optional(decision.skip_reason)
-    provenance = decision.provenance
-
-    if action == "skip":
-        if skip_reason is None:
-            errors.append(
-                BuildStackResolveThreadPayloadsError(
-                    code="missing_skip_reason",
-                    message=(
-                        f"Skip decision for PR #{plan_item.pr_number} thread {thread_id} "
-                        "requires a non-empty skip_reason."
-                    ),
-                    batch_id=batch_id,
-                    pr_number=plan_item.pr_number,
-                    thread_id=thread_id,
-                )
-            )
-        if (
-            mode is not None
-            or message is not None
-            or item_commit_sha is not None
-            or provenance is not None
-        ):
-            errors.append(
-                BuildStackResolveThreadPayloadsError(
-                    code="skip_decision_has_resolution_fields",
-                    message=(
-                        f"Skip decision for PR #{plan_item.pr_number} thread {thread_id} "
-                        "must not include non-empty mode, message, commit_sha, or provenance "
-                        "fields."
-                    ),
-                    batch_id=batch_id,
-                    pr_number=plan_item.pr_number,
-                    thread_id=thread_id,
-                )
-            )
-        if errors:
-            return errors, None, None
+    built = build_thread_resolution_decision(
+        thread_id=thread_id,
+        subject_label=f"PR #{plan_item.pr_number} thread {thread_id}",
+        batch_commit_sha=batch_commit_sha,
+        decision=decision,
+    )
+    errors = [
+        BuildStackResolveThreadPayloadsError(
+            code=issue.code,
+            message=issue.message,
+            batch_id=batch_id,
+            pr_number=plan_item.pr_number,
+            thread_id=thread_id,
+        )
+        for issue in built.errors
+    ]
+    if errors:
+        return errors, None, None
+    if built.skip_reason is not None:
         return (
             [],
             None,
@@ -601,167 +566,11 @@ def _validated_decision_item(
                 pr_number=plan_item.pr_number,
                 branch=plan_item.branch,
                 thread_id=thread_id,
-                skip_reason=trim_required(skip_reason),
+                skip_reason=built.skip_reason,
                 summary=plan_item.summary,
             ),
         )
-
-    if action != "resolve":
-        return (
-            [
-                BuildStackResolveThreadPayloadsError(
-                    code="invalid_action",
-                    message=(
-                        f"Decision for PR #{plan_item.pr_number} thread {thread_id} must use "
-                        "action='resolve' or action='skip'."
-                    ),
-                    batch_id=batch_id,
-                    pr_number=plan_item.pr_number,
-                    thread_id=thread_id,
-                )
-            ],
-            None,
-            None,
-        )
-
-    if mode not in VALID_RESOLUTION_MODES:
-        errors.append(
-            BuildStackResolveThreadPayloadsError(
-                code="invalid_mode",
-                message=(
-                    f"Resolve decision for PR #{plan_item.pr_number} thread {thread_id} must "
-                    f"use one of: {valid_resolution_modes_text()}."
-                ),
-                batch_id=batch_id,
-                pr_number=plan_item.pr_number,
-                thread_id=thread_id,
-            )
-        )
-        return errors, None, None
-
-    if mode in ("fixed", "explained", "planned") and message is None:
-        errors.append(
-            BuildStackResolveThreadPayloadsError(
-                code="missing_message",
-                message=(
-                    f"mode='{mode}' decision for PR #{plan_item.pr_number} thread {thread_id} "
-                    "requires a non-empty message."
-                ),
-                batch_id=batch_id,
-                pr_number=plan_item.pr_number,
-                thread_id=thread_id,
-            )
-        )
-    if mode == "fixed" and item_commit_sha is None and batch_commit_sha is None:
-        errors.append(
-            BuildStackResolveThreadPayloadsError(
-                code="missing_commit_sha",
-                message=(
-                    f"Decision for PR #{plan_item.pr_number} thread {thread_id} uses "
-                    "mode='fixed' but no batch or item commit_sha was supplied."
-                ),
-                batch_id=batch_id,
-                pr_number=plan_item.pr_number,
-                thread_id=thread_id,
-            )
-        )
-    if mode != "planned" and provenance is not None:
-        errors.append(
-            BuildStackResolveThreadPayloadsError(
-                code="non_planned_has_provenance",
-                message=(
-                    f"mode='{mode}' decision for PR #{plan_item.pr_number} thread {thread_id} "
-                    "must not include provenance; provenance is only valid with mode='planned'."
-                ),
-                batch_id=batch_id,
-                pr_number=plan_item.pr_number,
-                thread_id=thread_id,
-            )
-        )
-    if mode == "planned":
-        if provenance is None:
-            errors.append(
-                BuildStackResolveThreadPayloadsError(
-                    code="missing_provenance",
-                    message=(
-                        f"mode='planned' decision for PR #{plan_item.pr_number} thread "
-                        f"{thread_id} requires provenance."
-                    ),
-                    batch_id=batch_id,
-                    pr_number=plan_item.pr_number,
-                    thread_id=thread_id,
-                )
-            )
-        if item_commit_sha is not None:
-            errors.append(
-                BuildStackResolveThreadPayloadsError(
-                    code="planned_has_commit_sha",
-                    message=(
-                        f"mode='planned' decision for PR #{plan_item.pr_number} thread "
-                        f"{thread_id} must not include item commit_sha."
-                    ),
-                    batch_id=batch_id,
-                    pr_number=plan_item.pr_number,
-                    thread_id=thread_id,
-                )
-            )
-        if provenance is not None:
-            error_message = provenance_shape_error(provenance)
-            if error_message is not None:
-                errors.append(
-                    BuildStackResolveThreadPayloadsError(
-                        code="invalid_provenance_shape",
-                        message=(
-                            f"mode='planned' decision for PR #{plan_item.pr_number} thread "
-                            f"{thread_id}: {error_message}."
-                        ),
-                        batch_id=batch_id,
-                        pr_number=plan_item.pr_number,
-                        thread_id=thread_id,
-                    )
-                )
-    if mode == "pre_existing" and (message is not None or item_commit_sha is not None):
-        errors.append(
-            BuildStackResolveThreadPayloadsError(
-                code="pre_existing_has_resolution_fields",
-                message=(
-                    f"mode='pre_existing' decision for PR #{plan_item.pr_number} thread "
-                    f"{thread_id} must not include non-empty message, commit_sha, or provenance "
-                    "fields."
-                ),
-                batch_id=batch_id,
-                pr_number=plan_item.pr_number,
-                thread_id=thread_id,
-            )
-        )
-    if errors:
-        return errors, None, None
-
-    resolution_mode = cast(ResolutionReplyMode, mode)
-    if resolution_mode == "pre_existing":
-        return (
-            [],
-            ResolveThreadBatchItem(
-                thread_id=thread_id,
-                mode=resolution_mode,
-                message=None,
-                commit_sha=None,
-                provenance=None,
-            ),
-            None,
-        )
-
-    return (
-        [],
-        ResolveThreadBatchItem(
-            thread_id=thread_id,
-            mode=resolution_mode,
-            message=message,
-            commit_sha=item_commit_sha,
-            provenance=provenance if resolution_mode == "planned" else None,
-        ),
-        None,
-    )
+    return [], built.payload_item, None
 
 
 def _payload_entries(
@@ -779,8 +588,8 @@ def _payload_entries(
 ]:
     entries: list[StackResolveThreadPayloadEntry] = []
     errors: list[BuildStackResolveThreadPayloadsError] = []
-    for pr_number in _ordered_pr_numbers(candidates):
-        pr_candidates = tuple(item for item in candidates if item.pr_number == pr_number)
+    candidates_by_pr = _candidates_by_pr(candidates)
+    for pr_number, pr_candidates in candidates_by_pr.items():
         representative = pr_candidates[0]
         payload_items = tuple(payload_items_by_pr.get(pr_number, []))
         payload = None
@@ -824,15 +633,13 @@ def _payload_entries(
     return tuple(entries), tuple(errors)
 
 
-def _ordered_pr_numbers(candidates: tuple[StackFeedbackPlanItem, ...]) -> tuple[int, ...]:
-    seen: set[int] = set()
-    ordered: list[int] = []
+def _candidates_by_pr(
+    candidates: tuple[StackFeedbackPlanItem, ...],
+) -> dict[int, tuple[StackFeedbackPlanItem, ...]]:
+    grouped: dict[int, list[StackFeedbackPlanItem]] = defaultdict(list)
     for item in candidates:
-        if item.pr_number in seen:
-            continue
-        seen.add(item.pr_number)
-        ordered.append(item.pr_number)
-    return tuple(ordered)
+        grouped[item.pr_number].append(item)
+    return {pr_number: tuple(items) for pr_number, items in grouped.items()}
 
 
 def _payload_cross_item_errors(
@@ -841,23 +648,21 @@ def _payload_cross_item_errors(
     batch_id: str,
     pr_number: int,
 ) -> tuple[BuildStackResolveThreadPayloadsError, ...]:
-    seen_thread_ids: set[str] = set()
-    for item in payload.items:
-        if item.thread_id in seen_thread_ids:
-            return (
-                BuildStackResolveThreadPayloadsError(
-                    code="canonical_payload_invalid",
-                    message=(
-                        f"Duplicate thread_id in PR #{pr_number} resolve-thread-batch payload: "
-                        f"{item.thread_id}"
-                    ),
-                    batch_id=batch_id,
-                    pr_number=pr_number,
-                    thread_id=item.thread_id,
-                ),
-            )
-        seen_thread_ids.add(item.thread_id)
-    return ()
+    duplicate_thread_id = first_duplicate_payload_thread_id(payload)
+    if duplicate_thread_id is None:
+        return ()
+    return (
+        BuildStackResolveThreadPayloadsError(
+            code="canonical_payload_invalid",
+            message=(
+                f"Duplicate thread_id in PR #{pr_number} resolve-thread-batch payload: "
+                f"{duplicate_thread_id}"
+            ),
+            batch_id=batch_id,
+            pr_number=pr_number,
+            thread_id=duplicate_thread_id,
+        ),
+    )
 
 
 def _invalid_result(

@@ -18,25 +18,23 @@ from asdl_pr_address.cli.pr_address.feedback_planning import (
     FeedbackPlanActionItem,
     FeedbackPlanningResult,
 )
-from asdl_pr_address.cli.pr_address.reply_formatting import (
-    VALID_RESOLUTION_MODES,
-    ResolutionReplyMode,
-    valid_resolution_modes_text,
-)
-from asdl_pr_address.cli.pr_address.resolution_provenance import provenance_shape_error
-from asdl_pr_address.cli.pr_address.resolution_provenance_models import ResolutionProvenanceInput
 from asdl_pr_address.cli.pr_address.resolve_thread_batch import (
     ResolveThreadBatchItem,
     ResolveThreadBatchPayload,
+    first_duplicate_payload_thread_id,
+)
+from asdl_pr_address.cli.pr_address.resolve_thread_payload_decisions import (
+    ThreadResolutionDecisionFields,
+    build_thread_resolution_decision,
 )
 from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
 
 STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported"
 STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE = (
-    "build-resolve-thread-batch-payload expects per-PR plan-feedback data, "
-    "not merged stack-feedback-plan output. Until a stack-native resolution "
-    "payload builder exists, pass a per-PR plan-feedback result for the "
-    "selected PR/batch."
+    "build-resolve-thread-batch-payload expects single-PR plan-feedback data, "
+    "not merged stack-feedback-plan output. For stack runs, pass the "
+    "stack-feedback-plan data plus explicit (pr_number, thread_id) decisions to "
+    "build-stack-resolve-thread-payloads."
 )
 INVALID_PLAN_SHAPE_MESSAGE = (
     "plan must be the data object returned by per-PR plan-feedback. "
@@ -51,14 +49,8 @@ class BuildResolveThreadBatchPayloadRequest(ClinkrModel):
     ] = None
 
 
-class ResolveThreadBatchDecision(ClinkrModel):
+class ResolveThreadBatchDecision(ThreadResolutionDecisionFields):
     thread_id: str
-    action: str
-    mode: str | None = None
-    message: str | None = None
-    commit_sha: str | None = None
-    provenance: ResolutionProvenanceInput | None = None
-    skip_reason: str | None = None
 
 
 class BuildResolveThreadBatchPayloadInput(ClinkrModel):
@@ -431,18 +423,13 @@ def _looks_like_stack_feedback_plan(value: object) -> bool:
         return False
     mapping = cast(Mapping[str, object], value)
     validation = mapping.get("validation")
-    validation_is_stack = isinstance(validation, Mapping) and (
-        "per_pr" in validation or "all_valid" in validation
+    return (
+        "valid" in mapping
+        and "payload_session_id" in mapping
+        and "pr_count" in mapping
+        and isinstance(validation, Mapping)
+        and ("all_valid" in validation or "per_pr" in validation)
     )
-    stack_only_markers = (
-        "pr_count" in mapping,
-        "payload_session_id" in mapping,
-        "decision_docket" in mapping,
-        "automation_discussion_summary" in mapping,
-        "stack_plan_reference" in mapping,
-        validation_is_stack,
-    )
-    return sum(int(marker) for marker in stack_only_markers) >= 3
 
 
 def _has_single_error_code(
@@ -502,194 +489,34 @@ def _validated_decision_item(
     SkippedResolveThreadItem | None,
 ]:
     thread_id = trim_required(plan_item.thread_id)
-    errors: list[BuildResolveThreadBatchPayloadError] = []
-    action = decision.action.strip()
-    mode = trim_optional(decision.mode)
-    message = trim_optional(decision.message)
-    item_commit_sha = trim_optional(decision.commit_sha)
-    skip_reason = trim_optional(decision.skip_reason)
-    provenance = decision.provenance
-
-    if action == "skip":
-        if skip_reason is None:
-            errors.append(
-                BuildResolveThreadBatchPayloadError(
-                    code="missing_skip_reason",
-                    message=(
-                        f"Skip decision for thread {thread_id} requires a non-empty skip_reason."
-                    ),
-                    batch_id=batch_id,
-                    thread_id=thread_id,
-                )
-            )
-        if (
-            mode is not None
-            or message is not None
-            or item_commit_sha is not None
-            or provenance is not None
-        ):
-            errors.append(
-                BuildResolveThreadBatchPayloadError(
-                    code="skip_decision_has_resolution_fields",
-                    message=(
-                        f"Skip decision for thread {thread_id} must not include non-empty "
-                        "mode, message, commit_sha, or provenance fields."
-                    ),
-                    batch_id=batch_id,
-                    thread_id=thread_id,
-                )
-            )
-        if errors:
-            return errors, None, None
+    built = build_thread_resolution_decision(
+        thread_id=thread_id,
+        subject_label=f"thread {thread_id}",
+        batch_commit_sha=batch_commit_sha,
+        decision=decision,
+    )
+    errors = [
+        BuildResolveThreadBatchPayloadError(
+            code=issue.code,
+            message=issue.message,
+            batch_id=batch_id,
+            thread_id=thread_id,
+        )
+        for issue in built.errors
+    ]
+    if errors:
+        return errors, None, None
+    if built.skip_reason is not None:
         return (
             [],
             None,
             SkippedResolveThreadItem(
                 thread_id=thread_id,
-                skip_reason=trim_required(skip_reason),
+                skip_reason=built.skip_reason,
                 summary=plan_item.summary,
             ),
         )
-
-    if action != "resolve":
-        return (
-            [
-                BuildResolveThreadBatchPayloadError(
-                    code="invalid_action",
-                    message=(
-                        f"Decision for thread {thread_id} must use action='resolve' or "
-                        "action='skip'."
-                    ),
-                    batch_id=batch_id,
-                    thread_id=thread_id,
-                )
-            ],
-            None,
-            None,
-        )
-
-    if mode not in VALID_RESOLUTION_MODES:
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="invalid_mode",
-                message=(
-                    "Resolve decision for thread "
-                    f"{thread_id} must use one of: {valid_resolution_modes_text()}."
-                ),
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-        return errors, None, None
-
-    if mode in ("fixed", "explained", "planned") and message is None:
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="missing_message",
-                message=(
-                    f"mode='{mode}' decision for thread {thread_id} requires a non-empty message."
-                ),
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-    if mode == "fixed" and item_commit_sha is None and batch_commit_sha is None:
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="missing_commit_sha",
-                message=(
-                    f"Decision for thread {thread_id} uses mode='fixed' but no batch or "
-                    "item commit_sha was supplied."
-                ),
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-    if mode != "planned" and provenance is not None:
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="non_planned_has_provenance",
-                message=(
-                    f"mode='{mode}' decision for thread {thread_id} must not include provenance; "
-                    "provenance is only valid with mode='planned'."
-                ),
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-    if mode == "planned":
-        if provenance is None:
-            errors.append(
-                BuildResolveThreadBatchPayloadError(
-                    code="missing_provenance",
-                    message=f"mode='planned' decision for thread {thread_id} requires provenance.",
-                    batch_id=batch_id,
-                    thread_id=thread_id,
-                )
-            )
-        if item_commit_sha is not None:
-            errors.append(
-                BuildResolveThreadBatchPayloadError(
-                    code="planned_has_commit_sha",
-                    message=(
-                        f"mode='planned' decision for thread {thread_id} must not include item "
-                        "commit_sha."
-                    ),
-                    batch_id=batch_id,
-                    thread_id=thread_id,
-                )
-            )
-        if provenance is not None:
-            error_message = provenance_shape_error(provenance)
-            if error_message is not None:
-                errors.append(
-                    BuildResolveThreadBatchPayloadError(
-                        code="invalid_provenance_shape",
-                        message=f"mode='planned' decision for thread {thread_id}: {error_message}.",
-                        batch_id=batch_id,
-                        thread_id=thread_id,
-                    )
-                )
-    if mode == "pre_existing" and (message is not None or item_commit_sha is not None):
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="pre_existing_has_resolution_fields",
-                message=(
-                    f"mode='pre_existing' decision for thread {thread_id} must not include "
-                    "non-empty message, commit_sha, or provenance fields."
-                ),
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-    if errors:
-        return errors, None, None
-
-    resolution_mode = cast(ResolutionReplyMode, mode)
-    if resolution_mode == "pre_existing":
-        return (
-            [],
-            ResolveThreadBatchItem(
-                thread_id=thread_id,
-                mode=resolution_mode,
-                message=None,
-                commit_sha=None,
-                provenance=None,
-            ),
-            None,
-        )
-
-    return (
-        [],
-        ResolveThreadBatchItem(
-            thread_id=thread_id,
-            mode=resolution_mode,
-            message=message,
-            commit_sha=item_commit_sha,
-            provenance=provenance if resolution_mode == "planned" else None,
-        ),
-        None,
-    )
+    return [], built.payload_item, None
 
 
 def _payload_cross_item_errors(
@@ -703,21 +530,17 @@ def _payload_cross_item_errors(
     construction. This remains as a resolver safety check for malformed plans that list the same
     review thread more than once in one batch.
     """
-    seen_thread_ids: set[str] = set()
-    for item in payload.items:
-        if item.thread_id in seen_thread_ids:
-            return (
-                BuildResolveThreadBatchPayloadError(
-                    code="canonical_payload_invalid",
-                    message=(
-                        f"Duplicate thread_id in resolve-thread-batch payload: {item.thread_id}"
-                    ),
-                    batch_id=batch_id,
-                    thread_id=item.thread_id,
-                ),
-            )
-        seen_thread_ids.add(item.thread_id)
-    return ()
+    duplicate_thread_id = first_duplicate_payload_thread_id(payload)
+    if duplicate_thread_id is None:
+        return ()
+    return (
+        BuildResolveThreadBatchPayloadError(
+            code="canonical_payload_invalid",
+            message=f"Duplicate thread_id in resolve-thread-batch payload: {duplicate_thread_id}",
+            batch_id=batch_id,
+            thread_id=duplicate_thread_id,
+        ),
+    )
 
 
 def _invalid_result(
