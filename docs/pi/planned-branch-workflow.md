@@ -53,10 +53,9 @@ Resolution goes through the deterministic root CLI operation:
 asdl exec resolve-prompt planned-branch-write-plan --format json
 ```
 
-The initial checked-in prompt body matches the previous built-in body, so editing
-nothing preserves behavior. Editing the prompt file customizes this repo's
-planning policy for future write-plan turns; it does not change saved-plan
-storage mechanics, branch creation, or Branch Memory attachment contracts.
+Editing this repo-local prompt customizes future write-plan content policy only.
+The embedded fallback defaults, saved-plan storage mechanics, branch creation,
+and Branch Memory attachment contracts are unchanged.
 
 Other agents use the `planned-branch-write-plan` skill, which shells out to:
 

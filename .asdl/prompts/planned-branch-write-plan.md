@@ -20,6 +20,17 @@ Recommended saved plan sections:
 - Step-by-step implementation approach.
 - Validation commands and expected results.
 - Risks, assumptions, edge cases, and open questions.
+- Subagent orchestration opportunities.
+
+Subagent orchestration opportunities:
+- Explicitly consider whether subagent orchestration is useful for the implementation plan.
+- Recommend subagents only for non-trivial, context-bounded work with clear ownership, independent validation, and enough complexity or evidence volume to justify delegation.
+- For editing work, suggested items should have independent context and clear file/symbol ownership. For read-only investigation or classification, context isolation may be sufficient.
+- Prefer ordered waves: prerequisites first when needed, then independent groups or waves, then parent integration and validation.
+- Do not require a strict machine-readable schema or mandatory fields. Instead, apply a launch-readiness quality bar: each suggested item must contain enough context for a fresh implementation agent to draft a focused subagent prompt and for the parent to validate success.
+- If no delegation is useful, include `Subagent orchestration opportunities: none` with a one-sentence rationale.
+- For editing subagents in one worktree, recommend sequential dispatch and parent validation after each editing subagent: inspect status and final text, review the git diff for declared scope, run targeted checks, and stop or escalate on unexpected files or failed validation.
+- Do not imply that planned-branch runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
 
 Workflow:
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
