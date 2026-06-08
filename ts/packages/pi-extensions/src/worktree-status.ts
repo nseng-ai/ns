@@ -15,6 +15,7 @@ import {
 import {
 	loadGraphiteMetadataStatusInWorker,
 	type GraphiteMetadataStatus,
+	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "./worktree-status/graphite-metadata.ts";
 
 const UI_KEY = "worktree-status";
@@ -200,6 +201,9 @@ export interface GraphiteMetadataLoaderOptions {
 export type GraphiteMetadataLoader = (options: GraphiteMetadataLoaderOptions) => Promise<GraphiteMetadataStatus>;
 
 export interface LoadGtStatusOptions {
+	pi: ExecGateway;
+	cwd: string;
+	signal?: AbortSignal;
 	metadataLoader?: GraphiteMetadataLoader;
 }
 
@@ -570,19 +574,18 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 }
 
 export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeStatus> {
-	const [brmem, gt] = await Promise.all([loadBrmemStatus(pi, cwd, signal), loadGtStatus(pi, cwd, signal)]);
+	const loadGtStatusOptions: LoadGtStatusOptions = { pi, cwd };
+	if (signal !== undefined) loadGtStatusOptions.signal = signal;
+	const [brmem, gt] = await Promise.all([loadBrmemStatus(pi, cwd, signal), loadGtStatus(loadGtStatusOptions)]);
 
 	return { brmem, gt };
 }
 
-export async function loadGtStatus(
-	pi: ExecGateway,
-	cwd: string,
-	signal?: AbortSignal,
-	options: LoadGtStatusOptions = {},
-): Promise<GtStatus> {
+export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
+	const { pi, cwd, signal } = options;
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
-	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = signal === undefined ? { cwd } : { cwd, signal };
+	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = { cwd };
+	if (signal !== undefined) metadataLoaderOptions.signal = signal;
 	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);
 	const up = loadUpBranch(metadata, signal);
@@ -678,7 +681,8 @@ async function loadCurrentGraphiteMetadataStatusAsync(options: GraphiteMetadataL
 	const currentBranch = currentBranchName(gitPaths);
 	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
 
-	const workerOptions = options.signal === undefined ? {} : { signal: options.signal };
+	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {};
+	if (options.signal !== undefined) workerOptions.signal = options.signal;
 	return loadGraphiteMetadataStatusInWorker({ commonGitDir: gitPaths.commonGitDir, currentBranch }, workerOptions);
 }
 

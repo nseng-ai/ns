@@ -5,16 +5,16 @@ import { join } from "node:path";
 import { isRecord } from "../cmux/primitives.ts";
 
 const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
-const BRANCH_METADATA_REQUIRED_COLUMNS = ["branch_name", "parent_branch_name", "children", "validation_result"] as const;
-
-export type GraphiteMetadataUnavailableReason =
-	| "missing-db"
-	| "sqlite-unavailable"
-	| "read-failed"
-	| "read-timeout"
-	| "schema-mismatch"
-	| "not-a-git-repo"
-	| "no-current-branch";
+const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
+	"missing-db",
+	"sqlite-unavailable",
+	"read-failed",
+	"read-timeout",
+	"schema-mismatch",
+	"not-a-git-repo",
+	"no-current-branch",
+] as const;
+export type GraphiteMetadataUnavailableReason = (typeof GRAPHITE_METADATA_UNAVAILABLE_REASONS)[number];
 
 export interface GraphiteMetadataLookupInput {
 	commonGitDir: string;
@@ -34,13 +34,10 @@ export type GraphiteMetadataStatus =
 
 export interface GraphiteMetadataWorkerRequest {
 	type: "load_graphite_metadata";
-	requestId: number;
 	input: GraphiteMetadataLookupInput;
 }
 
-export type GraphiteMetadataWorkerResponse =
-	| { type: "success"; requestId: number; status: GraphiteMetadataStatus }
-	| { type: "failure"; requestId: number; message: string };
+export type GraphiteMetadataWorkerResponse = { type: "success"; status: GraphiteMetadataStatus } | { type: "failure"; message: string };
 
 export interface GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null;
@@ -51,10 +48,19 @@ export interface GraphiteMetadataWorkerHandle {
 
 export type GraphiteMetadataWorkerFactory = () => GraphiteMetadataWorkerHandle;
 
+export type GraphiteMetadataWorkerDiagnostic =
+	| { type: "worker-create-failed"; error: unknown }
+	| { type: "worker-malformed-response"; data: unknown }
+	| { type: "worker-failure-response"; message: string }
+	| { type: "worker-error"; message?: string; error?: unknown }
+	| { type: "worker-post-message-failed"; error: unknown }
+	| { type: "worker-timeout"; timeoutMs: number };
+
 export interface LoadGraphiteMetadataStatusInWorkerOptions {
 	signal?: AbortSignal;
 	timeoutMs?: number;
 	workerFactory?: GraphiteMetadataWorkerFactory;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 interface GraphiteMetadataSqlRow {
@@ -86,7 +92,6 @@ declare const Worker: GraphiteMetadataWorkerConstructor;
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
 
 const requireRuntimeModule = createRequire(import.meta.url);
-let nextGraphiteMetadataWorkerRequestId = 0;
 
 export async function loadGraphiteMetadataStatusInWorker(
 	input: GraphiteMetadataLookupInput,
@@ -97,11 +102,11 @@ export async function loadGraphiteMetadataStatusInWorker(
 	let worker: GraphiteMetadataWorkerHandle;
 	try {
 		worker = (options.workerFactory ?? createGraphiteMetadataWorker)();
-	} catch {
+	} catch (error) {
+		emitWorkerDiagnostic(options, { type: "worker-create-failed", error });
 		return unavailableFromWorker(input, "read-failed");
 	}
 
-	const requestId = ++nextGraphiteMetadataWorkerRequestId;
 	const timeoutMs = options.timeoutMs ?? GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS;
 	return new Promise((resolve) => {
 		let finished = false;
@@ -125,14 +130,26 @@ export async function loadGraphiteMetadataStatusInWorker(
 
 		worker.onmessage = (event) => {
 			const response = graphiteMetadataWorkerResponseFromValue(event.data);
-			if (response === undefined || response.requestId !== requestId || response.type === "failure") {
+			if (response === undefined) {
+				emitWorkerDiagnostic(options, { type: "worker-malformed-response", data: event.data });
+				finish(unavailableFromWorker(input, "read-failed"));
+				return;
+			}
+			if (response.type === "failure") {
+				emitWorkerDiagnostic(options, { type: "worker-failure-response", message: response.message });
 				finish(unavailableFromWorker(input, "read-failed"));
 				return;
 			}
 
 			finish(response.status);
 		};
-		worker.onerror = () => finish(unavailableFromWorker(input, "read-failed"));
+		worker.onerror = (event) => {
+			const diagnostic: GraphiteMetadataWorkerDiagnostic = { type: "worker-error" };
+			if (event.message !== undefined) diagnostic.message = event.message;
+			if (event.error !== undefined) diagnostic.error = event.error;
+			emitWorkerDiagnostic(options, diagnostic);
+			finish(unavailableFromWorker(input, "read-failed"));
+		};
 
 		abortListener = () => finish(unavailableFromWorker(input, "read-timeout"));
 		options.signal?.addEventListener("abort", abortListener, { once: true });
@@ -140,11 +157,15 @@ export async function loadGraphiteMetadataStatusInWorker(
 			finish(unavailableFromWorker(input, "read-timeout"));
 			return;
 		}
-		timeout = setTimeout(() => finish(unavailableFromWorker(input, "read-timeout")), timeoutMs);
+		timeout = setTimeout(() => {
+			emitWorkerDiagnostic(options, { type: "worker-timeout", timeoutMs });
+			finish(unavailableFromWorker(input, "read-timeout"));
+		}, timeoutMs);
 
 		try {
-			worker.postMessage({ type: "load_graphite_metadata", requestId, input });
-		} catch {
+			worker.postMessage({ type: "load_graphite_metadata", input });
+		} catch (error) {
+			emitWorkerDiagnostic(options, { type: "worker-post-message-failed", error });
 			finish(unavailableFromWorker(input, "read-failed"));
 		}
 	});
@@ -153,19 +174,17 @@ export async function loadGraphiteMetadataStatusInWorker(
 export function graphiteMetadataWorkerRequestFromValue(value: unknown): GraphiteMetadataWorkerRequest | undefined {
 	if (!isRecord(value)) return undefined;
 	if (value.type !== "load_graphite_metadata") return undefined;
-	if (typeof value.requestId !== "number" || !Number.isInteger(value.requestId)) return undefined;
 	if (!isGraphiteMetadataLookupInput(value.input)) return undefined;
-	return { type: "load_graphite_metadata", requestId: value.requestId, input: value.input };
+	return { type: "load_graphite_metadata", input: value.input };
 }
 
 export function graphiteMetadataWorkerResponseFromValue(value: unknown): GraphiteMetadataWorkerResponse | undefined {
 	if (!isRecord(value)) return undefined;
-	if (typeof value.requestId !== "number" || !Number.isInteger(value.requestId)) return undefined;
 	if (value.type === "failure") {
-		return typeof value.message === "string" ? { type: "failure", requestId: value.requestId, message: value.message } : undefined;
+		return typeof value.message === "string" ? { type: "failure", message: value.message } : undefined;
 	}
 	if (value.type !== "success" || !isGraphiteMetadataStatus(value.status)) return undefined;
-	return { type: "success", requestId: value.requestId, status: value.status };
+	return { type: "success", status: value.status };
 }
 
 export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): GraphiteMetadataStatus {
@@ -196,7 +215,7 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 			currentBranch: input.currentBranch,
 			parent: metadataText(row.parent_branch_name),
 			children: parseGraphiteChildren(row.children),
-			isCurrentTrunk: isGraphiteTrunkValidationResult(row.validation_result),
+			isCurrentTrunk: metadataText(row.validation_result)?.toUpperCase() === "TRUNK",
 		};
 	} catch {
 		return { type: "unavailable", reason: "read-failed", currentBranch: input.currentBranch };
@@ -213,6 +232,17 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 
 function createGraphiteMetadataWorker(): GraphiteMetadataWorkerHandle {
 	return new Worker(new URL("./graphite-metadata-worker.ts", import.meta.url), { type: "module" });
+}
+
+function emitWorkerDiagnostic(
+	options: LoadGraphiteMetadataStatusInWorkerOptions,
+	diagnostic: GraphiteMetadataWorkerDiagnostic,
+): void {
+	try {
+		options.onDiagnostic?.(diagnostic);
+	} catch {
+		// Diagnostics are best-effort; a reporting failure must not block worker cleanup.
+	}
 }
 
 function unavailableFromWorker(
@@ -243,15 +273,7 @@ function isGraphiteMetadataStatus(value: unknown): value is GraphiteMetadataStat
 }
 
 function isGraphiteMetadataUnavailableReason(value: unknown): value is GraphiteMetadataUnavailableReason {
-	return (
-		value === "missing-db" ||
-		value === "sqlite-unavailable" ||
-		value === "read-failed" ||
-		value === "read-timeout" ||
-		value === "schema-mismatch" ||
-		value === "not-a-git-repo" ||
-		value === "no-current-branch"
-	);
+	return GRAPHITE_METADATA_UNAVAILABLE_REASONS.some((reason) => reason === value);
 }
 
 function loadBunSqliteDatabaseConstructor(): BunSqliteDatabaseConstructor | undefined {
@@ -271,7 +293,7 @@ function hasExpectedBranchMetadataSchema(db: BunSqliteDatabase): boolean {
 		const name = metadataText(row.name);
 		if (name !== undefined) columnNames.add(name);
 	}
-	return BRANCH_METADATA_REQUIRED_COLUMNS.every((columnName) => columnNames.has(columnName));
+	return ["branch_name", "parent_branch_name", "children", "validation_result"].every((columnName) => columnNames.has(columnName));
 }
 
 function parseGraphiteChildren(value: unknown): readonly string[] {
@@ -292,10 +314,4 @@ function metadataText(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	const text = value.trim();
 	return text.length > 0 ? text : undefined;
-}
-
-function isGraphiteTrunkValidationResult(value: unknown): boolean {
-	// Graphite's private metadata DB currently marks the configured trunk with this validation result.
-	// Keep the sentinel isolated so future schema drift is visible through the schema-mismatch path above.
-	return metadataText(value)?.toUpperCase() === "TRUNK";
 }

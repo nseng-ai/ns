@@ -4,8 +4,11 @@ import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
 import {
+	graphiteMetadataWorkerRequestFromValue,
+	graphiteMetadataWorkerResponseFromValue,
 	loadGraphiteMetadataStatus,
 	loadGraphiteMetadataStatusInWorker,
+	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "../src/worktree-status/graphite-metadata.ts";
@@ -15,28 +18,28 @@ class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
 	onerror: ((event: { message?: string; error?: unknown }) => void) | null = null;
 	postedRequest: GraphiteMetadataWorkerRequest | undefined;
-	terminated = false;
+	isTerminated = false;
 
 	postMessage(message: GraphiteMetadataWorkerRequest): void {
 		this.postedRequest = message;
 	}
 
 	terminate(): void {
-		this.terminated = true;
+		this.isTerminated = true;
 	}
 }
 
 class MalformedResponseMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
 	onerror: ((event: { message?: string; error?: unknown }) => void) | null = null;
-	terminated = false;
+	isTerminated = false;
 
 	postMessage(_message: GraphiteMetadataWorkerRequest): void {
-		queueMicrotask(() => this.onmessage?.({ data: { type: "success", requestId: -1, status: "bad" } }));
+		queueMicrotask(() => this.onmessage?.({ data: { type: "success", status: "bad" } }));
 	}
 
 	terminate(): void {
-		this.terminated = true;
+		this.isTerminated = true;
 	}
 }
 
@@ -69,7 +72,7 @@ describe("Graphite metadata status lookup", () => {
 		});
 	});
 
-	test("marks the current branch as trunk from validation result", async () => {
+	test("marks the current branch as trunk case-insensitively", async () => {
 		await withTempRoot(makeGitRepo("main"), (root) => {
 			writeGraphiteMetadataDb(join(root, ".git"), [
 				{ branchName: "main", children: ["feature/current"], validationResult: "trunk" },
@@ -135,6 +138,28 @@ describe("Graphite metadata status lookup", () => {
 		});
 	});
 
+	test("parses single-request worker protocol messages without request IDs", () => {
+		expect(
+			graphiteMetadataWorkerRequestFromValue({
+				type: "load_graphite_metadata",
+				input: { commonGitDir: "/repo/.git", currentBranch: "feature/current" },
+			}),
+		).toEqual({ type: "load_graphite_metadata", input: { commonGitDir: "/repo/.git", currentBranch: "feature/current" } });
+		expect(graphiteMetadataWorkerRequestFromValue({ type: "load_graphite_metadata" })).toBeUndefined();
+
+		expect(
+			graphiteMetadataWorkerResponseFromValue({
+				type: "success",
+				status: { type: "untracked", currentBranch: "feature/current" },
+			}),
+		).toEqual({ type: "success", status: { type: "untracked", currentBranch: "feature/current" } });
+		expect(graphiteMetadataWorkerResponseFromValue({ type: "failure", message: "failed" })).toEqual({
+			type: "failure",
+			message: "failed",
+		});
+		expect(graphiteMetadataWorkerResponseFromValue({ type: "success", status: "bad" })).toBeUndefined();
+	});
+
 	test("loads metadata through a worker-backed async adapter", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), async (root) => {
 			writeGraphiteMetadataDb(join(root, ".git"), [
@@ -156,6 +181,7 @@ describe("Graphite metadata status lookup", () => {
 
 	test("times out and terminates a nonresponsive metadata worker", async () => {
 		const worker = new NonRespondingMetadataWorker();
+		const diagnostics: GraphiteMetadataWorkerDiagnostic[] = [];
 
 		const status = await loadGraphiteMetadataStatusInWorker(
 			{ commonGitDir: "/repo/.git", currentBranch: "feature/current" },
@@ -164,15 +190,43 @@ describe("Graphite metadata status lookup", () => {
 				workerFactory() {
 					return worker;
 				},
+				onDiagnostic(diagnostic) {
+					diagnostics.push(diagnostic);
+				},
 			},
 		);
 
-		expect(worker.postedRequest).toMatchObject({ type: "load_graphite_metadata", input: { currentBranch: "feature/current" } });
-		expect(worker.terminated).toBe(true);
+		expect(worker.postedRequest).toEqual({
+			type: "load_graphite_metadata",
+			input: { commonGitDir: "/repo/.git", currentBranch: "feature/current" },
+		});
+		expect(worker.isTerminated).toBe(true);
+		expect(diagnostics).toContainEqual({ type: "worker-timeout", timeoutMs: 1 });
 		expect(status).toEqual({ type: "unavailable", reason: "read-timeout", currentBranch: "feature/current" });
 	});
 
-	test("degrades malformed metadata worker responses without throwing", async () => {
+	test("degrades malformed metadata worker responses without diagnostics loss", async () => {
+		const worker = new MalformedResponseMetadataWorker();
+		const diagnostics: GraphiteMetadataWorkerDiagnostic[] = [];
+
+		const status = await loadGraphiteMetadataStatusInWorker(
+			{ commonGitDir: "/repo/.git", currentBranch: "feature/current" },
+			{
+				workerFactory() {
+					return worker;
+				},
+				onDiagnostic(diagnostic) {
+					diagnostics.push(diagnostic);
+				},
+			},
+		);
+
+		expect(worker.isTerminated).toBe(true);
+		expect(diagnostics).toEqual([{ type: "worker-malformed-response", data: { type: "success", status: "bad" } }]);
+		expect(status).toEqual({ type: "unavailable", reason: "read-failed", currentBranch: "feature/current" });
+	});
+
+	test("diagnostic callback failures do not block worker cleanup", async () => {
 		const worker = new MalformedResponseMetadataWorker();
 
 		const status = await loadGraphiteMetadataStatusInWorker(
@@ -181,10 +235,13 @@ describe("Graphite metadata status lookup", () => {
 				workerFactory() {
 					return worker;
 				},
+				onDiagnostic() {
+					throw new Error("diagnostic sink failed");
+				},
 			},
 		);
 
-		expect(worker.terminated).toBe(true);
+		expect(worker.isTerminated).toBe(true);
 		expect(status).toEqual({ type: "unavailable", reason: "read-failed", currentBranch: "feature/current" });
 	});
 });
