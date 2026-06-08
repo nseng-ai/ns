@@ -90,13 +90,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: pnpm
+          cache-dependency-path: docs-site/pnpm-lock.yaml
       - name: Install docs dependencies
-        run: bun install --cwd docs-site --frozen-lockfile
+        run: pnpm --dir docs-site install --frozen-lockfile
       - name: Run docs typecheck
-        run: bun run --cwd docs-site check
+        run: pnpm --dir docs-site run check
       - name: Build docs site
-        run: bun run --cwd docs-site build
+        run: pnpm --dir docs-site run build
 
   areg-check:
     if: github.event.pull_request.draft != true

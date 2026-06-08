@@ -14,8 +14,8 @@
 - [x] Migrate root orchestration and `justfile` TypeScript commands to directory-scoped pnpm.
       Evidence: root `justfile` TypeScript install/check/test recipes now invoke `pnpm --dir {{justfile_directory()}}/ts`, `link-planned-branch` uses `pnpm link`, and the CI `typescript` job sets up pnpm/Node, caches `ts/pnpm-lock.yaml`, and uses `pnpm --dir ts install --frozen-lockfile` plus pnpm check/test runners. Bun remains only as transitional test-runtime setup for package-local `bun test --sequential` scripts. Focused validation passed with the expected local Node v24.2.0 unsupported-engine warning.
 
-- [ ] Migrate `docs-site/` package-manager and deploy commands to pnpm.
-      Keep `docs-site/` as a standalone pnpm-managed surface. Update local scripts, lockfile/package-manager metadata, and deploy/build command configuration in scope for package-manager migration.
+- [x] Migrate `docs-site/` package-manager and deploy commands to pnpm.
+      Evidence: `docs-site/package.json` now declares `pnpm@10.14.0` and Node `>=24.12.0` engine metadata, `docs-site/pnpm-lock.yaml` is committed lockfile state, and `docs-site/bun.lock` is removed. Root docs recipes, the docs-build CI job, both Vercel command configs, and active docs-site deployment command docs now use pnpm while keeping `docs-site/` standalone and the repository root orchestration-only. Focused validation passed with the expected local Node v24.2.0 unsupported-engine warning.
 
 - [ ] Update user-facing and agent-facing command documentation for the pnpm workflow.
       Document the Node v24.12+ baseline, how to install and run the TypeScript workspace and docs-site commands, and any intentional temporary state that remains for sibling migration Objectives.
