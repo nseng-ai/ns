@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch-transaction.ts";
-import { fail, ok } from "./autobranch-test-helpers.ts";
+import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	stashPushFails?: boolean;
@@ -45,10 +45,6 @@ function createHarness(options: HarnessOptions = {}) {
 		},
 	};
 	return { input, events };
-}
-
-function eventIndex(events: string[], prefix: string): number {
-	return events.findIndex((event) => event.startsWith(prefix));
 }
 
 describe("runAutobranchTransaction", () => {

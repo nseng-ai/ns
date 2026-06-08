@@ -9,3 +9,7 @@ export function ok(stdout = "", stderr = ""): CommandResult {
 export function fail(stderr: string, code = 1): CommandResult {
 	return { code, stdout: "", stderr };
 }
+
+export function eventIndex(events: string[], prefix: string): number {
+	return events.findIndex((event) => event.startsWith(prefix));
+}

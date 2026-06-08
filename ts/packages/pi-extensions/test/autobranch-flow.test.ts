@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch-flow.ts";
-import { fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
+import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	args?: AutobranchFlowInput["args"];
@@ -26,7 +26,8 @@ function createHarness(options: HarnessOptions = {}) {
 	let stashMessage = "";
 	let statusCalls = 0;
 	let head = "abc123def456";
-	let currentBranch = "base-branch";
+	const sourceBranch = "base-branch";
+	let currentBranch = sourceBranch;
 	const upstreamMode = options.upstreamMode ?? "contains";
 	const prepareResult = options.prepareResult ?? { ok: true, message: `[cp] Update checkpoint tests\n\n- Add coverage` };
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
@@ -79,6 +80,16 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 				return ok(`${currentBranch}\n`);
+			}
+			if (command === "git" && args[0] === "for-each-ref") {
+				const branchName = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+				if (branchName !== sourceBranch || upstreamMode === "none") {
+					return ok();
+				}
+				if (upstreamMode === "failed") {
+					return fail("for-each-ref upstream failed");
+				}
+				return ok(`origin/${sourceBranch}\n`);
 			}
 			if (command === "git" && args[0] === "branch" && args[1] !== "-D") {
 				return ok();
@@ -145,10 +156,6 @@ function createHarness(options: HarnessOptions = {}) {
 	};
 
 	return { input, events, notifications, preparedSnapshots };
-}
-
-function eventIndex(events: string[], prefix: string): number {
-	return events.findIndex((event) => event.startsWith(prefix));
 }
 
 describe("createAutobranchCheckpointFlow", () => {

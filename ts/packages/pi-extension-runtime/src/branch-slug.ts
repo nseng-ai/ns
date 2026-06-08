@@ -1,5 +1,15 @@
 export const MAX_BRANCH_SLUG_LENGTH = 50;
 
+export function normalizeBranchSlugText(value: string): string {
+	return value
+		.toLowerCase()
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
 export function sanitizeBranchName(value: string): string | undefined {
 	const firstLine = value
 		.replace(/```[\s\S]*?```/g, (match) => match.replace(/```[a-zA-Z]*\n?|```/g, ""))
@@ -10,15 +20,7 @@ export function sanitizeBranchName(value: string): string | undefined {
 		return undefined;
 	}
 
-	const slug = firstLine
-		.toLowerCase()
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "");
-
-	return finalizeBranchSlug(slug);
+	return finalizeBranchSlug(normalizeBranchSlugText(firstLine));
 }
 
 export function trimBranchSlugToLength(value: string, maxLength: number): string {

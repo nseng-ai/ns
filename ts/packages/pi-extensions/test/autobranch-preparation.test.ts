@@ -4,7 +4,7 @@ import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch-preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "../src/branch-slug.ts";
 import { buildSlugModelArgs } from "../src/model-slug.ts";
-import { fail, ok } from "./autobranch-test-helpers.ts";
+import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface ExecCall {
 	command: string;
@@ -96,10 +96,6 @@ function createHarness(options: HarnessOptions = {}) {
 	};
 
 	return { input, calls, events, readPaths, statPaths, snapshot };
-}
-
-function eventIndex(events: string[], prefix: string): number {
-	return events.findIndex((event) => event.startsWith(prefix));
 }
 
 function piCall(calls: ExecCall[]): ExecCall {
