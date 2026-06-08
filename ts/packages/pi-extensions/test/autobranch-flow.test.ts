@@ -26,7 +26,8 @@ function createHarness(options: HarnessOptions = {}) {
 	let stashMessage = "";
 	let statusCalls = 0;
 	let head = "abc123def456";
-	let currentBranch = "base-branch";
+	const sourceBranch = "base-branch";
+	let currentBranch = sourceBranch;
 	const upstreamMode = options.upstreamMode ?? "contains";
 	const prepareResult = options.prepareResult ?? { ok: true, message: `[cp] Update checkpoint tests\n\n- Add coverage` };
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
@@ -81,13 +82,14 @@ function createHarness(options: HarnessOptions = {}) {
 				return ok(`${currentBranch}\n`);
 			}
 			if (command === "git" && args[0] === "for-each-ref") {
-				if (upstreamMode === "none") {
+				const branchName = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+				if (branchName !== sourceBranch || upstreamMode === "none") {
 					return ok();
 				}
 				if (upstreamMode === "failed") {
 					return fail("for-each-ref upstream failed");
 				}
-				return ok(`origin/${currentBranch}\n`);
+				return ok(`origin/${sourceBranch}\n`);
 			}
 			if (command === "git" && args[0] === "branch" && args[1] !== "-D") {
 				return ok();
