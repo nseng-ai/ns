@@ -689,10 +689,11 @@ def test_render_inline_body_includes_marker_finding_and_footer() -> None:
     finding = _single_finding(details="Use click.echo() instead.")
     marker = inline_marker_for_finding("dignified-python", finding)
 
-    body = render_inline_body(marker, finding)
+    body = render_inline_body(marker, finding, review_name="dignified-python")
 
     assert body.startswith(f"{marker}\n")
     assert "**warning: Avoid print**" in body
+    assert "_Review: `dignified-python`._" in body
     assert "Use click.echo() instead." in body
     assert "_Posted by roaster. Re-running may skip this comment by marker._" in body
 

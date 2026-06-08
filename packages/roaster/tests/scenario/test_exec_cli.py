@@ -411,6 +411,7 @@ def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
     assert comments[0].path == "app.py"
     assert comments[0].line == 1
     assert "<!-- roaster-inline:dignified-python:" in comments[0].body
+    assert "_Review: `dignified-python`._" in comments[0].body
     assert "Inline this" in comments[0].body
 
 
