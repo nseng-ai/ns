@@ -16,7 +16,7 @@ This Objective covers only the umbrella setup for the remaining landed-architect
 - Close and archive `landed-architecture-review` as superseded provenance.
 - Keep child progress, evidence, validation, parking decisions, and closure out of this umbrella after each child is created.
 
-The five retained child Objective candidates are Pi CLI lifecycle, source-control mutation UX, handoff over Branch Memory, slot occupancy locality, and failure-as-data / gateway conventions.
+The five retained child Objective candidates are Pi CLI lifecycle, source-control mutation UX, handoff over Branch Memory, slot occupancy locality, and TypeScript failure-as-data / gateway conventions.
 
 ## Non-Goals
 
@@ -68,7 +68,7 @@ By the 2026-06-05 re-baseline, master had moved far enough that the original bro
 - Saved-plan / planned-branch / dispatch identity is superseded by `@asdl/planned-branch`, including shared content slug derivation, Branch Memory / git / Graphite gateways, and dispatch composition from the closed `planned-branch-ts-cli` and `planned-branch-quality-hardening` Objectives.
 - Agent resource / skill ontology is substantially superseded by `areg-review-remediation`, including typed skill lockfile parsing, lockfile consistency checks, skill-install hardening, and `SkillxWorkspaceInstaller` gateway work.
 - Source-control mutation UX and handoff artifacts were narrowed by landed work rather than left as broad original clusters.
-- Failure-as-data and gateway-extraction conventions emerged as a useful cross-cutting topic from the same landed-work window.
+- Failure-as-data and gateway-extraction conventions emerged as a useful cross-cutting topic from the same landed-work window, then were narrowed for child creation to a TypeScript convention Objective anchored on Pi runtime boundaries.
 
 The remaining unresolved or narrowed topics are now only checklist items for child Objective creation.
 
@@ -77,7 +77,7 @@ The remaining unresolved or narrowed topics are now only checklist items for chi
 Assumptions:
 
 - Existing Objective prose policy is enough for `objective-next` to execute the simple child-creation workflow after preview and confirmation.
-- The five retained items are the useful unresolved descendants from the old re-baseline.
+- The five retained items are the useful unresolved descendants from the old re-baseline; the final item is intentionally narrowed to TypeScript convention work rather than cross-language cleanup.
 - Future child Objectives will own their own implementation details, validation evidence, roadmap changes, and closure.
 
 Risks:
@@ -90,3 +90,9 @@ Risks:
 ## Open Questions
 
 No setup questions remain open for this umbrella. Future child Objectives may define their own open questions.
+
+## Closure
+
+Completed as an umbrella Objective after all five child-creation rows were satisfied. The final remaining row was narrowed through explicit design grilling to a TypeScript-scoped child, `landed-architecture-review-typescript-failure-data-gateways`, and that child now owns the ADR, Pi runtime evidence review, targeted drift decisions, implementation evidence, parking decisions, and closure. The old `landed-architecture-review` record is archived as superseded provenance under `.asdl/objective-archive/landed-architecture-review/`.
+
+No child implementation work remains in this umbrella. Future progress belongs in the child Objective records, not by reopening this umbrella as a mirrored tracker.

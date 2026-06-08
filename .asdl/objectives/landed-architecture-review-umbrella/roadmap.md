@@ -6,7 +6,7 @@
 - [x] Source-control mutation UX (`landed-architecture-review-source-control-mutation-ux`; submit/land-stack/cmux mutation policy).
 - [x] Handoff over Branch Memory (`landed-architecture-review-handoff-brmem`; handoff artifact interface over brmem).
 - [x] Slot occupancy locality (`landed-architecture-review-slot-occupancy-locality`; rebase/bisect/slot lifecycle safety).
-- [ ] Failure-as-data and gateway conventions (`landed-architecture-review-failure-data-gateways`; shared returned-data/boundary pattern).
+- [x] TypeScript failure-as-data and gateway conventions (`landed-architecture-review-typescript-failure-data-gateways`; TypeScript returned-data/boundary pattern anchored on Pi runtime seams).
 
 ## Parked
 
