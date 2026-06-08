@@ -36,13 +36,6 @@ interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	postSelectionReminder?: string;
 }
 
-interface ObjectiveCompletionCache {
-	cwd: string | undefined;
-	items: AutocompleteItem[] | null | undefined;
-	loadedAtMs: number;
-	inFlight: Promise<AutocompleteItem[] | null> | undefined;
-}
-
 export interface ObjectiveListParsedArgs {
 	args: string[];
 	help: boolean;
@@ -320,19 +313,38 @@ function matchingCompletions(candidates: readonly string[], currentToken: string
 }
 
 function createObjectiveCommandCompleter(pi: ExtensionAPI): (prefix: string) => Promise<AutocompleteItem[] | null> {
-	const cache: ObjectiveCompletionCache = {
-		cwd: undefined,
-		items: undefined,
-		loadedAtMs: 0,
-		inFlight: undefined,
-	};
+	let cachedCwd: string | undefined;
+	let cachedItems: AutocompleteItem[] | null | undefined;
+	let cacheLoadedAtMs = 0;
+	let inFlightLoad: Promise<AutocompleteItem[] | null> | undefined;
 
 	pi.on("session_start", (_event, ctx) => {
-		cache.cwd = ctx.cwd;
-		cache.items = undefined;
-		cache.loadedAtMs = 0;
-		cache.inFlight = undefined;
+		cachedCwd = ctx.cwd;
+		cachedItems = undefined;
+		cacheLoadedAtMs = 0;
+		inFlightLoad = undefined;
 	});
+
+	async function getObjectiveCompletionItems(): Promise<AutocompleteItem[] | null> {
+		const now = Date.now();
+		if (cachedItems !== undefined && now - cacheLoadedAtMs <= OBJECTIVE_COMPLETION_CACHE_TTL_MS) {
+			return cachedItems;
+		}
+
+		if (inFlightLoad !== undefined) {
+			return inFlightLoad;
+		}
+
+		const loadPromise = loadObjectiveCompletionItems(pi, cachedCwd).then((items) => {
+			cachedItems = items;
+			cacheLoadedAtMs = Date.now();
+			return items;
+		});
+		inFlightLoad = loadPromise.finally(() => {
+			inFlightLoad = undefined;
+		});
+		return inFlightLoad;
+	}
 
 	return async (prefix) => {
 		const query = prefix.trim();
@@ -340,7 +352,7 @@ function createObjectiveCommandCompleter(pi: ExtensionAPI): (prefix: string) => 
 			return null;
 		}
 
-		const items = await getObjectiveCompletionItems(pi, cache);
+		const items = await getObjectiveCompletionItems();
 		if (items === null) {
 			return null;
 		}
@@ -348,30 +360,6 @@ function createObjectiveCommandCompleter(pi: ExtensionAPI): (prefix: string) => 
 		const filtered = items.filter((item) => item.value.startsWith(query));
 		return filtered.length > 0 ? filtered : null;
 	};
-}
-
-async function getObjectiveCompletionItems(
-	pi: ExtensionAPI,
-	cache: ObjectiveCompletionCache,
-): Promise<AutocompleteItem[] | null> {
-	const now = Date.now();
-	if (cache.items !== undefined && now - cache.loadedAtMs <= OBJECTIVE_COMPLETION_CACHE_TTL_MS) {
-		return cache.items;
-	}
-
-	if (cache.inFlight !== undefined) {
-		return cache.inFlight;
-	}
-
-	const loadPromise = loadObjectiveCompletionItems(pi, cache.cwd).then((items) => {
-		cache.items = items;
-		cache.loadedAtMs = Date.now();
-		return items;
-	});
-	cache.inFlight = loadPromise.finally(() => {
-		cache.inFlight = undefined;
-	});
-	return cache.inFlight;
 }
 
 async function loadObjectiveCompletionItems(
