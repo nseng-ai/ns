@@ -31,13 +31,13 @@ ty:
     uv run ty check
 
 ts-install:
-    bun install --cwd ts
+    pnpm --dir {{justfile_directory()}}/ts install
 
 ts-check: ts-install
-    bun run --cwd ts check
+    pnpm --dir {{justfile_directory()}}/ts run check
 
 ts-test: ts-install
-    bun run --cwd ts test
+    pnpm --dir {{justfile_directory()}}/ts run test
 
 docs-install:
     bun install --cwd docs-site
@@ -53,10 +53,11 @@ docs-check: docs-install
 
 js-test: ts-test
 
-# Link the planned-branch bin into ~/.bun/bin so `planned-branch` is on PATH.
+# Link the planned-branch bin through pnpm so `planned-branch` is on PATH.
+# The linked CLI still uses its current Bun shebang until runtime migration work removes it.
 link-planned-branch: ts-install
-    cd {{justfile_directory()}}/ts/packages/planned-branch && bun link
-    @echo "linked: planned-branch (~/.bun/bin/planned-branch)"
+    cd {{justfile_directory()}}/ts/packages/planned-branch && pnpm link
+    @echo "linked: planned-branch (pnpm global bin)"
 
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'

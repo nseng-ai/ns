@@ -67,13 +67,22 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: pnpm
+          cache-dependency-path: ts/pnpm-lock.yaml
+      - name: Install Bun for transitional test scripts
+        uses: oven-sh/setup-bun@v2
       - name: Install TypeScript dependencies
-        run: bun install --cwd ts --frozen-lockfile
+        run: pnpm --dir ts install --frozen-lockfile
       - name: Run TypeScript typecheck
-        run: bun run --cwd ts check
+        run: pnpm --dir ts run check
       - name: Run TypeScript tests
-        run: bun run --cwd ts test
+        run: pnpm --dir ts run test
 
   docs-build:
     if: github.event.pull_request.draft != true
