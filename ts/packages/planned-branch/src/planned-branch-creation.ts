@@ -8,6 +8,7 @@ import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
 import { normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { buildPlanFileName, type PlanFileKind } from "./source-plan-file.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
 
 export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
@@ -22,6 +23,7 @@ export interface CreatePlannedBranchFromFileParams {
 	branchName?: string;
 	branchCreation?: BranchCreationMethod;
 	summary?: string;
+	planFileKind?: PlanFileKind;
 }
 
 export interface CreatePlannedBranchFromFileOptions {
@@ -122,12 +124,16 @@ export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBr
 	}
 
 	const summary = normalizeSummary(params.summary);
+	const planFileKind = params.planFileKind ?? "markdown";
 	const operationParams: CreatePlannedBranchFromFileParams = { slug, filePath: params.filePath, branchCreation };
 	if (branch !== slug) {
 		operationParams.branchName = branch;
 	}
 	if (summary !== undefined) {
 		operationParams.summary = summary;
+	}
+	if (params.planFileKind !== undefined) {
+		operationParams.planFileKind = planFileKind;
 	}
 
 	const operation = {
@@ -136,7 +142,7 @@ export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBr
 		branch,
 		branchCreation,
 		namespace: PLAN_BRANCH_NAMESPACE,
-		key: `${slug}.md`,
+		key: buildPlanFileName(slug, planFileKind),
 		params: operationParams,
 	};
 	if (summary === undefined) {
@@ -230,6 +236,7 @@ export function parseCreatePlannedBranchFromFileParams(params: unknown): CreateP
 	const branchName = params.branchName;
 	const branchCreation = params.branchCreation;
 	const summary = params.summary;
+	const planFileKind = params.planFileKind;
 	if (typeof slug !== "string") {
 		throw new Error("createPlannedBranchFromFile requires string parameter `slug`.");
 	}
@@ -243,6 +250,7 @@ export function parseCreatePlannedBranchFromFileParams(params: unknown): CreateP
 	if (summary !== undefined && typeof summary !== "string") {
 		throw new Error("createPlannedBranchFromFile parameter `summary` must be a string when provided.");
 	}
+	const normalizedPlanFileKind = normalizePlanFileKind(planFileKind);
 
 	const parsed: CreatePlannedBranchFromFileParams = { slug, filePath };
 	if (branchName !== undefined) {
@@ -254,7 +262,23 @@ export function parseCreatePlannedBranchFromFileParams(params: unknown): CreateP
 	if (summary !== undefined) {
 		parsed.summary = summary;
 	}
+	if (planFileKind !== undefined) {
+		parsed.planFileKind = normalizedPlanFileKind;
+	}
 	return parsed;
+}
+
+function normalizePlanFileKind(value: unknown): PlanFileKind {
+	if (value === undefined) {
+		return "markdown";
+	}
+	if (value === "markdown" || value === "typescript-recipe") {
+		return value;
+	}
+	if (typeof value !== "string") {
+		throw new Error("createPlannedBranchFromFile parameter `planFileKind` must be a string when provided.");
+	}
+	throw new Error("createPlannedBranchFromFile parameter `planFileKind` must be one of `markdown` or `typescript-recipe`.");
 }
 
 export function tryNormalizeBranchCreationMethod(value: unknown): BranchCreationMethod | undefined {

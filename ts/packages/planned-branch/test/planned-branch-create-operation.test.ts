@@ -71,6 +71,22 @@ describe("buildPlannedBranchCreateOperation", () => {
 		});
 	});
 
+	test("derives TypeScript recipe attachment keys when requested", () => {
+		const operation = buildPlannedBranchCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: "/tmp/branch-scoped-plan.plan.ts",
+			planFileKind: "typescript-recipe",
+		});
+
+		expect(operation.key).toBe(`${PLAN_SLUG}.plan.ts`);
+		expect(operation.params).toEqual({
+			slug: PLAN_SLUG,
+			filePath: "/tmp/branch-scoped-plan.plan.ts",
+			branchCreation: "plain-git",
+			planFileKind: "typescript-recipe",
+		});
+	});
+
 	test("preserves existing validation errors for invalid inputs", () => {
 		expect(() => buildPlannedBranchCreateOperation({ slug: "Branch Scoped Plan", filePath: PLAN_FILE })).toThrow("Invalid plan slug");
 		expect(() => buildPlannedBranchCreateOperation({ slug: PLAN_SLUG, filePath: PLAN_FILE, branchName: "bad branch" })).toThrow(
