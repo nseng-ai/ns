@@ -2,8 +2,9 @@
 
 ## Work
 
-- [ ] Inventory active Bun test-runner surfaces and classify Vitest conversion risks.
+- [x] Inventory active Bun test-runner surfaces and classify Vitest conversion risks.
       Include package-local test scripts, `bun:test` imports, lifecycle hooks, matcher patterns, the known `mock.module` case, `@types/bun`, CI/justfile command paths, and active docs that describe TypeScript test execution. Evidence should distinguish mechanical import/script conversion from behavior-sensitive changes.
+      Evidence: Semantic Update `20260608T173137Z-vitest-surface-inventory.md` records package scripts, `bun:test` import counts, the `mock.module` risk, lifecycle/state risk classes, Bun type references, CI/docs surfaces, and baseline command outcomes.
 
 - [ ] Decide and add the Vitest workspace configuration.
       Choose the shared-vs-package-local configuration shape, dependency placement, Node/TypeScript execution assumptions, and serial/concurrency policy needed to preserve the current `bun test --sequential` behavior where required.
