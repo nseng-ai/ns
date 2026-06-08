@@ -25,6 +25,7 @@ from asdl_pr_address.cli.pr_address.resolution_provenance import (
     parse_resolution_provenance_json,
     validate_resolution_provenance,
 )
+from asdl_pr_address.cli.pr_address.string_values import trim_optional
 
 
 class ResolveThreadWithReplyRequest(ClinkrModel):
@@ -78,8 +79,8 @@ def normalize_resolution_request(
     git_gateway: GitGateway | None = None,
     provenance_input: ResolutionProvenanceInput | None = None,
 ) -> NormalizedResolveThreadWithReplyRequest:
-    message = request.message.strip() if request.message is not None else None
-    commit_sha = request.commit_sha.strip() if request.commit_sha is not None else None
+    message = trim_optional(request.message)
+    commit_sha = trim_optional(request.commit_sha)
     parsed_provenance = provenance_input
     if parsed_provenance is None:
         parsed_provenance = parse_resolution_provenance_json(
@@ -123,16 +124,8 @@ def normalize_resolution_request(
         )
         provenance = validate_resolution_provenance(
             planned_provenance_input,
-            pr_gateway=Ensure.not_none(
-                pr_gateway,
-                error_type="invalid_request",
-                message="mode='planned' requires a PR gateway for provenance validation",
-            ),
-            git_gateway=Ensure.not_none(
-                git_gateway,
-                error_type="invalid_request",
-                message="mode='planned' requires a git gateway for provenance validation",
-            ),
+            pr_gateway=pr_gateway,
+            git_gateway=git_gateway,
         )
 
     return NormalizedResolveThreadWithReplyRequest(

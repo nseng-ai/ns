@@ -511,38 +511,39 @@ def _validated_decision_item(
                 thread_id=thread_id,
             )
         )
-    if mode == "planned" and provenance is None:
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="missing_provenance",
-                message=f"mode='planned' decision for thread {thread_id} requires provenance.",
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-    if mode == "planned" and (item_commit_sha is not None or batch_commit_sha is not None):
-        errors.append(
-            BuildResolveThreadBatchPayloadError(
-                code="planned_has_commit_sha",
-                message=(
-                    f"mode='planned' decision for thread {thread_id} must not include batch or "
-                    "item commit_sha fields."
-                ),
-                batch_id=batch_id,
-                thread_id=thread_id,
-            )
-        )
-    if mode == "planned" and provenance is not None:
-        error_message = provenance_shape_error(provenance)
-        if error_message is not None:
+    if mode == "planned":
+        if provenance is None:
             errors.append(
                 BuildResolveThreadBatchPayloadError(
-                    code="invalid_provenance_shape",
-                    message=f"mode='planned' decision for thread {thread_id}: {error_message}.",
+                    code="missing_provenance",
+                    message=f"mode='planned' decision for thread {thread_id} requires provenance.",
                     batch_id=batch_id,
                     thread_id=thread_id,
                 )
             )
+        if item_commit_sha is not None or batch_commit_sha is not None:
+            errors.append(
+                BuildResolveThreadBatchPayloadError(
+                    code="planned_has_commit_sha",
+                    message=(
+                        f"mode='planned' decision for thread {thread_id} must not include batch or "
+                        "item commit_sha fields."
+                    ),
+                    batch_id=batch_id,
+                    thread_id=thread_id,
+                )
+            )
+        if provenance is not None:
+            error_message = provenance_shape_error(provenance)
+            if error_message is not None:
+                errors.append(
+                    BuildResolveThreadBatchPayloadError(
+                        code="invalid_provenance_shape",
+                        message=f"mode='planned' decision for thread {thread_id}: {error_message}.",
+                        batch_id=batch_id,
+                        thread_id=thread_id,
+                    )
+                )
     if mode == "pre_existing" and (message is not None or item_commit_sha is not None):
         errors.append(
             BuildResolveThreadBatchPayloadError(
