@@ -3,6 +3,7 @@ description: |
   Adversarially review the supplied target to break false confidence and surface
   material risks, contradictions, missing assumptions, and execution hazards.
 default_model: sonnet
+ci: true
 ---
 
 Review the supplied target adversarially. Adapt the critique to the target kind:

@@ -13,19 +13,21 @@ _TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
 
 
 @pytest.mark.parametrize(
-    ("review_path", "name", "expected_model", "expected_when_changed"),
+    ("review_path", "name", "expected_model", "expected_ci", "expected_when_changed"),
     [
-        (_DIGNIFIED_PYTHON_REVIEW, "dignified-python", "haiku", ("**/*.py",)),
+        (_DIGNIFIED_PYTHON_REVIEW, "dignified-python", "haiku", True, ("**/*.py",)),
         (
             _TYPESCRIPT_STYLE_REVIEW,
             "typescript-style",
             "haiku",
+            True,
             ("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"),
         ),
         (
             _SIMPLIFY_REVIEW,
             "simplify",
             "sonnet",
+            False,
             (
                 "**/*.c",
                 "**/*.cc",
@@ -52,6 +54,7 @@ def test_parse_real_review_definition(
     review_path: Path,
     name: str,
     expected_model: str,
+    expected_ci: bool,
     expected_when_changed: tuple[str, ...],
 ) -> None:
     source = review_path.read_text(encoding="utf-8")
@@ -60,6 +63,7 @@ def test_parse_real_review_definition(
     assert definition.name == name
     assert definition.description.strip()
     assert definition.default_model == expected_model
+    assert definition.ci is expected_ci
     assert definition.when_changed == expected_when_changed
     assert definition.instructions.strip()
 
@@ -69,6 +73,7 @@ def test_parse_review_definition_success() -> None:
         "---\n"
         "description: Review Python diffs for style violations.\n"
         "default_model: sonnet\n"
+        "ci: true\n"
         "when_changed:\n"
         "  - '**/*.py'\n"
         "  - 'pyproject.toml'\n"
@@ -82,6 +87,7 @@ def test_parse_review_definition_success() -> None:
     assert definition.description == "Review Python diffs for style violations."
     assert definition.instructions == "Flag concrete issues in the diff."
     assert definition.default_model == "sonnet"
+    assert definition.ci is True
     assert definition.when_changed == ("**/*.py", "pyproject.toml")
 
 
@@ -89,6 +95,7 @@ def test_parse_review_definition_without_default_model() -> None:
     definition = parse_review_definition(
         "---\n"
         "description: Review Python diffs for style violations.\n"
+        "ci: true\n"
         "---\n"
         "\n"
         "Flag concrete issues in the diff.\n",
@@ -96,7 +103,69 @@ def test_parse_review_definition_without_default_model() -> None:
     )
 
     assert definition.default_model is None
+    assert definition.ci is True
     assert definition.when_changed == ()
+
+
+def test_parse_review_definition_accepts_ci_false() -> None:
+    definition = parse_review_definition(
+        "---\n"
+        "description: Review Python diffs for style violations.\n"
+        "ci: false\n"
+        "---\n"
+        "\n"
+        "Flag concrete issues in the diff.\n",
+        name="dignified-python",
+    )
+
+    assert definition.ci is False
+
+
+def test_parse_review_definition_requires_ci() -> None:
+    with pytest.raises(ValueError, match="missing required field `ci`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_ci_string() -> None:
+    with pytest.raises(ValueError, match="literal true or false"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            'ci: "true"\n'
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_ci_non_literal_boolean() -> None:
+    with pytest.raises(ValueError, match="literal true or false"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "ci: yes\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_ci_number() -> None:
+    with pytest.raises(ValueError, match="literal true or false"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "ci: 1\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
 
 
 def test_parse_review_definition_rejects_when_changed_string() -> None:
@@ -104,6 +173,7 @@ def test_parse_review_definition_rejects_when_changed_string() -> None:
         parse_review_definition(
             "---\n"
             "description: Review Python diffs for style violations.\n"
+            "ci: true\n"
             "when_changed: '**/*.py'\n"
             "---\n"
             "\nFlag concrete issues in the diff.\n",
@@ -116,6 +186,7 @@ def test_parse_review_definition_rejects_empty_when_changed_list() -> None:
         parse_review_definition(
             "---\n"
             "description: Review Python diffs for style violations.\n"
+            "ci: true\n"
             "when_changed: []\n"
             "---\n"
             "\nFlag concrete issues in the diff.\n",
@@ -128,6 +199,7 @@ def test_parse_review_definition_rejects_empty_when_changed_item() -> None:
         parse_review_definition(
             "---\n"
             "description: Review Python diffs for style violations.\n"
+            "ci: true\n"
             "when_changed:\n"
             "  - '**/*.py'\n"
             "  - ''\n"
@@ -140,7 +212,7 @@ def test_parse_review_definition_rejects_empty_when_changed_item() -> None:
 def test_parse_review_definition_requires_instructions() -> None:
     with pytest.raises(ValueError, match="instructions"):
         parse_review_definition(
-            "---\ndescription: Review Python diffs for style violations.\n---\n",
+            "---\ndescription: Review Python diffs for style violations.\nci: true\n---\n",
             name="dignified-python",
         )
 
@@ -166,7 +238,7 @@ def test_parse_review_definition_requires_closing_fence() -> None:
 def test_parse_review_definition_requires_description() -> None:
     with pytest.raises(ValueError, match="description"):
         parse_review_definition(
-            "---\ndefault_model: sonnet\n---\n\nFlag concrete issues in the diff.\n",
+            "---\ndefault_model: sonnet\nci: true\n---\n\nFlag concrete issues in the diff.\n",
             name="dignified-python",
         )
 
@@ -176,6 +248,7 @@ def test_parse_review_definition_requires_non_empty_name() -> None:
         parse_review_definition(
             "---\n"
             "description: Review Python diffs for style violations.\n"
+            "ci: true\n"
             "---\n"
             "\nFlag concrete issues in the diff.\n",
             name="   ",
@@ -188,6 +261,7 @@ def test_parse_review_definition_rejects_unknown_frontmatter_key() -> None:
             "---\n"
             "description: Review Python diffs for style violations.\n"
             "default_model: sonnet\n"
+            "ci: true\n"
             "severity: error\n"
             "---\n"
             "\nFlag concrete issues in the diff.\n",
@@ -201,6 +275,7 @@ def test_parse_review_definition_lists_all_unknown_frontmatter_keys() -> None:
             "---\n"
             "description: Review Python diffs for style violations.\n"
             "default_model: sonnet\n"
+            "ci: true\n"
             "severity: error\n"
             "owner: team-platform\n"
             "---\n"
@@ -222,6 +297,7 @@ def test_parse_review_definition_accepts_non_empty_default_models(model: str) ->
         f"---\n"
         f"description: Review Python diffs for style violations.\n"
         f"default_model: {model}\n"
+        f"ci: true\n"
         f"---\n"
         f"\nFlag concrete issues in the diff.\n",
         name="dignified-python",
@@ -239,6 +315,7 @@ def test_parse_review_definition_requires_default_model_non_empty_string(
             "---\n"
             "description: Review Python diffs for style violations.\n"
             f"default_model: {default_model}\n"
+            "ci: true\n"
             "---\n"
             "\nFlag concrete issues in the diff.\n",
             name="dignified-python",
@@ -259,6 +336,7 @@ def test_parse_review_definition_rejects_invalid_yaml_frontmatter() -> None:
             "---\n"
             "description: Review Python diffs.\n"
             "default_model: sonnet\n"
+            "ci: true\n"
             "  bad-indent: value\n"
             "\tmixed: tabs\n"
             "---\n"

@@ -10,6 +10,7 @@ def _definition(name: str, *, when_changed: tuple[str, ...]) -> ReviewDefinition
         description=f"Review {name}.",
         instructions="Flag concrete issues.",
         default_model="haiku",
+        ci=True,
         when_changed=when_changed,
     )
 

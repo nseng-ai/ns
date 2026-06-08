@@ -11,7 +11,7 @@ from roaster.models import ReviewDefinition
 _FRONTMATTER_FENCE = "---"
 
 _ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset(
-    {"description", "default_model", "when_changed"}
+    {"ci", "description", "default_model", "when_changed"}
 )
 
 
@@ -39,6 +39,7 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
     _reject_unknown_keys(parsed_frontmatter)
 
     description = _require_string(parsed_frontmatter, "description")
+    ci = _require_ci_bool(frontmatter_text, parsed_frontmatter)
 
     default_model_value = parsed_frontmatter.get("default_model")
     if default_model_value is None:
@@ -59,6 +60,7 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         description=description,
         instructions=instructions,
         default_model=default_model,
+        ci=ci,
         when_changed=when_changed,
     )
 
@@ -104,6 +106,35 @@ def _require_string(frontmatter: dict[str, Any], field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"Review definition field `{field}` must be a non-empty string.")
     return value.strip()
+
+
+def _require_ci_bool(frontmatter_text: str, frontmatter: dict[str, Any]) -> bool:
+    field = "ci"
+    if field not in frontmatter:
+        raise ValueError(f"Review definition frontmatter is missing required field `{field}`.")
+
+    ci_literal = _top_level_ci_literal(frontmatter_text)
+    if ci_literal not in {"true", "false"} or not isinstance(frontmatter[field], bool):
+        raise ValueError("Review definition field `ci` must be literal true or false.")
+    return frontmatter[field]
+
+
+def _top_level_ci_literal(frontmatter_text: str) -> str | None:
+    ci_lines: list[str] = []
+    for line in frontmatter_text.splitlines():
+        if line[:1].isspace():
+            continue
+        stripped = line.strip()
+        if stripped.startswith("ci:"):
+            ci_lines.append(stripped)
+
+    if len(ci_lines) != 1:
+        return None
+
+    value = ci_lines[0].partition(":")[2].strip()
+    if "#" in value:
+        value = value.split("#", 1)[0].strip()
+    return value
 
 
 def _optional_string_tuple(frontmatter: dict[str, Any], field: str) -> tuple[str, ...]:

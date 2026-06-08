@@ -5,6 +5,7 @@ description: |
   right abstraction level. This is the roaster review-only form of `/simplify`:
   it reports actionable findings for later fixing instead of hunting bugs.
 default_model: sonnet
+ci: false
 when_changed:
   - "**/*.c"
   - "**/*.cc"
@@ -26,6 +27,9 @@ when_changed:
 ---
 
 <!--
+CI note: this review declares `ci: false`; it is intended for local/manual
+roaster runs and is excluded from roaster GitHub CI discovery.
+
 Provenance note (not part of the review instructions): this review is the
 roaster review-only port of Claude Code's bundled `/simplify` command. We
 recovered the original `/simplify` prompt by extracting the embedded prompt

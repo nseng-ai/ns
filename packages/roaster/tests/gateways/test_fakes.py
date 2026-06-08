@@ -32,6 +32,7 @@ def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
             description="Review Python diffs for style violations.",
             instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
+            ci=True,
         ),
         target=DiffReviewTarget(
             kind="diff",
