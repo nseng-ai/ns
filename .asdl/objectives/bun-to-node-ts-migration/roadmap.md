@@ -2,20 +2,20 @@
 
 ## Work
 
-- [ ] Establish the Node-centered tooling contract.
-      Decide the exact pnpm workspace shape, Node v24 baseline, CLI execution/build policy, and how to treat `node:sqlite`'s experimental warning. Evidence should include a small documented policy update or equivalent durable decision in the Objective.
+- [ ] Tooling contract child Objective (`bun-to-node-ts-migration-tooling-contract`).
+      Create a child Objective to decide the exact pnpm workspace shape, Node v24 baseline, TypeScript CLI execution/build policy, and how to treat `node:sqlite`'s experimental warning.
 
-- [ ] Migrate package management and repo orchestration from Bun to pnpm.
-      Replace active Bun lock/install/run assumptions for the TypeScript workspace and docs-site where in scope. Update `justfile`, deploy/build commands, and user-facing docs so normal active workflows no longer require Bun.
+- [ ] pnpm workspace migration child Objective (`bun-to-node-ts-migration-pnpm-workspace`).
+      Create a child Objective to replace active Bun lock/install/run assumptions for the TypeScript workspace and docs-site where in scope, including `justfile`, deploy/build commands, and user-facing docs.
 
-- [ ] Convert TypeScript tests from `bun:test` to Vitest.
-      Preserve existing test behavior and cover special cases such as lifecycle hooks, matcher usage, and Bun module mocking. Evidence should include package-level and workspace-level test runs under Vitest.
+- [ ] Vitest migration child Objective (`bun-to-node-ts-migration-vitest`).
+      Create a child Objective to convert TypeScript tests from `bun:test` to Vitest while preserving behavior for lifecycle hooks, matcher usage, and Bun module mocking cases.
 
-- [ ] Harden Node runtime compatibility for Pi extensions and TypeScript CLIs.
-      Add Node smoke coverage for project-local Pi extension modules and update runtime code to avoid Bun-only APIs. Resolve the Graphite metadata reader using `node:sqlite` or a documented Node-compatible alternative.
+- [ ] Node runtime compatibility child Objective (`bun-to-node-ts-migration-node-runtime`).
+      Create a child Objective to harden project-local Pi extension modules and TypeScript CLIs under Node, including smoke coverage for Bun-only APIs and the Graphite metadata reader replacement.
 
-- [ ] Reconcile remaining Bun references and migration fallout.
-      Review active docs, scripts, deployment configuration, and templates for stale Bun assumptions. Leave only deliberate, documented Bun references outside the Objective's active migration scope.
+- [ ] Bun-reference reconciliation child Objective (`bun-to-node-ts-migration-bun-reference-reconciliation`).
+      Create a child Objective to review active docs, scripts, deployment configuration, and templates for stale Bun assumptions, leaving only deliberate and documented references outside the migration target.
 
 ## Parked
 
