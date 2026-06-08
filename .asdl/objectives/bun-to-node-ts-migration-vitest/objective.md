@@ -45,7 +45,10 @@ Assumptions:
 
 - Node v24.12+ remains the TypeScript tooling baseline inherited from the tooling contract.
 - The pnpm workspace contract is already in place: `ts/` is a pnpm workspace for `packages/*`, and root orchestration delegates into it.
+- The workspace can use one root `ts/vitest.config.ts` with `vitest` in the root `ts/` dev dependencies; package-local Vitest configs are unnecessary unless later package-specific setup evidence appears.
 - Vitest can execute the existing TypeScript tests without requiring built JavaScript artifacts or changing production module boundaries.
+- The migration should keep explicit `vitest` imports rather than global test APIs.
+- The initial Vitest configuration should preserve the previous `bun test --sequential` posture with `fileParallelism: false`; later concurrency relaxation needs package-specific evidence.
 - Most `bun:test` imports map mechanically to Vitest imports, but lifecycle-hook and mocking behavior still need targeted review.
 - The current `pnpm --dir ts run test` command is intentionally transitional because package-local test scripts still invoke Bun; this Objective should remove that transitional Bun runtime dependency.
 
@@ -59,7 +62,5 @@ Risks:
 
 ## Open Questions
 
-- Should the workspace keep one root Vitest configuration under `ts/`, package-local Vitest configuration files, or package scripts that invoke a shared root config?
-- Should all package tests run serially by default to preserve `bun test --sequential` behavior, or can package-local suites opt into Vitest's normal concurrency where safe?
 - What is the least invasive Vitest replacement for the existing `mock.module("@earendil-works/pi-ai", ...)` case?
 - After conversion, does any active non-test TypeScript code still require Bun types, or can `@types/bun` be removed entirely from the workspace?
