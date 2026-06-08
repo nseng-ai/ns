@@ -83,6 +83,13 @@ def _build_objective_list_result_or_failure(
     names_only: bool = False,
     include_updated_branches: bool = True,
 ) -> ObjectiveListResult | GitCommandFailure:
+    if names_only and include_updated_branches:
+        return GitCommandFailure(
+            message="Objective list names-only output cannot include updated branch attribution.",
+            returncode=None,
+            error_type="invalid_request",
+        )
+
     inventory = build_objective_checkout_inventory(ctx.repo_root)
     filtered_records = tuple(
         record
@@ -103,10 +110,8 @@ def _build_objective_list_result_or_failure(
             ctx,
             record.slug,
             record.status,
-            updated_branches=updated_branches_by_slug.get(record.slug, ()),
+            updated_branches=updated_branches_by_slug.get(record.slug),
         )
-        if include_branch_attribution
-        else _build_objective_list_record(ctx, record.slug, record.status)
         for record in filtered_records
     )
     return ObjectiveListResult(
@@ -169,7 +174,7 @@ def _build_updated_branches_by_slug(
         for slug in sorted(branch_slugs):
             updated_branches_by_slug[slug].append(branch)
 
-    return {slug: tuple(branches) for slug, branches in updated_branches_by_slug.items()}
+    return {slug: tuple(branch_names) for slug, branch_names in updated_branches_by_slug.items()}
 
 
 def _local_non_trunk_branches(ctx: ObjectiveCliContext) -> tuple[str, ...]:

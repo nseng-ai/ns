@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import PathChangeTouch, PathTouch
 from asdl_objectives.context import ObjectiveCliContext
@@ -75,6 +77,17 @@ def test_build_objective_list_result_active_filters_to_open_records(tmp_path: Pa
 
     assert [record.slug for record in result.records] == ["alpha"]
     assert result.status_filter == "active"
+
+
+def test_build_objective_list_result_rejects_names_with_updated_branches(
+    tmp_path: Path,
+) -> None:
+    _objective_dir(tmp_path, "alpha")
+    git = FakeGitGateway(repo_root=tmp_path, branches=("master",), trunk_branch="master")
+    ctx = ObjectiveCliContext(repo_root=tmp_path, trunk_branch="master", git=git)
+
+    with pytest.raises(RuntimeError, match="names-only output"):
+        build_objective_list_result(ctx, names_only=True, include_updated_branches=True)
 
 
 def test_build_objective_list_result_marks_dirty_records(tmp_path: Path) -> None:
