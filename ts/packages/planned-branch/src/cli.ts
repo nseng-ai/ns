@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { previewTsPlanRecipeFromContent, type TsPlanRecipePreview, type TsPlanRecipePreviewFormat } from "@asdl/ts-plans/host";
 
@@ -784,7 +787,19 @@ function previewTsHelp(): string {
 	].join("\n");
 }
 
-if (import.meta.main) {
+if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
 	const exitCode = await runCli(process.argv.slice(2));
 	process.exitCode = exitCode;
+}
+
+function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {
+	if (argvPath === undefined) return false;
+
+	try {
+		const modulePath = realpathSync(fileURLToPath(metaUrl));
+		const entryPath = realpathSync(resolve(argvPath));
+		return modulePath === entryPath;
+	} catch {
+		return false;
+	}
 }
