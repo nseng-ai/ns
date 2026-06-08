@@ -29,7 +29,7 @@ jobs:
       - uses: ./.github/actions/setup-python-uv
       - id: list
         run: |
-          output=$(uv run roaster review list --ci-enabled true --format json)
+          output=$(uv run roaster review list --format json)
           reviews=$(printf '%s' "$output" | jq -c '.data.keys')
           count=$(printf '%s' "$output" | jq '.data.count')
           {
@@ -79,7 +79,6 @@ jobs:
           status=0
           output=$(uv run roaster review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
-            --review-format findings \
             --format json) || status=$?
           printf '%s' "$output" > "$roaster_output_file"
 

@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, ValidationError, field_validator, model_serializer, model_validator
+from pydantic import Field, ValidationError, field_validator, model_serializer
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 
 Severity = Literal["info", "warning", "error"]
-
-ReviewFormat = Literal["findings", "text"]
-TargetKind = Literal["diff", "document"]
 StrictInt: TypeAlias = Annotated[int, Field(strict=True)]
-PositiveStrictInt: TypeAlias = Annotated[int, Field(strict=True, ge=1)]
 
 
 @dataclass(frozen=True)
@@ -93,13 +88,6 @@ class BaseRefUnavailable:
 
 
 @dataclass(frozen=True)
-class HarnessNotConfigured:
-    """No harness could be resolved via flag, env var, or auto-detection on PATH."""
-
-    message: str
-
-
-@dataclass(frozen=True)
 class HarnessUnknown:
     """The requested harness name is not registered."""
 
@@ -156,20 +144,6 @@ class ClaudeCodeInvalidResponse:
 
 
 @dataclass(frozen=True)
-class ClaudeCodeMissingResultEvent:
-    """Claude Code stream-json output did not include a terminal ``result`` event."""
-
-    message: str
-
-
-@dataclass(frozen=True)
-class ClaudeCodeNonJsonResult:
-    """Claude Code's ``result`` field was prose rather than JSON."""
-
-    message: str
-
-
-@dataclass(frozen=True)
 class ClaudeCodeInvalidFindings:
     """Claude Code's parsed findings payload was malformed."""
 
@@ -215,7 +189,6 @@ RoasterFailure: TypeAlias = (
     | ReviewDefinitionNotFound
     | ReviewDefinitionNotAFile
     | BaseRefUnavailable
-    | HarnessNotConfigured
     | HarnessUnknown
     | HarnessBinaryMissing
     | HarnessInvocationFailed
@@ -224,8 +197,6 @@ RoasterFailure: TypeAlias = (
     | ClaudeCodeEmptyOutput
     | ClaudeCodeInvalidJson
     | ClaudeCodeInvalidResponse
-    | ClaudeCodeMissingResultEvent
-    | ClaudeCodeNonJsonResult
     | ClaudeCodeInvalidFindings
     | ReviewsDirMissing
     | ReviewsDirNotADirectory
@@ -260,7 +231,7 @@ class GitDiffFailedError(RoasterError):
 
 @dataclass(frozen=True)
 class HarnessDetection:
-    """Whether a harness binary is installed, and where it lives on PATH."""
+    """Whether the internal Claude Code harness binary is installed."""
 
     name: str
     binary: str
@@ -273,14 +244,12 @@ class HarnessDetection:
 
 @dataclass(frozen=True)
 class ReviewDefinition:
-    """Parsed markdown definition of a reviewer."""
+    """Parsed markdown definition of a CI reviewer."""
 
     name: str
     description: str
     instructions: str
     default_model: str | None
-    ci: bool
-    when_changed: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -310,32 +279,13 @@ class LocalDiff:
 
 
 @dataclass(frozen=True)
-class ReviewContextFragment:
-    """Additive context supplied for one review invocation."""
-
-    label: str
-    content: str
-
-
-@dataclass(frozen=True)
 class DiffReviewTarget:
     """Current-branch diff target for a review invocation."""
 
-    kind: Literal["diff"]
     local_diff: LocalDiff
 
 
-@dataclass(frozen=True)
-class DocumentReviewTarget:
-    """Document or artifact target for a review invocation."""
-
-    kind: Literal["document"]
-    content: str
-    label: str
-    source_path: str | None = None
-
-
-ReviewTarget: TypeAlias = DiffReviewTarget | DocumentReviewTarget
+ReviewTarget: TypeAlias = DiffReviewTarget
 
 
 def _reject_blank_string(value: str) -> str:
@@ -344,94 +294,19 @@ def _reject_blank_string(value: str) -> str:
     return value
 
 
-def _reject_blank_optional_string(value: str | None) -> str | None:
-    if value is not None and not value.strip():
-        raise ValueError("must be non-empty when provided")
-    return value
+class ReviewFinding(ClinkrModel):
+    """One actionable PR-diff finding emitted by the review harness."""
 
-
-class GlobalLocation(ClinkrModel):
-    """Finding applies to the whole reviewed target."""
-
-    kind: Literal["global"]
-
-
-class TextAnchorLocation(ClinkrModel):
-    """Finding is grounded in exact text from a document target."""
-
-    kind: Literal["text_anchor"]
-    text: str = Field(min_length=1)
-    section: str | None = None
-    occurrence: PositiveStrictInt | None = None
-    context: str | None = None
-
-    @field_validator("text", "section", "context")
-    @classmethod
-    def _reject_blank_strings(cls, value: str | None) -> str | None:
-        return _reject_blank_optional_string(value)
-
-
-class DiffLineLocation(ClinkrModel):
-    """Finding is grounded in a file/line in a unified diff."""
-
-    kind: Literal["diff_line"]
     path: str = Field(min_length=1)
     line: StrictInt | None
-
-    @field_validator("path")
-    @classmethod
-    def _reject_blank_path(cls, value: str) -> str:
-        return _reject_blank_string(value)
-
-
-ReviewLocation: TypeAlias = Annotated[
-    GlobalLocation | TextAnchorLocation | DiffLineLocation,
-    Field(discriminator="kind"),
-]
-DocumentReviewLocation: TypeAlias = Annotated[
-    GlobalLocation | TextAnchorLocation,
-    Field(discriminator="kind"),
-]
-
-
-class ReviewFinding(ClinkrModel):
-    """One actionable review finding emitted by the executor."""
-
-    location: ReviewLocation
     severity: Severity
     summary: str = Field(min_length=1)
     details: str = Field(min_length=1)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_legacy_diff_fields(cls, value: Any) -> Any:
-        if not isinstance(value, dict):
-            return value
-        if "location" in value or "path" not in value:
-            return value
-
-        normalized = dict(value)
-        path = normalized.pop("path")
-        line = normalized.pop("line", None)
-        normalized["location"] = {"kind": "diff_line", "path": path, "line": line}
-        return normalized
-
-    @field_validator("summary", "details")
+    @field_validator("path", "summary", "details")
     @classmethod
     def _reject_blank_strings(cls, value: str) -> str:
         return _reject_blank_string(value)
-
-    @property
-    def path(self) -> str | None:
-        if isinstance(self.location, DiffLineLocation):
-            return self.location.path
-        return None
-
-    @property
-    def line(self) -> int | None:
-        if isinstance(self.location, DiffLineLocation):
-            return self.location.line
-        return None
 
     @classmethod
     def diff_line(
@@ -443,98 +318,39 @@ class ReviewFinding(ClinkrModel):
         summary: str,
         details: str,
     ) -> ReviewFinding:
-        return cls(
-            location=DiffLineLocation(kind="diff_line", path=path, line=line),
-            severity=severity,
-            summary=summary,
-            details=details,
-        )
-
-    @classmethod
-    def global_finding(
-        cls,
-        *,
-        severity: Severity,
-        summary: str,
-        details: str,
-    ) -> ReviewFinding:
-        return cls(
-            location=GlobalLocation(kind="global"),
-            severity=severity,
-            summary=summary,
-            details=details,
-        )
+        return cls(path=path, line=line, severity=severity, summary=summary, details=details)
 
     @classmethod
     def from_json_dict(cls, data: dict[str, Any]) -> ReviewFinding:
-        allowed_fields = {"path", "line", "location", "severity", "summary", "details"}
+        allowed_fields = {"path", "line", "severity", "summary", "details"}
         unknown_fields = sorted(set(data) - allowed_fields)
         if unknown_fields:
             field_list = ", ".join(unknown_fields)
             raise ValueError(f"Unknown review-finding fields: {field_list}")
 
-        required_common_fields = {"severity", "summary", "details"}
-        missing_common = sorted(field for field in required_common_fields if field not in data)
-        if missing_common:
-            field_list = ", ".join(missing_common)
+        required_fields = {"path", "severity", "summary", "details"}
+        missing = sorted(field for field in required_fields if field not in data)
+        if missing:
+            field_list = ", ".join(missing)
             raise ValueError(f"Missing review-finding fields: {field_list}")
 
-        common_payload = {
-            "severity": data["severity"],
-            "summary": data["summary"],
-            "details": data["details"],
-        }
-
-        if "location" not in data:
-            if "path" not in data:
-                raise ValueError(
-                    "Review finding must include `location` or legacy diff fields; missing: path"
-                )
-            location_payload = {
-                "kind": "diff_line",
-                "path": data["path"],
-                "line": data.get("line"),
-            }
-        else:
-            location_payload = data["location"]
-
         try:
-            finding = cls.model_validate({"location": location_payload, **common_payload})
+            return cls.model_validate(data)
         except ValidationError as exc:
             raise ValueError(str(exc)) from exc
 
-        legacy_fields = sorted(field for field in ("path", "line") if field in data)
-        if legacy_fields and not isinstance(finding.location, DiffLineLocation):
-            field_list = ", ".join(legacy_fields)
-            raise ValueError(
-                "Review finding cannot combine document/global `location` with legacy fields: "
-                f"{field_list}"
-            )
-        if isinstance(finding.location, DiffLineLocation):
-            if "path" in data and data["path"] != finding.location.path:
-                raise ValueError("Review finding legacy `path` conflicts with `location.path`.")
-            if "line" in data and data["line"] != finding.location.line:
-                raise ValueError("Review finding legacy `line` conflicts with `location.line`.")
-        return finding
-
     def to_json_dict(self) -> dict[str, Any]:
-        """Serialize diff findings in legacy shape and document findings by location."""
-        common = {
+        return {
+            "path": self.path,
+            "line": self.line,
             "severity": self.severity,
             "summary": self.summary,
             "details": self.details,
         }
-        if isinstance(self.location, DiffLineLocation):
-            return {"path": self.location.path, "line": self.location.line, **common}
-        return {"location": self.location.model_dump(mode="json"), **common}
 
 
 class ClaudeDiffFinding(ClinkrModel):
-    """Claude-facing diff finding contract using path/line only.
-
-    ReviewFinding.location is the canonical internal representation. Claude diff output
-    intentionally stays on path/line fields to avoid a duplicated location branch.
-    """
+    """Claude-facing diff finding contract using path/line only."""
 
     path: str = Field(min_length=1)
     line: StrictInt | None
@@ -549,29 +365,8 @@ class ClaudeDiffFinding(ClinkrModel):
 
     def to_review_finding(self) -> ReviewFinding:
         return ReviewFinding(
-            location=DiffLineLocation(kind="diff_line", path=self.path, line=self.line),
-            severity=self.severity,
-            summary=self.summary,
-            details=self.details,
-        )
-
-
-class ClaudeDocumentFinding(ClinkrModel):
-    """Claude schema model for document findings."""
-
-    location: DocumentReviewLocation
-    severity: Severity
-    summary: str = Field(min_length=1)
-    details: str = Field(min_length=1)
-
-    @field_validator("summary", "details")
-    @classmethod
-    def _reject_blank_strings(cls, value: str) -> str:
-        return _reject_blank_string(value)
-
-    def to_review_finding(self) -> ReviewFinding:
-        return ReviewFinding(
-            location=self.location,
+            path=self.path,
+            line=self.line,
             severity=self.severity,
             summary=self.summary,
             details=self.details,
@@ -582,12 +377,6 @@ class ClaudeDiffFindingsOutput(ClinkrModel):
     """Structured-output schema for diff review findings."""
 
     findings: tuple[ClaudeDiffFinding, ...]
-
-
-class ClaudeDocumentFindingsOutput(ClinkrModel):
-    """Structured-output schema for document review findings."""
-
-    findings: tuple[ClaudeDocumentFinding, ...]
 
 
 class FindingsReview(ClinkrModel):
@@ -604,20 +393,7 @@ class FindingsReview(ClinkrModel):
         }
 
 
-class ProseReview(ClinkrModel):
-    """A review payload carrying a human-readable markdown review."""
-
-    prose: str
-
-    @model_serializer
-    def serialize_model(self) -> dict[str, Any]:
-        return {
-            "format": "text",
-            "prose": self.prose,
-        }
-
-
-ReviewPayload = FindingsReview | ProseReview
+ReviewPayload: TypeAlias = FindingsReview
 
 
 class ReviewUsage(ClinkrModel):
@@ -645,67 +421,26 @@ class ReviewExecutionResponse:
 
 
 class LocalReviewResult(ClinkrModel):
-    """Structured result returned by the local roaster CLI."""
+    """Structured result returned by the CI roaster CLI."""
 
     review_name: str
     review_path: str
     model: str
     base_ref: str | None
-    target_kind: TargetKind
-    target_label: str
     payload: ReviewPayload
     usage: ReviewUsage | None = None
-    target_source_path: str | None = None
-    context_fragments: tuple[ReviewContextFragment, ...] = ()
 
     @model_serializer
     def serialize_model(self) -> dict[str, Any]:
         """Serialize the local-review result for JSON output."""
-        target: dict[str, Any] = {
-            "kind": self.target_kind,
-            "label": self.target_label,
-        }
-        if self.base_ref is not None:
-            target["base_ref"] = self.base_ref
-        if self.target_source_path is not None:
-            target["source_path"] = self.target_source_path
         return {
             "review_name": self.review_name,
             "review_path": self.review_path,
             "model": self.model,
             "base_ref": self.base_ref,
-            "target_kind": self.target_kind,
-            "target_label": self.target_label,
-            "target": target,
-            "context": {
-                "fragments": [{"label": fragment.label} for fragment in self.context_fragments],
-                "fragment_count": len(self.context_fragments),
-            },
             "usage": serialize_to_json_dict(self.usage) if self.usage else None,
             **serialize_to_json_dict(self.payload),
         }
-
-
-@dataclass(frozen=True)
-class MatchedReview:
-    """A review whose changed-path condition selected it for execution."""
-
-    key: str
-    description: str
-    default_model: str | None
-    when_changed: tuple[str, ...]
-    matched_paths: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class SkippedReview:
-    """A review skipped by changed-path selection."""
-
-    key: str
-    description: str
-    default_model: str | None
-    when_changed: tuple[str, ...]
-    reason: str
 
 
 @dataclass(frozen=True)
@@ -717,27 +452,4 @@ class ResolvedReviewRunPlan:
     harness: str
     base_ref: str | None
     changed_path_count: int | None
-    target_kind: TargetKind = "diff"
-    target_label: str | None = None
-
-
-class MatchingReviewSelectionResult(ClinkrModel):
-    """Structured result for changed-path review selection."""
-
-    base_ref: str
-    changed_paths: tuple[str, ...]
-    selected_reviews: tuple[MatchedReview, ...]
-    skipped_reviews: tuple[SkippedReview, ...]
-
-    @model_serializer
-    def serialize_model(self) -> dict[str, Any]:
-        """Serialize a changed-path review selection for JSON output."""
-        return {
-            "base_ref": self.base_ref,
-            "changed_paths": list(self.changed_paths),
-            "changed_path_count": len(self.changed_paths),
-            "selected_reviews": [dataclasses.asdict(review) for review in self.selected_reviews],
-            "selected_count": len(self.selected_reviews),
-            "skipped_reviews": [dataclasses.asdict(review) for review in self.skipped_reviews],
-            "skipped_count": len(self.skipped_reviews),
-        }
+    target_label: str = "current branch diff"

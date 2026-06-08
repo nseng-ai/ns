@@ -7,9 +7,6 @@ description: |
   patterns. Intended for cheap, per-diff detection; resolution stays with
   the engineer in their normal higher-context workflow.
 default_model: haiku
-ci: true
-when_changed:
-  - "**/*.py"
 ---
 
 Review only the supplied diff. Ignore existing code that the diff does not

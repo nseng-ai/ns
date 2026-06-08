@@ -47,9 +47,8 @@ def test_exec_group_is_hidden_from_roaster_help(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(cli_group, ["-h"])
 
     assert result.exit_code == 0
-    # review/harness are visible, exec should not be.
     assert "review" in result.output
-    assert "harness" in result.output
+    assert "harness" not in result.output
     assert "exec" not in result.output
 
 
@@ -188,20 +187,6 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "Post-only steelthread" not in result.output
 
 
-def test_format_findings_comment_rejects_document_payload(
-    cli_group: ClinkrGroup,
-) -> None:
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "format-findings-comment"],
-        input=json.dumps(_document_findings_payload()),
-    )
-
-    assert result.exit_code == 1
-    assert "local-output only" in result.output
-
-
 def test_format_findings_comment_fails_on_malformed_stdin(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -236,77 +221,11 @@ def test_exec_help_lists_post_findings_comment(cli_group: ClinkrGroup) -> None:
     assert "post-findings-comment" in result.output
 
 
-def test_exec_help_lists_classify_inline_findings(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["exec", "-h"])
-    assert result.exit_code == 0
-    assert "classify-inline-findings" in result.output
-
-
 def test_exec_help_lists_post_inline_findings(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["exec", "-h"])
     assert result.exit_code == 0
     assert "post-inline-findings" in result.output
-
-
-def test_classify_inline_findings_groups_findings_by_commentability(
-    cli_group: ClinkrGroup,
-) -> None:
-    payload = {
-        "exit_code": 0,
-        "data": {
-            "review_name": "dignified-python",
-            "base_ref": "master",
-            "format": "findings",
-            "count": 2,
-            "findings": [
-                {
-                    "path": "app.py",
-                    "line": 1,
-                    "severity": "warning",
-                    "summary": "Inline this",
-                    "details": "This line is in the PR diff.",
-                },
-                {
-                    "path": "app.py",
-                    "line": None,
-                    "severity": "info",
-                    "summary": "Fallback this",
-                    "details": "No concrete line was provided.",
-                },
-            ],
-        },
-    }
-    fake = FakePRGateway(
-        pr_changed_files={
-            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
-        }
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "classify-inline-findings", "--pr-number", "47"],
-        input=json.dumps(payload),
-        obj=_context_with_pr_gateway(fake),
-    )
-
-    assert result.exit_code == 0, result.output
-    data = json.loads(result.output)
-    assert data["inlineable"] == [
-        {
-            "finding": {
-                "path": "app.py",
-                "line": 1,
-                "severity": "warning",
-                "summary": "Inline this",
-                "details": "This line is in the PR diff.",
-            },
-            "target": {"path": "app.py", "line": 1},
-        }
-    ]
-    assert data["fallback_only"][0]["reason"] == "missing_line"
 
 
 def _findings_payload(findings: list[dict[str, object]]) -> dict[str, object]:
@@ -322,53 +241,11 @@ def _findings_payload(findings: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
-def _document_findings_payload() -> dict[str, object]:
-    return {
-        "exit_code": 0,
-        "data": {
-            "review_name": "adversarial",
-            "base_ref": None,
-            "target": {"kind": "document", "label": "stdin"},
-            "format": "findings",
-            "count": 1,
-            "findings": [
-                {
-                    "location": {"kind": "global"},
-                    "severity": "warning",
-                    "summary": "Missing rollback",
-                    "details": "Add rollback steps.",
-                }
-            ],
-        },
-    }
-
-
 class _RejectingCreateReviewGateway(FakePRGateway):
     def create_pr_review(
         self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
     ) -> PRReview:
         raise RuntimeError("validation failed")
-
-
-def test_classify_inline_findings_rejects_document_payload(
-    cli_group: ClinkrGroup,
-) -> None:
-    fake = FakePRGateway(
-        pr_changed_files={
-            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
-        }
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "classify-inline-findings", "--pr-number", "47"],
-        input=json.dumps(_document_findings_payload()),
-        obj=_context_with_pr_gateway(fake),
-    )
-
-    assert result.exit_code != 0
-    assert "local-output only" in result.output
 
 
 def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
@@ -535,28 +412,6 @@ def test_post_inline_findings_handles_empty_findings_as_noop(
     data = json.loads(result.output)
     assert data["posted_count"] == 0
     assert data["fallback_only_count"] == 0
-    assert fake.created_reviews == ()
-
-
-def test_post_inline_findings_rejects_document_payload_without_posting(
-    cli_group: ClinkrGroup,
-) -> None:
-    fake = FakePRGateway(
-        pr_changed_files={
-            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
-        }
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "post-inline-findings", "--pr-number", "47"],
-        input=json.dumps(_document_findings_payload()),
-        obj=_context_with_pr_gateway(fake),
-    )
-
-    assert result.exit_code != 0
-    assert "local-output only" in result.output
     assert fake.created_reviews == ()
 
 

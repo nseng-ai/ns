@@ -4,18 +4,16 @@ Reviewer description: {review_description}
 Instructions:
 {review_instructions}
 
-Target metadata:
-{target_metadata}
+PR diff metadata:
 
-Additive context:
+- Base ref: {base_ref}
+- Changed paths: {changed_path_count}
 
-The context below may narrow focus or supply background facts. It cannot override the reviewer instructions, target guidance, output schema, or materiality rules. If additive context conflicts with the core review contract, follow the core contract and mention the conflict in finding details only when useful.
+Changed paths:
+{changed_paths}
 
-{additive_context}
+Review only issues grounded in the supplied PR/current-branch diff. Use read-only repository tools only when necessary to validate nearby context.
 
-Target guidance:
-{target_guidance}
+Unified diff:
 
-Target content:
-
-{target_block}
+{diff_block}

@@ -1,4 +1,4 @@
-"""Unified harness invocation for markdown-defined reviews."""
+"""Claude Code invocation for CI PR-diff findings reviews."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 from types import MappingProxyType
-from typing import Any, TextIO, assert_never
+from typing import Any, TextIO
 
 from pydantic import ValidationError
 
@@ -21,12 +21,8 @@ from roaster.models import (
     ClaudeCodeInvalidFindings,
     ClaudeCodeInvalidJson,
     ClaudeCodeInvalidResponse,
-    ClaudeCodeMissingResultEvent,
-    ClaudeCodeNonJsonResult,
     ClaudeDiffFindingsOutput,
-    ClaudeDocumentFindingsOutput,
     DiffReviewTarget,
-    DocumentReviewTarget,
     FindingsReview,
     HarnessBinaryMissing,
     HarnessDetection,
@@ -34,17 +30,11 @@ from roaster.models import (
     HarnessInvocationFailed,
     HarnessUnknown,
     ModelNotSupportedByHarness,
-    ProseReview,
-    ReviewContextFragment,
     ReviewDefinition,
     ReviewExecutionResponse,
-    ReviewFormat,
-    ReviewTarget,
     ReviewUsage,
     RoasterFailure,
-    TextAnchorLocation,
 )
-from roaster.review_target import target_label
 
 ProgressWriter = Callable[[str], None]
 BinaryLocator = Callable[[str], str | None]
@@ -52,14 +42,12 @@ BinaryLocator = Callable[[str], str | None]
 
 @dataclass(frozen=True)
 class HarnessReviewRequest:
-    """Semantic request for running a parsed review through a selected harness."""
+    """Semantic request for running a parsed review through Claude Code."""
 
     harness_name: str
     model: str
     review_definition: ReviewDefinition
-    target: ReviewTarget
-    context_fragments: tuple[ReviewContextFragment, ...] = ()
-    review_format: ReviewFormat = "text"
+    target: DiffReviewTarget
 
 
 @dataclass(frozen=True)
@@ -87,18 +75,12 @@ CLAUDE_CODE_NAME = "claude-code"
 
 _CLAUDE_CODE_MODEL_ALIASES = frozenset({"sonnet", "opus", "haiku"})
 _CLAUDE_CODE_MODEL_PREFIXES = ("claude-",)
-
 _PROSE_SNIPPET_MAX_CHARS = 500
-
 _READ_ONLY_TOOLS = "Bash,Read"
 
 
 def silent_progress(_msg: str) -> None:
     """Ignore harness progress messages."""
-    return None
-
-
-def _no_event_description(_line: str) -> str | None:
     return None
 
 
@@ -116,92 +98,31 @@ def _system_prompt_findings() -> str:
     return _read_prompt("review_system_findings.md")
 
 
-@cache
-def _system_prompt_text() -> str:
-    return _read_prompt("review_system_text.md")
-
-
-def _select_review_system_prompt(review_format: ReviewFormat) -> str:
-    if review_format == "findings":
-        return _system_prompt_findings()
-    return _system_prompt_text()
-
-
 def _assemble_review_prompt(
     *,
     review_definition: ReviewDefinition,
-    target: ReviewTarget,
-    context_fragments: tuple[ReviewContextFragment, ...],
+    target: DiffReviewTarget,
 ) -> str:
+    local_diff = target.local_diff
     return (
         _review_prompt_template()
         .format(
             review_name=review_definition.name,
             review_description=review_definition.description,
             review_instructions=review_definition.instructions,
-            target_kind=target.kind,
-            target_label=target_label(target),
-            target_metadata=_target_metadata(target),
-            additive_context=_additive_context(context_fragments),
-            target_guidance=_target_guidance(target),
-            target_block=_target_block(target),
+            base_ref=local_diff.base_ref,
+            changed_path_count=len(local_diff.changed_paths),
+            changed_paths=_changed_paths_block(local_diff.changed_paths),
+            diff_block=_render_prompt_fence(local_diff.diff_text, language="diff"),
         )
         .strip()
     )
 
 
-def _target_metadata(target: ReviewTarget) -> str:
-    lines = [f"- Target kind: {target.kind}", f"- Target label: {target_label(target)}"]
-    if isinstance(target, DiffReviewTarget):
-        lines.append(f"- Base ref: {target.local_diff.base_ref}")
-        changed_path_count = len(target.local_diff.changed_paths)
-        lines.append(f"- Changed paths: {changed_path_count}")
-    elif target.source_path is not None:
-        lines.append(f"- Source path: {target.source_path}")
-    return "\n".join(lines)
-
-
-def _additive_context(context_fragments: tuple[ReviewContextFragment, ...]) -> str:
-    if not context_fragments:
-        return "No additive context fragments were supplied."
-
-    blocks: list[str] = []
-    for fragment in context_fragments:
-        blocks.extend(
-            [
-                f"### {fragment.label}",
-                "",
-                _render_prompt_fence(fragment.content, language="text"),
-            ]
-        )
-    return "\n".join(blocks)
-
-
-def _target_guidance(target: ReviewTarget) -> str:
-    if isinstance(target, DiffReviewTarget):
-        return (
-            "Review the supplied unified diff for the current branch. Emit diff findings with "
-            "the `path` and `line` fields from the schema; do not emit a `location` object for "
-            "diff reviews. Ground each finding in a concrete file and line from the diff. Use "
-            "null for `line` only when a finding genuinely spans the whole file or diff. Only "
-            "flag issues visible in the diff, using read-only repository tools only when needed "
-            "to validate nearby context."
-        )
-    return (
-        "Review the supplied document/artifact, not the repository diff. Use read-only "
-        "repository tools only when needed to validate assumptions or compare against existing "
-        "patterns. Ground findings in either the whole document (`global`) or exact text from "
-        "the document (`text_anchor`). Keep findings material and actionable: identify "
-        "decisions, assumptions, omissions, contradictions, or execution risks that would "
-        "materially change the target. Avoid generic brainstorming, style commentary, and "
-        "low-signal speculation."
-    )
-
-
-def _target_block(target: ReviewTarget) -> str:
-    if isinstance(target, DiffReviewTarget):
-        return _render_prompt_fence(target.local_diff.diff_text, language="diff")
-    return _render_prompt_fence(target.content, language="text")
+def _changed_paths_block(changed_paths: tuple[str, ...]) -> str:
+    if not changed_paths:
+        return "(no changed paths reported)"
+    return "\n".join(f"- {path}" for path in changed_paths)
 
 
 def _render_prompt_fence(content: str, *, language: str) -> str:
@@ -218,18 +139,6 @@ def _claude_code_supports_model(model: str) -> bool:
     if model in _CLAUDE_CODE_MODEL_ALIASES:
         return True
     return any(model.startswith(prefix) for prefix in _CLAUDE_CODE_MODEL_PREFIXES)
-
-
-def _claude_code_output_format(review_format: ReviewFormat) -> str:
-    if review_format == "findings":
-        return "json"
-    return "stream-json"
-
-
-def _claude_findings_schema(target: ReviewTarget) -> dict[str, Any]:
-    if isinstance(target, DocumentReviewTarget):
-        return _claude_document_findings_schema()
-    return _claude_diff_findings_schema()
 
 
 def _claude_diff_findings_schema() -> dict[str, Any]:
@@ -257,88 +166,32 @@ def _claude_diff_findings_schema() -> dict[str, Any]:
     }
 
 
-def _claude_document_findings_schema() -> dict[str, Any]:
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "findings": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "location": _document_location_schema(),
-                        "severity": {"type": "string", "enum": ["info", "warning", "error"]},
-                        "summary": {"type": "string", "minLength": 1},
-                        "details": {"type": "string", "minLength": 1},
-                    },
-                    "required": ["location", "severity", "summary", "details"],
-                },
-            }
-        },
-        "required": ["findings"],
-    }
-
-
-def _document_location_schema() -> dict[str, Any]:
-    return {
-        "oneOf": [
-            {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {"kind": {"const": "global"}},
-                "required": ["kind"],
-            },
-            {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "kind": {"const": "text_anchor"},
-                    "text": {"type": "string", "minLength": 1},
-                    "section": {"type": "string", "minLength": 1},
-                    "occurrence": {"type": "integer", "minimum": 1},
-                    "context": {"type": "string", "minLength": 1},
-                },
-                "required": ["kind", "text"],
-            },
-        ]
-    }
-
-
 def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProcessInvocation:
     # The user prompt is fed via stdin, not argv, so a large diff can never
     # trigger E2BIG when claude is execve'd. `--tools` is variadic, so it must
     # always be followed by another flag; keep `--model` immediately after it.
-    output_format = _claude_code_output_format(request.review_format)
     argv = [
         CLAUDE_CODE_BINARY,
         "-p",
         "--output-format",
-        output_format,
-    ]
-    if output_format == "stream-json":
-        argv.append("--verbose")
-    argv += [
+        "json",
         "--bare",
         # Read-only exploration only. Edit/Write stay out so a review run
-        # cannot mutate the repo. In findings mode --json-schema also injects
-        # the StructuredOutput tool, which the model uses to return findings.
+        # cannot mutate the repo. --json-schema injects StructuredOutput.
         "--tools",
         _READ_ONLY_TOOLS,
         "--model",
         request.model,
         "--system-prompt",
-        _select_review_system_prompt(request.review_format),
+        _system_prompt_findings(),
+        "--json-schema",
+        json.dumps(_claude_diff_findings_schema()),
     ]
-    if request.review_format == "findings":
-        argv += ["--json-schema", json.dumps(_claude_findings_schema(request.target))]
     return HarnessProcessInvocation(
         argv=tuple(argv),
         stdin=_assemble_review_prompt(
             review_definition=request.review_definition,
             target=request.target,
-            context_fragments=request.context_fragments,
         ),
     )
 
@@ -346,19 +199,10 @@ def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProce
 def _parse_findings_payload(
     payload: Any,
     usage: ReviewUsage | None,
-    target: ReviewTarget,
 ) -> ReviewExecutionResponse | RoasterFailure:
-    findings_output = _validate_findings_output(payload, target)
+    findings_output = _validate_findings_output(payload)
     if isinstance(findings_output, RoasterFailure):
         return findings_output
-
-    if isinstance(target, DocumentReviewTarget) and isinstance(
-        findings_output,
-        ClaudeDocumentFindingsOutput,
-    ):
-        invalid_anchor = _validate_document_text_anchors(findings_output, target)
-        if invalid_anchor is not None:
-            return invalid_anchor
 
     findings = tuple(finding.to_review_finding() for finding in findings_output.findings)
     return ReviewExecutionResponse(
@@ -367,73 +211,13 @@ def _parse_findings_payload(
     )
 
 
-def _validate_findings_output(
-    payload: Any,
-    target: ReviewTarget,
-) -> ClaudeDiffFindingsOutput | ClaudeDocumentFindingsOutput | RoasterFailure:
-    if isinstance(target, DocumentReviewTarget):
-        schema_name = "document"
-        model = ClaudeDocumentFindingsOutput
-    elif isinstance(target, DiffReviewTarget):
-        schema_name = "diff"
-        model = ClaudeDiffFindingsOutput
-    else:
-        assert_never(target)
-
+def _validate_findings_output(payload: Any) -> ClaudeDiffFindingsOutput | RoasterFailure:
     try:
-        return model.model_validate(payload)
+        return ClaudeDiffFindingsOutput.model_validate(payload)
     except ValidationError as exc:
         return ClaudeCodeInvalidFindings(
-            message=(
-                f"Claude Code review output did not match the {schema_name} findings schema: {exc}"
-            ),
+            message=f"Claude Code review output did not match the diff findings schema: {exc}",
         )
-
-
-def _validate_document_text_anchors(
-    findings_output: ClaudeDocumentFindingsOutput,
-    target: DocumentReviewTarget,
-) -> ClaudeCodeInvalidFindings | None:
-    for finding in findings_output.findings:
-        location = finding.location
-        if not isinstance(location, TextAnchorLocation):
-            continue
-        match_count = _text_anchor_match_count(target.content, location)
-        if match_count == 0:
-            anchor_text = _truncate_prose(location.text.strip(), limit=120)
-            return ClaudeCodeInvalidFindings(
-                message=(
-                    "Document review `text_anchor` location must match text present "
-                    f"in target {target.label!r}; missing anchor: {anchor_text!r}."
-                ),
-            )
-        if location.occurrence is not None and location.occurrence > match_count:
-            return ClaudeCodeInvalidFindings(
-                message=(
-                    "Document review text_anchor occurrence exceeds matches in reviewed "
-                    f"target: occurrence={location.occurrence} matches={match_count}."
-                ),
-            )
-    return None
-
-
-def _text_anchor_match_count(content: str, location: TextAnchorLocation) -> int:
-    if location.text in content:
-        if location.occurrence is None:
-            return 1
-        return content.count(location.text)
-
-    normalized_content = _normalized_text(content)
-    normalized_anchor = _normalized_text(location.text)
-    if normalized_anchor not in normalized_content:
-        return 0
-    if location.occurrence is None:
-        return 1
-    return normalized_content.count(normalized_anchor)
-
-
-def _normalized_text(value: str) -> str:
-    return " ".join(value.split())
 
 
 def _extract_usage(result_event: dict[str, Any]) -> ReviewUsage | None:
@@ -476,58 +260,6 @@ def _extract_usage(result_event: dict[str, Any]) -> ReviewUsage | None:
     )
 
 
-def _iter_json_lines(stdout: str) -> list[dict[str, Any]] | RoasterFailure:
-    events: list[dict[str, Any]] = []
-    for raw_line in stdout.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError as exc:
-            return ClaudeCodeInvalidJson(
-                message=f"Unable to parse Claude Code stream-json line: {exc}",
-            )
-        if not isinstance(event, dict):
-            return ClaudeCodeInvalidResponse(
-                message="Each Claude Code stream-json event must be a JSON object.",
-            )
-        events.append(event)
-    return events
-
-
-def _truncate_prose(text: str, limit: int = _PROSE_SNIPPET_MAX_CHARS) -> str:
-    if len(text) <= limit:
-        return text
-    return text[:limit].rstrip() + "…"
-
-
-def _find_result_event(events: list[dict[str, Any]]) -> dict[str, Any] | RoasterFailure:
-    for event in events:
-        if event.get("type") == "result":
-            return event
-
-    return ClaudeCodeMissingResultEvent(
-        message=(
-            "Claude Code output did not include a terminal `result` event. "
-            "The harness may have been killed before finishing."
-        ),
-    )
-
-
-def _extract_result_event(stdout: str) -> dict[str, Any] | RoasterFailure:
-    if not stdout.strip():
-        return ClaudeCodeEmptyOutput(
-            message="Claude Code returned no output.",
-        )
-
-    events = _iter_json_lines(stdout)
-    if isinstance(events, RoasterFailure):
-        return events
-
-    return _find_result_event(events)
-
-
 def _extract_json_result(stdout: str) -> dict[str, Any] | RoasterFailure:
     if not stdout.strip():
         return ClaudeCodeEmptyOutput(
@@ -559,35 +291,42 @@ def _extract_json_result(stdout: str) -> dict[str, Any] | RoasterFailure:
     )
 
 
+def _find_result_event(events: list[dict[str, Any]]) -> dict[str, Any] | RoasterFailure:
+    for event in events:
+        if event.get("type") == "result":
+            return event
+
+    return ClaudeCodeInvalidResponse(
+        message=(
+            "Claude Code output did not include a terminal `result` event. "
+            "The harness may have been killed before finishing."
+        ),
+    )
+
+
+def _truncate_prose(text: str, limit: int = _PROSE_SNIPPET_MAX_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "…"
+
+
 def _claude_code_parse_stdout(
     request: HarnessReviewRequest,
     stdout: str,
 ) -> ReviewExecutionResponse | RoasterFailure:
-    if request.review_format == "findings":
-        result_event = _extract_json_result(stdout)
-    else:
-        result_event = _extract_result_event(stdout)
+    result_event = _extract_json_result(stdout)
     if isinstance(result_event, RoasterFailure):
         return result_event
 
     usage = _extract_usage(result_event)
-
-    if request.review_format == "text":
-        result_text = result_event.get("result")
-        if not isinstance(result_text, str):
-            return ClaudeCodeInvalidResponse(
-                message="Claude Code `result` must be a string.",
-            )
-        return ReviewExecutionResponse(payload=ProseReview(prose=result_text), usage=usage)
-
     structured = result_event.get("structured_output")
     if structured is not None:
-        return _parse_findings_payload(structured, usage, request.target)
+        return _parse_findings_payload(structured, usage)
 
     result_text = result_event.get("result")
     if isinstance(result_text, str):
         prose = _truncate_prose(result_text.strip())
-        return ClaudeCodeNonJsonResult(
+        return ClaudeCodeInvalidResponse(
             message=(
                 "Claude Code did not return a structured_output payload.\n\n"
                 f"Model response:\n{prose}\n\n"
@@ -677,7 +416,7 @@ _DEFAULT_HARNESSES: Mapping[str, HarnessDefinition] = MappingProxyType(
 
 
 class HarnessRuntime:
-    """Run parsed reviews through the configured harness implementations."""
+    """Run parsed reviews through the internal Claude Code harness."""
 
     def __init__(
         self,
@@ -690,7 +429,7 @@ class HarnessRuntime:
         self._harnesses = _DEFAULT_HARNESSES
 
     def list_harnesses(self) -> tuple[HarnessDetection, ...]:
-        """Return detection information for every known harness."""
+        """Return detection information for the internal harness."""
         detections: list[HarnessDetection] = []
         for definition in self._harnesses.values():
             detections.append(
@@ -706,7 +445,7 @@ class HarnessRuntime:
         self,
         request: HarnessReviewRequest,
     ) -> ReviewExecutionResponse | RoasterFailure:
-        """Execute a semantic review request through its selected harness."""
+        """Execute a semantic review request through Claude Code."""
         definition = self._harnesses.get(request.harness_name)
         if definition is None:
             known = ", ".join(sorted(self._harnesses))
@@ -724,8 +463,7 @@ class HarnessRuntime:
         if self._binary_locator(definition.binary) is None:
             return HarnessBinaryMissing(
                 message=(
-                    f"Harness binary {definition.binary!r} is not on PATH. "
-                    "Install the harness or pick a different one."
+                    f"Harness binary {definition.binary!r} is not on PATH. Install Claude Code."
                 ),
             )
 
@@ -744,8 +482,7 @@ class HarnessRuntime:
         except FileNotFoundError:
             return HarnessBinaryMissing(
                 message=(
-                    f"Harness binary {definition.binary!r} is not on PATH. "
-                    "Install the harness or pick a different one."
+                    f"Harness binary {definition.binary!r} is not on PATH. Install Claude Code."
                 ),
             )
         except OSError as exc:

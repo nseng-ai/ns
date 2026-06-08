@@ -7,12 +7,6 @@ description: |
   cheap, per-diff detection; resolution stays with the engineer in a later,
   higher-context workflow.
 default_model: haiku
-ci: true
-when_changed:
-  - "**/*.ts"
-  - "**/*.tsx"
-  - "**/*.mts"
-  - "**/*.cts"
 ---
 
 Review only the supplied diff. Ignore existing code that the diff does not

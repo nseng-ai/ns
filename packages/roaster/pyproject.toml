@@ -1,7 +1,7 @@
 [project]
 name = "roaster"
 version = "0.1.0"
-description = "Markdown-driven local roaster for asdl"
+description = "CI PR-diff findings publisher for asdl"
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",

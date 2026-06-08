@@ -12,21 +12,13 @@ from asdl_core.clinkr.non_ideal_state import error_type_for
 from roaster.harness import invocation as harness_invocation
 from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from roaster.models import (
-    DiffLineLocation,
     DiffReviewTarget,
-    DocumentReviewTarget,
     FindingsReview,
-    GlobalLocation,
     LocalDiff,
-    ProseReview,
-    ReviewContextFragment,
     ReviewDefinition,
     ReviewExecutionResponse,
     ReviewFinding,
-    ReviewFormat,
-    ReviewUsage,
     RoasterFailure,
-    TextAnchorLocation,
 )
 
 
@@ -70,63 +62,23 @@ _DEFAULT_USAGE_PAYLOAD: dict[str, object] = {
 }
 
 
-def _request(
-    *,
-    harness_name: str = "claude-code",
-    model: str = "sonnet",
-    review_format: ReviewFormat = "findings",
-    review_definition: ReviewDefinition | None = None,
-    local_diff: LocalDiff | None = None,
-) -> HarnessReviewRequest:
+def _request(*, harness_name: str = "claude-code", model: str = "sonnet") -> HarnessReviewRequest:
     return HarnessReviewRequest(
         harness_name=harness_name,
         model=model,
-        review_definition=review_definition
-        or ReviewDefinition(
+        review_definition=ReviewDefinition(
             name="Dignified Python",
             description="Review Python diffs.",
             instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
-            ci=True,
         ),
         target=DiffReviewTarget(
-            kind="diff",
-            local_diff=local_diff
-            or LocalDiff(
+            local_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+                changed_paths=("app.py",),
             ),
         ),
-        review_format=review_format,
-    )
-
-
-def _document_request(
-    *,
-    content: str = "Ship it safely.",
-    label: str = "stdin",
-    source_path: str | None = None,
-    review_format: ReviewFormat = "findings",
-    context_fragments: tuple[ReviewContextFragment, ...] = (),
-) -> HarnessReviewRequest:
-    return HarnessReviewRequest(
-        harness_name="claude-code",
-        model="sonnet",
-        review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
-            default_model="sonnet",
-            ci=True,
-        ),
-        target=DocumentReviewTarget(
-            kind="document",
-            content=content,
-            label=label,
-            source_path=source_path,
-        ),
-        context_fragments=context_fragments,
-        review_format=review_format,
     )
 
 
@@ -139,42 +91,6 @@ def _assert_no_json_refs(value: object) -> None:
     elif isinstance(value, list):
         for item in value:
             _assert_no_json_refs(item)
-
-
-def _stream_lines(
-    *,
-    model: str = "sonnet",
-    structured_output: object | None = None,
-    result_text: str = "Findings produced.",
-    include_result: bool = True,
-    include_structured_output: bool = True,
-    include_usage: bool = True,
-    include_total_cost: bool = True,
-) -> list[str]:
-    events: list[dict[str, object]] = [
-        {"type": "system", "subtype": "init", "model": model},
-        {
-            "type": "assistant",
-            "message": {"role": "assistant", "content": [{"type": "text", "text": result_text}]},
-        },
-    ]
-    if include_result:
-        result_event: dict[str, object] = {
-            "type": "result",
-            "result": result_text,
-            "num_turns": 1,
-            "duration_ms": 1234,
-        }
-        if include_total_cost:
-            result_event["total_cost_usd"] = 0.0123
-        if include_usage:
-            result_event["usage"] = dict(_DEFAULT_USAGE_PAYLOAD)
-        if include_structured_output:
-            if structured_output is None:
-                structured_output = {"findings": []}
-            result_event["structured_output"] = structured_output
-        events.append(result_event)
-    return [json.dumps(event) + "\n" for event in events]
 
 
 def _json_result(
@@ -214,15 +130,7 @@ def _run_with_process(
     captured: dict[str, Any] = {}
     fake_process: dict[str, _FakePopen] = {}
     effective_request = request or _request()
-    effective_stdout_lines = stdout_lines
-    if effective_stdout_lines is None:
-        if effective_request.review_format == "findings":
-            effective_stdout_lines = _json_result()
-        else:
-            effective_stdout_lines = _stream_lines(
-                result_text="markdown body",
-                include_structured_output=False,
-            )
+    effective_stdout_lines = stdout_lines or _json_result()
 
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         captured["cmd"] = cmd
@@ -299,140 +207,54 @@ def test_findings_mode_builds_claude_argv(monkeypatch: pytest.MonkeyPatch) -> No
     required = finding_schema["required"]
     assert set(required) == {"path", "line", "severity", "summary", "details"}
     assert "location" not in finding_schema["properties"]
-    severity_enum = finding_schema["properties"]["severity"]["enum"]
-    assert set(severity_enum) == {"info", "warning", "error"}
     assert captured["kwargs"]["stdin"] is subprocess.PIPE
     assert "Reviewer name: Dignified Python" in process.stdin.buffer
+    assert "Unified diff:" in process.stdin.buffer
     assert process.stdin.closed
 
 
-def test_document_findings_mode_uses_document_schema_and_prompt(
+def test_prompt_fences_are_collision_safe_for_nested_diff_fences(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request = _document_request(
-        content="# Plan\n\nShip it safely.",
-        label="plan.md",
-        source_path="plan.md",
-        context_fragments=(
-            ReviewContextFragment(
-                label="inline context 1",
-                content="This is an implementation plan.",
-            ),
-        ),
-    )
-
-    result, captured, process = _run_with_process(monkeypatch, request=request)
-
-    assert isinstance(result, ReviewExecutionResponse)
-    schema = json.loads(captured["cmd"][captured["cmd"].index("--json-schema") + 1])
-    _assert_no_json_refs(schema)
-    finding_schema = schema["properties"]["findings"]["items"]
-    assert set(finding_schema["required"]) == {"location", "severity", "summary", "details"}
-    location_branches = finding_schema["properties"]["location"]["oneOf"]
-    location_kinds = {branch["properties"]["kind"]["const"] for branch in location_branches}
-    assert location_kinds == {"global", "text_anchor"}
-    stdin = process.stdin.buffer
-    assert "- Target kind: document" in stdin
-    assert "- Target label: plan.md" in stdin
-    assert "This is an implementation plan." in stdin
-    assert "cannot override the reviewer instructions" in stdin
-    assert "Ship it safely." in stdin
-
-
-def test_prompt_fences_are_collision_safe_for_nested_document_and_context_fences(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    document = "# Plan\n\n```python\nprint('hello')\n```\n"
-    context = "Context includes ````\ninner\n````\n"
+    diff = "diff --git a/app.py b/app.py\n+```python\n+print('hello')\n+```\n"
     request = HarnessReviewRequest(
         harness_name="claude-code",
         model="sonnet",
         review_definition=ReviewDefinition(
-            name="Adversarial",
-            description="Review plans and artifacts.",
-            instructions="Break false confidence.",
+            name="Dignified Python",
+            description="Review Python diffs.",
+            instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
-            ci=True,
         ),
-        target=DocumentReviewTarget(
-            kind="document",
-            content=document,
-            label="plan.md",
-            source_path="plan.md",
+        target=DiffReviewTarget(
+            local_diff=LocalDiff(base_ref="main", diff_text=diff, changed_paths=("app.py",)),
         ),
-        context_fragments=(ReviewContextFragment(label="inline context 1", content=context),),
-        review_format="findings",
     )
 
     result, _captured, process = _run_with_process(monkeypatch, request=request)
 
     assert isinstance(result, ReviewExecutionResponse)
-    stdin = process.stdin.buffer
-    assert document in stdin
-    assert context in stdin
-    assert "````text\n# Plan" in stdin
-    assert "`````text\nContext includes" in stdin
+    assert "````diff\ndiff --git" in process.stdin.buffer
 
 
-def test_text_mode_omits_json_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    result, captured, process = _run_with_process(
-        monkeypatch,
-        request=_request(review_format="text"),
-        stdout_lines=_stream_lines(result_text="markdown body", include_structured_output=False),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, ProseReview)
-    assert result.payload.prose == "markdown body"
-    cmd = captured["cmd"]
-    assert cmd[cmd.index("--output-format") + 1] == "stream-json"
-    assert "--verbose" in cmd
-    assert "--json-schema" not in cmd
-    system_prompt = cmd[cmd.index("--system-prompt") + 1]
-    assert "markdown review" in system_prompt
-    assert "Do not emit JSON" in system_prompt
-    assert "Reviewer name: Dignified Python" in process.stdin.buffer
-
-
-@pytest.mark.parametrize("review_format", ["findings", "text"])
-def test_prompt_is_written_to_stdin_not_argv(
-    monkeypatch: pytest.MonkeyPatch,
-    review_format: ReviewFormat,
-) -> None:
+def test_prompt_is_written_to_stdin_not_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     large_diff = "x" * (200 * 1024)
-    request = _request(
-        review_format=review_format,
-        local_diff=LocalDiff(base_ref="main", diff_text=large_diff),
+    request = HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=_request().review_definition,
+        target=DiffReviewTarget(local_diff=LocalDiff(base_ref="main", diff_text=large_diff)),
     )
-    stdout_lines = _json_result()
-    if review_format == "text":
-        stdout_lines = _stream_lines(result_text="markdown body", include_structured_output=False)
 
-    result, captured, process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=stdout_lines,
-    )
+    result, captured, process = _run_with_process(monkeypatch, request=request)
 
     assert isinstance(result, ReviewExecutionResponse)
     assert all(large_diff not in arg for arg in captured["cmd"])
     assert large_diff in process.stdin.buffer
 
 
-@pytest.mark.parametrize("review_format", ["findings", "text"])
-def test_tools_flag_is_followed_by_another_flag(
-    monkeypatch: pytest.MonkeyPatch,
-    review_format: ReviewFormat,
-) -> None:
-    stdout_lines = _json_result()
-    if review_format == "text":
-        stdout_lines = _stream_lines(result_text="markdown body", include_structured_output=False)
-
-    _result, captured, _process = _run_with_process(
-        monkeypatch,
-        request=_request(review_format=review_format),
-        stdout_lines=stdout_lines,
-    )
+def test_tools_flag_is_followed_by_another_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    _result, captured, _process = _run_with_process(monkeypatch)
 
     cmd = captured["cmd"]
     tools_index = cmd.index("--tools")
@@ -499,639 +321,66 @@ def test_invocation_os_error_returns_failure(monkeypatch: pytest.MonkeyPatch) ->
 def test_non_zero_exit_returns_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stderr_text="model unavailable\n",
-        returncode=1,
+        stderr_text="nope",
+        returncode=2,
     )
 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_execution_failed"
-    assert "model unavailable" in result.message
+    assert result.message == "nope"
 
 
-def test_progress_events_emit_session_assistant_and_result_messages(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    progress_messages: list[str] = []
-
+def test_parses_structured_findings_and_usage(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        request=_request(review_format="text"),
-        stdout_lines=_stream_lines(
-            result_text="hello world",
-            include_structured_output=False,
+        stdout_lines=_json_result(
+            structured_output={
+                "findings": [
+                    {
+                        "path": "app.py",
+                        "line": 1,
+                        "severity": "warning",
+                        "summary": "Avoid print",
+                        "details": "Use click.echo().",
+                    }
+                ]
+            }
         ),
-        progress_messages=progress_messages,
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, ProseReview)
-    assert "session started (model=sonnet)" in progress_messages
-    assert "assistant turn received (11 chars)" in progress_messages
-    assert "result received (1 turn, 1.2s)" in progress_messages
-
-
-def test_review_finding_legacy_diff_fields_normalize_to_diff_line_location() -> None:
-    finding = ReviewFinding.from_json_dict(
-        {
-            "path": "app.py",
-            "line": 12,
-            "severity": "warning",
-            "summary": "Avoid print",
-            "details": "Use click.echo() instead.",
-        }
-    )
-
-    assert isinstance(finding.location, DiffLineLocation)
-    assert finding.path == "app.py"
-    assert finding.line == 12
-    assert finding.to_json_dict() == {
-        "path": "app.py",
-        "line": 12,
-        "severity": "warning",
-        "summary": "Avoid print",
-        "details": "Use click.echo() instead.",
-    }
-
-
-def test_review_finding_legacy_diff_fields_allow_omitted_line() -> None:
-    finding = ReviewFinding.from_json_dict(
-        {
-            "path": "app.py",
-            "severity": "warning",
-            "summary": "Avoid print",
-            "details": "Use click.echo() instead.",
-        }
-    )
-
-    assert isinstance(finding.location, DiffLineLocation)
-    assert finding.path == "app.py"
-    assert finding.line is None
-
-
-def test_review_finding_constructor_accepts_legacy_diff_fields() -> None:
-    finding = ReviewFinding(
-        path="app.py",
-        severity="warning",
-        summary="Avoid print",
-        details="Use click.echo() instead.",
-    )
-
-    assert isinstance(finding.location, DiffLineLocation)
-    assert finding.path == "app.py"
-    assert finding.line is None
-
-
-def test_review_finding_rejects_conflicting_legacy_and_location_fields() -> None:
-    with pytest.raises(ValueError, match="legacy `path` conflicts"):
-        ReviewFinding.from_json_dict(
-            {
-                "path": "other.py",
-                "line": 12,
-                "location": {"kind": "diff_line", "path": "app.py", "line": 12},
-                "severity": "warning",
-                "summary": "Avoid print",
-                "details": "Use click.echo() instead.",
-            }
-        )
-
-
-def test_parse_stdout_parses_structured_findings_from_json_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    structured = {
-        "findings": [
-            {
-                "path": "app.py",
-                "line": 12,
-                "severity": "warning",
-                "summary": "Avoid print in library code",
-                "details": "Use click.echo() instead.",
-            }
-        ]
-    }
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(structured_output=structured),
     )
 
     assert isinstance(result, ReviewExecutionResponse)
     assert isinstance(result.payload, FindingsReview)
-    assert len(result.payload.findings) == 1
-    assert result.payload.findings[0].path == "app.py"
-    assert result.payload.findings[0].summary == "Avoid print in library code"
-    assert isinstance(result.usage, ReviewUsage)
-    assert result.usage.input_tokens == 100
-    assert result.usage.output_tokens == 50
-    assert result.usage.cache_creation_input_tokens == 10
-    assert result.usage.cache_read_input_tokens == 5
-    assert result.usage.total_cost_usd == pytest.approx(0.0123)
-    assert result.usage.duration_ms == 1234
-    assert result.usage.num_turns == 1
+    finding = result.payload.findings[0]
+    assert finding == ReviewFinding.diff_line(
+        path="app.py",
+        line=1,
+        severity="warning",
+        summary="Avoid print",
+        details="Use click.echo().",
+    )
+    assert result.usage is not None
     assert result.usage.total_input_tokens == 115
 
 
-def test_parse_stdout_parses_document_locations(monkeypatch: pytest.MonkeyPatch) -> None:
-    structured = {
-        "findings": [
-            {
-                "location": {"kind": "global"},
-                "severity": "warning",
-                "summary": "Plan omits rollback",
-                "details": "Add a rollback strategy.",
-            },
-            {
-                "location": {
-                    "kind": "text_anchor",
-                    "text": "Ship it safely.",
-                    "section": "Plan",
-                },
-                "severity": "info",
-                "summary": "Clarify safety evidence",
-                "details": "Name the validation command.",
-            },
-        ]
-    }
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(structured_output=structured),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, FindingsReview)
-    assert isinstance(result.payload.findings[0].location, GlobalLocation)
-    assert isinstance(result.payload.findings[1].location, TextAnchorLocation)
-    assert result.payload.findings[1].location.section == "Plan"
-
-
-def test_parse_stdout_accepts_text_anchor_whitespace_variation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _document_request(content="Ship it\n\nsafely.")
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "location": {"kind": "text_anchor", "text": "Ship it safely."},
-                        "severity": "warning",
-                        "summary": "Clarify safety",
-                        "details": "Name the validation command.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-
-
-def test_parse_stdout_rejects_document_text_anchor_absent_from_target(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    structured = {
-        "findings": [
-            {
-                "location": {
-                    "kind": "text_anchor",
-                    "text": "Hallucinated rollout gate.",
-                },
-                "severity": "warning",
-                "summary": "Clarify rollout gate",
-                "details": "Name the actual rollout gate in the document.",
-            }
-        ]
-    }
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(structured_output=structured),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "text_anchor" in result.message
-    assert "Hallucinated rollout gate." in result.message
-
-
-def test_parse_stdout_rejects_document_text_anchor_occurrence_without_match(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "location": {
-                            "kind": "text_anchor",
-                            "text": "Ship it safely.",
-                            "occurrence": 2,
-                        },
-                        "severity": "warning",
-                        "summary": "Clarify safety",
-                        "details": "Name the validation command.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "occurrence exceeds matches" in result.message
-
-
-def test_parse_stdout_rejects_document_finding_without_location(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "path": "plan.md",
-                        "line": None,
-                        "severity": "warning",
-                        "summary": "Missing rollback",
-                        "details": "Add rollback steps.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "document findings schema" in result.message
-
-
-def test_parse_stdout_rejects_diff_line_location_for_document_target(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "location": {"kind": "diff_line", "path": "plan.md", "line": 1},
-                        "severity": "warning",
-                        "summary": "Missing rollback",
-                        "details": "Add rollback steps.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "document findings schema" in result.message
-
-
-@pytest.mark.parametrize("line", ["12", True])
-def test_parse_stdout_rejects_coerced_diff_line_values(
-    monkeypatch: pytest.MonkeyPatch,
-    line: object,
-) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "path": "app.py",
-                        "line": line,
-                        "severity": "warning",
-                        "summary": "Avoid print",
-                        "details": "Use click.echo() instead.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "line" in result.message
-
-
-def test_parse_stdout_rejects_diff_finding_location_field(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "path": "app.py",
-                        "line": 12,
-                        "location": {"kind": "diff_line", "path": "app.py", "line": 12},
-                        "severity": "warning",
-                        "summary": "Avoid print",
-                        "details": "Use click.echo() instead.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "location" in result.message
-
-
-def test_parse_stdout_rejects_non_positive_text_anchor_occurrence(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "location": {
-                            "kind": "text_anchor",
-                            "text": "Ship it safely.",
-                            "occurrence": 0,
-                        },
-                        "severity": "warning",
-                        "summary": "Clarify safety",
-                        "details": "Name the validation command.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "occurrence" in result.message
-
-
-@pytest.mark.parametrize("occurrence", ["1", True])
-def test_parse_stdout_rejects_coerced_text_anchor_occurrence_values(
-    monkeypatch: pytest.MonkeyPatch,
-    occurrence: object,
-) -> None:
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "location": {
-                            "kind": "text_anchor",
-                            "text": "Ship it safely.",
-                            "occurrence": occurrence,
-                        },
-                        "severity": "warning",
-                        "summary": "Clarify safety",
-                        "details": "Name the validation command.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "occurrence" in result.message
-
-
-@pytest.mark.parametrize(
-    "finding_payload",
-    [
-        {
-            "path": "   ",
-            "line": 12,
-            "severity": "warning",
-            "summary": "Avoid print",
-            "details": "Use click.echo() instead.",
-        },
-        {
-            "path": "app.py",
-            "line": 12,
-            "severity": "warning",
-            "summary": "   ",
-            "details": "Use click.echo() instead.",
-        },
-        {
-            "path": "app.py",
-            "line": 12,
-            "severity": "warning",
-            "summary": "Avoid print",
-            "details": "   ",
-        },
-    ],
-)
-def test_parse_stdout_rejects_blank_diff_finding_strings(
-    monkeypatch: pytest.MonkeyPatch,
-    finding_payload: dict[str, object],
-) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(structured_output={"findings": [finding_payload]}),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "must be non-empty" in result.message
-
-
-def test_parse_stdout_rejects_blank_text_anchor_text(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _document_request()
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=request,
-        stdout_lines=_json_result(
-            structured_output={
-                "findings": [
-                    {
-                        "location": {"kind": "text_anchor", "text": "   "},
-                        "severity": "warning",
-                        "summary": "Clarify safety",
-                        "details": "Name the validation command.",
-                    }
-                ]
-            }
-        ),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-    assert "must be non-empty" in result.message
-
-
-def test_parse_stdout_handles_empty_findings_from_json_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(structured_output={"findings": []}),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, FindingsReview)
-    assert result.payload.findings == ()
-
-
-def test_parse_stdout_handles_verbose_json_array_for_findings(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stdout_lines = [
-        json.dumps(
-            [
-                {"type": "system", "subtype": "init", "model": "sonnet"},
-                {
-                    "type": "result",
-                    "result": "Findings produced.",
-                    "structured_output": {"findings": []},
-                    "num_turns": 1,
-                    "duration_ms": 1234,
-                    "total_cost_usd": 0.0123,
-                    "usage": dict(_DEFAULT_USAGE_PAYLOAD),
-                },
-            ]
-        )
-        + "\n"
-    ]
-
-    result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=stdout_lines)
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, FindingsReview)
-    assert result.payload.findings == ()
-
-
-def test_parse_stdout_returns_prose_for_text_format(monkeypatch: pytest.MonkeyPatch) -> None:
-    prose = "### Findings\n\n- app.py line 1: prefer click.echo over print."
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=_request(review_format="text"),
-        stdout_lines=_stream_lines(result_text=prose, include_structured_output=False),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, ProseReview)
-    assert result.payload.prose == prose
-    assert isinstance(result.usage, ReviewUsage)
-    assert result.usage.output_tokens == 50
-
-
-def test_parse_stdout_text_format_ignores_structured_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        request=_request(review_format="text"),
-        stdout_lines=_stream_lines(
-            result_text="plain markdown body",
-            structured_output={"findings": []},
-        ),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, ProseReview)
-    assert result.payload.prose == "plain markdown body"
-
-
-def test_parse_stdout_fails_on_empty_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=["   \n"])
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_empty_output"
-
-
-def test_parse_stdout_fails_on_non_json_line(monkeypatch: pytest.MonkeyPatch) -> None:
-    result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=["not json at all\n"])
+def test_invalid_json_returns_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=["not json"])
 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_invalid_json"
 
 
-def test_parse_stdout_fails_on_missing_result_event(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_structured_output_returns_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
-        stdout_lines=[json.dumps([{"type": "system", "subtype": "init"}]) + "\n"],
+        stdout_lines=_json_result(include_structured_output=False, result_text="plain text"),
     )
 
     assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_missing_result_event"
+    assert error_type_for(result) == "claude_code_invalid_response"
+    assert "plain text" in result.message
 
 
-def test_parse_stdout_fails_when_structured_output_missing_in_findings_json_mode(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    prose = "I thought about it and here is a prose answer."
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(result_text=prose, include_structured_output=False),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_non_json_result"
-    assert "Model response:" in result.message
-    assert prose in result.message
-
-
-def test_parse_stdout_truncates_long_prose_in_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    prose = "ALPHA-" + "x" * 2000
-
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(result_text=prose, include_structured_output=False),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_non_json_result"
-    assert "ALPHA-" in result.message
-    assert "…" in result.message
-    assert prose not in result.message
-
-
-def test_parse_stdout_fails_on_missing_findings_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(structured_output={"something_else": []}),
-    )
-
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "claude_code_invalid_findings"
-
-
-def test_parse_stdout_fails_on_malformed_finding(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_invalid_findings_schema_returns_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(
         monkeypatch,
         stdout_lines=_json_result(structured_output={"findings": [{"path": "app.py"}]}),
@@ -1139,47 +388,3 @@ def test_parse_stdout_fails_on_malformed_finding(monkeypatch: pytest.MonkeyPatch
 
     assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_invalid_findings"
-
-
-def test_parse_stdout_usage_is_none_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    result, _captured, _process = _run_with_process(
-        monkeypatch,
-        stdout_lines=_json_result(
-            structured_output={"findings": []},
-            include_usage=False,
-            include_total_cost=False,
-        ),
-    )
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert result.usage is None
-
-
-def test_prompt_assembly_includes_review_context_without_output_contract(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = _request(
-        review_definition=ReviewDefinition(
-            name="Security Review",
-            description="Review auth-sensitive diffs.",
-            instructions="Flag auth regressions.",
-            default_model="sonnet",
-            ci=True,
-        ),
-        local_diff=LocalDiff(
-            base_ref="main",
-            diff_text="diff --git a/auth.py b/auth.py\n+allow_all = True\n",
-        ),
-    )
-
-    result, _captured, process = _run_with_process(monkeypatch, request=request)
-
-    assert isinstance(result, ReviewExecutionResponse)
-    stdin = process.stdin.buffer
-    assert "Reviewer name: Security Review" in stdin
-    assert "Reviewer description: Review auth-sensitive diffs." in stdin
-    assert "Flag auth regressions." in stdin
-    assert "Base ref: main" in stdin
-    assert "+allow_all = True" in stdin
-    assert "StructuredOutput" not in stdin
-    assert "JSON" not in stdin

@@ -323,7 +323,6 @@ def test_roaster_plugin_integration() -> None:
                     "---\n"
                     "description: Review Python diffs for style violations.\n"
                     "default_model: sonnet\n"
-                    "ci: true\n"
                     "---\n"
                     "\n"
                     "Flag concrete issues in the diff.\n"
@@ -361,6 +360,7 @@ def test_roaster_plugin_integration() -> None:
     result = runner.invoke(parent, ["roaster", "--help"])
     assert result.exit_code == 0, result.output
     assert "review" in result.output
+    assert "harness" not in result.output
     assert "stack" not in result.output
     assert "profile" not in result.output
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Any
 
 import click
 from pydantic import model_serializer
@@ -18,20 +18,13 @@ from roaster.review_definition import parse_review_definition
 
 
 class ReviewListRequest(ClinkrModel):
-    ci_enabled: Annotated[
-        Literal["true", "false"] | None,
-        click.Option(
-            ["--ci-enabled"],
-            type=click.Choice(["true", "false"]),
-            default=None,
-            help="Filter reviews by whether they are enabled for roaster CI discovery.",
-        ),
-    ] = None
+    """No options: all reviews in reviews/ are CI reviewers."""
 
 
 class ReviewListReview(ClinkrModel):
     key: str
-    ci: bool
+    description: str
+    default_model: str | None
 
 
 class ReviewListResult(ClinkrModel):
@@ -79,30 +72,22 @@ def render_review_list(result: ReviewListResult) -> None:
         return
     click.echo(f"Reviews: {len(result.keys)}")
 
-    ci_by_key = {review.key: review.ci for review in result.reviews}
     for group in build_review_key_groups(result.keys):
         if group.prefix is None:
             for entry in group.entries:
-                click.echo(f"- {entry} (ci: {_format_ci(ci_by_key[entry])})")
+                click.echo(f"- {entry}")
             continue
 
         click.echo("")
         click.echo(f"{group.prefix}/")
         for entry in group.entries:
-            key = f"{group.prefix}/{entry}"
-            click.echo(f"  - {entry} (ci: {_format_ci(ci_by_key[key])})")
-
-
-def _format_ci(ci: bool) -> str:
-    if ci:
-        return "true"
-    return "false"
+            click.echo(f"  - {entry}")
 
 
 @clinkr_operation(
     name="list",
     aliases=("ls",),
-    help="List markdown reviewers discovered under reviews/.",
+    help="List CI markdown reviewers discovered under reviews/.",
     human_renderer=render_review_list,
 )
 def run_review_list_command(
@@ -133,9 +118,13 @@ def run_review_list_command(
                 error_type="invalid_review_definition",
                 message=f"{review_source.key}: {exc}",
             ) from exc
-        if request.ci_enabled is not None and _format_ci(definition.ci) != request.ci_enabled:
-            continue
-        reviews.append(ReviewListReview(key=review_source.key, ci=definition.ci))
+        reviews.append(
+            ReviewListReview(
+                key=review_source.key,
+                description=definition.description,
+                default_model=definition.default_model,
+            )
+        )
 
     return ClinkrExit.ok(
         ReviewListResult(
