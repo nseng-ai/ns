@@ -1,0 +1,13 @@
+{
+  "function": "resolution_reply",
+  "kwargs": {
+    "mode": "planned",
+    "message": "Follow-up branch tracks this.",
+    "commit_sha": null,
+    "provenance": {
+      "kind": "local_branch",
+      "branch": "follow-up",
+      "branch_head_oid": "def456"
+    }
+  }
+}

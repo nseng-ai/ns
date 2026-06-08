@@ -1,0 +1,92 @@
+{
+  "manifest": {
+    "payload_mode": "payload",
+    "payload_reference": {
+      "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+      "session_id": "golden-bad-thread-pointer",
+      "descriptor": "feedback",
+      "role": "raw",
+      "created_at_utc": "<TIMESTAMP>",
+      "sequence": 1,
+      "payload_bytes": 1234,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "pr_number": 42,
+    "counts": {
+      "reviews": 0,
+      "review_threads": 1,
+      "unresolved_review_threads": 1,
+      "resolved_review_threads": 0,
+      "thread_comments": 1,
+      "discussion_comments": 0
+    },
+    "reviews": [],
+    "review_threads": [
+      {
+        "thread_id": "T_locator",
+        "path": "src/widget.ts",
+        "line": 17,
+        "start_line": null,
+        "is_resolved": false,
+        "is_outdated": false,
+        "comment_count": 1,
+        "item_pointer": "/data/review_threads/0",
+        "comments": [
+          {
+            "id": 1701,
+            "author": "reviewer",
+            "path": "src/widget.ts",
+            "line": 17,
+            "start_line": null,
+            "created_at": "2026-06-01T12:05:00Z",
+            "body_locator": {
+              "body_chars": 11,
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/data/review_threads/0/comments/0",
+              "domain": {
+                "kind": "review_thread_comment",
+                "review_id": null,
+                "thread_id": "T_locator",
+                "comment_id": 1701,
+                "discussion_comment_id": null,
+                "comment_index": 0,
+                "path": "src/widget.ts",
+                "line": 17,
+                "start_line": null,
+                "is_resolved": false,
+                "is_outdated": false,
+                "author": "reviewer"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "discussion_comments": []
+  },
+  "classification": {
+    "schema_version": 1,
+    "reviews": [],
+    "review_threads": [
+      {
+        "thread_id": "T_locator",
+        "disposition": "actionable",
+        "thread_item_pointer": "/data/review_threads/0",
+        "covered_comments": [
+          {
+            "comment_id": 1701,
+            "body_locator": {
+              "json_pointer": "/data/review_threads/0/comments/0/body",
+              "item_pointer": "/wrong/comment"
+            }
+          }
+        ],
+        "summary": "Thread needs action.",
+        "action_summary": "Address thread.",
+        "complexity": "single_file"
+      }
+    ],
+    "discussion_comments": []
+  }
+}

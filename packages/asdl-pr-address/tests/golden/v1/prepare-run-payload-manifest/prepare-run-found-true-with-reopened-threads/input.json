@@ -1,0 +1,82 @@
+{
+  "payload_reference": {
+    "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+    "session_id": "golden-prepare-true",
+    "descriptor": "feedback",
+    "role": "raw",
+    "created_at_utc": "<TIMESTAMP>",
+    "sequence": 1,
+    "payload_bytes": 1234,
+    "content_type": "application/json",
+    "extension": "json"
+  },
+  "pr_number": 42,
+  "reviews": [
+    {
+      "id": "R_manifest",
+      "author": "alice",
+      "body": "Full review body",
+      "state": "CHANGES_REQUESTED",
+      "submitted_at": "2026-06-01T12:00:00Z"
+    }
+  ],
+  "review_threads": [
+    {
+      "id": "T_manifest",
+      "path": "src/widget.ts",
+      "line": 17,
+      "is_resolved": false,
+      "is_outdated": false,
+      "comments": [
+        {
+          "id": 6001,
+          "body": "Inline full body",
+          "author": "reviewer",
+          "path": "src/widget.ts",
+          "line": 17,
+          "created_at": "2026-06-01T12:05:00Z",
+          "start_line": null
+        }
+      ],
+      "start_line": null
+    },
+    {
+      "id": "T_manifest_resolved",
+      "path": "src/widget.ts",
+      "line": 17,
+      "is_resolved": true,
+      "is_outdated": false,
+      "comments": [
+        {
+          "id": 6002,
+          "body": "Resolved body",
+          "author": "reviewer",
+          "path": "src/widget.ts",
+          "line": 17,
+          "created_at": "2026-06-01T12:05:00Z",
+          "start_line": null
+        }
+      ],
+      "start_line": null
+    }
+  ],
+  "discussion_comments": [
+    {
+      "id": 6101,
+      "body": "Discussion full body",
+      "author": "bob",
+      "url": "https://github.example/pr/42#issuecomment-6101"
+    }
+  ],
+  "found": true,
+  "current_branch": "feature/pr",
+  "number": 42,
+  "title": "Improve pr-address",
+  "url": "https://github.example/pr/42",
+  "head_ref_name": "feature/pr",
+  "base_ref_name": "master",
+  "state": "OPEN",
+  "reopened_thread_ids": [
+    "T_manifest"
+  ]
+}

@@ -1,0 +1,351 @@
+{
+  "manifest": {
+    "payload_mode": "payload",
+    "payload_reference": {
+      "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+      "session_id": "golden-valid-info-reasons",
+      "descriptor": "feedback",
+      "role": "raw",
+      "created_at_utc": "<TIMESTAMP>",
+      "sequence": 1,
+      "payload_bytes": 1234,
+      "content_type": "application/json",
+      "extension": "json"
+    },
+    "pr_number": 42,
+    "counts": {
+      "reviews": 9,
+      "review_threads": 0,
+      "unresolved_review_threads": 0,
+      "resolved_review_threads": 0,
+      "thread_comments": 0,
+      "discussion_comments": 0
+    },
+    "reviews": [
+      {
+        "id": "R_info_0",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 23,
+          "json_pointer": "/data/reviews/0/body",
+          "item_pointer": "/data/reviews/0",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_0",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_1",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 15,
+          "json_pointer": "/data/reviews/1/body",
+          "item_pointer": "/data/reviews/1",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_1",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_2",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 20,
+          "json_pointer": "/data/reviews/2/body",
+          "item_pointer": "/data/reviews/2",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_2",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_3",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 13,
+          "json_pointer": "/data/reviews/3/body",
+          "item_pointer": "/data/reviews/3",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_3",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_4",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 18,
+          "json_pointer": "/data/reviews/4/body",
+          "item_pointer": "/data/reviews/4",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_4",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_5",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 8,
+          "json_pointer": "/data/reviews/5/body",
+          "item_pointer": "/data/reviews/5",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_5",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_6",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 10,
+          "json_pointer": "/data/reviews/6/body",
+          "item_pointer": "/data/reviews/6",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_6",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_7",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 22,
+          "json_pointer": "/data/reviews/7/body",
+          "item_pointer": "/data/reviews/7",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_7",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      },
+      {
+        "id": "R_info_8",
+        "author": "reviewer",
+        "state": "COMMENTED",
+        "submitted_at": "2026-06-01T12:00:00Z",
+        "body_locator": {
+          "body_chars": 10,
+          "json_pointer": "/data/reviews/8/body",
+          "item_pointer": "/data/reviews/8",
+          "domain": {
+            "kind": "review",
+            "review_id": "R_info_8",
+            "thread_id": null,
+            "comment_id": null,
+            "discussion_comment_id": null,
+            "comment_index": null,
+            "path": null,
+            "line": null,
+            "start_line": null,
+            "is_resolved": null,
+            "is_outdated": null,
+            "author": "reviewer"
+          }
+        }
+      }
+    ],
+    "review_threads": [],
+    "discussion_comments": []
+  },
+  "classification": {
+    "schema_version": 1,
+    "reviews": [
+      {
+        "review_id": "R_info_0",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/0/body",
+          "item_pointer": "/data/reviews/0"
+        },
+        "summary": "resolved_reference summary.",
+        "informational_reason": "resolved_reference"
+      },
+      {
+        "review_id": "R_info_1",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/1/body",
+          "item_pointer": "/data/reviews/1"
+        },
+        "summary": "automation summary.",
+        "informational_reason": "automation"
+      },
+      {
+        "review_id": "R_info_2",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/2/body",
+          "item_pointer": "/data/reviews/2"
+        },
+        "summary": "acknowledgement summary.",
+        "informational_reason": "acknowledgement"
+      },
+      {
+        "review_id": "R_info_3",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/3/body",
+          "item_pointer": "/data/reviews/3"
+        },
+        "summary": "approval summary.",
+        "informational_reason": "approval"
+      },
+      {
+        "review_id": "R_info_4",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/4/body",
+          "item_pointer": "/data/reviews/4"
+        },
+        "summary": "question_only summary.",
+        "informational_reason": "question_only"
+      },
+      {
+        "review_id": "R_info_5",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/5/body",
+          "item_pointer": "/data/reviews/5"
+        },
+        "summary": "fyi summary.",
+        "informational_reason": "fyi"
+      },
+      {
+        "review_id": "R_info_6",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/6/body",
+          "item_pointer": "/data/reviews/6"
+        },
+        "summary": "noise summary.",
+        "informational_reason": "noise"
+      },
+      {
+        "review_id": "R_info_7",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/7/body",
+          "item_pointer": "/data/reviews/7"
+        },
+        "summary": "already_addressed summary.",
+        "informational_reason": "already_addressed"
+      },
+      {
+        "review_id": "R_info_8",
+        "disposition": "informational",
+        "body_locator": {
+          "json_pointer": "/data/reviews/8/body",
+          "item_pointer": "/data/reviews/8"
+        },
+        "summary": "other summary.",
+        "informational_reason": "other"
+      }
+    ],
+    "review_threads": [],
+    "discussion_comments": []
+  }
+}

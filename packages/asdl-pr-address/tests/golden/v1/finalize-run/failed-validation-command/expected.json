@@ -1,0 +1,58 @@
+{
+  "valid": true,
+  "ready_to_stop": false,
+  "all_feedback_addressed": false,
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "counts": {
+    "checkpoint_batches": 1,
+    "complete_batches": 1,
+    "incomplete_batches": 0,
+    "unresolved_threads": 0,
+    "unresolved_unskipped_threads": 0,
+    "resolved_threads_from_checkpoints": 1,
+    "failed_threads_from_checkpoints": 0,
+    "skipped_threads": 0,
+    "skipped_non_thread_items": 0
+  },
+  "unresolved_threads": [],
+  "unresolved_unskipped_threads": [],
+  "skipped_items": [],
+  "checkpoint_summaries": [
+    {
+      "batch_id": "single_file",
+      "valid": true,
+      "batch_complete": true,
+      "commit_sha": "abc123",
+      "changed_files": [
+        "src/widget.ts"
+      ],
+      "checkpoint_reference": null,
+      "resolved_thread_ids": [
+        "T_single"
+      ],
+      "failed_thread_ids": [],
+      "skipped_thread_ids": [],
+      "non_thread_outcomes": [],
+      "failed_validation_commands": [
+        {
+          "command": "just",
+          "status": "failed",
+          "exit_code": 1,
+          "summary": "Failed."
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "failed_validation_command",
+      "message": "Checkpoint batch single_file reports failed validation command: just",
+      "batch_id": "single_file",
+      "thread_id": null,
+      "review_id": null,
+      "discussion_comment_id": null
+    }
+  ],
+  "warnings": []
+}

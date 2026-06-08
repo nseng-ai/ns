@@ -1,0 +1,25 @@
+{
+  "valid": false,
+  "manifest_kind": "get_feedback",
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "counts": {
+    "reviews_expected": 0,
+    "reviews_classified": 0,
+    "review_threads_expected": 1,
+    "review_threads_classified": 1,
+    "thread_comments_expected": 1,
+    "thread_comments_covered": 2,
+    "discussion_comments_expected": 0,
+    "discussion_comments_classified": 0
+  },
+  "errors": [
+    {
+      "code": "unknown_thread_comment",
+      "message": "Thread comment 1599 is not present in thread T_known_comment.",
+      "kind": "thread_comment",
+      "identifier": 1599,
+      "path": "classification.review_threads[0].covered_comments"
+    }
+  ]
+}

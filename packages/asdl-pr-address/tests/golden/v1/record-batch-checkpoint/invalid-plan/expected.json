@@ -1,0 +1,28 @@
+{
+  "valid": false,
+  "batch_complete": false,
+  "batch_id": "single_file",
+  "complexity": null,
+  "approval_required": null,
+  "pr_number": null,
+  "payload_path": null,
+  "checkpoint_reference": null,
+  "commit_sha": "abc123",
+  "changed_files": [],
+  "validation_commands": [],
+  "selected_items": [],
+  "thread_summary": null,
+  "non_thread_outcomes": [],
+  "errors": [
+    {
+      "code": "invalid_plan",
+      "message": "plan.valid must be true before recording batch checkpoint evidence.",
+      "batch_id": "single_file",
+      "thread_id": null,
+      "review_id": null,
+      "discussion_comment_id": null,
+      "path": null
+    }
+  ],
+  "warnings": []
+}

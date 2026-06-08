@@ -1,0 +1,17 @@
+{
+  "valid": true,
+  "manifest_kind": "get_feedback",
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "counts": {
+    "reviews_expected": 1,
+    "reviews_classified": 1,
+    "review_threads_expected": 1,
+    "review_threads_classified": 1,
+    "thread_comments_expected": 1,
+    "thread_comments_covered": 1,
+    "discussion_comments_expected": 1,
+    "discussion_comments_classified": 1
+  },
+  "errors": []
+}

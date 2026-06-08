@@ -1,0 +1,143 @@
+{
+  "valid": true,
+  "manifest_kind": "get_feedback",
+  "pr_number": 42,
+  "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+  "validation": {
+    "valid": true,
+    "manifest_kind": "get_feedback",
+    "pr_number": 42,
+    "payload_path": "<PAYLOAD_ARTIFACT>/feedback.raw.json",
+    "counts": {
+      "reviews_expected": 0,
+      "reviews_classified": 0,
+      "review_threads_expected": 1,
+      "review_threads_classified": 1,
+      "thread_comments_expected": 2,
+      "thread_comments_covered": 2,
+      "discussion_comments_expected": 0,
+      "discussion_comments_classified": 0
+    },
+    "errors": []
+  },
+  "counts": {
+    "actionable_items": 1,
+    "informational_items": 0,
+    "batches": 1,
+    "approval_required_batches": 0,
+    "actionable_reviews": 0,
+    "actionable_review_threads": 1,
+    "actionable_discussion_comments": 0,
+    "informational_reviews": 0,
+    "informational_review_threads": 0,
+    "informational_discussion_comments": 0
+  },
+  "batches": [
+    {
+      "batch_id": "single_file",
+      "complexity": "single_file",
+      "approval_required": false,
+      "items": [
+        {
+          "source_kind": "review_thread",
+          "summary": "Multi-line thread.",
+          "review_id": null,
+          "review_state": null,
+          "submitted_at": null,
+          "thread_id": "T_covered",
+          "discussion_comment_id": null,
+          "covered_comment_ids": [
+            3301,
+            3302
+          ],
+          "covered_comments": [
+            {
+              "comment_id": 3301,
+              "author": "reviewer",
+              "path": "src/widget.ts",
+              "line": 20,
+              "start_line": 18,
+              "body_locator": {
+                "body_chars": 11,
+                "json_pointer": "/data/review_threads/0/comments/0/body",
+                "item_pointer": "/data/review_threads/0/comments/0",
+                "domain": {
+                  "kind": "review_thread_comment",
+                  "review_id": null,
+                  "thread_id": "T_covered",
+                  "comment_id": 3301,
+                  "discussion_comment_id": null,
+                  "comment_index": 0,
+                  "path": "src/widget.ts",
+                  "line": 20,
+                  "start_line": 18,
+                  "is_resolved": false,
+                  "is_outdated": true,
+                  "author": "reviewer"
+                }
+              }
+            },
+            {
+              "comment_id": 3302,
+              "author": "bob",
+              "path": "src/widget.ts",
+              "line": 21,
+              "start_line": null,
+              "body_locator": {
+                "body_chars": 9,
+                "json_pointer": "/data/review_threads/0/comments/1/body",
+                "item_pointer": "/data/review_threads/0/comments/1",
+                "domain": {
+                  "kind": "review_thread_comment",
+                  "review_id": null,
+                  "thread_id": "T_covered",
+                  "comment_id": 3302,
+                  "discussion_comment_id": null,
+                  "comment_index": 1,
+                  "path": "src/widget.ts",
+                  "line": 21,
+                  "start_line": null,
+                  "is_resolved": false,
+                  "is_outdated": true,
+                  "author": "bob"
+                }
+              }
+            }
+          ],
+          "body_locator": {
+            "body_chars": 11,
+            "json_pointer": "/data/review_threads/0/comments/0/body",
+            "item_pointer": "/data/review_threads/0/comments/0",
+            "domain": {
+              "kind": "review_thread_comment",
+              "review_id": null,
+              "thread_id": "T_covered",
+              "comment_id": 3301,
+              "discussion_comment_id": null,
+              "comment_index": 0,
+              "path": "src/widget.ts",
+              "line": 20,
+              "start_line": 18,
+              "is_resolved": false,
+              "is_outdated": true,
+              "author": "reviewer"
+            }
+          },
+          "thread_item_pointer": "/data/review_threads/0",
+          "path": "src/widget.ts",
+          "line": 21,
+          "start_line": 18,
+          "is_outdated": true,
+          "author": "reviewer",
+          "url": null,
+          "action_summary": "Update range.",
+          "complexity": "single_file",
+          "pre_existing": false,
+          "needs_reply": null
+        }
+      ]
+    }
+  ],
+  "informational": [],
+  "warnings": []
+}
