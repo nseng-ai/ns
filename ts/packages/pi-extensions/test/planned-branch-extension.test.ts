@@ -782,6 +782,15 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("launch-readiness quality bar");
 		expect(checkedInContent).toContain("Prefer ordered waves");
 		expect(checkedInContent).toContain("recommend sequential dispatch and parent validation");
+		expect(checkedInContent).toContain("Subagent model routing:");
+		expect(checkedInContent).toContain("For implementation/editing subagents:");
+		expect(checkedInContent).toContain(
+			"Do not set `dispatch_runner_subagent.model` to a cheap/review model.",
+		);
+		expect(checkedInContent).toContain("Never reuse review model guidance for implementation");
+		expect(checkedInContent).toContain(
+			"exclusively for in-session review subagents after implementation is complete",
+		);
 		expect(checkedInContent).toContain("dispatch_runner_subagent.model");
 		expect(checkedInContent).toContain("default_model: haiku");
 		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");

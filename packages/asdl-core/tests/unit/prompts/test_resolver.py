@@ -277,6 +277,16 @@ def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_overrid
     assert "launch-readiness quality bar" in resolution.content
     assert "Prefer ordered waves" in resolution.content
     assert "recommend sequential dispatch and parent validation" in resolution.content
+    assert "Subagent model routing:" in resolution.content
+    assert "For implementation/editing subagents:" in resolution.content
+    assert (
+        "Do not set `dispatch_runner_subagent.model` to a cheap/review model." in resolution.content
+    )
+    assert "Never reuse review model guidance for implementation" in resolution.content
+    assert (
+        "exclusively for in-session review subagents after implementation is complete"
+        in resolution.content
+    )
     assert "dispatch_runner_subagent.model" in resolution.content
     assert "default_model: haiku" in resolution.content
     assert "openai-codex/gpt-5.4-mini:medium" in resolution.content
