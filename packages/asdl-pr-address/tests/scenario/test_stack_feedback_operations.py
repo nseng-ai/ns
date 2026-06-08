@@ -30,6 +30,12 @@ def _obj(context: object) -> object:
     return build_clinkr_context_object(lambda: context)
 
 
+def _load_payload_json(reference: dict) -> dict:
+    payload_path = Path(reference["payload_path"])
+    assert payload_path.exists()
+    return json.loads(payload_path.read_text(encoding="utf-8"))
+
+
 def _payload_env(tmp_path: Path, *, session_id: str = "session1") -> dict[str, str]:
     return {
         "ASDL_PAYLOAD_ROOT": str(tmp_path / "payload-root"),
@@ -308,6 +314,48 @@ def test_stack_feedback_prep_writes_payload_summaries_and_triages_automation(
     }
 
 
+def test_stack_feedback_prep_compact_stdout_omits_verbose_stack_data(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-prep",
+            "--stack-json",
+            json.dumps(_stack_input()),
+            "--stdout-mode",
+            "compact",
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(_feedback_fake())),
+        env=_payload_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["summary"]["prs"] == 2
+    assert data["summary"]["unresolved_review_threads"] == 2
+    assert data["stack_summary_reference"]["role"] == "summary"
+    first_pr = data["stack"][0]
+    assert first_pr["pr_number"] == 101
+    assert first_pr["counts"]["unresolved_review_threads"] == 1
+    assert "manifest" not in first_pr
+    assert "classification_template" not in first_pr
+    assert "discussion_triage" not in first_pr
+    assert "items" not in first_pr["discussion_triage_summary"]
+    assert Path(first_pr["manifest_summary_reference"]["payload_path"]).exists()
+    assert Path(first_pr["classification_template_reference"]["payload_path"]).exists()
+    full_prep = _load_payload_json(data["stack_summary_reference"])
+    assert full_prep["stack"][0]["manifest"]["review_threads"][0]["thread_id"] == "PRRT_101"
+    assert "classification_template" in full_prep["stack"][0]
+    assert "SECRET_THREAD_BODY" not in result.output
+    assert "SECRET_VERCEL_BODY" not in result.output
+    assert "SECRET_ROASTER_BODY" not in result.output
+
+
 def test_stack_feedback_prep_rejects_duplicate_pr_numbers(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -386,6 +434,90 @@ def test_stack_feedback_plan_validates_and_merges_stack_plan(
     assert Path(data["stack_plan_reference"]["payload_path"]).exists()
 
 
+def test_stack_feedback_plan_compact_stdout_references_full_plan_artifact(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    prep_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-prep",
+            "--stack-json",
+            json.dumps(_stack_input()),
+            "--stdout-mode",
+            "compact",
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(_feedback_fake())),
+        env=_payload_env(tmp_path),
+    )
+    assert prep_result.exit_code == 0, prep_result.output
+    compact_prep = json.loads(prep_result.output)["data"]
+    full_prep = _load_payload_json(compact_prep["stack_summary_reference"])
+    classifications = [
+        {
+            "pr_number": prep_pr["pr_number"],
+            "classification": _classification_for_prep_pr(prep_pr),
+        }
+        for prep_pr in full_prep["stack"]
+    ]
+
+    plan_result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "stack-feedback-plan",
+            "--payload-json",
+            json.dumps({"prep": full_prep, "classifications": classifications}),
+            "--stdout-mode",
+            "compact",
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(_feedback_fake())),
+        env=_payload_env(tmp_path),
+    )
+
+    assert plan_result.exit_code == 0, plan_result.output
+    data = json.loads(plan_result.output)["data"]
+    assert data["valid"] is True
+    assert data["validation"]["all_valid"] is True
+    assert [batch["batch_id"] for batch in data["batches"]] == ["local", "cross_cutting"]
+    local_item = data["batches"][0]["items"][0]
+    assert local_item == {
+        "pr_number": 102,
+        "branch": "branch-two",
+        "source_kind": "review_thread",
+        "review_id": None,
+        "thread_id": "PRRT_102",
+        "discussion_comment_id": None,
+        "path": "packages/example.py",
+        "line": 12,
+        "summary": "Inline review thread requires a code change.",
+        "action_summary": "Apply the requested inline review change.",
+        "complexity": "local",
+        "approval_required": False,
+    }
+    assert data["batches"][0]["item_count"] == 1
+    assert data["summary"]["actionable_items"] == 2
+    assert data["informational_summary"] == {
+        "total": 4,
+        "user_decision_required": 0,
+        "by_reason": {"automation": 3, "fyi": 1},
+    }
+    assert "informational" not in data
+    assert "body_locator" not in local_item
+    assert "thread_item_pointer" not in local_item
+    assert data["stack_plan_reference"]["role"] == "summary"
+    full_plan = _load_payload_json(data["stack_plan_reference"])
+    assert full_plan["batches"][0]["items"][0]["body_locator"] is not None
+    assert full_plan["informational"][0]["body_locator"] is not None
+    assert "SECRET_THREAD_BODY" not in plan_result.output
+    assert "SECRET_HUMAN_BODY" not in plan_result.output
+
+
 def test_representative_stack_address_happy_path_closure_evidence(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -400,6 +532,8 @@ def test_representative_stack_address_happy_path_closure_evidence(
             "stack-feedback-prep",
             "--stack-json",
             json.dumps(_stack_input()),
+            "--stdout-mode",
+            "compact",
             "--format",
             "json",
         ],
@@ -408,10 +542,12 @@ def test_representative_stack_address_happy_path_closure_evidence(
     )
 
     assert prep_result.exit_code == 0, prep_result.output
-    prep = json.loads(prep_result.output)["data"]
-    assert prep["summary"]["prs"] == 2
-    assert prep["summary"]["unresolved_review_threads"] == 2
-    assert prep["summary"]["automation_discussion_comments"] == 3
+    compact_prep = json.loads(prep_result.output)["data"]
+    assert compact_prep["summary"]["prs"] == 2
+    assert compact_prep["summary"]["unresolved_review_threads"] == 2
+    assert compact_prep["summary"]["automation_discussion_comments"] == 3
+    assert "manifest" not in compact_prep["stack"][0]
+    prep = _load_payload_json(compact_prep["stack_summary_reference"])
     assert prep["stack"][0]["manifest"]["reviews"][0]["id"] == "PRR_101"
     assert "SECRET_REVIEW_BODY" not in prep_result.output
     assert "SECRET_THREAD_BODY" not in prep_result.output
@@ -431,6 +567,8 @@ def test_representative_stack_address_happy_path_closure_evidence(
             "stack-feedback-plan",
             "--payload-json",
             json.dumps({"prep": prep, "classifications": classifications}),
+            "--stdout-mode",
+            "compact",
             "--format",
             "json",
         ],
@@ -439,7 +577,11 @@ def test_representative_stack_address_happy_path_closure_evidence(
     )
 
     assert plan_result.exit_code == 0, plan_result.output
-    stack_plan = json.loads(plan_result.output)["data"]
+    compact_stack_plan = json.loads(plan_result.output)["data"]
+    assert compact_stack_plan["valid"] is True
+    assert compact_stack_plan["validation"]["all_valid"] is True
+    assert "informational" not in compact_stack_plan
+    stack_plan = _load_payload_json(compact_stack_plan["stack_plan_reference"])
     assert stack_plan["valid"] is True
     assert stack_plan["validation"]["all_valid"] is True
     assert [batch["batch_id"] for batch in stack_plan["batches"]] == [
@@ -467,6 +609,8 @@ def test_representative_stack_address_happy_path_closure_evidence(
             "--include-resolved",
             "--stack-json",
             json.dumps(_stack_input()),
+            "--stdout-mode",
+            "compact",
             "--format",
             "json",
         ],
@@ -474,7 +618,9 @@ def test_representative_stack_address_happy_path_closure_evidence(
         env=env,
     )
     assert current_prep_result.exit_code == 0, current_prep_result.output
-    current_prep = json.loads(current_prep_result.output)["data"]
+    compact_current_prep = json.loads(current_prep_result.output)["data"]
+    assert compact_current_prep["include_resolved"] is True
+    current_prep = _load_payload_json(compact_current_prep["stack_summary_reference"])
     assert current_prep["include_resolved"] is True
 
     diff_result = CliRunner().invoke(
@@ -551,6 +697,8 @@ def test_representative_stack_address_happy_path_closure_evidence(
             "--include-resolved",
             "--stack-json",
             json.dumps(_stack_input()),
+            "--stdout-mode",
+            "compact",
             "--format",
             "json",
         ],
@@ -558,7 +706,9 @@ def test_representative_stack_address_happy_path_closure_evidence(
         env=env,
     )
     assert final_prep_result.exit_code == 0, final_prep_result.output
-    final_prep = json.loads(final_prep_result.output)["data"]
+    compact_final_prep = json.loads(final_prep_result.output)["data"]
+    assert compact_final_prep["summary"]["unresolved_review_threads"] == 0
+    final_prep = _load_payload_json(compact_final_prep["stack_summary_reference"])
     assert final_prep["summary"]["unresolved_review_threads"] == 0
     final_threads = [
         thread
