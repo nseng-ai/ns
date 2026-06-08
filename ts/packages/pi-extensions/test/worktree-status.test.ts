@@ -10,6 +10,7 @@ import {
 	makeGraphiteRepo,
 	makePyprojectRoot,
 	standardGraphiteRows,
+	withTempRoot,
 	writeGraphiteMetadataDb,
 } from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
@@ -746,8 +747,7 @@ describe("loadGtStatus", () => {
 	});
 
 	test("uses an unknown base when metadata DB is missing", async () => {
-		const root = makeGitRepo("feature/current");
-		try {
+		await withTempRoot(makeGitRepo("feature/current"), async (root) => {
 			const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
 
 			pi.assertDone();
@@ -755,9 +755,7 @@ describe("loadGtStatus", () => {
 			expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
 			expect(formatted).not.toContain("∅");
 			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("omits downstack and skips previous-checkout fallback on Graphite trunk", async () => {
@@ -802,21 +800,21 @@ describe("loadGtStatus", () => {
 	});
 
 	test("uses an unknown base when current branch is untracked by metadata", async () => {
-		const root = makeGraphiteRepo("feature/current", [
-			{ branchName: "main", validationResult: "TRUNK" },
-			{ branchName: "feature/other", parentBranchName: "main" },
-		]);
-		try {
-			const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
+		await withTempRoot(
+			makeGraphiteRepo("feature/current", [
+				{ branchName: "main", validationResult: "TRUNK" },
+				{ branchName: "feature/other", parentBranchName: "main" },
+			]),
+			async (root) => {
+				const { pi, formatted } = await loadFormattedStatus([dirtyStep()], root);
 
-			pi.assertDone();
-			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
-			expect(formatted).not.toContain("∅");
-			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+				pi.assertDone();
+				expectNoGtCalls(pi);
+				expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
+				expect(formatted).not.toContain("∅");
+				expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
+			},
+		);
 	});
 
 	test("reads metadata from a linked worktree common git dir", async () => {

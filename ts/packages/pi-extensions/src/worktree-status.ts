@@ -665,6 +665,8 @@ function loadCurrentGraphiteMetadataStatus(cwd: string): GraphiteMetadataStatus 
 
 function loadDownBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string | undefined {
 	if (signal?.aborted) return "-";
+	// Metadata is the only passive source used here; falling back to @{-1} produced misleading bases
+	// when users had merely checked out an unrelated branch previously.
 	if (metadata.type !== "tracked") return "-";
 	if (metadata.parent !== undefined) return metadata.parent;
 	if (metadata.isCurrentTrunk) return undefined;

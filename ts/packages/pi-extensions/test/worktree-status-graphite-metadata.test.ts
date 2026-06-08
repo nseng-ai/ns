@@ -38,7 +38,7 @@ describe("Graphite metadata status lookup", () => {
 	test("marks the current branch as trunk from validation result", async () => {
 		await withTempRoot(makeGitRepo("main"), (root) => {
 			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
+				{ branchName: "main", children: ["feature/current"], validationResult: "trunk" },
 			]);
 
 			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "main" })).toEqual({
@@ -62,7 +62,7 @@ describe("Graphite metadata status lookup", () => {
 		});
 	});
 
-	test("reports read failure when required columns are missing", async () => {
+	test("reports schema mismatch when required columns are missing", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
 			const db = new Database(join(root, ".git", ".graphite_metadata.db"));
 			try {
@@ -73,7 +73,7 @@ describe("Graphite metadata status lookup", () => {
 
 			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" })).toEqual({
 				type: "unavailable",
-				reason: "read-failed",
+				reason: "schema-mismatch",
 				currentBranch: "feature/current",
 			});
 		});
