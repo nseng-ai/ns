@@ -8,7 +8,10 @@ from typing import Final
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure, LocalBranchTip, PathChangeTouch
 from asdl_objectives.list_updates import parse_iso_datetime
-from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT, objective_slug_from_active_path
+from asdl_objectives.objective_storage import (
+    active_root_relative_path,
+    objective_slug_from_active_path,
+)
 
 MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS: Final = 50
 
@@ -34,7 +37,7 @@ def build_objective_branch_attribution(
     if not branches:
         return _attribution_from_lists(updated_branches_by_slug)
 
-    objective_root = ACTIVE_OBJECTIVE_ROOT.as_posix()
+    objective_root = active_root_relative_path().as_posix()
     changed_branches = _branches_with_objective_tree_changes(
         git,
         trunk_branch=trunk_branch,

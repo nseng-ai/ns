@@ -15,7 +15,6 @@ from asdl_objectives.context import (
     load_objective_context,
 )
 from asdl_objectives.list_branch_attribution import build_objective_branch_attribution
-from asdl_objectives.list_inventory import ObjectiveRecordStatus, build_objective_checkout_inventory
 from asdl_objectives.list_models import (
     ObjectiveListRecord,
     ObjectiveListRequest,
@@ -27,7 +26,12 @@ from asdl_objectives.list_render import (
 )
 from asdl_objectives.list_status import ObjectiveStatusFilter, matches_status_filter
 from asdl_objectives.list_updates import touch_updated_iso
-from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT, active_objective_record_path
+from asdl_objectives.objective_storage import (
+    FilesystemObjectiveStorage,
+    ObjectiveRecordStatus,
+    active_record_relative_path,
+    active_root_relative_path,
+)
 
 ObjectiveListMode = Literal["names", "minimal", "with_updated_branches"]
 
@@ -84,7 +88,8 @@ def _build_objective_list_result_or_failure(
     status_filter: ObjectiveStatusFilter = "active",
     mode: ObjectiveListMode = "minimal",
 ) -> ObjectiveListResult | GitCommandFailure:
-    inventory = build_objective_checkout_inventory(ctx.repo_root)
+    storage = FilesystemObjectiveStorage(ctx.repo_root)
+    inventory = storage.checkout_inventory()
     filtered_records = tuple(
         record
         for record in inventory.records
@@ -116,7 +121,7 @@ def _build_objective_list_result_or_failure(
     )
     return ObjectiveListResult(
         trunk_branch=ctx.trunk_branch,
-        root_path=ACTIVE_OBJECTIVE_ROOT.as_posix(),
+        root_path=active_root_relative_path().as_posix(),
         status_filter=status_filter,
         names_only=mode == "names",
         updated_branches_included=include_branch_attribution,
@@ -132,7 +137,7 @@ def _build_objective_list_record(
     *,
     updated_branches: tuple[str, ...] | None = None,
 ) -> ObjectiveListRecord:
-    relative_path = active_objective_record_path(slug).as_posix()
+    relative_path = active_record_relative_path(slug).as_posix()
     touch = ctx.git.path_last_touched("HEAD", relative_path)
     return ObjectiveListRecord.create(
         slug=slug,

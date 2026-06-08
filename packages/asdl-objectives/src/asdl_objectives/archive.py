@@ -11,15 +11,14 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliUnavailable, load_objective_context
-from asdl_objectives.objective_paths import (
-    ACTIVE_OBJECTIVE_ROOT,
-    OBJECTIVE_ARCHIVE_ROOT,
-    active_objective_record_path,
-    archived_objective_record_path,
+from asdl_objectives.objective_storage import (
+    FilesystemObjectiveStorage,
+    ObjectiveArchiveDirection,
+    archive_empty_destination_relative_path,
+    archive_empty_source_relative_path,
     is_valid_objective_slug,
 )
 
-ObjectiveArchiveDirection = Literal["archive", "unarchive"]
 ObjectiveArchiveStatus = Literal[
     "archived",
     "unarchived",
@@ -108,13 +107,10 @@ def run_archive_objective(
             message=f"Invalid Objective slug {request.slug!r}. Pass a single slug, not a path.",
         )
 
-    relative_source = _source_path(request.slug, direction=direction)
-    relative_destination = _destination_path(request.slug, direction=direction)
-    source = objective_ctx.repo_root / relative_source
-    destination = objective_ctx.repo_root / relative_destination
-
-    source_exists = source.exists()
-    destination_exists = destination.exists()
+    storage = FilesystemObjectiveStorage(objective_ctx.repo_root)
+    move_paths = storage.move_paths(request.slug, direction=direction)
+    source_exists = move_paths.source.exists()
+    destination_exists = move_paths.destination.exists()
     if not source_exists:
         raise ClinkrExit.negative(
             _result(
@@ -122,8 +118,8 @@ def run_archive_objective(
                 error="source_not_found",
                 slug=request.slug,
                 direction=direction,
-                source_path=relative_source,
-                destination_path=relative_destination,
+                source_path=move_paths.relative_source,
+                destination_path=move_paths.relative_destination,
                 source_exists=False,
                 destination_exists=destination_exists,
                 moved=False,
@@ -131,26 +127,26 @@ def run_archive_objective(
             message=_source_not_found_message(
                 request.slug,
                 direction=direction,
-                source_path=relative_source,
+                source_path=move_paths.relative_source,
             ),
         )
 
-    if not source.is_dir():
+    if not move_paths.source.is_dir():
         raise ClinkrExit.negative(
             _result(
                 status="source_not_directory",
                 error="source_not_directory",
                 slug=request.slug,
                 direction=direction,
-                source_path=relative_source,
-                destination_path=relative_destination,
+                source_path=move_paths.relative_source,
+                destination_path=move_paths.relative_destination,
                 source_exists=True,
                 destination_exists=destination_exists,
                 moved=False,
             ),
             message=(
                 f"Objective source path for slug {request.slug!r} is not a directory: "
-                f"{relative_source.as_posix()}."
+                f"{move_paths.relative_source.as_posix()}."
             ),
         )
 
@@ -161,20 +157,19 @@ def run_archive_objective(
                 error="destination_exists",
                 slug=request.slug,
                 direction=direction,
-                source_path=relative_source,
-                destination_path=relative_destination,
+                source_path=move_paths.relative_source,
+                destination_path=move_paths.relative_destination,
                 source_exists=True,
                 destination_exists=True,
                 moved=False,
             ),
             message=(
                 f"Destination already exists for slug {request.slug!r}: "
-                f"{relative_destination.as_posix()}. Refusing to merge or overwrite."
+                f"{move_paths.relative_destination.as_posix()}. Refusing to merge or overwrite."
             ),
         )
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    source.rename(destination)
+    storage.move_record(move_paths)
     status: ObjectiveArchiveStatus = "unarchived" if direction == "unarchive" else "archived"
     return ClinkrExit.ok(
         _result(
@@ -182,25 +177,13 @@ def run_archive_objective(
             error=None,
             slug=request.slug,
             direction=direction,
-            source_path=relative_source,
-            destination_path=relative_destination,
+            source_path=move_paths.relative_source,
+            destination_path=move_paths.relative_destination,
             source_exists=False,
             destination_exists=True,
             moved=True,
         )
     )
-
-
-def _source_path(slug: str, *, direction: ObjectiveArchiveDirection) -> Path:
-    if direction == "unarchive":
-        return archived_objective_record_path(slug)
-    return active_objective_record_path(slug)
-
-
-def _destination_path(slug: str, *, direction: ObjectiveArchiveDirection) -> Path:
-    if direction == "unarchive":
-        return active_objective_record_path(slug)
-    return archived_objective_record_path(slug)
 
 
 def _empty_result(
@@ -214,24 +197,12 @@ def _empty_result(
         error=error,
         slug=None,
         direction=direction,
-        source_path=_empty_source_path(direction).as_posix(),
-        destination_path=_empty_destination_path(direction).as_posix(),
+        source_path=archive_empty_source_relative_path(direction).as_posix(),
+        destination_path=archive_empty_destination_relative_path(direction).as_posix(),
         source_exists=False,
         destination_exists=False,
         moved=False,
     )
-
-
-def _empty_source_path(direction: ObjectiveArchiveDirection) -> Path:
-    if direction == "unarchive":
-        return OBJECTIVE_ARCHIVE_ROOT
-    return ACTIVE_OBJECTIVE_ROOT
-
-
-def _empty_destination_path(direction: ObjectiveArchiveDirection) -> Path:
-    if direction == "unarchive":
-        return ACTIVE_OBJECTIVE_ROOT
-    return OBJECTIVE_ARCHIVE_ROOT
 
 
 def _result(

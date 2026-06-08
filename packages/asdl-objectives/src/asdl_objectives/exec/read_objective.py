@@ -10,17 +10,16 @@ import click
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_objectives.exec.inventory import (
+from asdl_objectives.objective_storage import (
+    FilesystemObjectiveStorage,
     ObjectiveFiles,
     ObjectiveUpdateFile,
-    build_objective_files,
+    active_record_relative_path,
+    active_root_relative_path,
     empty_objective_files,
-    list_update_files,
-    relative_record_path,
-    relative_root_path,
+    is_valid_objective_slug,
     render_file_presence,
 )
-from asdl_objectives.objective_paths import is_valid_objective_slug
 
 ReadObjectiveStatus = Literal["ok", "missing_slug", "invalid_slug", "not_found"]
 
@@ -64,9 +63,10 @@ def render_read_objective(result: ReadObjectiveResult) -> None:
     click.echo(f"Updates: {result.update_count}")
     click.echo()
 
-    _render_markdown_file(record_path / "objective.md", "objective.md")
-    _render_markdown_file(record_path / "roadmap.md", "roadmap.md")
-    _render_updates(result, record_path)
+    storage = FilesystemObjectiveStorage(Path.cwd())
+    _render_markdown_file(storage, record_path / "objective.md", "objective.md")
+    _render_markdown_file(storage, record_path / "roadmap.md", "roadmap.md")
+    _render_updates(storage, result, record_path)
 
 
 @clinkr_operation(
@@ -79,9 +79,9 @@ def run_read_objective(
     request: ReadObjectiveRequest,
 ) -> ClinkrExit[ReadObjectiveResult]:
     del ctx
-    root = relative_root_path()
-    absolute_root = Path.cwd() / root
-    root_exists = absolute_root.exists()
+    storage = FilesystemObjectiveStorage(Path.cwd())
+    root = active_root_relative_path()
+    root_exists = storage.active_root_path().exists()
 
     if request.slug is None:
         raise ClinkrExit.negative(
@@ -107,8 +107,8 @@ def run_read_objective(
             message=f"Invalid Objective slug {request.slug!r}. Pass a single slug, not a path.",
         )
 
-    relative_path = relative_record_path(request.slug)
-    absolute_path = Path.cwd() / relative_path
+    relative_path = active_record_relative_path(request.slug)
+    absolute_path = storage.active_record_path(request.slug)
     if not absolute_path.is_dir():
         raise ClinkrExit.negative(
             _empty_result(
@@ -121,8 +121,8 @@ def run_read_objective(
             message=f"No Objective record found for slug {request.slug!r}.",
         )
 
-    files = build_objective_files(absolute_path)
-    updates = list_update_files(absolute_path)
+    files = storage.file_presence(absolute_path)
+    updates = storage.list_update_files(absolute_path)
     return ClinkrExit.ok(
         ReadObjectiveResult(
             status="ok",
@@ -151,7 +151,7 @@ def _empty_result(
     return ReadObjectiveResult(
         status=status,
         error=error,
-        root_path=relative_root_path().as_posix(),
+        root_path=active_root_relative_path().as_posix(),
         root_exists=root_exists,
         slug=slug,
         path=path,
@@ -163,22 +163,30 @@ def _empty_result(
     )
 
 
-def _render_markdown_file(path: Path, display_path: str) -> None:
+def _render_markdown_file(
+    storage: FilesystemObjectiveStorage,
+    path: Path,
+    display_path: str,
+) -> None:
     click.echo(f"## {display_path}")
     click.echo()
-    if not path.is_file():
+    content = storage.read_markdown_file(path)
+    if content is None:
         click.echo(f"_Missing `{display_path}`._")
         click.echo()
         return
 
-    content = path.read_text(encoding="utf-8")
     click.echo(content, nl=False)
     if not content.endswith("\n"):
         click.echo()
     click.echo()
 
 
-def _render_updates(result: ReadObjectiveResult, record_path: Path) -> None:
+def _render_updates(
+    storage: FilesystemObjectiveStorage,
+    result: ReadObjectiveResult,
+    record_path: Path,
+) -> None:
     if not result.files.updates_dir:
         click.echo("## updates/")
         click.echo()
@@ -194,4 +202,8 @@ def _render_updates(result: ReadObjectiveResult, record_path: Path) -> None:
         return
 
     for update in result.updates:
-        _render_markdown_file(record_path / "updates" / update.name, f"updates/{update.name}")
+        _render_markdown_file(
+            storage,
+            record_path / "updates" / update.name,
+            f"updates/{update.name}",
+        )
