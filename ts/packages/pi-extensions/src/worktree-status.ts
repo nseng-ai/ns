@@ -14,6 +14,7 @@ import {
 } from "./terminal-presentation.ts";
 import {
 	loadGraphiteMetadataStatusInWorker,
+	shutdownGraphiteMetadataWorker,
 	type GraphiteMetadataStatus,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "./worktree-status/graphite-metadata.ts";
@@ -266,6 +267,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		refreshSequence++;
 		stopRefreshTimers();
 		clearGitWatchers();
+		shutdownGraphiteMetadataWorker();
 		lastLinesKey = undefined;
 	}
 
