@@ -1,0 +1,31 @@
+{
+  "exit_code": 0,
+  "data": {
+    "total": 1,
+    "resolved": 1,
+    "failed": 0,
+    "skipped": 0,
+    "all_succeeded": true,
+    "results": [
+      {
+        "index": 0,
+        "thread_id": "PRRT_kwDOR4YhMs6HtLJJ",
+        "mode": "fixed",
+        "status": "resolved",
+        "body": "Fixed in commit c43803da587aace7354cf21e2dbb0681ac9543b6: Removed the redundant handler context type annotation and unused type import.\n\nAddressed via _pr-address_ at 2026-06-08T06:20:51Z\n<!-- pr-address:resolved -->",
+        "comment": {
+          "id": 3371162951,
+          "body": "Fixed in commit c43803da587aace7354cf21e2dbb0681ac9543b6: Removed the redundant handler context type annotation and unused type import.\n\nAddressed via _pr-address_ at 2026-06-08T06:20:51Z\n<!-- pr-address:resolved -->",
+          "author": "schrockn",
+          "path": "ts/packages/ccc/src/objective-stack-impl.ts",
+          "line": 33,
+          "created_at": "2026-06-08T06:20:51Z",
+          "start_line": null
+        },
+        "is_resolved": true,
+        "error_type": null,
+        "error_message": null
+      }
+    ]
+  }
+}
