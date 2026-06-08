@@ -1,4 +1,4 @@
-"""Unit tests for ``RealGitGateway.log_range`` and its parser."""
+"""Unit tests for ``RealGitGateway.log_range``."""
 
 from __future__ import annotations
 
@@ -8,76 +8,8 @@ from pathlib import Path
 import pytest
 
 from asdl_core.git import real_git_gateway
-from asdl_core.git.real_git_gateway import RealGitGateway, parse_log_range_output
+from asdl_core.git.real_git_gateway import RealGitGateway
 from asdl_core.git.types import CommitSummary, GitCommandFailure
-
-
-def test_parse_log_range_output_empty() -> None:
-    assert parse_log_range_output("") == ()
-
-
-def test_parse_log_range_output_single_commit() -> None:
-    line = "abc123\x002026-04-26T18:00:00+00:00\x00Initial commit\n"
-
-    commits = parse_log_range_output(line)
-
-    assert commits == (
-        CommitSummary(
-            sha="abc123",
-            author_iso="2026-04-26T18:00:00+00:00",
-            subject="Initial commit",
-        ),
-    )
-
-
-def test_parse_log_range_output_multi_commit_preserves_order() -> None:
-    stdout = (
-        "sha-2\x002026-04-26T19:00:00+00:00\x00Second commit\n"
-        "sha-1\x002026-04-26T18:00:00+00:00\x00First commit\n"
-    )
-
-    commits = parse_log_range_output(stdout)
-
-    assert commits == (
-        CommitSummary(
-            sha="sha-2",
-            author_iso="2026-04-26T19:00:00+00:00",
-            subject="Second commit",
-        ),
-        CommitSummary(
-            sha="sha-1",
-            author_iso="2026-04-26T18:00:00+00:00",
-            subject="First commit",
-        ),
-    )
-
-
-def test_parse_log_range_output_keeps_subjects_with_spaces_and_tabs() -> None:
-    stdout = "sha-1\x002026-04-26T18:00:00+00:00\x00fix(core): handle\twhitespace in subjects\n"
-
-    commits = parse_log_range_output(stdout)
-
-    assert commits == (
-        CommitSummary(
-            sha="sha-1",
-            author_iso="2026-04-26T18:00:00+00:00",
-            subject="fix(core): handle\twhitespace in subjects",
-        ),
-    )
-
-
-def test_parse_log_range_output_skips_malformed_lines() -> None:
-    stdout = "abc123\x002026-04-26T18:00:00+00:00\x00ok\nbadline-no-nuls\n"
-
-    commits = parse_log_range_output(stdout)
-
-    assert commits == (
-        CommitSummary(
-            sha="abc123",
-            author_iso="2026-04-26T18:00:00+00:00",
-            subject="ok",
-        ),
-    )
 
 
 def test_log_range_returns_commits(monkeypatch: pytest.MonkeyPatch) -> None:

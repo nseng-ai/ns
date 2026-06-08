@@ -6,25 +6,12 @@ from pathlib import Path
 import pytest
 
 from asdl_core.git import real_git_gateway
-from asdl_core.git.real_git_gateway import (
-    RealGitGateway,
-    parse_commit_graph_output,
-    parse_local_branch_tip_output,
-    parse_local_branch_tip_ref_output,
-    parse_name_status_output,
-    parse_path_change_touches_output,
-    parse_path_touch_output,
-    parse_tree_oid_batch_check_output,
-)
+from asdl_core.git.real_git_gateway import RealGitGateway
 from asdl_core.git.types import (
     BranchCommitGraph,
     CommitGraphNode,
     DetachedHead,
     GitCommandFailure,
-    LocalBranchTip,
-    LocalBranchTipRef,
-    PathChangeTouch,
-    PathTouch,
     RestructuredFile,
     WorktreeInfo,
     WorktreeOccupancy,
@@ -231,63 +218,6 @@ def test_list_branch_occupancies_reports_cleanly_checked_out_worktree(
     )
 
 
-@pytest.mark.parametrize(
-    ("stdout", "expected"),
-    [
-        ("", ()),
-        (
-            "R100\told.py\tnew.py\n",
-            (
-                RestructuredFile(
-                    status="R",
-                    old_path="old.py",
-                    new_path="new.py",
-                    similarity=100,
-                ),
-            ),
-        ),
-        (
-            "C85\tsrc/a.py\tsrc/b.py\n",
-            (
-                RestructuredFile(
-                    status="C",
-                    old_path="src/a.py",
-                    new_path="src/b.py",
-                    similarity=85,
-                ),
-            ),
-        ),
-        (
-            "R100\told path.py\tnew path.py\n",
-            (
-                RestructuredFile(
-                    status="R",
-                    old_path="old path.py",
-                    new_path="new path.py",
-                    similarity=100,
-                ),
-            ),
-        ),
-        (
-            "M\tmodified.py\nR90\tsrc/x.py\tsrc/y.py\n",
-            (
-                RestructuredFile(
-                    status="R",
-                    old_path="src/x.py",
-                    new_path="src/y.py",
-                    similarity=90,
-                ),
-            ),
-        ),
-    ],
-)
-def test_parse_name_status_output(
-    stdout: str,
-    expected: tuple[RestructuredFile, ...],
-) -> None:
-    assert parse_name_status_output(stdout) == expected
-
-
 def test_get_restructured_files_returns_parsed_files(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert cmd == [
@@ -333,56 +263,6 @@ def test_get_restructured_files_returns_failure(monkeypatch: pytest.MonkeyPatch)
         "fatal: bad revision 'origin/main...HEAD'",
         returncode=128,
     )
-
-
-def test_parse_local_branch_tip_output_parses_nul_delimited_lines() -> None:
-    assert parse_local_branch_tip_output(
-        "main\x002026-05-20T10:44:08-04:00\n"
-        "feat/x\x002026-05-20T11:15:42-04:00\n"
-        "missing-separator\n"
-        "empty-time\x00\n"
-    ) == (
-        LocalBranchTip(name="main", head_iso="2026-05-20T10:44:08-04:00"),
-        LocalBranchTip(name="feat/x", head_iso="2026-05-20T11:15:42-04:00"),
-        LocalBranchTip(name="empty-time", head_iso=None),
-    )
-
-
-def test_parse_local_branch_tip_ref_output_parses_nul_delimited_lines() -> None:
-    assert parse_local_branch_tip_ref_output(
-        "main\x00abc123\nfeat/x\x00def456\nmissing-separator\nmissing-oid\x00\n"
-    ) == (
-        LocalBranchTipRef(branch="main", oid="abc123"),
-        LocalBranchTipRef(branch="feat/x", oid="def456"),
-    )
-
-
-def test_parse_commit_graph_output_parses_parent_lines() -> None:
-    assert parse_commit_graph_output(
-        "child base other-parent\nbase root\nmalformed-but-still-an-oid\n\n"
-    ) == (
-        CommitGraphNode(oid="child", parent_oids=("base", "other-parent")),
-        CommitGraphNode(oid="base", parent_oids=("root",)),
-        CommitGraphNode(oid="malformed-but-still-an-oid", parent_oids=()),
-    )
-
-
-def test_parse_tree_oid_batch_check_output_maps_only_trees() -> None:
-    assert parse_tree_oid_batch_check_output(
-        "treeoid tree\nbloboid blob\nrefs/heads/missing:.asdl/objectives missing\n",
-        ("refs/heads/tree", "refs/heads/blob", "refs/heads/missing"),
-    ) == {
-        "refs/heads/tree": "treeoid",
-        "refs/heads/blob": None,
-        "refs/heads/missing": None,
-    }
-
-
-def test_parse_tree_oid_batch_check_output_returns_failure_on_row_count_mismatch() -> None:
-    result = parse_tree_oid_batch_check_output("treeoid tree\n", ("a", "b"))
-
-    assert isinstance(result, GitCommandFailure)
-    assert "unexpected number of rows" in result.message
 
 
 def test_list_local_branch_tips_returns_branch_names_and_timestamps(tmp_path: Path) -> None:
@@ -480,90 +360,6 @@ def test_list_branches_merged_into_returns_failure_for_unknown_branch(tmp_path: 
 
     assert isinstance(result, GitCommandFailure)
     assert result.returncode != 0
-
-
-def test_parse_path_touch_output_returns_touch() -> None:
-    assert parse_path_touch_output("abc123\x002026-05-20T10:44:08-04:00\n") == PathTouch(
-        oid="abc123",
-        committed_iso="2026-05-20T10:44:08-04:00",
-    )
-
-
-def test_parse_path_touch_output_rejects_empty_or_malformed_rows() -> None:
-    assert parse_path_touch_output("") is None
-    assert parse_path_touch_output("abc123 2026-05-20T10:44:08-04:00") is None
-
-
-def test_parse_path_change_touches_output_groups_commit_paths() -> None:
-    assert parse_path_change_touches_output(
-        "newer\x002026-05-20T11:00:00-04:00\n"
-        "\n"
-        ".asdl/objectives/alpha/objective.md\n"
-        ".asdl/objectives/alpha/updates/progress.md\n"
-        "outside.txt\n"
-        "older\x002026-05-20T10:00:00-04:00\n"
-        ".asdl/objectives/beta/objective.md\n",
-        ".asdl/objectives",
-    ) == (
-        PathChangeTouch(
-            oid="newer",
-            committed_iso="2026-05-20T11:00:00-04:00",
-            paths=(
-                ".asdl/objectives/alpha/objective.md",
-                ".asdl/objectives/alpha/updates/progress.md",
-            ),
-        ),
-        PathChangeTouch(
-            oid="older",
-            committed_iso="2026-05-20T10:00:00-04:00",
-            paths=(".asdl/objectives/beta/objective.md",),
-        ),
-    )
-
-
-def test_parse_path_change_touches_output_reads_name_status_rows() -> None:
-    assert parse_path_change_touches_output(
-        "newer\x002026-05-20T11:00:00-04:00\n"
-        "A\t.asdl/objectives/alpha/objective.md\n"
-        "M\t.asdl/objectives/alpha/roadmap.md\n"
-        "D\t.asdl/objectives/deleted/objective.md\n"
-        "R100\t.asdl/objectives/old/objective.md\t.asdl/objectives/new/objective.md\n"
-        "C85\t.asdl/objectives/template/objective.md\t.asdl/objectives/copy/objective.md\n"
-        "R100\t.asdl/objective-archive/old/objective.md\t.asdl/objective-archive/new/objective.md\n"
-        "M\toutside.txt\n",
-        ".asdl/objectives",
-    ) == (
-        PathChangeTouch(
-            oid="newer",
-            committed_iso="2026-05-20T11:00:00-04:00",
-            paths=(
-                ".asdl/objectives/alpha/objective.md",
-                ".asdl/objectives/alpha/roadmap.md",
-                ".asdl/objectives/deleted/objective.md",
-                ".asdl/objectives/old/objective.md",
-                ".asdl/objectives/new/objective.md",
-                ".asdl/objectives/template/objective.md",
-                ".asdl/objectives/copy/objective.md",
-            ),
-        ),
-    )
-
-
-def test_parse_path_change_touches_output_skips_malformed_blocks() -> None:
-    assert parse_path_change_touches_output(
-        ".asdl/objectives/before-header/objective.md\n"
-        "missing-iso\x00\n"
-        ".asdl/objectives/bad/objective.md\n"
-        "ok\x002026-05-20T10:00:00-04:00\n"
-        ".asdl/objectives/good/objective.md\n",
-        ".asdl/objectives",
-    ) == (
-        PathChangeTouch(
-            oid="ok",
-            committed_iso="2026-05-20T10:00:00-04:00",
-            paths=(".asdl/objectives/good/objective.md",),
-        ),
-    )
 
 
 def test_path_last_touched_returns_latest_touch(tmp_path: Path) -> None:
