@@ -2,20 +2,20 @@
 
 ## Work
 
-- [ ] Inventory current TypeScript tooling entry points and record the contract-relevant facts.
+- [x] Inventory current TypeScript tooling entry points and record the contract-relevant facts.
       Focus on package manifests, workspace boundaries, lockfiles, `justfile` targets, TypeScript CLI launch paths, project-local Pi extension loading, docs-site scripts, and any current Bun-only assumptions that affect policy. Evidence should distinguish policy-setting facts from implementation chores for later child Objectives.
 
-- [ ] Decide the Node baseline and TypeScript execution/build policy.
-      Choose the Node version expectation and the strategy for running or building TypeScript CLIs and Pi extension modules. Evidence should include a small compatibility probe or concrete source inspection sufficient to justify the selected strategy and its constraints.
+- [x] Decide the Node baseline and TypeScript execution/build policy.
+      Use Node v24.12+ as the TypeScript tooling runtime baseline. Keep project-local TypeScript CLIs and Pi extension modules on native Node type stripping with erasable-only TypeScript source; defer build-to-JavaScript artifacts unless later package-boundary evidence requires them.
 
-- [ ] Decide the pnpm workspace contract for downstream migration.
-      Define the intended workspace shape, package-manager boundary, script expectations, and lockfile direction. Leave mechanical manifest, lockfile, and docs-site script edits to the pnpm workspace child Objective unless a minimal probe is needed to validate the decision.
+- [x] Decide the pnpm workspace contract for downstream migration.
+      Use separate pnpm-managed surfaces: `ts/` as a pnpm workspace for `packages/*`, and `docs-site/` as a standalone pnpm surface. Root remains orchestration-only through directory-scoped pnpm commands. Preserve workspace source-link behavior for Node type stripping, translate the current Pi patch to pnpm-native patch metadata, enforce Node v24.12+ through `ts/package.json` engines plus docs guidance, migrate docs-site Vercel commands to pnpm, and leave Vitest/test-runner conversion to its downstream Objective.
 
-- [ ] Decide the `node:sqlite` warning policy.
-      Determine whether to accept, document, suppress, isolate, or avoid the experimental warning. Record the decision and downstream owner if implementation belongs in another child Objective.
+- [x] Decide the `node:sqlite` warning policy.
+      Keep the current `sqlite3` CLI reader acceptable. If later Node runtime compatibility work adopts `node:sqlite`, isolate it behind the Graphite metadata adapter boundary and suppress only the known sqlite warning in that targeted boundary.
 
-- [ ] Update downstream migration guidance from the settled tooling contract.
-      Record how the decisions should constrain the pnpm workspace, Vitest migration, Node runtime compatibility, and Bun-reference reconciliation child Objectives. Capture any assumption changes, risks, or open questions before closure.
+- [x] Update downstream migration guidance from the settled tooling contract.
+      Downstream guidance is recorded for pnpm workspace migration, Vitest migration, Node runtime compatibility, and Bun-reference reconciliation. Reopen contract work only if implementation evidence invalidates a recorded premise.
 
 ## Parked
 
