@@ -31,11 +31,23 @@ Subagent orchestration opportunities:
 - Do not require a strict machine-readable schema or mandatory fields. Instead, apply a launch-readiness quality bar: each suggested item must contain enough context for a fresh implementation agent to draft a focused subagent prompt and for the parent to validate success.
 - If no delegation is useful, include `Subagent orchestration opportunities: none` with a one-sentence rationale.
 - For editing subagents in one worktree, recommend sequential dispatch and parent validation after each editing subagent: inspect status and final text, review the git diff for declared scope, run targeted checks, and stop or escalate on unexpected files or failed validation.
+- If suggesting editing or implementation subagents, do not include a `model` recommendation unless a strong implementation model is explicitly required. Review-model defaults are not applicable to editing work.
 - Do not imply that planned-branch runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
 
+Subagent model routing:
+- For implementation/editing subagents:
+  - Do not set `dispatch_runner_subagent.model` to a cheap/review model.
+  - Prefer omitting the `model` field so the harness/current session default is used.
+  - Only set an explicit model for editing work if the user or command explicitly provides one.
+- For review-only subagents:
+  - Cheap model routing applies only to bounded diff review tasks.
+  - When launching a review subagent from `reviews/typescript-style.md` or `reviews/dignified-python.md`, use that review definition's `default_model` if available.
+  - Never reuse review model guidance for implementation, package creation, refactors, or test-writing subagents.
+
 Review and remediation plan:
+- The cheap-model guidance in this section is exclusively for in-session review subagents after implementation is complete. It must not be applied to any subagent that creates files, edits code, writes tests, migrates APIs, or performs implementation work.
 - Plans should include applicable in-session roaster-style reviews after implementation and focused validation, run through focused review subagents.
-- Review subagents are bounded diff inspections, so plans should route them to a cheap review-capable model when the harness supports per-dispatch model selection. In Pi, instruct the implementation agent to set `dispatch_runner_subagent.model` to the review definition's `default_model` value when that model is available; the current `reviews/typescript-style.md` and `reviews/dignified-python.md` definitions both declare `default_model: haiku`. For OpenAI-family Pi routing, use the shared cheap model pattern `openai-codex/gpt-5.4-mini:medium`; escalate to `openai-codex/gpt-5.5:high` only when validation fails or broader judgment is required. If the harness cannot force a per-dispatch model, say that the cheap-model request is unavailable instead of implying it happened.
+- Review subagents are bounded diff inspections, so only review-only subagents should be routed to a cheap review-capable model when the harness supports per-dispatch model selection. In Pi, instruct the implementation agent to set `dispatch_runner_subagent.model` to the review definition's `default_model` value when that model is available; the current `reviews/typescript-style.md` and `reviews/dignified-python.md` definitions both declare `default_model: haiku`. For OpenAI-family Pi routing, use the shared cheap model pattern `openai-codex/gpt-5.4-mini:medium`; escalate to `openai-codex/gpt-5.5:high` only when validation fails or broader judgment is required. If the harness cannot force a per-dispatch model, say that the cheap-model request is unavailable instead of implying it happened.
 - If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include an in-session `typescript-style` review subagent that reads `reviews/typescript-style.md` and applies it to the changed diff.
 - If Python files (`.py`) are likely to change, include an in-session `dignified-python` review subagent that reads `reviews/dignified-python.md` and applies it to the changed diff.
 - If both TypeScript and Python changes are likely, include both review subagents. If neither applies, say that no TypeScript/Python roaster review subagent is applicable.
