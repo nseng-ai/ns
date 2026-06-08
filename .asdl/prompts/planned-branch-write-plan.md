@@ -35,6 +35,7 @@ Subagent orchestration opportunities:
 
 Review and remediation plan:
 - Plans should include applicable in-session roaster-style reviews after implementation and focused validation, run through focused review subagents.
+- Review subagents are bounded diff inspections, so plans should route them to a cheap review-capable model when the harness supports per-dispatch model selection. In Pi, instruct the implementation agent to set `dispatch_runner_subagent.model` to the review definition's `default_model` value when that model is available; the current `reviews/typescript-style.md` and `reviews/dignified-python.md` definitions both declare `default_model: haiku`. For OpenAI-family Pi routing, use the shared cheap model pattern `openai-codex/gpt-5.4-mini:medium`; escalate to `openai-codex/gpt-5.5:high` only when validation fails or broader judgment is required. If the harness cannot force a per-dispatch model, say that the cheap-model request is unavailable instead of implying it happened.
 - If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include an in-session `typescript-style` review subagent that reads `reviews/typescript-style.md` and applies it to the changed diff.
 - If Python files (`.py`) are likely to change, include an in-session `dignified-python` review subagent that reads `reviews/dignified-python.md` and applies it to the changed diff.
 - If both TypeScript and Python changes are likely, include both review subagents. If neither applies, say that no TypeScript/Python roaster review subagent is applicable.
