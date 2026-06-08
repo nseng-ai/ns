@@ -127,3 +127,11 @@ Risks:
 - How much of current `prepare-run` should be split into lower-level helper commands before deleting the composite command?
 - Should the first stack implementation create a new roaster collector package/module before or after updating the prototype prompt?
 - What exact UX should the lightweight `pr-address` wrapper expose so users experience a coherent single-PR workflow without reintroducing duplicated core workflow logic?
+
+## Closure
+
+Closed as intentionally abandoned rather than completed. The original roaster-owned addressing engine vision was deliberately stripped down and should no longer drive `objective-next` recommendations toward a broad collector/accounting/closeout architecture.
+
+The active takeaway is narrower: preserve useful `pr-address` workflow affordances and avoid re-growing duplicated core workflow semantics, but do not treat the unchecked roadmap as an active implementation plan. Any remaining work should be captured in a smaller Objective with concrete scope, such as a focused `pr-address` wrapper cleanup or roaster prompt/contract cleanup.
+
+Remaining risks from this record are accepted as out of scope for this Objective: strict source-item accounting, governed `roaster collect` surfaces, roaster-owned closeout intents, GitHub closeout adapter execution, and wholesale deletion of old `pr-address` planning code should not be pursued merely because they appear in this closed roadmap.
