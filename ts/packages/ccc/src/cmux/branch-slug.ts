@@ -65,28 +65,7 @@ export async function summarizePlanWithGptNano(
 }
 
 async function runGptNanoText(pi: BranchSlugRuntime, cwd: string, prompt: string, timeout: number): Promise<TextResult> {
-	const result = await pi.exec(
-		"pi",
-		[
-			"--provider",
-			GPT_NANO_PROVIDER,
-			"--model",
-			GPT_NANO_MODEL,
-			"--thinking",
-			"low",
-			"--no-session",
-			"--no-extensions",
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			"--no-tools",
-			"--mode",
-			"text",
-			"--print",
-			prompt,
-		],
-		{ cwd, timeout },
-	);
+	const result = await pi.exec("pi", buildGptNanoTextArgs(prompt), { cwd, timeout });
 	if (result.code !== 0) {
 		const details = result.stderr.trim() || result.stdout.trim();
 		return { ok: false, message: details };
@@ -94,7 +73,28 @@ async function runGptNanoText(pi: BranchSlugRuntime, cwd: string, prompt: string
 	return { ok: true, text: result.stdout.trim() };
 }
 
-function buildSlugPrompt(input: {
+export function buildGptNanoTextArgs(prompt: string): string[] {
+	return [
+		"--provider",
+		GPT_NANO_PROVIDER,
+		"--model",
+		GPT_NANO_MODEL,
+		"--thinking",
+		"low",
+		"--no-session",
+		"--no-extensions",
+		"--no-skills",
+		"--no-prompt-templates",
+		"--no-context-files",
+		"--no-tools",
+		"--mode",
+		"text",
+		"--print",
+		prompt,
+	];
+}
+
+export function buildSlugPrompt(input: {
 	kind: BranchSlugContentKind;
 	content: string;
 	sourceLabel?: string;

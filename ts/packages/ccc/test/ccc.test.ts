@@ -3,6 +3,7 @@ import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import registerCccExtension from "../src/ccc.ts";
+import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
 import { registerCccSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
@@ -39,48 +40,6 @@ import {
 } from "./ccc-test-harness.ts";
 
 afterEach(resetCmuxTestEnvironment);
-
-function gptNanoTextArgs(prompt: string): string[] {
-	return [
-		"--provider",
-		"openai",
-		"--model",
-		"gpt-5.4-nano",
-		"--thinking",
-		"low",
-		"--no-session",
-		"--no-extensions",
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
-		"--no-tools",
-		"--mode",
-		"text",
-		"--print",
-		prompt,
-	];
-}
-
-function dispatchPromptSlugPrompt(prompt: string): string {
-	return [
-		"Generate a concise git branch slug for this work item.",
-		"The content is a user task prompt that will run in a new branch workspace.",
-		"Infer the actual code/product change or outcome. Do not name the document, prompt, plan, context, storage workflow, or how this work item was initiated.",
-		"Ignore metadata and provenance such as saved-plan filenames, source labels, suggested slugs, objective-next output, branch-create handoff text, and brmem storage details.",
-		"If a command name appears only because it generated or initiated the plan, do not include it. Include command/product names only when the proposed work directly changes that command/product.",
-		"Rules:",
-		"- Return only the slug, with no quotes, markdown, or explanation.",
-		"- Use kebab-case: lowercase ASCII words separated by hyphens.",
-		"- Keep it at or under 50 characters.",
-		"- Lead with a verb when natural, such as add-, fix-, refactor-, migrate-, rename-, remove-, or update-.",
-		"- Do not use spaces, underscores, slashes, punctuation, or special characters.",
-		"- Do not include generic suffixes like -plan, -prompt, -context, -branch, -task, or -suggestion unless they are the real feature name.",
-		"- Prefer concrete deliverables and specific nouns from the work item over broad words like changes, cleanup, or improvements.",
-		"",
-		"Content:",
-		prompt,
-	].join("\n");
-}
 
 describe("CCC cmux command suite", () => {
 	test("registers the project CCC command suite", () => {
@@ -361,7 +320,7 @@ describe("CCC cmux command suite", () => {
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				step("pi", gptNanoTextArgs(dispatchPromptSlugPrompt("Implement the cmux dispatch flow")), { stdout: `${BRANCH}\n` }),
+				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
