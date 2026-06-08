@@ -769,10 +769,19 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toBe(`This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
 	});
 
-	test("checked-in write-plan prompt policy matches TypeScript fallback body", async () => {
+	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
 		const promptPath = join(REPO_ROOT, ".asdl", "prompts", "planned-branch-write-plan.md");
+		const checkedInContent = await readFile(promptPath, "utf8");
 
-		expect(await readFile(promptPath, "utf8")).toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
+		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Subagent orchestration opportunities:");
+		expect(checkedInContent).toContain("Subagent orchestration opportunities:");
+		expect(checkedInContent).toContain(
+			"`Subagent orchestration opportunities: none` with a one-sentence rationale",
+		);
+		expect(checkedInContent).toContain("launch-readiness quality bar");
+		expect(checkedInContent).toContain("Prefer ordered waves");
+		expect(checkedInContent).toContain("recommend sequential dispatch and parent validation");
 	});
 });
 
