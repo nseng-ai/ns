@@ -49,12 +49,6 @@ function createHarness(options: HarnessOptions = {}) {
 				}
 				return ok("origin/base-branch\n");
 			}
-			if (command === "git" && args[0] === "for-each-ref") {
-				if (upstreamMode === "failed") {
-					return fail("bad upstream state", 128);
-				}
-				return upstreamMode === "none" ? ok() : ok("origin/base-branch\n");
-			}
 			if (command === "git" && args[0] === "rev-parse" && args[1] === "HEAD") {
 				return ok(`${head}\n`);
 			}
