@@ -10,17 +10,14 @@ from roaster.findings_publication import (
     FindingsCommentBodyParseError,
     FindingsPayload,
     FindingsPayloadParseError,
-    FindingsPublicationPolicyError,
     InlinePostingStatus,
     InlinePostingStatusParseError,
     ParsedFindingsCommentBody,
-    ensure_publishable_diff_payload,
     extract_inline_markers,
     inline_marker_for_finding,
     parse_findings_comment_body,
     parse_findings_payload_result,
     parse_inline_posting_status_result,
-    parse_publishable_diff_findings_payload_result,
     preserve_activity_log,
     render_findings_comment,
     render_inline_body,
@@ -263,177 +260,6 @@ def test_parse_missing_optional_payload_fields_uses_defaults() -> None:
     assert payload.base_ref == "unknown"
     assert payload.findings == ()
     assert payload.count == 0
-    assert payload.target_kind == "diff"
-
-
-def test_parse_diff_target_metadata() -> None:
-    payload = _parse_payload(
-        json.dumps(
-            {
-                "exit_code": 0,
-                "data": {
-                    "review_name": "dignified-python",
-                    "base_ref": "master",
-                    "target": {
-                        "kind": "diff",
-                        "label": "current branch diff",
-                        "base_ref": "master",
-                    },
-                    "findings": [],
-                },
-            }
-        )
-    )
-
-    assert payload.target_kind == "diff"
-    assert payload.target_label == "current branch diff"
-    assert payload.target_source_path is None
-
-
-def test_parse_document_target_metadata() -> None:
-    payload = _parse_payload(
-        json.dumps(
-            {
-                "exit_code": 0,
-                "data": {
-                    "review_name": "adversarial",
-                    "base_ref": None,
-                    "target": {"kind": "document", "label": "stdin"},
-                    "findings": [
-                        {
-                            "location": {"kind": "global"},
-                            "severity": "warning",
-                            "summary": "Missing rollback",
-                            "details": "Add rollback steps.",
-                        }
-                    ],
-                },
-            }
-        )
-    )
-
-    assert payload.target_kind == "document"
-    assert payload.target_label == "stdin"
-    assert payload.base_ref == "unknown"
-    assert payload.findings[0].path is None
-    assert payload.findings[0].line is None
-
-
-def test_render_document_finding_without_path_or_line_uses_dash_location() -> None:
-    finding = ReviewFinding.global_finding(
-        severity="warning",
-        summary="Missing rollback",
-        details="Add rollback steps.",
-    )
-
-    body = render_findings_comment(_payload(findings=(finding,)))
-
-    assert "| ⚠️ warning | `—` | — | Missing rollback |" in body
-    assert "### `—` — warning" in body
-
-
-def test_document_inline_marker_includes_location_discriminator() -> None:
-    global_finding = ReviewFinding.global_finding(
-        severity="warning",
-        summary="Missing rollback",
-        details="Add rollback steps.",
-    )
-    anchored_finding = ReviewFinding.from_json_dict(
-        {
-            "location": {"kind": "text_anchor", "text": "Ship it safely."},
-            "severity": "warning",
-            "summary": "Missing rollback",
-            "details": "Add rollback steps.",
-        }
-    )
-
-    assert inline_marker_for_finding("adversarial", global_finding) != inline_marker_for_finding(
-        "adversarial",
-        anchored_finding,
-    )
-
-
-def test_parse_rejects_malformed_target_kind() -> None:
-    result = _parse_error(
-        json.dumps(
-            {
-                "exit_code": 0,
-                "data": {"target": {"kind": "artifact"}, "findings": []},
-            }
-        )
-    )
-
-    assert "target kind" in result.message
-
-
-def test_ensure_publishable_diff_payload_rejects_document_payload() -> None:
-    payload = FindingsPayload(
-        review_name="adversarial",
-        base_ref="unknown",
-        count=0,
-        findings=(),
-        target_kind="document",
-        target_label="stdin",
-    )
-
-    result = ensure_publishable_diff_payload(payload)
-
-    assert isinstance(result, FindingsPublicationPolicyError)
-    assert result.error_type == "findings_publication_policy_failed"
-    assert "local-output only" in result.message
-
-
-def test_parse_publishable_diff_findings_payload_rejects_document_payload_as_policy() -> None:
-    raw = json.dumps(
-        {
-            "exit_code": 0,
-            "data": {
-                "target": {"kind": "document", "label": "stdin"},
-                "findings": [
-                    {
-                        "location": {"kind": "global"},
-                        "severity": "warning",
-                        "summary": "Missing rollback",
-                        "details": "Add rollback steps.",
-                    }
-                ],
-            },
-        }
-    )
-
-    parse_result = parse_findings_payload_result(raw)
-    publishable_result = parse_publishable_diff_findings_payload_result(raw)
-
-    assert isinstance(parse_result, FindingsPayload)
-    assert parse_result.target_kind == "document"
-    assert isinstance(publishable_result, FindingsPublicationPolicyError)
-    assert publishable_result.error_type == "findings_publication_policy_failed"
-    assert "local-output only" in publishable_result.message
-
-
-def test_parse_publishable_diff_findings_payload_preserves_parse_errors() -> None:
-    result = parse_publishable_diff_findings_payload_result("not json")
-
-    assert isinstance(result, FindingsPayloadParseError)
-    assert result.error_type == "findings_parse_failed"
-
-
-def test_ensure_publishable_diff_payload_rejects_document_location() -> None:
-    payload = _payload(
-        findings=(
-            ReviewFinding.global_finding(
-                severity="warning",
-                summary="Missing rollback",
-                details="Add rollback steps.",
-            ),
-        )
-    )
-
-    result = ensure_publishable_diff_payload(payload)
-
-    assert isinstance(result, FindingsPublicationPolicyError)
-    assert result.error_type == "findings_publication_policy_failed"
-    assert "requires diff-line" in result.message
 
 
 def test_parse_count_derives_from_findings_when_absent() -> None:

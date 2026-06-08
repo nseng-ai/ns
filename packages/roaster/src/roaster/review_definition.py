@@ -1,4 +1,4 @@
-"""Parsing helpers for markdown-defined reviewers."""
+"""Parsing helpers for markdown-defined CI reviewers."""
 
 from __future__ import annotations
 
@@ -9,18 +9,11 @@ import yaml
 from roaster.models import ReviewDefinition
 
 _FRONTMATTER_FENCE = "---"
-
-_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset(
-    {"ci", "description", "default_model", "when_changed"}
-)
+_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset({"description", "default_model"})
 
 
 def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
-    """Parse a review definition written as YAML frontmatter + markdown body.
-
-    The reviewer `name` is supplied by the caller (typically the filename
-    without its extension) rather than declared in the frontmatter.
-    """
+    """Parse a CI review definition written as YAML frontmatter + markdown body."""
     if not name.strip():
         raise ValueError("Review definition `name` must be a non-empty string.")
 
@@ -39,17 +32,14 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
     _reject_unknown_keys(parsed_frontmatter)
 
     description = _require_string(parsed_frontmatter, "description")
-    ci = _require_ci_bool(frontmatter_text, parsed_frontmatter)
-
-    default_model_value = parsed_frontmatter.get("default_model")
-    if default_model_value is None:
+    if "default_model" not in parsed_frontmatter:
         default_model: str | None = None
-    elif isinstance(default_model_value, str) and default_model_value.strip():
-        default_model = default_model_value.strip()
     else:
-        raise ValueError("Review definition field `default_model` must be a non-empty string.")
-
-    when_changed = _optional_string_tuple(parsed_frontmatter, "when_changed")
+        default_model_value = parsed_frontmatter["default_model"]
+        if isinstance(default_model_value, str) and default_model_value.strip():
+            default_model = default_model_value.strip()
+        else:
+            raise ValueError("Review definition field `default_model` must be a non-empty string.")
 
     instructions = body.strip()
     if not instructions:
@@ -60,8 +50,6 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         description=description,
         instructions=instructions,
         default_model=default_model,
-        ci=ci,
-        when_changed=when_changed,
     )
 
 
@@ -106,53 +94,3 @@ def _require_string(frontmatter: dict[str, Any], field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"Review definition field `{field}` must be a non-empty string.")
     return value.strip()
-
-
-def _require_ci_bool(frontmatter_text: str, frontmatter: dict[str, Any]) -> bool:
-    field = "ci"
-    if field not in frontmatter:
-        raise ValueError(f"Review definition frontmatter is missing required field `{field}`.")
-
-    ci_literal = _top_level_ci_literal(frontmatter_text)
-    if ci_literal not in {"true", "false"} or not isinstance(frontmatter[field], bool):
-        raise ValueError("Review definition field `ci` must be literal true or false.")
-    return frontmatter[field]
-
-
-def _top_level_ci_literal(frontmatter_text: str) -> str | None:
-    ci_lines: list[str] = []
-    for line in frontmatter_text.splitlines():
-        if line[:1].isspace():
-            continue
-        stripped = line.strip()
-        if stripped.startswith("ci:"):
-            ci_lines.append(stripped)
-
-    if len(ci_lines) != 1:
-        return None
-
-    value = ci_lines[0].partition(":")[2].strip()
-    if "#" in value:
-        value = value.split("#", 1)[0].strip()
-    return value
-
-
-def _optional_string_tuple(frontmatter: dict[str, Any], field: str) -> tuple[str, ...]:
-    if field not in frontmatter:
-        return ()
-
-    value = frontmatter[field]
-    if not isinstance(value, list):
-        raise ValueError(f"Review definition field `{field}` must be a list of non-empty strings.")
-    if not value:
-        raise ValueError(f"Review definition field `{field}` must contain at least one pattern.")
-
-    values: list[str] = []
-    for index, item in enumerate(value):
-        if not isinstance(item, str) or not item.strip():
-            raise ValueError(
-                f"Review definition field `{field}` item {index} must be a non-empty string."
-            )
-        values.append(item.strip())
-
-    return tuple(values)

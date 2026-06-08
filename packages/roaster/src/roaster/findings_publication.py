@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.models import DiffLineLocation, ReviewFinding, TargetKind
+from roaster.models import ReviewFinding
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -29,14 +29,6 @@ class FindingsPayloadParseError:
 
     message: str
     error_type: str = "findings_parse_failed"
-
-
-@dataclass(frozen=True)
-class FindingsPublicationPolicyError:
-    """Non-ideal result for valid findings payloads that cannot be published to a PR."""
-
-    message: str
-    error_type: str = "findings_publication_policy_failed"
 
 
 @dataclass(frozen=True)
@@ -61,9 +53,6 @@ class FindingsPayload:
     base_ref: str
     count: int
     findings: tuple[ReviewFinding, ...]
-    target_kind: TargetKind = "diff"
-    target_label: str | None = None
-    target_source_path: str | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -87,9 +76,6 @@ class ParsedFindingsCommentBody:
 
 
 FindingsPayloadParseResult: TypeAlias = FindingsPayload | FindingsPayloadParseError
-PublishableFindingsPayloadResult: TypeAlias = (
-    FindingsPayload | FindingsPayloadParseError | FindingsPublicationPolicyError
-)
 InlinePostingStatusParseResult: TypeAlias = InlinePostingStatus | InlinePostingStatusParseError
 FindingsCommentBodyParseResult: TypeAlias = (
     ParsedFindingsCommentBody | FindingsCommentBodyParseError
@@ -130,11 +116,6 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
     review_name = _coerce_str(inner.get("review_name"), default="unknown")
     base_ref = _coerce_str(inner.get("base_ref"), default="unknown")
-    target_metadata = _parse_target_metadata(inner)
-    if isinstance(target_metadata, FindingsPayloadParseError):
-        return target_metadata
-    target_kind, target_label, target_source_path = target_metadata
-
     raw_findings = inner.get("findings", [])
     if not isinstance(raw_findings, list):
         return FindingsPayloadParseError(message="`findings` must be a list when present")
@@ -155,9 +136,6 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
         base_ref=base_ref,
         count=count,
         findings=tuple(findings),
-        target_kind=target_kind,
-        target_label=target_label,
-        target_source_path=target_source_path,
     )
 
 
@@ -180,36 +158,6 @@ def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResu
             return InlinePostingStatusParseError(message="inline result `data` must be an object")
 
     return _parse_inline_posting_status_object(status_data)
-
-
-def parse_publishable_diff_findings_payload_result(raw: str) -> PublishableFindingsPayloadResult:
-    """Parse findings JSON and reject valid local-only findings before PR publication."""
-    payload = parse_findings_payload_result(raw)
-    if isinstance(payload, FindingsPayloadParseError):
-        return payload
-    return ensure_publishable_diff_payload(payload)
-
-
-def ensure_publishable_diff_payload(
-    payload: FindingsPayload,
-) -> FindingsPayload | FindingsPublicationPolicyError:
-    """Reject local-only document review payloads before PR publication."""
-    if payload.target_kind != "diff":
-        return FindingsPublicationPolicyError(
-            message=(
-                "document review findings are local-output only "
-                "and cannot be published as PR comments"
-            )
-        )
-    for finding in payload.findings:
-        if not isinstance(finding.location, DiffLineLocation):
-            return FindingsPublicationPolicyError(
-                message=(
-                    "PR comment publication requires diff-line finding locations; "
-                    f"got {finding.location.kind!r}"
-                )
-            )
-    return payload
 
 
 def render_findings_comment(
@@ -267,19 +215,11 @@ def preserve_activity_log(existing_body: str, new_body: str, run_summary: str) -
 
 
 def inline_marker_for_finding(review_name: str, finding: ReviewFinding) -> str:
-    location_discriminator = ""
-    if not isinstance(finding.location, DiffLineLocation):
-        location_discriminator = json.dumps(
-            finding.location.model_dump(mode="json"),
-            sort_keys=True,
-            separators=(",", ":"),
-        )
     digest_input = "\0".join(
         (
             review_name,
-            finding.path or "",
+            finding.path,
             "" if finding.line is None else str(finding.line),
-            location_discriminator,
             finding.severity,
             finding.summary,
             finding.details,
@@ -366,15 +306,15 @@ def _render_findings_body(payload: FindingsPayload) -> list[str]:
 
 def _finding_table_row(finding: ReviewFinding) -> str:
     return (
-        f"| {_severity_label(finding.severity)} | `{_path_display(finding.path)}` | "
+        f"| {_severity_label(finding.severity)} | `{finding.path}` | "
         f"{_line_display(finding.line)} | {finding.summary} |"
     )
 
 
 def _finding_location(finding: ReviewFinding) -> str:
     if finding.line is None:
-        return _path_display(finding.path)
-    return f"{_path_display(finding.path)}:{finding.line}"
+        return finding.path
+    return f"{finding.path}:{finding.line}"
 
 
 def _severity_label(severity: str) -> str:
@@ -385,54 +325,10 @@ def _line_display(line: int | None) -> str:
     return "—" if line is None else str(line)
 
 
-def _path_display(path: str | None) -> str:
-    return "—" if path is None else path
-
-
 def _coerce_str(value: Any, *, default: str) -> str:
     if isinstance(value, str) and value:
         return value
     return default
-
-
-def _parse_target_metadata(
-    inner: dict[str, Any],
-) -> tuple[TargetKind, str | None, str | None] | FindingsPayloadParseError:
-    target = inner.get("target")
-    if target is not None:
-        if not isinstance(target, dict):
-            return FindingsPayloadParseError(message="`target` must be an object when present")
-        raw_kind = target.get("kind", "diff")
-        raw_label = target.get("label")
-        raw_source_path = target.get("source_path")
-    else:
-        raw_kind = inner.get("target_kind", "diff")
-        raw_label = inner.get("target_label")
-        raw_source_path = inner.get("target_source_path")
-    if raw_kind == "diff":
-        target_kind: TargetKind = "diff"
-    elif raw_kind == "document":
-        target_kind = "document"
-    else:
-        return FindingsPayloadParseError(
-            message="target kind must be either `diff` or `document` when present"
-        )
-
-    target_label = _optional_str(raw_label, field_name="target label")
-    if isinstance(target_label, FindingsPayloadParseError):
-        return target_label
-    target_source_path = _optional_str(raw_source_path, field_name="target source_path")
-    if isinstance(target_source_path, FindingsPayloadParseError):
-        return target_source_path
-    return target_kind, target_label, target_source_path
-
-
-def _optional_str(value: Any, *, field_name: str) -> str | None | FindingsPayloadParseError:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value or None
-    return FindingsPayloadParseError(message=f"{field_name} must be a string when present")
 
 
 def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:

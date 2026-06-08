@@ -93,7 +93,7 @@ export default defineConfig({
             { label: 'pr-address — review replies', slug: 'tools/pr-address' },
             { label: 'aretro — retrospectives', slug: 'tools/aretro' },
             { label: 'objective — durable plans', slug: 'tools/objective' },
-            { label: 'roaster — review harness', slug: 'tools/roaster' },
+            { label: 'roaster — CI PR-diff findings', slug: 'tools/roaster' },
           ],
         },
         {

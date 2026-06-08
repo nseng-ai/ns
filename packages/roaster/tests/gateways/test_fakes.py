@@ -25,23 +25,19 @@ from roaster.models import (
 
 def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
     return HarnessReviewRequest(
-        harness_name="claude-code",
         model="sonnet",
         review_definition=ReviewDefinition(
             name=review_name,
             description="Review Python diffs for style violations.",
             instructions="Flag concrete issues in the diff.",
             default_model="sonnet",
-            ci=True,
         ),
         target=DiffReviewTarget(
-            kind="diff",
             local_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
             ),
         ),
-        review_format="findings",
     )
 
 
@@ -142,32 +138,6 @@ def test_fake_load_diff_returns_default_failure() -> None:
 
     assert result is failure
     assert gateway.requested_base_refs == (None,)
-
-
-def test_fake_list_harnesses_returns_configured_path() -> None:
-    harness_runtime = FakeHarnessRuntime(paths_by_binary={"claude": "/usr/local/bin/claude"})
-
-    detections = harness_runtime.list_harnesses()
-
-    assert len(detections) == 1
-    detection = detections[0]
-    assert detection.name == "claude-code"
-    assert detection.binary == "claude"
-    assert detection.available is True
-    assert detection.path == "/usr/local/bin/claude"
-
-
-def test_fake_list_harnesses_reports_binary_absent() -> None:
-    harness_runtime = FakeHarnessRuntime()
-
-    detections = harness_runtime.list_harnesses()
-
-    assert len(detections) == 1
-    detection = detections[0]
-    assert detection.name == "claude-code"
-    assert detection.binary == "claude"
-    assert detection.available is False
-    assert detection.path is None
 
 
 def test_fake_run_review_returns_configured_response() -> None:

@@ -1,11 +1,11 @@
 ---
 title: roaster
-description: A markdown-driven review harness for running and posting reviewer output.
+description: A CI PR-diff findings runner for running and posting reviewer output.
 sidebar:
   order: 6
 ---
 
-`roaster` runs review workflows from Markdown configuration and formats the
+`roaster` runs CI PR-diff findings reviews from Markdown configuration and formats the
 results for humans, agents, and PR comments.
 
 ```bash
@@ -14,9 +14,9 @@ roaster exec format-findings-comment --format md
 
 ## Mental model
 
-Review harnesses are most useful when the review prompt, inputs, and posted
-output are explicit artifacts. `roaster` keeps the mechanical review surfaces in
-`exec` commands that skills can call repeatably.
+CI reviewers are most useful when the review prompt, PR diff input, and posted
+output are explicit artifacts. `roaster` keeps the mechanical publication surfaces in
+`exec` commands that automation can call repeatably.
 
 ## Install
 
@@ -28,12 +28,13 @@ asdl roaster --help
 
 ## Common commands
 
-| Goal                                   | Command                                | Boundary                          |
-| -------------------------------------- | -------------------------------------- | --------------------------------- |
-| Format review findings                 | `roaster exec format-findings-comment` | Read-only                         |
-| List changed-path-matching review keys | `roaster review list-matching`         | Read-only                         |
-| Run one review                         | `roaster review run <key>`             | Depends on reviewer configuration |
-| Run review workflow                    | `roaster exec ...`                     | Depends on reviewer configuration |
+| Goal                    | Command                                | Boundary                   |
+| ----------------------- | -------------------------------------- | -------------------------- |
+| List CI review keys     | `roaster review list`                  | Read-only                  |
+| Run one CI review       | `roaster review run <key>`             | Invokes Claude Code        |
+| Format review findings  | `roaster exec format-findings-comment` | Read-only                  |
+| Publish PR comments     | `roaster exec post-findings-comment`   | Mutates PR comments        |
+| Publish inline comments | `roaster exec post-inline-findings`    | Mutates PR review comments |
 
 ## Agent interface
 
