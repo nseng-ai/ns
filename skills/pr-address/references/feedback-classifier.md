@@ -36,9 +36,63 @@ locators, the generated template, expected output shape, and completeness
 requirements to the side channel. If no separate subagent or helper is available,
 inspect only the required bodies with `read-feedback-detail`.
 
-## Output packet
+## Delegated classifier report
 
-Return a strict classification packet with `schema_version: 1`:
+When acting as a delegated classifier subagent, return a concise prose/Markdown
+classification report keyed by stable review, thread, discussion-comment, and
+covered thread-comment IDs. Do not emit the final validation JSON packet unless
+the parent prompt explicitly requests a special machine packet for a structured
+terminal-capture mode.
+
+Recommended report shape:
+
+```md
+## Coverage
+
+- Reviews: accounted for 1/1
+- Review threads: accounted for 1/1
+- Thread comments: covered 2/2
+- Discussion comments: accounted for 1/1
+
+## Review threads
+
+### PRRT_kw...
+
+Disposition: actionable
+Summary: Reviewer is asking for a clearer error message.
+Recommended action: Update the raised error text and nearby assertion.
+Complexity: single_file
+Pre-existing: no
+Covered comments: 123456, 123457
+Confidence: high
+Evidence: /data/review_threads/0/comments/0/body, /data/review_threads/0/comments/1/body
+
+## Discussion comments
+
+### 987654
+
+Disposition: informational
+Summary: CI status bot posted a passing workflow summary.
+Informational reason: automation
+Needs reply: no
+Confidence: high
+Evidence: /data/discussion_comments/0/body
+```
+
+For each required item, include the disposition, summary, evidence inspected,
+and confidence or blockers. For actionable items, include recommended action,
+complexity, and whether the item is pre-existing. For informational items,
+include the informational reason. For actionable discussion comments, include
+whether a reply is needed.
+
+The report should be easy for the parent to inspect and translate into the
+classification scaffold. It is intentionally not a strict schema.
+
+## Canonical validation packet
+
+The parent skill builds the canonical JSON classification packet and passes it to
+`pr-address exec validate-feedback-classification`. That packet has
+`schema_version: 1`:
 
 ```jsonc
 {
@@ -97,11 +151,11 @@ Return a strict classification packet with `schema_version: 1`:
 }
 ```
 
-When a `classification-template` scaffold is available, fill that scaffold
-instead of writing the packet from scratch. Preserve all prefilled IDs, locator
-references, item pointers, and `covered_comments`; fill only semantic judgment
-fields. Use locator references copied from the manifest. Do not invent IDs,
-pointers, or item paths.
+When a `classification-template` scaffold is available, the parent fills that
+scaffold instead of writing the packet from scratch. Preserve all prefilled IDs,
+locator references, item pointers, thread item pointers, and
+`covered_comments`; fill only semantic judgment fields. Use locator references
+copied from the manifest. Do not invent IDs, pointers, or item paths.
 
 Enum values:
 
@@ -123,7 +177,14 @@ Field rules:
 
 ## Completeness invariant
 
-The packet must account for the manifest exactly:
+Completeness has two layers:
+
+- The delegated classifier report must account for every required review,
+  unresolved review thread, covered thread comment, and discussion comment by
+  stable ID.
+- The parent-generated JSON packet must satisfy exact-once validation.
+
+The final packet must account for the manifest exactly:
 
 - Every manifest PR-level review appears in `classification.reviews` exactly
   once.
@@ -143,31 +204,35 @@ explicit per-ID records with `informational_reason`.
 
 ## Validation and retry
 
-The parent skill validates the compact manifest and packet with
+The parent skill validates the compact manifest and parent-generated packet with
 `pr-address exec validate-feedback-classification` before showing an execution
 plan. Prefer split inputs (`--manifest-file` / `--classification-file` or the
 matching `--*-json` options); legacy wrapper JSON remains supported.
 
-If validation returns `exit_code: 1`, inspect `data.counts` and `data.errors`,
-pass those diagnostics back to the classifier once, and ask for a corrected
-packet. If the retry still fails, stop and report the diagnostics. If validation
-returns `exit_code: 2`, treat it as malformed workflow input and stop.
+If validation returns `exit_code: 1`, inspect `data.counts` and `data.errors`.
+The parent fixes translation, schema, and scaffold-preservation mistakes locally:
+malformed JSON, missing arrays, locator mismatches, copied pointer drift, or
+wrongly edited `covered_comments` do not require a new classifier run. Retry or
+escalate the classifier only when diagnostics show incomplete, duplicate,
+ambiguous, or contradictory semantic judgments in the report. If the retry still
+fails, stop and report the diagnostics. If validation returns `exit_code: 2`,
+treat it as malformed workflow input and stop.
 
 ## Cost-aware model routing
 
 In Pi, ordinary initial classification should request the canonical cheap
 classification model named in the shared Pi launch policy via the runner
-subagent `model` field when that model is available. This model is only for
-bounded first-pass classification over compact manifest entries, payload
+subagent `model` field when that model is available. This model is only for a
+bounded first-pass semantic report over compact manifest entries, payload
 locators, selected body text, and these finite classifier rules; it is not
 authority to bypass deterministic validation.
 
 Escalate to the parent/default strong model, or to the concrete Pi escalation
-target named in the shared Pi launch policy, when validation fails, required
-items are omitted, comments are ambiguous, reviewer intent is human-sensitive,
-the classifier reports low confidence or blockers, or the classifier needs
-complex cross-file code context. Pass the validation diagnostics and original
-manifest/template evidence to the escalation run.
+target named in the shared Pi launch policy, when validation reveals missing or
+duplicate semantic judgments, comments are ambiguous, reviewer intent is
+human-sensitive, the classifier reports low confidence or blockers, or the
+classifier needs complex cross-file code context. Pass the diagnostics and
+original manifest/template evidence to the escalation run.
 
 ## Classification rules
 
