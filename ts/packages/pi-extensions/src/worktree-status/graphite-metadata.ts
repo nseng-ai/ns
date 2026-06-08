@@ -1,6 +1,7 @@
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
 import { join } from "node:path";
+import { Worker as ThreadWorker } from "node:worker_threads";
 
 import { isRecord } from "../cmux/primitives.ts";
 
@@ -74,25 +75,18 @@ interface GraphiteMetadataColumnRow {
 	name: unknown;
 }
 
-interface BunSqliteStatement<ReturnType, ParamsType extends readonly unknown[]> {
-	get(...params: ParamsType): ReturnType | null | undefined;
-	all(...params: ParamsType): ReturnType[];
+interface SqliteCliResult {
+	type: "success";
+	data: unknown;
 }
 
-interface BunSqliteDatabase {
-	query<ReturnType, ParamsType extends readonly unknown[]>(sql: string): BunSqliteStatement<ReturnType, ParamsType>;
-	close(): void;
+interface SqliteCliFailure {
+	type: "failure";
+	reason: Extract<GraphiteMetadataUnavailableReason, "sqlite-unavailable" | "read-failed">;
 }
-
-type BunSqliteDatabaseConstructor = new (filename: string, options: { readonly: true }) => BunSqliteDatabase;
-
-type GraphiteMetadataWorkerConstructor = new (specifier: URL, options: { type: "module" }) => GraphiteMetadataWorkerHandle;
-
-declare const Worker: GraphiteMetadataWorkerConstructor;
 
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
-
-const requireRuntimeModule = createRequire(import.meta.url);
+const SQLITE_QUERY_TIMEOUT_MS = 1_000;
 
 interface CachedGraphiteMetadataWorker {
 	worker: GraphiteMetadataWorkerHandle;
@@ -218,47 +212,58 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 	const dbPath = join(input.commonGitDir, GRAPHITE_METADATA_DB_NAME);
 	if (!existsSync(dbPath)) return { type: "unavailable", reason: "missing-db", currentBranch: input.currentBranch };
 
-	const Database = loadBunSqliteDatabaseConstructor();
-	if (Database === undefined) {
-		return { type: "unavailable", reason: "sqlite-unavailable", currentBranch: input.currentBranch };
+	const schemaRows = runSqliteJsonQuery(dbPath, "PRAGMA table_info(branch_metadata)");
+	if (schemaRows.type === "failure") {
+		return { type: "unavailable", reason: schemaRows.reason, currentBranch: input.currentBranch };
+	}
+	if (!hasExpectedBranchMetadataSchema(schemaRows.data)) {
+		return { type: "unavailable", reason: "schema-mismatch", currentBranch: input.currentBranch };
 	}
 
-	let db: BunSqliteDatabase | undefined;
-	try {
-		db = new Database(dbPath, { readonly: true });
-		if (!hasExpectedBranchMetadataSchema(db)) {
-			return { type: "unavailable", reason: "schema-mismatch", currentBranch: input.currentBranch };
-		}
-
-		const row = db
-			.query<GraphiteMetadataSqlRow, [string]>(
-				"SELECT parent_branch_name, children, validation_result FROM branch_metadata WHERE branch_name = ? LIMIT 1",
-			)
-			.get(input.currentBranch);
-		if (row == null) return { type: "untracked", currentBranch: input.currentBranch };
-
-		return {
-			type: "tracked",
-			currentBranch: input.currentBranch,
-			parent: metadataText(row.parent_branch_name),
-			children: parseGraphiteChildren(row.children),
-			isCurrentTrunk: isGraphiteTrunkValidationResult(row.validation_result),
-		};
-	} catch {
-		return { type: "unavailable", reason: "read-failed", currentBranch: input.currentBranch };
-	} finally {
-		if (db !== undefined) {
-			try {
-				db.close();
-			} catch {
-				// Closing a read-only status probe must not throw through passive UI refresh.
-			}
-		}
+	const rowQuery = [
+		"SELECT parent_branch_name, children, validation_result",
+		"FROM branch_metadata",
+		`WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`,
+		"LIMIT 1",
+	].join(" ");
+	const rowResult = runSqliteJsonQuery(dbPath, rowQuery);
+	if (rowResult.type === "failure") {
+		return { type: "unavailable", reason: rowResult.reason, currentBranch: input.currentBranch };
 	}
+
+	const rows = graphiteMetadataSqlRowsFromValue(rowResult.data);
+	const row = rows[0];
+	if (row === undefined) return { type: "untracked", currentBranch: input.currentBranch };
+
+	return {
+		type: "tracked",
+		currentBranch: input.currentBranch,
+		parent: metadataText(row.parent_branch_name),
+		children: parseGraphiteChildren(row.children),
+		isCurrentTrunk: isGraphiteTrunkValidationResult(row.validation_result),
+	};
 }
 
 function createGraphiteMetadataWorker(): GraphiteMetadataWorkerHandle {
-	return new Worker(new URL("./graphite-metadata-worker.ts", import.meta.url), { type: "module" });
+	const worker = new ThreadWorker(new URL("./graphite-metadata-worker.ts", import.meta.url), { execArgv: [] });
+	const handle: GraphiteMetadataWorkerHandle = {
+		onmessage: null,
+		onerror: null,
+		postMessage(message) {
+			worker.postMessage(message);
+		},
+		terminate() {
+			return worker.terminate();
+		},
+	};
+	worker.on("message", (data: unknown) => handle.onmessage?.({ data }));
+	worker.on("error", (error: unknown) => {
+		const event: { message?: string; error?: unknown } = {};
+		if (error instanceof Error) event.message = error.message;
+		event.error = error;
+		handle.onerror?.(event);
+	});
+	return handle;
 }
 
 function acquireGraphiteMetadataWorker(factory: GraphiteMetadataWorkerFactory): AcquiredGraphiteMetadataWorker {
@@ -357,18 +362,35 @@ function isGraphiteMetadataUnavailableReason(value: unknown): value is GraphiteM
 	return GRAPHITE_METADATA_UNAVAILABLE_REASONS.some((reason) => reason === value);
 }
 
-function loadBunSqliteDatabaseConstructor(): BunSqliteDatabaseConstructor | undefined {
+function runSqliteJsonQuery(dbPath: string, query: string): SqliteCliResult | SqliteCliFailure {
+	const result = spawnSync("sqlite3", ["-json", dbPath, query], {
+		encoding: "utf8",
+		timeout: SQLITE_QUERY_TIMEOUT_MS,
+	});
+
+	if (result.error !== undefined) {
+		const errorCode = errorCodeFromValue(result.error);
+		return { type: "failure", reason: errorCode === "ENOENT" ? "sqlite-unavailable" : "read-failed" };
+	}
+	if (result.status !== 0) return { type: "failure", reason: "read-failed" };
+
 	try {
-		const sqliteModule = requireRuntimeModule("bun:sqlite") as unknown;
-		if (!isRecord(sqliteModule) || typeof sqliteModule.Database !== "function") return undefined;
-		return sqliteModule.Database as BunSqliteDatabaseConstructor;
+		return { type: "success", data: JSON.parse(result.stdout.trim() || "[]") };
 	} catch {
-		return undefined;
+		return { type: "failure", reason: "read-failed" };
 	}
 }
 
-function hasExpectedBranchMetadataSchema(db: BunSqliteDatabase): boolean {
-	const rows = db.query<GraphiteMetadataColumnRow, []>("PRAGMA table_info(branch_metadata)").all();
+function errorCodeFromValue(value: unknown): string | undefined {
+	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
+}
+
+function sqliteTextLiteral(value: string): string {
+	return `'${value.replaceAll("'", "''")}'`;
+}
+
+function hasExpectedBranchMetadataSchema(value: unknown): boolean {
+	const rows = graphiteMetadataColumnRowsFromValue(value);
 	const columnNames = new Set<string>();
 	for (const row of rows) {
 		const name = metadataText(row.name);
@@ -381,6 +403,19 @@ function isGraphiteTrunkValidationResult(value: unknown): boolean {
 	// Graphite's private metadata DB currently marks the configured trunk with this validation result.
 	// Keep the sentinel isolated so future schema drift is visible through the schema-mismatch path above.
 	return metadataText(value)?.toUpperCase() === "TRUNK";
+}
+
+function graphiteMetadataColumnRowsFromValue(value: unknown): GraphiteMetadataColumnRow[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter((row): row is GraphiteMetadataColumnRow => isRecord(row) && "name" in row);
+}
+
+function graphiteMetadataSqlRowsFromValue(value: unknown): GraphiteMetadataSqlRow[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter(
+		(row): row is GraphiteMetadataSqlRow =>
+			isRecord(row) && "parent_branch_name" in row && "children" in row && "validation_result" in row,
+	);
 }
 
 function parseGraphiteChildren(value: unknown): readonly string[] {

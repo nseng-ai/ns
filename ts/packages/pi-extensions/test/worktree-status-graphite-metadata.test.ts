@@ -1,6 +1,6 @@
+import { copyFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 
 import {
@@ -14,7 +14,7 @@ import {
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "../src/worktree-status/graphite-metadata.ts";
-import { makeGitRepo, withTempRoot, writeGraphiteMetadataDb } from "./worktree-status-fixtures.ts";
+import { makeGitRepo, withTempRoot, runSqliteStatements, writeGraphiteMetadataDb } from "./worktree-status-fixtures.ts";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -74,6 +74,7 @@ class ManualMetadataWorker implements GraphiteMetadataWorkerHandle {
 
 const WORKER_LOOKUP_INPUT = { commonGitDir: "/repo/.git", currentBranch: "feature/current" };
 const WORKER_LOOKUP_REQUEST = { type: "load_graphite_metadata", input: WORKER_LOOKUP_INPUT } satisfies GraphiteMetadataWorkerRequest;
+const CURRENT_ASDL_TOOLS_METADATA_FIXTURE = new URL("./fixtures/graphite-metadata/asdl-tools-current.graphite_metadata.db", import.meta.url);
 
 afterEach(() => {
 	shutdownGraphiteMetadataWorker();
@@ -124,6 +125,23 @@ describe("Graphite metadata status lookup", () => {
 		});
 	});
 
+	test("loads trunk metadata from the copied current asdl-tools Graphite database", async () => {
+		await withTempRoot(makeGitRepo("master"), (root) => {
+			copyFileSync(CURRENT_ASDL_TOOLS_METADATA_FIXTURE, join(root, ".git", ".graphite_metadata.db"));
+
+			const status = loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "master" });
+			expect(status).toMatchObject({
+				type: "tracked",
+				currentBranch: "master",
+				parent: undefined,
+				isCurrentTrunk: true,
+			});
+			if (status.type !== "tracked") throw new Error("expected copied Graphite fixture to track master");
+			expect(status.children).toContain("add-aretro-branch-retro-command");
+			expect(status.children.length).toBeGreaterThan(10);
+		});
+	});
+
 	test("reports untracked when the current branch has no row", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
 			writeGraphiteMetadataDb(join(root, ".git"), [{ branchName: "main", validationResult: "TRUNK" }]);
@@ -137,12 +155,9 @@ describe("Graphite metadata status lookup", () => {
 
 	test("reports schema mismatch when required columns are missing", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			const db = new Database(join(root, ".git", ".graphite_metadata.db"));
-			try {
-				db.run("CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT)");
-			} finally {
-				db.close();
-			}
+			runSqliteStatements(join(root, ".git", ".graphite_metadata.db"), [
+				"CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT);",
+			]);
 
 			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" })).toEqual({
 				type: "unavailable",
