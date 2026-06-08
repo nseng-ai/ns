@@ -5,11 +5,11 @@
 - [x] Inventory active Bun package-manager surfaces for `ts/`, root orchestration, and `docs-site`.
       Evidence: active package-manager surfaces are `ts/bun.lock`, `docs-site/bun.lock`, root and docs-site Vercel command configuration, Bun-backed `justfile` and CI commands, `ts/package.json` workspace/scripts/patch metadata, and command docs for `asdl-dev` and docs-site. Test imports/scripts, Bun shebang/runtime fallback behavior, and Bun-centric templates are classified as sibling Objective work.
 
-- [ ] Migrate `ts/` to the settled pnpm workspace contract.
-      Add pnpm workspace metadata for `packages/*`, package-manager and Node-engine metadata, pnpm lockfile state, and dependency/script changes needed to remove Bun install/run assumptions while preserving source-link behavior for Node v24.12+ native TypeScript type stripping.
+- [x] Migrate `ts/` to the settled pnpm workspace contract.
+      Evidence: `ts/pnpm-workspace.yaml` now declares `packages/*`, `ts/package.json` declares `pnpm@10.14.0` and Node `>=24.12.0` engine metadata with pnpm root orchestration scripts, `ts/pnpm-lock.yaml` is committed lockfile state, and `ts/bun.lock` is removed. Direct `pnpm install --frozen-lockfile`, `pnpm run check`, and transitional `pnpm run test` validation passed from `ts/`; local Node v24.2.0 produced the expected unsupported-engine warning.
 
-- [ ] Preserve or retire the current Pi dependency patch with evidence.
-      Translate the existing patch into pnpm-native patch metadata unless representative dependency and Pi extension evidence proves it unnecessary. Record the decision and any downstream cleanup guidance.
+- [x] Preserve or retire the current Pi dependency patch with evidence.
+      Evidence: the existing `@earendil-works/pi-ai@0.78.0` patch is preserved as pnpm-native workspace metadata in `ts/pnpm-workspace.yaml`; `ts/pnpm-lock.yaml` records the exact-version patch with a `patch_hash`, so patch application is represented by pnpm instead of removed.
 
 - [ ] Migrate root orchestration and `justfile` TypeScript commands to directory-scoped pnpm.
       Keep the root orchestration-only. Replace active Bun invocations for TypeScript workspace commands with explicit pnpm commands rooted in `ts/`, and leave test-runner semantics to the Vitest Objective when possible.

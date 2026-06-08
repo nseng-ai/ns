@@ -2,11 +2,15 @@
   "name": "asdl-ts-workspace",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=24.12.0",
+    "pnpm": ">=10.14.0"
+  },
   "scripts": {
-    "test": "bun run --workspaces --sequential --if-present test",
-    "check": "bun run --workspaces --if-present check",
-    "asdl-dev": "bun run packages/asdl-dev/src/cli.ts"
+    "test": "pnpm --recursive --if-present run test",
+    "check": "pnpm --recursive --if-present run check",
+    "asdl-dev": "node packages/asdl-dev/src/cli.ts"
   },
   "devDependencies": {
     "asdl-dev": "workspace:*",
@@ -14,7 +18,10 @@
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "patchedDependencies": {
-    "@earendil-works/pi-ai@0.78.0": "patches/@earendil-works%2Fpi-ai@0.78.0.patch"
+    "@earendil-works/pi-ai@0.78.0@0.78.0": "patches/@earendil-works%2Fpi-ai@0.78.0.patch"
   }
 }
