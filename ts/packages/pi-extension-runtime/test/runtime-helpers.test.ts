@@ -97,4 +97,71 @@ describe("pi extension runtime helpers", () => {
 		expect(calls).toEqual([{ command: "objective", args: ["list", "--format", "json"] }]);
 		expect(notifications).toEqual([]);
 	});
+
+	test("objective selection with notifications but no picker suppresses empty-list notification", async () => {
+		const notifications: string[] = [];
+		const ctx: CommandContext = {
+			cwd: "/repo",
+			hasUI: true,
+			ui: {
+				notify: (message) => notifications.push(message),
+			},
+			modelRegistry: { find: () => undefined },
+			waitForIdle: async () => {},
+		};
+		const host = {
+			exec: async (): Promise<ExecResult> => ({
+				code: 0,
+				killed: false,
+				stderr: "",
+				stdout: JSON.stringify({
+					exit_code: 0,
+					data: {
+						trunk_branch: "master",
+						root_path: "/repo",
+						status_filter: "active",
+						names_only: false,
+						records: [],
+					},
+				}),
+			}),
+		};
+
+		const slug = await chooseActiveObjectiveSlug(host, objectiveSelectionContextFromCommandContext(ctx), {
+			statusKey: "objective:test",
+			selectionTitle: "Select an Objective",
+		});
+
+		expect(slug).toBeUndefined();
+		expect(notifications).toEqual([]);
+	});
+
+	test("objective selection with notifications but no picker suppresses list-failure notification", async () => {
+		const notifications: string[] = [];
+		const ctx: CommandContext = {
+			cwd: "/repo",
+			hasUI: true,
+			ui: {
+				notify: (message) => notifications.push(message),
+			},
+			modelRegistry: { find: () => undefined },
+			waitForIdle: async () => {},
+		};
+		const host = {
+			exec: async (): Promise<ExecResult> => ({
+				code: 2,
+				killed: false,
+				stderr: "boom",
+				stdout: "",
+			}),
+		};
+
+		const slug = await chooseActiveObjectiveSlug(host, objectiveSelectionContextFromCommandContext(ctx), {
+			statusKey: "objective:test",
+			selectionTitle: "Select an Objective",
+		});
+
+		expect(slug).toBeUndefined();
+		expect(notifications).toEqual([]);
+	});
 });

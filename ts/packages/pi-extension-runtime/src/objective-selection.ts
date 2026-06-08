@@ -238,6 +238,10 @@ function sortedUniqueSlugs(slugs: string[]): string[] {
 	return [...new Set(slugs)].sort((left, right) => left.localeCompare(right));
 }
 
+function hasObjectivePicker(ctx: ObjectiveSelectionContext): ctx is ObjectivePickerContext {
+	return ctx.hasUI && ctx.ui.select !== undefined;
+}
+
 function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): string {
 	const committedDiffLabel = selection.trunkBranch ? `changed vs ${selection.trunkBranch}` : "";
 	if (selection.changeBasisLabel === committedDiffLabel) {
@@ -314,8 +318,9 @@ export async function chooseActiveObjectiveSlug(
 	await ctx.waitForIdle();
 
 	const objectiveListResult = await listActiveObjectives(host, ctx, spec);
+	const hasPicker = hasObjectivePicker(ctx);
 	if (objectiveListResult.type === "failed") {
-		if (ctx.hasUI) {
+		if (hasPicker) {
 			ctx.ui.notify(objectiveListResult.message, "error");
 		}
 		return undefined;
@@ -323,20 +328,19 @@ export async function chooseActiveObjectiveSlug(
 
 	const objectiveList = objectiveListResult.list;
 	if (objectiveList.records.length === 0) {
-		if (ctx.hasUI) {
+		if (hasPicker) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
 		}
 		return undefined;
 	}
 
-	if (!ctx.hasUI || !ctx.ui.select) {
+	if (!hasPicker) {
 		return undefined;
 	}
 
-	const pickerCtx: ObjectivePickerContext = { ...ctx, ui: { ...ctx.ui, select: ctx.ui.select } };
-	const changedSelection = await changedObjectiveSelection({ host, ctx: pickerCtx, objectiveList, spec });
+	const changedSelection = await changedObjectiveSelection({ host, ctx, objectiveList, spec });
 	if (changedSelection && spec.compactDiffSuggestion) {
-		return selectChangedObjectivesOrOther({ ctx: pickerCtx, spec, objectiveList, selection: changedSelection });
+		return selectChangedObjectivesOrOther({ ctx, spec, objectiveList, selection: changedSelection });
 	}
 
 	if (changedSelection) {
@@ -348,7 +352,7 @@ export async function chooseActiveObjectiveSlug(
 		);
 	}
 	return selectObjectiveSlug({
-		ctx: pickerCtx,
+		ctx,
 		title: spec.selectionTitle,
 		records: objectiveRecordsWithChangedFirst(objectiveList.records, changedSelection),
 		selection: changedSelection,
