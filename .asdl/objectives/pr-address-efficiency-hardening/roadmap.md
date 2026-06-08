@@ -50,9 +50,9 @@
   - Policy: Before resolving review threads, compare the validated stack plan against freshly fetched current stack feedback and make drift explicit: planned still unresolved, planned already resolved, newly appeared unresolved feedback, and missing or outdated planned threads.
   - Evidence: `pr-address exec stack-feedback-diff-current` compares a valid `stack-feedback-plan` with a fresh `stack-feedback-prep --include-resolved` result without reading raw feedback bodies or mutating GitHub, and returns compact drift categories plus a conservative `safe_to_resolve_planned` decision. Scenario coverage includes unchanged feedback, new unresolved threads, already-resolved planned threads, missing planned threads, outdated/metadata-changed planned threads, mixed multi-PR drift, missing `include_resolved` provenance, PR mismatch, and informational planned-thread handling. CLI schema smoke, adjacent stack tests, lint/type checks, and dprint checks passed.
 
-- [ ] Simplify `internal-pr-stack-address` around the stack-native helper path.
-  - Policy: Keep the skill focused on safety boundaries, semantic classification, user approval points, and the short command sequence; move fallback mechanics to references and let tested CLI helpers own deterministic mapping, diffing, payload construction, and summary formatting.
-  - Evidence: Updated skill/reference docs route normal stack runs through compact `stack-feedback-prep`, validated `stack-feedback-plan`, current-feedback diffing, stack payload building, helper-mediated mutation, and final verification without hand-written JSON orchestration.
+- [x] Simplify `internal-pr-stack-address` around the stack-native helper path.
+  - Policy: Keep the skill focused on safety boundaries, semantic classification, user approval points, and the short command sequence; move fallback mechanics out of the normal path and let tested CLI helpers own deterministic mapping, diffing, payload construction, and summary formatting.
+  - Evidence: `skills/internal-pr-stack-address/SKILL.md` now routes normal stack runs through compact `stack-feedback-prep`, validated `stack-feedback-plan`, fresh `stack-feedback-prep --include-resolved`, `stack-feedback-diff-current`, `build-stack-resolve-thread-payloads`, helper-mediated `resolve-thread-batch` mutation, and final verification without manual per-PR `plan-feedback` reconstruction or manual pre-mutation drift comparison.
 
 ## Closure Evidence
 
