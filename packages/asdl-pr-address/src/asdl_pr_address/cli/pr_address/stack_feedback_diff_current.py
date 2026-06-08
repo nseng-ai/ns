@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, TypeAlias
+from typing import Annotated
 
 import click
 from pydantic import ValidationError
@@ -15,12 +15,17 @@ from asdl_pr_address.cli.pr_address.feedback_payload import ThreadManifestItem
 from asdl_pr_address.cli.pr_address.stack_feedback import (
     StackFeedbackPlanItem,
     StackFeedbackPlanResult,
-    StackFeedbackPrepPrResult,
     StackFeedbackPrepResult,
 )
-from asdl_pr_address.cli.pr_address.string_values import trim_optional, trim_required
-
-ThreadKey: TypeAlias = tuple[int, str]
+from asdl_pr_address.cli.pr_address.stack_feedback_thread_index import (
+    ThreadKey,
+    actionable_review_thread_items,
+    duplicate_thread_keys,
+    known_review_thread_keys,
+    planned_pr_numbers,
+    thread_key,
+)
+from asdl_pr_address.cli.pr_address.string_values import trim_required
 
 INVALID_STACK_PLAN_SHAPE_MESSAGE = (
     "stack_plan must be the data object returned by stack-feedback-plan."
@@ -157,60 +162,32 @@ def diff_stack_feedback_current(
             )
         )
 
-    errors: list[StackFeedbackDiffCurrentError] = []
-    warnings: list[str] = []
-    if not stack_plan.valid:
-        errors.append(
-            StackFeedbackDiffCurrentError(
-                code="invalid_stack_plan",
-                message="stack_plan.valid must be true before diffing current stack feedback.",
-            )
-        )
-
-    current_prs, current_pr_errors = _current_prs_by_number(current_prep)
-    errors.extend(current_pr_errors)
-    stack_pr_errors = _validate_stack_membership(
-        stack_plan=stack_plan,
-        current_pr_numbers=tuple(pr_result.pr_number for pr_result in current_prep.stack),
-    )
-    errors.extend(stack_pr_errors)
-
-    planned_actionable = _planned_actionable_thread_items(stack_plan)
-    planned_key_errors = _planned_thread_key_errors(planned_actionable)
-    errors.extend(planned_key_errors)
-
-    current_by_key, current_key_errors = _current_threads_by_key(current_prep)
-    errors.extend(current_key_errors)
-
-    if not current_prep.include_resolved:
-        warnings.append(
-            "current_prep was not fetched with include_resolved=true; already-resolved planned "
-            "threads cannot be distinguished from missing threads."
-        )
-
-    if errors:
-        return _result(
-            valid=False,
-            stack_plan=stack_plan,
-            current_prep=current_prep,
-            planned_actionable=planned_actionable,
-            planned_known_keys=_planned_known_thread_keys(stack_plan),
-            current_by_key=current_by_key,
-            current_prs=current_prs,
-            warnings=tuple(warnings),
-            errors=tuple(errors),
-        )
-
-    return _result(
-        valid=True,
+    warnings = _current_prep_warnings(current_prep)
+    planned_actionable = actionable_review_thread_items(stack_plan)
+    planned_known_keys = known_review_thread_keys(stack_plan)
+    current_by_key, current_thread_errors = _current_threads_by_key(current_prep)
+    errors = _validation_errors(
         stack_plan=stack_plan,
         current_prep=current_prep,
         planned_actionable=planned_actionable,
-        planned_known_keys=_planned_known_thread_keys(stack_plan),
+        current_thread_errors=current_thread_errors,
+    )
+
+    if errors:
+        return _semantic_invalid_result(
+            current_prep=current_prep,
+            planned_actionable=planned_actionable,
+            planned_known_keys=planned_known_keys,
+            warnings=warnings,
+            errors=errors,
+        )
+
+    return _diff_valid_stack_feedback(
+        current_prep=current_prep,
+        planned_actionable=planned_actionable,
+        planned_known_keys=planned_known_keys,
         current_by_key=current_by_key,
-        current_prs=current_prs,
-        warnings=tuple(warnings),
-        errors=(),
+        warnings=warnings,
     )
 
 
@@ -226,24 +203,20 @@ def _load_payload(request: StackFeedbackDiffCurrentRequest) -> StackFeedbackDiff
     )
 
 
-def _result(
+def _diff_valid_stack_feedback(
     *,
-    valid: bool,
-    stack_plan: StackFeedbackPlanResult,
     current_prep: StackFeedbackPrepResult,
     planned_actionable: tuple[StackFeedbackPlanItem, ...],
     planned_known_keys: set[ThreadKey],
     current_by_key: dict[ThreadKey, ThreadManifestItem],
-    current_prs: dict[int, StackFeedbackPrepPrResult],
     warnings: tuple[str, ...],
-    errors: tuple[StackFeedbackDiffCurrentError, ...],
 ) -> StackFeedbackDiffCurrentResult:
     planned_still_unresolved: list[StackFeedbackDiffPlannedThread] = []
     planned_already_resolved: list[StackFeedbackDiffPlannedThread] = []
     missing_or_outdated: list[StackFeedbackDiffMissingOrOutdatedThread] = []
 
     for item in planned_actionable:
-        key = _thread_key(item.pr_number, item.thread_id)
+        key = thread_key(item.pr_number, item.thread_id)
         if key is None:
             continue
         if key not in current_by_key:
@@ -270,42 +243,85 @@ def _result(
 
     new_unresolved = _new_unresolved_threads(
         current_prep=current_prep,
-        current_prs=current_prs,
         planned_known_keys=planned_known_keys,
     )
     safe_to_resolve_planned = (
-        valid
-        and not planned_already_resolved
+        not planned_already_resolved
         and not new_unresolved
         and not missing_or_outdated
         and not warnings
-        and not errors
     )
 
     return StackFeedbackDiffCurrentResult(
-        valid=valid,
+        valid=True,
         safe_to_resolve_planned=safe_to_resolve_planned,
         planned_still_unresolved=tuple(planned_still_unresolved),
         planned_already_resolved=tuple(planned_already_resolved),
         new_unresolved_threads=new_unresolved,
         missing_or_outdated_planned_threads=tuple(missing_or_outdated),
         warnings=warnings,
-        errors=errors,
-        summary=StackFeedbackDiffCurrentSummary(
-            pr_count=len(current_prep.stack),
-            planned_actionable_review_threads=len(planned_actionable),
-            planned_known_review_threads=len(planned_known_keys),
-            current_unresolved_review_threads=sum(
-                1
-                for pr_result in current_prep.stack
-                for thread in pr_result.manifest.review_threads
-                if not thread.is_resolved
-            ),
+        errors=(),
+        summary=_summary(
+            current_prep=current_prep,
+            planned_actionable=planned_actionable,
+            planned_known_keys=planned_known_keys,
             planned_still_unresolved=len(planned_still_unresolved),
             planned_already_resolved=len(planned_already_resolved),
             new_unresolved_threads=len(new_unresolved),
             missing_or_outdated_planned_threads=len(missing_or_outdated),
         ),
+    )
+
+
+def _semantic_invalid_result(
+    *,
+    current_prep: StackFeedbackPrepResult,
+    planned_actionable: tuple[StackFeedbackPlanItem, ...],
+    planned_known_keys: set[ThreadKey],
+    warnings: tuple[str, ...],
+    errors: tuple[StackFeedbackDiffCurrentError, ...],
+) -> StackFeedbackDiffCurrentResult:
+    return StackFeedbackDiffCurrentResult(
+        valid=False,
+        safe_to_resolve_planned=False,
+        warnings=warnings,
+        errors=errors,
+        summary=_summary(
+            current_prep=current_prep,
+            planned_actionable=planned_actionable,
+            planned_known_keys=planned_known_keys,
+            planned_still_unresolved=0,
+            planned_already_resolved=0,
+            new_unresolved_threads=0,
+            missing_or_outdated_planned_threads=0,
+        ),
+    )
+
+
+def _summary(
+    *,
+    current_prep: StackFeedbackPrepResult,
+    planned_actionable: tuple[StackFeedbackPlanItem, ...],
+    planned_known_keys: set[ThreadKey],
+    planned_still_unresolved: int,
+    planned_already_resolved: int,
+    new_unresolved_threads: int,
+    missing_or_outdated_planned_threads: int,
+) -> StackFeedbackDiffCurrentSummary:
+    return StackFeedbackDiffCurrentSummary(
+        pr_count=len(current_prep.stack),
+        planned_actionable_review_threads=len(planned_actionable),
+        planned_known_review_threads=len(planned_known_keys),
+        current_unresolved_review_threads=sum(
+            1
+            for pr_result in current_prep.stack
+            for thread in pr_result.manifest.review_threads
+            if not thread.is_resolved
+        ),
+        planned_still_unresolved=planned_still_unresolved,
+        planned_already_resolved=planned_already_resolved,
+        new_unresolved_threads=new_unresolved_threads,
+        missing_or_outdated_planned_threads=missing_or_outdated_planned_threads,
     )
 
 
@@ -329,30 +345,57 @@ def _invalid_result(
     )
 
 
-def _planned_actionable_thread_items(
-    stack_plan: StackFeedbackPlanResult,
-) -> tuple[StackFeedbackPlanItem, ...]:
-    return tuple(
-        item
-        for batch in stack_plan.batches
-        for item in batch.items
-        if item.source_kind == "review_thread"
+def _current_prep_warnings(
+    current_prep: StackFeedbackPrepResult,
+) -> tuple[str, ...]:
+    if current_prep.include_resolved:
+        return ()
+    return (
+        "current_prep was not fetched with include_resolved=true; already-resolved planned "
+        "threads cannot be distinguished from missing threads.",
     )
 
 
-def _planned_known_thread_keys(stack_plan: StackFeedbackPlanResult) -> set[ThreadKey]:
-    keys: set[ThreadKey] = set()
-    for item in _planned_actionable_thread_items(stack_plan):
-        key = _thread_key(item.pr_number, item.thread_id)
-        if key is not None:
-            keys.add(key)
-    for item in stack_plan.informational:
-        if item.source_kind != "review_thread":
-            continue
-        key = _thread_key(item.pr_number, item.thread_id)
-        if key is not None:
-            keys.add(key)
-    return keys
+def _validation_errors(
+    *,
+    stack_plan: StackFeedbackPlanResult,
+    current_prep: StackFeedbackPrepResult,
+    planned_actionable: tuple[StackFeedbackPlanItem, ...],
+    current_thread_errors: tuple[StackFeedbackDiffCurrentError, ...],
+) -> tuple[StackFeedbackDiffCurrentError, ...]:
+    errors: list[StackFeedbackDiffCurrentError] = []
+    if not stack_plan.valid:
+        errors.append(
+            StackFeedbackDiffCurrentError(
+                code="invalid_stack_plan",
+                message="stack_plan.valid must be true before diffing current stack feedback.",
+            )
+        )
+    errors.extend(_current_pr_errors(current_prep))
+    errors.extend(
+        _validate_stack_membership(
+            stack_plan=stack_plan,
+            current_pr_numbers=tuple(pr_result.pr_number for pr_result in current_prep.stack),
+        )
+    )
+    errors.extend(_planned_thread_key_errors(planned_actionable))
+    errors.extend(current_thread_errors)
+    return tuple(errors)
+
+
+def _current_pr_errors(
+    current_prep: StackFeedbackPrepResult,
+) -> tuple[StackFeedbackDiffCurrentError, ...]:
+    return tuple(
+        StackFeedbackDiffCurrentError(
+            code="duplicate_current_pr",
+            message=f"current_prep contains duplicate PR number {pr_number}.",
+            pr_number=pr_number,
+        )
+        for pr_number in _duplicate_values(
+            tuple(pr_result.pr_number for pr_result in current_prep.stack)
+        )
+    )
 
 
 def _planned_thread_key_errors(
@@ -361,7 +404,7 @@ def _planned_thread_key_errors(
     errors: list[StackFeedbackDiffCurrentError] = []
     keys: list[ThreadKey] = []
     for item in planned_actionable:
-        key = _thread_key(item.pr_number, item.thread_id)
+        key = thread_key(item.pr_number, item.thread_id)
         if key is None:
             errors.append(
                 StackFeedbackDiffCurrentError(
@@ -372,7 +415,7 @@ def _planned_thread_key_errors(
             )
             continue
         keys.append(key)
-    for key in _duplicate_keys(tuple(keys)):
+    for key in duplicate_thread_keys(tuple(keys)):
         errors.append(
             StackFeedbackDiffCurrentError(
                 code="duplicate_planned_thread",
@@ -384,24 +427,6 @@ def _planned_thread_key_errors(
     return tuple(errors)
 
 
-def _current_prs_by_number(
-    current_prep: StackFeedbackPrepResult,
-) -> tuple[dict[int, StackFeedbackPrepPrResult], tuple[StackFeedbackDiffCurrentError, ...]]:
-    pr_numbers = tuple(pr_result.pr_number for pr_result in current_prep.stack)
-    duplicates = _duplicate_values(pr_numbers)
-    errors = tuple(
-        StackFeedbackDiffCurrentError(
-            code="duplicate_current_pr",
-            message=f"current_prep contains duplicate PR number {pr_number}.",
-            pr_number=pr_number,
-        )
-        for pr_number in duplicates
-    )
-    if duplicates:
-        return {}, errors
-    return {pr_result.pr_number: pr_result for pr_result in current_prep.stack}, errors
-
-
 def _current_threads_by_key(
     current_prep: StackFeedbackPrepResult,
 ) -> tuple[dict[ThreadKey, ThreadManifestItem], tuple[StackFeedbackDiffCurrentError, ...]]:
@@ -409,8 +434,8 @@ def _current_threads_by_key(
     errors: list[StackFeedbackDiffCurrentError] = []
     for pr_result in current_prep.stack:
         for thread in pr_result.manifest.review_threads:
-            thread_id = thread.thread_id.strip()
-            if not thread_id:
+            key = thread_key(pr_result.pr_number, thread.thread_id)
+            if key is None:
                 errors.append(
                     StackFeedbackDiffCurrentError(
                         code="invalid_current_thread",
@@ -419,7 +444,6 @@ def _current_threads_by_key(
                     )
                 )
                 continue
-            key = (pr_result.pr_number, thread_id)
             if key in current_by_key:
                 errors.append(
                     StackFeedbackDiffCurrentError(
@@ -439,8 +463,8 @@ def _validate_stack_membership(
     stack_plan: StackFeedbackPlanResult,
     current_pr_numbers: tuple[int, ...],
 ) -> tuple[StackFeedbackDiffCurrentError, ...]:
-    planned_pr_numbers = _planned_pr_numbers(stack_plan)
-    if not planned_pr_numbers and stack_plan.pr_count > 0:
+    planned_numbers = planned_pr_numbers(stack_plan)
+    if not planned_numbers and stack_plan.pr_count > 0:
         return (
             StackFeedbackDiffCurrentError(
                 code="stack_plan_pr_numbers_unavailable",
@@ -455,10 +479,10 @@ def _validate_stack_membership(
     if len(current_pr_set) != len(current_pr_numbers):
         return tuple(errors)
     missing_prs = tuple(
-        pr_number for pr_number in planned_pr_numbers if pr_number not in current_pr_set
+        pr_number for pr_number in planned_numbers if pr_number not in current_pr_set
     )
     extra_prs = tuple(
-        pr_number for pr_number in current_pr_numbers if pr_number not in planned_pr_numbers
+        pr_number for pr_number in current_pr_numbers if pr_number not in planned_numbers
     )
     for pr_number in missing_prs:
         errors.append(
@@ -477,25 +501,6 @@ def _validate_stack_membership(
             )
         )
     return tuple(errors)
-
-
-def _planned_pr_numbers(stack_plan: StackFeedbackPlanResult) -> tuple[int, ...]:
-    if stack_plan.validation.per_pr:
-        return tuple(item.pr_number for item in stack_plan.validation.per_pr)
-    pr_numbers: list[int] = []
-    for batch in stack_plan.batches:
-        for item in batch.items:
-            pr_numbers.append(item.pr_number)
-    for item in stack_plan.informational:
-        pr_numbers.append(item.pr_number)
-    return tuple(dict.fromkeys(pr_numbers))
-
-
-def _thread_key(pr_number: int, thread_id: str | None) -> ThreadKey | None:
-    trimmed = trim_optional(thread_id)
-    if trimmed is None:
-        return None
-    return (pr_number, trimmed)
 
 
 def _material_metadata_mismatch(
@@ -557,23 +562,21 @@ def _missing_or_outdated_thread(
 def _new_unresolved_threads(
     *,
     current_prep: StackFeedbackPrepResult,
-    current_prs: dict[int, StackFeedbackPrepPrResult],
     planned_known_keys: set[ThreadKey],
 ) -> tuple[StackFeedbackDiffCurrentThread, ...]:
     items: list[StackFeedbackDiffCurrentThread] = []
     for pr_result in current_prep.stack:
-        pr_metadata = current_prs.get(pr_result.pr_number, pr_result)
         for thread in pr_result.manifest.review_threads:
-            key = (pr_result.pr_number, thread.thread_id)
-            if thread.is_resolved or key in planned_known_keys:
+            key = thread_key(pr_result.pr_number, thread.thread_id)
+            if key is None or thread.is_resolved or key in planned_known_keys:
                 continue
             items.append(
                 StackFeedbackDiffCurrentThread(
                     pr_number=pr_result.pr_number,
-                    branch=pr_metadata.branch,
-                    title=pr_metadata.title,
-                    url=pr_metadata.url,
-                    thread_id=thread.thread_id,
+                    branch=pr_result.branch,
+                    title=pr_result.title,
+                    url=pr_result.url,
+                    thread_id=key[1],
                     path=thread.path,
                     line=thread.line,
                     start_line=thread.start_line,
@@ -591,14 +594,4 @@ def _duplicate_values(values: tuple[int, ...]) -> tuple[int, ...]:
         if value in seen and value not in duplicates:
             duplicates.append(value)
         seen.add(value)
-    return tuple(duplicates)
-
-
-def _duplicate_keys(keys: tuple[ThreadKey, ...]) -> tuple[ThreadKey, ...]:
-    seen: set[ThreadKey] = set()
-    duplicates: list[ThreadKey] = []
-    for key in keys:
-        if key in seen and key not in duplicates:
-            duplicates.append(key)
-        seen.add(key)
     return tuple(duplicates)

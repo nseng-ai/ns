@@ -462,7 +462,12 @@ def test_stack_feedback_diff_current_rejects_pr_mismatch(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    fake = _feedback_fake({101: [_thread("PRRT_101", comment_id=1001)], 102: []})
+    fake = _feedback_fake(
+        {
+            101: [_thread("PRRT_101", comment_id=1001)],
+            102: [_thread("PRRT_102_NEW", comment_id=1002)],
+        }
+    )
     current_prep = _run_current_prep(cli_group, tmp_path, fake, pr_numbers=(101, 102))
     stack_plan = _minimal_stack_feedback_plan(
         batches=[_stack_batch("local", [_stack_thread_item(101, "PRRT_101")])],
@@ -483,6 +488,12 @@ def test_stack_feedback_diff_current_rejects_pr_mismatch(
             "thread_id": None,
         }
     ]
+    assert data["planned_still_unresolved"] == []
+    assert data["planned_already_resolved"] == []
+    assert data["new_unresolved_threads"] == []
+    assert data["missing_or_outdated_planned_threads"] == []
+    assert data["summary"]["planned_still_unresolved"] == 0
+    assert data["summary"]["new_unresolved_threads"] == 0
 
 
 def test_stack_feedback_diff_current_ignores_planned_informational_threads_as_new_unresolved(
