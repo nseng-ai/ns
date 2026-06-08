@@ -110,19 +110,13 @@ def _validate_local_branch_provenance(
         Ensure.fail(error_type="invalid_request", message=shape_error)
 
     branch = trim_required(provenance_input.branch)
-    if not git_gateway.branch_exists(branch):
-        Ensure.fail(
-            error_type="invalid_request",
-            message=f"planned provenance local branch does not exist: {branch}",
-        )
-
     branch_head_oid = git_gateway.branch_head_oid(branch)
     if isinstance(branch_head_oid, GitCommandFailure):
         Ensure.fail(
-            error_type=branch_head_oid.error_type,
+            error_type="invalid_request",
             message=(
-                "Failed to validate planned provenance local branch "
-                f"{branch}: {branch_head_oid.message}"
+                "planned provenance local branch does not exist or cannot be resolved: "
+                f"{branch} ({branch_head_oid.message})"
             ),
         )
 

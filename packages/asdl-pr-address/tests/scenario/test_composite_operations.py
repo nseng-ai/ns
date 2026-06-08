@@ -1069,7 +1069,8 @@ def test_resolve_thread_with_reply_planned_rejects_branch_head_failure_before_mu
     )
 
     assert exit_code == 2
-    assert output["error_type"] == "git_failed"
+    assert output["error_type"] == "invalid_request"
+    assert "does not exist or cannot be resolved" in output["message"]
     assert "rev-parse failed for reuse-worker" in output["message"]
     assert fake.thread_replies == ()
     assert fake.resolved_thread_ids == ()

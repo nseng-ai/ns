@@ -113,7 +113,7 @@ def normalize_resolution_request(
             message="mode='planned' requires a non-empty message",
         )
         Ensure.true(
-            commit_sha is None or commit_sha == "",
+            commit_sha is None,
             error_type="invalid_request",
             message="mode='planned' must not include commit_sha",
         )
