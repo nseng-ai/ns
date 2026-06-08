@@ -269,10 +269,11 @@ def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_overrid
     assert resolution.provenance.source == "repo"
     assert resolution.provenance.prompt_path == checked_in_prompt
     assert resolution.content == checked_in_content
-    assert "Subagent orchestration opportunities" in resolution.content
-    assert "none" in resolution.content
-    assert "rationale" in resolution.content
-    assert "launch-readiness" in resolution.content
-    assert "ordered waves" in resolution.content
-    assert "sequential" in resolution.content
-    assert "parent validation" in resolution.content
+    assert "Subagent orchestration opportunities:" not in embedded_prompt
+    assert "Subagent orchestration opportunities:" in resolution.content
+    assert "`Subagent orchestration opportunities: none` with a one-sentence rationale" in (
+        resolution.content
+    )
+    assert "launch-readiness quality bar" in resolution.content
+    assert "Prefer ordered waves" in resolution.content
+    assert "recommend sequential dispatch and parent validation" in resolution.content
