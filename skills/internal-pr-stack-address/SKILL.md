@@ -63,8 +63,10 @@ Do not trigger from ordinary single-PR review feedback requests; use
   human-sensitive work.
 - Runs targeted checks plus formatter checks before committing and before
   resolving GitHub comments.
-- Requires explicit final confirmation before resolving GitHub threads, because
-  the omnibus branch may still be local-only.
+- Automatically resolves addressed inline review threads after re-fetching
+  feedback, confirming the unresolved-thread set still matches the committed
+  addressed items, passing required checks, and validating helper-built
+  resolution payloads.
 - Builds GitHub thread-resolution payloads with
   `build-resolve-thread-batch-payload`, then mutates only through
   `resolve-thread-batch`; never hand-roll review-thread mutation API calls.
@@ -338,18 +340,28 @@ Address PR stack feedback (batch N/M)
 - <summary 2>
 ```
 
-### 7. Resolve original inline threads
+### 7. Automatically resolve original inline threads
 
 Before any GitHub mutation:
 
 1. Re-fetch feedback for all stack PRs with `get-feedback` using the same
    payload session id or a clearly related verification id.
 2. Confirm the unresolved-thread set still matches the planned addressed items.
-3. Show the omnibus branch name, batch commit SHA(s), affected PR numbers, and
+3. Confirm every thread selected for resolution is backed by a committed
+   omnibus batch and successful required checks.
+4. Show the omnibus branch name, batch commit SHA(s), affected PR numbers, and
    exact resolution count.
-4. Ask the user for explicit confirmation because the omnibus branch may still
-   be local-only.
-5. Remind the user to submit the omnibus PR promptly after resolution.
+5. Proceed automatically with helper-built inline-thread resolution payloads for
+   the matched addressed threads.
+6. Remind the user to submit the omnibus PR promptly after resolution.
+
+Automatic resolution is limited to inline review-thread items that were
+classified actionable or approved as pre-existing, included in the validated
+stack plan, addressed or explained by a committed omnibus batch, and still
+unresolved at the pre-mutation re-fetch. Do not automatically resolve
+informational threads, skipped/deferred items, or top-level human comments
+unless the validated plan and prior user decisions explicitly require that
+action.
 
 For each PR and selected `plan-feedback` batch represented in an omnibus commit:
 
@@ -435,7 +447,12 @@ Never push or submit unless the user explicitly asks for that extra step.
   fallback.
 - Do not hand-roll `resolve-thread-batch` payloads; use
   `build-resolve-thread-batch-payload`.
-- Do not call GitHub mutation helpers before explicit final confirmation.
+- Do not call GitHub mutation helpers until after re-fetch validation,
+  successful required checks, committed fixes, and helper-built payload
+  validation.
+- Inline review-thread resolution is automatic for matched addressed threads;
+  top-level human replies, skip/defer decisions requiring judgment, and
+  submitting/pushing the omnibus branch remain confirmation-gated.
 - Do not hide unresolved review threads inside informational counts.
 - Treat obvious top-level Vercel, Graphite, roaster summary, and GitHub Actions
   status comments as informational by default; inline review threads remain the
