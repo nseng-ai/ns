@@ -105,7 +105,10 @@ def _validate_local_branch_provenance(
     if isinstance(branch_head_oid, GitCommandFailure):
         Ensure.fail(
             error_type=branch_head_oid.error_type,
-            message=f"Failed to validate planned provenance local branch {branch}: {branch_head_oid.message}",
+            message=(
+                "Failed to validate planned provenance local branch "
+                f"{branch}: {branch_head_oid.message}"
+            ),
         )
 
     return ResolutionProvenance(
