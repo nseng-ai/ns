@@ -10,9 +10,9 @@ import { selectCheckpointTextGenerationConfig } from "asdl-dev/src/text-generati
 
 export type { CommandResult, PreparedCheckpointMessage };
 
-export type ExtensionExec = {
+export interface ExtensionExec {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<CommandResult>;
-};
+}
 
 export async function prepareCheckpointMessageWithAsdlDev(
 	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,

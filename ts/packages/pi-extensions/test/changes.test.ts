@@ -5,11 +5,11 @@ import { formatOutstandingChangesMessage, summarizePorcelainStatus } from "../sr
 import type { PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/src/pending-worktree.ts";
 import { stripTerminalEscapes } from "../src/terminal-presentation.ts";
 
-type ModelResponse = {
+interface ModelResponse {
 	stopReason: string;
 	errorMessage?: string;
 	content: Array<{ type: string; text?: string }>;
-};
+}
 
 const completionState = vi.hoisted<{ nextCompletion: () => Promise<ModelResponse> }>(() => ({
 	nextCompletion: async () => ({
@@ -59,22 +59,22 @@ type ExecOptions = Parameters<ExtensionAPI["exec"]>[2];
 type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
 
-type ExecCall = {
+interface ExecCall {
 	command: string;
 	args: string[];
 	options: ExecOptions;
-};
+}
 
-type ScriptedExec = {
+interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<WorktreeCommandResult> | undefined;
-};
+}
 
-type Notification = {
+interface Notification {
 	message: string;
 	level: "info" | "warning" | "error" | undefined;
-};
+}
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();

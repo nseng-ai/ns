@@ -5,10 +5,10 @@ import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import type { SubmitCommandOutput, SubmitOutputStream, SubmitPrLink } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
-type OutputEvent = {
+interface OutputEvent {
 	stream: SubmitOutputStream;
 	text: string;
-};
+}
 
 interface ConfirmationPrompt {
 	title: string;

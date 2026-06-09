@@ -2,7 +2,7 @@ import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
 const MAX_DISPLAY_FILE_LINES = 50;
 
-export type StatusSummary = {
+export interface StatusSummary {
 	modified: number;
 	added: number;
 	deleted: number;
@@ -12,7 +12,7 @@ export type StatusSummary = {
 	conflicted: number;
 	other: number;
 	fileLines: string[];
-};
+}
 
 export function summarizePorcelainStatus(status: string): StatusSummary {
 	const summary: StatusSummary = {
