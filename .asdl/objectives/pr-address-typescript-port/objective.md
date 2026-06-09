@@ -36,6 +36,46 @@ This slice should prove migration patterns that later capability ports can reuse
 - Python fallback has a short explicit retirement phase and is then deleted, archived, or removed from active invocation paths.
 - Lessons from the `pr-address` port feed back into the umbrella porting playbook for later capability slices.
 
+## Definition of Progress
+
+Progress is keepable when it moves `pr-address` toward TypeScript-default behavior while preserving or explicitly reclassifying public contracts.
+
+Keepable progress should do at least one of the following:
+
+- Port a coherent operation slice to TypeScript with the smallest local runtime/schema seams needed by that slice.
+- Add or strengthen fake-driven unit, scenario, golden, wrapper, or safe smoke evidence for preserved behavior.
+- Reduce active Python fallback scope after TypeScript parity for the affected surface is proven.
+- Clarify public contract, distribution, wrapper, or plugin compatibility decisions in checked-in docs or Objective updates.
+- Feed a proven, repeated migration seam into the broader TypeScript porting playbook.
+
+Do not keep changes that:
+
+- Broaden a shared framework before at least two operation slices prove the same seam.
+- Change public CLI, JSON, wrapper, payload, mutation-safety, or no-push behavior without explicit compatibility rationale and tests.
+- Replace semantic LLM judgment with brittle deterministic classification heuristics.
+- Depend on live GitHub mutations, npm publishing, or branch/PR writes as validation for ordinary implementation slices.
+- Remove the Python fallback for a surface before equivalent TypeScript behavior, docs, and invocation paths are covered.
+
+Useful evidence includes:
+
+- Targeted Vitest/TypeScript tests for the ported package and wrapper paths.
+- Python scenario/golden probes used as contract references, especially `pr-address exec ... --json-schema` and golden fixture comparisons.
+- Fake-driven gateway tests for git, GitHub, filesystem, process, package/distribution, and payload behavior.
+- Safe read-only real-adapter smoke evidence where it materially de-risks local environment or GitHub API assumptions.
+- Objective Semantic Updates that record compatibility decisions, deliberate contract changes, cutover decisions, fallback retirement evidence, and reusable migration lessons.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` across every non-parked roadmap row under the boundaries below. A runner may preview a single coherent slice, then execute it after user confirmation without needing a new Objective policy change.
+
+- Direct execution is allowed when the slice is confined to repository files and local validation: TypeScript package code, tests, wrappers, checked-in docs, Objective files, golden/parity fixtures, and local compatibility probes.
+- Direct execution should prefer vertical operation slices over framework-first work. Start with `classification-template`, then reuse proven seams for `validate-feedback-classification`, `plan-feedback`, payload/detail helpers, GitHub-backed read-only helpers, mutation builders, mutation helpers, wrapper/distribution cutover, fallback retirement, and playbook feedback.
+- Steer or ask first when a slice would intentionally change public contracts, schema shape, JSON envelope semantics, wrapper mode behavior, installed-skill behavior, mutation safety, plugin compatibility, or fallback-retirement timing.
+- Ask before running live GitHub write operations, publishing npm packages, submitting/updating PRs, deleting broad Python implementation areas, rewriting historical golden fixtures as the primary evidence, or extracting a shared command-runtime package.
+- Work may be left as a normal repository diff containing code, tests, docs, and Objective updates. Do not leave generated payload artifacts, live credentials, external-system state, or unstated compatibility changes.
+- Validation before keeping work should be targeted to the slice first, then broaden to package/workspace checks when the slice touches shared wrapper, distribution, or contract surfaces. If full validation is expensive or blocked, record the exact narrower evidence and blocker.
+- Roadmap row-level `Policy:` notes refine these defaults for that row; they do not create hidden state or a task queue.
+
 ## Assumptions and Risks
 
 Assumptions:
@@ -60,8 +100,8 @@ Risks:
 
 ## Open Questions
 
-- What TypeScript package name and public/private boundary should own `pr-address`?
-- How should `asdl pr-address ...` plugin compatibility be preserved or replaced in a TypeScript-first world?
-- Which current golden outputs are durable contract versus incidental formatting?
-- What is the shortest safe Python fallback retirement window?
-- Which shared command-runtime pieces should be extracted only after a second capability proves the same seam?
+- How should `asdl pr-address ...` plugin compatibility be preserved or replaced after the standalone TypeScript path is proven?
+- Which golden outputs require byte-for-byte parity, and which represent structured compatibility where key order or formatting may intentionally differ?
+- How should TypeScript output handle Python/Pydantic compatibility details such as explicit `null` fields in otherwise optional manifest/template data?
+- What exact evidence is enough to begin and then complete the short Python fallback retirement phase?
+- Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
