@@ -95,31 +95,31 @@ describe("pr-address CLI scaffold", () => {
 	});
 
 	test("delegates exact exec args to the legacy gateway", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc", "--format", "json"], { exitCodes: [7] });
+		const run = runWithFakeLegacy(["exec", "stack-feedback-prep", "--payload-session-id", "abc", "--format", "json"], { exitCodes: [7] });
 
 		expect(await run.exit).toBe(7);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.legacy.calls).toEqual([
 			{
-				args: ["exec", "prepare-run", "--payload-session-id", "abc", "--format", "json"],
+				args: ["exec", "stack-feedback-prep", "--payload-session-id", "abc", "--format", "json"],
 				options: { cwd: "/repo", env: { PATH: "/fake/bin" } },
 			},
 		]);
 	});
 
 	test("preserves arbitrary operation argv shape for fallback-backed commands", async () => {
-		const run = runWithFakeLegacy(["exec", "summarize-feedback", "--format", "json"], { exitCodes: [0] });
+		const run = runWithFakeLegacy(["exec", "stack-feedback-plan", "--format", "json"], { exitCodes: [0] });
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "summarize-feedback", "--format", "json"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "stack-feedback-plan", "--format", "json"]]);
 	});
 
 	test("preserves nonzero legacy exit codes", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc"], { exitCodes: [2] });
+		const run = runWithFakeLegacy(["exec", "stack-feedback-prep", "--payload-session-id", "abc"], { exitCodes: [2] });
 
 		expect(await run.exit).toBe(2);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--payload-session-id", "abc"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "stack-feedback-prep", "--payload-session-id", "abc"]]);
 	});
 
 	test("serves managed classification-template schema locally without invoking legacy", async () => {

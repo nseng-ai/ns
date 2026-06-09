@@ -15,13 +15,13 @@ TypeScript-managed local `exec` operation execution after the current stack:
 - Read-only GitHub fetch helpers: `get-pr-for-branch`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, plus `get-feedback` in both inline and default payload-artifact modes
 - Payload detail and stack diff helpers: `read-feedback-detail`, `read-feedback-details`, `stack-feedback-diff-current`
 - Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
+- Composite run preparation and summary: `prepare-run` (inline and default payload-artifact modes, contested-thread reopen, restructured-files detection) and `summarize-feedback`
 - Mutation helpers: `resolve-thread`, `resolve-thread-with-reply`, `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`, `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
 
 Compatibility-backed behavior that must stay in place for now:
 
-- Composite payload workflow: `prepare-run` and `summarize-feedback`
 - Stack orchestration helpers: `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
-- Invalid `--payload-mode` values for `get-feedback` (click usage-error rendering)
+- Invalid `--payload-mode` values for `get-feedback` and `prepare-run`, and non-integer `--body-chars` values for `summarize-feedback` (click usage-error rendering)
 - Any operation-specific `--json-schema` path not yet served by TypeScript
 - Installed/prod wrapper mode and the Python `asdl pr-address ...` plugin
 

@@ -1,6 +1,7 @@
 import type {
 	BranchHeadOidResult,
 	CurrentBranchResult,
+	GatewayFailure,
 	GatewayOptions,
 	GatewayResult,
 	PRDiscussionComment,
@@ -24,16 +25,20 @@ export interface InMemoryGitHubState {
 	reviewThreads?: ReadonlyMap<number, readonly PRReviewThread[]> | Record<number, readonly PRReviewThread[]> | undefined;
 	discussionComments?: ReadonlyMap<number, readonly PRDiscussionComment[]> | Record<number, readonly PRDiscussionComment[]> | undefined;
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
+	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
 	missingPrNumbers?: ReadonlySet<number> | undefined;
 	threadReplyFailureIds?: ReadonlySet<string> | undefined;
 	resolveFailureIds?: ReadonlySet<string> | undefined;
+	unresolveFailureIds?: ReadonlySet<string> | undefined;
 	reactionFailureCommentIds?: ReadonlySet<number> | undefined;
 }
 
 export interface InMemoryGitState {
 	currentBranch?: string | null | undefined;
+	currentBranchFailure?: GatewayFailure | undefined;
 	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
 	restructuredFiles?: readonly RestructuredFile[] | undefined;
+	restructuredFilesFailure?: GatewayFailure | undefined;
 }
 
 export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
@@ -43,9 +48,11 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	private readonly reviewThreads: ReadonlyMap<number, readonly PRReviewThread[]>;
 	private readonly discussionComments: ReadonlyMap<number, readonly PRDiscussionComment[]>;
 	private readonly lookupFailureBranches: ReadonlySet<string>;
+	private readonly lookupFailurePrNumbers: ReadonlySet<number>;
 	private readonly missingPrNumbers: ReadonlySet<number>;
 	private readonly threadReplyFailureIds: ReadonlySet<string>;
 	private readonly resolveFailureIds: ReadonlySet<string>;
+	private readonly unresolveFailureIds: ReadonlySet<string>;
 	private readonly reactionFailureCommentIds: ReadonlySet<number>;
 	private readonly commentCalls: Array<{ prNumber: number; body: string }> = [];
 	private readonly threadReplyCalls: Array<{ threadId: string; body: string }> = [];
@@ -70,9 +77,11 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		this.reviewThreads = numberMap(state.reviewThreads);
 		this.discussionComments = numberMap(state.discussionComments);
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
+		this.lookupFailurePrNumbers = state.lookupFailurePrNumbers ?? new Set();
 		this.missingPrNumbers = state.missingPrNumbers ?? new Set();
 		this.threadReplyFailureIds = state.threadReplyFailureIds ?? new Set();
 		this.resolveFailureIds = state.resolveFailureIds ?? new Set();
+		this.unresolveFailureIds = state.unresolveFailureIds ?? new Set();
 		this.reactionFailureCommentIds = state.reactionFailureCommentIds ?? new Set();
 	}
 
@@ -97,9 +106,10 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPr(prNumber: number, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.missingPrNumbers.has(prNumber)) return lookupMiss();
+		if (this.lookupFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
+		if (this.missingPrNumbers.has(prNumber)) return prLookupMiss(prNumber);
 		const pr = this.prsByNumber.get(prNumber);
-		if (pr === undefined) return lookupMiss();
+		if (pr === undefined) return prLookupMiss(prNumber);
 		return { type: "found", pr: clone(pr) };
 	}
 
@@ -153,6 +163,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async unresolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
+		if (this.unresolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: "GitHub rejected the thread unresolve", stdout: "", returncode: 1 } };
 		this.unresolvedIds.push(threadId);
 		return { type: "ok", value: { thread_id: threadId, is_resolved: false } };
 	}
@@ -160,16 +171,21 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 
 export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly currentBranch: string | null;
+	private readonly currentBranchFailure: GatewayFailure | undefined;
 	private readonly branchHeadOids: ReadonlyMap<string, string>;
 	private readonly restructuredFiles: readonly RestructuredFile[];
+	private readonly restructuredFilesFailure: GatewayFailure | undefined;
 
 	constructor(state: InMemoryGitState = {}) {
 		this.currentBranch = state.currentBranch === undefined ? "main" : state.currentBranch;
+		this.currentBranchFailure = state.currentBranchFailure;
 		this.branchHeadOids = stringMap(state.branchHeadOids);
 		this.restructuredFiles = clone(state.restructuredFiles ?? []);
+		this.restructuredFilesFailure = state.restructuredFilesFailure;
 	}
 
 	async getCurrentBranch(_options: GatewayOptions): Promise<CurrentBranchResult> {
+		if (this.currentBranchFailure !== undefined) return { type: "failure", failure: clone(this.currentBranchFailure) };
 		if (this.currentBranch === null) return { type: "detached" };
 		return { type: "branch", branch: this.currentBranch };
 	}
@@ -181,6 +197,7 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	}
 
 	async getRestructuredFiles(_baseRefName: string, _options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
+		if (this.restructuredFilesFailure !== undefined) return { type: "failure", failure: clone(this.restructuredFilesFailure) };
 		return { type: "ok", value: clone(this.restructuredFiles) };
 	}
 }
@@ -209,6 +226,11 @@ type PRReviewCommentForFactory = PRReviewThread["comments"][number];
 
 function lookupMiss(): PRLookupMiss {
 	return { type: "miss", stderr: "no PR found", returncode: 1 };
+}
+
+/** Mirrors the Python FakePRGateway miss text for number-keyed PR lookups. */
+function prLookupMiss(prNumber: number): PRLookupMiss {
+	return { type: "miss", stderr: `no PR found for PR ${prNumber}`, returncode: 1 };
 }
 
 function stringMap<T>(value: ReadonlyMap<string, T> | Record<string, T> | undefined): ReadonlyMap<string, T> {
