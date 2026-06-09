@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 import click
 from pydantic import model_serializer
@@ -12,13 +12,39 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.project_config import AsdlProjectConfigError
 from roaster.context import RoasterCliContext
-from roaster.models import GitInvocationFailedError, RepoRootUnavailableError, ReviewSource
+from roaster.models import (
+    GitDiffFailedError,
+    GitInvocationFailedError,
+    LocalDiff,
+    RepoRootUnavailableError,
+    ReviewDefinition,
+    ReviewSource,
+)
+from roaster.review_applicability import applicable_review_keys
 from roaster.review_definition import parse_review_definition
 
 
 class ReviewListRequest(ClinkrModel):
-    """No options: all reviews in reviews/ are CI reviewers."""
+    """List all reviews, or only reviews applicable to the current diff."""
+
+    applicable: Annotated[
+        bool,
+        click.Option(
+            ["--applicable"],
+            is_flag=True,
+            default=False,
+            help="Only list reviewers whose applicability matches changed paths.",
+        ),
+    ] = False
+    base_ref: Annotated[
+        str | None,
+        click.Option(
+            ["--base-ref"],
+            help="Base branch to diff against when --applicable is set.",
+        ),
+    ] = None
 
 
 class ReviewListReview(ClinkrModel):
@@ -65,6 +91,23 @@ def build_review_key_groups(keys: tuple[str, ...]) -> tuple[ReviewKeyGroup, ...]
     )
 
 
+def _load_applicability_diff(
+    *,
+    roaster_context: RoasterCliContext,
+    base_ref: str | None,
+) -> LocalDiff:
+    try:
+        return Ensure.ideal_state(roaster_context.diff.load_diff(base_ref=base_ref))
+    except AsdlProjectConfigError as exc:
+        raise ClinkrFailure(error_type="asdl_config_invalid", message=str(exc)) from exc
+    except RepoRootUnavailableError as exc:
+        raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
+    except GitInvocationFailedError as exc:
+        raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
+    except GitDiffFailedError as exc:
+        raise ClinkrFailure(error_type="git_diff_failed", message=str(exc)) from exc
+
+
 def render_review_list(result: ReviewListResult) -> None:
     click.echo(f"Reviews directory: {result.reviews_dir}")
     if not result.keys:
@@ -103,7 +146,7 @@ def run_review_list_command(
     except GitInvocationFailedError as exc:
         raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
 
-    reviews: list[ReviewListReview] = []
+    definitions_by_key: dict[str, ReviewDefinition] = {}
     for key in catalog.keys:
         review_source = Ensure.ideal_state(roaster_context.catalog.load_review_source(key=key))
         if not isinstance(review_source, ReviewSource):
@@ -118,18 +161,33 @@ def run_review_list_command(
                 error_type="invalid_review_definition",
                 message=f"{review_source.key}: {exc}",
             ) from exc
-        reviews.append(
-            ReviewListReview(
-                key=review_source.key,
-                description=definition.description,
-                default_model=definition.default_model,
-            )
+        definitions_by_key[review_source.key] = definition
+
+    if request.applicable:
+        local_diff = _load_applicability_diff(
+            roaster_context=roaster_context,
+            base_ref=request.base_ref,
         )
+        keys = applicable_review_keys(
+            definitions_by_key,
+            changed_paths=local_diff.changed_paths,
+        )
+    else:
+        keys = tuple(definitions_by_key)
+
+    reviews = tuple(
+        ReviewListReview(
+            key=key,
+            description=definitions_by_key[key].description,
+            default_model=definitions_by_key[key].default_model,
+        )
+        for key in keys
+    )
 
     return ClinkrExit.ok(
         ReviewListResult(
             keys=tuple(review.key for review in reviews),
-            reviews=tuple(reviews),
+            reviews=reviews,
             reviews_dir=str(catalog.reviews_dir),
         )
     )
