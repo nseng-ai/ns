@@ -125,8 +125,8 @@ plans list [--format json] [--plan-store-root <path>]
 
 Default text output includes each saved plan's slug, encoded branch key,
 modified time, and path. It intentionally displays the existing encoded
-`branchKey` rather than trying to recover exact original branch names, and omits
-the plan kind; the path suffix (`.md` or `.plan.ts`) disambiguates formats.
+`branchKey` rather than trying to recover exact original branch names. Saved
+plans are Markdown `.md` files.
 
 ### Create a planned branch
 
@@ -210,6 +210,11 @@ The workflow has two storage locations with different jobs:
   reviewed plans before an implementation branch exists. Here `<slug>` is the
   saved-plan filename slug. `@asdl/plans` owns these saved-plan store primitives;
   `plans list` provides human inspection.
+
+  Breaking TypeScript API note: saved-plan store and selection helpers moved
+  from `@asdl/planned-branch` to `@asdl/plans`; new consumers should import
+  saved-plan APIs from `@asdl/plans`. `@asdl/planned-branch` now owns branch
+  creation, Branch Memory attachment, and implementation loading.
 - **Attached plan:** Branch Memory namespace `planned-branch`, key
   `<planned-branch-slug>.md`, on the implementation branch stores the canonical
   plan that implementation should follow. `@asdl/planned-branch` owns branch

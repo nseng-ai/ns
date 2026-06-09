@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 
 import { realpathSync } from "node:fs";
-import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "./command-runtime.ts";
+import { NodeCommandExecApi, type PlanCommandExecApi } from "./command-runtime.ts";
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 import { listSavedPlans, type SavedPlanListItem } from "./saved-plan-file.ts";
-import { normalizePlanFilePath, type ExecOptions, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { normalizePlanFilePath } from "./plan-persistence.ts";
 
 const VERSION = "0.1.0";
 const JSON_FORMAT = "json";
@@ -48,7 +47,7 @@ interface JsonFailure {
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
 	const stderr = deps.stderr ?? ((text: string) => process.stderr.write(text));
-	const commands = deps.commands ?? new RealCommandExecApi();
+	const commands = deps.commands ?? new NodeCommandExecApi();
 	const requiredDeps: RequiredCliDeps = {
 		commands,
 		git: deps.git ?? new RealPlansGitGateway(commands),
@@ -220,48 +219,6 @@ function topLevelHelp(): string {
 
 function listHelp(): string {
 	return ["Usage: plans list [--format json] [--plan-store-root <path>]", ""].join("\n");
-}
-
-class RealCommandExecApi implements PlanCommandExecApi {
-	exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
-		return new Promise((resolveResult, reject) => {
-			const child = spawn(command, args, { cwd: options.cwd, signal: options.signal });
-			let stdout = "";
-			let stderr = "";
-			let killed = false;
-			let timeout: NodeJS.Timeout | undefined;
-
-			if (options.timeout !== undefined) {
-				timeout = setTimeout(() => {
-					killed = true;
-					child.kill("SIGTERM");
-				}, options.timeout);
-			}
-
-			child.stdout.setEncoding("utf8");
-			child.stderr.setEncoding("utf8");
-			child.stdout.on("data", (chunk: string) => {
-				stdout += chunk;
-			});
-			child.stderr.on("data", (chunk: string) => {
-				stderr += chunk;
-			});
-			child.on("error", (error) => {
-				if (timeout !== undefined) clearTimeout(timeout);
-				reject(error);
-			});
-			child.on("close", (code, signal) => {
-				if (timeout !== undefined) clearTimeout(timeout);
-				const result: PiExecResultLike = {
-					stdout,
-					stderr,
-					code: code ?? 1,
-					killed: killed || signal !== null,
-				};
-				resolveResult(normalizeExecResult(result));
-			});
-		});
-	}
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

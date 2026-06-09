@@ -1,8 +1,6 @@
-import { formatCommand, formatOutputSection, tailText, type ExecResult } from "./command-runtime.ts";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import { formatCommand, formatCommandFailure, type ExecOptions, type ExecResult, type PlanCommandExecApi } from "@asdl/plans";
 
 const GIT_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
 
 export interface GitCwdParams {
 	cwd: string;
@@ -192,19 +190,6 @@ function failure(code: string, title: string, run: CommandRun): GitErrorInfo {
 
 function error(code: string, message: string, displayCommand?: string): { ok: false; error: GitErrorInfo } {
 	return { ok: false, error: { code, message, ...(displayCommand === undefined ? {} : { displayCommand }) } };
-}
-
-function formatCommandFailure(title: string, displayCommand: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	return tailText(
-		[
-			`${title} (${status}).`,
-			`Command: ${displayCommand}`,
-			formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-			formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-		].join("\n\n"),
-		{ maxChars: MAX_ERROR_CHARS, maxLines: 120 },
-	);
 }
 
 function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {

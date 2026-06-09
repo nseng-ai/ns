@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { buildPlanContentSlugPrompt } from "@asdl/planned-branch";
+import { buildSlugModelArgs } from "../../planned-branch/src/model-slug.ts";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
@@ -38,6 +40,10 @@ import {
 	writeCmuxPlanStoreFile,
 	writeTempSkill,
 } from "./ccc-test-harness.ts";
+
+const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
+const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
+const PLAN_CONTENT = "# Plan\n";
 
 afterEach(resetCmuxTestEnvironment);
 
@@ -178,17 +184,18 @@ describe("CCC cmux command suite", () => {
 	test("ccc:workspace:dispatch-plan dry-run emits preview without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, { fileName: SAVED_PLAN_FILE_NAME, content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
+				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), { stdout: `${PLAN_SLUG}\n` }),
 				headStep(),
 			],
 		});
 		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
-		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
+		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })] });
 
 		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
@@ -199,7 +206,8 @@ describe("CCC cmux command suite", () => {
 		const content = String(pi.sentMessages[0]?.content);
 		expect(content).toContain("Dry run: no branch was created, no plan was attached, and no cmux workspace was opened.");
 		expect(content).toContain(`Path: ${planFile}`);
-		expect(content).toContain(`Slug: ${PLAN_SLUG}`);
+		expect(content).toContain(`Saved-plan filename slug: ${SAVED_PLAN_FILENAME_SLUG}`);
+		expect(content).toContain(`Content-derived planned-branch slug: ${PLAN_SLUG}`);
 		expect(content).toContain(`Source branch: ${SOURCE_BRANCH}`);
 		expect(content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(content).toContain(`Branch Memory key: ${PLAN_KEY}`);
@@ -211,13 +219,14 @@ describe("CCC cmux command suite", () => {
 	test("ccc:workspace:dispatch-plan full success opens cmux without sidebar summary", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, { fileName: SAVED_PLAN_FILE_NAME, content: PLAN_CONTENT });
 		const realPlanFile = await realpath(planFile);
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
+				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), { stdout: `${PLAN_SLUG}\n` }),
 				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
@@ -245,7 +254,11 @@ describe("CCC cmux command suite", () => {
 			],
 		});
 		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
-		const ctx = new FakeCommandContext({ cwd: repoRoot, model: PREVIOUS_MODEL, branchEntries: [savedPlanEntry(repoRoot, planFile)] });
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			model: PREVIOUS_MODEL,
+			branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })],
+		});
 
 		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("", ctx);
 

@@ -5,6 +5,7 @@ import {
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	buildPlannedBranchCreateOperation,
 	createPlannedBranchFromFile,
+	derivePlanContentSlug,
 	formatPlanBranchEvidence,
 	formatPlannedBranchCreateFailure,
 	formatPlannedBranchCreatePreview,
@@ -120,8 +121,10 @@ async function handleCommand(
 		}
 
 		const selectedPlan = selected.plan;
+		setStatus(ctx, "deriving planned-branch slug…");
+		const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedPlan.filePath, cwd: checkout.directory.repoRoot });
 		const operation = buildPlannedBranchCreateOperation({
-			slug: selectedPlan.slug,
+			slug: slugEvidence.slug,
 			filePath: selectedPlan.filePath,
 			branchCreation: BRANCH_CREATION,
 			summary: selectedPlan.summary,
@@ -285,7 +288,8 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		"",
 		"Selected saved plan:",
 		`Path: ${plan.filePath}`,
-		`Slug: ${plan.slug}`,
+		`Saved-plan filename slug: ${plan.slug}`,
+		`Content-derived planned-branch slug: ${operation.slug}`,
 		`Repo key: ${plan.repoKey}`,
 		`Repo root: ${plan.repoRoot}`,
 		`Repo identity source: ${plan.repoIdentitySource}`,

@@ -2,10 +2,8 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import { formatOutputSection, tailText, type ExecResult } from "./command-runtime.ts";
+import type { PlanCommandExecApi } from "./command-runtime.ts";
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
-
-const MAX_ERROR_CHARS = 4_000;
 
 const GENERIC_SLUG_WORDS = new Set([
 	"plan",
@@ -19,16 +17,6 @@ const GENERIC_SLUG_WORDS = new Set([
 	"update",
 	"updates",
 ]);
-
-export interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
-
-export interface PlanCommandExecApi {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-}
 
 export function validatePlanSlug(slug: string): string | undefined {
 	const normalized = slug.trim();
@@ -138,19 +126,6 @@ export function normalizeSummary(summary: string | undefined): string | undefine
 	}
 	const trimmed = summary.trim();
 	return trimmed.length > 0 ? trimmed : undefined;
-}
-
-export function formatCommandFailure(title: string, displayCommand: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	return tailText(
-		[
-			`${title} (${status}).`,
-			`Command: ${displayCommand}`,
-			formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-			formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-		].join("\n\n"),
-		{ maxChars: MAX_ERROR_CHARS, maxLines: 120 },
-	);
 }
 
 function displayNonEmpty(value: string): string {

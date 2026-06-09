@@ -48,6 +48,7 @@ Pi slash commands and CLI commands are equal first-class workflow surfaces over 
 Pi surfaces:
 
 - `/planned-branch:write-plan`
+- `/planned-branch:write-grilled-plan` (Pi-only structured UI over the same Saved plan artifact)
 - `/planned-branch:create`
 - `/planned-branch:up-and-impl`
 - `/planned-branch:impl`

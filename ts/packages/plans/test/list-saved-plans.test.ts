@@ -96,6 +96,43 @@ describe("plans list CLI", () => {
 		expect(version.stdoutText()).toBe("0.1.0\n");
 	});
 
+	test("prints list help", async () => {
+		const fixture = await makeFixture();
+		const output = createOutputCapture();
+
+		const exitCode = await runCli(["list", "--help"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands: unusedCommands,
+			stdout: output.stdout,
+			stderr: output.stderr,
+		});
+
+		expect(exitCode).toBe(0);
+		expect(output.stderrText()).toBe("");
+		expect(output.stdoutText()).toContain("Usage: plans list");
+	});
+
+	test("prints JSON failure for unknown JSON option", async () => {
+		const fixture = await makeFixture();
+		const output = createOutputCapture();
+
+		const exitCode = await runCli(["list", "--format", "json", "--bogus"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands: unusedCommands,
+			stdout: output.stdout,
+			stderr: output.stderr,
+		});
+
+		expect(exitCode).toBe(2);
+		expect(output.stderrText()).toBe("");
+		expect(JSON.parse(output.stdoutText())).toEqual({
+			success: false,
+			error: { code: "plans_error", message: "Unknown option: --bogus" },
+		});
+	});
+
 	test("prints an empty success message when no repo store exists", async () => {
 		const fixture = await makeFixture();
 		const output = createOutputCapture();
