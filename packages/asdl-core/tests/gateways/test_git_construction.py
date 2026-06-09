@@ -16,6 +16,24 @@ def _completed(
     return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
 
 
+def test_build_git_gateway_returns_real_git_gateway() -> None:
+    gateway = construction.build_git_gateway(repo_root=Path("/repo"), trunk_branch="main")
+
+    assert isinstance(gateway, RealGitGateway)
+    assert gateway.get_trunk_branch() == "main"
+
+
+def test_build_git_gateway_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("build_git_gateway should not run subprocesses")
+
+    monkeypatch.setattr(construction.subprocess, "run", fail_run)
+
+    gateway = construction.build_git_gateway()
+
+    assert isinstance(gateway, RealGitGateway)
+
+
 def test_resolve_repo_root_returns_path(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert cmd == ["git", "rev-parse", "--show-toplevel"]

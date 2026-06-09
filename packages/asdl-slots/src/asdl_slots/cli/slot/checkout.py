@@ -12,8 +12,7 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.git.construction import resolve_repo_root
-from asdl_core.git.real_git_gateway import RealGitGateway
+from asdl_core.git.construction import build_git_gateway, resolve_repo_root
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.clipboard import ClipboardCopySuccess
@@ -29,7 +28,7 @@ def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete
         repo_root = resolve_repo_root(Path.cwd())
         if repo_root is None:
             return []
-        branches = RealGitGateway(repo_root=repo_root).list_local_branches()
+        branches = build_git_gateway(repo_root=repo_root).list_local_branches()
     except (subprocess.CalledProcessError, OSError):
         # Shell completion callbacks must never raise — any exception that
         # escapes here breaks the user's tab-completion in the shell. Swallow
