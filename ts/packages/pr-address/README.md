@@ -12,16 +12,16 @@ TypeScript-managed local `exec` operation execution after the current stack:
 
 - Classification and planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`
 - Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`
-- Read-only GitHub fetch helpers: `get-pr-for-branch`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, plus `get-feedback --payload-mode inline`
-- Payload detail and stack diff helpers: `read-feedback-detail`, `stack-feedback-diff-current`
+- Read-only GitHub fetch helpers: `get-pr-for-branch`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, plus `get-feedback` in both inline and default payload-artifact modes
+- Payload detail and stack diff helpers: `read-feedback-detail`, `read-feedback-details`, `stack-feedback-diff-current`
+- Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
 - Mutation helpers: `resolve-thread`, `resolve-thread-with-reply`, `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`, `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
 
 Compatibility-backed behavior that must stay in place for now:
 
-- Composite/default payload workflow: `prepare-run`, `summarize-feedback`, and default `get-feedback` payload mode
+- Composite payload workflow: `prepare-run` and `summarize-feedback`
 - Stack orchestration helpers: `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
-- Batch checkpoint recovery: `record-batch-checkpoint`
-- Bulk payload reading: `read-feedback-details`
+- Invalid `--payload-mode` values for `get-feedback` (click usage-error rendering)
 - Any operation-specific `--json-schema` path not yet served by TypeScript
 - Installed/prod wrapper mode and the Python `asdl pr-address ...` plugin
 

@@ -1,6 +1,11 @@
 import { z } from "zod";
 
+import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
+import { loadJsonInput } from "./json-input.ts";
+import { hasFlag, parseManagedOptions } from "./managed-options.ts";
+import { PayloadStore, type PayloadClock, type PayloadReference, type PayloadResult } from "./payload-store.ts";
+import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
@@ -81,7 +86,7 @@ type NonThreadOutcomeInput = z.infer<typeof nonThreadOutcomeInputSchema>;
 type NonThreadSourceKind = "review" | "discussion_comment";
 type IssueKind = "invalid" | "incomplete";
 
-interface BatchCheckpointError {
+export interface BatchCheckpointError {
 	code: string;
 	message: string;
 	batch_id: string | null;
@@ -96,7 +101,7 @@ interface BatchCheckpointIssue {
 	error: BatchCheckpointError;
 }
 
-interface BatchThreadCheckpointSummary {
+export interface BatchThreadCheckpointSummary {
 	review_thread_count: number;
 	payload_ready: boolean | null;
 	resolved_thread_ids: string[];
@@ -112,7 +117,77 @@ interface NonThreadKey {
 	id: string | number;
 }
 
-export function recordBatchCheckpoint(input: unknown): unknown {
+export interface RecordBatchCheckpointResult {
+	valid: boolean;
+	batch_complete: boolean;
+	batch_id: string;
+	complexity: string | null;
+	approval_required: boolean | null;
+	pr_number: number | null;
+	payload_path: string | null;
+	checkpoint_reference: PayloadReference | null;
+	commit_sha: string | null;
+	changed_files: string[];
+	validation_commands: unknown[];
+	selected_items: unknown[];
+	thread_summary: BatchThreadCheckpointSummary | null;
+	non_thread_outcomes: unknown[];
+	errors: BatchCheckpointError[];
+	warnings: string[];
+}
+
+export async function runRecordBatchCheckpointOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
+	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
+	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
+	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	const payloadResult = await loadJsonInput({
+		optionValue: options.options.values.get("--payload-json"),
+		filePath: options.options.values.get("--payload-file"),
+		commandName: "record-batch-checkpoint",
+		inputDescription: "checkpoint JSON",
+		optionName: "--payload-json",
+		fileOptionName: "--payload-file",
+		schema: recordBatchCheckpointInputSchema,
+		stdin: invocation.deps.stdin,
+	});
+	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+
+	let checkpointResult = recordBatchCheckpoint(payloadResult.value);
+	if (checkpointResult.valid && checkpointResult.payload_path !== null) {
+		const written = await writeCheckpointArtifact(checkpointResult, invocation.deps.context.payloadClock);
+		if (written.type === "error") return { type: "exit", exit: clinkrFailure(written.errorType, written.message) };
+		checkpointResult = { ...checkpointResult, checkpoint_reference: written.value };
+	}
+
+	if (checkpointResult.valid && checkpointResult.batch_complete) return { type: "exit", exit: clinkrOk(checkpointResult) };
+	return {
+		type: "exit",
+		exit: clinkrNegative(checkpointResult, "Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete."),
+	};
+}
+
+async function writeCheckpointArtifact(checkpointResult: RecordBatchCheckpointResult, clock: PayloadClock | undefined): Promise<PayloadResult<PayloadReference>> {
+	// Mirrors the Python BatchCheckpointArtifact model field order for byte parity.
+	const artifact = {
+		pr_number: checkpointResult.pr_number,
+		payload_path: checkpointResult.payload_path,
+		batch_id: checkpointResult.batch_id,
+		complexity: trimRequired(checkpointResult.complexity),
+		approval_required: checkpointResult.approval_required === true,
+		commit_sha: checkpointResult.commit_sha,
+		changed_files: checkpointResult.changed_files,
+		validation_commands: checkpointResult.validation_commands,
+		selected_items: checkpointResult.selected_items,
+		thread_summary: checkpointResult.thread_summary,
+		non_thread_outcomes: checkpointResult.non_thread_outcomes,
+		warnings: checkpointResult.warnings,
+	};
+	const storeResult = await PayloadStore.openContainingArtifact(trimRequired(checkpointResult.payload_path), { clock });
+	if (storeResult.type === "error") return storeResult;
+	return await storeResult.value.writeJsonArtifact({ descriptor: "pr-address-batch-checkpoint", role: "summary", payload: artifact });
+}
+
+export function recordBatchCheckpoint(input: unknown): RecordBatchCheckpointResult {
 	const request = recordBatchCheckpointInputSchema.parse(input);
 	const plan = request.plan;
 	const batchId = request.batch_id.trim();
@@ -513,7 +588,7 @@ function result(options: {
 	nonThreadOutcomes?: readonly unknown[] | undefined;
 	errors?: readonly BatchCheckpointError[] | undefined;
 	warnings?: readonly string[] | undefined;
-}): unknown {
+}): RecordBatchCheckpointResult {
 	return {
 		valid: options.valid,
 		batch_complete: options.isBatchComplete,
@@ -578,4 +653,8 @@ function trimOptional(value: string | null | undefined): string | null {
 	if (value === null || value === undefined) return null;
 	const trimmed = value.trim();
 	return trimmed === "" ? null : trimmed;
+}
+
+function trimRequired(value: string | null | undefined): string {
+	return trimOptional(value) ?? "";
 }
