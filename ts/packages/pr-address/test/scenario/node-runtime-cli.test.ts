@@ -35,7 +35,7 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: pr-address");
-		expect(result.stdout).not.toContain("exec");
+		expect(result.stdout).toContain("exec");
 	});
 
 	test("Node executes the TypeScript entrypoint through a package-manager-style symlink", async () => {
