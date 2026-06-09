@@ -29,11 +29,13 @@
   - Preserve exact-once accounting, fail-closed validation, ordered batch semantics, and approval-required markers for cross-cutting/complex work.
   - Policy: directly executable after preview when it reuses the local seams; ask before changing classification schema semantics.
   - Evidence: `updates/2026-06-09T150509Z-classification-core-parity.md` records TypeScript-managed `validate-feedback-classification` and `plan-feedback`, golden parity over the existing fixture suites, and targeted package validation.
+  - Contract hardening evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` records canonical Zod manifest/plan contract modules, typed plan item variants, schema-document ownership for `plan-feedback`, and preservation of existing runtime JSON shapes.
 - [~] Port payload/detail/finalization helpers that do not require live GitHub mutation.
   - Cover payload manifest readers/builders, selected feedback detail lookup, resolve-batch payload builders, checkpoint recording, finalization summaries, and stack plan/diff builders where they can be driven by fixtures or fakes.
   - Policy: directly executable after preview with fake filesystem/process gateways. Ask before changing artifact layout or payload defaults.
   - Evidence should include fake-driven tests plus golden/contract parity for payload manifests, batch payloads, checkpoints, finalization, and stack planning/diff outputs.
   - Progress evidence: `updates/2026-06-09T152041Z-payload-finalize-helper-parity.md` records TypeScript parity for payload manifest builders, selected feedback detail lookup, resolve-thread batch payloads, checkpoint calculation helpers, and finalization summaries; artifact-writing and stack-wide helpers remain fallback-backed until their filesystem/stack contracts are ported safely.
+  - Contract hardening evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` records that downstream consumers now compose canonical plan/manifest schemas where compatible, with legacy-broader parsing kept explicit for consumer paths.
 - [~] Port GitHub/git-backed read-only feedback collection behind adapter-neutral gateways.
   - Cover current-branch PR lookup, reviews, review comments, discussion comments, `get-feedback`, `prepare-run`, and compact payload artifacts.
   - Use capability-shaped gateways and in-memory fakes for git, GitHub, filesystem, process, and payload behavior.
@@ -56,6 +58,7 @@
   - Policy: ask before broad Python deletion or irreversible fallback removal; small fallback-scope reductions are directly executable when the affected operation has TypeScript parity and tests.
   - Evidence should include operation parity coverage, wrapper/distribution cutover evidence, and docs showing no active invocation path depends on the retired Python surface.
   - Current evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` documents why broad Python fallback retirement is still blocked by installed/prod wrapper, plugin, artifact-writing, stack orchestration, and schema-route compatibility requirements.
+  - Updated readiness evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` confirms Python is still present and still required for unported operations, public schema fallback routes, installed/prod wrapper mode, rollback, and the `asdl pr-address ...` plugin; broad deletion is not ready.
 - [ ] Feed lessons into the umbrella porting playbook.
   - Record reusable migration guidance for later `brmem`, `handoff`, `objective`, and other capability ports.
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.
