@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Establish the initial migration ledger for active first-party capabilities.
-  - Classify each considered capability as unstarted, in progress, TS-default, retired, parked, or out of scope.
-  - Require evidence of active use, dependency need, or strategic value before porting unclear capabilities.
+- [x] Establish the initial migration ledger for active first-party capabilities.
+  - Initial ledger recorded in `objective.md` with unstarted, TS-default, parked-pending-evidence, reference-source, and out-of-scope statuses.
+  - Evidence: package metadata, first-party skill inventory, existing TS workspace packages, Graphite parent `master`, and PR #1148 for the umbrella Objective creation branch.
 - [ ] Create the `pr-address` capability subobjective as the first production vertical slice.
   - The umbrella Objective should name `pr-address` only as the proving slice; detailed operation design belongs in the subobjective.
 - [ ] Define the minimal TS migration scaffold.
@@ -17,8 +17,9 @@
   - Evidence should include golden/contract parity, public CLI/skill scenarios, fake-driven gateway/core tests, limited real-adapter smoke coverage where safe, wrapper/doc updates, and removal or retirement of active Python paths.
 - [ ] Refine a reusable porting playbook from the first full cutover.
   - Promote lessons from `pr-address` into durable guidance for later capability subobjectives.
-- [ ] Select the next capability by integration leverage.
-  - Prioritize frequent Pi/skill usage, reusable shared seams, strong existing golden/scenario coverage, and strategic value.
+- [ ] Select the next capability by the persisted capability order and fresh integration-leverage evidence.
+  - Current default order after `pr-address`: `brmem`, `handoff`, `objective`, `asdl-dispatcher`, roaster, `slot`, `vibechk`, then `aretro` last.
+  - Revisit only when new evidence materially changes usage, dependency, or strategic value.
 - [ ] Repeat the capability subobjective pattern until all active first-party user-facing capabilities are TS-default.
   - Preserve stable CLI/skill contracts during takeover.
   - Add cleaner TS-native APIs behind or alongside those contracts where useful.
