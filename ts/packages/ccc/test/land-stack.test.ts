@@ -11,7 +11,7 @@ import {
 } from "../src/land-stack/command-exec.ts";
 import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
 import { LandStackCommandStream, withCommandStreaming } from "../src/land-stack/command-stream.ts";
-import landStackExtension, { parseArgs } from "../src/land-stack.ts";
+import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
 import { loadPr, validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
 import { formatFailure, formatPlan, formatSuccessNotification } from "../src/land-stack/presentation.ts";
 import { parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
@@ -21,6 +21,7 @@ import type {
 	LandStackCommandContext,
 	LandedPr,
 	LandingPlan,
+	LandingShape,
 	NotifyLevel,
 	PullRequestSnapshot,
 } from "../src/land-stack/types.ts";
@@ -39,7 +40,6 @@ const STACK_WITH_DESCENDANT = ["◯ main", "◯ feature-a", "◉ feature-b", "�
 const STACK_TO_CURRENT = ["◯ main", "◯ feature-a", "◉ feature-b", ""].join("\n");
 const STACK_SINGLE_BRANCH = ["◯ main", "◉ feature-a", ""].join("\n");
 
-type RegisteredCommand = Parameters<LandStackExtensionAPI["registerCommand"]>[1];
 type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
 type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
 	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
@@ -79,7 +79,6 @@ interface WidgetUpdate {
 }
 
 class FakePi implements LandStackExtensionAPI {
-	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
@@ -88,10 +87,6 @@ class FakePi implements LandStackExtensionAPI {
 
 	constructor(script: ScriptedExec[] = []) {
 		this.script = [...script];
-	}
-
-	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
 	}
 
 	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
@@ -231,11 +226,10 @@ async function runLandStack(
 	messages: SentMessage[];
 }> {
 	const pi = new FakePi(script);
-	landStackExtension(pi);
-	const command = pi.commands.get("code:land");
-	expect(command).toBeDefined();
+	registerLandStackRenderer(pi);
 	const context = createContext(contextOptions);
-	await command?.handler(args, context.ctx);
+	const parsedArgs = expectSuccess(parseArgs(args));
+	await executeStackLanding(pi, context.ctx, parsedArgs);
 	return { pi, messages: pi.messages, ...context };
 }
 
@@ -446,6 +440,21 @@ function mergeFeatureBWithDescendantRestackFailure(): ScriptedExec[] {
 	];
 }
 
+function singleBranchShape(): LandingShape {
+	return {
+		repoRoot: ROOT,
+		current: "feature-a",
+		trunk: TRUNK,
+		stack: {
+			trunk: TRUNK,
+			current: "feature-a",
+			landingBranches: ["feature-a"],
+			descendantBranches: [],
+			warnings: [],
+		},
+	};
+}
+
 function singleBranchPreflight(worktrees: string): ScriptedExec[] {
 	return singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A, worktrees });
 }
@@ -526,31 +535,6 @@ async function captureConsole<T>(run: () => Promise<T>): Promise<T> {
 		console.error = originalError;
 	}
 }
-
-describe("land-stack extension registration", () => {
-	test("registers the land-stack command with completions and a callable handler", async () => {
-		const pi = new FakePi();
-		landStackExtension(pi);
-
-		const command = pi.commands.get("code:land");
-		expect(pi.commands.has("gt:land-stack")).toBe(false);
-		expect(pi.commands.has("land-stack")).toBe(false);
-		expect(command?.description).toContain("Graphite stack");
-		expect(command?.getArgumentCompletions?.("--")).toEqual([
-			{ value: "--yes", label: "--yes" },
-			{ value: "--dry-run", label: "--dry-run" },
-			{ value: "--help", label: "--help" },
-		]);
-
-		const context = createContext();
-		await command?.handler("--help", context.ctx);
-
-		expect(context.waitForIdleCalls()).toBe(1);
-		expect(context.notifications).toHaveLength(1);
-		expect(context.notifications[0]?.message).toContain("Usage:");
-		expect(pi.execCalls).toEqual([]);
-	});
-});
 
 describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
@@ -1267,7 +1251,7 @@ describe("land-stack command scenarios", () => {
 
 	test("command stream renderer ignores unsafe PR link URLs in details", () => {
 		const pi = new FakePi();
-		landStackExtension(pi);
+		registerLandStackRenderer(pi);
 		const renderer = pi.messageRenderers.get("land-command-stream");
 		expect(renderer).toBeDefined();
 
@@ -1444,6 +1428,55 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
 		);
 		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("reloads stack facts for the submit/update recheck after using an initial shape", async () => {
+		const submitArgs = ["submit", "--branch", "feature-a", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
+		const stackArgs = ["log", "short", "--stack", "-r", "--no-interactive"];
+		const script = [
+			...cleanRepoChecks(),
+			...localBranchChecks(["feature-a"]),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
+			}),
+			step("git", ["worktree", "list", "--porcelain"], { stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]) }),
+			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
+			step("gt", submitArgs),
+			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
+			}),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
+			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 101,
+						branch: "feature-a",
+						base: TRUNK,
+						sha: SHA_B,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
+		];
+		const pi = new FakePi(script);
+		const context = createContext({ confirms: [true] });
+
+		await executeStackLanding(pi, context.ctx, expectSuccess(parseArgs("--yes")), { initialShape: singleBranchShape() });
+
+		pi.assertDone();
+		const submitIndex = pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs));
+		const recheckStackIndex = pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, stackArgs));
+		const mergeIndex = pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge");
+		expect(submitIndex).toBeGreaterThanOrEqual(0);
+		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
+		expect(recheckStackIndex).toBeLessThan(mergeIndex);
+		expect(pi.execCalls.filter((call) => call.command === "gt" && sameArgs(call.args, stackArgs))).toHaveLength(1);
+		expect(context.notifications.at(-1)?.level).toBe("success");
 	});
 
 	test("offers to restack before submit/update when git reachability shows restack is needed", async () => {

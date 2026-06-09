@@ -78,9 +78,6 @@ export class LandStackCommandStream {
 
 export function withCommandStreaming(pi: LandStackExtensionAPI, commandStream: LandStackCommandStream): LandStackExtensionAPI {
 	return {
-		registerCommand(name, options) {
-			pi.registerCommand(name, options);
-		},
 		async exec(command, args, options) {
 			const commandDisplay = formatCommandForDisplay(command, args);
 			commandStream.start(commandDisplay);

@@ -31,28 +31,7 @@ export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
 	skipMainConfirmation?: boolean;
-	preloadedShape?: LandingShape;
-}
-
-export function registerLandStackCommand(pi: LandStackExtensionAPI): void {
-	registerLandStackRenderer(pi);
-
-	pi.registerCommand(COMMAND_NAME, {
-		description: "Land the current PR or Graphite stack into trunk",
-		getArgumentCompletions: landArgumentCompletions,
-		handler: async (rawArgs: string, ctx: LandStackCommandContext) => {
-			await ctx.waitForIdle();
-
-			const args = parseArgs(rawArgs);
-			if (args.type === "failure") {
-				const commandStream = new LandStackCommandStream(pi, ctx);
-				presentLandStackFailure({ ctx, commandStream, landed: [], failure: args.failure });
-				return;
-			}
-
-			await executeStackLanding(pi, ctx, args.value);
-		},
-	});
+	initialShape?: LandingShape;
 }
 
 export function registerLandStackRenderer(pi: Pick<LandStackExtensionAPI, "registerMessageRenderer">): void {
@@ -83,7 +62,10 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
-		let plan = await buildLandingPlan(runtimePi, ctx.cwd, buildLandingPlanOptions(options));
+		let plan = await buildLandingPlan(runtimePi, ctx.cwd, {
+			allowSubmitRequiredState: true,
+			...(options.initialShape ? { preloadedShape: options.initialShape } : {}),
+		});
 		if (plan.type === "failure") {
 			presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
 			return;
@@ -125,7 +107,7 @@ export async function executeStackLanding(
 				return;
 			}
 			setStatus(ctx, "rechecking preflight...");
-			plan = await buildLandingPlan(runtimePi, ctx.cwd, buildLandingPlanOptions(options));
+			plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
 			if (plan.type === "failure") {
 				presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
 				return;
@@ -182,21 +164,12 @@ interface PresentLandStackFailureOptions {
 	failure: LandStackFailure;
 }
 
-function buildLandingPlanOptions(options: ExecuteStackLandingOptions): { allowSubmitRequiredState: boolean; preloadedShape?: LandingShape } {
-	if (options.preloadedShape) {
-		return { allowSubmitRequiredState: true, preloadedShape: options.preloadedShape };
-	}
-	return { allowSubmitRequiredState: true };
-}
-
 function presentLandStackFailure(options: PresentLandStackFailureOptions): void {
 	const { ctx, commandStream, landed, failure } = options;
 	const formatted = formatFailure(failure, landed);
 	commandStream.finishFailure(formatted);
 	presentBrief(ctx, formatted, failure.level, formatFailureNotification(failure));
 }
-
-export default registerLandStackCommand;
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 	const parsed: ParsedArgs = { yes: false, dryRun: false, help: false };

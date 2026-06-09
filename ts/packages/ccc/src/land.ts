@@ -104,7 +104,7 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 			const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, { dryRun: args.value.dryRun, yes: args.value.yes });
 			if (!confirmed) return;
 
-			await executeStackLanding(pi, ctx, args.value, { skipMainConfirmation: true, preloadedShape: shape.value });
+			await executeStackLanding(pi, ctx, args.value, { skipMainConfirmation: true, initialShape: shape.value });
 		},
 	});
 }
