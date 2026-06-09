@@ -1,21 +1,6 @@
----
-name: internal-code-gh-ci-debug
-description: "Debug a failing GitHub Actions run end-to-end from an Actions run URL/ID, PR URL/number, Graphite PR URL, or current branch. Uses `gh pr` to resolve PR checks to run/job URLs when needed, then `gh run view --log-failed` to diagnose failed steps and return a structured fix."
-allowed-tools:
-  - "Bash(gh repo *)"
-  - "Bash(gh pr *)"
-  - "Bash(gh run *)"
-  - "Bash(gh api *)"
-  - "Bash(git branch *)"
-  - "Bash(git status *)"
-  - "Read"
-  - "Grep"
-  - "Glob"
-metadata:
-  internal: true
----
+<!-- Migrated from `internal-code-gh-ci-debug`; loaded through `internal-code-workflows`. -->
 
-# internal-code-gh-ci-debug
+# gh-ci-debug
 
 A focused playbook for diagnosing GitHub Actions CI failures from a run URL, run ID, PR URL/number, Graphite PR URL, or the current branch. Narrower than `internal-code-gh` (which is the broad `gh` CLI reference); this skill is a diagnostic recipe, not a command catalog.
 
@@ -133,7 +118,7 @@ gh run watch <run_id> --repo <owner>/<repo>
 Return a single `DIAGNOSIS` block so the user can act without rereading the logs:
 
 ```
-## internal-code-gh-ci-debug: DIAGNOSIS
+## gh-ci-debug: DIAGNOSIS
 
 **Run**: <URL>
 **Workflow**: <name>.yml

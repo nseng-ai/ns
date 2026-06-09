@@ -116,45 +116,20 @@
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
-    "internal-code-gh-ci-debug": {
-      "source": "skills/internal-code-gh-ci-debug",
-      "sourceType": "local",
-      "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
-    },
-    "internal-code-gt-delete-stack": {
-      "source": "skills/internal-code-gt-delete-stack",
-      "sourceType": "local",
-      "computedHash": "904f6c8b12a994806f213d01fd56175a0901dcb5f910c538128770675245c847"
-    },
-    "internal-code-gt-stackify-branch": {
-      "source": "skills/internal-code-gt-stackify-branch",
-      "sourceType": "local",
-      "computedHash": "6f23222b156500d9951ab1051156d820fa8ddd18e4f04238bdae13dce3156c83"
-    },
     "internal-code-just-fix": {
       "source": "skills/internal-code-just-fix",
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
-    },
-    "internal-code-parity-review": {
-      "source": "skills/internal-code-parity-review",
-      "sourceType": "local",
-      "computedHash": "d515dee6c70e662258ad6605607cb35e55d7673f49d6d2d96b17d4a74257f9c1"
-    },
-    "internal-code-stacker-agent": {
-      "source": "skills/internal-code-stacker-agent",
-      "sourceType": "local",
-      "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
     },
     "internal-code-submit": {
       "source": "skills/internal-code-submit",
       "sourceType": "local",
       "computedHash": "4e1c879f8eb21a576866358ff051f5979e32aee8c5b0112dbabbb5102e08b8b5"
     },
-    "internal-pr-stack-address": {
-      "source": "skills/internal-pr-stack-address",
+    "internal-code-workflows": {
+      "source": "skills/internal-code-workflows",
       "sourceType": "local",
-      "computedHash": "94adde3f6e37c5aaa3b4d5d15d34f05f96e434b8060f3392d83b402d29f116a3"
+      "computedHash": "4620e81d3d2f9f07970dfe4a3196496086b494ca78a44c63c2d6c6b52b788d73"
     },
     "objective": {
       "source": "skills/objective",

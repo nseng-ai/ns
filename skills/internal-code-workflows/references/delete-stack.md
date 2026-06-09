@@ -1,23 +1,6 @@
----
-name: internal-code-gt-delete-stack
-description: "Delete a Graphite stack subtree rooted at an explicit branch, with slot/worktree preflight, PR closure, remote branch cleanup, and local Graphite metadata deletion. Use when the user asks to delete/remove/free a Graphite stack or subtree, especially with slots, worktrees, open PRs, or remotes involved."
-metadata:
-  internal: true
-allowed-tools:
-  - "Bash(gt *)"
-  - "Bash(git status *)"
-  - "Bash(git branch *)"
-  - "Bash(git worktree *)"
-  - "Bash(git fetch *)"
-  - "Bash(git switch *)"
-  - "Bash(git checkout *)"
-  - "Bash(git push origin --delete *)"
-  - "Bash(slot *)"
-  - "Bash(gh pr *)"
-  - Read
----
+<!-- Migrated from `internal-code-gt-delete-stack`; loaded through `internal-code-workflows`. -->
 
-# internal-code-gt-delete-stack
+# delete-stack
 
 Delete the Graphite subtree rooted at an explicit branch while preserving slot
 safety and making PR/remote cleanup intentional.

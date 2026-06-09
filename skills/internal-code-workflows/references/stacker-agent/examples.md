@@ -1,6 +1,6 @@
 # Examples
 
-These examples show how `internal-code-stacker-agent` should think about
+These examples show how the `stacker-agent` route should think about
 normalization. They are examples of the coordinator's internal work,
 not a required author-facing plan schema.
 

@@ -1,22 +1,6 @@
----
-name: internal-pr-stack-address
-description: "Create a stack-tip omnibus PR that addresses unresolved feedback across every PR in the current Graphite stack, then resolve the original review threads. Use when the user asks to address all feedback in a stack, create an omnibus follow-up PR, retroactively resolve stack comments, or run pr-address across a stack. Internal asdl workflow."
-allowed-tools:
-  - "Bash(gt *)"
-  - "Bash(git *)"
-  - "Bash(gh *)"
-  - "Bash(uv run *)"
-  - "Bash(just *)"
-  - "Read"
-  - "Edit"
-  - "Write"
-  - "Grep"
-  - "Glob"
-metadata:
-  internal: true
----
+<!-- Migrated from `internal-pr-stack-address`; loaded through `internal-code-workflows`. -->
 
-# internal-pr-stack-address
+# stack-address
 
 Address unresolved feedback across every PR in the current Graphite stack by
 creating or reusing one child omnibus branch at the stack tip, committing fixes
@@ -27,6 +11,15 @@ This is intentionally **not** normal `pr-address`: `pr-address` is scoped to the
 current branch's PR. This skill is stack-scoped and routes deterministic stack
 mapping, planning, drift comparison, and payload construction through tested
 `pr-address exec` helpers.
+
+## Contents
+
+- [When to use](#when-to-use)
+- [Required supporting skills](#required-supporting-skills)
+- [Guarantees](#guarantees)
+- [Workflow](#workflow)
+- [Rules](#rules)
+- [CLI push-down candidates](#cli-push-down-candidates)
 
 ## When to use
 
