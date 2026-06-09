@@ -20,6 +20,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
 - [asdl exec commands](asdl-exec/README.md): deterministic command boundaries for skills and agents.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
+- [GitHub Actions remote code authoring](remote-code-authoring-github-actions.md): ground-truth Erk survey and design lessons for using workflow dispatch as a remote agent authoring substrate.
 - [Internal PR stack address workflow retrospective](internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
