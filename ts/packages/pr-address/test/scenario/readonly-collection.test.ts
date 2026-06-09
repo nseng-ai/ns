@@ -1,4 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
@@ -15,7 +19,14 @@ interface Envelope {
 	data: Record<string, unknown>;
 }
 
-function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway): CliRun {
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+	const dirs = tempDirs.splice(0);
+	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway, env: NodeJS.ProcessEnv = { PATH: "/fake/bin" }): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
@@ -23,7 +34,7 @@ function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubG
 		exit: runCli(args, {
 			context: { legacy, github },
 			cwd: "/repo",
-			env: { PATH: "/fake/bin" },
+			env,
 			stdin: async () => "",
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
@@ -88,7 +99,7 @@ describe("read-only GitHub-backed operations", () => {
 		expect(discussionsRun.legacy.calls).toEqual([]);
 	});
 
-	test("get-feedback manages inline mode and leaves payload mode fallback-backed", async () => {
+	test("get-feedback manages inline and payload modes without legacy fallback", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			reviews: {
 				42: [
@@ -107,9 +118,24 @@ describe("read-only GitHub-backed operations", () => {
 		expect((inlineData.reviews as Array<{ id: string }>).map((item) => item.id)).toEqual(["changes"]);
 		expect(inlineRun.legacy.calls).toEqual([]);
 
-		const payloadRun = runWithGithub(["exec", "get-feedback", "42", "--format", "json"], github);
+		const tempDir = await mkdtemp(join(tmpdir(), "pr-address-readonly-collection-"));
+		tempDirs.push(tempDir);
+		const root = join(tempDir, "payload-root");
+		const payloadRun = runWithGithub(["exec", "get-feedback", "42", "--format", "json"], github, {
+			PATH: "/fake/bin",
+			ASDL_PAYLOAD_ROOT: root,
+			ASDL_PAYLOAD_SESSION_ID: "sess-readonly",
+		});
 		expect(await payloadRun.exit).toBe(0);
-		expect(payloadRun.legacy.calls.map((call) => call.args)).toEqual([["exec", "get-feedback", "42", "--format", "json"]]);
+		expect(payloadRun.legacy.calls).toEqual([]);
+		const payloadData = parseEnvelope(payloadRun.stdout.join("")).data;
+		expect(payloadData.payload_mode).toBe("payload");
+		const reference = payloadData.payload_reference as { payload_path: string; descriptor: string; role: string };
+		expect(reference.descriptor).toBe("pr-address-get-feedback-pr-42");
+		expect(reference.role).toBe("raw");
+		const artifactEnvelope = JSON.parse(await readFile(reference.payload_path, "utf8")) as { exit_code: number; data: { payload_mode: string } };
+		expect(artifactEnvelope.exit_code).toBe(0);
+		expect(artifactEnvelope.data.payload_mode).toBe("inline");
 	});
 });
 

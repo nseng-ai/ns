@@ -1,8 +1,10 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrOk } from "./clinkr-envelope.ts";
+import { clinkrFailure, clinkrOk, toMachineEnvelope } from "./clinkr-envelope.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
+import { hasFlag } from "./managed-options.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
+import { PayloadStore } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
@@ -77,6 +79,7 @@ export async function runGetDiscussionCommentsOperation(invocation: ExecOperatio
 }
 
 export async function runGetFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
+	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const parsed = parsePrNumberOperation({
 		args: invocation.args,
 		commandName: "get-feedback",
@@ -85,7 +88,21 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 	});
 	if (parsed.type === "error") return parsed.result;
 	const payloadMode = parsed.values.get("--payload-mode") ?? "payload";
-	if (payloadMode !== "inline") return { type: "fallback" };
+	// Invalid --payload-mode values keep legacy click usage-error behavior.
+	if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+
+	// Python opens the payload store before any gateway fetch; preserve that ordering.
+	let store: PayloadStore | undefined;
+	if (payloadMode === "payload") {
+		const storeResult = await PayloadStore.fromEnvironment({
+			explicitSessionId: parsed.values.get("--payload-session-id") ?? null,
+			env: invocation.deps.env,
+			clock: invocation.deps.context.payloadClock,
+		});
+		if (storeResult.type === "error") return { type: "exit", exit: clinkrFailure(storeResult.errorType, storeResult.message) };
+		store = storeResult.value;
+	}
+
 	const gateway = githubGateway(invocation);
 	if (gateway.type === "error") return gateway.result;
 	const snapshotResult = await fetchFeedbackSnapshot({
@@ -97,16 +114,23 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 		invocation,
 	});
 	if (snapshotResult.type === "error") return snapshotResult.result;
-	return {
-		type: "exit",
-		exit: clinkrOk({
-			payload_mode: "inline",
-			pr_number: snapshotResult.snapshot.pr_number,
-			reviews: snapshotResult.snapshot.reviews,
-			review_threads: snapshotResult.snapshot.review_threads,
-			discussion_comments: snapshotResult.snapshot.discussion_comments,
-		}),
+	const snapshot = snapshotResult.snapshot;
+	const inlineResult = {
+		payload_mode: "inline",
+		pr_number: snapshot.pr_number,
+		reviews: snapshot.reviews,
+		review_threads: snapshot.review_threads,
+		discussion_comments: snapshot.discussion_comments,
 	};
+	if (store === undefined) return { type: "exit", exit: clinkrOk(inlineResult) };
+
+	const rawReference = await store.writeJsonArtifact({
+		descriptor: `pr-address-get-feedback-pr-${snapshot.pr_number}`,
+		role: "raw",
+		payload: toMachineEnvelope(clinkrOk(inlineResult)),
+	});
+	if (rawReference.type === "error") return { type: "exit", exit: clinkrFailure(rawReference.errorType, rawReference.message) };
+	return { type: "exit", exit: clinkrOk(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value)) };
 }
 
 export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: unknown): unknown {

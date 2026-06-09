@@ -109,10 +109,10 @@ describe("pr-address CLI scaffold", () => {
 	});
 
 	test("preserves arbitrary operation argv shape for fallback-backed commands", async () => {
-		const run = runWithFakeLegacy(["exec", "record-batch-checkpoint", "--format", "json"], { exitCodes: [0] });
+		const run = runWithFakeLegacy(["exec", "summarize-feedback", "--format", "json"], { exitCodes: [0] });
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "record-batch-checkpoint", "--format", "json"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "summarize-feedback", "--format", "json"]]);
 	});
 
 	test("preserves nonzero legacy exit codes", async () => {
