@@ -1,9 +1,20 @@
-Plan audience and context contract:
+Plan audience and hermetic context contract:
 - Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
-- Make the plan self-contained. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
-- Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and validation commands.
-- Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order over vague instructions.
-- If you inspected evidence during planning, summarize the discovered facts in the plan so the downstream agent does not need to rediscover them unless verification is required.
+- Make the plan self-contained with respect to planning knowledge. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
+- Preserve non-trivial planning knowledge needed to make the same decisions again: user intent, success criteria, constraints, decisions, rationale, rejected alternatives, assumptions, risks, validation expectations, and external/off-repo findings.
+- Include repo facts only when they are decision-shaping, surprising, expensive to rediscover, or needed to prevent a likely wrong turn.
+- Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order when they carry decision-critical context.
+
+Repo-state compression contract:
+- Do not restate information that a downstream agent can trivially reconstruct from the current repo with `rg`, file reads, or test discovery.
+- Mention files/modules by area unless a specific path, symbol, or test is important to a decision, risk, or validation choice.
+- If repo facts are included, explain why they matter to the plan.
+- Optimize for launch-readiness, not exhaustive reproduction of planning transcripts.
+
+Plan length target:
+- Prefer 800–1500 words for ordinary implementation plans.
+- Use 1500–2500 words for complex cross-cutting work, broad migrations, or plans with substantial external research.
+- Exceed 2500 words only when necessary to preserve non-reconstructable context or avoid high-risk ambiguity.
 
 External research/context contract:
 - If planning used anything outside the repository — web searches, external docs, GitHub issues/PRs, API docs, CLIs hitting remote services, local files outside the repo, or other non-repo resources — include the relevant findings inline in the saved plan.
@@ -14,10 +25,9 @@ External research/context contract:
 
 Recommended saved plan sections:
 - Goal and user-visible outcome.
-- Planning context and discovered facts, including relevant repository state.
-- External/off-repo research context, or a note that none was used when that helps remove ambiguity.
-- Files, symbols, commands, and tests likely to change.
-- Step-by-step implementation approach.
+- Non-negotiable decisions and constraints.
+- Non-trivial planning context, including external/off-repo findings if used.
+- Relevant code areas and implementation slices.
 - Validation commands and expected results.
 - Risks, assumptions, edge cases, and open questions.
 - Subagent orchestration opportunities.
@@ -45,22 +55,17 @@ Subagent model routing:
   - Never reuse review model guidance for implementation, package creation, refactors, or test-writing subagents.
 
 Closeout review plan:
+- Keep closeout guidance concise; do not paste reusable closeout boilerplate unless this plan needs a special exception.
 - Plans should include exactly one in-session style review subagent per applicable review family, run after implementation is complete and focused validation has passed.
-- The cheap-model guidance in this section is exclusively for review-only subagents after implementation is complete. It must not be applied to subagents that create files, edit code, write tests, migrate APIs, or perform implementation work.
-- Review-only subagents may use the review definition's `default_model` when available. For OpenAI-family Pi routing, the cheap review-capable pattern is `openai-codex/gpt-5.4-mini:medium`; escalate only when validation fails or broader judgment is required. If the harness cannot force a per-dispatch model, say that the cheap-model request is unavailable instead of implying it happened.
-- If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include a single in-session `typescript-style` review subagent that reads `reviews/typescript-style.md` and applies it to the changed diff.
-- If Python files (`.py`) are likely to change, include a single in-session `dignified-python` review subagent that reads `reviews/dignified-python.md` and applies it to the changed diff.
-- If both TypeScript and Python changes are likely, include one review subagent for each applicable family. If neither applies, say that no TypeScript/Python roaster review subagent is applicable.
-- Do not invoke the external roaster review runner for this closeout; the implementation agent launches focused subagents to perform reviews in-session from the review definition files.
-- Plans should instruct the implementation agent to inspect each review subagent's final text/status before acting on findings.
-- Plans should instruct the implementation agent to automatically remediate easy findings: local, mechanical, low-risk fixes that are clearly correct from nearby context and require no product, API, ownership, or design decision.
-- Plans should instruct the implementation agent to re-run focused validation after easy fixes, then stop or report remaining judgment calls. Do not tell the implementation agent to repeat TypeScript/Python style review subagents after remediation; the final PR review is the final style/quality checkstep.
-- Plans should instruct the implementation agent to stop automatic remediation and report complex findings to the user when findings are ambiguous, cross-cutting, behavior-changing, design-sensitive, or not clearly correct. The report should include path/line, why it was deferred, and recommended options.
+- The cheap-model guidance in this section is exclusively for review-only subagents after implementation is complete; never apply it to implementation/editing subagents. Review-only subagents may use the review definition's `default_model` when available. For OpenAI-family Pi routing, the cheap review-capable pattern is `openai-codex/gpt-5.4-mini:medium`.
+- If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include a single in-session `typescript-style` review subagent on the changed diff.
+- If Python files (`.py`) are likely to change, include a single in-session `dignified-python` review subagent on the changed diff.
+- Instruct the implementation agent to inspect review subagent final text/status, remediate only local/mechanical/low-risk findings, rerun focused validation after easy fixes, and report judgment calls instead of guessing. Do not tell the implementation agent to repeat TypeScript/Python style review subagents after remediation; the final PR review is the final style/quality checkstep.
 
 Workflow:
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
-2. Produce a detailed Markdown implementation plan.
-3. Review the final Markdown plan content for completeness.
+2. Produce a launch-ready Markdown implementation plan that preserves non-trivial planning knowledge without mirroring easily rediscovered repo state.
+3. Review the final Markdown plan content for hermeticity, proportionality, and completeness.
 4. Call write_source_branch_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
 5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any plan-branch tool.
