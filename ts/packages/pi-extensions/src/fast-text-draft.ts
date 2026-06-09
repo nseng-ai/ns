@@ -1,3 +1,4 @@
+import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, parseModelRef } from "@asdl/plans";
 import type * as PiAi from "@earendil-works/pi-ai";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,11 +8,9 @@ import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
 export const DEFAULT_HARNESS = "codex-pi";
+export const DRAFT_MODEL_ENV = "PI_DRAFT_MODEL";
+export const CLAUDE_CLI_MODEL = "claude-haiku-4-5";
 
-const CODEX_PROVIDER = "openai-codex";
-const CODEX_MODEL = "gpt-5.4-mini";
-const CODEX_MODEL_LABEL = "GPT-5.4 Mini via Codex";
-const CLAUDE_CLI_MODEL = "claude-haiku-4-5";
 const CLAUDE_CLI_LABEL = "Claude CLI";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const DEFAULT_MAX_TOKENS = 512;
@@ -76,7 +75,7 @@ export interface FastTextDraftInput {
 	maxTokens?: number;
 }
 
-interface PiModelConfig {
+export interface PiModelConfig {
 	provider: string;
 	modelId: string;
 	label: string;
@@ -84,10 +83,10 @@ interface PiModelConfig {
 	reasoning: "minimal" | "low";
 }
 
-const CODEX_CONFIG: PiModelConfig = {
-	provider: CODEX_PROVIDER,
-	modelId: CODEX_MODEL,
-	label: CODEX_MODEL_LABEL,
+const CODEX_DEFAULT_CONFIG: PiModelConfig = {
+	provider: DEFAULT_FAST_MODEL.provider,
+	modelId: DEFAULT_FAST_MODEL.modelId,
+	label: `${DEFAULT_FAST_MODEL.modelId} via Codex`,
 	authLabel: "Codex",
 	reasoning: "minimal",
 };
@@ -103,13 +102,50 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 	};
 }
 
+export function resolveCodexDraftModel(
+	env: Record<string, string | undefined>,
+): { value: PiModelConfig; warning?: string } {
+	const override = env[DRAFT_MODEL_ENV]?.trim();
+	if (!override) {
+		return { value: CODEX_DEFAULT_CONFIG };
+	}
+
+	const parsed = override.includes("/")
+		? parseModelRef(override)
+		: { provider: DEFAULT_FAST_MODEL.provider, modelId: override };
+	if (parsed === undefined) {
+		return {
+			value: CODEX_DEFAULT_CONFIG,
+			warning: `Invalid ${DRAFT_MODEL_ENV}=${JSON.stringify(override)}; using ${DEFAULT_FAST_MODEL_REF}.`,
+		};
+	}
+
+	return {
+		value: {
+			provider: parsed.provider,
+			modelId: parsed.modelId,
+			label: `${parsed.provider}/${parsed.modelId}`,
+			authLabel: parsed.provider === DEFAULT_FAST_MODEL.provider ? "Codex" : parsed.provider,
+			reasoning: "minimal",
+		},
+	};
+}
+
+export function resolveClaudeCliDraftModel(env: Record<string, string | undefined>): string {
+	return env[DRAFT_MODEL_ENV]?.trim() || CLAUDE_CLI_MODEL;
+}
+
 export async function draftWithFastText(
 	pi: Pick<ExtensionAPI, "exec">,
 	ctx: ExtensionCommandContext,
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
 	if (input.harness === "codex-pi") {
-		return draftWithPiModel(ctx, CODEX_CONFIG, input);
+		const resolved = resolveCodexDraftModel(process.env);
+		if (resolved.warning !== undefined) {
+			ctx.ui.notify(resolved.warning, "warning");
+		}
+		return draftWithPiModel(ctx, resolved.value, input);
 	}
 	return draftWithClaudeCli(pi, ctx, input);
 }
@@ -187,6 +223,7 @@ async function draftWithClaudeCli(
 	ctx: ExtensionCommandContext,
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
+	const model = resolveClaudeCliDraftModel(process.env);
 	const tempDir = await mkdtemp(join(tmpdir(), "pi-draft-"));
 	try {
 		const systemPromptPath = join(tempDir, "system-prompt.txt");
@@ -201,7 +238,7 @@ async function draftWithClaudeCli(
 					"-lc",
 					'env -u CLAUDECODE claude -p --model "$1" --output-format text --system-prompt "$(cat \"$2\")" < "$3"',
 					"bash",
-					CLAUDE_CLI_MODEL,
+					model,
 					systemPromptPath,
 					userPromptPath,
 				],

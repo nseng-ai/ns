@@ -27,6 +27,10 @@ After autofixing, re-run `just` to confirm the suite is green. Only edit files b
 
 Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference asdl-internal module paths, class names, or implementation details (e.g., `asdl_core.gh.IssueGateway`, `RealIssueGateway.get_reviews`) in their `SKILL.md` files or frontmatter descriptions. Describe _what_ CLI operations to call (e.g., `pr-address exec get-reviews`), not _how_ they are implemented. Implementation details belong in Python source, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
 
+### Skill Model Examples
+
+When a skill body references model tiers or per-dispatch model selection, keep the default guidance harness-neutral, but always include concrete examples for both OpenAI and Anthropic (e.g. `openai-codex/gpt-5.4-mini` and `claude-haiku-4-5`), each labeled with its harness, so agents on either harness can resolve the tier unambiguously.
+
 ### Vendored Skill Code
 
 - `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party asdl work under `skills/<name>/` and are subject to normal linting, typechecking, and review.

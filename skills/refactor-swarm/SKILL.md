@@ -1,11 +1,11 @@
 ---
 name: refactor-swarm
-description: "Parallel file-local refactors across many files using a swarm of haiku agents. Use when the same shape of refactor applies to 5+ files, each file is transformable from its own contents plus a shared brief (no cross-file coordination), and light per-file judgment is acceptable. Not for refactors where judgment must be unified across files."
+description: "Parallel file-local refactors across many files using a swarm of agents on the harness's cheapest fast model tier. Use when the same shape of refactor applies to 5+ files, each file is transformable from its own contents plus a shared brief (no cross-file coordination), and light per-file judgment is acceptable. Not for refactors where judgment must be unified across files."
 ---
 
 # refactor-swarm
 
-Parallelize a refactor across many files by spawning one haiku agent per file. The orchestrator identifies the files, writes a shared brief, and launches the swarm in two waves (source files first, tests second). Each agent applies the refactor to its assigned file independently. The swarm pays off when the refactor is file-local, wall time matters, and per-file judgment is cheap enough that haiku can handle it.
+Parallelize a refactor across many files by spawning one agent per file on the harness's cheapest fast model tier. The orchestrator identifies the files, writes a shared brief, and launches the swarm in two waves (source files first, tests second). Each agent applies the refactor to its assigned file independently. The swarm pays off when the refactor is file-local, wall time matters, and per-file judgment is cheap enough that a fast-tier model can handle it.
 
 ## When to use
 
@@ -30,7 +30,7 @@ Examples:
 
 ## Why over pure AST/codemod tooling
 
-If your project already has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, ts-morph, etc.), prefer it for purely syntactic refactors -- it is faster, deterministic, and replayable. The swarm is not trying to displace mature codemod pipelines. That said, this approach is surprisingly scalable on its own: one haiku agent per file, parallel waves, file-local prompts -- so the absence of a codemod toolchain is not a reason to give up on a large mechanical refactor. Reach for the swarm (even alongside an AST toolchain) when either of the following is true:
+If your project already has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, ts-morph, etc.), prefer it for purely syntactic refactors -- it is faster, deterministic, and replayable. The swarm is not trying to displace mature codemod pipelines. That said, this approach is surprisingly scalable on its own: one fast-tier agent per file, parallel waves, file-local prompts -- so the absence of a codemod toolchain is not a reason to give up on a large mechanical refactor. Reach for the swarm (even alongside an AST toolchain) when either of the following is true:
 
 - **Natural-language references must move with the code.** Docstrings, inline comments, README sections, error messages, and log lines frequently refer -- directly or indirectly -- to the symbol or concept being refactored. A codemod can only touch syntactic occurrences; an LLM agent can read the surrounding prose and update mentions like `"returns the issue_number of the PR"` or a comment that says `"# legacy retry path"` without having to enumerate every phrasing in advance.
 - **Light per-file judgment is required.** Picking the closest stdlib equivalent, deciding whether a wrapper still earns its keep, or choosing a sensible event name from local context does not fit cleanly into a pattern-match-and-replace shape.
@@ -52,16 +52,20 @@ Partition the results into two groups:
 
 ### Step 2: Launch the source wave
 
-Launch one `Task` agent per file (or per small group of 2-3 closely related files):
+Launch one `Task` agent per file (or per small group of 2-3 closely related files), requesting the harness's cheapest fast model tier. On the Claude harness, for example:
 
 ```python
 Task(
     subagent_type='general-purpose',
-    model='haiku',
+    model='haiku',  # Claude-harness example of the cheapest fast tier
     description='Apply refactor to path/to/file.py',
     prompt="""..."""  # See the agent prompt template below
 )
 ```
+
+On an OpenAI Codex-backed harness (such as Pi), request the cheap fast tier per dispatch instead — for example, dispatch the runner subagent with `model: 'openai-codex/gpt-5.4-mini:minimal'`.
+
+On harnesses without a haiku-tier model or per-dispatch model selection, omit the model parameter and use the default model.
 
 **Launch ALL source-wave agents in a single message** so they run concurrently.
 
@@ -143,7 +147,7 @@ For very large refactors (30+ files), sub-batch into groups of ~10-15 agents per
 
 ## Key design decisions
 
-- **Haiku always.** Mechanical-to-lightly-judgment refactors do not need deeper reasoning. Haiku is fast and cheap enough that one agent per file is sensible.
+- **Cheapest fast tier always.** Mechanical-to-lightly-judgment refactors do not need deeper reasoning. A fast-tier model is cheap enough that one agent per file is sensible.
 - **One agent per file.** Focused prompts, isolated failures, easy retries. Tiny files can be grouped 2-3 at a time when per-agent overhead dominates the actual edit work.
 - **Two waves for checkpointing.** Source and test waves are causally independent -- both apply the same refactor to their own files. The split exists to give the orchestrator a place to stop and inspect before touching the second half.
 - **Boundary constraints are mandatory.** Every prompt must list what not to touch, or explicitly state there are no exceptions.
@@ -154,8 +158,8 @@ For very large refactors (30+ files), sub-batch into groups of ~10-15 agents per
 ### Mechanical rename: `issue_number` → `pr_number`
 
 1. `Grep(pattern="issue_number", output_mode="files_with_matches")` finds 16 source files and 12 test files
-2. **Wave 1**: 16 haiku agents for source files, launched in a single message -- completes in ~25 s
-3. **Wave 2**: 12 haiku agents for test files -- completes in ~20 s
+2. **Wave 1**: 16 fast-tier agents for source files, launched in a single message -- completes in ~25 s
+3. **Wave 2**: 12 fast-tier agents for test files -- completes in ~20 s
 4. Verify: `Grep(pattern="issue_number")` confirms only intentional external-API field references remain
 5. Run CI: tests pass, type checker clean
 

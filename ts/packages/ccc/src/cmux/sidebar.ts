@@ -1,4 +1,5 @@
 import { objectiveChoiceMap } from "@asdl/pi-extension-runtime/objective-picker";
+import { DEFAULT_FAST_MODEL_REF, parseModelRef } from "@asdl/plans";
 import { expandSkillBlock } from "@asdl/pi-extension-runtime/skill-expansion";
 import {
 	applyObjectiveSidebarFields,
@@ -17,7 +18,6 @@ const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
 const SIDEBAR_MODEL_ENV = "ASDL_CCC_SIDEBAR_MODEL";
-const DEFAULT_SIDEBAR_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
 interface RestoreState {
 	model?: ModelInfo;
@@ -27,11 +27,6 @@ interface RestoreState {
 export interface CccSidebarController {
 	handlePrCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
-}
-
-interface ParsedModelRef {
-	provider: string;
-	modelId: string;
 }
 
 export function createCccSidebarController(pi: ExtensionAPI): CccSidebarController {
@@ -251,18 +246,7 @@ async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): P
 }
 
 function configuredSidebarModelRef(): string {
-	return process.env[SIDEBAR_MODEL_ENV]?.trim() || DEFAULT_SIDEBAR_MODEL_REF;
-}
-
-function parseModelRef(modelRef: string): ParsedModelRef | undefined {
-	const separator = modelRef.indexOf("/");
-	if (separator <= 0 || separator === modelRef.length - 1) {
-		return undefined;
-	}
-	return {
-		provider: modelRef.slice(0, separator),
-		modelId: modelRef.slice(separator + 1),
-	};
+	return process.env[SIDEBAR_MODEL_ENV]?.trim() || DEFAULT_FAST_MODEL_REF;
 }
 
 async function switchToFastSidebarModel(pi: ExtensionAPI, ctx: CommandContext): Promise<RestoreState | undefined> {

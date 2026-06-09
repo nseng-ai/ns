@@ -3,7 +3,7 @@ import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch/preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@asdl/pi-extension-runtime/branch-slug";
-import { buildSlugModelArgs } from "../src/autobranch/model-slug.ts";
+import { buildSlugModelArgs } from "@asdl/plans";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface ExecCall {

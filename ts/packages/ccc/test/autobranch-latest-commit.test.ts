@@ -4,7 +4,7 @@ import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 import { prepareLatestCommitAutobranchPlan, type LatestCommitAutobranchPlan } from "../src/autobranch/latest-commit-preparation.ts";
 import { runLatestCommitAutobranchTransaction, type LatestCommitTransactionInput } from "../src/autobranch/latest-commit-transaction.ts";
-import { buildSlugModelArgs } from "../src/autobranch/model-slug.ts";
+import { buildSlugModelArgs } from "@asdl/plans";
 
 interface PreparationHarnessOptions {
 	slug?: string;
