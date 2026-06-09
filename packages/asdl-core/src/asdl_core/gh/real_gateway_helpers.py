@@ -8,8 +8,22 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import Any, cast
 
+from asdl_core.gh.response_mapping import (
+    changed_files_from_rest_pages,
+    discussion_comment_from_response,
+    discussion_comments_from_rest_pages,
+    pr_review_from_create_response,
+    pr_summaries_from_list_response,
+    pr_summary_from_view_response,
+    reaction_from_response,
+    review_comment_from_thread_reply_response,
+    review_comments_from_rest_pages,
+    review_thread_state_from_resolve_response,
+    review_thread_state_from_unresolve_response,
+    review_threads_from_graphql_response,
+    reviews_from_rest_pages,
+)
 from asdl_core.gh.types import (
     PRChangedFile,
     PRCloseOutcome,
@@ -20,10 +34,8 @@ from asdl_core.gh.types import (
     PRMergeOutcome,
     PRReview,
     PRReviewComment,
-    PRReviewState,
     PRReviewThread,
     PRReviewThreadState,
-    PRState,
     PRStateFilter,
     PRSummary,
     Reaction,
@@ -58,8 +70,6 @@ query($owner: String!, $repo: String!, $number: Int!) {
   }
 }
 """
-
-_REVIEW_STATES_TO_INCLUDE = frozenset({"CHANGES_REQUESTED", "APPROVED", "COMMENTED"})
 
 _RESOLVE_REVIEW_THREAD_MUTATION = """
 mutation($threadId: ID!) {
@@ -145,22 +155,6 @@ def _get_owner_repo(repo: str | None = None) -> tuple[str, str]:
     return data["owner"]["login"], data["name"]
 
 
-def _load_paginated_array_output(stdout: str) -> list[dict[str, Any]]:
-    """Parse ``gh api --paginate`` output for endpoints that return arrays."""
-    decoder = json.JSONDecoder()
-    items: list[dict[str, Any]] = []
-    index = 0
-    while index < len(stdout):
-        while index < len(stdout) and stdout[index].isspace():
-            index += 1
-        if index >= len(stdout):
-            break
-        raw_page, index = decoder.raw_decode(stdout, index)
-        page = cast(list[dict[str, Any]], raw_page)
-        items.extend(page)
-    return items
-
-
 def _is_no_pr_lookup(stderr: str) -> bool:
     normalized = stderr.lower()
     return "no pull request" in normalized or "no pull requests" in normalized
@@ -174,20 +168,6 @@ def _lookup_failure(result: subprocess.CompletedProcess[str]) -> PRLookupMiss | 
         stderr=stderr,
         returncode=result.returncode,
         stdout=result.stdout.strip(),
-    )
-
-
-def _summary_from_pr_view(data: dict[str, Any]) -> PRSummary:
-    state: PRState = data["state"]
-    return PRSummary(
-        number=data["number"],
-        title=data["title"],
-        url=data["url"],
-        head_ref_name=data["headRefName"],
-        base_ref_name=data["baseRefName"],
-        state=state,
-        body=data.get("body"),
-        head_ref_oid=data.get("headRefOid"),
     )
 
 
@@ -220,8 +200,7 @@ def _fetch_pr_summary(
     )
     if result.returncode != 0:
         return _lookup_failure(result)
-    data = json.loads(result.stdout)
-    return _summary_from_pr_view(data)
+    return pr_summary_from_view_response(json.loads(result.stdout))
 
 
 def search_prs(
@@ -247,8 +226,7 @@ def search_prs(
             returncode=result.returncode,
             stdout=result.stdout.strip(),
         )
-    items = json.loads(result.stdout)
-    return tuple(_summary_from_pr_view(item) for item in items)
+    return pr_summaries_from_list_response(json.loads(result.stdout))
 
 
 def merge_pr(
@@ -312,39 +290,9 @@ def get_review_threads(
         f"query={_REVIEW_THREADS_QUERY}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    payload = json.loads(result.stdout)
-    raw_threads = payload["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
-
-    threads: list[PRReviewThread] = []
-    for raw in raw_threads:
-        if raw.get("id") is None:
-            continue
-        if not include_resolved and raw["isResolved"]:
-            continue
-        comments = tuple(
-            PRReviewComment(
-                id=comment["databaseId"],
-                body=comment["body"],
-                author=comment["author"]["login"] if comment["author"] else "",
-                path=comment["path"],
-                line=comment.get("line"),
-                start_line=comment.get("startLine"),
-                created_at=comment["createdAt"],
-            )
-            for comment in raw["comments"]["nodes"]
-        )
-        threads.append(
-            PRReviewThread(
-                id=raw["id"],
-                path=raw["path"],
-                line=raw.get("line"),
-                start_line=raw.get("startLine"),
-                is_resolved=raw["isResolved"],
-                is_outdated=raw["isOutdated"],
-                comments=comments,
-            )
-        )
-    return tuple(threads)
+    return review_threads_from_graphql_response(
+        json.loads(result.stdout), include_resolved=include_resolved
+    )
 
 
 def get_reviews(pr_number: int, *, repo: str | None = None) -> tuple[PRReview, ...]:
@@ -360,18 +308,7 @@ def get_reviews(pr_number: int, *, repo: str | None = None) -> tuple[PRReview, .
         text=True,
         check=True,
     )
-    raw_reviews = _load_paginated_array_output(result.stdout)
-    return tuple(
-        PRReview(
-            id=review["node_id"],
-            author=review["user"]["login"] if review["user"] else "",
-            body=review["body"],
-            state=cast(PRReviewState, review["state"]),
-            submitted_at=review["submitted_at"],
-        )
-        for review in raw_reviews
-        if review["state"] in _REVIEW_STATES_TO_INCLUDE
-    )
+    return reviews_from_rest_pages(result.stdout)
 
 
 def get_pr_changed_files(pr_number: int, *, repo: str | None = None) -> tuple[PRChangedFile, ...]:
@@ -387,15 +324,7 @@ def get_pr_changed_files(pr_number: int, *, repo: str | None = None) -> tuple[PR
         text=True,
         check=True,
     )
-    raw_files = _load_paginated_array_output(result.stdout)
-    return tuple(
-        PRChangedFile(
-            path=file["filename"],
-            status=file["status"],
-            patch=file.get("patch"),
-        )
-        for file in raw_files
-    )
+    return changed_files_from_rest_pages(result.stdout)
 
 
 def get_pr_review_comments(
@@ -413,19 +342,7 @@ def get_pr_review_comments(
         text=True,
         check=True,
     )
-    raw_comments = _load_paginated_array_output(result.stdout)
-    return tuple(
-        PRReviewComment(
-            id=comment["id"],
-            body=comment["body"],
-            author=comment["user"]["login"] if comment["user"] else "",
-            path=comment["path"],
-            line=comment.get("line"),
-            start_line=comment.get("start_line"),
-            created_at=comment["created_at"],
-        )
-        for comment in raw_comments
-    )
+    return review_comments_from_rest_pages(result.stdout)
 
 
 def get_pr_discussion_comments(
@@ -443,8 +360,7 @@ def get_pr_discussion_comments(
         text=True,
         check=True,
     )
-    raw_comments = _load_paginated_array_output(result.stdout)
-    return tuple(_discussion_comment_from_response(comment) for comment in raw_comments)
+    return discussion_comments_from_rest_pages(result.stdout)
 
 
 def resolve_review_thread(thread_id: str) -> PRReviewThreadState:
@@ -458,9 +374,7 @@ def resolve_review_thread(thread_id: str) -> PRReviewThreadState:
         f"query={_RESOLVE_REVIEW_THREAD_MUTATION}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    payload = json.loads(result.stdout)
-    thread = payload["data"]["resolveReviewThread"]["thread"]
-    return PRReviewThreadState(thread_id=thread["id"], is_resolved=thread["isResolved"])
+    return review_thread_state_from_resolve_response(json.loads(result.stdout))
 
 
 def unresolve_review_thread(thread_id: str) -> PRReviewThreadState:
@@ -474,9 +388,7 @@ def unresolve_review_thread(thread_id: str) -> PRReviewThreadState:
         f"query={_UNRESOLVE_REVIEW_THREAD_MUTATION}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    payload = json.loads(result.stdout)
-    thread = payload["data"]["unresolveReviewThread"]["thread"]
-    return PRReviewThreadState(thread_id=thread["id"], is_resolved=thread["isResolved"])
+    return review_thread_state_from_unresolve_response(json.loads(result.stdout))
 
 
 def add_review_thread_reply(thread_id: str, body: str) -> PRReviewComment:
@@ -492,17 +404,7 @@ def add_review_thread_reply(thread_id: str, body: str) -> PRReviewComment:
         f"query={_ADD_REVIEW_THREAD_REPLY_MUTATION}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    payload = json.loads(result.stdout)
-    comment = payload["data"]["addPullRequestReviewThreadReply"]["comment"]
-    return PRReviewComment(
-        id=comment["databaseId"],
-        body=comment["body"],
-        author=comment["author"]["login"] if comment["author"] else "",
-        path=comment["path"],
-        line=comment.get("line"),
-        start_line=comment.get("startLine"),
-        created_at=comment["createdAt"],
-    )
+    return review_comment_from_thread_reply_response(json.loads(result.stdout))
 
 
 def create_pr_review(
@@ -535,14 +437,7 @@ def create_pr_review(
         text=True,
         check=True,
     )
-    review = json.loads(result.stdout)
-    return PRReview(
-        id=review["node_id"],
-        author=review["user"]["login"] if review.get("user") else "",
-        state=cast(PRReviewState, review["state"]),
-        body=review.get("body") or "",
-        submitted_at=review.get("submitted_at") or "",
-    )
+    return pr_review_from_create_response(json.loads(result.stdout))
 
 
 def add_pr_discussion_comment(
@@ -559,8 +454,7 @@ def add_pr_discussion_comment(
         f"body={body}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    comment = json.loads(result.stdout)
-    return _discussion_comment_from_response(comment)
+    return discussion_comment_from_response(json.loads(result.stdout))
 
 
 def find_pr_discussion_comment_by_marker(
@@ -590,8 +484,7 @@ def update_pr_discussion_comment(
         f"body={body}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    comment = json.loads(result.stdout)
-    return _discussion_comment_from_response(comment)
+    return discussion_comment_from_response(json.loads(result.stdout))
 
 
 def add_pr_discussion_comment_reaction(
@@ -610,14 +503,4 @@ def add_pr_discussion_comment_reaction(
         f"content={reaction}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    response = json.loads(result.stdout)
-    return Reaction(id=response["id"], comment_id=comment_id, content=response["content"])
-
-
-def _discussion_comment_from_response(comment: dict[str, Any]) -> PRDiscussionComment:
-    return PRDiscussionComment(
-        id=comment["id"],
-        body=comment["body"],
-        author=comment["user"]["login"] if comment["user"] else "",
-        url=comment["html_url"],
-    )
+    return reaction_from_response(json.loads(result.stdout), comment_id=comment_id)
