@@ -1,21 +1,12 @@
 #!/usr/bin/env node
 
 import { realpathSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import {
-	findLatestSavedPlanFile,
-	formatSavedPlanFileEvidence,
-	normalizePlanFilePath,
-	resolvePlanSourceFile,
-	validatePlanSlug,
-	writeSavedPlanFile,
-	type LatestSavedPlanFileEvidence,
-	type SavedPlanFileEvidence,
-} from "@asdl/plans";
+import { normalizePlanFilePath, validatePlanSlug } from "@asdl/plans";
 
 import {
 	buildImplPlannedBranchPrompt,
@@ -30,7 +21,6 @@ import {
 	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
-import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
 const VERSION = "0.1.0";
 const JSON_FORMAT = "json";
@@ -40,7 +30,6 @@ export interface CliDeps {
 	cwd?: string | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
-	stdin?: (() => Promise<string>) | undefined;
 	planStoreRoot?: string | undefined;
 }
 
@@ -49,24 +38,11 @@ interface RequiredCliDeps {
 	cwd: string;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	stdin: () => Promise<string>;
 	planStoreRoot?: string;
 }
 
 type ParseResult<T> = { type: "ok"; value: T } | { type: "help" } | { type: "error"; message: string };
 type ValueParseResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
-
-interface WritePlanFileArgs {
-	slug: string;
-	summary?: string;
-	contentSource: { type: "stdin" } | { type: "content-file"; path: string };
-	format?: "json";
-}
-
-interface ResolvePlanArgs {
-	path?: string;
-	format?: "json";
-}
 
 interface CreateArgs {
 	slug: string;
@@ -90,15 +66,6 @@ interface JsonFailure {
 	error: { code: string; message: string };
 }
 
-interface ExplicitResolvePlanEvidence {
-	source: "explicit";
-	filePath: string;
-}
-
-type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest" };
-
-type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
-
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
 	const stderr = deps.stderr ?? ((text: string) => process.stderr.write(text));
@@ -107,7 +74,6 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		cwd: deps.cwd ?? process.cwd(),
 		stdout,
 		stderr,
-		stdin: deps.stdin ?? readStdin,
 		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 	};
 
@@ -137,10 +103,6 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 
 	try {
 		switch (operation) {
-			case "write-plan-file":
-				return await runWritePlanFile(args.slice(1), deps);
-			case "resolve-plan":
-				return await runResolvePlan(args.slice(1), deps);
 			case "create":
 				return await runCreate(args.slice(1), deps);
 			case "load-plan":
@@ -152,46 +114,6 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	} catch (error) {
 		return writeFailure(errorMessage(error), { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
 	}
-}
-
-async function runWritePlanFile(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
-	const parsed = parseWritePlanFileArgs(args);
-	if (parsed.type === "help") {
-		deps.stdout(writePlanFileHelp());
-		return 0;
-	}
-	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
-
-	const options = parsed.value;
-	const content = await readContentSource(options.contentSource, deps);
-	const evidence = await writeSavedPlanFile(
-		deps.context.commands,
-		{ slug: options.slug, content, ...(options.summary === undefined ? {} : { summary: options.summary }) },
-		{ cwd: deps.cwd, git: adaptPlannedBranchGitGateway(deps.context.git), ...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }) },
-	);
-	if (options.format === "json") {
-		deps.stdout(`${JSON.stringify({ success: true, ...sourcePlanFileJson(evidence) })}\n`);
-		return 0;
-	}
-	deps.stdout(`${formatSavedPlanFileEvidence(evidence)}\n`);
-	return 0;
-}
-
-async function runResolvePlan(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
-	const parsed = parseResolvePlanArgs(args);
-	if (parsed.type === "help") {
-		deps.stdout(resolvePlanHelp());
-		return 0;
-	}
-	if (parsed.type === "error") return writeFailure(parsed.message, { stdout: deps.stdout, stderr: deps.stderr, json: wantsJsonFormat(args) });
-
-	const evidence = await resolvePlanEvidence(parsed.value, deps);
-	if (parsed.value.format === "json") {
-		deps.stdout(`${JSON.stringify({ success: true, ...resolvePlanJson(evidence) })}\n`);
-		return 0;
-	}
-	deps.stdout(`${formatResolvePlanEvidence(evidence)}\n`);
-	return 0;
 }
 
 async function runCreate(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
@@ -267,85 +189,6 @@ async function runLoadPlan(args: readonly string[], deps: RequiredCliDeps): Prom
 
 function wantsJsonFormat(args: readonly string[]): boolean {
 	return args.some((arg, index) => arg === "--format" && args[index + 1] === JSON_FORMAT);
-}
-
-function parseWritePlanFileArgs(args: readonly string[]): ParseResult<WritePlanFileArgs> {
-	let slug: string | undefined;
-	let summary: string | undefined;
-	let hasStdin = false;
-	let contentFile: string | undefined;
-	let format: "json" | undefined;
-
-	for (let index = 0; index < args.length; index += 1) {
-		const arg = args[index];
-		if (arg === undefined) continue;
-		if (arg === "--help" || arg === "-h") return { type: "help" };
-		if (arg === "--slug") {
-			const parsed = parseFlagValue(args, index, "--slug");
-			if (parsed.type === "error") return parsed;
-			slug = parsed.value;
-			index += 1;
-			continue;
-		}
-		if (arg === "--summary") {
-			const parsed = parseFlagValue(args, index, "--summary");
-			if (parsed.type === "error") return parsed;
-			summary = parsed.value;
-			index += 1;
-			continue;
-		}
-		if (arg === "--stdin") {
-			hasStdin = true;
-			continue;
-		}
-		if (arg === "--content-file") {
-			const parsed = parseFlagValue(args, index, "--content-file");
-			if (parsed.type === "error") return parsed;
-			contentFile = parsed.value;
-			index += 1;
-			continue;
-		}
-		if (arg === "--format") {
-			const value = parseFlagValue(args, index, "--format");
-			if (value.type === "error") return value;
-			const parsed = parseFormat(value.value);
-			if (parsed.type === "error") return parsed;
-			format = parsed.value;
-			index += 1;
-			continue;
-		}
-		return { type: "error", message: `Unknown option: ${arg}` };
-	}
-
-	if (slug === undefined) return { type: "error", message: "Missing required option: --slug" };
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) return { type: "error", message: `Invalid saved plan slug: ${slugError}` };
-	if (hasStdin === Boolean(contentFile)) return { type: "error", message: "Pass exactly one of --stdin or --content-file <path>." };
-	const contentSource = hasStdin ? { type: "stdin" as const } : { type: "content-file" as const, path: contentFile as string };
-	return { type: "ok", value: { slug, contentSource, ...(summary === undefined ? {} : { summary }), ...(format === undefined ? {} : { format }) } };
-}
-
-function parseResolvePlanArgs(args: readonly string[]): ParseResult<ResolvePlanArgs> {
-	let path: string | undefined;
-	let format: "json" | undefined;
-	for (let index = 0; index < args.length; index += 1) {
-		const arg = args[index];
-		if (arg === undefined) continue;
-		if (arg === "--help" || arg === "-h") return { type: "help" };
-		if (arg === "--format") {
-			const value = parseFlagValue(args, index, "--format");
-			if (value.type === "error") return value;
-			const parsed = parseFormat(value.value);
-			if (parsed.type === "error") return parsed;
-			format = parsed.value;
-			index += 1;
-			continue;
-		}
-		if (arg.startsWith("-")) return { type: "error", message: `Unknown option: ${arg}` };
-		if (path !== undefined) return { type: "error", message: "resolve-plan accepts at most one plan file path." };
-		path = arg;
-	}
-	return { type: "ok", value: { ...(path === undefined ? {} : { path }), ...(format === undefined ? {} : { format }) } };
 }
 
 function parseCreateArgs(args: readonly string[]): ParseResult<CreateArgs> {
@@ -491,65 +334,6 @@ function parseFlagValue(args: readonly string[], index: number, flag: string): V
 	return { type: "ok", value };
 }
 
-async function readContentSource(source: WritePlanFileArgs["contentSource"], deps: RequiredCliDeps): Promise<string> {
-	if (source.type === "stdin") return deps.stdin();
-	return readFile(normalizePlanFilePath(source.path), "utf8");
-}
-
-async function resolvePlanEvidence(args: ResolvePlanArgs, deps: RequiredCliDeps): Promise<ResolvePlanEvidence> {
-	if (args.path !== undefined) {
-		const filePath = await resolvePlanSourceFile(deps.context.commands, {
-			cwd: deps.cwd,
-			rawFilePath: args.path,
-			git: adaptPlannedBranchGitGateway(deps.context.git),
-		});
-		return { source: "explicit", filePath };
-	}
-	const latest = await findLatestSavedPlanFile(deps.context.commands, {
-		cwd: deps.cwd,
-		git: adaptPlannedBranchGitGateway(deps.context.git),
-		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
-	});
-	return { source: "latest", ...latest };
-}
-
-function sourcePlanFileJson(evidence: SavedPlanFileEvidence): Record<string, unknown> {
-	return {
-		slug: evidence.slug,
-		file_path: evidence.filePath,
-		repo_root: evidence.repoRoot,
-		repo_key: evidence.repoKey,
-		repo_identity_source: evidence.repoIdentitySource,
-		source_branch: evidence.sourceBranch,
-		branch_key: evidence.branchKey,
-		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
-	};
-}
-
-function resolvePlanJson(evidence: ResolvePlanEvidence): Record<string, unknown> {
-	switch (evidence.source) {
-		case "explicit":
-			return {
-				source: evidence.source,
-				file_path: evidence.filePath,
-			};
-		case "latest":
-			return {
-				source: evidence.source,
-				file_path: evidence.filePath,
-				slug: evidence.slug,
-				file_name: evidence.fileName,
-				modified_time_ms: evidence.modifiedTimeMs,
-				repo_root: evidence.repoRoot,
-				repo_key: evidence.repoKey,
-				repo_identity_source: evidence.repoIdentitySource,
-				source_branch: evidence.sourceBranch,
-				branch_key: evidence.branchKey,
-				directory_path: evidence.directoryPath,
-			};
-	}
-}
-
 function plannedBranchJson(evidence: PlannedBranchEvidence): Record<string, unknown> {
 	return {
 		slug: evidence.slug,
@@ -587,28 +371,6 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 	};
 }
 
-function formatResolvePlanEvidence(evidence: ResolvePlanEvidence): string {
-	if (evidence.source === "explicit") {
-		return [`Resolved explicit plan file.`, `Path: ${evidence.filePath}`].join("\n");
-	}
-	return formatLatestSavedPlanFileEvidence(evidence);
-}
-
-function formatLatestSavedPlanFileEvidence(evidence: LatestSavedPlanFileEvidence): string {
-	return [
-		"Resolved latest saved plan file in local plan store.",
-		`Path: ${evidence.filePath}`,
-		`Repo key: ${evidence.repoKey}`,
-		`Repo root: ${evidence.repoRoot}`,
-		`Repo identity source: ${evidence.repoIdentitySource}`,
-		`Source branch: ${evidence.sourceBranch}`,
-		`Branch path segment: ${evidence.branchKey}`,
-		`Slug: ${evidence.slug}`,
-		`Modified time ms: ${evidence.modifiedTimeMs}`,
-	].join("\n");
-}
-
-
 function writeFailure(message: string, output: { stdout: (text: string) => void; stderr: (text: string) => void; json: boolean }): number {
 	if (output.json) {
 		const payload: JsonFailure = { success: false, error: { code: "planned_branch_error", message } };
@@ -621,15 +383,6 @@ function writeFailure(message: string, output: { stdout: (text: string) => void;
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
-}
-
-async function readStdin(): Promise<string> {
-	let content = "";
-	process.stdin.setEncoding("utf8");
-	for await (const chunk of process.stdin) {
-		content += chunk;
-	}
-	return content;
 }
 
 function topLevelHelp(): string {
@@ -651,23 +404,10 @@ function execHelp(): string {
 		"Usage: planned-branch exec <operation>",
 		"",
 		"Operations:",
-		"  write-plan-file    Save a source-branch plan file in the local store.",
-		"  resolve-plan       Resolve an explicit or latest source-branch plan file.",
-		"  create             Create a planned branch and attach a plan with Branch Memory.",
-		"  load-plan          Load an attached plan and render the implementation prompt.",
+		"  create     Create a planned branch and attach a plan with Branch Memory.",
+		"  load-plan  Load an attached plan and render the implementation prompt.",
 		"",
 	].join("\n");
-}
-
-function writePlanFileHelp(): string {
-	return [
-		"Usage: planned-branch exec write-plan-file --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]",
-		"",
-	].join("\n");
-}
-
-function resolvePlanHelp(): string {
-	return ["Usage: planned-branch exec resolve-plan [absolute-or-home-plan-file.md] [--format json]", ""].join("\n");
 }
 
 function createHelp(): string {

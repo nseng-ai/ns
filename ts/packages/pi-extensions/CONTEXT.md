@@ -109,15 +109,15 @@ The planning-layer use of `brmem put/get/list/check` to store or read an attache
 _Avoid_: Branch Memory policy, brmem-owned workflow, package import edge.
 
 **Planned-branch skill family**:
-The shippable agent-skill capability made of the `planned-branch` umbrella/reference skill plus the installed write-plan, create, and implement step skills that use it as their shared planned-branch model.
+The shippable agent-skill capability made of the `planned-branch` umbrella/reference skill plus the installed `plans-write`, create, and implement step skills that use it as their shared planned-branch model.
 _Avoid_: one-off skill, internal docs dependency, hidden installation requirement.
 
-**Planned-branch write-plan prompt policy**:
-The checked-in `.asdl/prompts/planned-branch-write-plan.md` static prompt body consumed by `/planned-branch:write-plan` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt planned-branch-write-plan --format json` with built-in fallback for usability.
+**Plans write prompt policy**:
+The checked-in `.asdl/prompts/plans-write.md` static prompt body consumed by `/plans:write` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt plans-write --format json` with built-in fallback for usability.
 _Avoid_: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
 
-**Planned-branch write-grilled-plan prompt**:
-The Pi-only embedded prompt consumed by `/planned-branch:write-grilled-plan`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal planned-branch Saved plan with `write_source_branch_plan_file`.
+**Plans grill-and-write prompt**:
+The Pi-only embedded prompt consumed by `/plans:grill-and-write`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal Saved plan with `write_saved_plan_file`.
 _Avoid_: repo-editable prompt policy, cross-agent skill contract, new storage artifact, Branch Memory attachment.
 
 **Handoff artifact**:

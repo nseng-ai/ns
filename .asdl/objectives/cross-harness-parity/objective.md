@@ -34,7 +34,7 @@ The former standalone `command-output-summaries` Objective is now subsumed here 
 
 ## Non-Goals
 
-- Do not re-own or duplicate the **planned-branch** workstream (`/write-plan`, `/create-planned-branch`, `/impl-planned-branch`, `write_source_branch_plan_file`). It is fully scoped by `planned-branch-ts-cli`; this Objective only tracks its row.
+- Do not re-own or duplicate the **planned-branch** workstream (`/plans:write`, `/planned-branch:create`, `/planned-branch:impl`, `write_saved_plan_file`). It is fully scoped by `planned-branch-ts-cli`; this Objective only tracks its row.
 - Do not re-own the **submit** consolidation; `asdl-dev-submit-consolidation` owns `/code:submit`. This Objective adds only the missing skill pointer if that sibling does not.
 - Do not aim for identical _UI_ across harnesses. Parity means workflow reachability, not pixel/widget equivalence. Pi-native UI (pickers, `grill_ask`, status line) stays Pi-only.
 - Do not build the machine-checkable CI parity gate / parity manifest in this Objective; it is parked as a later hardening of the review skill.

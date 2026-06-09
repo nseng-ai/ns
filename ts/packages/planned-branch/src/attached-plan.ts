@@ -50,8 +50,8 @@ export class NoAttachedPlannedBranchEntriesError extends Error {
 			[
 				`No planned-branch entries on branch \`${branch}\`.`,
 				"",
-				"Create a saved plan with `planned-branch exec write-plan-file`, attach it with",
-				"`planned-branch exec create`, or provide a branch/key that already has a canonical plan.",
+				"Create a saved plan with `plans exec write`, attach it with `planned-branch exec create`,",
+				"or provide a branch/key that already has a canonical plan.",
 			].join("\n"),
 		);
 		this.name = "NoAttachedPlannedBranchEntriesError";

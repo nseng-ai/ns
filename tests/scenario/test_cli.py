@@ -100,7 +100,7 @@ def test_resolve_prompt_exec_uses_planned_branch_embedded_default(tmp_path: Path
         [
             "exec",
             "resolve-prompt",
-            "planned-branch-write-plan",
+            "plans-write",
             "--repo-root",
             str(tmp_path),
             "--format",
@@ -111,10 +111,10 @@ def test_resolve_prompt_exec_uses_planned_branch_embedded_default(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["data"]["name"] == "planned-branch-write-plan"
+    assert payload["data"]["name"] == "plans-write"
     assert payload["data"]["provenance"]["source"] == "embedded_default"
     assert payload["data"]["content"].startswith("Plan audience and context contract:")
-    assert "write_source_branch_plan_file" in payload["data"]["content"]
+    assert "write_saved_plan_file" in payload["data"]["content"]
 
 
 def test_resolve_prompt_exec_rejects_unsafe_name(tmp_path: Path) -> None:

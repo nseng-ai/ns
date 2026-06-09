@@ -12,7 +12,7 @@ Resolve a saved plan, create a planned branch, and attach the plan in Branch Mem
 Resolve the saved plan when needed:
 
 ```bash
-planned-branch exec resolve-plan [absolute-or-home-plan-file.md] --format json
+plans exec resolve [absolute-or-home-plan-file.md] --format json
 ```
 
 Create and attach:
