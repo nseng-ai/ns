@@ -78,8 +78,7 @@ Keep Python fallback for:
 The current legacy operation set, by category:
 
 - **Feedback fetch / composite**: `get-feedback`, `summarize-feedback`,
-  `prepare-run`, `get-pr-for-branch`, `get-reviews`,
-  `get-review-comments`, `get-discussion-comments`
+  `prepare-run`
 - **Classification / payload ergonomics**: `read-feedback-detail`,
   `read-feedback-details`, `classification-template`,
   `validate-feedback-classification`, `plan-feedback`
@@ -87,13 +86,12 @@ The current legacy operation set, by category:
   `record-batch-checkpoint`, `finalize-run`
 - **Stack feedback**: `stack-feedback-prep`, `stack-feedback-plan`,
   `stack-feedback-diff-current`, `build-stack-resolve-thread-payloads`
-- **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
-  `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
+- **Thread mutations**: `resolve-thread-with-reply`, `resolve-thread-batch`
   - `resolve-thread-with-reply` / `resolve-thread-batch` share canonical
     resolution modes: `fixed`, `pre_existing`, `explained`, and
     provenance-validated `planned` follow-up.
 - **Replies / comments / reactions**: `reply-to-review`,
-  `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+  `reply-to-discussion`
 
 ## Cutover and fallback retirement playbook
 

@@ -13,31 +13,22 @@ const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.m
 // Operations whose schema documents were ported in this slice and must hold
 // structural semantic parity with the captured Python (Pydantic) fixtures.
 const PARITY_OPERATIONS = [
-	"add-issue-comment",
-	"add-reaction",
-	"add-review-thread-reply",
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",
 	"finalize-run",
-	"get-discussion-comments",
 	"get-feedback",
-	"get-pr-for-branch",
-	"get-review-comments",
-	"get-reviews",
 	"prepare-run",
 	"read-feedback-detail",
 	"read-feedback-details",
 	"record-batch-checkpoint",
 	"reply-to-discussion",
 	"reply-to-review",
-	"resolve-thread",
 	"resolve-thread-batch",
 	"resolve-thread-with-reply",
 	"stack-feedback-diff-current",
 	"stack-feedback-plan",
 	"stack-feedback-prep",
 	"summarize-feedback",
-	"unresolve-thread",
 ] as const;
 
 // The classification trio shipped TypeScript-owned schema documents before this
@@ -102,7 +93,7 @@ describe("pr-address exec --json-schema routes", () => {
 	}
 
 	test("--json-schema short-circuits before argument validation like the eager Python flag", async () => {
-		const run = runWithFakeLegacy(["exec", "resolve-thread", "--json-schema", "--format", "json"]);
+		const run = runWithFakeLegacy(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
 		expect(run.legacy.calls).toEqual([]);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;

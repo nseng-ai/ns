@@ -23,60 +23,6 @@ export interface ParsedReadOptions {
 	flags: ReadonlySet<string>;
 }
 
-export async function runGetPrForBranchOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, [], []);
-	if (parsed.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", parsed.message) };
-	const branch = parsed.options.positionals[0];
-	if (branch === undefined || branch.trim() === "") return { type: "exit", exit: clinkrFailure("invalid_request", "get-pr-for-branch requires a branch argument.") };
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.getPrForBranch(branch, gatewayOptions(invocation));
-	if (result.type === "failure") return { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR for branch '${branch}'`, result.failure)) };
-	if (result.type === "miss") return { type: "exit", exit: clinkrOk({ found: false, error: result.stderr, returncode: result.returncode }) };
-	return {
-		type: "exit",
-		exit: clinkrOk({
-			found: true,
-			number: result.pr.number,
-			title: result.pr.title,
-			url: result.pr.url,
-			head_ref_name: result.pr.head_ref_name,
-			base_ref_name: result.pr.base_ref_name,
-			state: result.pr.state,
-		}),
-	};
-}
-
-export async function runGetReviewsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation({ args: invocation.args, commandName: "get-reviews" });
-	if (parsed.type === "error") return parsed.result;
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.getReviews(parsed.prNumber, gatewayOptions(invocation));
-	if (result.type === "failure") return { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to fetch reviews for PR ${parsed.prNumber}`, result.failure)) };
-	return { type: "exit", exit: clinkrOk({ reviews: result.value, count: result.value.length }) };
-}
-
-export async function runGetReviewCommentsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation({ args: invocation.args, commandName: "get-review-comments", flagOptions: ["--include-resolved"] });
-	if (parsed.type === "error") return parsed.result;
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.getReviewThreads(parsed.prNumber, { ...gatewayOptions(invocation), shouldIncludeResolved: parsed.flags.has("--include-resolved") });
-	if (result.type === "failure") return { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to fetch review threads for PR ${parsed.prNumber}`, result.failure)) };
-	return { type: "exit", exit: clinkrOk({ threads: result.value, count: result.value.length }) };
-}
-
-export async function runGetDiscussionCommentsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation({ args: invocation.args, commandName: "get-discussion-comments" });
-	if (parsed.type === "error") return parsed.result;
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.getDiscussionComments(parsed.prNumber, gatewayOptions(invocation));
-	if (result.type === "failure") return { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to fetch discussion comments for PR ${parsed.prNumber}`, result.failure)) };
-	return { type: "exit", exit: clinkrOk({ comments: result.value, count: result.value.length }) };
-}
-
 export async function runGetFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const parsed = parsePrNumberOperation({
 		args: invocation.args,
