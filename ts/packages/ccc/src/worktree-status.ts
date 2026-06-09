@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/pi-extension-runtime/brmem-cli";
-import type { PiExecResultLike } from "@asdl/pi-extension-runtime/command-runtime";
+import { normalizeExecResult, type PiExecResultLike } from "@asdl/pi-extension-runtime/command-runtime";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -281,7 +281,9 @@ async function loadHasCommits(
 	if (down === "-" || signal?.aborted) return "?";
 
 	try {
-		const result = await pi.exec("git", ["rev-list", "--count", `${down}..HEAD`], execOptions(cwd, signal));
+		const result = normalizeExecResult(
+			await pi.exec("git", ["rev-list", "--count", `${down}..HEAD`], execOptions(cwd, signal)),
+		);
 		if (result.code !== 0) return "?";
 
 		const count = Number.parseInt(result.stdout.trim(), 10);
@@ -296,7 +298,7 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	if (signal?.aborted) return "no";
 
 	try {
-		const result = await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal));
+		const result = normalizeExecResult(await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal)));
 		return result.stdout.trim().length > 0 ? "yes" : "no";
 	} catch {
 		return "no";
