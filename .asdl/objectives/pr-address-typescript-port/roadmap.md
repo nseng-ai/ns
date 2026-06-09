@@ -45,15 +45,17 @@
   - Preserve validation-before-action semantics, explicit decision requirements, durable resolution modes, planned provenance validation, and no-push behavior.
   - Policy: builder and fake mutation paths are directly executable after preview. Live GitHub writes require explicit user confirmation for the exact operation and target.
   - Evidence: `updates/2026-06-09T154839Z-mutation-safety-fake-gateways.md` records reply formatting parity, fake-backed mutation gateway operations, validation-before-action tests, planned provenance validation, and the explicit absence of live GitHub write probes.
-- [ ] Cut over public skill, wrapper, plugin, and distribution paths to TypeScript default.
+- [~] Cut over public skill, wrapper, plugin, and distribution paths to TypeScript default.
   - Update wrappers and docs to TypeScript/npm paths while preserving installed-skill and local-checkout behavior.
   - Decide and implement the `asdl pr-address ...` compatibility path only after standalone TypeScript behavior is proven.
   - Policy: docs, wrapper tests, local checkout behavior, and plugin compatibility scaffolding are directly executable after preview. npm publishing or installed global rollout requires explicit confirmation.
   - Evidence should include wrapper local/prod checks, installed-skill compatibility evidence where practical, and documentation updates.
+  - Progress evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` records local TypeScript operation status, wrapper alias coverage, public docs/playbook updates, and explicit deferral of npm/prod/plugin cutover decisions.
 - [ ] Retire active Python fallback paths after the explicit compatibility window.
   - Delete, archive, or remove Python from active invocation paths once callers, docs, and tests no longer depend on it.
   - Policy: ask before broad Python deletion or irreversible fallback removal; small fallback-scope reductions are directly executable when the affected operation has TypeScript parity and tests.
   - Evidence should include operation parity coverage, wrapper/distribution cutover evidence, and docs showing no active invocation path depends on the retired Python surface.
+  - Current evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` documents why broad Python fallback retirement is still blocked by installed/prod wrapper, plugin, artifact-writing, stack orchestration, and schema-route compatibility requirements.
 - [ ] Feed lessons into the umbrella porting playbook.
   - Record reusable migration guidance for later `brmem`, `handoff`, `objective`, and other capability ports.
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.

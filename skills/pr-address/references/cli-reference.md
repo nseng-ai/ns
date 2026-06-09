@@ -6,6 +6,41 @@ sessions.
 When this reference is used from the skill, replace literal `pr-address` with the
 bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
 
+## TypeScript migration status
+
+Local checkout invocation is TypeScript-first, but installed/prod skill use and
+the `asdl pr-address ...` plugin remain Python compatibility paths.
+
+TypeScript-managed local execution after the current stack:
+
+- **Classification / planning**: `classification-template`,
+  `validate-feedback-classification`, `plan-feedback`
+- **Payload / finalization helpers**: `build-resolve-thread-batch-payload`,
+  `finalize-run`
+- **Read-only fetch helpers**: `get-pr-for-branch`, `get-reviews`,
+  `get-review-comments`, `get-discussion-comments`, and
+  `get-feedback --payload-mode inline`
+- **Payload detail / stack diff helpers**: `read-feedback-detail`,
+  `stack-feedback-diff-current`
+- **Mutation / reply helpers**: `resolve-thread`, `resolve-thread-with-reply`,
+  `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`,
+  `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+
+Compatibility-backed behavior that must remain for now:
+
+- `prepare-run`, `summarize-feedback`, and default payload-mode `get-feedback`
+- `stack-feedback-prep`, `stack-feedback-plan`,
+  `build-stack-resolve-thread-payloads`
+- `record-batch-checkpoint`
+- `read-feedback-details`
+- operation-specific `--json-schema` paths not yet implemented in TypeScript
+- installed/prod skill invocation and the Python `asdl pr-address ...` plugin
+
+Do not treat this migration status as permission to delete Python fallback. Each
+operation needs parity evidence for success, negative, validation, JSON envelope,
+schema, and payload/gateway behavior before its fallback route can be retired.
+Public distribution or plugin cutover requires an explicit release decision.
+
 ## Invocation convention
 
 All `pr-address exec <command> --format json` helpers:

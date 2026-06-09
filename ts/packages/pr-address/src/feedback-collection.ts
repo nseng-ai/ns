@@ -61,7 +61,7 @@ export async function runGetReviewCommentsOperation(invocation: ExecOperationInv
 	if (parsed.type === "error") return parsed.result;
 	const gateway = githubGateway(invocation);
 	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.getReviewThreads(parsed.prNumber, { ...gatewayOptions(invocation), includeResolved: parsed.flags.has("--include-resolved") });
+	const result = await gateway.gateway.getReviewThreads(parsed.prNumber, { ...gatewayOptions(invocation), shouldIncludeResolved: parsed.flags.has("--include-resolved") });
 	if (result.type === "failure") return { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to fetch review threads for PR ${parsed.prNumber}`, result.failure)) };
 	return { type: "exit", exit: clinkrOk({ threads: result.value, count: result.value.length }) };
 }
@@ -86,9 +86,9 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: gateway.gateway,
 		prNumber: parsed.prNumber,
-		includeResolved: parsed.flags.has("--include-resolved"),
-		includeEmptyReviews: parsed.flags.has("--include-empty-reviews"),
-		countAllReviewThreads: false,
+		shouldIncludeResolved: parsed.flags.has("--include-resolved"),
+		shouldIncludeEmptyReviews: parsed.flags.has("--include-empty-reviews"),
+		shouldCountAllReviewThreads: false,
 		invocation,
 	});
 	if (snapshotResult.type === "error") return snapshotResult.result;
@@ -117,9 +117,9 @@ export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot,
 async function fetchFeedbackSnapshot(options: {
 	gateway: PrAddressGitHubGateway;
 	prNumber: number;
-	includeResolved: boolean;
-	includeEmptyReviews: boolean;
-	countAllReviewThreads: boolean;
+	shouldIncludeResolved: boolean;
+	shouldIncludeEmptyReviews: boolean;
+	shouldCountAllReviewThreads: boolean;
 	invocation: ExecOperationInvocation;
 }): Promise<{ type: "ok"; snapshot: FeedbackSnapshot } | { type: "error"; result: ExecOperationDispatchResult }> {
 	const gatewayOptionsValue = gatewayOptions(options.invocation);
@@ -127,13 +127,13 @@ async function fetchFeedbackSnapshot(options: {
 	if (reviewsResult.type === "failure") return gatewayFailureResult(`Failed to fetch reviews for PR ${options.prNumber}`, reviewsResult.failure);
 	let countedReviewThreads: readonly PRReviewThread[];
 	let reviewThreads: readonly PRReviewThread[];
-	if (options.countAllReviewThreads) {
-		const countedResult = await options.gateway.getReviewThreads(options.prNumber, { ...gatewayOptionsValue, includeResolved: true });
+	if (options.shouldCountAllReviewThreads) {
+		const countedResult = await options.gateway.getReviewThreads(options.prNumber, { ...gatewayOptionsValue, shouldIncludeResolved: true });
 		if (countedResult.type === "failure") return gatewayFailureResult(`Failed to fetch review threads for PR ${options.prNumber}`, countedResult.failure);
 		countedReviewThreads = countedResult.value;
-		reviewThreads = options.includeResolved ? countedReviewThreads : countedReviewThreads.filter((thread) => !thread.is_resolved);
+		reviewThreads = options.shouldIncludeResolved ? countedReviewThreads : countedReviewThreads.filter((thread) => !thread.is_resolved);
 	} else {
-		const threadsResult = await options.gateway.getReviewThreads(options.prNumber, { ...gatewayOptionsValue, includeResolved: options.includeResolved });
+		const threadsResult = await options.gateway.getReviewThreads(options.prNumber, { ...gatewayOptionsValue, shouldIncludeResolved: options.shouldIncludeResolved });
 		if (threadsResult.type === "failure") return gatewayFailureResult(`Failed to fetch review threads for PR ${options.prNumber}`, threadsResult.failure);
 		reviewThreads = threadsResult.value;
 		countedReviewThreads = reviewThreads;
@@ -144,7 +144,7 @@ async function fetchFeedbackSnapshot(options: {
 		type: "ok",
 		snapshot: {
 			pr_number: options.prNumber,
-			reviews: reviewsForRequest(reviewsResult.value, options.includeEmptyReviews),
+			reviews: reviewsForRequest(reviewsResult.value, options.shouldIncludeEmptyReviews),
 			review_threads: reviewThreads,
 			counted_review_threads: countedReviewThreads,
 			discussion_comments: commentsResult.value,
@@ -152,8 +152,8 @@ async function fetchFeedbackSnapshot(options: {
 	};
 }
 
-function reviewsForRequest(reviews: readonly PRReview[], includeEmptyReviews: boolean): readonly PRReview[] {
-	if (includeEmptyReviews) return reviews;
+function reviewsForRequest(reviews: readonly PRReview[], shouldIncludeEmptyReviews: boolean): readonly PRReview[] {
+	if (shouldIncludeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
 }
 
