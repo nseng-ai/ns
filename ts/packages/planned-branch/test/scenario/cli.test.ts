@@ -144,7 +144,15 @@ function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 }
 
 function parseJson(run: CliRun): Record<string, unknown> {
-	return JSON.parse(run.stdout.join("")) as Record<string, unknown>;
+	const value: unknown = JSON.parse(run.stdout.join(""));
+	if (!isRecord(value)) {
+		throw new Error("Expected JSON object output.");
+	}
+	return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function expectNoGitOrBrmemCalls(run: CliRun): void {

@@ -66,7 +66,7 @@ export interface ExtensionAPI {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<CommandResult>;
 }
 
-export type FastTextDraftInput = {
+export interface FastTextDraftInput {
 	harness: DraftHarness;
 	systemPrompt: string;
 	userPrompt: string;
@@ -74,15 +74,15 @@ export type FastTextDraftInput = {
 	progressMessage: (harnessLabel: string) => string;
 	taskNoun: string;
 	maxTokens?: number;
-};
+}
 
-type PiModelConfig = {
+interface PiModelConfig {
 	provider: string;
 	modelId: string;
 	label: string;
 	authLabel: string;
 	reasoning: "minimal" | "low";
-};
+}
 
 const CODEX_CONFIG: PiModelConfig = {
 	provider: CODEX_PROVIDER,

@@ -188,7 +188,7 @@ describe("plans list CLI", () => {
 		});
 
 		expect(exitCode).toBe(0);
-		const payload = JSON.parse(output.stdoutText()) as JsonListPayload;
+		const payload = parseJsonListPayload(output.stdoutText());
 		expect(payload).toMatchObject({
 			success: true,
 			plans: [
@@ -283,7 +283,31 @@ interface Fixture {
 
 interface JsonListPayload {
 	success: true;
-	plans: Array<{ modified_time_ms: number }>;
+	plans: JsonListPlan[];
+}
+
+interface JsonListPlan {
+	modified_time_ms: number;
+}
+
+function parseJsonListPayload(text: string): JsonListPayload {
+	const value: unknown = JSON.parse(text);
+	if (!isJsonListPayload(value)) {
+		throw new Error("Expected saved-plan JSON list payload.");
+	}
+	return value;
+}
+
+function isJsonListPayload(value: unknown): value is JsonListPayload {
+	return isRecord(value) && value.success === true && Array.isArray(value.plans) && value.plans.every(isJsonListPlan);
+}
+
+function isJsonListPlan(value: unknown): value is JsonListPlan {
+	return isRecord(value) && typeof value.modified_time_ms === "number";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 async function makeFixture(): Promise<Fixture> {

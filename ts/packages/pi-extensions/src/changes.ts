@@ -13,28 +13,28 @@ import { customMessageText, truncateDisplayLine, type CustomMessageContent } fro
 const COMMAND_NAME = "code:changes";
 export const CHANGES_SUMMARY_MESSAGE_TYPE = "code-changes-summary";
 
-type CustomMessage = {
+interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	display: boolean;
 	details?: unknown;
-};
+}
 
-type RenderTheme = {
+interface RenderTheme {
 	fg(color: string, text: string): string;
 	bold?(text: string): string;
-};
+}
 
-type RenderComponent = {
+interface RenderComponent {
 	render(width: number): string[];
 	invalidate(): void;
-};
+}
 
 type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
 export type CommandContext = ExtensionCommandContext;
 
-export type ExtensionAPI = {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -45,13 +45,13 @@ export type ExtensionAPI = {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<WorktreeCommandResult>;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
-};
+}
 
-type ChangesMessageDetails = {
+interface ChangesMessageDetails {
 	root: string;
 	branch: string;
 	statusSummary: ReturnType<typeof summarizePorcelainStatus>;
-};
+}
 
 export default function changesExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(CHANGES_SUMMARY_MESSAGE_TYPE, renderChangesSummaryMessage);

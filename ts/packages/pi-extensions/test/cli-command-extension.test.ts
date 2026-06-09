@@ -177,7 +177,19 @@ function restoreEnv(name: string, value: string | undefined): void {
 function readTraceEvents(path: string): Array<Record<string, unknown>> {
 	const text = readFileSync(path, "utf8").trim();
 	if (text === "") return [];
-	return text.split("\n").map((line) => JSON.parse(line) as Record<string, unknown>);
+	return text.split("\n").map(parseTraceEvent);
+}
+
+function parseTraceEvent(line: string): Record<string, unknown> {
+	const value: unknown = JSON.parse(line);
+	if (!isRecord(value)) {
+		throw new Error("Expected trace event JSON object.");
+	}
+	return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function expectSingleCliOutputMessage(pi: FakePi, content: string, level: "info" | "error" = "info"): CustomMessage {
