@@ -45,8 +45,8 @@ Risks:
 
 - Premature abstraction: naming a shared contract too early could force unification where healthy local variation exists. Mitigation: the parked-with-rationale outcome is a first-class result, not a failure. Discharged 2026-06-09: everything without observed drift was parked; the one adopted contract codifies what existing gateways already do.
 - Snapshot drift: the seed inventory is from the 2026-06-03 → 06-05 window; conversions landed since then could change the picture. De-risked 2026-06-09: the re-baseline against master `e9062814` is complete; conversions landed after that commit are ordinary future drift, not a blocker for naming a contract.
-- A convention without a home drifts: guidance that lives nowhere enforceable (skill, docs, review checklist) decays. Mitigation: choosing the artifact's home is part of the adoption decision, not an afterthought.
-- Scope creep into gateway redesign: comparing gateway boundaries could slide into redesigning them. Mitigation: gateways are inventory subjects here; changing gateway interfaces belongs to future, separately decided work.
+- A convention without a home drifts: guidance that lives nowhere enforceable (skill, docs, review checklist) decays. Mitigation: choosing the artifact's home is part of the adoption decision, not an afterthought. Discharged 2026-06-09: the contract lives in the `typescript-fake-driven-testing` skill's "Result unions" section, which already triggers on gateway work.
+- Scope creep into gateway redesign: comparing gateway boundaries could slide into redesigning them. Mitigation: gateways are inventory subjects here; changing gateway interfaces belongs to future, separately decided work. Held through completion: the exemplar slice was types-only; helpers, brmem/graphite signatures, and Python were untouched.
 
 ## Open Questions
 
@@ -55,3 +55,14 @@ All resolved 2026-06-09 by the contract decision (`updates/2026-06-09-1659-gatew
 - Do the discriminated failure shapes justify a named convention, or is the shared part already captured by the `typescript-style` skill? — Split answer: parser shapes are already covered by `typescript-style` errors-as-values (parked); the gateway result shape is a real contract worth naming (adopted).
 - One convention or two? — Two concerns; only the gateway result contract is adopted.
 - Where does it live? — The "Result unions" section of the `typescript-fake-driven-testing` skill, extended into the authoritative artifact. Documentary form; no code helper.
+
+## Closure
+
+Completed 2026-06-09. The deliverable judgment was made and both mechanical artifacts landed:
+
+- **Decision**: failure-as-data and gateway-result conventions are two concerns. Parser-shape unification, the Python raise-vs-return split, `machine-envelope` convergence, and gateway helper-plumbing dedup are parked with do-not-re-suggest rationale (`updates/2026-06-09-1659-gateway-result-contract-decision.md`, ratified by the owner in an interactive grill session).
+- **Adopted contract**: a TypeScript-only, documentary gateway result contract — `ok`-discriminated unions with minimal error info, the optional-lookup union, value-less operation results, `displayCommand?` for subprocess-backed gateways, per-gateway structural naming, and dedup only along existing dependency edges.
+- **Authoritative artifact**: the "Result unions" section of `skills/typescript-fake-driven-testing/SKILL.md`, extended in commit `c6e3f62d` with the contract stated generically (public-skill constraint honored).
+- **Exemplar**: the types-only `Git*` dedup in `ts/packages/planned-branch/src/git-gateway.ts`, commit `c0079410`, validated by both package test suites and a full workspace typecheck.
+
+Caveats and follow-ups: none blocking. Parked items in `roadmap.md` carry their own do-not-re-suggest rationale; `machine-envelope` convergence remains ordinary opportunistic cleanup. Closure evidence is recorded in `updates/2026-06-09-1724-contract-artifact-and-exemplar-landed.md`.
