@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import {
+	feedbackPlanConsumerSchema,
+	type FeedbackPlanActionItem,
+	type FeedbackPlanBatch,
+	type FeedbackPlanConsumer as FeedbackPlan,
+} from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { hasFlag, parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -12,44 +18,6 @@ const INVALID_PLAN_SHAPE_MESSAGE = "plan must be the data object returned by per
 const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
 
 const nullableStringSchema = z.string().nullable().default(null);
-const actionItemSchema = z.looseObject({
-	source_kind: z.string(),
-	summary: z.string(),
-	action_summary: z.string().nullable().default(null),
-	review_id: nullableStringSchema,
-	review_state: nullableStringSchema,
-	submitted_at: nullableStringSchema,
-	thread_id: nullableStringSchema,
-	discussion_comment_id: z.number().int().nullable().default(null),
-	covered_comment_ids: z.array(z.number().int()).default([]),
-	covered_comments: z.array(z.unknown()).default([]),
-	body_locator: z.unknown().nullable().default(null),
-	thread_item_pointer: nullableStringSchema,
-	path: nullableStringSchema,
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	is_outdated: z.boolean().nullable().default(null),
-	author: nullableStringSchema,
-	url: nullableStringSchema,
-	complexity: nullableStringSchema,
-	pre_existing: z.boolean().default(false),
-	needs_reply: z.boolean().nullable().default(null),
-});
-
-const feedbackPlanBatchSchema = z.looseObject({
-	batch_id: z.string(),
-	complexity: z.string(),
-	approval_required: z.boolean(),
-	items: z.array(actionItemSchema).default([]),
-});
-
-const feedbackPlanSchema = z.looseObject({
-	valid: z.boolean(),
-	pr_number: z.number().int().nullable().default(null),
-	payload_path: nullableStringSchema,
-	batches: z.array(feedbackPlanBatchSchema).default([]),
-	informational: z.array(actionItemSchema).default([]),
-});
 
 const provenanceSchema = z.discriminatedUnion("kind", [
 	z.looseObject({ kind: z.literal("local_branch"), branch: z.string() }),
@@ -74,9 +42,6 @@ const buildResolveThreadBatchPayloadInputSchema = z.looseObject({
 	decisions: z.array(decisionSchema),
 });
 
-type FeedbackPlan = z.infer<typeof feedbackPlanSchema>;
-type FeedbackPlanBatch = z.infer<typeof feedbackPlanBatchSchema>;
-type FeedbackPlanActionItem = z.infer<typeof actionItemSchema>;
 type BuildResolveThreadBatchPayloadInput = z.infer<typeof buildResolveThreadBatchPayloadInputSchema>;
 type ResolveThreadBatchDecision = z.infer<typeof decisionSchema>;
 type ResolutionMode = (typeof VALID_RESOLUTION_MODES)[number];
@@ -158,7 +123,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		});
 	}
 
-	const planResult = feedbackPlanSchema.safeParse(request.plan);
+	const planResult = feedbackPlanConsumerSchema.safeParse(request.plan);
 	if (!planResult.success) {
 		return invalidResult({
 			batchId,
