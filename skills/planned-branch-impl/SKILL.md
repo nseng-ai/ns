@@ -10,7 +10,8 @@ Load the attached plan from Branch Memory and implement from it as the source of
 ## Command
 
 ```bash
-prompt_file=$(mktemp "${TMPDIR:-/tmp}/planned-branch-impl.XXXXXX.md")
+prompt_dir=$(mktemp -d "${TMPDIR:-/tmp}/planned-branch-impl.XXXXXXXX")
+prompt_file="$prompt_dir/prompt.md"
 planned-branch exec load-plan [key-or-slug] --prompt-file "$prompt_file" --format json
 ```
 
