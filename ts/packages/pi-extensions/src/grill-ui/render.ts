@@ -1,5 +1,5 @@
-import type { NormalizedGrillAskInput } from "../grill-ui.ts";
-import { formatGrillAskProgressLine, type GrillAskProgress } from "./progress.ts";
+import type { GrillAskRemainingEstimate, NormalizedGrillAskInput } from "../grill-ui.ts";
+import type { GrillAskProgress } from "./progress.ts";
 import { choiceDetailLines, footerText, rowRecommendationTag, type GrillAskMode, type GrillAskRow } from "./view.ts";
 
 export interface GrillAskRenderTheme {
@@ -35,7 +35,7 @@ export function renderGrillAskInlineUi(
 	const add = (line = "") => lines.push(line);
 
 	add(style(theme, "accent", bold(theme, "grill_ask")));
-	add(style(theme, "dim", formatGrillAskProgressLine(state.progress ?? { source: "unavailable" }, input.estimatedRemaining)));
+	add(renderProgressLine(state.progress ?? { source: "unavailable" }, input.estimatedRemaining, theme));
 	add("");
 	renderReadZone(input, renderWidth, theme, primitives).forEach(add);
 	add("");
@@ -44,6 +44,44 @@ export function renderGrillAskInlineUi(
 	add(style(theme, "dim", footerText(state.mode)));
 
 	return lines.map((line) => truncate(line, renderWidth, primitives));
+}
+
+function renderProgressLine(progress: GrillAskProgress, estimate: GrillAskRemainingEstimate | undefined, theme: GrillAskRenderTheme): string {
+	return [renderQuestionAndAnswerProgress(progress, theme), renderRemainingProgress(estimate, theme)].join(style(theme, "muted", " • "));
+}
+
+function renderQuestionAndAnswerProgress(progress: GrillAskProgress, theme: GrillAskRenderTheme): string {
+	if (progress.answeredQuestions === undefined) {
+		return [`Question `, style(theme, "accent", "unknown"), ` • Answered `, style(theme, "success", "unknown")].join("");
+	}
+	return [
+		`Question `,
+		style(theme, "accent", String(progress.answeredQuestions + 1)),
+		` • Answered `,
+		style(theme, "success", String(progress.answeredQuestions)),
+	].join("");
+}
+
+function renderRemainingProgress(estimate: GrillAskRemainingEstimate | undefined, theme: GrillAskRenderTheme): string {
+	if (estimate === undefined) return [`Remaining `, style(theme, "warning", "unknown"), ` `, style(theme, "dim", "(estimate not supplied)")].join("");
+
+	switch (estimate.kind) {
+		case "exact":
+			return [`Remaining `, style(theme, "warning", String(estimate.count)), renderBasis(estimate.basis, "basis", theme)].join("");
+		case "range":
+			return [`Remaining `, style(theme, "warning", `${estimate.min}–${estimate.max}`), renderBasis(estimate.basis, "rough", theme)].join("");
+		case "unknown":
+			return [`Remaining `, style(theme, "warning", "unknown"), renderBasis(estimate.basis, "why", theme)].join("");
+		default: {
+			const exhaustive: never = estimate;
+			return exhaustive;
+		}
+	}
+}
+
+function renderBasis(basis: string | undefined, label: string, theme: GrillAskRenderTheme): string {
+	if (basis === undefined) return "";
+	return ` ${style(theme, "dim", `(${label}: ${basis})`)}`;
 }
 
 function renderReadZone(

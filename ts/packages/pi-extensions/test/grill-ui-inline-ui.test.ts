@@ -146,6 +146,24 @@ describe("grill_ask render helpers", () => {
 		expect(output).toContain("Question 4 • Answered 3 • Remaining 2–5 (rough: API and fallback rendering are still open)");
 	});
 
+	test("renders the session state line with subtly colorized values", () => {
+		const input = normalizedInput({
+			estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "after selecting the target behavior" },
+		});
+		const rows = buildGrillAskRows(input);
+		const theme = {
+			fg: (color: string, text: string) => `[${color}]${text}`,
+			bold: (text: string) => `**${text}**`,
+		};
+		const output = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1, progress: { answeredQuestions: 0, source: "session_branch" } }, 160, theme).join("\n");
+
+		expect(output).toContain(
+			"Question [accent]1 • Answered [success]0[muted] • Remaining [warning]2–4 [dim](rough: after selecting the target behavior)",
+		);
+		expect(output).not.toContain("[dim]Question");
+		expect(output).not.toContain("**Question");
+	});
+
 	test("all choice descriptions stay visible while the focus marker follows selection", () => {
 		const input = normalizedInput();
 		const rows = buildGrillAskRows(input);
