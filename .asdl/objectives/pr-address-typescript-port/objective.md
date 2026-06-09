@@ -43,6 +43,7 @@ Assumptions:
 - Stable `pr-address` contracts can be preserved through JSON envelope checks, scenario tests, golden fixtures, and compatibility-focused wrapper tests.
 - The current TypeScript workspace is the right default home for the port: pnpm workspaces, Node ESM, strict TypeScript, and Vitest.
 - Existing Python tests and docs are useful contract sources, but some fixtures or formatting details may encode accidental implementation behavior.
+- The strongest current public-contract sources are the public skill (`skills/pr-address/SKILL.md`), `skills/pr-address/references/cli-reference.md`, source group registration, standalone scenario tests, and golden fixtures. Treat these as stronger compatibility evidence than partial developer prose when sources disagree.
 - A vertical-slice migration will reveal better shared command runtime and gateway abstractions than pre-porting Python `asdl-core` as a module map.
 - Compatibility-preserving TypeScript internals can still add cleaner TS-native APIs behind or alongside stable public contracts where useful.
 
@@ -55,6 +56,7 @@ Risks:
 - npm distribution, package binaries, and installed-skill execution may expose surprises not visible in the current `uv`/`uvx` flow.
 - GitHub mutation safety could regress if helper boundaries or validation-before-action semantics are weakened.
 - Stack-feedback behavior may be more complex than current scenario coverage shows.
+- `packages/asdl-pr-address/docs/development.md` currently has a stale operation inventory relative to the skill, CLI reference, source registration, scenario tests, and golden fixtures; using it as the sole port inventory source would miss newer helpers and safety surfaces.
 
 ## Open Questions
 
