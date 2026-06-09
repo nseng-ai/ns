@@ -1,12 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "autoreview": {
-      "source": "openclaw/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/autoreview/SKILL.md",
-      "computedHash": "c01ad85b2dc7e1e3bdcb91f3e8e21eb5fcfda0ddf7924fe47a62b37f00928b33"
-    },
     "branch-retro": {
       "source": "skills/branch-retro",
       "sourceType": "local",
