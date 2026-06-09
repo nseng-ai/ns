@@ -62,10 +62,11 @@
   - Current evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` documents why broad Python fallback retirement is still blocked by installed/prod wrapper, plugin, artifact-writing, stack orchestration, and schema-route compatibility requirements.
   - Updated readiness evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` confirms Python is still present and still required for unported operations, public schema fallback routes, installed/prod wrapper mode, rollback, and the `asdl pr-address ...` plugin; broad deletion is not ready.
   - Completion evidence: `updates/2026-06-09T210900Z-schema-bundle-plugin-deletion-cutover.md` records the gated full deletion of `packages/asdl-pr-address`, TS fallback dispatch removal, TS-native usage-error envelopes, golden fixture relocation into the TS package, and full repo gate verification.
-- [ ] Feed lessons into the umbrella porting playbook.
+- [x] Feed lessons into the umbrella porting playbook.
   - Record reusable migration guidance for later `brmem`, `handoff`, `objective`, and other capability ports.
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.
   - Evidence should include concrete seams proven by `pr-address`, portability limits, and guidance for when future ports should avoid or reuse the same patterns.
+  - Completion evidence: `docs/typescript-porting-playbook.md` (indexed in `docs/README.md`) records the vertical-slice porting shape, parity discipline, gateway/fake seams, bundle distribution, retirement sequencing, and portability limits proven by this port; command-runtime extraction is explicitly deferred to a second capability port. Recorded in `updates/2026-06-09T211507Z-umbrella-porting-playbook.md`.
 
 ## Endgame Stack
 
@@ -92,7 +93,7 @@ Default branch sequence:
 8. `python-deletion` — landed as `pr-address-ts/python-deletion`.
    - Thesis: remove fallback dispatch from the TypeScript CLI, delete `packages/asdl-pr-address` and asdl-core surfaces that become unused, and scrub workspace/config/test references. Validate with full repo checks, not just the TS package.
    - Landed note: the wrapper's `python-local` mode was removed with the package; the three click usage-error cases now emit TS-native `invalid_request` envelopes; golden contract fixtures moved into the TS package as the durable post-deletion reference; `asdl_core.payloads` was kept (aretro consumers) while `asdl_core.clinkr.json_input` was deleted (zero remaining importers).
-9. `playbook`
+9. `playbook` — landed as `pr-address-ts/playbook`.
    - Thesis: feed proven seams, portability limits, and bundle/retirement lessons into the umbrella porting playbook; record final Objective evidence.
 
 Planning guidance:

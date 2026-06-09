@@ -122,6 +122,30 @@ Resolved 2026-06-09 (endgame stack):
 - Pydantic compatibility: TypeScript output preserves explicit `null` fields and applies Python `json.dumps(..., indent=2)` `ensure_ascii` escaping in machine envelopes.
 - Bundle build/refresh story: single-file ESM bundle built by lockfile-pinned esbuild (`just bundle-pr-address`), Node >= 24 floor, checked in at `skills/pr-address/scripts/pr-address.bundle.mjs` because installed skills are plain directory copies with no build hook; a byte-compare freshness test makes staleness a CI failure; releases refresh by rebuilding and committing.
 
+## Closure
+
+Outcome: completed, 2026-06-09.
+
+`pr-address` is TypeScript-backed in every invocation context. The port landed as two Graphite stacks: a six-branch foundation stack (runtime/schema seams, classification core, payload/finalize helpers, read-only gateways, mutation safety, cutover docs) and the nine-branch Endgame Stack (`pr-address-ts/payload-store` through `pr-address-ts/playbook`).
+
+Evidence against the completion criteria:
+
+- The public contract was inventoried and classified before porting (`updates/2026-06-09T121838Z-current-contract-inventory.md`).
+- TypeScript is the default implementation everywhere: local checkout runs the TS sources; installed/prod mode executes a checked-in deterministic single-file bundle inside the skill; there is no Python execution path left in-repo.
+- Contracts were preserved via byte-for-byte parity fixtures (envelopes, payload artifacts, golden suites — captured from the in-repo Python implementation before deletion) and structured semantic parity for `--json-schema` documents; intentional compatibility changes (TS-native usage-error envelopes, wrapper mode matrix, plugin removal) are recorded with rationale in ADR 0004's dated amendments and public docs.
+- Fake-driven unit/scenario tests, golden parity, wrapper tests, and bundle smoke evidence cover the migration; the full repo gate passed at cutover and at deletion.
+- The `asdl pr-address ...` plugin is retired outright with a retirement-guard test; the standalone CLI is the only invocation surface.
+- `packages/asdl-pr-address` is fully deleted; rollback is the wrapper's `legacy-python` mode running the frozen external PyPI artifact `asdl-pr-address==0.1.1` via uvx.
+- Lessons are recorded in `docs/typescript-porting-playbook.md` for later capability ports.
+
+Caveats and accepted residuals:
+
+- The classification trio's `--json-schema` documents keep their shipped TS shapes, exempted from the structural parity bar; Python fixtures are checked in for a future tightening pass.
+- The ~880 KB checked-in bundle regenerates on every TS source change (freshness test enforces it) — accepted staleness/size trade-off.
+- Command-runtime extraction into a shared package is deliberately deferred until a second capability port proves the seams (carried in the porting playbook, not as remaining work here).
+
+Follow-ups live in the umbrella migration effort: apply the playbook to the next capability port and revisit command-runtime extraction there.
+
 Resolved 2026-06-09 (see Decided entries under Assumptions and Risks):
 
 - Plugin compatibility: the `asdl pr-address ...` plugin is retired, not preserved or replaced.

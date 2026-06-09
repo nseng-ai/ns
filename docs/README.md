@@ -26,5 +26,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
+- [TypeScript porting playbook](typescript-porting-playbook.md): reusable migration guidance for porting Python-backed capabilities to TypeScript — vertical-slice shape, parity discipline, gateway/fake seams, bundle distribution, and retirement sequencing — proven by the `pr-address` port.
 
 Agents should consult this README first, then follow the narrowest relevant link instead of scanning the whole repository.
