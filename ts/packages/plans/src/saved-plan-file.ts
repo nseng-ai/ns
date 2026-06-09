@@ -4,13 +4,13 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
-import { normalizeSummary, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import type { PlanCommandExecApi } from "./command-runtime.ts";
+import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "./primitives.ts";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
 const PLAN_FILE_DISPLAY_NAME = "Markdown saved plan";
-const WRITE_PLAN_COMMAND = "/planned-branch:write-plan";
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
 
@@ -265,7 +265,7 @@ export async function findLatestSavedPlanFile(
 			[
 				`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store for the current repository and branch.`,
 				`Plan store directory: ${directory.directoryPath}`,
-				`Run ${WRITE_PLAN_COMMAND} first, or pass an explicit absolute or home-relative plan file path.`,
+				"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
 			].join("\n"),
 		);
 	}
@@ -394,7 +394,7 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Pr
 					`Repo key: ${directory.repoKey}`,
 					`Source branch: ${directory.sourceBranch}`,
 					`Branch path segment: ${directory.branchKey}`,
-					`Run ${WRITE_PLAN_COMMAND} first, or pass an explicit absolute or home-relative plan file path.`,
+					"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
 				].join("\n"),
 			);
 		}

@@ -10,7 +10,8 @@ import {
 	type SavedPlanFileEvidence,
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
-import { isPathInside, normalizePlanFilePath, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
+import type { PlanCommandExecApi } from "./command-runtime.ts";
+import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "./primitives.ts";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
@@ -178,7 +179,7 @@ export async function resolveSelectedSavedPlanFile(
 	if (options.explicitPath !== undefined) {
 		const filePath = normalizePlanFilePath(options.explicitPath);
 		if (!isAbsolute(filePath)) {
-			throw new Error(`Plan file path must be absolute or home-relative for /planned-branch:create; got ${filePath || "(empty)"}.`);
+			throw new Error(`Plan file path must be absolute or home-relative; got ${filePath || "(empty)"}.`);
 		}
 
 		const fileName = basename(filePath);
@@ -208,7 +209,7 @@ export async function resolveSelectedSavedPlanFile(
 		return { type: "latest", plan: latest, savedPlanFileStem: latest.slug };
 	}
 
-	throw new Error("No usable saved plan from /planned-branch:write-plan was found in the current session branch.");
+	throw new Error("No usable saved plan was found in the current session branch.");
 }
 
 function parseSavedPlanFileEvidence(details: Record<string, unknown>): SavedPlanFileEvidence | undefined {

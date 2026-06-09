@@ -24,11 +24,13 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@asdl/ccc/worktree-status/graphite-metadata",
 	"@asdl/pi-extension-runtime/command-runtime",
 	"@asdl/planned-branch",
+	"@asdl/plans",
 	"asdl-dev/src/cli.ts",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
 	"@asdl/planned-branch",
+	"@asdl/plans",
 	"@asdl/pi-extension-runtime/command-runtime",
 	"asdl-dev/src/checkpoint-flow.ts",
 ] as const;
@@ -56,7 +58,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 4 package specifiers");
+		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
 	test("ccc package imports representative cross-package dependencies under Node", () => {
@@ -66,7 +68,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 3 package specifiers");
+		expect(result.stdout).toContain("imported 4 package specifiers");
 	});
 });
 

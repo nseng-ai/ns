@@ -25,6 +25,14 @@ export {
 	type PlannedBranchBrmemGateway,
 } from "./brmem-gateway.ts";
 export { runCli, type CliDeps } from "./cli.ts";
+export {
+	MAX_PLAN_CONTENT_CHARS,
+	buildPlanContentSlugPrompt,
+	derivePlanContentSlug,
+	normalizePlanContentSlugOutput,
+	truncatePlanContentForSlug,
+	type PlanContentSlugEvidence,
+} from "./plan-content-slug.ts";
 export { createRealPlannedBranchContext, RealCommandExecApi, type PlannedBranchContext } from "./context.ts";
 export {
 	RealPlannedBranchGitGateway,

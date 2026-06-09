@@ -5,12 +5,14 @@ import {
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	buildImplPlannedBranchPrompt,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
+	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatLoadedAttachedPlanEvidence,
 	formatPlanBranchEvidence,
 	loadPlannedBranchPlan,
 	type BranchCreationMethod,
 	type LoadedAttachedPlan,
+	type PlanContentSlugEvidence,
 	type PlannedBranchEvidence,
 	type PlannedBranchOutputDetails,
 } from "@asdl/planned-branch";
@@ -26,7 +28,6 @@ import {
 import type { ExecResult } from "./command-runtime.ts";
 import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
-import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
 
 export type { ExecResult } from "./command-runtime.ts";

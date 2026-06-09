@@ -421,11 +421,11 @@ export async function writeTempSkill(body: string): Promise<string> {
 	return writeTempSkillMarkdown("ccc-sidebar", body);
 }
 
-export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string): Promise<string> {
+export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string, options: { fileName?: string; content?: string } = {}): Promise<string> {
 	const directoryPath = cmuxPlanStoreDirectory(planStoreRoot, repoRoot);
 	await mkdir(directoryPath, { recursive: true });
-	const planFile = join(directoryPath, PLAN_KEY);
-	await writeFile(planFile, "# Plan\n", "utf8");
+	const planFile = join(directoryPath, options.fileName ?? PLAN_KEY);
+	await writeFile(planFile, options.content ?? "# Plan\n", "utf8");
 	return planFile;
 }
 

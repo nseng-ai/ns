@@ -8,7 +8,7 @@ import {
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
-} from "./command-runtime.ts";
+} from "@asdl/plans";
 
 const MAX_ERROR_CHARS = 4_000;
 

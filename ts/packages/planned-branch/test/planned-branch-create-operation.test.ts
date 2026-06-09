@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand } from "../src/command-runtime.ts";
+import { formatCommand } from "@asdl/plans";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	buildPlannedBranchCreateOperation,

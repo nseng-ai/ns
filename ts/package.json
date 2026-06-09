@@ -13,6 +13,7 @@
     "asdl-dev": "node packages/asdl-dev/src/cli.ts"
   },
   "devDependencies": {
+    "@asdl/plans": "workspace:*",
     "@types/node": "^24.0.0",
     "asdl-dev": "workspace:*",
     "typescript": "^5.9.0",

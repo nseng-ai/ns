@@ -28,7 +28,7 @@ import registerPlannedBranchExtension, {
 	type ToolContext,
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
-import { buildPlanContentSlugPrompt } from "../src/planned-branch/plan-content-slug.ts";
+import { buildPlanContentSlugPrompt } from "@asdl/planned-branch";
 import { formatPlanBranchEvidence } from "../src/planned-branch-output.ts";
 import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
@@ -654,7 +654,7 @@ describe("source branch plan path helpers", () => {
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
 		await expect(findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
-			/No local plan store directory exists[\s\S]*Run \/planned-branch:write-plan first/,
+			/No local plan store directory exists[\s\S]*Create a saved plan first/,
 		);
 		pi.assertDone();
 	});
@@ -668,7 +668,7 @@ describe("source branch plan path helpers", () => {
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
 		await expect(findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
-			/No Markdown saved plan files exist[\s\S]*Run \/planned-branch:write-plan first/,
+			/No Markdown saved plan files exist[\s\S]*Create a saved plan first/,
 		);
 		pi.assertDone();
 	});

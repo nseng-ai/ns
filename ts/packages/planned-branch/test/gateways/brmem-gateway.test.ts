@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { RealPlannedBranchBrmemGateway, parseBrmemGetContent, parseBrmemListEntries, parseBrmemPutData } from "../../src/brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
-import type { ExecResult } from "../../src/command-runtime.ts";
+import type { ExecResult } from "@asdl/plans";
 import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import { InMemoryPlannedBranchBrmemGateway } from "../support/in-memory-brmem-gateway.ts";
 

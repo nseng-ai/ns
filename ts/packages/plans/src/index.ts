@@ -1,3 +1,18 @@
+export {
+	formatCommand,
+	formatCommandFailure,
+	formatOutputSection,
+	normalizeExecResult,
+	NodeCommandExecApi,
+	runCommand,
+	stripTerminalEscapes,
+	tailText,
+	type ExecOptions,
+	type ExecResult,
+	type PiExecResultLike,
+	type PlanCommandExecApi,
+	type TailTextOptions,
+} from "./command-runtime.ts";
 export { runCli, type CliDeps } from "./cli.ts";
 export {
 	RealPlansGitGateway,
@@ -9,14 +24,11 @@ export {
 } from "./git-gateway.ts";
 export {
 	isPathInside,
-	formatCommandFailure,
 	normalizePlanFilePath,
 	normalizeSummary,
 	resolveGitRepoRoot,
 	resolvePlanSourceFile,
 	validatePlanSlug,
-	type ExecOptions,
-	type PlanCommandExecApi,
 } from "./plan-persistence.ts";
 export {
 	buildPlanFileName,

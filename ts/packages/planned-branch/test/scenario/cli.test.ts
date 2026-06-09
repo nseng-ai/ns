@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { runCli } from "../../src/cli.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
 import { encodeBranchForPlanPath } from "@asdl/plans";
-import type { ExecResult } from "../../src/command-runtime.ts";
+import type { ExecResult } from "@asdl/plans";
 import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import { InMemoryPlannedBranchBrmemGateway, type InMemoryBrmemGatewayState } from "../support/in-memory-brmem-gateway.ts";
 import { InMemoryPlannedBranchGitGateway, type InMemoryGitGatewayState } from "../support/in-memory-git-gateway.ts";

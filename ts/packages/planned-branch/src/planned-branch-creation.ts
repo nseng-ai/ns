@@ -3,11 +3,10 @@ import {
 	type BrmemPutData,
 	type PlannedBranchBrmemGateway,
 } from "./brmem-gateway.ts";
-import { formatCommand } from "./command-runtime.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
-import { buildPlanFileName, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
+import { buildPlanFileName, formatCommand, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
 
 import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
