@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { hasFlag, parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -9,7 +10,6 @@ const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object ret
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
 
 const nullableStringSchema = z.string().nullable().default(null);
-const bodyLocatorSchema = z.looseObject({ json_pointer: z.string().optional(), item_pointer: nullableStringSchema.optional() }).optional().nullable();
 const threadManifestItemSchema = z.looseObject({
 	thread_id: z.string(),
 	path: z.string(),
@@ -19,32 +19,17 @@ const threadManifestItemSchema = z.looseObject({
 	is_outdated: z.boolean(),
 	comment_count: z.number().int().default(0),
 });
-const stackFeedbackPlanItemSchema = z.looseObject({
+const stackFeedbackPlanItemMetadataSchema = z.looseObject({
 	pr_number: z.number().int(),
 	branch: z.string(),
 	title: nullableStringSchema,
-	url: nullableStringSchema,
 	source_batch_id: nullableStringSchema,
-	source_kind: z.string(),
-	summary: z.string(),
-	action_summary: nullableStringSchema,
-	complexity: nullableStringSchema,
 	approval_required: z.boolean().default(false),
-	review_id: nullableStringSchema,
-	review_state: nullableStringSchema,
-	submitted_at: nullableStringSchema,
-	thread_id: nullableStringSchema,
-	discussion_comment_id: z.number().int().nullable().default(null),
-	covered_comment_ids: z.array(z.number().int()).default([]),
-	body_locator: bodyLocatorSchema,
-	thread_item_pointer: nullableStringSchema,
-	path: nullableStringSchema,
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	is_outdated: z.boolean().nullable().default(null),
-	author: nullableStringSchema,
-	needs_reply: z.boolean().nullable().default(null),
 });
+const stackFeedbackPlanItemSchema = z.union([
+	feedbackPlanActionItemSchema.and(stackFeedbackPlanItemMetadataSchema),
+	feedbackPlanInformationalItemSchema.and(stackFeedbackPlanItemMetadataSchema),
+]);
 const stackFeedbackPlanBatchSchema = z.looseObject({
 	batch_id: z.string(),
 	complexity: z.string(),

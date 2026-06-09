@@ -2,113 +2,55 @@ import { z } from "zod";
 
 import { buildClassificationTemplateSchemaDocument, buildPlanFeedbackSchemaDocument, buildValidateFeedbackClassificationSchemaDocument } from "./classification-schemas.ts";
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import {
+	getFeedbackManifestSchema,
+	prepareRunManifestSchema,
+	type BodyLocator,
+	type DiscussionCommentManifestItem,
+	type GetFeedbackManifest,
+	type PrepareRunManifest,
+	type ReviewManifestItem,
+	type ThreadManifestItem,
+} from "./feedback-manifest-contracts.ts";
+import {
+	ACTION_COMPLEXITIES,
+	INFORMATIONAL_THREAD_DECISIONS,
+	actionComplexitySchema,
+	feedbackPlanDiscussionActionItemSchema,
+	feedbackPlanDiscussionInformationalItemSchema,
+	feedbackPlanResultSchema,
+	feedbackPlanReviewActionItemSchema,
+	feedbackPlanReviewInformationalItemSchema,
+	feedbackPlanThreadActionItemSchema,
+	feedbackPlanThreadInformationalItemSchema,
+	informationalReasonSchema,
+	type ActionComplexity,
+	type FeedbackPlanActionItem,
+	type FeedbackPlanBatch,
+	type FeedbackPlanCounts,
+	type FeedbackPlanCoveredComment,
+	type FeedbackPlanDiscussionActionItem,
+	type FeedbackPlanDiscussionInformationalItem,
+	type FeedbackPlanInformationalItem,
+	type FeedbackPlanReviewActionItem,
+	type FeedbackPlanReviewInformationalItem,
+	type FeedbackPlanThreadActionItem,
+	type FeedbackPlanThreadInformationalItem,
+	type InformationalReason,
+	type PlanSourceKind,
+} from "./feedback-plan-contracts.ts";
 import { loadJsonInput, readJsonInputText } from "./json-input.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const FILL_DISPOSITION_PLACEHOLDER = "<fill: actionable|informational>";
-const ACTION_COMPLEXITIES = ["pre_existing", "local", "single_file", "cross_cutting", "complex"] as const;
 const APPROVAL_REQUIRED_COMPLEXITIES = new Set<ActionComplexity>(["cross_cutting", "complex"]);
-const INFORMATIONAL_THREAD_DECISIONS = ["act", "dismiss", "skip"] as const;
-const INFORMATIONAL_REASONS = [
-	"resolved_reference",
-	"automation",
-	"acknowledgement",
-	"approval",
-	"question_only",
-	"fyi",
-	"noise",
-	"already_addressed",
-	"other",
-] as const;
-
-const payloadReferenceSchema = z.looseObject({
-	payload_path: z.string(),
-});
-
-const feedbackDomainLocatorSchema = z.looseObject({
-	kind: z.string(),
-	review_id: z.string().nullable().default(null),
-	thread_id: z.string().nullable().default(null),
-	comment_id: z.number().int().nullable().default(null),
-	discussion_comment_id: z.number().int().nullable().default(null),
-	comment_index: z.number().int().nullable().default(null),
-	path: z.string().nullable().default(null),
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	is_resolved: z.boolean().nullable().default(null),
-	is_outdated: z.boolean().nullable().default(null),
-	author: z.string().nullable().default(null),
-});
-
-const bodyLocatorSchema = z.looseObject({
-	body_chars: z.number().int(),
-	json_pointer: z.string(),
-	item_pointer: z.string().nullable().default(null),
-	domain: feedbackDomainLocatorSchema,
-});
-
-const reviewManifestItemSchema = z.looseObject({
-	id: z.string(),
-	author: z.string(),
-	state: z.string(),
-	submitted_at: z.string(),
-	body_locator: bodyLocatorSchema,
-});
-
-const threadCommentManifestItemSchema = z.looseObject({
-	id: z.number().int(),
-	author: z.string(),
-	path: z.string(),
-	line: z.number().int().nullable(),
-	start_line: z.number().int().nullable(),
-	created_at: z.string(),
-	body_locator: bodyLocatorSchema,
-});
-
-const threadManifestItemSchema = z.looseObject({
-	thread_id: z.string(),
-	path: z.string(),
-	line: z.number().int().nullable(),
-	start_line: z.number().int().nullable(),
-	is_resolved: z.boolean(),
-	is_outdated: z.boolean(),
-	comment_count: z.number().int(),
-	item_pointer: z.string(),
-	comments: z.array(threadCommentManifestItemSchema).default([]),
-});
-
-const discussionCommentManifestItemSchema = z.looseObject({
-	comment_id: z.number().int(),
-	author: z.string(),
-	url: z.string(),
-	body_locator: bodyLocatorSchema,
-});
-
-const getFeedbackManifestSchema = z.looseObject({
-	payload_reference: payloadReferenceSchema,
-	pr_number: z.number().int(),
-	reviews: z.array(reviewManifestItemSchema).default([]),
-	review_threads: z.array(threadManifestItemSchema).default([]),
-	discussion_comments: z.array(discussionCommentManifestItemSchema).default([]),
-});
-
-const prepareRunManifestSchema = z.looseObject({
-	payload_reference: payloadReferenceSchema,
-	found: z.boolean(),
-	number: z.number().int().nullable().default(null),
-	reviews: z.array(reviewManifestItemSchema).default([]),
-	review_threads: z.array(threadManifestItemSchema).default([]),
-	discussion_comments: z.array(discussionCommentManifestItemSchema).default([]),
-});
 
 const classificationLocatorSchema = z.looseObject({
 	json_pointer: z.string(),
 	item_pointer: z.string().nullable().default(null),
 });
 
-const actionComplexitySchema = z.enum(ACTION_COMPLEXITIES);
 const classificationDispositionSchema = z.enum(["actionable", "informational"]);
-const informationalReasonSchema = z.enum(INFORMATIONAL_REASONS);
 
 const classifiedReviewSchema = z.looseObject({
 	review_id: z.string(),
@@ -161,20 +103,10 @@ const wrapperPayloadSchema = z.looseObject({
 	classification: z.unknown(),
 });
 
-type ActionComplexity = (typeof ACTION_COMPLEXITIES)[number];
 type ClassificationDisposition = "actionable" | "informational";
-type InformationalReason = (typeof INFORMATIONAL_REASONS)[number];
 type ManifestKind = "get_feedback" | "prepare_run";
 type ValidationItemKind = "review" | "review_thread" | "thread_comment" | "discussion_comment" | "packet";
 type ExactOnceCodePrefix = "review" | "thread" | "thread_comment" | "discussion_comment";
-type PlanSourceKind = "review" | "review_thread" | "discussion_comment";
-type PlanDecision = (typeof INFORMATIONAL_THREAD_DECISIONS)[number];
-
-type BodyLocator = z.infer<typeof bodyLocatorSchema>;
-type ReviewManifestItem = z.infer<typeof reviewManifestItemSchema>;
-type ThreadCommentManifestItem = z.infer<typeof threadCommentManifestItemSchema>;
-type ThreadManifestItem = z.infer<typeof threadManifestItemSchema>;
-type DiscussionCommentManifestItem = z.infer<typeof discussionCommentManifestItemSchema>;
 type ClassificationBodyLocatorRef = z.infer<typeof classificationLocatorSchema>;
 type ClassifiedReviewItem = z.infer<typeof classifiedReviewSchema>;
 type ClassifiedThreadCommentRef = z.infer<typeof classifiedThreadCommentSchema>;
@@ -182,6 +114,26 @@ type ClassifiedThreadItem = z.infer<typeof classifiedThreadSchema>;
 type ClassifiedDiscussionCommentItem = z.infer<typeof classifiedDiscussionCommentSchema>;
 type FeedbackClassificationPacket = z.infer<typeof classificationPacketSchema>;
 type WrapperPayload = z.infer<typeof wrapperPayloadSchema>;
+
+type FeedbackPlanItem = FeedbackPlanActionItem | FeedbackPlanInformationalItem;
+
+interface PlanSourceItemFields {
+	review_id?: string | null;
+	review_state?: string | null;
+	submitted_at?: string | null;
+	thread_id?: string | null;
+	discussion_comment_id?: number | null;
+	covered_comment_ids?: number[];
+	covered_comments?: FeedbackPlanCoveredComment[];
+	body_locator?: BodyLocator | null;
+	thread_item_pointer?: string | null;
+	path?: string | null;
+	line?: number | null;
+	start_line?: number | null;
+	is_outdated?: boolean | null;
+	author?: string | null;
+	url?: string | null;
+}
 
 interface FeedbackManifestView {
 	kind: ManifestKind;
@@ -231,9 +183,9 @@ interface FeedbackPlanningResult {
 	pr_number: number | null;
 	payload_path: string | null;
 	validation: FeedbackClassificationValidationResult;
-	counts: Record<string, number> | null;
-	batches: unknown[];
-	informational: unknown[];
+	counts: FeedbackPlanCounts | null;
+	batches: FeedbackPlanBatch[];
+	informational: FeedbackPlanInformationalItem[];
 	warnings: string[];
 }
 
@@ -439,7 +391,7 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 	const actions = actionItems(view, lookup);
 	const informational = informationalItems(view, lookup);
 	const batches = batchesForActions(actions);
-	return {
+	return feedbackPlanResultSchema.parse({
 		valid: true,
 		manifest_kind: view.kind,
 		pr_number: view.prNumber,
@@ -449,7 +401,7 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 		batches,
 		informational,
 		warnings: planningWarnings(view),
-	};
+	});
 }
 
 function buildFeedbackManifestView(manifestPayload: unknown): { view: FeedbackManifestView | null; errors: FeedbackClassificationValidationError[] } {
@@ -478,12 +430,12 @@ function buildFeedbackManifestView(manifestPayload: unknown): { view: FeedbackMa
 	return { view, errors: manifestIntegrityErrors(view) };
 }
 
-function prepareRunPrNumber(manifest: z.infer<typeof prepareRunManifestSchema> | z.infer<typeof getFeedbackManifestSchema>): number | null {
+function prepareRunPrNumber(manifest: PrepareRunManifest | GetFeedbackManifest): number | null {
 	if (!("found" in manifest) || manifest.found !== true) return null;
 	return typeof manifest.number === "number" ? manifest.number : null;
 }
 
-function getFeedbackPrNumber(manifest: z.infer<typeof prepareRunManifestSchema> | z.infer<typeof getFeedbackManifestSchema>): number | null {
+function getFeedbackPrNumber(manifest: PrepareRunManifest | GetFeedbackManifest): number | null {
 	return "pr_number" in manifest && typeof manifest.pr_number === "number" ? manifest.pr_number : null;
 }
 
@@ -926,8 +878,8 @@ function classifiedLookup(packet: FeedbackClassificationPacket): ClassifiedLooku
 	};
 }
 
-function actionItems(view: FeedbackManifestView, classified: ClassifiedLookup): unknown[] {
-	const actions: unknown[] = [];
+function actionItems(view: FeedbackManifestView, classified: ClassifiedLookup): FeedbackPlanActionItem[] {
+	const actions: FeedbackPlanActionItem[] = [];
 	for (const review of view.reviews) {
 		const item = classified.reviews.get(review.id);
 		if (item?.disposition === "actionable") actions.push(reviewActionItem(review, item));
@@ -943,56 +895,62 @@ function actionItems(view: FeedbackManifestView, classified: ClassifiedLookup): 
 	return actions;
 }
 
-function reviewActionItem(review: ReviewManifestItem, item: ClassifiedReviewItem): unknown {
-	return planSourceItemBase("review", item.summary, {
-		review_id: review.id,
-		review_state: review.state,
-		submitted_at: review.submitted_at,
-		body_locator: review.body_locator,
-		author: review.author,
+function reviewActionItem(review: ReviewManifestItem, item: ClassifiedReviewItem): FeedbackPlanReviewActionItem {
+	return feedbackPlanReviewActionItemSchema.parse({
+		...planSourceItemBase("review", item.summary, {
+			review_id: review.id,
+			review_state: review.state,
+			submitted_at: review.submitted_at,
+			body_locator: review.body_locator,
+			author: review.author,
+		}),
 		action_summary: item.action_summary,
-		complexity: item.complexity,
+		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: item.pre_existing,
 		needs_reply: null,
 	});
 }
 
-function threadActionItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): unknown {
+function threadActionItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanThreadActionItem {
 	const coveredComments = coveredThreadComments(thread, item);
 	const firstComment = coveredComments[0] ?? null;
-	return planSourceItemBase("review_thread", item.summary, {
-		thread_id: thread.thread_id,
-		covered_comment_ids: coveredComments.map((comment) => comment.comment_id),
-		covered_comments: coveredComments,
-		body_locator: firstComment?.body_locator ?? null,
-		thread_item_pointer: thread.item_pointer,
-		path: thread.path,
-		line: thread.line,
-		start_line: thread.start_line,
-		is_outdated: thread.is_outdated,
-		author: firstComment?.author ?? null,
+	return feedbackPlanThreadActionItemSchema.parse({
+		...planSourceItemBase("review_thread", item.summary, {
+			thread_id: thread.thread_id,
+			covered_comment_ids: coveredComments.map((comment) => comment.comment_id),
+			covered_comments: coveredComments,
+			body_locator: firstComment?.body_locator ?? null,
+			thread_item_pointer: thread.item_pointer,
+			path: thread.path,
+			line: thread.line,
+			start_line: thread.start_line,
+			is_outdated: thread.is_outdated,
+			author: firstComment?.author ?? null,
+		}),
 		action_summary: item.action_summary,
-		complexity: item.complexity,
+		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: item.pre_existing,
 		needs_reply: null,
 	});
 }
 
-function discussionActionItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): unknown {
-	return planSourceItemBase("discussion_comment", item.summary, {
-		discussion_comment_id: comment.comment_id,
-		body_locator: comment.body_locator,
-		author: comment.author,
-		url: comment.url,
+function discussionActionItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): FeedbackPlanDiscussionActionItem {
+	return feedbackPlanDiscussionActionItemSchema.parse({
+		...planSourceItemBase("discussion_comment", item.summary, {
+			discussion_comment_id: comment.comment_id,
+			body_locator: comment.body_locator,
+			author: comment.author,
+			url: comment.url,
+		}),
 		action_summary: item.action_summary,
-		complexity: item.complexity,
+		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: false,
 		needs_reply: item.needs_reply,
 	});
 }
 
-function informationalItems(view: FeedbackManifestView, classified: ClassifiedLookup): unknown[] {
-	const informational: unknown[] = [];
+function informationalItems(view: FeedbackManifestView, classified: ClassifiedLookup): FeedbackPlanInformationalItem[] {
+	const informational: FeedbackPlanInformationalItem[] = [];
 	for (const review of view.reviews) {
 		const item = classified.reviews.get(review.id);
 		if (item?.disposition === "informational") informational.push(reviewInformationalItem(review, item));
@@ -1008,52 +966,58 @@ function informationalItems(view: FeedbackManifestView, classified: ClassifiedLo
 	return informational;
 }
 
-function reviewInformationalItem(review: ReviewManifestItem, item: ClassifiedReviewItem): unknown {
-	return planSourceItemBase("review", item.summary, {
-		review_id: review.id,
-		review_state: review.state,
-		submitted_at: review.submitted_at,
-		body_locator: review.body_locator,
-		author: review.author,
+function reviewInformationalItem(review: ReviewManifestItem, item: ClassifiedReviewItem): FeedbackPlanReviewInformationalItem {
+	return feedbackPlanReviewInformationalItemSchema.parse({
+		...planSourceItemBase("review", item.summary, {
+			review_id: review.id,
+			review_state: review.state,
+			submitted_at: review.submitted_at,
+			body_locator: review.body_locator,
+			author: review.author,
+		}),
 		informational_reason: item.informational_reason,
 		user_decision_required: false,
 		allowed_decisions: [],
 	});
 }
 
-function threadInformationalItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): unknown {
+function threadInformationalItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanThreadInformationalItem {
 	const coveredComments = coveredThreadComments(thread, item);
 	const firstComment = coveredComments[0] ?? null;
-	return planSourceItemBase("review_thread", item.summary, {
-		thread_id: thread.thread_id,
-		covered_comment_ids: coveredComments.map((comment) => comment.comment_id),
-		covered_comments: coveredComments,
-		body_locator: firstComment?.body_locator ?? null,
-		thread_item_pointer: thread.item_pointer,
-		path: thread.path,
-		line: thread.line,
-		start_line: thread.start_line,
-		is_outdated: thread.is_outdated,
-		author: firstComment?.author ?? null,
+	return feedbackPlanThreadInformationalItemSchema.parse({
+		...planSourceItemBase("review_thread", item.summary, {
+			thread_id: thread.thread_id,
+			covered_comment_ids: coveredComments.map((comment) => comment.comment_id),
+			covered_comments: coveredComments,
+			body_locator: firstComment?.body_locator ?? null,
+			thread_item_pointer: thread.item_pointer,
+			path: thread.path,
+			line: thread.line,
+			start_line: thread.start_line,
+			is_outdated: thread.is_outdated,
+			author: firstComment?.author ?? null,
+		}),
 		informational_reason: item.informational_reason,
 		user_decision_required: true,
 		allowed_decisions: [...INFORMATIONAL_THREAD_DECISIONS],
 	});
 }
 
-function discussionInformationalItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): unknown {
-	return planSourceItemBase("discussion_comment", item.summary, {
-		discussion_comment_id: comment.comment_id,
-		body_locator: comment.body_locator,
-		author: comment.author,
-		url: comment.url,
+function discussionInformationalItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): FeedbackPlanDiscussionInformationalItem {
+	return feedbackPlanDiscussionInformationalItemSchema.parse({
+		...planSourceItemBase("discussion_comment", item.summary, {
+			discussion_comment_id: comment.comment_id,
+			body_locator: comment.body_locator,
+			author: comment.author,
+			url: comment.url,
+		}),
 		informational_reason: item.informational_reason,
 		user_decision_required: false,
 		allowed_decisions: [],
 	});
 }
 
-function planSourceItemBase(sourceKind: PlanSourceKind, summary: string, fields: Record<string, unknown>): Record<string, unknown> {
+function planSourceItemBase(sourceKind: PlanSourceKind, summary: string, fields: PlanSourceItemFields): { source_kind: PlanSourceKind; summary: string } & Required<PlanSourceItemFields> {
 	return {
 		source_kind: sourceKind,
 		summary,
@@ -1072,22 +1036,10 @@ function planSourceItemBase(sourceKind: PlanSourceKind, summary: string, fields:
 		is_outdated: fields.is_outdated ?? null,
 		author: fields.author ?? null,
 		url: fields.url ?? null,
-		...("action_summary" in fields
-			? {
-					action_summary: fields.action_summary,
-					complexity: fields.complexity,
-					pre_existing: fields.pre_existing,
-					needs_reply: fields.needs_reply,
-				}
-			: {
-					informational_reason: fields.informational_reason,
-					user_decision_required: fields.user_decision_required,
-					allowed_decisions: fields.allowed_decisions,
-				}),
 	};
 }
 
-function coveredThreadComments(thread: ThreadManifestItem, item: ClassifiedThreadItem): Array<Record<string, unknown>> {
+function coveredThreadComments(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanCoveredComment[] {
 	const coveredIds = new Set(item.covered_comments.map((comment) => comment.comment_id));
 	return thread.comments.filter((comment) => coveredIds.has(comment.id)).map((comment) => ({
 		comment_id: comment.id,
@@ -1099,13 +1051,10 @@ function coveredThreadComments(thread: ThreadManifestItem, item: ClassifiedThrea
 	}));
 }
 
-function batchesForActions(actions: unknown[]): Array<Record<string, unknown>> {
-	const byComplexity = new Map<ActionComplexity, unknown[]>(ACTION_COMPLEXITIES.map((complexity) => [complexity, []]));
-	for (const item of actions) {
-		const complexity = complexityFromPlanItem(item);
-		if (complexity !== null) byComplexity.get(complexity)?.push(item);
-	}
-	const batches: Array<Record<string, unknown>> = [];
+function batchesForActions(actions: FeedbackPlanActionItem[]): FeedbackPlanBatch[] {
+	const byComplexity = new Map<ActionComplexity, FeedbackPlanActionItem[]>(ACTION_COMPLEXITIES.map((complexity) => [complexity, []]));
+	for (const item of actions) byComplexity.get(item.complexity)?.push(item);
+	const batches: FeedbackPlanBatch[] = [];
 	for (const complexity of ACTION_COMPLEXITIES) {
 		const items = byComplexity.get(complexity) ?? [];
 		if (items.length > 0) {
@@ -1120,20 +1069,19 @@ function batchesForActions(actions: unknown[]): Array<Record<string, unknown>> {
 	return batches;
 }
 
-function complexityFromPlanItem(item: unknown): ActionComplexity | null {
-	if (!isRecord(item)) return null;
-	const complexity = item.complexity;
-	return isActionComplexity(complexity) ? complexity : null;
+function requiredActionComplexity(complexity: ActionComplexity | null): ActionComplexity {
+	if (complexity !== null) return complexity;
+	throw new Error("Validated actionable feedback item is missing complexity.");
 }
 
-function planCounts(actions: unknown[], informational: unknown[], batches: Array<Record<string, unknown>>): Record<string, number> {
+function planCounts(actions: FeedbackPlanActionItem[], informational: FeedbackPlanInformationalItem[], batches: FeedbackPlanBatch[]): FeedbackPlanCounts {
 	const actionCounts = sourceKindCounts(actions);
 	const informationalCounts = sourceKindCounts(informational);
 	return {
 		actionable_items: actions.length,
 		informational_items: informational.length,
 		batches: batches.length,
-		approval_required_batches: batches.filter((batch) => batch.approval_required === true).length,
+		approval_required_batches: batches.filter((batch) => batch.approval_required).length,
 		actionable_reviews: actionCounts.review,
 		actionable_review_threads: actionCounts.review_thread,
 		actionable_discussion_comments: actionCounts.discussion_comment,
@@ -1143,13 +1091,9 @@ function planCounts(actions: unknown[], informational: unknown[], batches: Array
 	};
 }
 
-function sourceKindCounts(items: unknown[]): Record<PlanSourceKind, number> {
+function sourceKindCounts(items: readonly FeedbackPlanItem[]): Record<PlanSourceKind, number> {
 	const counts: Record<PlanSourceKind, number> = { review: 0, review_thread: 0, discussion_comment: 0 };
-	for (const item of items) {
-		if (!isRecord(item)) continue;
-		const sourceKind = item.source_kind;
-		if (sourceKind === "review" || sourceKind === "review_thread" || sourceKind === "discussion_comment") counts[sourceKind] += 1;
-	}
+	for (const item of items) counts[item.source_kind] += 1;
 	return counts;
 }
 

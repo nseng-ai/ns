@@ -1,42 +1,13 @@
 import { z } from "zod";
 
+import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
+
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
 	command: z.string(),
 	status: z.enum(["passed", "failed", "skipped"]),
 	exit_code: z.number().int().nullable().default(null),
 	summary: nullableStringSchema,
-});
-
-const actionItemSchema = z.looseObject({
-	source_kind: z.string(),
-	summary: z.string(),
-	action_summary: z.string(),
-	review_id: nullableStringSchema,
-	thread_id: nullableStringSchema,
-	discussion_comment_id: z.number().int().nullable().default(null),
-	path: nullableStringSchema,
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	covered_comment_ids: z.array(z.number().int()).default([]),
-	needs_reply: z.boolean().nullable().default(null),
-	pre_existing: z.boolean().default(false),
-	author: nullableStringSchema,
-	url: nullableStringSchema,
-});
-
-const planBatchSchema = z.looseObject({
-	batch_id: z.string(),
-	complexity: z.string(),
-	approval_required: z.boolean(),
-	items: z.array(actionItemSchema).default([]),
-});
-
-const planSchema = z.looseObject({
-	valid: z.boolean(),
-	pr_number: z.number().int().nullable().default(null),
-	payload_path: nullableStringSchema,
-	batches: z.array(planBatchSchema).default([]),
 });
 
 const buildErrorSchema = z.looseObject({
@@ -93,7 +64,7 @@ const nonThreadOutcomeInputSchema = z.looseObject({
 });
 
 export const recordBatchCheckpointInputSchema = z.looseObject({
-	plan: planSchema,
+	plan: feedbackPlanConsumerSchema,
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema,
 	changed_files: z.array(z.string()).default([]),
@@ -104,8 +75,6 @@ export const recordBatchCheckpointInputSchema = z.looseObject({
 });
 
 type RecordBatchCheckpointInput = z.infer<typeof recordBatchCheckpointInputSchema>;
-type FeedbackPlanBatch = z.infer<typeof planBatchSchema>;
-type FeedbackPlanActionItem = z.infer<typeof actionItemSchema>;
 type ThreadPayloadBuild = z.infer<typeof threadPayloadBuildSchema>;
 type ThreadResolutionResult = z.infer<typeof threadResolutionResultSchema>;
 type NonThreadOutcomeInput = z.infer<typeof nonThreadOutcomeInputSchema>;

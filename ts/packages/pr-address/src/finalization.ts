@@ -1,26 +1,18 @@
 import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { hasFlag, parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const payloadReferenceSchema = z.looseObject({ payload_path: nullableStringSchema });
-const threadManifestItemSchema = z.looseObject({
-	thread_id: z.string(),
-	path: z.string(),
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	is_resolved: z.boolean(),
-	is_outdated: z.boolean(),
-	comment_count: z.number().int(),
-	item_pointer: nullableStringSchema,
-});
+const finalizationThreadManifestItemSchema = threadManifestItemSchema.extend({ item_pointer: nullableStringSchema });
 const feedbackManifestSchema = z.looseObject({
 	payload_reference: payloadReferenceSchema,
 	pr_number: z.number().int(),
-	review_threads: z.array(threadManifestItemSchema).default([]),
+	review_threads: z.array(finalizationThreadManifestItemSchema).default([]),
 });
 const validationCommandSchema = z.looseObject({
 	command: z.string(),
@@ -68,7 +60,7 @@ const finalizeRunInputSchema = z.looseObject({
 
 type FinalizeRunInput = z.infer<typeof finalizeRunInputSchema>;
 type Checkpoint = z.infer<typeof checkpointSchema>;
-type ThreadManifestItem = z.infer<typeof threadManifestItemSchema>;
+type ThreadManifestItem = z.infer<typeof finalizationThreadManifestItemSchema>;
 type NonThreadOutcome = z.infer<typeof nonThreadOutcomeSchema>;
 
 interface FinalizeRunError {
