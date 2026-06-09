@@ -1,9 +1,10 @@
-export const DEFAULT_FAST_MODEL_REF = "openai-codex/gpt-5.4-mini";
-
 export interface ParsedModelRef {
 	provider: string;
 	modelId: string;
 }
+
+export const DEFAULT_FAST_MODEL: ParsedModelRef = { provider: "openai-codex", modelId: "gpt-5.4-mini" };
+export const DEFAULT_FAST_MODEL_REF = `${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`;
 
 export type ModelRefResolution = { ok: true; value: ParsedModelRef } | { ok: false; error: string };
 
@@ -17,8 +18,6 @@ export function parseModelRef(modelRef: string): ParsedModelRef | undefined {
 		modelId: modelRef.slice(separator + 1),
 	};
 }
-
-export const DEFAULT_FAST_MODEL: ParsedModelRef = requireDefaultFastModel();
 
 export function resolveModelRef(
 	env: Record<string, string | undefined>,
@@ -34,12 +33,4 @@ export function resolveModelRef(
 		};
 	}
 	return { ok: true, value: parsed };
-}
-
-function requireDefaultFastModel(): ParsedModelRef {
-	const parsed = parseModelRef(DEFAULT_FAST_MODEL_REF);
-	if (parsed === undefined) {
-		throw new Error(`Default fast model ref ${JSON.stringify(DEFAULT_FAST_MODEL_REF)} is not "provider/modelId".`);
-	}
-	return parsed;
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, parseModelRef } from "@asdl/plans";
+import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@asdl/plans";
 import type * as PiAi from "@earendil-works/pi-ai";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -105,27 +105,25 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 export function resolveCodexDraftModel(
 	env: Record<string, string | undefined>,
 ): { value: PiModelConfig; warning?: string } {
-	const override = env[DRAFT_MODEL_ENV]?.trim();
-	if (!override) {
+	if (!env[DRAFT_MODEL_ENV]?.trim()) {
 		return { value: CODEX_DEFAULT_CONFIG };
 	}
 
-	const parsed = override.includes("/")
-		? parseModelRef(override)
-		: { provider: DEFAULT_FAST_MODEL.provider, modelId: override };
-	if (parsed === undefined) {
+	const resolution = resolveModelRef(env, DRAFT_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
+	if (!resolution.ok) {
 		return {
 			value: CODEX_DEFAULT_CONFIG,
-			warning: `Invalid ${DRAFT_MODEL_ENV}=${JSON.stringify(override)}; using ${DEFAULT_FAST_MODEL_REF}.`,
+			warning: `${resolution.error} Using ${DEFAULT_FAST_MODEL_REF}.`,
 		};
 	}
 
+	const { provider, modelId } = resolution.value;
 	return {
 		value: {
-			provider: parsed.provider,
-			modelId: parsed.modelId,
-			label: `${parsed.provider}/${parsed.modelId}`,
-			authLabel: parsed.provider === DEFAULT_FAST_MODEL.provider ? "Codex" : parsed.provider,
+			provider,
+			modelId,
+			label: `${provider}/${modelId}`,
+			authLabel: provider === DEFAULT_FAST_MODEL.provider ? "Codex" : provider,
 			reasoning: "minimal",
 		},
 	};

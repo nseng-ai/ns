@@ -15,6 +15,16 @@ export {
 } from "./command-runtime.ts";
 export { runCli, type CliDeps } from "./cli.ts";
 export {
+	buildContentSlugPrompt,
+	deriveContentSlug,
+	MAX_PLAN_CONTENT_CHARS,
+	normalizePlanContentSlugOutput,
+	truncatePlanContentForSlug,
+	type ContentSlugDerivationVariant,
+	type ContentSlugEvidence,
+	type DeriveContentSlugInput,
+} from "./content-slug-derivation.ts";
+export {
 	DEFAULT_FAST_MODEL,
 	DEFAULT_FAST_MODEL_REF,
 	parseModelRef,
@@ -24,10 +34,8 @@ export {
 } from "./model-defaults.ts";
 export {
 	buildSlugModelArgs,
-	DEFAULT_SLUG_MODEL,
 	deriveSlugWithModel,
 	formatSlugModelFailure,
-	resolveSlugModel,
 	SLUG_MODEL_ENV,
 	SLUG_MODEL_THINKING,
 	SLUG_MODEL_TIMEOUT_MS,

@@ -1,17 +1,9 @@
 import { formatCommand, formatOutputSection } from "./command-runtime.ts";
-import {
-	DEFAULT_FAST_MODEL,
-	DEFAULT_FAST_MODEL_REF,
-	resolveModelRef,
-	type ModelRefResolution,
-	type ParsedModelRef,
-} from "./model-defaults.ts";
+import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef, type ParsedModelRef } from "./model-defaults.ts";
 
 export const SLUG_MODEL_ENV = "ASDL_SLUG_MODEL";
 export const SLUG_MODEL_THINKING = "minimal";
 export const SLUG_MODEL_TIMEOUT_MS = 60_000;
-
-export const DEFAULT_SLUG_MODEL: ParsedModelRef = DEFAULT_FAST_MODEL;
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -47,18 +39,18 @@ export interface DeriveSlugWithModelInput {
 	cwd: string;
 	prompt: string;
 	slugKind: string;
-	model?: ParsedModelRef;
+	env?: Record<string, string | undefined>;
 	normalizeOutput(output: string): string | undefined;
 	exec(command: string, args: string[], options: SlugModelExecOptions): Promise<SlugModelCommandResult>;
 	signal?: AbortSignal;
 }
 
-export function resolveSlugModel(env: Record<string, string | undefined>): ModelRefResolution {
-	return resolveModelRef(env, SLUG_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
-}
-
 export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Promise<SlugModelDerivationResult> {
-	const model = input.model ?? DEFAULT_SLUG_MODEL;
+	const resolution = resolveModelRef(input.env ?? process.env, SLUG_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
+	if (!resolution.ok) {
+		return { ok: false, failure: { lines: [resolution.error] } };
+	}
+	const model = resolution.value;
 	const args = buildSlugModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<slug-prompt>"]);
 
@@ -122,7 +114,7 @@ export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Prom
 	};
 }
 
-export function buildSlugModelArgs(prompt: string, model: ParsedModelRef = DEFAULT_SLUG_MODEL): string[] {
+export function buildSlugModelArgs(prompt: string, model: ParsedModelRef = DEFAULT_FAST_MODEL): string[] {
 	return [
 		"--provider",
 		model.provider,

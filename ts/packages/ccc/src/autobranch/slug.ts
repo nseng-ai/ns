@@ -1,13 +1,7 @@
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
-import {
-	deriveSlugWithModel,
-	formatSlugModelFailure,
-	resolveSlugModel,
-	SLUG_MODEL_TIMEOUT_MS,
-	type SlugModelFailure,
-} from "@asdl/plans";
+import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS, type SlugModelFailure } from "@asdl/plans";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;
@@ -75,16 +69,9 @@ export function buildBranchSlugPrompt(input: BranchSlugPromptInput): string {
 }
 
 export async function deriveBranchSlug(input: BranchSlugDerivationInput): Promise<BranchSlugModelResult> {
-	const modelResolution = resolveSlugModel(process.env);
-	if (!modelResolution.ok) {
-		const failure: SlugModelFailure = { lines: [modelResolution.error] };
-		return { ok: false, failure, formattedFailure: formatSlugModelFailure(failure) };
-	}
-
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt: input.prompt,
-		model: modelResolution.value,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) => input.exec(command, args, options.cwd ?? input.cwd, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),

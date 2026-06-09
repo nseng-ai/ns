@@ -31,7 +31,7 @@ import registerPlannedBranchExtension, {
 import { buildPlanContentSlugPrompt } from "@asdl/planned-branch";
 import { formatPlanBranchEvidence } from "../src/planned-branch-output.ts";
 import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
-import { buildSlugModelArgs, DEFAULT_SLUG_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
 import type { ExecOptions } from "@asdl/plans";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
@@ -217,7 +217,7 @@ function savedPlanSlugStep(content: string, options: SavedPlanSlugStepOptions = 
 }
 
 function contentSlugEvidence(slug: string = PLAN_SLUG): { slug: string; rawOutput: string; provider: string; model: string } {
-	return { slug, rawOutput: `${slug}\n`, provider: DEFAULT_SLUG_MODEL.provider, model: DEFAULT_SLUG_MODEL.modelId };
+	return { slug, rawOutput: `${slug}\n`, provider: DEFAULT_FAST_MODEL.provider, model: DEFAULT_FAST_MODEL.modelId };
 }
 
 function savedPlanFileContent(fileName: string): string {
@@ -867,7 +867,7 @@ describe("formatCreatePlannedBranchPreview", () => {
 		expect(text).toContain("Path: /plans/gh--owner--repo/main/local-filename-plan.md");
 		expect(text).toContain("Saved-plan file stem: local-filename-plan");
 		expect(text).toContain(`Content-derived slug: ${PLAN_SLUG}`);
-		expect(text).toContain(`Slug model: ${DEFAULT_SLUG_MODEL.provider}/${DEFAULT_SLUG_MODEL.modelId}`);
+		expect(text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
@@ -1931,7 +1931,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(pi.execCalls[0]?.args).toEqual(savedPlanSlugArgs(content));
 		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: ROOT, timeout: 60_000 });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_SLUG_MODEL.provider}/${DEFAULT_SLUG_MODEL.modelId}`);
+		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
 		expect(result.details).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath: expectedPath,
@@ -1989,7 +1989,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Writing plan file…" });
 		expect(toolContext.statuses.at(-1)).toEqual({ key: "plans:write", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_SLUG_MODEL.provider}/${DEFAULT_SLUG_MODEL.modelId}`);
+		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
 		expect(result.details).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath: expectedPath,

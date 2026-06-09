@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import handoffExtension, { buildHandoffTabPrompt, deriveSemanticHandoffSlug } from "../src/handoff.ts";
-import { buildSlugModelArgs, DEFAULT_SLUG_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
 import { buildHandoffContentSlugPrompt } from "../src/handoff/content-slug.ts";
 import {
 	BRANCH,
@@ -134,8 +134,8 @@ describe("handoff-tab extension", () => {
 			type: "derived",
 			slug: "associate-sessions-with-branches",
 			key: "associate-sessions-with-branches.md",
-			provider: DEFAULT_SLUG_MODEL.provider,
-			model: DEFAULT_SLUG_MODEL.modelId,
+			provider: DEFAULT_FAST_MODEL.provider,
+			model: DEFAULT_FAST_MODEL.modelId,
 		});
 		expect(context.statuses).toEqual(["deriving handoff slug…", undefined]);
 	});
