@@ -29,10 +29,11 @@
   - Preserve exact-once accounting, fail-closed validation, ordered batch semantics, and approval-required markers for cross-cutting/complex work.
   - Policy: directly executable after preview when it reuses the local seams; ask before changing classification schema semantics.
   - Evidence: `updates/2026-06-09T150509Z-classification-core-parity.md` records TypeScript-managed `validate-feedback-classification` and `plan-feedback`, golden parity over the existing fixture suites, and targeted package validation.
-- [ ] Port payload/detail/finalization helpers that do not require live GitHub mutation.
+- [~] Port payload/detail/finalization helpers that do not require live GitHub mutation.
   - Cover payload manifest readers/builders, selected feedback detail lookup, resolve-batch payload builders, checkpoint recording, finalization summaries, and stack plan/diff builders where they can be driven by fixtures or fakes.
   - Policy: directly executable after preview with fake filesystem/process gateways. Ask before changing artifact layout or payload defaults.
   - Evidence should include fake-driven tests plus golden/contract parity for payload manifests, batch payloads, checkpoints, finalization, and stack planning/diff outputs.
+  - Progress evidence: `updates/2026-06-09T152041Z-payload-finalize-helper-parity.md` records TypeScript parity for payload manifest builders, selected feedback detail lookup, resolve-thread batch payloads, checkpoint calculation helpers, and finalization summaries; artifact-writing and stack-wide helpers remain fallback-backed until their filesystem/stack contracts are ported safely.
 - [ ] Port GitHub/git-backed read-only feedback collection behind adapter-neutral gateways.
   - Cover current-branch PR lookup, reviews, review comments, discussion comments, `get-feedback`, `prepare-run`, and compact payload artifacts.
   - Use capability-shaped gateways and in-memory fakes for git, GitHub, filesystem, process, and payload behavior.

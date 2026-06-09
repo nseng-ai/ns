@@ -1,6 +1,9 @@
 import type { PrAddressContext } from "./context.ts";
 import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
 import type { ClinkrExit } from "./clinkr-envelope.ts";
+import { runFinalizeRunOperation } from "./finalization.ts";
+import { runReadFeedbackDetailOperation } from "./read-feedback-detail.ts";
+import { runBuildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 
 export interface ExecRuntimeDeps {
 	context: PrAddressContext;
@@ -78,6 +81,18 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "plan-feedback",
 			handler: runPlanFeedbackOperation,
+		},
+		{
+			name: "build-resolve-thread-batch-payload",
+			handler: runBuildResolveThreadBatchPayloadOperation,
+		},
+		{
+			name: "read-feedback-detail",
+			handler: runReadFeedbackDetailOperation,
+		},
+		{
+			name: "finalize-run",
+			handler: runFinalizeRunOperation,
 		},
 	]);
 }
