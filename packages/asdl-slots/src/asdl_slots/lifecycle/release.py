@@ -31,6 +31,7 @@ from asdl_slots.lifecycle.release_cleanup import (
 @dataclass(frozen=True)
 class SlotFreeReleasePreview:
     plan: SlotFreePlan
+    cleanup_actions: tuple[SlotFreeCleanupAction, ...]
     cleanup: tuple[SlotFreeCleanupResult, ...]
 
 
@@ -43,6 +44,7 @@ class SlotFreeReleaseExecution:
 @dataclass(frozen=True)
 class SlotGcReleasePreview:
     plan: SlotGcPlan
+    cleanup_actions: tuple[SlotFreeCleanupAction, ...]
     cleanup: tuple[SlotFreeCleanupResult, ...]
     outcome: SlotGcOutcome
 
@@ -63,20 +65,23 @@ def plan_free_release(
     if isinstance(plan, SlotLifecycleFailure):
         return plan
 
+    requested_cleanup_actions = tuple(cleanup_actions)
     cleanup = plan_release_cleanup(
         slots_ctx,
         plan.targets,
-        cleanup_actions,
+        requested_cleanup_actions,
         trunk_branch=plan.trunk_branch,
     )
-    return SlotFreeReleasePreview(plan=plan, cleanup=cleanup)
+    return SlotFreeReleasePreview(
+        plan=plan,
+        cleanup_actions=requested_cleanup_actions,
+        cleanup=cleanup,
+    )
 
 
 def execute_free_release(
     slots_ctx: SlotsCliContext,
     preview: SlotFreeReleasePreview,
-    *,
-    cleanup_actions: Sequence[SlotFreeCleanupAction] = (),
 ) -> SlotFreeReleaseExecution | SlotLifecycleFailure:
     """Execute a planned slot free operation and its requested cleanup."""
     outcome = execute_free_plan(slots_ctx, preview.plan)
@@ -86,7 +91,7 @@ def execute_free_release(
     cleanup = execute_release_cleanup(
         slots_ctx,
         outcome.freed,
-        cleanup_actions,
+        preview.cleanup_actions,
         trunk_branch=preview.plan.trunk_branch,
     )
     return SlotFreeReleaseExecution(outcome=outcome, cleanup=cleanup)
@@ -102,19 +107,23 @@ def plan_gc_release(
     if isinstance(plan, SlotLifecycleFailure):
         return plan
 
-    cleanup = plan_gc_cleanup(slots_ctx, plan, cleanup_actions)
+    requested_cleanup_actions = tuple(cleanup_actions)
+    cleanup = plan_gc_cleanup(slots_ctx, plan, requested_cleanup_actions)
     outcome = outcome_from_gc_plan(plan, dry_run=True, cleanup=cleanup)
-    return SlotGcReleasePreview(plan=plan, cleanup=cleanup, outcome=outcome)
+    return SlotGcReleasePreview(
+        plan=plan,
+        cleanup_actions=requested_cleanup_actions,
+        cleanup=cleanup,
+        outcome=outcome,
+    )
 
 
 def execute_gc_release(
     slots_ctx: SlotsCliContext,
     preview: SlotGcReleasePreview,
-    *,
-    cleanup_actions: Sequence[SlotFreeCleanupAction] = (),
 ) -> SlotGcOutcome:
     """Execute a planned GC sweep, preserving execute-time recheck semantics."""
-    return execute_gc_plan(slots_ctx, preview.plan, cleanup_actions=cleanup_actions)
+    return execute_gc_plan(slots_ctx, preview.plan, cleanup_actions=preview.cleanup_actions)
 
 
 def outcome_from_gc_release_preview(
