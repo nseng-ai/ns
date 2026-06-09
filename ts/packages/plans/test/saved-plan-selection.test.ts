@@ -6,11 +6,11 @@ import { join } from "node:path";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
-	extractSourceBranchPlanFileEvidenceFromSessionEntry,
+	extractSavedPlanFileEvidenceFromSessionEntry,
 	findLatestSessionSavedPlanFile,
 	validateSessionSavedPlanCandidate,
 	type PlanStoreDirectoryEvidence,
-	type SourceBranchPlanFileEvidence,
+	type SavedPlanFileEvidence,
 } from "../src/index.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
@@ -57,7 +57,7 @@ describe("saved plan session selection", () => {
 			{ type: "message", message: { role: "toolResult", toolName: "write_source_branch_plan_file", details: { slug: 123 } } },
 		];
 
-		expect(extractSourceBranchPlanFileEvidenceFromSessionEntry(entries[0])).toBeUndefined();
+		expect(extractSavedPlanFileEvidenceFromSessionEntry(entries[0])).toBeUndefined();
 		expect(await findLatestSessionSavedPlanFile(entries, fixture.directory)).toEqual({ type: "not-found" });
 	});
 
@@ -77,7 +77,7 @@ describe("saved plan session selection", () => {
 
 	const unsafeCases: Array<{
 		name: string;
-		mutate(fixture: Fixture, filePath: string): SourceBranchPlanFileEvidence;
+		mutate(fixture: Fixture, filePath: string): SavedPlanFileEvidence;
 		expected: string;
 	}> = [
 		{
@@ -187,7 +187,7 @@ async function writeOutsidePlanFile(): Promise<string> {
 function evidence(
 	directory: PlanStoreDirectoryEvidence,
 	overrides: { slug?: string; filePath: string; summary?: string },
-): SourceBranchPlanFileEvidence {
+): SavedPlanFileEvidence {
 	return {
 		slug: overrides.slug ?? PLAN_SLUG,
 		repoRoot: directory.repoRoot,
@@ -200,11 +200,11 @@ function evidence(
 	};
 }
 
-function savedPlanEntry(plan: SourceBranchPlanFileEvidence): unknown {
+function savedPlanEntry(plan: SavedPlanFileEvidence): unknown {
 	return savedPlanEntryForTool(plan, "write_source_branch_plan_file");
 }
 
-function savedPlanEntryForTool(plan: SourceBranchPlanFileEvidence, toolName: string): unknown {
+function savedPlanEntryForTool(plan: SavedPlanFileEvidence, toolName: string): unknown {
 	return {
 		type: "message",
 		message: {

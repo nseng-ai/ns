@@ -1,6 +1,6 @@
 import { formatOutputSection } from "../command-runtime.ts";
 import { deriveSlugWithModel, type SlugModelEvidence } from "../model-slug.ts";
-import { validatePlanSlug, type PlanCommandExecApi } from "@asdl/planned-branch";
+import { validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
 
 const MAX_ERROR_CHARS = 4_000;
 const MAX_PLAN_SLUG_WORDS = 7;
@@ -67,8 +67,13 @@ export function buildContentSlugPrompt(content: string, variant: ContentSlugDeri
 		"- Do not use dates, random IDs, generic-only slugs, or the saved-plan filename.",
 		"",
 		"## Plan content",
-		truncatePlanContentForSlug(content.trim() || "(empty plan content)"),
+		truncatePlanContentForSlug(displayPlanContentForSlug(content)),
 	].join("\n");
+}
+
+function displayPlanContentForSlug(content: string): string {
+	const trimmed = content.trim();
+	return trimmed.length > 0 ? trimmed : "(empty plan content)";
 }
 
 export function normalizePlanContentSlugOutput(value: string): string | undefined {

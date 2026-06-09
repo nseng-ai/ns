@@ -4,7 +4,7 @@ import {
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
 } from "./content-slug-derivation.ts";
-import type { PlanCommandExecApi } from "@asdl/planned-branch";
+import type { PlanCommandExecApi } from "@asdl/plans";
 
 export type SavedPlanContentSlugEvidence = ContentSlugEvidence;
 

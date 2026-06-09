@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import { formatOutputSection, tailText, type ExecResult } from "./command-runtime.ts";
-import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
+import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -88,20 +88,20 @@ export interface ResolvePlanSourceFileOptions {
 	cwd: string;
 	rawFilePath: string;
 	signal?: AbortSignal | undefined;
-	git?: PlannedBranchGitGateway | undefined;
+	git?: PlansGitGateway | undefined;
 }
 
 export interface ResolveGitRepoRootOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-	git?: PlannedBranchGitGateway | undefined;
+	git?: PlansGitGateway | undefined;
 }
 
 export async function resolvePlanSourceFile(pi: PlanCommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
-	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const git = options.git ?? new RealPlansGitGateway(pi);
 	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
-		throw new Error(`Plan file path must be absolute or home-relative; got ${normalizedPath || "(empty)"}.`);
+		throw new Error(`Plan file path must be absolute or home-relative; got ${displayNonEmpty(normalizedPath)}.`);
 	}
 
 	let fileStat: Awaited<ReturnType<typeof stat>>;
@@ -127,7 +127,7 @@ export async function resolvePlanSourceFile(pi: PlanCommandExecApi, options: Res
 }
 
 export async function resolveGitRepoRoot(pi: PlanCommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
-	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const git = options.git ?? new RealPlansGitGateway(pi);
 	const root = await git.optionalRepoRoot({ cwd: options.cwd, signal: options.signal });
 	return root.type === "found" ? resolve(root.value) : undefined;
 }
@@ -151,6 +151,10 @@ export function formatCommandFailure(title: string, displayCommand: string, resu
 		].join("\n\n"),
 		{ maxChars: MAX_ERROR_CHARS, maxLines: 120 },
 	);
+}
+
+function displayNonEmpty(value: string): string {
+	return value.length > 0 ? value : "(empty)";
 }
 
 async function realpathIfPossible(path: string): Promise<string> {

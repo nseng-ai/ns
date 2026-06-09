@@ -4,7 +4,7 @@ import { RealPlannedBranchBrmemGateway, type PlannedBranchBrmemGateway } from ".
 import type { ExecResult } from "./command-runtime.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
-import type { ExecOptions, PlanCommandExecApi } from "./plan-persistence.ts";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;

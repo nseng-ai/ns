@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "../../src/command-runtime.ts";
 import { RealPlannedBranchGraphiteGateway } from "../../src/graphite-gateway.ts";
-import type { ExecOptions, PlanCommandExecApi } from "../../src/plan-persistence.ts";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import { InMemoryPlannedBranchGraphiteGateway } from "../support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";

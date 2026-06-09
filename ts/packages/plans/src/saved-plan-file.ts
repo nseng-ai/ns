@@ -3,7 +3,7 @@ import { mkdir, open, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
+import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 import { normalizeSummary, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
 import { isRecord } from "./primitives.ts";
 
@@ -14,17 +14,24 @@ const WRITE_PLAN_COMMAND = "/planned-branch:write-plan";
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
 
-export interface SourceBranchPlanFileParams {
+export interface SavedPlanFileParams {
 	slug: string;
 	content: string;
 	summary?: string;
 }
 
-export interface SourceBranchPlanFileOptions {
+export interface PlanStoreOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
-	git?: PlannedBranchGitGateway | undefined;
+	git?: PlansGitGateway | undefined;
+}
+
+export interface PlanStoreRepoEvidence {
+	repoRoot: string;
+	repoKey: string;
+	repoIdentitySource: RepoIdentitySource;
+	repoDirectoryPath: string;
 }
 
 export interface PlanStoreDirectoryEvidence {
@@ -36,14 +43,22 @@ export interface PlanStoreDirectoryEvidence {
 	directoryPath: string;
 }
 
-export interface LatestSourceBranchPlanFileEvidence extends PlanStoreDirectoryEvidence {
+export interface SavedPlanListItem extends PlanStoreRepoEvidence {
+	slug: string;
+	branchKey: string;
+	filePath: string;
+	fileName: string;
+	modifiedTimeMs: number;
+}
+
+export interface LatestSavedPlanFileEvidence extends PlanStoreDirectoryEvidence {
 	slug: string;
 	filePath: string;
 	fileName: string;
 	modifiedTimeMs: number;
 }
 
-export interface SourceBranchPlanFileEvidence {
+export interface SavedPlanFileEvidence {
 	slug: string;
 	repoRoot: string;
 	repoKey: string;
@@ -88,7 +103,8 @@ export function buildRepoPlanStoreKey(repoRoot: string, normalizedIdentity: stri
 		return `gh--${owner}--${repo}`;
 	}
 
-	return sanitizePlanPathSegment(identity, basename(resolve(repoRoot)) || "repo");
+	const repoRootName = basename(resolve(repoRoot));
+	return sanitizePlanPathSegment(identity, repoRootName.length > 0 ? repoRootName : "repo");
 }
 
 export function encodeBranchForPlanPath(branch: string): string {
@@ -99,15 +115,15 @@ export function encodeBranchForPlanPath(branch: string): string {
 }
 
 export function sanitizePlanPathSegment(value: string, fallback: string): string {
-	const safeFallback =
-		fallback
-			.replace(/[^A-Za-z0-9._-]+/g, "-")
-			.replace(/-+/g, "-")
-			.replace(/^[.-]+/, "")
-			.replace(/[.-]+$/, "") || "segment";
+	const sanitizedFallback = fallback
+		.replace(/[^A-Za-z0-9._-]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^[.-]+/, "")
+		.replace(/[.-]+$/, "");
+	const safeFallback = sanitizedFallback.length > 0 ? sanitizedFallback : "segment";
 	let sanitized = value
 		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[̀-ͯ]/g, "")
 		.replace(/[^A-Za-z0-9._-]+/g, "-")
 		.replace(/-+/g, "-")
 		.replace(/^[.-]+/, "")
@@ -127,7 +143,7 @@ export function buildPlanFileName(slug: string): string {
 	return `${slug}${PLAN_FILE_SUFFIX}`;
 }
 
-export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFileEvidence): string {
+export function formatSavedPlanFileEvidence(evidence: SavedPlanFileEvidence): string {
 	const lines = [
 		"Saved plan file in local plan store.",
 		`Path: ${evidence.filePath}`,
@@ -144,11 +160,29 @@ export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFil
 	return lines.join("\n");
 }
 
+export async function resolvePlanStoreRepoDirectory(
+	pi: PlanCommandExecApi,
+	options: PlanStoreOptions,
+): Promise<PlanStoreRepoEvidence> {
+	const git = options.git ?? new RealPlansGitGateway(pi);
+	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
+	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
+	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
+	const planStoreRoot = options.planStoreRoot ?? defaultPlanStoreRoot();
+
+	return {
+		repoRoot,
+		repoKey,
+		repoIdentitySource: repoIdentity.source,
+		repoDirectoryPath: join(planStoreRoot, repoKey),
+	};
+}
+
 export async function resolvePlanStoreDirectory(
 	pi: PlanCommandExecApi,
-	options: SourceBranchPlanFileOptions,
+	options: PlanStoreOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
-	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const git = options.git ?? new RealPlansGitGateway(pi);
 	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
 	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
 	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
@@ -167,10 +201,48 @@ export async function resolvePlanStoreDirectory(
 	};
 }
 
-export async function findLatestSourceBranchPlanFile(
+export async function listSavedPlans(pi: PlanCommandExecApi, options: PlanStoreOptions): Promise<SavedPlanListItem[]> {
+	const repoDirectory = await resolvePlanStoreRepoDirectory(pi, options);
+	const branchEntries = await readDirectoryIfExists(repoDirectory.repoDirectoryPath);
+	const plans: SavedPlanListItem[] = [];
+
+	for (const branchEntry of branchEntries) {
+		if (!branchEntry.isDirectory()) {
+			continue;
+		}
+
+		const branchKey = branchEntry.name;
+		const branchDirectoryPath = join(repoDirectory.repoDirectoryPath, branchKey);
+		const planEntries = await readDirectoryIfExists(branchDirectoryPath);
+		for (const planEntry of planEntries) {
+			if (!planEntry.isFile() || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
+				continue;
+			}
+
+			const filePath = join(branchDirectoryPath, planEntry.name);
+			const fileStat = await statFileIfRegular(filePath);
+			if (fileStat === undefined) {
+				continue;
+			}
+
+			plans.push({
+				...repoDirectory,
+				branchKey,
+				slug: planEntry.name.slice(0, -PLAN_FILE_SUFFIX.length),
+				filePath,
+				fileName: planEntry.name,
+				modifiedTimeMs: fileStat.mtimeMs,
+			});
+		}
+	}
+
+	return plans.sort(compareSavedPlanListItems);
+}
+
+export async function findLatestSavedPlanFile(
 	pi: PlanCommandExecApi,
-	options: SourceBranchPlanFileOptions,
-): Promise<LatestSourceBranchPlanFileEvidence> {
+	options: PlanStoreOptions,
+): Promise<LatestSavedPlanFileEvidence> {
 	const directory = await resolvePlanStoreDirectory(pi, options);
 	const entries = await readPlanStoreDirectory(directory);
 	const candidates: Array<{ fileName: string; filePath: string; modifiedTimeMs: number }> = [];
@@ -198,7 +270,7 @@ export async function findLatestSourceBranchPlanFile(
 		);
 	}
 
-	const latest = candidates.sort(compareLatestSourcePlanCandidates)[0];
+	const latest = candidates.sort(compareLatestSavedPlanCandidates)[0];
 	if (latest === undefined) {
 		throw new Error(`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store directory ${directory.directoryPath}.`);
 	}
@@ -212,12 +284,12 @@ export async function findLatestSourceBranchPlanFile(
 	};
 }
 
-export async function writeSourceBranchPlanFile(
+export async function writeSavedPlanFile(
 	pi: PlanCommandExecApi,
 	rawParams: unknown,
-	options: SourceBranchPlanFileOptions,
-): Promise<SourceBranchPlanFileEvidence> {
-	const params = parseSourceBranchPlanFileParams(rawParams);
+	options: PlanStoreOptions,
+): Promise<SavedPlanFileEvidence> {
+	const params = parseSavedPlanFileParams(rawParams);
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
 	if (slugError !== undefined) {
@@ -245,22 +317,22 @@ export async function writeSourceBranchPlanFile(
 	return { ...evidence, summary };
 }
 
-function parseSourceBranchPlanFileParams(params: unknown): SourceBranchPlanFileParams {
+function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 	if (!isRecord(params)) {
-		throw new Error("writeSourceBranchPlanFile parameters must be an object.");
+		throw new Error("writeSavedPlanFile parameters must be an object.");
 	}
 
 	const slug = params.slug;
 	const content = params.content;
 	const summary = params.summary;
 	if (typeof slug !== "string") {
-		throw new Error("writeSourceBranchPlanFile requires string parameter `slug`.");
+		throw new Error("writeSavedPlanFile requires string parameter `slug`.");
 	}
 	if (typeof content !== "string") {
-		throw new Error("writeSourceBranchPlanFile requires string parameter `content`.");
+		throw new Error("writeSavedPlanFile requires string parameter `content`.");
 	}
 	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("writeSourceBranchPlanFile parameter `summary` must be a string when provided.");
+		throw new Error("writeSavedPlanFile parameter `summary` must be a string when provided.");
 	}
 
 	if (summary === undefined) {
@@ -269,7 +341,7 @@ function parseSourceBranchPlanFileParams(params: unknown): SourceBranchPlanFileP
 	return { slug, content, summary };
 }
 
-async function resolveRequiredGitRepoRoot(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveRequiredGitRepoRoot(git: PlansGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const root = await git.repoRoot({ cwd, signal });
 	if (!root.ok) {
 		throw new Error(root.error.message);
@@ -277,11 +349,11 @@ async function resolveRequiredGitRepoRoot(git: PlannedBranchGitGateway, cwd: str
 	return realpathIfPossible(root.value);
 }
 
-async function resolveCurrentBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
-	const branch = await git.sourceBranch({ cwd, signal });
+async function resolveCurrentBranch(git: PlansGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const branch = await git.currentBranch({ cwd, signal });
 	if (!branch.ok) {
 		if (branch.error.code === "detached_head") {
-			throw new Error("Current git checkout is detached or unnamed; check out a named branch before creating a source-branch plan file.");
+			throw new Error("Current git checkout is detached or unnamed; check out a named branch before creating a saved plan file.");
 		}
 		throw new Error(branch.error.message);
 	}
@@ -294,7 +366,7 @@ interface RepoIdentityOptions {
 	signal?: AbortSignal | undefined;
 }
 
-async function resolveRepoIdentity(git: PlannedBranchGitGateway, options: RepoIdentityOptions): Promise<RepoIdentity> {
+async function resolveRepoIdentity(git: PlansGitGateway, options: RepoIdentityOptions): Promise<RepoIdentity> {
 	const origin = await git.originUrl({ cwd: options.cwd, signal: options.signal });
 	if (origin.type === "error") {
 		throw new Error(origin.error.message);
@@ -330,7 +402,41 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Pr
 	}
 }
 
-function compareLatestSourcePlanCandidates(
+async function readDirectoryIfExists(path: string): Promise<Dirent[]> {
+	try {
+		return await readdir(path, { withFileTypes: true });
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") {
+			return [];
+		}
+		throw error;
+	}
+}
+
+async function statFileIfRegular(path: string): Promise<{ mtimeMs: number } | undefined> {
+	try {
+		const fileStat = await stat(path);
+		return fileStat.isFile() ? { mtimeMs: fileStat.mtimeMs } : undefined;
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+function compareSavedPlanListItems(left: SavedPlanListItem, right: SavedPlanListItem): number {
+	if (left.modifiedTimeMs !== right.modifiedTimeMs) {
+		return right.modifiedTimeMs - left.modifiedTimeMs;
+	}
+	const branchCompare = left.branchKey.localeCompare(right.branchKey);
+	if (branchCompare !== 0) {
+		return branchCompare;
+	}
+	return left.fileName.localeCompare(right.fileName);
+}
+
+function compareLatestSavedPlanCandidates(
 	left: { fileName: string; filePath: string; modifiedTimeMs: number },
 	right: { fileName: string; filePath: string; modifiedTimeMs: number },
 ): number {

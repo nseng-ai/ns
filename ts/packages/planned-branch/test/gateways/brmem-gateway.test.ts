@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { RealPlannedBranchBrmemGateway, parseBrmemGetContent, parseBrmemListEntries, parseBrmemPutData } from "../../src/brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
 import type { ExecResult } from "../../src/command-runtime.ts";
-import type { ExecOptions, PlanCommandExecApi } from "../../src/plan-persistence.ts";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import { InMemoryPlannedBranchBrmemGateway } from "../support/in-memory-brmem-gateway.ts";
 
 const ROOT = "/no-such-planned-branch-repo";

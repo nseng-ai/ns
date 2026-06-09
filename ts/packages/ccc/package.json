@@ -20,6 +20,7 @@
   "dependencies": {
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/planned-branch": "workspace:*",
+    "@asdl/plans": "workspace:*",
     "asdl-dev": "workspace:*"
   },
   "devDependencies": {}

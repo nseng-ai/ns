@@ -43,6 +43,9 @@ importers:
       '@asdl/planned-branch':
         specifier: workspace:*
         version: link:../planned-branch
+      '@asdl/plans':
+        specifier: workspace:*
+        version: link:../plans
       asdl-dev:
         specifier: workspace:*
         version: link:../asdl-dev
@@ -60,6 +63,9 @@ importers:
       '@asdl/planned-branch':
         specifier: workspace:*
         version: link:../planned-branch
+      '@asdl/plans':
+        specifier: workspace:*
+        version: link:../plans
       asdl-dev:
         specifier: workspace:*
         version: link:../asdl-dev
@@ -74,7 +80,13 @@ importers:
         specifier: 0.78.0
         version: 0.78.0
 
-  packages/planned-branch: {}
+  packages/planned-branch:
+    dependencies:
+      '@asdl/plans':
+        specifier: workspace:*
+        version: link:../plans
+
+  packages/plans: {}
 
 packages:
 

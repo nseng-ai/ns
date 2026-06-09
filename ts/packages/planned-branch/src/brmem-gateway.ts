@@ -2,7 +2,7 @@ import { formatBrmemUnavailableMessage, runFirstAvailableBrmemCommand } from "./
 import { tailText, type ExecResult } from "./command-runtime.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
-import { formatCommandFailure, type PlanCommandExecApi } from "./plan-persistence.ts";
+import { formatCommandFailure, type PlanCommandExecApi } from "@asdl/plans";
 import { isRecord } from "./primitives.ts";
 
 const BRMEM_TIMEOUT_MS = 30_000;

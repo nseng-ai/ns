@@ -5,10 +5,11 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 ## General diagnostics posture
 
 - Prefer `planned-branch exec resolve-plan` for saved-plan resolution.
+- Prefer `plans list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
 - Prefer `planned-branch exec load-plan` for attached-plan loading.
 - Use `brmem list/get` read-only only when diagnosing Branch Memory attachment state.
 - Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/planned-branch/plans/`; do not perform broad home-directory traversals.
-- Prefer deterministic planned-branch CLI helpers over manual file or Branch Memory operations when available.
+- Prefer deterministic CLI helpers over manual file or Branch Memory operations when available.
 
 ## Common recovery cases
 
@@ -28,7 +29,13 @@ Path convention:
 ~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
 ```
 
-When inspecting saved plans:
+For current-repo read-only inspection, prefer:
+
+```bash
+plans list
+```
+
+When manually inspecting saved plans:
 
 - Compute or verify the encoded branch path segment: branch slashes become `---`.
 - Inspect only the relevant `<repo>` or specific `<encoded-source-branch>` directory.

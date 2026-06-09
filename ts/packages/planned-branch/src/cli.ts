@@ -7,6 +7,17 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+	findLatestSavedPlanFile,
+	formatSavedPlanFileEvidence,
+	normalizePlanFilePath,
+	resolvePlanSourceFile,
+	validatePlanSlug,
+	writeSavedPlanFile,
+	type LatestSavedPlanFileEvidence,
+	type SavedPlanFileEvidence,
+} from "@asdl/plans";
+
+import {
 	buildImplPlannedBranchPrompt,
 	formatLoadedAttachedPlanEvidence,
 	loadPlannedBranchPlan,
@@ -19,15 +30,7 @@ import {
 	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
-import { normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
-import {
-	findLatestSourceBranchPlanFile,
-	formatSourceBranchPlanFileEvidence,
-	writeSourceBranchPlanFile,
-	type LatestSourceBranchPlanFileEvidence,
-	type SourceBranchPlanFileEvidence,
-} from "./source-plan-file.ts";
-import { resolvePlanSourceFile } from "./plan-persistence.ts";
+import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
 const VERSION = "0.1.0";
 const JSON_FORMAT = "json";
@@ -92,7 +95,7 @@ interface ExplicitResolvePlanEvidence {
 	filePath: string;
 }
 
-type LatestResolvePlanEvidence = LatestSourceBranchPlanFileEvidence & { source: "latest" };
+type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest" };
 
 type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
@@ -161,16 +164,16 @@ async function runWritePlanFile(args: readonly string[], deps: RequiredCliDeps):
 
 	const options = parsed.value;
 	const content = await readContentSource(options.contentSource, deps);
-	const evidence = await writeSourceBranchPlanFile(
+	const evidence = await writeSavedPlanFile(
 		deps.context.commands,
 		{ slug: options.slug, content, ...(options.summary === undefined ? {} : { summary: options.summary }) },
-		{ cwd: deps.cwd, git: deps.context.git, ...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }) },
+		{ cwd: deps.cwd, git: adaptPlannedBranchGitGateway(deps.context.git), ...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }) },
 	);
 	if (options.format === "json") {
 		deps.stdout(`${JSON.stringify({ success: true, ...sourcePlanFileJson(evidence) })}\n`);
 		return 0;
 	}
-	deps.stdout(`${formatSourceBranchPlanFileEvidence(evidence)}\n`);
+	deps.stdout(`${formatSavedPlanFileEvidence(evidence)}\n`);
 	return 0;
 }
 
@@ -495,18 +498,22 @@ async function readContentSource(source: WritePlanFileArgs["contentSource"], dep
 
 async function resolvePlanEvidence(args: ResolvePlanArgs, deps: RequiredCliDeps): Promise<ResolvePlanEvidence> {
 	if (args.path !== undefined) {
-		const filePath = await resolvePlanSourceFile(deps.context.commands, { cwd: deps.cwd, rawFilePath: args.path, git: deps.context.git });
+		const filePath = await resolvePlanSourceFile(deps.context.commands, {
+			cwd: deps.cwd,
+			rawFilePath: args.path,
+			git: adaptPlannedBranchGitGateway(deps.context.git),
+		});
 		return { source: "explicit", filePath };
 	}
-	const latest = await findLatestSourceBranchPlanFile(deps.context.commands, {
+	const latest = await findLatestSavedPlanFile(deps.context.commands, {
 		cwd: deps.cwd,
-		git: deps.context.git,
+		git: adaptPlannedBranchGitGateway(deps.context.git),
 		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 	});
 	return { source: "latest", ...latest };
 }
 
-function sourcePlanFileJson(evidence: SourceBranchPlanFileEvidence): Record<string, unknown> {
+function sourcePlanFileJson(evidence: SavedPlanFileEvidence): Record<string, unknown> {
 	return {
 		slug: evidence.slug,
 		file_path: evidence.filePath,
@@ -584,10 +591,10 @@ function formatResolvePlanEvidence(evidence: ResolvePlanEvidence): string {
 	if (evidence.source === "explicit") {
 		return [`Resolved explicit plan file.`, `Path: ${evidence.filePath}`].join("\n");
 	}
-	return formatLatestSourceBranchPlanFileEvidence(evidence);
+	return formatLatestSavedPlanFileEvidence(evidence);
 }
 
-function formatLatestSourceBranchPlanFileEvidence(evidence: LatestSourceBranchPlanFileEvidence): string {
+function formatLatestSavedPlanFileEvidence(evidence: LatestSavedPlanFileEvidence): string {
 	return [
 		"Resolved latest saved plan file in local plan store.",
 		`Path: ${evidence.filePath}`,

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { RealPlannedBranchGitGateway } from "../../src/git-gateway.ts";
 import type { ExecResult } from "../../src/command-runtime.ts";
-import type { ExecOptions, PlanCommandExecApi } from "../../src/plan-persistence.ts";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import { InMemoryPlannedBranchGitGateway } from "../support/in-memory-git-gateway.ts";
 
 const ROOT = "/repo";
