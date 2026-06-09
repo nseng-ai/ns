@@ -34,11 +34,12 @@
   - Policy: directly executable after preview with fake filesystem/process gateways. Ask before changing artifact layout or payload defaults.
   - Evidence should include fake-driven tests plus golden/contract parity for payload manifests, batch payloads, checkpoints, finalization, and stack planning/diff outputs.
   - Progress evidence: `updates/2026-06-09T152041Z-payload-finalize-helper-parity.md` records TypeScript parity for payload manifest builders, selected feedback detail lookup, resolve-thread batch payloads, checkpoint calculation helpers, and finalization summaries; artifact-writing and stack-wide helpers remain fallback-backed until their filesystem/stack contracts are ported safely.
-- [ ] Port GitHub/git-backed read-only feedback collection behind adapter-neutral gateways.
+- [~] Port GitHub/git-backed read-only feedback collection behind adapter-neutral gateways.
   - Cover current-branch PR lookup, reviews, review comments, discussion comments, `get-feedback`, `prepare-run`, and compact payload artifacts.
   - Use capability-shaped gateways and in-memory fakes for git, GitHub, filesystem, process, and payload behavior.
   - Policy: directly executable after preview for fake-driven behavior and safe read-only smoke probes. Ask before adding Graphite-specific runtime dependencies outside explicitly Graphite-named stack inputs.
   - Evidence should include fake-driven unit/scenario tests, compact payload parity, and limited safe real-adapter smoke evidence when useful.
+  - Progress evidence: `updates/2026-06-09T153238Z-readonly-gateway-stack-diff.md` records adapter-neutral GitHub/git gateways, TypeScript-managed read-only fetch operations, inline `get-feedback`, and `stack-feedback-diff-current` transformation coverage; artifact-writing `get-feedback`, `prepare-run`, `stack-feedback-prep`, and `stack-feedback-plan` remain fallback-backed.
 - [ ] Port mutation/reply helpers without weakening safety gates.
   - Cover reply builders, thread resolution/unresolution helpers, issue comments, reactions, review-thread replies, batch resolution, and stack resolution payload generation.
   - Preserve validation-before-action semantics, explicit decision requirements, durable resolution modes, planned provenance validation, and no-push behavior.
