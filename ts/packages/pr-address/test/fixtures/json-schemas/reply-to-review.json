@@ -1,0 +1,75 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "pr_number": {
+        "title": "Pr Number",
+        "type": "integer"
+      },
+      "review_author": {
+        "title": "Review Author",
+        "type": "string"
+      },
+      "summary_markdown": {
+        "title": "Summary Markdown",
+        "type": "string"
+      }
+    },
+    "required": [
+      "pr_number",
+      "review_author",
+      "summary_markdown"
+    ],
+    "title": "ReplyToReviewRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "PRDiscussionComment": {
+        "description": "A top-level PR discussion comment.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "author",
+          "url"
+        ],
+        "title": "PRDiscussionComment",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "body": {
+        "title": "Body",
+        "type": "string"
+      },
+      "comment": {
+        "$ref": "#/$defs/PRDiscussionComment"
+      }
+    },
+    "required": [
+      "body",
+      "comment"
+    ],
+    "title": "ReplyToReviewResult",
+    "type": "object"
+  }
+}

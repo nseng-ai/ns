@@ -1,0 +1,58 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "payload_path": {
+        "title": "Payload Path",
+        "type": "string"
+      },
+      "json_pointer": {
+        "title": "Json Pointer",
+        "type": "string"
+      }
+    },
+    "required": [
+      "payload_path",
+      "json_pointer"
+    ],
+    "title": "ReadFeedbackDetailRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "payload_path": {
+        "title": "Payload Path",
+        "type": "string"
+      },
+      "json_pointer": {
+        "title": "Json Pointer",
+        "type": "string"
+      },
+      "detail_kind": {
+        "enum": [
+          "review",
+          "review_body",
+          "review_thread",
+          "thread_comment",
+          "thread_comment_body",
+          "discussion_comment",
+          "discussion_comment_body"
+        ],
+        "title": "Detail Kind",
+        "type": "string"
+      },
+      "value": {
+        "title": "Value"
+      }
+    },
+    "required": [
+      "payload_path",
+      "json_pointer",
+      "detail_kind",
+      "value"
+    ],
+    "title": "ReadFeedbackDetailResult",
+    "type": "object"
+  }
+}

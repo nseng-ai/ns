@@ -1,0 +1,131 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "branch": {
+        "title": "Branch",
+        "type": "string"
+      }
+    },
+    "required": [
+      "branch"
+    ],
+    "title": "GetPRForBranchRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "found": {
+        "title": "Found",
+        "type": "boolean"
+      },
+      "number": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Number"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Title"
+      },
+      "url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Url"
+      },
+      "head_ref_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Head Ref Name"
+      },
+      "base_ref_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Base Ref Name"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "enum": [
+              "OPEN",
+              "CLOSED",
+              "MERGED"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "State"
+      },
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error"
+      },
+      "returncode": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Returncode"
+      }
+    },
+    "required": [
+      "found"
+    ],
+    "title": "GetPRForBranchResult",
+    "type": "object"
+  }
+}

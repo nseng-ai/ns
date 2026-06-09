@@ -8,7 +8,6 @@ import {
 	type FeedbackSnapshot,
 } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
-import { hasFlag } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
@@ -97,7 +96,6 @@ interface SummarizeFeedbackFoundResult {
 }
 
 export async function runSummarizeFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const parsed = parsePrNumberOperation({
 		args: invocation.args,
 		commandName: "summarize-feedback",

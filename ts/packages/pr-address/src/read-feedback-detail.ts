@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { clinkrFailure, clinkrOk } from "./clinkr-envelope.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { hasFlag, parseManagedOptions } from "./managed-options.ts";
+import { parseManagedOptions } from "./managed-options.ts";
 import { readJsonPayloadArtifact, resolveJsonPointer as resolvePayloadJsonPointer } from "./payload-lookup.ts";
 import { PayloadStore, type PayloadClock, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -25,7 +25,6 @@ const DETAIL_KIND_PATTERNS: ReadonlyArray<{ pattern: RegExp; detailKind: DetailK
 ];
 
 export async function runReadFeedbackDetailOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const options = parseManagedOptions(invocation.args, ["--payload-path", "--json-pointer"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 	const payloadPath = options.options.values.get("--payload-path");
@@ -97,7 +96,6 @@ interface ReadFeedbackDetailsResult {
 type ReadFeedbackDetailsOutcome = { type: "ok"; value: ReadFeedbackDetailsResult } | { type: "error"; errorType: string; message: string };
 
 export async function runReadFeedbackDetailsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const options = parseManagedOptions(invocation.args, ["--selection-json"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 	const selectionResult = await loadJsonInput({

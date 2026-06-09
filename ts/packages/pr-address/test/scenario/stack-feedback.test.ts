@@ -225,9 +225,9 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 });
 
 describe("stack feedback fallback guards", () => {
+	// --json-schema routes are TypeScript-owned now (see json-schema-routes.test.ts);
+	// only click usage-error shapes still delegate to the legacy CLI.
 	for (const fallbackArgs of [
-		["stack-feedback-prep", "--json-schema"],
-		["stack-feedback-plan", "--json-schema"],
 		["stack-feedback-prep", "--stdout-mode", "bogus"],
 		["stack-feedback-plan", "--stdout-mode", "bogus"],
 	]) {

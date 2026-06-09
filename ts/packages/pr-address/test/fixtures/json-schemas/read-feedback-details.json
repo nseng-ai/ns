@@ -1,0 +1,227 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "selection_json": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Selection Json"
+      }
+    },
+    "title": "ReadFeedbackDetailsRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "PayloadReference": {
+        "additionalProperties": false,
+        "description": "Store-owned facts for a written payload artifact.",
+        "properties": {
+          "payload_path": {
+            "title": "Payload Path",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "descriptor": {
+            "title": "Descriptor",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "raw",
+              "summary",
+              "log"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "created_at_utc": {
+            "title": "Created At Utc",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "payload_bytes": {
+            "title": "Payload Bytes",
+            "type": "integer"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "extension": {
+            "enum": [
+              "json",
+              "txt"
+            ],
+            "title": "Extension",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload_path",
+          "session_id",
+          "descriptor",
+          "role",
+          "created_at_utc",
+          "sequence",
+          "payload_bytes",
+          "content_type",
+          "extension"
+        ],
+        "title": "PayloadReference",
+        "type": "object"
+      },
+      "SelectedFeedbackDetailCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "integer"
+          },
+          "body_values": {
+            "title": "Body Values",
+            "type": "integer"
+          },
+          "item_values": {
+            "title": "Item Values",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "selected",
+          "body_values",
+          "item_values"
+        ],
+        "title": "SelectedFeedbackDetailCounts",
+        "type": "object"
+      },
+      "SelectedFeedbackDetailSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "json_pointer": {
+            "title": "Json Pointer",
+            "type": "string"
+          },
+          "detail_kind": {
+            "enum": [
+              "review",
+              "review_body",
+              "review_thread",
+              "thread_comment",
+              "thread_comment_body",
+              "discussion_comment",
+              "discussion_comment_body"
+            ],
+            "title": "Detail Kind",
+            "type": "string"
+          },
+          "artifact_json_pointer": {
+            "title": "Artifact Json Pointer",
+            "type": "string"
+          },
+          "value_kind": {
+            "enum": [
+              "string",
+              "object"
+            ],
+            "title": "Value Kind",
+            "type": "string"
+          },
+          "value_chars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Value Chars"
+          },
+          "body_chars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Body Chars"
+          },
+          "object_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Object Keys"
+          }
+        },
+        "required": [
+          "json_pointer",
+          "detail_kind",
+          "artifact_json_pointer",
+          "value_kind"
+        ],
+        "title": "SelectedFeedbackDetailSummary",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "payload_path": {
+        "title": "Payload Path",
+        "type": "string"
+      },
+      "selected_payload_reference": {
+        "$ref": "#/$defs/PayloadReference"
+      },
+      "details": {
+        "items": {
+          "$ref": "#/$defs/SelectedFeedbackDetailSummary"
+        },
+        "title": "Details",
+        "type": "array"
+      },
+      "counts": {
+        "$ref": "#/$defs/SelectedFeedbackDetailCounts"
+      }
+    },
+    "required": [
+      "payload_path",
+      "selected_payload_reference",
+      "details",
+      "counts"
+    ],
+    "title": "ReadFeedbackDetailsResult",
+    "type": "object"
+  }
+}

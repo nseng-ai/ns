@@ -3,7 +3,7 @@ import { z } from "zod";
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
 import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { hasFlag, parseManagedOptions } from "./managed-options.ts";
+import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
@@ -83,7 +83,6 @@ interface SkippedItem {
 }
 
 export async function runFinalizeRunOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({

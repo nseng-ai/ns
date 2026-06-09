@@ -1,0 +1,1095 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "payload_json": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload Json"
+      }
+    },
+    "title": "PlanFeedbackRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "BodyLocator": {
+        "additionalProperties": false,
+        "properties": {
+          "body_chars": {
+            "title": "Body Chars",
+            "type": "integer"
+          },
+          "json_pointer": {
+            "title": "Json Pointer",
+            "type": "string"
+          },
+          "item_pointer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Pointer"
+          },
+          "domain": {
+            "$ref": "#/$defs/FeedbackDomainLocator"
+          }
+        },
+        "required": [
+          "body_chars",
+          "json_pointer",
+          "domain"
+        ],
+        "title": "BodyLocator",
+        "type": "object"
+      },
+      "FeedbackClassificationValidationCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "reviews_expected": {
+            "title": "Reviews Expected",
+            "type": "integer"
+          },
+          "reviews_classified": {
+            "title": "Reviews Classified",
+            "type": "integer"
+          },
+          "review_threads_expected": {
+            "title": "Review Threads Expected",
+            "type": "integer"
+          },
+          "review_threads_classified": {
+            "title": "Review Threads Classified",
+            "type": "integer"
+          },
+          "thread_comments_expected": {
+            "title": "Thread Comments Expected",
+            "type": "integer"
+          },
+          "thread_comments_covered": {
+            "title": "Thread Comments Covered",
+            "type": "integer"
+          },
+          "discussion_comments_expected": {
+            "title": "Discussion Comments Expected",
+            "type": "integer"
+          },
+          "discussion_comments_classified": {
+            "title": "Discussion Comments Classified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviews_expected",
+          "reviews_classified",
+          "review_threads_expected",
+          "review_threads_classified",
+          "thread_comments_expected",
+          "thread_comments_covered",
+          "discussion_comments_expected",
+          "discussion_comments_classified"
+        ],
+        "title": "FeedbackClassificationValidationCounts",
+        "type": "object"
+      },
+      "FeedbackClassificationValidationError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "invalid_schema",
+              "missing_review",
+              "duplicate_review",
+              "unknown_review",
+              "missing_thread",
+              "duplicate_thread",
+              "unknown_thread",
+              "resolved_thread_classified",
+              "missing_thread_comment",
+              "duplicate_thread_comment",
+              "unknown_thread_comment",
+              "missing_discussion_comment",
+              "duplicate_discussion_comment",
+              "unknown_discussion_comment",
+              "invalid_locator",
+              "invalid_action_fields",
+              "invalid_informational_fields"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "review",
+              "review_thread",
+              "thread_comment",
+              "discussion_comment",
+              "packet"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Identifier"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "kind"
+        ],
+        "title": "FeedbackClassificationValidationError",
+        "type": "object"
+      },
+      "FeedbackClassificationValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          },
+          "manifest_kind": {
+            "enum": [
+              "get_feedback",
+              "prepare_run"
+            ],
+            "title": "Manifest Kind",
+            "type": "string"
+          },
+          "pr_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pr Number"
+          },
+          "payload_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payload Path"
+          },
+          "counts": {
+            "$ref": "#/$defs/FeedbackClassificationValidationCounts"
+          },
+          "errors": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/FeedbackClassificationValidationError"
+            },
+            "title": "Errors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "valid",
+          "manifest_kind",
+          "counts"
+        ],
+        "title": "FeedbackClassificationValidationResult",
+        "type": "object"
+      },
+      "FeedbackDomainLocator": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "review",
+              "review_thread_comment",
+              "discussion_comment"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review Id"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Id"
+          },
+          "comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment Id"
+          },
+          "discussion_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discussion Comment Id"
+          },
+          "comment_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment Index"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Line"
+          },
+          "is_resolved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Resolved"
+          },
+          "is_outdated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Outdated"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "FeedbackDomainLocator",
+        "type": "object"
+      },
+      "FeedbackPlanActionItem": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "enum": [
+              "review",
+              "review_thread",
+              "discussion_comment"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review Id"
+          },
+          "review_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review State"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Submitted At"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Id"
+          },
+          "discussion_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discussion Comment Id"
+          },
+          "covered_comment_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Covered Comment Ids",
+            "type": "array"
+          },
+          "covered_comments": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/FeedbackPlanCoveredThreadComment"
+            },
+            "title": "Covered Comments",
+            "type": "array"
+          },
+          "body_locator": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BodyLocator"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "thread_item_pointer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Item Pointer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Line"
+          },
+          "is_outdated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Outdated"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          },
+          "action_summary": {
+            "title": "Action Summary",
+            "type": "string"
+          },
+          "complexity": {
+            "enum": [
+              "pre_existing",
+              "local",
+              "single_file",
+              "cross_cutting",
+              "complex"
+            ],
+            "title": "Complexity",
+            "type": "string"
+          },
+          "pre_existing": {
+            "default": false,
+            "title": "Pre Existing",
+            "type": "boolean"
+          },
+          "needs_reply": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Needs Reply"
+          }
+        },
+        "required": [
+          "source_kind",
+          "summary",
+          "action_summary",
+          "complexity"
+        ],
+        "title": "FeedbackPlanActionItem",
+        "type": "object"
+      },
+      "FeedbackPlanBatch": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_id": {
+            "enum": [
+              "pre_existing",
+              "local",
+              "single_file",
+              "cross_cutting",
+              "complex"
+            ],
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "complexity": {
+            "enum": [
+              "pre_existing",
+              "local",
+              "single_file",
+              "cross_cutting",
+              "complex"
+            ],
+            "title": "Complexity",
+            "type": "string"
+          },
+          "approval_required": {
+            "title": "Approval Required",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/FeedbackPlanActionItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_id",
+          "complexity",
+          "approval_required",
+          "items"
+        ],
+        "title": "FeedbackPlanBatch",
+        "type": "object"
+      },
+      "FeedbackPlanCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "actionable_items": {
+            "title": "Actionable Items",
+            "type": "integer"
+          },
+          "informational_items": {
+            "title": "Informational Items",
+            "type": "integer"
+          },
+          "batches": {
+            "title": "Batches",
+            "type": "integer"
+          },
+          "approval_required_batches": {
+            "title": "Approval Required Batches",
+            "type": "integer"
+          },
+          "actionable_reviews": {
+            "title": "Actionable Reviews",
+            "type": "integer"
+          },
+          "actionable_review_threads": {
+            "title": "Actionable Review Threads",
+            "type": "integer"
+          },
+          "actionable_discussion_comments": {
+            "title": "Actionable Discussion Comments",
+            "type": "integer"
+          },
+          "informational_reviews": {
+            "title": "Informational Reviews",
+            "type": "integer"
+          },
+          "informational_review_threads": {
+            "title": "Informational Review Threads",
+            "type": "integer"
+          },
+          "informational_discussion_comments": {
+            "title": "Informational Discussion Comments",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "actionable_items",
+          "informational_items",
+          "batches",
+          "approval_required_batches",
+          "actionable_reviews",
+          "actionable_review_threads",
+          "actionable_discussion_comments",
+          "informational_reviews",
+          "informational_review_threads",
+          "informational_discussion_comments"
+        ],
+        "title": "FeedbackPlanCounts",
+        "type": "object"
+      },
+      "FeedbackPlanCoveredThreadComment": {
+        "additionalProperties": false,
+        "properties": {
+          "comment_id": {
+            "title": "Comment Id",
+            "type": "integer"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Line"
+          },
+          "body_locator": {
+            "$ref": "#/$defs/BodyLocator"
+          }
+        },
+        "required": [
+          "comment_id",
+          "author",
+          "path",
+          "body_locator"
+        ],
+        "title": "FeedbackPlanCoveredThreadComment",
+        "type": "object"
+      },
+      "FeedbackPlanInformationalItem": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "enum": [
+              "review",
+              "review_thread",
+              "discussion_comment"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review Id"
+          },
+          "review_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review State"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Submitted At"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Id"
+          },
+          "discussion_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discussion Comment Id"
+          },
+          "covered_comment_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Covered Comment Ids",
+            "type": "array"
+          },
+          "covered_comments": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/FeedbackPlanCoveredThreadComment"
+            },
+            "title": "Covered Comments",
+            "type": "array"
+          },
+          "body_locator": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BodyLocator"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "thread_item_pointer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Item Pointer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Line"
+          },
+          "is_outdated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Outdated"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          },
+          "informational_reason": {
+            "enum": [
+              "resolved_reference",
+              "automation",
+              "acknowledgement",
+              "approval",
+              "question_only",
+              "fyi",
+              "noise",
+              "already_addressed",
+              "other"
+            ],
+            "title": "Informational Reason",
+            "type": "string"
+          },
+          "user_decision_required": {
+            "title": "User Decision Required",
+            "type": "boolean"
+          },
+          "allowed_decisions": {
+            "default": [],
+            "items": {
+              "enum": [
+                "act",
+                "dismiss",
+                "skip"
+              ],
+              "type": "string"
+            },
+            "title": "Allowed Decisions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_kind",
+          "summary",
+          "informational_reason",
+          "user_decision_required"
+        ],
+        "title": "FeedbackPlanInformationalItem",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "valid": {
+        "title": "Valid",
+        "type": "boolean"
+      },
+      "manifest_kind": {
+        "enum": [
+          "get_feedback",
+          "prepare_run"
+        ],
+        "title": "Manifest Kind",
+        "type": "string"
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Pr Number"
+      },
+      "payload_path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload Path"
+      },
+      "validation": {
+        "$ref": "#/$defs/FeedbackClassificationValidationResult"
+      },
+      "counts": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FeedbackPlanCounts"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "batches": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/FeedbackPlanBatch"
+        },
+        "title": "Batches",
+        "type": "array"
+      },
+      "informational": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/FeedbackPlanInformationalItem"
+        },
+        "title": "Informational",
+        "type": "array"
+      },
+      "warnings": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Warnings",
+        "type": "array"
+      }
+    },
+    "required": [
+      "valid",
+      "manifest_kind",
+      "validation"
+    ],
+    "title": "FeedbackPlanningResult",
+    "type": "object"
+  }
+}
