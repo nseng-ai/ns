@@ -37,19 +37,21 @@ Assumptions:
 
 - The throw → discriminated-returned-data trend is a durable direction in this codebase, not an incidental style of one contributor window. Supported by the 2026-06-09 re-baseline: conversions and extractions kept landing through 2026-06-09 with zero reversals.
 - The inventoried sites are close enough in shape that a comparison can be made by reading current code and tests, without prototype refactors. Supported: the 2026-06-09 re-baseline characterized every site by reading alone.
-- TypeScript guidance already leans errors-as-values via the `typescript-style` skill; the open question is repo-specific contract shape, not whether errors-as-values is desirable.
-- Python and TypeScript may resolve differently: the repo's Python favors LBYL and frozen dataclasses, and a single cross-language contract may be the wrong altitude. Strengthened by the re-baseline: Python itself is split (asdl-core gateways return failure domain objects; areg gateways raise domain exceptions).
+- TypeScript guidance already leans errors-as-values via the `typescript-style` skill; the open question is repo-specific contract shape, not whether errors-as-values is desirable. Confirmed 2026-06-09: the adopted contract is gateway-specific shape guidance; the general rule stays in `typescript-style`.
+- Python and TypeScript may resolve differently: the repo's Python favors LBYL and frozen dataclasses, and a single cross-language contract may be the wrong altitude. Strengthened by the re-baseline: Python itself is split (asdl-core gateways return failure domain objects; areg gateways raise domain exceptions). Resolved 2026-06-09: the adopted contract is TypeScript-only; the Python split is parked.
 - Master has moved since the 2026-06-05 re-baseline; the inventory must be refreshed before any contract is named. Discharged 2026-06-09: the refresh is recorded in `updates/2026-06-09-1423-rebaseline-failure-data-and-gateway-inventory.md`.
 
 Risks:
 
-- Premature abstraction: naming a shared contract too early could force unification where healthy local variation exists. Mitigation: the parked-with-rationale outcome is a first-class result, not a failure.
+- Premature abstraction: naming a shared contract too early could force unification where healthy local variation exists. Mitigation: the parked-with-rationale outcome is a first-class result, not a failure. Discharged 2026-06-09: everything without observed drift was parked; the one adopted contract codifies what existing gateways already do.
 - Snapshot drift: the seed inventory is from the 2026-06-03 → 06-05 window; conversions landed since then could change the picture. De-risked 2026-06-09: the re-baseline against master `e9062814` is complete; conversions landed after that commit are ordinary future drift, not a blocker for naming a contract.
 - A convention without a home drifts: guidance that lives nowhere enforceable (skill, docs, review checklist) decays. Mitigation: choosing the artifact's home is part of the adoption decision, not an afterthought.
 - Scope creep into gateway redesign: comparing gateway boundaries could slide into redesigning them. Mitigation: gateways are inventory subjects here; changing gateway interfaces belongs to future, separately decided work.
 
 ## Open Questions
 
-- Do the discriminated failure shapes share enough structure — `kind`-style discriminants, failure/presenter pairing like `presentLandStackFailure` — to justify a named convention or small helper, or is the shared part already fully captured by the `typescript-style` skill?
-- Are failure-as-data and gateway-extraction one convention or two? They co-occurred in the landed window but may deserve separate guidance.
-- If a convention is adopted, where does it live: the `typescript-style` skill, repo docs, a review checklist, or a code helper?
+All resolved 2026-06-09 by the contract decision (`updates/2026-06-09-1659-gateway-result-contract-decision.md`):
+
+- Do the discriminated failure shapes justify a named convention, or is the shared part already captured by the `typescript-style` skill? — Split answer: parser shapes are already covered by `typescript-style` errors-as-values (parked); the gateway result shape is a real contract worth naming (adopted).
+- One convention or two? — Two concerns; only the gateway result contract is adopted.
+- Where does it live? — The "Result unions" section of the `typescript-fake-driven-testing` skill, extended into the authoritative artifact. Documentary form; no code helper.
