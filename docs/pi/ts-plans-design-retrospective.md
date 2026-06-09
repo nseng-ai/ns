@@ -159,6 +159,20 @@ Historical tests covered declarative recipes, imperative recipes, trust notices,
 - The package and integration added broad maintenance surface across workspace dependencies, Pi commands/tools, CLI hidden operations, tests, docs, context vocabulary, and lockfile state.
 - Future revival should start from an explicit product/use-case decision and a stronger trust/portability story rather than dormant code.
 
+## Additional lessons from later viewer and validation exploration
+
+A later unmerged prototype stack explored a saved `.plan.ts` viewer, structured inspection API, pre-save validation, and a more detailed graph UI. It sharpened several conclusions:
+
+- A useful viewer needed a structured model API, not just rendered Markdown or Mermaid. Once the UI needed outline, graph, rendered text, and source panes, `@asdl/ts-plans` had to expose stable model types and an inspection function. That turned the recipe package from a renderer into an API surface other tools could depend on.
+- Mermaid was an export format, not the interaction model. The graph-detail branch moved from a flat flow diagram toward an outline/tree with selectable nodes and a sticky detail pane because real plan text is too long for diagram boxes. Future graph work should start from an inspectable plan model plus UI-specific node identifiers, with Mermaid as an optional serialization.
+- The write tool had to evaluate the recipe before saving it. Otherwise invalid trusted code could be persisted, slugged, and later attached as if it were a valid plan. Pre-save preview validation was the right safety shape, but it made writing a plan an execution-bearing operation, not a passive file write.
+- Repeated previews made determinism and side effects more important. The viewer requested structured, text, Mermaid, and source views separately; each evaluated trusted TypeScript again unless the host cached a single inspected model. Any future revival should require recipe evaluation to be side-effect-free and deterministic, or centralize evaluation so one inspected model feeds all renderers.
+- First-class `validateWithShell` was the wrong abstraction pressure. The later refinement removed dedicated validation items and treated shell commands, tests, and checks as ordinary task or prompt text. That better matches agent implementation plans: checks are instructions for the later implementation session, not a special mini-executor inside the recipe runtime.
+- Rich phase prompts mattered more than long task arrays. Making `tasks` optional exposed that micro-task lists encouraged over-controlling the downstream agent. The better shape was a coherent, self-contained phase prompt with only a small number of coarse tasks when they add navigational value.
+- Showing both source and rendered instructions introduced an explicit precedence problem. The prototype resolved this by treating `.plan.ts` source as source of truth and telling implementers to inspect it if rendered output conflicted. That is honest, but it also undercuts portability: a future design should minimize source/render divergence or define a canonical normalized model as the handoff artifact.
+- A browser viewer sharpened the trust split. The local server could evaluate trusted TypeScript; the browser should only receive source, JSON, text, and Mermaid and must not evaluate plan code. That implies path-safe saved-plan IDs, clear trust notices in both CLI and UI, and careful separation between source inspection and code execution.
+- Listing saved `.plan.ts` files turned the local plan store into a user-facing product surface. The viewer needed repo/source-branch metadata, opaque IDs, path traversal defenses, missing-file behavior, and sorted summaries. That is much more lifecycle surface than “support one alternate plan file extension.”
+
 ## Rejected alternatives during removal
 
 - Keep `@asdl/ts-plans` as a dormant package. Rejected because dormant runtime code still creates dependency, test, and API surface.
