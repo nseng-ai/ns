@@ -60,10 +60,11 @@ code, commit, or mutate GitHub.
 
 ## How `pr-address` is invoked
 
-This skill bundles a wrapper at `scripts/pr-address-run` that dispatches to
-either `uv run pr-address` (when the current working directory is inside an
-asdl checkout) or `uvx --from asdl-pr-address pr-address` (otherwise), so the
-skill works without a local clone.
+This skill bundles a wrapper at `scripts/pr-address-run` that dispatches to the
+local checkout implementation when available or to the pinned installed
+compatibility package otherwise, so the skill works without a local clone.
+During the TypeScript migration, local checkouts use the TypeScript scaffold by
+default while unported `exec` operations remain compatibility-backed.
 
 Resolve the wrapper from this skill's own directory, not from a harness-specific
 path. For the rest of this document, `<pr-address-runner>` means the executable
@@ -85,7 +86,11 @@ substitute `<pr-address-runner>`. For example:
   --format json
 ```
 
-`ASDL_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
+`ASDL_PR_ADDRESS_MODE` overrides auto-detection when needed:
+
+- `local` or `ts-local` forces the local checkout implementation.
+- `python-local` or `legacy-python` forces the local compatibility-backed path.
+- `prod` forces the pinned installed compatibility package.
 
 ## Prerequisites
 
