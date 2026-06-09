@@ -250,7 +250,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             return ClinkrExit.negative(result, message=_cleanup_error_message(result))
         return ClinkrExit.ok(result)
 
-    if cleanup_actions and preview.plan.targets and not request.yes:
+    if preview.cleanup_actions and preview.plan.targets and not request.yes:
         if is_machine_mode(ctx):
             return ClinkrExit.failure(
                 error_type="confirmation_required",
@@ -274,7 +274,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
                 )
             )
 
-    execution = execute_free_release(slots_ctx, preview, cleanup_actions=cleanup_actions)
+    execution = execute_free_release(slots_ctx, preview)
     if isinstance(execution, SlotLifecycleFailure):
         return ClinkrExit.failure(
             error_type=execution.error_type,

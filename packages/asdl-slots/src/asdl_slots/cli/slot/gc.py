@@ -239,9 +239,7 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
         return ClinkrExit.ok(_result_from_outcome(outcome))
 
     if request.force:
-        result = _result_from_outcome(
-            execute_gc_release(slots_ctx, preview, cleanup_actions=cleanup_actions)
-        )
+        result = _result_from_outcome(execute_gc_release(slots_ctx, preview))
         return _exit_for_result(result)
 
     render_slot_gc(_result_from_outcome(preview.outcome), err=True)
@@ -251,9 +249,7 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
         delete_branches=request.delete_branches,
     )
     if proceed:
-        result = _result_from_outcome(
-            execute_gc_release(slots_ctx, preview, cleanup_actions=cleanup_actions)
-        )
+        result = _result_from_outcome(execute_gc_release(slots_ctx, preview))
         return _exit_for_result(result)
     return ClinkrExit.ok(
         _result_from_outcome(
