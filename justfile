@@ -7,9 +7,9 @@ pbcopy-source-activate:
     @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
     @echo "Copied to clipboard — paste and press enter to activate."
 
-check: lint format-check dprint-check ty ts-check js-test test
+check: python-check dprint-check ts-check js-test python-test
 
-ci: lint format-check dprint-check ty ts-check js-test test-all
+ci: python-check dprint-check ts-check js-test python-test-all
 
 lint:
     uv run ruff check
@@ -29,6 +29,12 @@ fix:
 
 ty:
     uv run ty check
+
+python-check: lint format-check ty
+
+python-test: test
+
+python-test-all: test-all
 
 ts-install:
     pnpm --dir {{justfile_directory()}}/ts install
