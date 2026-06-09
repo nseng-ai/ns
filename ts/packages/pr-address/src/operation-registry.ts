@@ -19,6 +19,8 @@ import { runPrepareRunOperation } from "./prepare-run.ts";
 import { runReadFeedbackDetailOperation, runReadFeedbackDetailsOperation } from "./read-feedback-detail.ts";
 import { runBuildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 import { runStackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
+import { runStackFeedbackPlanOperation, runStackFeedbackPrepOperation } from "./stack-feedback.ts";
+import { runBuildStackResolveThreadPayloadsOperation } from "./stack-resolve-thread-payloads.ts";
 import { runSummarizeFeedbackOperation } from "./summarize-feedback.ts";
 
 export interface ExecRuntimeDeps {
@@ -181,6 +183,18 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "stack-feedback-diff-current",
 			handler: runStackFeedbackDiffCurrentOperation,
+		},
+		{
+			name: "stack-feedback-prep",
+			handler: runStackFeedbackPrepOperation,
+		},
+		{
+			name: "stack-feedback-plan",
+			handler: runStackFeedbackPlanOperation,
+		},
+		{
+			name: "build-stack-resolve-thread-payloads",
+			handler: runBuildStackResolveThreadPayloadsOperation,
 		},
 		{
 			name: "finalize-run",
