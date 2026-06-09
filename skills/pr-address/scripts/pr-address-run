@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
-# Dispatch `pr-address` to the local TypeScript scaffold in an asdl checkout or
-# to the pinned legacy Python package for installed/prod use.
+# Dispatch `pr-address` to the local TypeScript sources in an asdl checkout or
+# to the bundled self-contained JavaScript artifact for installed/prod use.
 set -euo pipefail
 
-# Temporary legacy fallback pin. Keep in sync with the TypeScript fallback until
-# the Python compatibility path is retired.
-ASDL_VERSION="0.1.0"
+# Legacy Python rollback pin. Keep in sync with the TypeScript fallback
+# (LEGACY_PR_ADDRESS_VERSION) until the Python compatibility path is retired.
+ASDL_LEGACY_PYTHON_VERSION="0.1.1"
+
+script_dir="$(dirname "$0")"
+bundle_path="$script_dir/pr-address.bundle.mjs"
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 
-prod_uvx() {
-  exec uvx --from "asdl-pr-address==${ASDL_VERSION}" pr-address "$@"
+run_bundle() {
+  if [[ ! -f "$bundle_path" ]]; then
+    echo "pr-address-run: bundled pr-address artifact is missing at $bundle_path (rebuild with: pnpm --dir ts/packages/pr-address run bundle, or set ASDL_PR_ADDRESS_MODE=legacy-python)" >&2
+    exit 2
+  fi
+  exec node "$bundle_path" "$@"
 }
 
 run_ts_local() {
@@ -29,10 +36,15 @@ run_python_local() {
   exec uv run --project "$repo_root" pr-address "$@"
 }
 
+run_legacy_python_uvx() {
+  exec uvx --from "asdl-pr-address==${ASDL_LEGACY_PYTHON_VERSION}" pr-address "$@"
+}
+
 case "${ASDL_PR_ADDRESS_MODE:-}" in
   local|ts-local) run_ts_local "$@" ;;
-  python-local|legacy-python) run_python_local "$@" ;;
-  prod) prod_uvx "$@" ;;
+  python-local) run_python_local "$@" ;;
+  legacy-python) run_legacy_python_uvx "$@" ;;
+  prod) run_bundle "$@" ;;
   "") ;;
   *)
     echo "pr-address-run: unknown ASDL_PR_ADDRESS_MODE='${ASDL_PR_ADDRESS_MODE}' (expected one of: local, ts-local, python-local, legacy-python, prod)" >&2
@@ -44,4 +56,4 @@ if [[ -n "$repo_root" && -f "$repo_root/ts/packages/pr-address/src/cli.ts" ]]; t
   run_ts_local "$@"
 fi
 
-prod_uvx "$@"
+run_bundle "$@"

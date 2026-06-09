@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
 const WRAPPER = join(REPO_ROOT, "skills/pr-address/scripts/pr-address-run");
+const BUNDLE = join(REPO_ROOT, "skills/pr-address/scripts/pr-address.bundle.mjs");
 
 const tempDirs: string[] = [];
 
@@ -33,13 +34,31 @@ interface WrapperRunResult {
 	stderr: string;
 }
 
-function runWrapper(args: readonly string[], options: { env?: NodeJS.ProcessEnv | undefined } = {}): WrapperRunResult {
-	const result = spawnSync(WRAPPER, [...args], {
-		cwd: REPO_ROOT,
+interface RunWrapperOptions {
+	env?: NodeJS.ProcessEnv | undefined;
+	cwd?: string | undefined;
+	wrapperPath?: string | undefined;
+}
+
+function runWrapper(args: readonly string[], options: RunWrapperOptions = {}): WrapperRunResult {
+	const result = spawnSync(options.wrapperPath ?? WRAPPER, [...args], {
+		cwd: options.cwd ?? REPO_ROOT,
 		env: options.env ?? process.env,
 		encoding: "utf8",
 	});
 	return { status: result.status, stdout: String(result.stdout), stderr: String(result.stderr) };
+}
+
+/** Copies the wrapper (and optionally the bundle) into a temp dir that mimics an installed skill's scripts/ directory. */
+async function makeInstalledScriptsDir(options: { includeBundle: boolean }): Promise<string> {
+	const dir = await makeTempDir();
+	const wrapperCopy = join(dir, "pr-address-run");
+	await copyFile(WRAPPER, wrapperCopy);
+	await chmod(wrapperCopy, 0o755);
+	if (options.includeBundle) {
+		await copyFile(BUNDLE, join(dir, "pr-address.bundle.mjs"));
+	}
+	return dir;
 }
 
 describe("pr-address-run wrapper", () => {
@@ -67,14 +86,43 @@ describe("pr-address-run wrapper", () => {
 		expect(result.stdout).toContain("TypeScript package is currently a migration scaffold");
 	});
 
-	test("ASDL_PR_ADDRESS_MODE=prod keeps the pinned legacy Python PyPI path", async () => {
+	test("ASDL_PR_ADDRESS_MODE=prod executes the bundled artifact with node", async () => {
 		const fakeBin = await makeTempDir();
-		await writeFakeCommand(fakeBin, "uvx", "uvx");
+		await writeFakeCommand(fakeBin, "node", "node");
 
 		const result = runWrapper(["--help"], { env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}`, ASDL_PR_ADDRESS_MODE: "prod" } });
 
 		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toBe("uvx: --from asdl-pr-address==0.1.0 pr-address --help\n");
+		expect(result.stdout).toBe(`node: ${BUNDLE} --help\n`);
+	});
+
+	test("ASDL_PR_ADDRESS_MODE=prod fails clearly when the bundle is missing", async () => {
+		const scriptsDir = await makeInstalledScriptsDir({ includeBundle: false });
+
+		const result = runWrapper(["--help"], {
+			wrapperPath: join(scriptsDir, "pr-address-run"),
+			cwd: scriptsDir,
+			env: { ...process.env, ASDL_PR_ADDRESS_MODE: "prod" },
+		});
+
+		expect(result.status).toBe(2);
+		expect(result.stderr).toContain("bundled pr-address artifact is missing");
+		expect(result.stderr).toContain("ASDL_PR_ADDRESS_MODE=legacy-python");
+	});
+
+	test("defaults to the bundled artifact outside a checkout", async () => {
+		const scriptsDir = await makeInstalledScriptsDir({ includeBundle: true });
+
+		const result = runWrapper(["--version"], {
+			wrapperPath: join(scriptsDir, "pr-address-run"),
+			cwd: scriptsDir,
+			// GIT_CEILING_DIRECTORIES keeps `git rev-parse` from discovering an
+			// enclosing repository above the temp dir, mimicking installed use.
+			env: { ...process.env, GIT_CEILING_DIRECTORIES: scriptsDir },
+		});
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe("0.1.0\n");
 	});
 
 	test("ASDL_PR_ADDRESS_MODE=python-local reaches the local legacy Python command", async () => {
@@ -87,14 +135,14 @@ describe("pr-address-run wrapper", () => {
 		expect(result.stdout).toBe(`uv: run --project ${REPO_ROOT} pr-address --help\n`);
 	});
 
-	test("ASDL_PR_ADDRESS_MODE=legacy-python is a local legacy Python alias", async () => {
+	test("ASDL_PR_ADDRESS_MODE=legacy-python uses the published PyPI rollback pin", async () => {
 		const fakeBin = await makeTempDir();
-		await writeFakeCommand(fakeBin, "uv", "uv");
+		await writeFakeCommand(fakeBin, "uvx", "uvx");
 
 		const result = runWrapper(["--help"], { env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}`, ASDL_PR_ADDRESS_MODE: "legacy-python" } });
 
 		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toBe(`uv: run --project ${REPO_ROOT} pr-address --help\n`);
+		expect(result.stdout).toBe("uvx: --from asdl-pr-address==0.1.1 pr-address --help\n");
 	});
 
 	test("invalid mode exits 2 and lists valid modes", () => {

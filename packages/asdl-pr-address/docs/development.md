@@ -10,37 +10,43 @@ the installed `SKILL.md`; common locations are `skills/pr-address/` in a repo
 checkout and `.agents/skills/pr-address/` in an installed skill mirror.
 
 - inside an asdl checkout with `ts/packages/pr-address/src/cli.ts` → the local
-  TypeScript scaffold runs by default
-- unported `pr-address exec ...` operations reached through that scaffold
-  delegate directly to the legacy Python CLI with the same arguments and stdio
-- outside a checkout → `uvx` installs a pinned `asdl-pr-address` release from
-  PyPI, with `asdl-core` resolved automatically as a declared dependency
-
-uv caches the resolved PyPI wheel, so the first call downloads and subsequent
-calls are near-instant.
+  TypeScript sources run by default
+- outside a checkout → the wrapper runs the checked-in self-contained bundle
+  shipped next to it (`<skill-dir>/scripts/pr-address.bundle.mjs`) with plain
+  `node` (Node 24+); no PyPI or npm install happens
+- the remaining legacy-Python fallback (a small set of usage-error envelope
+  shapes) delegates to the local Python CLI in a checkout, or to the pinned
+  PyPI release via `uvx` otherwise
 
 Override when you want to force a specific path:
 
 - `ASDL_PR_ADDRESS_MODE=local` or `ts-local` forces the local TypeScript
-  scaffold.
-- `ASDL_PR_ADDRESS_MODE=python-local` or `legacy-python` forces the local
-  legacy Python CLI for debugging and compatibility checks.
-- `ASDL_PR_ADDRESS_MODE=prod` forces the pinned PyPI Python path.
+  sources.
+- `ASDL_PR_ADDRESS_MODE=prod` forces the bundled artifact.
+- `ASDL_PR_ADDRESS_MODE=python-local` forces the local legacy Python CLI for
+  debugging and compatibility checks.
+- `ASDL_PR_ADDRESS_MODE=legacy-python` is the rollback mode: it runs the pinned
+  published release via `uvx --from asdl-pr-address==<pin>`.
 
-## Updating the pinned version
+## Updating the prod bundle and the rollback pin
 
-To roll out new legacy/prod Python fallback code to skill consumers, first
-publish the new `asdl-pr-address` release to PyPI (outside the scope of this
-skill), then bump `ASDL_VERSION` in the wrapper and commit the change. From an
-asdl checkout:
+Installed/prod behavior ships as a checked-in bundle. After changing
+`ts/packages/pr-address` sources, regenerate it and commit the result:
 
 ```bash
-sed -i '' 's/^ASDL_VERSION=.*/ASDL_VERSION="0.2.0"/' \
-  skills/pr-address/scripts/pr-address-run
+just bundle-pr-address
+# or: pnpm --dir ts/packages/pr-address run bundle
 ```
 
-Then commit and push. Skill consumers pick up the new version the next time
-they invoke the `pr-address` skill.
+A freshness test (`ts/packages/pr-address/test/wrapper/pr-address-bundle.test.ts`)
+fails CI when the checked-in bundle is stale.
+
+To move the legacy Python rollback pin, publish the new `asdl-pr-address`
+release to PyPI first, then bump `ASDL_LEGACY_PYTHON_VERSION` in
+`skills/pr-address/scripts/pr-address-run` and `LEGACY_PR_ADDRESS_VERSION` in
+`ts/packages/pr-address/src/legacy-python.ts` (they must stay in sync), and
+regenerate the bundle. The pin must reference a release that actually exists on
+PyPI; the original `0.1.0` pin never did.
 
 ## Local development
 
@@ -52,9 +58,9 @@ cd asdl
 uv sync
 ```
 
-The wrapper auto-detects the checkout and runs the TypeScript scaffold by
-default. Editing `packages/asdl-pr-address/` is picked up by unported `exec`
-operations through the direct Python fallback; force it explicitly with
+The wrapper auto-detects the checkout and runs the TypeScript sources by
+default. Edits to `packages/asdl-pr-address/` are only reached through the
+remaining usage-error fallback; force the Python CLI explicitly with
 `ASDL_PR_ADDRESS_MODE=python-local` when debugging wrapper dispatch. To run tests
 for just this package:
 
@@ -66,42 +72,27 @@ Or run the full suite from the repo root with `just`.
 
 ## Operation inventory
 
-This Python package remains the compatibility implementation for installed/prod
-skill invocation, the `asdl pr-address ...` plugin, and unported local TypeScript
-operations. Treat the public skill, `skills/pr-address/references/cli-reference.md`,
-source registration, scenario tests, and golden fixtures as stronger contract
-sources than this developer overview when porting behavior.
+This Python package remains the compatibility implementation for the
+`asdl pr-address ...` plugin, the explicit `python-local` / `legacy-python`
+rollback modes, and a small set of usage-error envelope shapes. Treat the public
+skill, `skills/pr-address/references/cli-reference.md`, source registration,
+scenario tests, and golden fixtures as stronger contract sources than this
+developer overview when porting behavior.
 
-### Current TypeScript-managed local execution
+### Current TypeScript-managed execution
 
-When the wrapper selects the local TypeScript CLI, these `exec` operations are
-handled by TypeScript after the current migration stack:
+Every `pr-address exec ...` operation and every operation `--json-schema` route
+is TypeScript-managed, in both local-checkout and bundled prod invocation.
 
-- **Classification / planning**: `classification-template`,
-  `validate-feedback-classification`, `plan-feedback`
-- **Payload / finalization helpers**: `build-resolve-thread-batch-payload`,
-  `finalize-run`
-- **Read-only fetch helpers**: `get-pr-for-branch`, `get-reviews`,
-  `get-review-comments`, `get-discussion-comments`, and
-  `get-feedback --payload-mode inline`
-- **Payload detail / stack diff helpers**: `read-feedback-detail`,
-  `stack-feedback-diff-current`
-- **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
-  `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
-- **Replies / comments / reactions**: `reply-to-review`,
-  `reply-to-discussion`, `add-issue-comment`, `add-reaction`
-
-### Compatibility-backed local behavior still required
+### Compatibility-backed behavior still required
 
 Keep Python fallback for:
 
-- `prepare-run`, `summarize-feedback`, default payload-mode `get-feedback`
-- `stack-feedback-prep`, `stack-feedback-plan`,
-  `build-stack-resolve-thread-payloads`
-- `record-batch-checkpoint`
-- `read-feedback-details`
-- operation-specific `--json-schema` routes not yet implemented in TypeScript
-- installed/prod skill wrapper mode and the `asdl pr-address ...` plugin
+- invalid `--payload-mode` values for `get-feedback` and `prepare-run`, invalid
+  `--stdout-mode` values for `stack-feedback-prep` and `stack-feedback-plan`,
+  and non-integer `--body-chars` values for `summarize-feedback` (click
+  usage-error rendering)
+- the `asdl pr-address ...` plugin
 
 The current legacy operation set, by category:
 
@@ -132,11 +123,12 @@ part of the public contract. For live-effect operations, fake-backed gateway
 tests must prove the mutation plan and result shape without writing to GitHub.
 Payload-shape-sensitive helpers need golden or parity fixtures.
 
-Do not broadly delete this package or change installed/prod skill routing until
-there is an explicit distribution decision covering npm package publication,
-wrapper rollback mode, pinned Python fallback handling, and release notes. Do not
-replace the Python `asdl pr-address ...` plugin until TypeScript plugin wiring is
-proven non-breaking for existing `asdl` users.
+The distribution decision is recorded: installed/prod skill invocation executes
+the checked-in bundle shipped inside the skill, and `@asdl/pr-address` is not
+published to npm. `ASDL_PR_ADDRESS_MODE=legacy-python` remains the rollback path
+to the published PyPI release. Do not broadly delete this package, and do not
+replace the Python `asdl pr-address ...` plugin until TypeScript plugin wiring
+is proven non-breaking for existing `asdl` users.
 
 ## Relationship to the `pr-address` skill
 

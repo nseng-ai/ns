@@ -3,7 +3,9 @@ import process from "node:process";
 
 import { findLegacyCheckoutRoot } from "./repo-root.ts";
 
-export const LEGACY_PR_ADDRESS_VERSION = "0.1.0";
+// 0.1.1 is the oldest published asdl-pr-address release on PyPI; the previous
+// 0.1.0 pin was never published and could not resolve.
+export const LEGACY_PR_ADDRESS_VERSION = "0.1.1";
 
 export interface LegacyRunOptions {
 	cwd: string;

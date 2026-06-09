@@ -12,10 +12,14 @@
     "pr-address": "./src/cli.ts"
   },
   "scripts": {
+    "bundle": "node scripts/bundle.ts",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pr-address/test"
   },
   "dependencies": {
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
   }
 }

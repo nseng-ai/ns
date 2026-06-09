@@ -353,7 +353,7 @@ describe("legacy Python fallback routing", () => {
 		expect(requests).toEqual([
 			{
 				command: "uvx",
-				args: ["--from", "asdl-pr-address==0.1.0", "pr-address", "exec", "prepare-run"],
+				args: ["--from", "asdl-pr-address==0.1.1", "pr-address", "exec", "prepare-run"],
 				cwd: "/",
 				env: { PATH: "/fake/bin" },
 				stdio: "inherit",

@@ -59,6 +59,11 @@ docs-check: docs-install
 
 js-test: ts-test
 
+# Rebuild the self-contained pr-address CLI bundle shipped inside the
+# installed pr-address skill (skills/pr-address/scripts/pr-address.bundle.mjs).
+bundle-pr-address: ts-install
+    pnpm --dir {{justfile_directory()}}/ts/packages/pr-address run bundle
+
 # Link the planned-branch bin through pnpm so `planned-branch` is on PATH.
 # The linked CLI uses the Node shebang from the TypeScript workspace source.
 link-planned-branch: ts-install

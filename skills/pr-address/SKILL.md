@@ -61,19 +61,15 @@ code, commit, or mutate GitHub.
 ## How `pr-address` is invoked
 
 This skill bundles a wrapper at `scripts/pr-address-run` that dispatches to the
-local checkout implementation when available or to the pinned installed
-compatibility package otherwise, so the skill works without a local clone.
-During the TypeScript migration, local checkouts use the TypeScript scaffold by
-default while unported `exec` operations remain compatibility-backed. Installed
-skill/prod use and the `asdl pr-address ...` plugin still use the Python
-compatibility path until a later explicit cutover.
+local checkout implementation when available or to a self-contained bundled
+JavaScript artifact shipped alongside it (`scripts/pr-address.bundle.mjs`)
+otherwise, so the skill works without a local clone. Both paths require `node`
+(Node 24 or newer) on `PATH`; the bundled artifact needs nothing else.
 
-Current local TypeScript-managed execution covers classification/planning,
-selected read-only fetch helpers, selected payload/finalization helpers,
-selected stack-diff/detail helpers, and review mutation/reply helpers. Composite
-default payload setup, stack orchestration, batch checkpoint recovery, bulk
-payload reading, and unported schema routes remain compatibility-backed. See
-`references/cli-reference.md` for the operation-level migration status.
+Every `exec` operation and every `--json-schema` route runs the same
+implementation in both paths. The legacy Python compatibility package remains
+available only as an explicit rollback mode; the `asdl pr-address ...` plugin
+still uses the Python path until its own cutover.
 
 Resolve the wrapper from this skill's own directory, not from a harness-specific
 path. For the rest of this document, `<pr-address-runner>` means the executable
@@ -98,8 +94,11 @@ substitute `<pr-address-runner>`. For example:
 `ASDL_PR_ADDRESS_MODE` overrides auto-detection when needed:
 
 - `local` or `ts-local` forces the local checkout implementation.
-- `python-local` or `legacy-python` forces the local compatibility-backed path.
-- `prod` forces the pinned installed compatibility package.
+- `prod` forces the bundled artifact shipped with the skill.
+- `python-local` forces the legacy Python compatibility path from a local
+  checkout.
+- `legacy-python` is the rollback mode: it runs the pinned published legacy
+  Python package via `uvx`.
 
 ## Prerequisites
 
