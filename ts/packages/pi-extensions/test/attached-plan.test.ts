@@ -1,19 +1,15 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
 	buildImplPlannedBranchPrompt,
 	loadAttachedPlan,
-	loadAttachedTsPlan,
-	loadPlannedBranchTsPlan,
 	normalizeRequestedAttachedPlanKey,
-	normalizeRequestedAttachedTsPlanKey,
 	parseBrmemGetContent,
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
-	selectAttachedTsPlanKey,
 	type AttachedPlanEntry,
 } from "@asdl/planned-branch";
 import { PLAN_BRANCH_NAMESPACE, type ExecOptions, type PlanCommandExecApi } from "@asdl/planned-branch";
@@ -23,11 +19,8 @@ const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_BRANCH = `planned-branches/${PLAN_SLUG}`;
 const PLAN_KEY = `${PLAN_SLUG}.md`;
-const PLAN_TS_KEY = `${PLAN_SLUG}.plan.ts`;
 const PLAN_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${PLAN_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const PLAN_CONTENT = "# Attached Plan\n\n- Preserve all Markdown.\n- Then implement.\n";
-const TS_PLAN_CONTENT = "export default async function plan(pi) { await pi.do('saved TypeScript work'); }\n";
-const ORIGIN = "git@github.com:owner/repo.git";
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -119,14 +112,6 @@ function gitDefaultBranchStep(result: Partial<ExecResult> = { stdout: "origin/ma
 	return step("git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], result);
 }
 
-function gitSourceBranchStep(branch: string = PLAN_BRANCH): ScriptedExec {
-	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n` });
-}
-
-function gitOriginStep(result: Partial<ExecResult> = { stdout: `${ORIGIN}\n` }): ScriptedExec {
-	return step("git", ["config", "--get", "remote.origin.url"], result);
-}
-
 function brmemListStep(branch: string, result: Partial<ExecResult>): ScriptedExec {
 	return step("brmem", ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"], result);
 }
@@ -196,17 +181,6 @@ function successfulLoadScript(input: {
 	];
 }
 
-async function makePlanStoreFile(fileName: string, content: string): Promise<{ planStoreRoot: string; filePath: string }> {
-	const planStoreRoot = await mkdtemp(join(tmpdir(), "attached-plan-store-"));
-	tempDirs.push(planStoreRoot);
-	const repoKey = "gh--owner--repo";
-	const directory = join(planStoreRoot, repoKey, PLAN_BRANCH.replaceAll("/", "---"));
-	await mkdir(directory, { recursive: true });
-	const filePath = join(directory, fileName);
-	await writeFile(filePath, content, "utf8");
-	return { planStoreRoot, filePath };
-}
-
 function attachedPlanEntry(key: string, branch: string = PLAN_BRANCH): AttachedPlanEntry {
 	return {
 		namespace: PLAN_BRANCH_NAMESPACE,
@@ -254,50 +228,6 @@ describe("loadAttachedPlan", () => {
 		expect(exactPlan.selectedKey).toBe(PLAN_KEY);
 	});
 
-	test("loads TypeScript recipe plans without selecting Markdown entries", async () => {
-		const pi = new FakePi(
-			successfulLoadScript({
-				key: PLAN_TS_KEY,
-				entries: [{ key: PLAN_KEY }, { key: PLAN_TS_KEY }],
-				content: "export default async function plan(pi) { await pi.do('work'); }",
-			}),
-		);
-
-		const plan = await loadAttachedTsPlan(pi, {}, { cwd: ROOT });
-
-		pi.assertDone();
-		expect(plan.selectedKey).toBe(PLAN_TS_KEY);
-		expect(pi.execCalls.at(-1)?.args).toEqual(["get", PLAN_TS_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_BRANCH, "--format", "json"]);
-	});
-
-	test("falls back to latest saved TypeScript recipe when only Markdown plans are attached", async () => {
-		const saved = await makePlanStoreFile(PLAN_TS_KEY, TS_PLAN_CONTENT);
-		const pi = new FakePi([
-			gitRootStep(),
-			gitCurrentBranchStep(PLAN_BRANCH),
-			gitDefaultBranchStep(),
-			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, [{ key: PLAN_KEY }]) }),
-			gitRootStep(),
-			gitSourceBranchStep(PLAN_BRANCH),
-			gitOriginStep(),
-		]);
-
-		const plan = await loadPlannedBranchTsPlan(pi, {}, { cwd: ROOT, planStoreRoot: saved.planStoreRoot });
-
-		pi.assertDone();
-		expect(plan).toMatchObject({
-			branch: PLAN_BRANCH,
-			namespace: "local-plan-store",
-			selectedKey: PLAN_TS_KEY,
-			refName: saved.filePath,
-			content: TS_PLAN_CONTENT,
-			availableKeys: [PLAN_TS_KEY],
-			source: "saved",
-			sourceFile: saved.filePath,
-		});
-		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "get")).toBe(false);
-	});
-
 	test("falls back to the only entry when branch segment does not match", async () => {
 		const branch = "planned-branches/different-segment";
 		const pi = new FakePi(successfulLoadScript({ branch, key: PLAN_KEY, entries: [{ key: PLAN_KEY }] }));
@@ -332,26 +262,6 @@ describe("loadAttachedPlan", () => {
 		expect(() => normalizeRequestedAttachedPlanKey("   ")).toThrow("empty");
 		expect(() => normalizeRequestedAttachedPlanKey("/abs.md")).toThrow("must not start");
 		expect(() => normalizeRequestedAttachedPlanKey("../escape")).toThrow("must not contain");
-		expect(normalizeRequestedAttachedTsPlanKey(PLAN_SLUG)).toBe(PLAN_TS_KEY);
-	});
-
-	test("reports TypeScript multiple entry ambiguity with TypeScript keys only", () => {
-		expect(() =>
-			selectAttachedTsPlanKey({
-				branch: "planned-branches/no-match",
-				entries: [attachedPlanEntry("beta.plan.ts"), attachedPlanEntry("ignored.md"), attachedPlanEntry("alpha.plan.ts")],
-			}),
-		).toThrow(/Multiple attached plans[\s\S]*- alpha\.plan\.ts[\s\S]*- beta\.plan\.ts/);
-	});
-
-	test("reports missing requested TypeScript key without treating Markdown entries as fallback candidates", () => {
-		expect(() =>
-			selectAttachedTsPlanKey({
-				branch: PLAN_BRANCH,
-				requestedKey: "missing",
-				entries: [attachedPlanEntry(PLAN_KEY)],
-			}),
-		).toThrow(/Requested attached plan key `missing\.plan\.ts`[\s\S]*Available keys:[\s\S]*\(none\)/);
 	});
 
 	test("reports no entries with recovery guidance", async () => {

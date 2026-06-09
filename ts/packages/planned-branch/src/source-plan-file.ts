@@ -8,44 +8,11 @@ import { normalizeSummary, validatePlanSlug, type PlanCommandExecApi } from "./p
 import { isRecord } from "./primitives.ts";
 
 const MAX_SEGMENT_LENGTH = 120;
+const PLAN_FILE_SUFFIX = ".md";
+const PLAN_FILE_DISPLAY_NAME = "Markdown saved plan";
+const WRITE_PLAN_COMMAND = "/planned-branch:write-plan";
 
-export type PlanFileKind = "markdown" | "typescript-recipe";
-export type PlanFileSuffix = ".md" | ".plan.ts";
 export type RepoIdentitySource = "origin-url" | "repo-root";
-
-export interface PlanFileFormat {
-	kind: PlanFileKind;
-	suffix: PlanFileSuffix;
-	displayName: string;
-	writeCommand: string;
-	createCommand: string;
-	implCommand: string;
-	writeToolName: string;
-	slugPromptContentDescription: string;
-}
-
-export const PLAN_FILE_FORMATS = {
-	markdown: {
-		kind: "markdown",
-		suffix: ".md",
-		displayName: "Markdown saved plan",
-		writeCommand: "/planned-branch:write-plan",
-		createCommand: "/planned-branch:create",
-		implCommand: "/planned-branch:impl",
-		writeToolName: "write_source_branch_plan_file",
-		slugPromptContentDescription: "Markdown implementation plan content",
-	},
-	"typescript-recipe": {
-		kind: "typescript-recipe",
-		suffix: ".plan.ts",
-		displayName: "TypeScript recipe saved plan",
-		writeCommand: "/planned-branch:write-ts-plan",
-		createCommand: "/planned-branch:create-ts",
-		implCommand: "/planned-branch:impl-ts",
-		writeToolName: "write_source_branch_ts_plan_file",
-		slugPromptContentDescription: "trusted TypeScript recipe plan source",
-	},
-} as const satisfies Record<PlanFileKind, PlanFileFormat>;
 
 export interface SourceBranchPlanFileParams {
 	slug: string;
@@ -156,26 +123,8 @@ export function sanitizePlanPathSegment(value: string, fallback: string): string
 	return sanitized;
 }
 
-export function planFileFormatForKind(kind: PlanFileKind): PlanFileFormat {
-	return PLAN_FILE_FORMATS[kind];
-}
-
-export function planFileSuffixForKind(kind: PlanFileKind): PlanFileSuffix {
-	return planFileFormatForKind(kind).suffix;
-}
-
-export function buildPlanFileName(slug: string, kind: PlanFileKind): string {
-	return `${slug}${planFileSuffixForKind(kind)}`;
-}
-
-export function planFileKindFromPath(path: string): PlanFileKind | undefined {
-	if (path.endsWith(PLAN_FILE_FORMATS["typescript-recipe"].suffix)) {
-		return "typescript-recipe";
-	}
-	if (path.endsWith(PLAN_FILE_FORMATS.markdown.suffix)) {
-		return "markdown";
-	}
-	return undefined;
+export function buildPlanFileName(slug: string): string {
+	return `${slug}${PLAN_FILE_SUFFIX}`;
 }
 
 export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFileEvidence): string {
@@ -222,28 +171,12 @@ export async function findLatestSourceBranchPlanFile(
 	pi: PlanCommandExecApi,
 	options: SourceBranchPlanFileOptions,
 ): Promise<LatestSourceBranchPlanFileEvidence> {
-	return findLatestSourceBranchPlanFileForKind(pi, options, "markdown");
-}
-
-export async function findLatestSourceBranchTsPlanFile(
-	pi: PlanCommandExecApi,
-	options: SourceBranchPlanFileOptions,
-): Promise<LatestSourceBranchPlanFileEvidence> {
-	return findLatestSourceBranchPlanFileForKind(pi, options, "typescript-recipe");
-}
-
-async function findLatestSourceBranchPlanFileForKind(
-	pi: PlanCommandExecApi,
-	options: SourceBranchPlanFileOptions,
-	kind: PlanFileKind,
-): Promise<LatestSourceBranchPlanFileEvidence> {
-	const format = PLAN_FILE_FORMATS[kind];
 	const directory = await resolvePlanStoreDirectory(pi, options);
-	const entries = await readPlanStoreDirectory(directory, format);
+	const entries = await readPlanStoreDirectory(directory);
 	const candidates: Array<{ fileName: string; filePath: string; modifiedTimeMs: number }> = [];
 
 	for (const entry of entries) {
-		if (!entry.isFile() || !entry.name.endsWith(format.suffix)) {
+		if (!entry.isFile() || !entry.name.endsWith(PLAN_FILE_SUFFIX)) {
 			continue;
 		}
 
@@ -258,21 +191,21 @@ async function findLatestSourceBranchPlanFileForKind(
 	if (candidates.length === 0) {
 		throw new Error(
 			[
-				`No ${format.displayName} files exist in the local plan store for the current repository and branch.`,
+				`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store for the current repository and branch.`,
 				`Plan store directory: ${directory.directoryPath}`,
-				`Run ${format.writeCommand} first, or pass an explicit absolute or home-relative plan file path.`,
+				`Run ${WRITE_PLAN_COMMAND} first, or pass an explicit absolute or home-relative plan file path.`,
 			].join("\n"),
 		);
 	}
 
 	const latest = candidates.sort(compareLatestSourcePlanCandidates)[0];
 	if (latest === undefined) {
-		throw new Error(`No ${format.displayName} files exist in the local plan store directory ${directory.directoryPath}.`);
+		throw new Error(`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store directory ${directory.directoryPath}.`);
 	}
 
 	return {
 		...directory,
-		slug: latest.fileName.slice(0, -format.suffix.length),
+		slug: latest.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
 		filePath: latest.filePath,
 		fileName: latest.fileName,
 		modifiedTimeMs: latest.modifiedTimeMs,
@@ -284,26 +217,6 @@ export async function writeSourceBranchPlanFile(
 	rawParams: unknown,
 	options: SourceBranchPlanFileOptions,
 ): Promise<SourceBranchPlanFileEvidence> {
-	return writeSourceBranchPlanFileForKind({ pi, rawParams, options, kind: "markdown" });
-}
-
-export async function writeSourceBranchTsPlanFile(
-	pi: PlanCommandExecApi,
-	rawParams: unknown,
-	options: SourceBranchPlanFileOptions,
-): Promise<SourceBranchPlanFileEvidence> {
-	return writeSourceBranchPlanFileForKind({ pi, rawParams, options, kind: "typescript-recipe" });
-}
-
-interface WriteSourceBranchPlanFileForKindInput {
-	pi: PlanCommandExecApi;
-	rawParams: unknown;
-	options: SourceBranchPlanFileOptions;
-	kind: PlanFileKind;
-}
-
-async function writeSourceBranchPlanFileForKind(input: WriteSourceBranchPlanFileForKindInput): Promise<SourceBranchPlanFileEvidence> {
-	const { pi, rawParams, options, kind } = input;
 	const params = parseSourceBranchPlanFileParams(rawParams);
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
@@ -312,7 +225,7 @@ async function writeSourceBranchPlanFileForKind(input: WriteSourceBranchPlanFile
 	}
 
 	const directory = await resolvePlanStoreDirectory(pi, options);
-	const filePath = join(directory.directoryPath, buildPlanFileName(slug, kind));
+	const filePath = join(directory.directoryPath, buildPlanFileName(slug));
 
 	await writeExclusiveFile(filePath, params.content);
 
@@ -397,7 +310,7 @@ async function resolveRepoIdentity(git: PlannedBranchGitGateway, options: RepoId
 	return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
 }
 
-async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence, format: PlanFileFormat): Promise<Dirent[]> {
+async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Promise<Dirent[]> {
 	try {
 		return await readdir(directory.directoryPath, { withFileTypes: true });
 	} catch (error) {
@@ -409,7 +322,7 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence, for
 					`Repo key: ${directory.repoKey}`,
 					`Source branch: ${directory.sourceBranch}`,
 					`Branch path segment: ${directory.branchKey}`,
-					`Run ${format.writeCommand} first, or pass an explicit absolute or home-relative plan file path.`,
+					`Run ${WRITE_PLAN_COMMAND} first, or pass an explicit absolute or home-relative plan file path.`,
 				].join("\n"),
 			);
 		}
@@ -525,4 +438,3 @@ async function realpathIfPossible(path: string): Promise<string> {
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 	return typeof error === "object" && error !== null && "code" in error;
 }
-

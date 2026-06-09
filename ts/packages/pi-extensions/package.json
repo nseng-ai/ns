@@ -10,7 +10,6 @@
     "@asdl/ccc": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/planned-branch": "workspace:*",
-    "@asdl/ts-plans": "workspace:*",
     "asdl-dev": "workspace:*"
   },
   "peerDependencies": {
