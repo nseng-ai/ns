@@ -1,5 +1,5 @@
+import { deriveSlugWithModel, resolveSlugModel, type SlugModelEvidence } from "@asdl/plans";
 import { formatOutputSection } from "../command-runtime.ts";
-import { deriveSlugWithModel, type SlugModelEvidence } from "../model-slug.ts";
 import { parseFlatHandoffSlug } from "./identity.ts";
 import type { ExtensionAPI } from "./runtime-types.ts";
 
@@ -14,10 +14,16 @@ export async function deriveHandoffContentSlug(
 	host: Pick<ExtensionAPI, "exec">,
 	input: { content: string; cwd: string; signal?: AbortSignal | undefined },
 ): Promise<HandoffContentSlugEvidence> {
+	const modelResolution = resolveSlugModel(process.env);
+	if (!modelResolution.ok) {
+		throw handoffSlugDerivationFailed([modelResolution.error]);
+	}
+
 	const prompt = buildHandoffContentSlugPrompt(input.content);
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt,
+		model: modelResolution.value,
 		...(input.signal === undefined ? {} : { signal: input.signal }),
 		slugKind: "handoff artifact slug",
 		normalizeOutput: normalizeHandoffContentSlugOutput,

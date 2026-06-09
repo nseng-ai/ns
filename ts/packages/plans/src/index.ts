@@ -15,6 +15,30 @@ export {
 } from "./command-runtime.ts";
 export { runCli, type CliDeps } from "./cli.ts";
 export {
+	DEFAULT_FAST_MODEL,
+	DEFAULT_FAST_MODEL_REF,
+	parseModelRef,
+	resolveModelRef,
+	type ModelRefResolution,
+	type ParsedModelRef,
+} from "./model-defaults.ts";
+export {
+	buildSlugModelArgs,
+	DEFAULT_SLUG_MODEL,
+	deriveSlugWithModel,
+	formatSlugModelFailure,
+	resolveSlugModel,
+	SLUG_MODEL_ENV,
+	SLUG_MODEL_THINKING,
+	SLUG_MODEL_TIMEOUT_MS,
+	type DeriveSlugWithModelInput,
+	type SlugModelCommandResult,
+	type SlugModelDerivationResult,
+	type SlugModelEvidence,
+	type SlugModelExecOptions,
+	type SlugModelFailure,
+} from "./model-slug.ts";
+export {
 	RealPlansGitGateway,
 	type GitCwdParams,
 	type GitErrorInfo,

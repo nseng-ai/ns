@@ -3,7 +3,7 @@ import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildPlanContentSlugPrompt } from "@asdl/planned-branch";
-import { buildSlugModelArgs } from "../../planned-branch/src/model-slug.ts";
+import { buildSlugModelArgs } from "@asdl/plans";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";

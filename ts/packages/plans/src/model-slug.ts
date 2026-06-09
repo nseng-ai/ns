@@ -1,9 +1,17 @@
-import { formatCommand, formatOutputSection } from "@asdl/plans";
+import { formatCommand, formatOutputSection } from "./command-runtime.ts";
+import {
+	DEFAULT_FAST_MODEL,
+	DEFAULT_FAST_MODEL_REF,
+	resolveModelRef,
+	type ModelRefResolution,
+	type ParsedModelRef,
+} from "./model-defaults.ts";
 
-export const SLUG_MODEL_PROVIDER = "openai-codex";
-export const SLUG_MODEL_MODEL = "gpt-5.4-mini";
+export const SLUG_MODEL_ENV = "ASDL_SLUG_MODEL";
 export const SLUG_MODEL_THINKING = "minimal";
 export const SLUG_MODEL_TIMEOUT_MS = 60_000;
+
+export const DEFAULT_SLUG_MODEL: ParsedModelRef = DEFAULT_FAST_MODEL;
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -39,13 +47,19 @@ export interface DeriveSlugWithModelInput {
 	cwd: string;
 	prompt: string;
 	slugKind: string;
+	model?: ParsedModelRef;
 	normalizeOutput(output: string): string | undefined;
 	exec(command: string, args: string[], options: SlugModelExecOptions): Promise<SlugModelCommandResult>;
 	signal?: AbortSignal;
 }
 
+export function resolveSlugModel(env: Record<string, string | undefined>): ModelRefResolution {
+	return resolveModelRef(env, SLUG_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
+}
+
 export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Promise<SlugModelDerivationResult> {
-	const args = buildSlugModelArgs(input.prompt);
+	const model = input.model ?? DEFAULT_SLUG_MODEL;
+	const args = buildSlugModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<slug-prompt>"]);
 
 	let result: SlugModelCommandResult;
@@ -102,18 +116,18 @@ export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Prom
 		evidence: {
 			slug,
 			rawOutput,
-			provider: SLUG_MODEL_PROVIDER,
-			model: SLUG_MODEL_MODEL,
+			provider: model.provider,
+			model: model.modelId,
 		},
 	};
 }
 
-export function buildSlugModelArgs(prompt: string): string[] {
+export function buildSlugModelArgs(prompt: string, model: ParsedModelRef = DEFAULT_SLUG_MODEL): string[] {
 	return [
 		"--provider",
-		SLUG_MODEL_PROVIDER,
+		model.provider,
 		"--model",
-		SLUG_MODEL_MODEL,
+		model.modelId,
 		"--thinking",
 		SLUG_MODEL_THINKING,
 		"--no-session",

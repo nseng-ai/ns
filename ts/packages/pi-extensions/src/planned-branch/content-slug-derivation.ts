@@ -1,6 +1,11 @@
 import { formatOutputSection } from "../command-runtime.ts";
-import { deriveSlugWithModel, type SlugModelEvidence } from "../model-slug.ts";
-import { validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
+import {
+	deriveSlugWithModel,
+	resolveSlugModel,
+	validatePlanSlug,
+	type PlanCommandExecApi,
+	type SlugModelEvidence,
+} from "@asdl/plans";
 
 const MAX_ERROR_CHARS = 4_000;
 const MAX_PLAN_SLUG_WORDS = 7;
@@ -28,10 +33,16 @@ export async function deriveContentSlug(
 	input: DeriveContentSlugInput,
 	variant: ContentSlugDerivationVariant,
 ): Promise<ContentSlugEvidence> {
+	const modelResolution = resolveSlugModel(process.env);
+	if (!modelResolution.ok) {
+		throw slugDerivationFailed(variant, [modelResolution.error]);
+	}
+
 	const prompt = buildContentSlugPrompt(input.content, variant);
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt,
+		model: modelResolution.value,
 		...(input.signal === undefined ? {} : { signal: input.signal }),
 		slugKind: variant.slugKind,
 		normalizeOutput: normalizePlanContentSlugOutput,
