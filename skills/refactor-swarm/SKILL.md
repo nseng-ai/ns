@@ -63,6 +63,8 @@ Task(
 )
 ```
 
+On an OpenAI Codex-backed harness (such as Pi), request the cheap fast tier per dispatch instead — for example, dispatch the runner subagent with `model: 'openai-codex/gpt-5.4-mini:minimal'`.
+
 On harnesses without a haiku-tier model or per-dispatch model selection, omit the model parameter and use the default model.
 
 **Launch ALL source-wave agents in a single message** so they run concurrently.
