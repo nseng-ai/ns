@@ -1,5 +1,5 @@
-import type { ToolResult } from "../grill-ui.ts";
-import type { GrillAskProgress, GrillAskProgressSource } from "./progress.ts";
+import type { GrillAskRemainingEstimate, ToolResult } from "../grill-ui.ts";
+import { formatRemainingEstimate, type GrillAskProgress, type GrillAskProgressSource } from "./progress.ts";
 import type { GrillAskChoiceRow } from "./view.ts";
 
 export type GrillAskDetails =
@@ -27,6 +27,7 @@ export type GrillAskDetails =
 			question: string;
 			answeredQuestions?: number;
 			progressSource: GrillAskProgressSource;
+			estimatedRemaining?: GrillAskRemainingEstimate;
 	  }
 	| {
 			action: "cancelled";
@@ -80,19 +81,24 @@ export function selectedChoiceResult(question: string, selectedEntry: GrillAskCh
 	);
 }
 
-export function statusRequestResult(question: string, progress: GrillAskProgress): ToolResult<GrillAskDetails> {
+export function statusRequestResult(
+	question: string,
+	progress: GrillAskProgress,
+	estimate: GrillAskRemainingEstimate | undefined,
+): ToolResult<GrillAskDetails> {
 	return textResult(
 		[
 			"User requested a grill status checkpoint. This is not an answer to the pending question.",
 			"",
 			`Answered count: ${formatAnsweredCount(progress)}`,
+			`Remaining estimate: ${formatRemainingEstimate(estimate)}`,
 			"",
 			"Produce this compact report:",
 			"",
 			"## Grill status",
 			"",
 			"Answered: <use the exact count above when available; otherwise say unknown>",
-			"Estimated remaining: <number or range, with a short basis>",
+			"Estimated remaining: <use the exact remaining estimate above, including uncertainty/basis; revise only if you have a clear reason>",
 			"",
 			"Current pending question:",
 			`- ${question}`,
@@ -113,6 +119,7 @@ export function statusRequestResult(question: string, progress: GrillAskProgress
 			question,
 			...(progress.answeredQuestions === undefined ? {} : { answeredQuestions: progress.answeredQuestions }),
 			progressSource: progress.source,
+			...(estimate === undefined ? {} : { estimatedRemaining: estimate }),
 		},
 	);
 }

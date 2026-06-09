@@ -1,4 +1,4 @@
-import type { GrillAskToolContext } from "../grill-ui.ts";
+import type { GrillAskRemainingEstimate, GrillAskToolContext } from "../grill-ui.ts";
 
 export type GrillAskProgressSource = "session_branch" | "session_branch_unscoped" | "unavailable";
 
@@ -9,6 +9,48 @@ export interface GrillAskProgress {
 
 const GRILL_ASK_TOOL_NAME = "grill_ask";
 const GRILL_UI_KICKOFF_MARKERS = ["<structured-grill-question-ui-contract>", "<plan-or-design-to-grill>"] as const;
+const COMPACT_BASIS_MAX_LENGTH = 64;
+
+export function formatGrillAskProgressLine(progress: GrillAskProgress, estimate: GrillAskRemainingEstimate | undefined): string {
+	return [formatQuestionProgress(progress), formatRemainingEstimate(estimate, "compact")].join(" • ");
+}
+
+export function formatRemainingEstimate(
+	estimate: GrillAskRemainingEstimate | undefined,
+	basisMode: "compact" | "full" = "full",
+): string {
+	if (estimate === undefined) return "Remaining unknown (estimate not supplied)";
+
+	switch (estimate.kind) {
+		case "exact":
+			return appendBasis(`Remaining ${estimate.count}`, estimate.basis, "basis", basisMode);
+		case "range":
+			return appendBasis(`Remaining ${estimate.min}–${estimate.max}`, estimate.basis, "rough", basisMode);
+		case "unknown":
+			return appendBasis("Remaining unknown", estimate.basis, "why", basisMode);
+		default: {
+			const exhaustive: never = estimate;
+			return exhaustive;
+		}
+	}
+}
+
+function formatQuestionProgress(progress: GrillAskProgress): string {
+	if (progress.answeredQuestions === undefined) return "Question unknown • Answered unknown";
+	return `Question ${progress.answeredQuestions + 1} • Answered ${progress.answeredQuestions}`;
+}
+
+function appendBasis(value: string, basis: string | undefined, label: string, basisMode: "compact" | "full"): string {
+	if (basis === undefined) return value;
+	const renderedBasis = basisMode === "compact" ? compactBasis(basis) : basis;
+	return `${value} (${label}: ${renderedBasis})`;
+}
+
+function compactBasis(value: string): string {
+	const trimmed = value.replace(/\s+/g, " ").trim();
+	if (trimmed.length <= COMPACT_BASIS_MAX_LENGTH) return trimmed;
+	return `${trimmed.slice(0, COMPACT_BASIS_MAX_LENGTH - 1)}…`;
+}
 
 export function readGrillAskProgress(ctx: GrillAskToolContext): GrillAskProgress {
 	const sessionManager = ctx.sessionManager;

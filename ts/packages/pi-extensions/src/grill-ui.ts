@@ -10,7 +10,7 @@ import {
 	textResult,
 	type GrillAskDetails,
 } from "./grill-ui/result.ts";
-import { readGrillAskProgress } from "./grill-ui/progress.ts";
+import { formatGrillAskProgressLine, readGrillAskProgress, type GrillAskProgress } from "./grill-ui/progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./grill-ui/validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./grill-ui/view.ts";
 import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
@@ -59,11 +59,29 @@ export interface GrillAskRecommendation {
 	optionValue?: string;
 }
 
+export type GrillAskRemainingEstimate =
+	| {
+			kind: "exact";
+			count: number;
+			basis?: string;
+	  }
+	| {
+			kind: "range";
+			min: number;
+			max: number;
+			basis: string;
+	  }
+	| {
+			kind: "unknown";
+			basis: string;
+	  };
+
 export interface GrillAskInput {
 	question: string;
 	context?: string;
 	recommended: GrillAskRecommendation;
 	options: GrillAskOption[];
+	estimatedRemaining?: GrillAskRemainingEstimate;
 	allowFreeform?: boolean;
 	allowEnd?: boolean;
 }
@@ -73,6 +91,7 @@ export interface NormalizedGrillAskInput {
 	context?: string;
 	recommended: GrillAskRecommendation;
 	options: GrillAskOption[];
+	estimatedRemaining?: GrillAskRemainingEstimate;
 	allowFreeform: boolean;
 	allowEnd: boolean;
 }
@@ -181,6 +200,7 @@ When you need user input during this grill session:
 - Prefer affirmative, mutually exclusive options.
 - Provide 2–5 substantive choices, not counting automatic freeform/status/end choices.
 - Provide your recommended answer and rationale.
+- Provide estimatedRemaining on every grill_ask call. Use exact only when you know; otherwise use a range with a basis or unknown with a basis. Do not invent precision.
 - Always allow freeform unless there is a strong reason not to.
 - Always allow ending the grilling session.
 - If grill_ask returns action: "end_grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.
@@ -196,8 +216,8 @@ export function buildGrillWithDocsUiPrompt(skillBlock: string | undefined, targe
 	return buildStructuredGrillPrompt(skillBlock, FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK, target);
 }
 
-export function buildGrillAskSelectTitle(input: NormalizedGrillAskInput): string {
-	const parts = [`Question:\n${input.question}`];
+export function buildGrillAskSelectTitle(input: NormalizedGrillAskInput, progress: GrillAskProgress = { source: "unavailable" }): string {
+	const parts = [formatGrillAskProgressLine(progress, input.estimatedRemaining), `Question:\n${input.question}`];
 	if (input.context !== undefined) {
 		parts.push(`Context:\n${input.context}`);
 	}
@@ -230,7 +250,7 @@ export async function executeGrillAsk(
 			if (outcome === undefined) {
 				return cancelledResult(input.question);
 			}
-			return grillAskOutcomeResult(input.question, outcome, ctx);
+			return grillAskOutcomeResult(input, outcome, ctx);
 		} catch {
 			if (executionOptions.signal?.aborted) {
 				return cancelledResult(input.question);
@@ -257,11 +277,12 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		name: GRILL_ASK_TOOL_NAME,
 		label: "Grill Ask",
 		description:
-			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, a freeform path, a status checkpoint path, and an end-session path.",
+			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, an honest remaining-question estimate, a freeform path, a status checkpoint path, and an end-session path.",
 		promptSnippet: "Ask one grill-me question through structured choices, freeform, status, or end-session UI",
 		promptGuidelines: [
 			"Use grill_ask for each user-facing question in grill-me sessions; do not ask those questions in prose while grill_ask is available.",
 			"Ask exactly one question per grill_ask call and include 2–5 affirmative, mutually exclusive options plus your recommendation.",
+			"Include estimatedRemaining on every grill_ask call; use exact only when known, otherwise use a range with basis or unknown with basis.",
 			"Use grill_ask with freeform and end-session paths enabled unless there is a strong reason not to.",
 			"If grill_ask returns action: \"end_grill\", stop asking questions and summarize decisions, unresolved branches, and final recommendation.",
 			"If grill_ask returns action: \"status_request\", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.",
@@ -357,7 +378,8 @@ async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillA
 
 	const rows = buildGrillAskRows(input);
 	const displays = rows.map(rowSelectDisplay);
-	const selectedDisplay = await ctx.ui.select(buildGrillAskSelectTitle(input), displays);
+	const progress = readGrillAskProgress(ctx);
+	const selectedDisplay = await ctx.ui.select(buildGrillAskSelectTitle(input, progress), displays);
 	if (selectedDisplay === undefined) {
 		return cancelledResult(input.question);
 	}
@@ -374,7 +396,7 @@ async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillA
 		case "freeform":
 			return executeLegacyFreeformAnswer(input, ctx);
 		case "status":
-			return statusRequestResult(input.question, readGrillAskProgress(ctx));
+			return statusRequestResult(input.question, progress, input.estimatedRemaining);
 		case "end_grill":
 			return endGrillResult(input.question);
 		default: {
@@ -398,18 +420,18 @@ async function executeLegacyFreeformAnswer(input: NormalizedGrillAskInput, ctx: 
 	return freeformAnswerResult(input.question, answer);
 }
 
-function grillAskOutcomeResult(question: string, outcome: GrillAskOutcome, ctx: GrillAskToolContext): ToolResult<GrillAskDetails> {
+function grillAskOutcomeResult(input: NormalizedGrillAskInput, outcome: GrillAskOutcome, ctx: GrillAskToolContext): ToolResult<GrillAskDetails> {
 	switch (outcome.action) {
 		case "choice":
-			return selectedChoiceResult(question, outcome.entry);
+			return selectedChoiceResult(input.question, outcome.entry);
 		case "freeform":
-			return freeformAnswerResult(question, outcome.answer);
+			return freeformAnswerResult(input.question, outcome.answer);
 		case "status_request":
-			return statusRequestResult(question, readGrillAskProgress(ctx));
+			return statusRequestResult(input.question, readGrillAskProgress(ctx), input.estimatedRemaining);
 		case "end_grill":
-			return endGrillResult(question);
+			return endGrillResult(input.question);
 		case "cancelled":
-			return cancelledResult(question);
+			return cancelledResult(input.question);
 		default: {
 			const exhaustive: never = outcome;
 			return exhaustive;

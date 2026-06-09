@@ -1,5 +1,6 @@
 import type { GrillAskCustomComponent, GrillAskToolContext, NormalizedGrillAskInput } from "../grill-ui.ts";
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
+import { readGrillAskProgress } from "./progress.ts";
 import { renderGrillAskInlineUi, type GrillAskRenderPrimitives, type GrillAskRenderTheme } from "./render.ts";
 
 interface EditorLike {
@@ -40,7 +41,7 @@ export function runGrillAskInlineUiWithRuntime(
 ): Promise<GrillAskOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
 	return ctx.ui.custom<GrillAskOutcome>((tui, theme, _keybindings, done) =>
-		createGrillAskInlineComponent(input, runtime, tui, grillAskRenderThemeFromValue(theme), done),
+		createGrillAskInlineComponent(input, runtime, tui, grillAskRenderThemeFromValue(theme), done, ctx),
 	);
 }
 
@@ -50,8 +51,9 @@ export function createGrillAskInlineComponent(
 	tui: unknown,
 	theme: GrillAskRenderTheme,
 	done: (outcome: GrillAskOutcome) => void,
+	ctx?: GrillAskToolContext,
 ): GrillAskCustomComponent {
-	return new GrillAskInlineUi(input, runtime, tui, theme, done);
+	return new GrillAskInlineUi(input, runtime, tui, theme, done, ctx ?? { hasUI: false, ui: {} });
 }
 
 export function grillAskRenderThemeFromValue(value: unknown): GrillAskRenderTheme {
@@ -110,6 +112,7 @@ class GrillAskInlineUi implements GrillAskCustomComponent {
 	private readonly runtime: GrillAskInlineRuntime;
 	private readonly tui: unknown;
 	private readonly theme: GrillAskRenderTheme;
+	private readonly ctx: GrillAskToolContext;
 	private readonly done: (outcome: GrillAskOutcome) => void;
 	private readonly controller: GrillAskController;
 	private readonly editor: EditorLike;
@@ -121,11 +124,13 @@ class GrillAskInlineUi implements GrillAskCustomComponent {
 		tui: unknown,
 		theme: GrillAskRenderTheme,
 		done: (outcome: GrillAskOutcome) => void,
+		ctx: GrillAskToolContext,
 	) {
 		this.input = input;
 		this.runtime = runtime;
 		this.tui = tui;
 		this.theme = theme;
+		this.ctx = ctx;
 		this.done = done;
 		this.controller = new GrillAskController(input);
 		this.editor = new runtime.Editor(tui, editorTheme(theme));
@@ -198,6 +203,7 @@ class GrillAskInlineUi implements GrillAskCustomComponent {
 				mode: this.controller.mode,
 				rows: this.controller.rows,
 				focusIndex: this.controller.focusIndex,
+				progress: readGrillAskProgress(this.ctx),
 				editorLines: this.controller.mode === "freeform" ? this.editor.render(editorWidth) : [],
 			},
 			width,
