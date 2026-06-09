@@ -283,11 +283,24 @@ def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_overrid
         "Do not set `dispatch_runner_subagent.model` to a cheap/review model." in resolution.content
     )
     assert "Never reuse review model guidance for implementation" in resolution.content
+    assert "Closeout review plan:" in resolution.content
     assert (
-        "exclusively for in-session review subagents after implementation is complete"
+        "exactly one in-session style review subagent per applicable review family"
         in resolution.content
     )
+    assert "exclusively for review-only subagents after implementation is complete" in (
+        resolution.content
+    )
+    assert "single in-session `typescript-style` review subagent" in resolution.content
+    assert "single in-session `dignified-python` review subagent" in resolution.content
+    assert (
+        "Do not tell the implementation agent to repeat TypeScript/Python style review subagents"
+        in resolution.content
+    )
+    assert "the final PR review is the final style/quality checkstep" in resolution.content
+    assert "repeat the relevant in-session review subagent after easy fixes" not in (
+        resolution.content
+    )
     assert "dispatch_runner_subagent.model" in resolution.content
-    assert "default_model: haiku" in resolution.content
+    assert "default_model" in resolution.content
     assert "openai-codex/gpt-5.4-mini:medium" in resolution.content
-    assert "openai-codex/gpt-5.5:high" in resolution.content

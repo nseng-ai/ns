@@ -21,7 +21,7 @@ Recommended saved plan sections:
 - Validation commands and expected results.
 - Risks, assumptions, edge cases, and open questions.
 - Subagent orchestration opportunities.
-- Review and remediation plan.
+- Closeout review plan.
 
 Subagent orchestration opportunities:
 - Explicitly consider whether subagent orchestration is useful for the implementation plan.
@@ -44,18 +44,17 @@ Subagent model routing:
   - When launching a review subagent from `reviews/typescript-style.md` or `reviews/dignified-python.md`, use that review definition's `default_model` if available.
   - Never reuse review model guidance for implementation, package creation, refactors, or test-writing subagents.
 
-Review and remediation plan:
-- The cheap-model guidance in this section is exclusively for in-session review subagents after implementation is complete. It must not be applied to any subagent that creates files, edits code, writes tests, migrates APIs, or performs implementation work.
-- Plans should include applicable in-session roaster-style reviews after implementation and focused validation, run through focused review subagents.
-- Review subagents are bounded diff inspections, so only review-only subagents should be routed to a cheap review-capable model when the harness supports per-dispatch model selection. In Pi, instruct the implementation agent to set `dispatch_runner_subagent.model` to the review definition's `default_model` value when that model is available; the current `reviews/typescript-style.md` and `reviews/dignified-python.md` definitions both declare `default_model: haiku`. For OpenAI-family Pi routing, use the shared cheap model pattern `openai-codex/gpt-5.4-mini:medium`; escalate to `openai-codex/gpt-5.5:high` only when validation fails or broader judgment is required. If the harness cannot force a per-dispatch model, say that the cheap-model request is unavailable instead of implying it happened.
-- If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include an in-session `typescript-style` review subagent that reads `reviews/typescript-style.md` and applies it to the changed diff.
-- If Python files (`.py`) are likely to change, include an in-session `dignified-python` review subagent that reads `reviews/dignified-python.md` and applies it to the changed diff.
-- If both TypeScript and Python changes are likely, include both review subagents. If neither applies, say that no TypeScript/Python roaster review subagent is applicable.
-- If a plan includes a `simplify` review subagent, explicitly limit it to one run total. Do not ask the implementation agent to rerun `simplify` after remediating findings; it should inspect the one result, fix easy findings, validate, and stop or report remaining judgment calls.
+Closeout review plan:
+- Plans should include exactly one in-session style review subagent per applicable review family, run after implementation is complete and focused validation has passed.
+- The cheap-model guidance in this section is exclusively for review-only subagents after implementation is complete. It must not be applied to subagents that create files, edit code, write tests, migrate APIs, or perform implementation work.
+- Review-only subagents may use the review definition's `default_model` when available. For OpenAI-family Pi routing, the cheap review-capable pattern is `openai-codex/gpt-5.4-mini:medium`; escalate only when validation fails or broader judgment is required. If the harness cannot force a per-dispatch model, say that the cheap-model request is unavailable instead of implying it happened.
+- If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include a single in-session `typescript-style` review subagent that reads `reviews/typescript-style.md` and applies it to the changed diff.
+- If Python files (`.py`) are likely to change, include a single in-session `dignified-python` review subagent that reads `reviews/dignified-python.md` and applies it to the changed diff.
+- If both TypeScript and Python changes are likely, include one review subagent for each applicable family. If neither applies, say that no TypeScript/Python roaster review subagent is applicable.
 - Do not invoke the external roaster review runner for this closeout; the implementation agent launches focused subagents to perform reviews in-session from the review definition files.
 - Plans should instruct the implementation agent to inspect each review subagent's final text/status before acting on findings.
 - Plans should instruct the implementation agent to automatically remediate easy findings: local, mechanical, low-risk fixes that are clearly correct from nearby context and require no product, API, ownership, or design decision.
-- Plans should instruct the implementation agent to re-run focused validation after easy fixes. For applicable TypeScript/Python closeout reviews, repeat the relevant in-session review subagent after easy fixes; never repeat a `simplify` review subagent.
+- Plans should instruct the implementation agent to re-run focused validation after easy fixes, then stop or report remaining judgment calls. Do not tell the implementation agent to repeat TypeScript/Python style review subagents after remediation; the final PR review is the final style/quality checkstep.
 - Plans should instruct the implementation agent to stop automatic remediation and report complex findings to the user when findings are ambiguous, cross-cutting, behavior-changing, design-sensitive, or not clearly correct. The report should include path/line, why it was deferred, and recommended options.
 
 Workflow:

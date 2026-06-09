@@ -793,13 +793,25 @@ describe("buildWritePlanPrompt", () => {
 			"Do not set `dispatch_runner_subagent.model` to a cheap/review model.",
 		);
 		expect(checkedInContent).toContain("Never reuse review model guidance for implementation");
+		expect(checkedInContent).toContain("Closeout review plan:");
 		expect(checkedInContent).toContain(
-			"exclusively for in-session review subagents after implementation is complete",
+			"exactly one in-session style review subagent per applicable review family",
+		);
+		expect(checkedInContent).toContain(
+			"exclusively for review-only subagents after implementation is complete",
+		);
+		expect(checkedInContent).toContain("single in-session `typescript-style` review subagent");
+		expect(checkedInContent).toContain("single in-session `dignified-python` review subagent");
+		expect(checkedInContent).toContain(
+			"Do not tell the implementation agent to repeat TypeScript/Python style review subagents",
+		);
+		expect(checkedInContent).toContain("the final PR review is the final style/quality checkstep");
+		expect(checkedInContent).not.toContain(
+			"repeat the relevant in-session review subagent after easy fixes",
 		);
 		expect(checkedInContent).toContain("dispatch_runner_subagent.model");
-		expect(checkedInContent).toContain("default_model: haiku");
+		expect(checkedInContent).toContain("default_model");
 		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
-		expect(checkedInContent).toContain("openai-codex/gpt-5.5:high");
 	});
 });
 
