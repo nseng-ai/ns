@@ -21,7 +21,7 @@ from asdl_pr_address.cli.pr_address.feedback_payload import (
     PayloadMode,
     build_get_feedback_payload_manifest,
 )
-from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
+from asdl_pr_address.cli.pr_address.feedback_snapshot import fetch_feedback_snapshot
 
 
 class GetFeedbackRequest(ClinkrModel):
@@ -73,17 +73,17 @@ def run_get_feedback(
         store = open_clinkr_payload_store(request.payload_session_id)
 
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    raw_reviews = pr_address_context.pr_gateway.get_reviews(request.pr_number)
-    reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
-    inline_result = GetFeedbackInlineResult(
+    snapshot = fetch_feedback_snapshot(
+        pr_address_context.pr_gateway,
         pr_number=request.pr_number,
-        reviews=reviews,
-        review_threads=pr_address_context.pr_gateway.get_review_threads(
-            request.pr_number, include_resolved=request.include_resolved
-        ),
-        discussion_comments=pr_address_context.pr_gateway.get_pr_discussion_comments(
-            request.pr_number
-        ),
+        include_resolved=request.include_resolved,
+        include_empty_reviews=request.include_empty_reviews,
+    )
+    inline_result = GetFeedbackInlineResult(
+        pr_number=snapshot.pr_number,
+        reviews=snapshot.reviews,
+        review_threads=snapshot.review_threads,
+        discussion_comments=snapshot.discussion_comments,
     )
     if request.payload_mode == "inline":
         return ClinkrExit.ok(inline_result)

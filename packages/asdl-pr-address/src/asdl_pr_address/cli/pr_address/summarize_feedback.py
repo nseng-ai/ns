@@ -23,7 +23,7 @@ from asdl_core.gh.types import (
     PRSummary,
 )
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
+from asdl_pr_address.cli.pr_address.feedback_snapshot import fetch_feedback_snapshot
 
 DiscussionSourceKind = Literal["automation_like", "human_like"]
 
@@ -161,15 +161,13 @@ def run_summarize_feedback(
             message=f"No PR found for PR {request.pr_number}: {pr.stderr}",
         )
 
-    raw_reviews = pr_address_context.pr_gateway.get_reviews(pr.number)
-    reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
-    all_threads = pr_address_context.pr_gateway.get_review_threads(pr.number, include_resolved=True)
-    returned_threads = (
-        all_threads
-        if request.include_resolved
-        else tuple(thread for thread in all_threads if not thread.is_resolved)
+    snapshot = fetch_feedback_snapshot(
+        pr_address_context.pr_gateway,
+        pr_number=pr.number,
+        include_resolved=request.include_resolved,
+        include_empty_reviews=request.include_empty_reviews,
+        count_all_review_threads=True,
     )
-    discussion_comments = pr_address_context.pr_gateway.get_pr_discussion_comments(pr.number)
 
     return ClinkrExit.ok(
         SummarizeFeedbackResult(
@@ -177,17 +175,19 @@ def run_summarize_feedback(
             pr_number=pr.number,
             pr=_compact_pr(pr),
             counts=_counts(
-                reviews=reviews,
-                review_threads=all_threads,
-                discussion_comments=discussion_comments,
+                reviews=snapshot.reviews,
+                review_threads=snapshot.counted_review_threads,
+                discussion_comments=snapshot.discussion_comments,
             ),
-            reviews=tuple(_compact_review(review, request.body_chars) for review in reviews),
+            reviews=tuple(
+                _compact_review(review, request.body_chars) for review in snapshot.reviews
+            ),
             review_threads=tuple(
-                _compact_thread(thread, request.body_chars) for thread in returned_threads
+                _compact_thread(thread, request.body_chars) for thread in snapshot.review_threads
             ),
             discussion_comments=tuple(
                 _compact_discussion_comment(comment, request.body_chars)
-                for comment in discussion_comments
+                for comment in snapshot.discussion_comments
             ),
         )
     )
