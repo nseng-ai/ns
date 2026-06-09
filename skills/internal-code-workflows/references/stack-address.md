@@ -75,9 +75,8 @@ Load these when their domain is touched:
 
 ### Shared helper conventions
 
-- Use the bundled runner, usually
-  `.agents/skills/pr-address/scripts/pr-address-run`, in place of literal
-  `pr-address` in command examples.
+- Run the `pr-address` CLI on `PATH` (installed from an asdl checkout with
+  `just install-pr-address`); command examples are literal.
 - Choose one lowercase safe payload session id for the whole run. Pass it with
   `--payload-session-id <payload-session-id>` or set
   `ASDL_PAYLOAD_SESSION_ID` consistently.
@@ -128,7 +127,7 @@ Fetch the initial unresolved-only stack snapshot:
 
 ```bash
 printf '%s' '<stack-json>' \
-  | <pr-address-runner> exec stack-feedback-prep \
+  | pr-address exec stack-feedback-prep \
       --payload-session-id <payload-session-id> \
       --stdout-mode compact \
       --format json \
@@ -171,7 +170,7 @@ per PR:
 
 ```bash
 printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
-  | <pr-address-runner> exec stack-feedback-plan \
+  | pr-address exec stack-feedback-plan \
       --payload-session-id <payload-session-id> \
       --stdout-mode compact \
       --format json \
@@ -264,7 +263,7 @@ feedback with resolved threads included:
 
 ```bash
 printf '%s' '<same-stack-json>' \
-  | <pr-address-runner> exec stack-feedback-prep \
+  | pr-address exec stack-feedback-prep \
       --include-resolved \
       --payload-session-id <payload-session-id> \
       --stdout-mode compact \
@@ -278,7 +277,7 @@ stack plan to that fresh full prep:
 
 ```bash
 printf '%s' '{"stack_plan":{...},"current_prep":{...}}' \
-  | <pr-address-runner> exec stack-feedback-diff-current --format json
+  | pr-address exec stack-feedback-diff-current --format json
 ```
 
 Proceed to payload building only when the diff exits `0`, `data.valid == true`,
@@ -321,7 +320,7 @@ For each selected stack batch represented in an omnibus commit:
 
    ```bash
    printf '%s' '<builder-input-json>' \
-     | <pr-address-runner> exec build-stack-resolve-thread-payloads --format json
+     | pr-address exec build-stack-resolve-thread-payloads --format json
    ```
 
 4. For each `data.payloads[]` entry where `payload_ready == true`, pipe
@@ -329,7 +328,7 @@ For each selected stack batch represented in an omnibus commit:
 
    ```bash
    printf '%s' '<data.payloads[n].payload-json>' \
-     | <pr-address-runner> exec resolve-thread-batch --format json
+     | pr-address exec resolve-thread-batch --format json
    ```
 
 5. Do not call `resolve-thread-batch` for entries where `payload_ready == false`;
@@ -351,7 +350,7 @@ consistent counts:
 
 ```bash
 printf '%s' '<same-stack-json>' \
-  | <pr-address-runner> exec stack-feedback-prep \
+  | pr-address exec stack-feedback-prep \
       --include-resolved \
       --payload-session-id <payload-session-id> \
       --stdout-mode compact \

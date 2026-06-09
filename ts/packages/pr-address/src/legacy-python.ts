@@ -3,7 +3,9 @@ import process from "node:process";
 
 import { findLegacyCheckoutRoot } from "./repo-root.ts";
 
-export const LEGACY_PR_ADDRESS_VERSION = "0.1.0";
+// 0.1.1 is the oldest published asdl-pr-address release on PyPI; the previous
+// 0.1.0 pin was never published and could not resolve.
+export const LEGACY_PR_ADDRESS_VERSION = "0.1.1";
 
 export interface LegacyRunOptions {
 	cwd: string;
@@ -50,7 +52,9 @@ export class RealLegacyPrAddressGateway implements LegacyPrAddressGateway {
 		if (repoRoot !== undefined) {
 			return await this.runProcess({
 				command: "uv",
-				args: ["run", "--project", repoRoot, "pr-address", ...args],
+				// The local console script is pr-address-py; plain pr-address on PATH
+				// is the TypeScript shim and would recurse.
+				args: ["run", "--project", repoRoot, "pr-address-py", ...args],
 				cwd: options.cwd,
 				env,
 				stdio: "inherit",

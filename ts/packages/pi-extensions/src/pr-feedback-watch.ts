@@ -586,7 +586,7 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 	lines.push(
 		"",
 		"Instructions:",
-		"- Use the installed `pr-address` skill/workflow and its `.agents/skills/pr-address/scripts/pr-address-run` wrapper.",
+		"- Use the installed `pr-address` skill/workflow; invoke operations with the `pr-address` CLI on PATH.",
 		"- Do not push, submit, or create branches.",
 		"- Address only the detected new feedback keys above. If `pr-address` validation requires classifying/accounting for all current feedback, classify/account for all feedback but execute only work for the detected keys. Leave pre-existing unresolved feedback unchanged unless it is necessary context for a detected key.",
 		"- Use payload locators and `read-feedback-detail` for exact body text; do not paste full raw payload JSON into the transcript.",
@@ -972,27 +972,18 @@ class PrFeedbackWatchController {
 
 	private async resolveRunner(session: ActiveSession): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
 		if (this.runner !== undefined) return { type: "resolved", runner: this.runner };
-		const repoRoot = await resolveRepoRoot(this.pi, session.cwd, session.abortController.signal);
-		const candidates = [
-			repoRoot === undefined ? undefined : join(repoRoot, ".agents", "skills", "pr-address", "scripts", "pr-address-run"),
-			join(session.cwd, ".agents", "skills", "pr-address", "scripts", "pr-address-run"),
-		].filter((candidate): candidate is string => candidate !== undefined);
-		for (const candidate of candidates) {
-			if (isExecutable(candidate)) {
-				this.runner = { command: candidate, baseArgs: [] };
-				return { type: "resolved", runner: this.runner };
-			}
-		}
 		const pathPrAddress = await this.pi.exec("which", ["pr-address"], { cwd: session.cwd, timeout: GIT_TIMEOUT_MS, signal: session.abortController.signal });
 		if (!pathPrAddress.killed && pathPrAddress.code === 0 && pathPrAddress.stdout.trim().length > 0) {
 			this.runner = { command: "pr-address", baseArgs: [] };
 			return { type: "resolved", runner: this.runner };
 		}
-		if (repoRoot !== undefined && pathExists(join(repoRoot, "pyproject.toml"))) {
-			this.runner = { command: "uv", baseArgs: ["run", "--directory", repoRoot, "pr-address"] };
+		const repoRoot = await resolveRepoRoot(this.pi, session.cwd, session.abortController.signal);
+		const checkoutCli = repoRoot === undefined ? undefined : join(repoRoot, "ts", "packages", "pr-address", "src", "cli.ts");
+		if (checkoutCli !== undefined && pathExists(checkoutCli)) {
+			this.runner = { command: "node", baseArgs: [checkoutCli] };
 			return { type: "resolved", runner: this.runner };
 		}
-		return { type: "failed", message: "Could not find pr-address runner. Expected .agents/skills/pr-address/scripts/pr-address-run, pr-address on PATH, or an asdl checkout with uv." };
+		return { type: "failed", message: "Could not find pr-address. Expected `pr-address` on PATH (installed with `just install-pr-address`) or an asdl checkout containing ts/packages/pr-address/src/cli.ts." };
 	}
 
 	private baseline(snapshot: FeedbackSnapshot): void {
@@ -1249,15 +1240,6 @@ function skewIso(iso: string): string {
 
 function execOptions(cwd: string, timeout: number, signal?: AbortSignal): ExecOptions {
 	return { cwd, timeout, ...(signal === undefined ? {} : { signal }) };
-}
-
-function isExecutable(path: string): boolean {
-	try {
-		accessSync(path, constants.X_OK);
-		return true;
-	} catch {
-		return false;
-	}
 }
 
 function pathExists(path: string): boolean {
