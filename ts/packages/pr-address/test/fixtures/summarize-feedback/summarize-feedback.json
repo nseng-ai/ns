@@ -1,0 +1,218 @@
+{
+	"gateway": {
+		"pr": {
+			"number": 42,
+			"title": "Add compact feedback",
+			"url": "https://github.com/dagster-io/asdl/pull/42",
+			"head_ref_name": "feature",
+			"base_ref_name": "master",
+			"state": "OPEN"
+		},
+		"reviews": [
+			{
+				"id": "PRR_empty",
+				"author": "approver",
+				"body": "   ",
+				"state": "APPROVED",
+				"submitted_at": "2026-05-23T00:00:00Z"
+			},
+			{
+				"id": "PRR_1",
+				"author": "reviewer",
+				"body": "Please update the helper — carefully.\n\nDetails follow here with café ☕ accents and a long tail that exceeds forty characters.",
+				"state": "CHANGES_REQUESTED",
+				"submitted_at": "2026-05-23T00:00:00Z"
+			}
+		],
+		"review_threads": [
+			{
+				"id": "PRRT_open",
+				"path": "src/app.py",
+				"line": 10,
+				"is_resolved": false,
+				"is_outdated": false,
+				"comments": [
+					{
+						"id": 1,
+						"body": "Please update this helper before merging. Please update this helper before merging. Please update this helper before merging. ",
+						"author": "reviewer",
+						"path": "src/app.py",
+						"line": 10,
+						"created_at": "2026-05-23T00:00:00Z",
+						"start_line": 8
+					},
+					{
+						"id": 2,
+						"body": "Follow-up question.",
+						"author": "author",
+						"path": "src/app.py",
+						"line": 10,
+						"created_at": "2026-05-23T01:00:00Z",
+						"start_line": null
+					}
+				],
+				"start_line": 8
+			},
+			{
+				"id": "PRRT_bare",
+				"path": "src/bare.py",
+				"line": null,
+				"is_resolved": false,
+				"is_outdated": true,
+				"comments": [],
+				"start_line": null
+			},
+			{
+				"id": "PRRT_resolved",
+				"path": "src/done.py",
+				"line": 5,
+				"is_resolved": true,
+				"is_outdated": false,
+				"comments": [
+					{
+						"id": 3,
+						"body": "Looks good.",
+						"author": "reviewer",
+						"path": "src/done.py",
+						"line": 5,
+						"created_at": "2026-05-23T02:00:00Z",
+						"start_line": null
+					}
+				],
+				"start_line": null
+			}
+		],
+		"discussion_comments": [
+			{
+				"id": 101,
+				"body": "Human discussion comment with several words.",
+				"author": "schrockn",
+				"url": "https://example.com/comment/101"
+			},
+			{
+				"id": 102,
+				"body": "Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42",
+				"author": "Graphite Automations",
+				"url": "https://example.com/comment/102"
+			},
+			{
+				"id": 103,
+				"body": "Ordinary bot comment",
+				"author": "github-actions[bot]",
+				"url": "https://example.com/comment/103"
+			},
+			{
+				"id": 104,
+				"body": "<!-- roaster: finding -->",
+				"author": "reviewer",
+				"url": "https://example.com/comment/104"
+			}
+		]
+	},
+	"cases": [
+		{
+			"name": "body-chars-40",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42",
+				"--body-chars",
+				"40"
+			],
+			"github": "default",
+			"expected_exit_code": 0,
+			"expected_envelope_text": "{\n  \"exit_code\": 0,\n  \"data\": {\n    \"found\": true,\n    \"pr_number\": 42,\n    \"pr\": {\n      \"number\": 42,\n      \"title\": \"Add compact feedback\",\n      \"url\": \"https://github.com/dagster-io/asdl/pull/42\",\n      \"head_ref_name\": \"feature\",\n      \"base_ref_name\": \"master\",\n      \"state\": \"OPEN\"\n    },\n    \"counts\": {\n      \"reviews\": 1,\n      \"review_threads\": 3,\n      \"unresolved_review_threads\": 2,\n      \"resolved_review_threads\": 1,\n      \"discussion_comments\": 4\n    },\n    \"reviews\": [\n      {\n        \"id\": \"PRR_1\",\n        \"author\": \"reviewer\",\n        \"state\": \"CHANGES_REQUESTED\",\n        \"submitted_at\": \"2026-05-23T00:00:00Z\",\n        \"body_first_line_excerpt\": \"Please update the helper \\u2014 carefully.\",\n        \"body_excerpt\": \"Please update the helper \\u2014 carefully. D\\u2026\"\n      }\n    ],\n    \"review_threads\": [\n      {\n        \"thread_id\": \"PRRT_open\",\n        \"path\": \"src/app.py\",\n        \"line\": 10,\n        \"start_line\": 8,\n        \"is_outdated\": false,\n        \"is_resolved\": false,\n        \"comment_count\": 2,\n        \"first_comment\": {\n          \"id\": 1,\n          \"author\": \"reviewer\",\n          \"line\": 10,\n          \"start_line\": 8,\n          \"created_at\": \"2026-05-23T00:00:00Z\",\n          \"body_first_line_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\",\n          \"body_excerpt\": \"Please update this helper before mergin\\u2026\"\n        }\n      },\n      {\n        \"thread_id\": \"PRRT_bare\",\n        \"path\": \"src/bare.py\",\n        \"line\": null,\n        \"start_line\": null,\n        \"is_outdated\": true,\n        \"is_resolved\": false,\n        \"comment_count\": 0,\n        \"first_comment\": null\n      }\n    ],\n    \"discussion_comments\": [\n      {\n        \"comment_id\": 101,\n        \"author\": \"schrockn\",\n        \"url\": \"https://example.com/comment/101\",\n        \"source_kind\": \"human_like\",\n        \"source_evidence\": [],\n        \"body_first_line_excerpt\": \"Human discussion comment with several words.\",\n        \"body_excerpt\": \"Human discussion comment with several w\\u2026\"\n      },\n      {\n        \"comment_id\": 102,\n        \"author\": \"Graphite Automations\",\n        \"url\": \"https://example.com/comment/102\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"graphite_link\"\n        ],\n        \"body_first_line_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\",\n        \"body_excerpt\": \"Stack metadata: https://app.graphite.co\\u2026\"\n      },\n      {\n        \"comment_id\": 103,\n        \"author\": \"github-actions[bot]\",\n        \"url\": \"https://example.com/comment/103\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"bot_author\"\n        ],\n        \"body_first_line_excerpt\": \"Ordinary bot comment\",\n        \"body_excerpt\": \"Ordinary bot comment\"\n      },\n      {\n        \"comment_id\": 104,\n        \"author\": \"reviewer\",\n        \"url\": \"https://example.com/comment/104\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"roaster_marker\"\n        ],\n        \"body_first_line_excerpt\": \"<!-- roaster: finding -->\",\n        \"body_excerpt\": \"<!-- roaster: finding -->\"\n      }\n    ]\n  }\n}\n"
+		},
+		{
+			"name": "include-resolved",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42",
+				"--include-resolved"
+			],
+			"github": "default",
+			"expected_exit_code": 0,
+			"expected_envelope_text": "{\n  \"exit_code\": 0,\n  \"data\": {\n    \"found\": true,\n    \"pr_number\": 42,\n    \"pr\": {\n      \"number\": 42,\n      \"title\": \"Add compact feedback\",\n      \"url\": \"https://github.com/dagster-io/asdl/pull/42\",\n      \"head_ref_name\": \"feature\",\n      \"base_ref_name\": \"master\",\n      \"state\": \"OPEN\"\n    },\n    \"counts\": {\n      \"reviews\": 1,\n      \"review_threads\": 3,\n      \"unresolved_review_threads\": 2,\n      \"resolved_review_threads\": 1,\n      \"discussion_comments\": 4\n    },\n    \"reviews\": [\n      {\n        \"id\": \"PRR_1\",\n        \"author\": \"reviewer\",\n        \"state\": \"CHANGES_REQUESTED\",\n        \"submitted_at\": \"2026-05-23T00:00:00Z\",\n        \"body_first_line_excerpt\": \"Please update the helper \\u2014 carefully.\",\n        \"body_excerpt\": \"Please update the helper \\u2014 carefully. Details follow here with caf\\u00e9 \\u2615 accents and a long tail that exceeds forty characters.\"\n      }\n    ],\n    \"review_threads\": [\n      {\n        \"thread_id\": \"PRRT_open\",\n        \"path\": \"src/app.py\",\n        \"line\": 10,\n        \"start_line\": 8,\n        \"is_outdated\": false,\n        \"is_resolved\": false,\n        \"comment_count\": 2,\n        \"first_comment\": {\n          \"id\": 1,\n          \"author\": \"reviewer\",\n          \"line\": 10,\n          \"start_line\": 8,\n          \"created_at\": \"2026-05-23T00:00:00Z\",\n          \"body_first_line_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\",\n          \"body_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\"\n        }\n      },\n      {\n        \"thread_id\": \"PRRT_bare\",\n        \"path\": \"src/bare.py\",\n        \"line\": null,\n        \"start_line\": null,\n        \"is_outdated\": true,\n        \"is_resolved\": false,\n        \"comment_count\": 0,\n        \"first_comment\": null\n      },\n      {\n        \"thread_id\": \"PRRT_resolved\",\n        \"path\": \"src/done.py\",\n        \"line\": 5,\n        \"start_line\": null,\n        \"is_outdated\": false,\n        \"is_resolved\": true,\n        \"comment_count\": 1,\n        \"first_comment\": {\n          \"id\": 3,\n          \"author\": \"reviewer\",\n          \"line\": 5,\n          \"start_line\": null,\n          \"created_at\": \"2026-05-23T02:00:00Z\",\n          \"body_first_line_excerpt\": \"Looks good.\",\n          \"body_excerpt\": \"Looks good.\"\n        }\n      }\n    ],\n    \"discussion_comments\": [\n      {\n        \"comment_id\": 101,\n        \"author\": \"schrockn\",\n        \"url\": \"https://example.com/comment/101\",\n        \"source_kind\": \"human_like\",\n        \"source_evidence\": [],\n        \"body_first_line_excerpt\": \"Human discussion comment with several words.\",\n        \"body_excerpt\": \"Human discussion comment with several words.\"\n      },\n      {\n        \"comment_id\": 102,\n        \"author\": \"Graphite Automations\",\n        \"url\": \"https://example.com/comment/102\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"graphite_link\"\n        ],\n        \"body_first_line_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\",\n        \"body_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\"\n      },\n      {\n        \"comment_id\": 103,\n        \"author\": \"github-actions[bot]\",\n        \"url\": \"https://example.com/comment/103\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"bot_author\"\n        ],\n        \"body_first_line_excerpt\": \"Ordinary bot comment\",\n        \"body_excerpt\": \"Ordinary bot comment\"\n      },\n      {\n        \"comment_id\": 104,\n        \"author\": \"reviewer\",\n        \"url\": \"https://example.com/comment/104\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"roaster_marker\"\n        ],\n        \"body_first_line_excerpt\": \"<!-- roaster: finding -->\",\n        \"body_excerpt\": \"<!-- roaster: finding -->\"\n      }\n    ]\n  }\n}\n"
+		},
+		{
+			"name": "include-empty-reviews",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42",
+				"--include-empty-reviews"
+			],
+			"github": "default",
+			"expected_exit_code": 0,
+			"expected_envelope_text": "{\n  \"exit_code\": 0,\n  \"data\": {\n    \"found\": true,\n    \"pr_number\": 42,\n    \"pr\": {\n      \"number\": 42,\n      \"title\": \"Add compact feedback\",\n      \"url\": \"https://github.com/dagster-io/asdl/pull/42\",\n      \"head_ref_name\": \"feature\",\n      \"base_ref_name\": \"master\",\n      \"state\": \"OPEN\"\n    },\n    \"counts\": {\n      \"reviews\": 2,\n      \"review_threads\": 3,\n      \"unresolved_review_threads\": 2,\n      \"resolved_review_threads\": 1,\n      \"discussion_comments\": 4\n    },\n    \"reviews\": [\n      {\n        \"id\": \"PRR_empty\",\n        \"author\": \"approver\",\n        \"state\": \"APPROVED\",\n        \"submitted_at\": \"2026-05-23T00:00:00Z\",\n        \"body_first_line_excerpt\": null,\n        \"body_excerpt\": \"\"\n      },\n      {\n        \"id\": \"PRR_1\",\n        \"author\": \"reviewer\",\n        \"state\": \"CHANGES_REQUESTED\",\n        \"submitted_at\": \"2026-05-23T00:00:00Z\",\n        \"body_first_line_excerpt\": \"Please update the helper \\u2014 carefully.\",\n        \"body_excerpt\": \"Please update the helper \\u2014 carefully. Details follow here with caf\\u00e9 \\u2615 accents and a long tail that exceeds forty characters.\"\n      }\n    ],\n    \"review_threads\": [\n      {\n        \"thread_id\": \"PRRT_open\",\n        \"path\": \"src/app.py\",\n        \"line\": 10,\n        \"start_line\": 8,\n        \"is_outdated\": false,\n        \"is_resolved\": false,\n        \"comment_count\": 2,\n        \"first_comment\": {\n          \"id\": 1,\n          \"author\": \"reviewer\",\n          \"line\": 10,\n          \"start_line\": 8,\n          \"created_at\": \"2026-05-23T00:00:00Z\",\n          \"body_first_line_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\",\n          \"body_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\"\n        }\n      },\n      {\n        \"thread_id\": \"PRRT_bare\",\n        \"path\": \"src/bare.py\",\n        \"line\": null,\n        \"start_line\": null,\n        \"is_outdated\": true,\n        \"is_resolved\": false,\n        \"comment_count\": 0,\n        \"first_comment\": null\n      }\n    ],\n    \"discussion_comments\": [\n      {\n        \"comment_id\": 101,\n        \"author\": \"schrockn\",\n        \"url\": \"https://example.com/comment/101\",\n        \"source_kind\": \"human_like\",\n        \"source_evidence\": [],\n        \"body_first_line_excerpt\": \"Human discussion comment with several words.\",\n        \"body_excerpt\": \"Human discussion comment with several words.\"\n      },\n      {\n        \"comment_id\": 102,\n        \"author\": \"Graphite Automations\",\n        \"url\": \"https://example.com/comment/102\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"graphite_link\"\n        ],\n        \"body_first_line_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\",\n        \"body_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\"\n      },\n      {\n        \"comment_id\": 103,\n        \"author\": \"github-actions[bot]\",\n        \"url\": \"https://example.com/comment/103\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"bot_author\"\n        ],\n        \"body_first_line_excerpt\": \"Ordinary bot comment\",\n        \"body_excerpt\": \"Ordinary bot comment\"\n      },\n      {\n        \"comment_id\": 104,\n        \"author\": \"reviewer\",\n        \"url\": \"https://example.com/comment/104\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"roaster_marker\"\n        ],\n        \"body_first_line_excerpt\": \"<!-- roaster: finding -->\",\n        \"body_excerpt\": \"<!-- roaster: finding -->\"\n      }\n    ]\n  }\n}\n"
+		},
+		{
+			"name": "defaults",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42"
+			],
+			"github": "default",
+			"expected_exit_code": 0,
+			"expected_envelope_text": "{\n  \"exit_code\": 0,\n  \"data\": {\n    \"found\": true,\n    \"pr_number\": 42,\n    \"pr\": {\n      \"number\": 42,\n      \"title\": \"Add compact feedback\",\n      \"url\": \"https://github.com/dagster-io/asdl/pull/42\",\n      \"head_ref_name\": \"feature\",\n      \"base_ref_name\": \"master\",\n      \"state\": \"OPEN\"\n    },\n    \"counts\": {\n      \"reviews\": 1,\n      \"review_threads\": 3,\n      \"unresolved_review_threads\": 2,\n      \"resolved_review_threads\": 1,\n      \"discussion_comments\": 4\n    },\n    \"reviews\": [\n      {\n        \"id\": \"PRR_1\",\n        \"author\": \"reviewer\",\n        \"state\": \"CHANGES_REQUESTED\",\n        \"submitted_at\": \"2026-05-23T00:00:00Z\",\n        \"body_first_line_excerpt\": \"Please update the helper \\u2014 carefully.\",\n        \"body_excerpt\": \"Please update the helper \\u2014 carefully. Details follow here with caf\\u00e9 \\u2615 accents and a long tail that exceeds forty characters.\"\n      }\n    ],\n    \"review_threads\": [\n      {\n        \"thread_id\": \"PRRT_open\",\n        \"path\": \"src/app.py\",\n        \"line\": 10,\n        \"start_line\": 8,\n        \"is_outdated\": false,\n        \"is_resolved\": false,\n        \"comment_count\": 2,\n        \"first_comment\": {\n          \"id\": 1,\n          \"author\": \"reviewer\",\n          \"line\": 10,\n          \"start_line\": 8,\n          \"created_at\": \"2026-05-23T00:00:00Z\",\n          \"body_first_line_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\",\n          \"body_excerpt\": \"Please update this helper before merging. Please update this helper before merging. Please update this helper before merging.\"\n        }\n      },\n      {\n        \"thread_id\": \"PRRT_bare\",\n        \"path\": \"src/bare.py\",\n        \"line\": null,\n        \"start_line\": null,\n        \"is_outdated\": true,\n        \"is_resolved\": false,\n        \"comment_count\": 0,\n        \"first_comment\": null\n      }\n    ],\n    \"discussion_comments\": [\n      {\n        \"comment_id\": 101,\n        \"author\": \"schrockn\",\n        \"url\": \"https://example.com/comment/101\",\n        \"source_kind\": \"human_like\",\n        \"source_evidence\": [],\n        \"body_first_line_excerpt\": \"Human discussion comment with several words.\",\n        \"body_excerpt\": \"Human discussion comment with several words.\"\n      },\n      {\n        \"comment_id\": 102,\n        \"author\": \"Graphite Automations\",\n        \"url\": \"https://example.com/comment/102\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"graphite_link\"\n        ],\n        \"body_first_line_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\",\n        \"body_excerpt\": \"Stack metadata: https://app.graphite.com/github/pr/dagster-io/asdl/42\"\n      },\n      {\n        \"comment_id\": 103,\n        \"author\": \"github-actions[bot]\",\n        \"url\": \"https://example.com/comment/103\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"bot_author\"\n        ],\n        \"body_first_line_excerpt\": \"Ordinary bot comment\",\n        \"body_excerpt\": \"Ordinary bot comment\"\n      },\n      {\n        \"comment_id\": 104,\n        \"author\": \"reviewer\",\n        \"url\": \"https://example.com/comment/104\",\n        \"source_kind\": \"automation_like\",\n        \"source_evidence\": [\n          \"roaster_marker\"\n        ],\n        \"body_first_line_excerpt\": \"<!-- roaster: finding -->\",\n        \"body_excerpt\": \"<!-- roaster: finding -->\"\n      }\n    ]\n  }\n}\n"
+		},
+		{
+			"name": "missing-pr",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"404"
+			],
+			"github": "default",
+			"expected_exit_code": 1,
+			"expected_envelope_text": "{\n  \"exit_code\": 1,\n  \"message\": \"No PR found for PR 404: no PR found for PR 404\",\n  \"data\": {\n    \"found\": false,\n    \"pr_number\": 404,\n    \"error\": \"no PR found for PR 404\",\n    \"returncode\": 1\n  }\n}\n"
+		},
+		{
+			"name": "lookup-failure",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42"
+			],
+			"github": "lookup-failure",
+			"expected_exit_code": 2,
+			"expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"pr_gateway_failure\",\n  \"message\": \"Failed to look up PR 42: gh auth failed\"\n}\n"
+		},
+		{
+			"name": "body-chars-zero",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42",
+				"--body-chars",
+				"0"
+			],
+			"github": "default",
+			"expected_exit_code": 2,
+			"expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"invalid_request\",\n  \"message\": \"body_chars must be between 1 and 4000\"\n}\n"
+		},
+		{
+			"name": "body-chars-too-large",
+			"args": [
+				"summarize-feedback",
+				"--format",
+				"json",
+				"42",
+				"--body-chars",
+				"4001"
+			],
+			"github": "default",
+			"expected_exit_code": 2,
+			"expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"invalid_request\",\n  \"message\": \"body_chars must be between 1 and 4000\"\n}\n"
+		}
+	]
+}

@@ -69,13 +69,13 @@ export function toMachineEnvelope(exit: ClinkrExit): MachineEnvelope {
 
 export function emitClinkrExit(exit: ClinkrExit, options: EmitClinkrExitOptions): number {
 	if (options.format === "json") {
-		options.stdout(`${JSON.stringify(toMachineEnvelope(exit), null, 2)}\n`);
+		options.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
 		return exitCodeForClinkrExit(exit);
 	}
 
 	switch (exit.type) {
 		case "ok":
-			options.stdout(`${JSON.stringify(exit.data, null, 2)}\n`);
+			options.stdout(`${envelopeJsonText(exit.data)}\n`);
 			return 0;
 		case "negative":
 			options.stderr(`${exit.message}\n`);
@@ -84,4 +84,14 @@ export function emitClinkrExit(exit: ClinkrExit, options: EmitClinkrExitOptions)
 			options.stderr(`error: ${exit.message}\n`);
 			return 2;
 	}
+}
+
+/**
+ * Serialize envelope JSON byte-for-byte like Python `json.dumps(value, indent=2)`,
+ * including `ensure_ascii` escaping of non-ASCII characters.
+ */
+function envelopeJsonText(value: unknown): string {
+	const serialized = JSON.stringify(value, null, 2);
+	if (serialized === undefined) return String(serialized);
+	return serialized.replace(/[\u007f-\uffff]/g, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }

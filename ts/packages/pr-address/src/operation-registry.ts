@@ -15,9 +15,11 @@ import {
 	runResolveThreadWithReplyOperation,
 	runUnresolveThreadOperation,
 } from "./mutation-operations.ts";
+import { runPrepareRunOperation } from "./prepare-run.ts";
 import { runReadFeedbackDetailOperation, runReadFeedbackDetailsOperation } from "./read-feedback-detail.ts";
 import { runBuildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 import { runStackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
+import { runSummarizeFeedbackOperation } from "./summarize-feedback.ts";
 
 export interface ExecRuntimeDeps {
 	context: PrAddressContext;
@@ -155,6 +157,14 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "get-feedback",
 			handler: runGetFeedbackOperation,
+		},
+		{
+			name: "prepare-run",
+			handler: runPrepareRunOperation,
+		},
+		{
+			name: "summarize-feedback",
+			handler: runSummarizeFeedbackOperation,
 		},
 		{
 			name: "read-feedback-detail",

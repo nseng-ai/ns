@@ -10,7 +10,7 @@ import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./ope
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
 const resolutionMarker = "<!-- pr-address:resolved -->";
 
-interface FeedbackSnapshot {
+export interface FeedbackSnapshot {
 	pr_number: number;
 	reviews: readonly PRReview[];
 	review_threads: readonly PRReviewThread[];
@@ -18,7 +18,7 @@ interface FeedbackSnapshot {
 	discussion_comments: readonly PRDiscussionComment[];
 }
 
-interface ParsedReadOptions {
+export interface ParsedReadOptions {
 	positionals: readonly string[];
 	values: ReadonlyMap<string, string>;
 	flags: ReadonlySet<string>;
@@ -143,7 +143,7 @@ export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot,
 	});
 }
 
-async function fetchFeedbackSnapshot(options: {
+export async function fetchFeedbackSnapshot(options: {
 	gateway: PrAddressGitHubGateway;
 	prNumber: number;
 	shouldIncludeResolved: boolean;
@@ -204,14 +204,14 @@ export function contestedThreadIds(reviewThreads: readonly PRReviewThread[]): re
 	return contested;
 }
 
-interface ParsePrNumberOperationOptions {
+export interface ParsePrNumberOperationOptions {
 	args: readonly string[];
 	commandName: string;
 	flagOptions?: readonly string[];
 	valueOptions?: readonly string[];
 }
 
-function parsePrNumberOperation(options: ParsePrNumberOperationOptions): { type: "ok"; prNumber: number; flags: ReadonlySet<string>; values: ReadonlyMap<string, string> } | { type: "error"; result: ExecOperationDispatchResult } {
+export function parsePrNumberOperation(options: ParsePrNumberOperationOptions): { type: "ok"; prNumber: number; flags: ReadonlySet<string>; values: ReadonlyMap<string, string> } | { type: "error"; result: ExecOperationDispatchResult } {
 	const parsed = parseReadOptions(options.args, options.valueOptions ?? [], options.flagOptions ?? []);
 	if (parsed.type === "error") return { type: "error", result: { type: "exit", exit: clinkrFailure("invalid_request", parsed.message) } };
 	const rawPrNumber = parsed.options.positionals[0];
@@ -220,7 +220,7 @@ function parsePrNumberOperation(options: ParsePrNumberOperationOptions): { type:
 	return { type: "ok", prNumber, flags: parsed.options.flags, values: parsed.options.values };
 }
 
-function parseReadOptions(
+export function parseReadOptions(
 	args: readonly string[],
 	valueOptions: readonly string[],
 	flagOptions: readonly string[],
@@ -252,7 +252,7 @@ function parseReadOptions(
 	return { type: "ok", options: { positionals, values, flags } };
 }
 
-function githubGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitHubGateway } | { type: "error"; result: ExecOperationDispatchResult } {
+export function githubGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitHubGateway } | { type: "error"; result: ExecOperationDispatchResult } {
 	const gateway = invocation.deps.context.github;
 	if (gateway === undefined) {
 		return { type: "error", result: { type: "exit", exit: clinkrFailure("missing_gateway", "This TypeScript pr-address operation requires a GitHub gateway.") } };
@@ -260,7 +260,7 @@ function githubGateway(invocation: ExecOperationInvocation): { type: "ok"; gatew
 	return { type: "ok", gateway };
 }
 
-function gatewayOptions(invocation: ExecOperationInvocation): { cwd: string; env: NodeJS.ProcessEnv } {
+export function gatewayOptions(invocation: ExecOperationInvocation): { cwd: string; env: NodeJS.ProcessEnv } {
 	return { cwd: invocation.deps.cwd, env: invocation.deps.env };
 }
 
@@ -268,9 +268,12 @@ function gatewayFailureResult(prefix: string, failure: GatewayFailure): { type: 
 	return { type: "error", result: { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(prefix, failure)) } };
 }
 
-function gatewayFailureMessage(prefix: string, failure: GatewayFailure): string {
-	const detail = failure.stderr || failure.stdout || `exit code ${failure.returncode}`;
-	return `${prefix}: ${detail}`;
+export function gatewayFailureDetail(failure: GatewayFailure): string {
+	return failure.stderr || failure.stdout || `exit code ${failure.returncode}`;
+}
+
+export function gatewayFailureMessage(prefix: string, failure: GatewayFailure): string {
+	return `${prefix}: ${gatewayFailureDetail(failure)}`;
 }
 
 export const getFeedbackInlineResultSchema = z.looseObject({
