@@ -8,9 +8,7 @@ import {
 	encodeBranchForPlanPath,
 	extractSourceBranchPlanFileEvidenceFromSessionEntry,
 	findLatestSessionSavedPlanFile,
-	findLatestSessionSavedTsPlanFile,
 	validateSessionSavedPlanCandidate,
-	validateSessionSavedTsPlanCandidate,
 	type PlanStoreDirectoryEvidence,
 	type SourceBranchPlanFileEvidence,
 } from "../src/index.ts";
@@ -18,7 +16,6 @@ import {
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "canonical-saved-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
-const PLAN_TS_KEY = `${PLAN_SLUG}.plan.ts`;
 const ORIGIN = "git@github.com:owner/repo.git";
 
 const tempDirs: string[] = [];
@@ -48,27 +45,6 @@ describe("saved plan session selection", () => {
 				filePath: newerPath,
 				fileName: PLAN_KEY,
 				summary: "Use this plan.",
-			},
-		});
-	});
-
-	test("returns the newest TypeScript recipe session evidence without selecting Markdown", async () => {
-		const fixture = await makeFixture();
-		const markdownPath = await writePlanFile(fixture.directory, PLAN_KEY, 1_900_000_000_000);
-		const tsPath = await writePlanFile(fixture.directory, PLAN_TS_KEY, 1_800_000_000_000);
-		const entries = [
-			savedPlanEntry(evidence(fixture.directory, { filePath: markdownPath })),
-			savedTsPlanEntry(evidence(fixture.directory, { filePath: tsPath })),
-		];
-
-		const result = await findLatestSessionSavedTsPlanFile(entries, fixture.directory);
-
-		expect(result).toMatchObject({
-			type: "found",
-			plan: {
-				slug: PLAN_SLUG,
-				filePath: tsPath,
-				fileName: PLAN_TS_KEY,
 			},
 		});
 	});
@@ -161,21 +137,6 @@ describe("saved plan session selection", () => {
 			}
 		});
 	}
-
-	test("validates TypeScript recipe session evidence suffix and basename", async () => {
-		const fixture = await makeFixture();
-		const tsPath = await writePlanFile(fixture.directory, PLAN_TS_KEY, 1_800_000_000_000);
-		const markdownPath = await writePlanFile(fixture.directory, PLAN_KEY, 1_800_000_000_000);
-
-		const valid = await validateSessionSavedTsPlanCandidate(evidence(fixture.directory, { filePath: tsPath }), fixture.directory);
-		const wrongSuffix = await validateSessionSavedTsPlanCandidate(evidence(fixture.directory, { filePath: markdownPath }), fixture.directory);
-
-		expect(valid.type).toBe("valid");
-		expect(wrongSuffix.type).toBe("unsafe");
-		if (wrongSuffix.type === "unsafe") {
-			expect(wrongSuffix.message).toContain(".plan.ts filename");
-		}
-	});
 });
 
 interface Fixture {
@@ -241,10 +202,6 @@ function evidence(
 
 function savedPlanEntry(plan: SourceBranchPlanFileEvidence): unknown {
 	return savedPlanEntryForTool(plan, "write_source_branch_plan_file");
-}
-
-function savedTsPlanEntry(plan: SourceBranchPlanFileEvidence): unknown {
-	return savedPlanEntryForTool(plan, "write_source_branch_ts_plan_file");
 }
 
 function savedPlanEntryForTool(plan: SourceBranchPlanFileEvidence, toolName: string): unknown {

@@ -13,8 +13,6 @@
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/planned-branch/test"
   },
-  "dependencies": {
-    "@asdl/ts-plans": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }
