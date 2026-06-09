@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from asdl_core.gh.pr_gateway import PRGateway, RealPRGateway
+from asdl_core.gh.construction import build_pr_gateway
+from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.real_git_gateway import RealGitGateway
 
@@ -20,6 +21,6 @@ class PrAddressCliContext:
 def build_pr_address_context() -> PrAddressCliContext:
     """Assemble a :class:`PrAddressCliContext` from real gateways."""
     return PrAddressCliContext(
-        pr_gateway=RealPRGateway(),
+        pr_gateway=build_pr_gateway(),
         git_gateway=RealGitGateway(),
     )

@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 
 from asdl_core.clinkr.context import load_clinkr_context_object
-from asdl_core.gh.pr_gateway import RealPRGateway
+from asdl_core.gh.construction import build_pr_gateway
 from asdl_core.git.construction import GitUnavailable, build_git_context
 from asdl_core.git.real_git_gateway import RealGitGateway
 from asdl_slots.context import SlotsCliContext
@@ -45,7 +45,7 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
         git=git,
         storage=storage,
         clipboard=RealClipboardGateway(),
-        pr=RealPRGateway(),
+        pr=build_pr_gateway(),
         slots_root=slots_root,
     )
 

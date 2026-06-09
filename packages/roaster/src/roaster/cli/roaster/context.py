@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from asdl_core.gh.pr_gateway import RealPRGateway
+from asdl_core.gh.construction import build_pr_gateway
 from roaster.context import RoasterCliContext
 from roaster.gateways.local_diff.real import RealLocalDiffGateway
 from roaster.gateways.review_catalog.real import RealReviewCatalogGateway
@@ -24,6 +24,6 @@ def build_roaster_context() -> RoasterCliContext:
         catalog=RealReviewCatalogGateway(cwd=cwd),
         diff=RealLocalDiffGateway(cwd=cwd),
         harness_runtime=HarnessRuntime(progress_writer=_stderr_progress),
-        pr_gateway=RealPRGateway(),
+        pr_gateway=build_pr_gateway(),
         cwd=cwd,
     )
