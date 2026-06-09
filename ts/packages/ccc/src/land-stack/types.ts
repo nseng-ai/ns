@@ -41,14 +41,6 @@ export interface LandStackCommandContext {
 }
 
 export interface LandStackExtensionAPI {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: LandStackCommandContext): Promise<void> | void;
-		},
-	): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(
 		message: CustomMessage,

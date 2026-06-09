@@ -219,7 +219,13 @@ describe("code land command registration", () => {
 		expect([...pi.commands.keys()]).toEqual(["code:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
-		expect(pi.commands.get("code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
+		const command = pi.commands.get("code:land");
+		expect(command?.description).toBe("Land the current PR or Graphite stack into trunk");
+		expect(command?.getArgumentCompletions?.("--")).toEqual([
+			{ value: "--yes", label: "--yes" },
+			{ value: "--dry-run", label: "--dry-run" },
+			{ value: "--help", label: "--help" },
+		]);
 	});
 });
 
