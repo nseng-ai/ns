@@ -71,6 +71,7 @@ export interface BaseRuntimeContext {
 	model?: ModelInfo;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
+		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 	};
 }

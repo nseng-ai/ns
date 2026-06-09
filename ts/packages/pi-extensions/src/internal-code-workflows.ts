@@ -1,7 +1,7 @@
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type { CommandContext, CustomMessage, RenderComponent, RenderTheme } from "./handoff/runtime-types.ts";
 
-export const INTERNAL_CODE_WORKFLOWS_COMMAND_NAME = "internal:code-workflows";
+export const INTERNAL_CODE_WORKFLOWS_COMMAND_NAME = "internal-code-workflows";
 export const INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE = "internal-code-workflows-selection";
 
 interface AutocompleteItem {
@@ -78,14 +78,12 @@ const ROUTES = [
 
 export default function internalCodeWorkflowsExtension(pi: InternalCodeWorkflowsExtensionAPI): void {
 	pi.registerMessageRenderer?.(INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE, renderInternalCodeWorkflowMessage);
-	pi.registerCommand(INTERNAL_CODE_WORKFLOWS_COMMAND_NAME, {
-		description: "Select a rare internal code workflow without starting a model turn",
-		getArgumentCompletions: completeWorkflowRoute,
-		handler: async (args, ctx) => {
-			await ctx.waitForIdle();
-			await showInternalCodeWorkflowSelector(pi, ctx, args);
-		},
-	});
+	registerWorkflowCommand(pi, INTERNAL_CODE_WORKFLOWS_COMMAND_NAME);
+	for (const route of ROUTES) {
+		for (const commandName of getLegacyWorkflowCommandNames(route)) {
+			registerWorkflowCommand(pi, commandName, route.route);
+		}
+	}
 }
 
 export async function showInternalCodeWorkflowSelector(
@@ -143,8 +141,11 @@ export function formatWorkflowMenu(): string {
 	return ["Available internal code workflows:", ...ROUTES.map((route) => `- ${route.route} — ${route.summary}`)].join("\n");
 }
 
-export function formatWorkflowSelection(route: WorkflowRoute): string {
+export function formatWorkflowSelection(route: WorkflowRoute, options: { editorUpdated?: boolean } = {}): string {
 	const prompt = buildWorkflowPrompt(route);
+	const nextStep = options.editorUpdated === true
+		? "The prompt has been placed in the editor. Press Enter when ready to run it."
+		: "To run this workflow, send this prompt when ready:";
 	return [
 		"## internal-code-workflows",
 		"",
@@ -152,7 +153,7 @@ export function formatWorkflowSelection(route: WorkflowRoute): string {
 		`Reference: \`${route.reference}\``,
 		"",
 		"No model turn was started.",
-		"To run this workflow, send this prompt when ready:",
+		nextStep,
 		"",
 		"```text",
 		prompt,
@@ -180,7 +181,9 @@ function emitWorkflowSelection(
 	route: WorkflowRoute,
 ): void {
 	const prompt = buildWorkflowPrompt(route);
-	const content = formatWorkflowSelection(route);
+	const editorUpdated = ctx.ui.setEditorText !== undefined;
+	ctx.ui.setEditorText?.(prompt);
+	const content = formatWorkflowSelection(route, { editorUpdated });
 	const details: SelectedWorkflowDetails = {
 		route: route.route,
 		reference: route.reference,
@@ -197,6 +200,25 @@ function emitWorkflowSelection(
 	}
 
 	ctx.ui.notify(content, "info");
+}
+
+function registerWorkflowCommand(pi: InternalCodeWorkflowsExtensionAPI, commandName: string, defaultRoute?: string): void {
+	const isRouterCommand = defaultRoute === undefined;
+	pi.registerCommand(commandName, {
+		description: isRouterCommand
+			? "Select a rare internal code workflow without starting a model turn"
+			: `Select the ${defaultRoute} internal code workflow without starting a model turn`,
+		...(isRouterCommand ? { getArgumentCompletions: completeWorkflowRoute } : {}),
+		handler: async (args, ctx) => {
+			await ctx.waitForIdle();
+			const requestedRoute = args.trim() === "" && defaultRoute !== undefined ? defaultRoute : args;
+			await showInternalCodeWorkflowSelector(pi, ctx, requestedRoute);
+		},
+	});
+}
+
+function getLegacyWorkflowCommandNames(route: WorkflowRoute): string[] {
+	return route.aliases.filter((alias) => alias.startsWith("internal-"));
 }
 
 function buildWorkflowPrompt(route: WorkflowRoute): string {
