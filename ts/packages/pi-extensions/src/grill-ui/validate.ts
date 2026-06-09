@@ -1,4 +1,4 @@
-import type { GrillAskOption, NormalizedGrillAskInput } from "../grill-ui.ts";
+import type { GrillAskOption, GrillAskRemainingEstimate, NormalizedGrillAskInput } from "../grill-ui.ts";
 
 export const RESERVED_GRILL_ASK_VALUES = new Set(["__freeform__", "__status__", "__end_grill__", "__cancelled__"]);
 
@@ -61,6 +61,42 @@ export const GRILL_ASK_PARAMETERS = {
 				required: ["value", "label"],
 				additionalProperties: false,
 			},
+		},
+		estimatedRemaining: {
+			description:
+				"Optional honest estimate of how many grill questions remain after the current question is answered. Use unknown or a broad range when uncertain.",
+			oneOf: [
+				{
+					type: "object",
+					properties: {
+						kind: { type: "string", const: "exact" },
+						count: { type: "integer", minimum: 0 },
+						basis: { type: "string", description: "Optional short basis for the estimate." },
+					},
+					required: ["kind", "count"],
+					additionalProperties: false,
+				},
+				{
+					type: "object",
+					properties: {
+						kind: { type: "string", const: "range" },
+						min: { type: "integer", minimum: 0 },
+						max: { type: "integer", minimum: 0 },
+						basis: { type: "string", description: "Short basis for the range and uncertainty." },
+					},
+					required: ["kind", "min", "max", "basis"],
+					additionalProperties: false,
+				},
+				{
+					type: "object",
+					properties: {
+						kind: { type: "string", const: "unknown" },
+						basis: { type: "string", description: "Short explanation of why the remaining question count is unknown." },
+					},
+					required: ["kind", "basis"],
+					additionalProperties: false,
+				},
+			],
 		},
 		allowFreeform: {
 			type: "boolean",
@@ -186,6 +222,8 @@ export function validateGrillAskInput(params: unknown): GrillAskValidationResult
 		errors.push("recommended.optionValue must match one of the option values.");
 	}
 
+	const estimatedRemaining = normalizeEstimatedRemaining(params.estimatedRemaining, errors);
+
 	const rawAllowFreeform = params.allowFreeform;
 	const allowFreeform = rawAllowFreeform === undefined ? true : rawAllowFreeform;
 	if (typeof allowFreeform !== "boolean") {
@@ -213,10 +251,80 @@ export function validateGrillAskInput(params: unknown): GrillAskValidationResult
 				...(recommendedOptionValue === undefined ? {} : { optionValue: recommendedOptionValue }),
 			},
 			options,
+			...(estimatedRemaining === undefined ? {} : { estimatedRemaining }),
 			allowFreeform: allowFreeform as boolean,
 			allowEnd: allowEnd as boolean,
 		},
 	};
+}
+
+function normalizeEstimatedRemaining(rawValue: unknown, errors: string[]): GrillAskRemainingEstimate | undefined {
+	if (rawValue === undefined) return undefined;
+	if (!isRecord(rawValue)) {
+		errors.push("estimatedRemaining must be an object when supplied.");
+		return undefined;
+	}
+
+	const kind = rawValue.kind;
+	if (kind === "exact") {
+		const count = nonNegativeInteger(rawValue.count);
+		if (count === undefined) {
+			errors.push("estimatedRemaining.count must be a non-negative integer for exact estimates.");
+		}
+		const basis = optionalTrimmedString(rawValue.basis, "estimatedRemaining.basis", errors);
+		return count === undefined
+			? undefined
+			: {
+					kind: "exact",
+					count,
+					...(basis === undefined ? {} : { basis }),
+				};
+	}
+
+	if (kind === "range") {
+		const min = nonNegativeInteger(rawValue.min);
+		const max = nonNegativeInteger(rawValue.max);
+		if (min === undefined) errors.push("estimatedRemaining.min must be a non-negative integer for range estimates.");
+		if (max === undefined) errors.push("estimatedRemaining.max must be a non-negative integer for range estimates.");
+		if (min !== undefined && max !== undefined && min > max) {
+			errors.push("estimatedRemaining.min must be less than or equal to estimatedRemaining.max.");
+		}
+		const basis = requiredTrimmedString(rawValue.basis, "estimatedRemaining.basis", errors);
+		return min === undefined || max === undefined || min > max || basis === undefined
+			? undefined
+			: { kind: "range", min, max, basis };
+	}
+
+	if (kind === "unknown") {
+		const basis = requiredTrimmedString(rawValue.basis, "estimatedRemaining.basis", errors);
+		return basis === undefined ? undefined : { kind: "unknown", basis };
+	}
+
+	errors.push("estimatedRemaining.kind must be exact, range, or unknown when supplied.");
+	return undefined;
+}
+
+function requiredTrimmedString(rawValue: unknown, name: string, errors: string[]): string | undefined {
+	if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
+		errors.push(`${name} must be a non-empty string.`);
+		return undefined;
+	}
+	return rawValue.trim();
+}
+
+function optionalTrimmedString(rawValue: unknown, name: string, errors: string[]): string | undefined {
+	if (rawValue === undefined) return undefined;
+	if (typeof rawValue !== "string") {
+		errors.push(`${name} must be a string when supplied.`);
+		return undefined;
+	}
+	const trimmed = rawValue.trim();
+	return trimmed.length === 0 ? undefined : trimmed;
+}
+
+function nonNegativeInteger(value: unknown): number | undefined {
+	if (!Number.isInteger(value) || typeof value !== "number" || value < 0) return undefined;
+	return value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

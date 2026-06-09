@@ -1,4 +1,5 @@
 import type { NormalizedGrillAskInput } from "../grill-ui.ts";
+import { formatGrillAskProgressLine, type GrillAskProgress } from "./progress.ts";
 import { choiceDetailLines, footerText, rowRecommendationTag, type GrillAskMode, type GrillAskRow } from "./view.ts";
 
 export interface GrillAskRenderTheme {
@@ -18,6 +19,7 @@ export interface GrillAskRenderState {
 	mode: GrillAskMode;
 	rows: readonly GrillAskRow[];
 	focusIndex: number;
+	progress?: GrillAskProgress;
 	editorLines?: readonly string[];
 }
 
@@ -33,6 +35,7 @@ export function renderGrillAskInlineUi(
 	const add = (line = "") => lines.push(line);
 
 	add(style(theme, "accent", bold(theme, "grill_ask")));
+	add(style(theme, "dim", formatGrillAskProgressLine(state.progress ?? { source: "unavailable" }, input.estimatedRemaining)));
 	add("");
 	renderReadZone(input, renderWidth, theme, primitives).forEach(add);
 	add("");

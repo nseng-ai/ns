@@ -125,7 +125,8 @@ describe("grill_ask render helpers", () => {
 		expect(output).toContain("3  ✎ Other / freeform answer");
 		expect(output).toContain("4  ℹ Show current grill status");
 		expect(output).toContain("5  ⏹ End grilling session");
-		expect(output).not.toContain("Question");
+		expect(output).toContain("Question unknown • Answered unknown • Remaining unknown");
+		expect(output).not.toContain("Question:");
 		expect(output).not.toContain("Context");
 		expect(output).not.toContain("Recommendation");
 		expect(output).not.toContain("Choices");
@@ -133,6 +134,16 @@ describe("grill_ask render helpers", () => {
 		expect(output).toContain("↑↓/j/k navigate • number/Enter select • Esc cancel");
 		expect(output).toContain("This is safe but keeps the awkward two-dialog freeform flow.");
 		expect(lines.every((line) => line.length <= 72)).toBe(true);
+	});
+
+	test("renders current question number, answered count, and supplied remaining estimate", () => {
+		const input = normalizedInput({
+			estimatedRemaining: { kind: "range", min: 2, max: 5, basis: "API and fallback rendering are still open" },
+		});
+		const rows = buildGrillAskRows(input);
+		const output = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1, progress: { answeredQuestions: 3, source: "session_branch" } }, 90).join("\n");
+
+		expect(output).toContain("Question 4 • Answered 3 • Remaining 2–5 (rough: API and fallback rendering are still open)");
 	});
 
 	test("all choice descriptions stay visible while the focus marker follows selection", () => {

@@ -153,6 +153,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Design target");
 		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
 		expect(prompt).toContain("Ask exactly one question per grill_ask call");
+		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
 		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
 	});
 
@@ -404,6 +405,25 @@ describe("grill_ask validation", () => {
 			expect(text(result), item.name).toContain("Repair the tool call");
 		}
 	});
+
+	test("accepts exact, range, and unknown remaining estimates but rejects dishonest range shapes", async () => {
+		for (const estimatedRemaining of [
+			{ kind: "exact", count: 0 },
+			{ kind: "range", min: 2, max: 5, basis: "two unresolved branches" },
+			{ kind: "unknown", basis: "the design tree is not mapped yet" },
+		]) {
+			const result = await executeGrillAsk({ ...baseInput(), estimatedRemaining }, nonUiContext());
+			expect(result.details).toMatchObject({ action: "ui_unavailable" });
+		}
+
+		const invalid = await executeGrillAsk(
+			{ ...baseInput(), estimatedRemaining: { kind: "range", min: 5, max: 2, basis: "inverted" } },
+			nonUiContext(),
+		);
+
+		expect(invalid.details).toMatchObject({ action: "invalid_tool_input" });
+		expect(text(invalid)).toContain("estimatedRemaining.min must be less than or equal to estimatedRemaining.max");
+	});
 });
 
 describe("grill_ask execution", () => {
@@ -417,17 +437,31 @@ describe("grill_ask execution", () => {
 
 	test("choice path returns selected value, label, and recommended boolean", async () => {
 		const titles: string[] = [];
-		const result = await executeGrillAsk(baseInput(), {
-			hasUI: true,
-			ui: {
-				select: async (title, options) => {
-					titles.push(title);
-					return options[0];
-				},
-				editor: async () => "unused",
+		const result = await executeGrillAsk(
+			{
+				...baseInput(),
+				estimatedRemaining: { kind: "exact", count: 2, basis: "API and tests remain" },
 			},
-		});
+			{
+				hasUI: true,
+				ui: {
+					select: async (title, options) => {
+						titles.push(title);
+						return options[0];
+					},
+					editor: async () => "unused",
+				},
+				sessionManager: {
+					getBranch: () => [
+						userMessage("<structured-grill-question-ui-contract>"),
+						grillAskToolResult({ action: "answer" }),
+						grillAskToolResult({ action: "answer" }),
+					],
+				},
+			},
+		);
 
+		expect(titles[0]).toContain("Question 3 • Answered 2 • Remaining 2 (basis: API and tests remain)");
 		expect(titles[0]).toContain("How should we ship this UI improvement?");
 		expect(titles[0]).toContain("Recommended answer");
 		expect(result.details).toEqual({
@@ -501,9 +535,12 @@ describe("grill_ask execution", () => {
 		});
 	});
 
-	test("custom inline UI status request returns status instructions", async () => {
+	test("custom inline UI status request returns status instructions and reuses the pending estimate", async () => {
 		const result = await executeGrillAsk(
-			baseInput(),
+			{
+				...baseInput(),
+				estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "two UI surfaces plus tests" },
+			},
 			{
 				hasUI: true,
 				ui: {
@@ -519,8 +556,10 @@ describe("grill_ask execution", () => {
 			action: "status_request",
 			question: "How should we ship this UI improvement?",
 			progressSource: "unavailable",
+			estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "two UI surfaces plus tests" },
 		});
 		expect(text(result)).toContain("This is not an answer");
+		expect(text(result)).toContain("Remaining estimate: Remaining 2–4 (rough: two UI surfaces plus tests)");
 		expect(text(result)).toContain("call grill_ask again with the same pending question");
 		expect(result.terminate).toBeUndefined();
 	});
@@ -607,6 +646,7 @@ describe("grill_ask execution", () => {
 		});
 		expect(text(result)).toContain("This is not an answer");
 		expect(text(result)).toContain("Answered count: unavailable from session evidence");
+		expect(text(result)).toContain("Remaining estimate: Remaining unknown (estimate not supplied)");
 		expect(text(result)).toContain("call grill_ask again with the same pending question");
 	});
 
@@ -704,7 +744,9 @@ describe("registerGrillUiExtension", () => {
 		expect(schema.type).toBe("object");
 		expect(schema.required).toEqual(["question", "recommended", "options"]);
 		expect(schema.additionalProperties).toBe(false);
-		expect(tool.promptGuidelines?.every((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME))).toBe(true);
+		expect(tool.promptGuidelines?.every((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME) || guideline.includes("estimatedRemaining"))).toBe(true);
 		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status_request"))).toBe(true);
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("estimatedRemaining"))).toBe(true);
+		expect((schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining).toBeDefined();
 	});
 });
