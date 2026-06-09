@@ -8,11 +8,8 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliUnavailable, load_objective_context
-from asdl_objectives.list_inventory import (
-    ObjectiveRecordStatus,
-    build_objective_checkout_inventory,
-)
 from asdl_objectives.list_status import matches_status_filter
+from asdl_objectives.objective_storage import FilesystemObjectiveStorage, ObjectiveRecordStatus
 
 
 class ObjectiveCandidateRecord(ClinkrModel):
@@ -47,7 +44,7 @@ def run_list_candidates(
     if isinstance(objective_ctx, ObjectiveCliUnavailable):
         return ClinkrExit.failure(error_type="not_in_repo", message=objective_ctx.message)
 
-    inventory = build_objective_checkout_inventory(objective_ctx.repo_root)
+    inventory = FilesystemObjectiveStorage(objective_ctx.repo_root).checkout_inventory()
     records = tuple(
         ObjectiveCandidateRecord(slug=record.slug, status=record.status)
         for record in inventory.records
