@@ -65,7 +65,7 @@ export class NoAttachedPlannedBranchPlanEntriesError extends Error {
 	constructor(branch: string, availableKeys: readonly string[]) {
 		super(
 			[
-				`No attached planned-branch Markdown saved plan entries exist on branch \`${branch}\` in namespace \`${PLAN_BRANCH_NAMESPACE}\`.`,
+				`No attached planned-branch Markdown entries exist on branch \`${branch}\` in namespace \`${PLAN_BRANCH_NAMESPACE}\`.`,
 				"Expected suffix: .md",
 				"",
 				"Available keys:",

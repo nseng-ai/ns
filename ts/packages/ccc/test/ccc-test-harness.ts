@@ -452,6 +452,9 @@ export function skillCommand(skillName: string, path: string): SkillCommandInfo 
 }
 
 export function plannedBranchOutputEntry(branch: string): unknown {
+	const slug = branch.split("/").filter((segment) => segment.length > 0).at(-1) ?? branch;
+	const key = `${slug}.md`;
+	const encodedBranch = branch.replaceAll("/", "---");
 	return {
 		message: {
 			customType: "planned-branch-output",
@@ -459,15 +462,15 @@ export function plannedBranchOutputEntry(branch: string): unknown {
 			details: {
 				status: "success",
 				evidence: {
-					slug: branch,
+					slug,
 					branch,
 					branchCreation: "graphite",
 					startPoint: START_POINT,
 					namespace: "planned-branch",
-					key: `${branch}.md`,
-					refName: `refs/brmem/ns/planned-branch/${branch}:${branch}.md`,
+					key,
+					refName: `refs/brmem/ns/planned-branch/${encodedBranch}:${key}`,
 					commit: START_POINT,
-					sourceFile: `/plans/${branch}.md`,
+					sourceFile: `/plans/${key}`,
 				},
 			},
 		},

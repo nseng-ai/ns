@@ -1,6 +1,6 @@
 ---
 name: brmem
-description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.brmem/prompts/...` prompt plugins. Use whenever the user mentions brmem, Branch Memory, stashing plan/context on a branch, carrying scratch state across sessions, or asks how an agent should call `brmem`."
+description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.brmem/prompts/...` prompt plugins. Use whenever the user mentions brmem, Branch Memory, stashing branch-scoped notes/context, carrying scratch state across sessions, or asks how an agent should call `brmem`."
 allowed-tools:
   - "Bash(brmem *)"
   - "Bash(git *)"
@@ -16,15 +16,17 @@ stay attached to a Git branch without becoming working-tree files, commits, PR
 comments, or issues.
 
 This skill is a CLI reference. Prefer higher-level skills when they match the
-whole workflow. Use this skill directly when you need to inspect, write, copy,
-delete, or explain Branch Memory.
+whole workflow. Use the `planned-branch` skill family for planned-branch saved
+or attached plans; do not store those as generic `brmem` `plans/` keys. Use this
+skill directly when you need to inspect, write, copy, delete, or explain Branch
+Memory.
 
 ## Mental model
 
 - **Branch Memory**: Entries attached to one branch, either in the Base
   Namespace or in a named Namespace.
-- **Entry**: a small text blob stored under an Entry Key such as `plan.md` or
-  `plans/table-filter.md`.
+- **Entry**: a small text blob stored under an Entry Key such as `note.md` or
+  `notes/table-filter.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
 - **Namespace**: a branch-scoped Entry bucket. The Base Namespace has canonical
   name `base` and is reserved by `brmem` for ad-hoc Entries when `--namespace`
@@ -71,7 +73,7 @@ Base Namespace Entries. For `copy`, choose exactly one scope: `--base` or
    `brmem copy --namespace base ...` targets the Base Namespace too. Do not
    omit the scope and do not pass both flags.
 4. **Use simple Entry Keys.** Prefer POSIX-like relative paths such as
-   `plans/add-cache.md` or `session/summary.md`. Avoid spaces and punctuation.
+   `notes/add-cache.md` or `session/summary.md`. Avoid spaces and punctuation.
    Entry Keys cannot be empty, start/end with `/`, contain `//`, contain `:`,
    contain a `..` segment, contain glob/ref metacharacters, or end a segment
    with `.lock`.
@@ -95,15 +97,15 @@ Base Namespace Entries. For `copy`, choose exactly one scope: `--base` or
 2. If preserving existing content matters, run `check` first:
 
 ```text
-brmem check plans/add-cache.md --branch feature/add-cache
-brmem check plans/add-cache.md --namespace scratch --branch feature/add-cache
+brmem check notes/add-cache.md --branch feature/add-cache
+brmem check notes/add-cache.md --namespace scratch --branch feature/add-cache
 ```
 
 3. Store bytes from a file (preferred for agents):
 
 ```text
-brmem put plans/add-cache.md --branch feature/add-cache --file /tmp/plan.md
-brmem put plans/add-cache.md --namespace scratch --branch feature/add-cache --file /tmp/plan.md
+brmem put notes/add-cache.md --branch feature/add-cache --file /tmp/note.md
+brmem put notes/add-cache.md --namespace scratch --branch feature/add-cache --file /tmp/note.md
 ```
 
 Use `--stdin` only for interactive human-mode writes. Do not combine `--stdin`
@@ -123,8 +125,8 @@ brmem list --namespace scratch --all-branches --format json
 Then read Entries by Entry Key:
 
 ```text
-brmem get plans/add-cache.md --branch feature/add-cache
-brmem get plans/add-cache.md --namespace scratch --branch feature/add-cache
+brmem get notes/add-cache.md --branch feature/add-cache
+brmem get notes/add-cache.md --namespace scratch --branch feature/add-cache
 ```
 
 `get` prints only content in human mode. If a task asks you to load all Branch
@@ -168,8 +170,8 @@ Use `check` to test existence or get the Entry Locator without printing the full
 text:
 
 ```text
-brmem check plans/add-cache.md --branch feature/add-cache --format json
-brmem check plans/add-cache.md --namespace scratch --branch feature/add-cache
+brmem check notes/add-cache.md --branch feature/add-cache --format json
+brmem check notes/add-cache.md --namespace scratch --branch feature/add-cache
 ```
 
 Interpret exit codes carefully:

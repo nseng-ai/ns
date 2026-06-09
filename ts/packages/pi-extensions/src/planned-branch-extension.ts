@@ -138,8 +138,6 @@ export interface PlannedBranchExtensionOptions {
 	plannedBranchDefaultCreation?: BranchCreationMethod;
 	plannedBranchPrefix?: string;
 	planStoreRoot?: string;
-	/** @deprecated Use plannedBranchDefaultCreation. */
-	latestPlanBranchDefaultCreation?: BranchCreationMethod;
 }
 
 export interface CreatePlannedBranchArgs {
@@ -290,7 +288,7 @@ Workflow:
 3. Review the final Markdown plan content for completeness.
 4. Call write_source_branch_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
 5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
-6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any plan-branch tool.
+6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any planned-branch command/tool.
 
 Local plan store contract:
 - Path convention: ~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
@@ -1075,7 +1073,7 @@ function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): { filePath:
 }
 
 function resolvePlannedBranchDefaultCreation(options: PlannedBranchExtensionOptions): BranchCreationMethod {
-	return options.plannedBranchDefaultCreation ?? options.latestPlanBranchDefaultCreation ?? "plain-git";
+	return options.plannedBranchDefaultCreation ?? "plain-git";
 }
 
 function resolvePlanStoreRootOption(options: PlannedBranchExtensionOptions): string | undefined {
