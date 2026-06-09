@@ -56,6 +56,40 @@
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.
   - Evidence should include concrete seams proven by `pr-address`, portability limits, and guidance for when future ports should avoid or reuse the same patterns.
 
+## Next Stack Candidate
+
+Attempt the remaining Objective as one medium Graphite stack, while stopping before public or irreversible decisions that are not settled by existing evidence.
+
+Default branch sequence:
+
+1. `runtime-schema`
+   - Thesis: establish local TypeScript exec runtime, operation registry/fallback, JSON envelope, JSON input handling, Zod boundary schemas, schema emission, and test seams.
+2. `classification-core`
+   - Thesis: port the deterministic classification/planning core, including `classification-template`, `validate-feedback-classification`, and `plan-feedback`, using the runtime/schema seams.
+3. `payload-finalize`
+   - Thesis: port non-GitHub-mutating payload, detail, batch-payload, checkpoint, and finalization helpers where fixture/fake-driven evidence is sufficient.
+4. `readonly-stack`
+   - Thesis: port GitHub/git-backed read-only collection and stack prep/plan/diff behavior behind adapter-neutral gateways.
+5. `mutation-safety`
+   - Thesis: port mutation/reply builders and executor paths behind gateways while preserving fail-closed safety; validate with fakes only unless live writes are separately approved.
+6. `cutover-retirement-playbook`
+   - Thesis: perform safe public-path/docs/wrapper/playbook work and record remaining cutover/fallback retirement decisions; stop before unsafe public distribution, plugin, broad deletion, or live external actions.
+
+Planning guidance:
+
+- Keep these six branch theses and order fixed for the preview; the parent may move specific operations between adjacent branches after dependency inspection when that produces a cleaner review boundary.
+- Runners may decide local implementation details. The parent may decide shared candidates. Ask the user before public or irreversible boundaries.
+- Stop before changes to public invocation contracts, installed/prod distribution, live GitHub writes, broad Python fallback deletion, or published/shared package APIs.
+- Add Zod locally in `ts/packages/pr-address`; do not extract a shared runtime/schema package in this stack unless the user explicitly approves it.
+- Treat existing golden JSON outputs as byte-for-byte parity targets where practical; treat generated `--json-schema` documents as structured semantic parity unless existing tests/docs assert exact formatting.
+- Use Zod as the authoritative runtime schema source; add a local schema-emission helper/dependency if needed.
+- Implement real adapters incrementally only when a slice needs them; otherwise use gateway interfaces, fakes, and legacy fallback for unproven real paths.
+- Keep the Python plugin as the `asdl pr-address ...` compatibility path during this stack unless TS plugin compatibility becomes clearly safe and non-breaking; otherwise record a cutover plan.
+- Retire Python fallback per proven operation when TypeScript parity and tests exist; do not broadly delete fallback paths in this stack without explicit approval.
+- If final cutover/fallback/playbook work hits a stop condition, land evidence-backed safe docs/tests/plan/playbook changes and stop before the unsafe change.
+- Validate each branch with targeted package/golden/scenario checks; broaden validation for wrapper, distribution, shared, or final-readiness surfaces.
+- Record Objective Semantic Updates per meaningful branch group or durable decision point, not mechanically per branch.
+
 ## Parked
 
 - Full public API shape for a shared JS/TS clinkr-style framework until repeated seams prove it.
