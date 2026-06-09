@@ -6,8 +6,9 @@
   - Evidence should include the public skill, README and development docs, `pyproject.toml` console script and plugin entry point, scenario/golden tests, and observed `exec` operation families.
   - Distinguish durable public contract from incidental Python behavior before designing the TypeScript implementation.
   - Evidence: `updates/2026-06-09T121838Z-current-contract-inventory.md` records durable invocation, JSON envelope, payload, classification/planning, mutation safety, stack workflow, operation-surface, test/golden contracts, and incidental Python behavior.
-- [ ] Define the TypeScript migration boundary and package shape for `pr-address`.
+- [x] Define the TypeScript migration boundary and package shape for `pr-address`.
   - Decide package name, CLI entry path, ASDL plugin compatibility approach, wrapper dispatch strategy, and what remains private/internal.
+  - Evidence: `updates/2026-06-09T124800Z-typescript-boundary-scaffold.md` records the `@asdl/pr-address` package scaffold, standalone-only TypeScript CLI boundary, local TS-default wrapper, direct Python fallback for unported operations, and deferred plugin/prod cutover.
 - [ ] Identify the minimal command-runtime and schema seams needed by this slice.
   - Keep the design incremental; do not design a broad clinkr replacement before the slice proves repeated needs.
 - [ ] Port contract-critical core behavior behind adapter-neutral gateways.

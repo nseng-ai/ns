@@ -37,14 +37,16 @@ Requires:
 4. In your harness, explicitly invoke the `pr-address` skill.
 5. Review the local commits it creates, then push manually when ready.
 
-The invocation surface is harness-specific, but the skill dispatches to `uvx`
-under the hood, so no local asdl clone is required.
+The invocation surface is harness-specific. Installed/prod skill use still
+falls back to the pinned Python package via `uvx`, so no local asdl clone is
+required. Local checkouts now route through the TypeScript scaffold first while
+unported operations delegate to this package for compatibility.
 
 ## CLI surface
 
-This package provides:
+This package currently provides the legacy compatibility implementation for:
 
-- Standalone CLI: `pr-address` console script (declared in `pyproject.toml`).
+- Standalone CLI fallback: `pr-address` console script (declared in `pyproject.toml`).
 - ASDL plugin: `asdl pr-address …` (via the `asdl.plugins` entry point).
 - Operation groups:
   - `pr-address exec ...` for normal CLI usage; pass `--format json` for
