@@ -83,6 +83,28 @@ describe("derivePlanContentSlug", () => {
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
+	test("can derive from content supplied by an injected text reader", async () => {
+		const filePath = "/does/not/exist/where-would-we-host-mossy-lampson.md";
+		const readPaths: string[] = [];
+		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site\n" } });
+
+		const evidence = await derivePlanContentSlug(pi, {
+			filePath,
+			cwd: CWD,
+			async readTextFile(path) {
+				readPaths.push(path);
+				return PLAN_CONTENT;
+			},
+		});
+
+		expect(evidence.slug).toBe("add-docs-portal-site");
+		expect(readPaths).toEqual([filePath]);
+		const prompt = pi.calls[0]?.args.at(-1) ?? "";
+		expect(prompt).toBe(buildPlanContentSlugPrompt(PLAN_CONTENT));
+		expect(prompt).not.toContain(filePath);
+		expect(prompt).not.toContain(basename(filePath));
+	});
+
 	test("markdown and code-fenced output is normalized when it yields a valid slug", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { stdout: "```markdown\nAdd Docs Portal Site!!!\n```\n" } });

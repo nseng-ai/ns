@@ -11,6 +11,7 @@ export {
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
+	type LoadAttachedPlanOptions,
 	type LoadedAttachedPlan,
 	type LoadedPlanSource,
 } from "./attached-plan.ts";
@@ -31,6 +32,7 @@ export {
 	derivePlanContentSlug,
 	normalizePlanContentSlugOutput,
 	truncatePlanContentForSlug,
+	type DerivePlanContentSlugInput,
 	type PlanContentSlugEvidence,
 } from "./plan-content-slug.ts";
 export { createRealPlannedBranchContext, RealCommandExecApi, type PlannedBranchContext } from "./context.ts";

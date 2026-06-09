@@ -7,22 +7,28 @@ import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import type { LandStackExtensionAPI, WorktreeConflict, WorktreeEntry } from "./types.ts";
 
+export interface DetectWorktreeConflictsOptions {
+	normalizePath?: ((path: string) => string) | undefined;
+}
+
 export async function detectWorktreeConflicts(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	currentBranch: string,
 	relevantBranches: string[],
+	options: DetectWorktreeConflictsOptions = {},
 ): Promise<LandStackResult<WorktreeConflict[]>> {
+	const normalizePath = options.normalizePath ?? normalizeExistingPath;
 	const worktrees = await loadWorktrees(pi, repoRoot);
 	if (worktrees.type === "failure") return worktrees;
 
 	const relevant = new Set(relevantBranches);
-	const currentPath = normalizeExistingPath(repoRoot);
+	const currentPath = normalizePath(repoRoot);
 	const conflicts: WorktreeConflict[] = [];
 
 	for (const worktree of worktrees.value) {
 		if (!worktree.branch || !relevant.has(worktree.branch)) continue;
-		const worktreePath = normalizeExistingPath(worktree.path);
+		const worktreePath = normalizePath(worktree.path);
 		if (worktree.branch === currentBranch && worktreePath === currentPath) {
 			conflicts.push({ branch: worktree.branch, path: worktree.path, kind: "current" });
 			continue;

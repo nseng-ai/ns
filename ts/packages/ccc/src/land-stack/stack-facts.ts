@@ -178,7 +178,16 @@ export async function assertCleanRepo(pi: LandStackExtensionAPI, repoRoot: strin
 	return completed();
 }
 
-export async function detectInProgressOperation(pi: LandStackExtensionAPI, repoRoot: string): Promise<string | undefined> {
+export interface DetectInProgressOperationOptions {
+	pathExists?: ((path: string) => boolean) | undefined;
+}
+
+export async function detectInProgressOperation(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+	options: DetectInProgressOperationOptions = {},
+): Promise<string | undefined> {
+	const pathExists = options.pathExists ?? defaultPathExists;
 	const refs: Array<{ ref: string; label: string }> = [
 		{ ref: "MERGE_HEAD", label: "A merge" },
 		{ ref: "CHERRY_PICK_HEAD", label: "A cherry-pick" },
@@ -199,12 +208,16 @@ export async function detectInProgressOperation(pi: LandStackExtensionAPI, repoR
 		const pathResult = await exec(pi, "git", ["rev-parse", "--git-path", dir], repoRoot, GIT_TIMEOUT_MS);
 		if (pathResult.code !== 0) continue;
 		const gitPath = pathResult.stdout.trim();
-		if (gitPath && existsSync(resolveGitPath(repoRoot, gitPath))) {
+		if (gitPath && pathExists(resolveGitPath(repoRoot, gitPath))) {
 			return "A rebase";
 		}
 	}
 
 	return undefined;
+}
+
+function defaultPathExists(path: string): boolean {
+	return existsSync(path);
 }
 
 export function resolveGitPath(repoRoot: string, gitPath: string): string {

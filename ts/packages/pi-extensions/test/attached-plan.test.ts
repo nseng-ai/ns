@@ -1,19 +1,22 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
 	buildImplPlannedBranchPrompt,
 	loadAttachedPlan,
+	loadPlannedBranchPlan,
 	normalizeRequestedAttachedPlanKey,
 	parseBrmemGetContent,
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
+	type PlannedBranchBrmemGateway,
+	type PlannedBranchGitGateway,
 } from "@asdl/planned-branch";
 import { PLAN_BRANCH_NAMESPACE } from "@asdl/planned-branch";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath, type ExecOptions, type PlanCommandExecApi } from "@asdl/plans";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";
@@ -191,6 +194,58 @@ function attachedPlanEntry(key: string, branch: string = PLAN_BRANCH): AttachedP
 	};
 }
 
+function fakeGitGateway(branch: string = PLAN_BRANCH): PlannedBranchGitGateway {
+	return {
+		async repoRoot() {
+			return { ok: true, value: ROOT };
+		},
+		async optionalRepoRoot() {
+			return { type: "found", value: ROOT };
+		},
+		async sourceBranch() {
+			return { ok: true, value: branch };
+		},
+		async implementationBranch() {
+			return { ok: true, value: branch };
+		},
+		async defaultBranch() {
+			return { type: "found", value: "main" };
+		},
+		async originUrl() {
+			return { type: "found", value: "git@github.com:asdl/asdl-tools.git" };
+		},
+		async headCommit() {
+			return { ok: true, value: "1111111111111111111111111111111111111111" };
+		},
+		async validateBranchRef() {
+			return { ok: true };
+		},
+		async localBranchPresence() {
+			return { type: "absent", refName: `refs/heads/${branch}` };
+		},
+		async createBranchAtHead() {
+			return { ok: true };
+		},
+	};
+}
+
+function emptyBrmemGateway(): PlannedBranchBrmemGateway {
+	return {
+		async attachmentPresence() {
+			return { type: "absent" };
+		},
+		async attachPlan() {
+			return { ok: false, error: { code: "unexpected", message: "attachPlan should not be called" } };
+		},
+		async listAttachedPlans() {
+			return { ok: true, value: [] };
+		},
+		async getAttachedPlan() {
+			return { ok: false, error: { code: "unexpected", message: "getAttachedPlan should not be called" } };
+		},
+	};
+}
+
 describe("loadAttachedPlan", () => {
 	test("loads the branch-segment attached plan and preserves full content", async () => {
 		const pi = new FakePi(successfulLoadScript({ refName: PLAN_REF }));
@@ -276,6 +331,45 @@ describe("loadAttachedPlan", () => {
 		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/No planned-branch entries[\s\S]*planned-branch exec write-plan-file[\s\S]*planned-branch exec create/);
 
 		pi.assertDone();
+	});
+
+	test("loads saved-plan fallback content with an injected text reader", async () => {
+		const planStoreRoot = await mkdtemp(join(tmpdir(), "planned-branch-fallback-"));
+		tempDirs.push(planStoreRoot);
+		const savedSlug = "saved-plan-fallback-content";
+		const fileName = buildPlanFileName(savedSlug);
+		const directory = join(planStoreRoot, buildRepoPlanStoreKey(ROOT, "git@github.com:asdl/asdl-tools.git"), encodeBranchForPlanPath(PLAN_BRANCH));
+		const filePath = join(directory, fileName);
+		await mkdir(directory, { recursive: true });
+		await writeFile(filePath, "# Real file should not be read\n", "utf8");
+		const fakeContent = "# Injected Saved Plan\n\nUse this reader-supplied content.\n";
+		const readPaths: string[] = [];
+		const pi = new FakePi();
+
+		const plan = await loadPlannedBranchPlan(pi, {}, {
+			cwd: ROOT,
+			git: fakeGitGateway(),
+			brmem: emptyBrmemGateway(),
+			planStoreRoot,
+			async readTextFile(path) {
+				readPaths.push(path);
+				return fakeContent;
+			},
+		});
+
+		pi.assertDone();
+		expect(readPaths).toEqual([filePath]);
+		expect(plan).toEqual({
+			branch: PLAN_BRANCH,
+			namespace: "local-plan-store",
+			selectedKey: fileName,
+			refName: filePath,
+			content: fakeContent,
+			byteCount: new TextEncoder().encode(fakeContent).length,
+			availableKeys: [fileName],
+			source: "saved",
+			sourceFile: filePath,
+		});
 	});
 
 	test("refuses detached HEAD before Branch Memory reads", async () => {

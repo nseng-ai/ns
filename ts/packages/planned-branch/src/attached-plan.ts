@@ -40,6 +40,7 @@ export interface LoadAttachedPlanOptions {
 	brmem?: PlannedBranchBrmemGateway | undefined;
 	planStoreRoot?: string | undefined;
 	sessionEntries?: readonly unknown[] | undefined;
+	readTextFile?: ((path: string) => Promise<string>) | undefined;
 }
 
 export class NoAttachedPlannedBranchEntriesError extends Error {
@@ -163,7 +164,8 @@ async function loadSavedPlanFallback(
 		shouldFallbackToLatest: true,
 	});
 	const fileInfo = selectedSavedPlanFileInfo(selected);
-	const content = await readFile(fileInfo.filePath, "utf8");
+	const readTextFile = options.readTextFile ?? defaultReadTextFile;
+	const content = await readTextFile(fileInfo.filePath);
 	return {
 		branch,
 		namespace: "local-plan-store",
@@ -175,6 +177,10 @@ async function loadSavedPlanFallback(
 		source: "saved",
 		sourceFile: fileInfo.filePath,
 	};
+}
+
+function defaultReadTextFile(path: string): Promise<string> {
+	return readFile(path, "utf8");
 }
 
 function selectedSavedPlanFileInfo(selected: Awaited<ReturnType<typeof resolveSelectedSavedPlanFile>>): { filePath: string; fileName: string } {

@@ -14,7 +14,7 @@ import { LandStackCommandStream, withCommandStreaming } from "../src/land-stack/
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
 import { loadPr, validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
 import { formatFailure, formatPlan, formatSuccessNotification } from "../src/land-stack/presentation.ts";
-import { parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
+import { detectInProgressOperation, parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
 import type {
 	BranchPlan,
 	LandStackExtensionAPI,
@@ -25,7 +25,7 @@ import type {
 	NotifyLevel,
 	PullRequestSnapshot,
 } from "../src/land-stack/types.ts";
-import { isManagedSlotPath, parseWorktreeList, slotNameFromPath } from "../src/land-stack/worktrees.ts";
+import { detectWorktreeConflicts, isManagedSlotPath, parseWorktreeList, slotNameFromPath } from "../src/land-stack/worktrees.ts";
 
 const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const ROOT = "/repo";
@@ -573,6 +573,63 @@ describe("land-stack pure helpers", () => {
 				].join("\n"),
 			),
 		).toEqual([{ path: "/repo", branch: "feature-a" }, { path: "/detached" }]);
+	});
+
+	test("detects active rebase state with an injected path-existence check", async () => {
+		const pi = new FakePi([
+			step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
+			step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
+			step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
+			step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
+		]);
+
+		const operation = await detectInProgressOperation(pi, ROOT, {
+			pathExists: (path) => path === `${ROOT}/.git/rebase-merge`,
+		});
+
+		pi.assertDone();
+		expect(operation).toBe("A rebase");
+	});
+
+	test("ignores stale rebase pseudo-refs when active rebase directories are absent", async () => {
+		const pi = new FakePi([
+			step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
+			step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
+			step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
+			step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
+			step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
+		]);
+
+		const operation = await detectInProgressOperation(pi, ROOT, {
+			pathExists: () => false,
+		});
+
+		pi.assertDone();
+		expect(operation).toBeUndefined();
+	});
+
+	test("detects worktree conflicts with injected path normalization", async () => {
+		const slotPath = "/Users/me/.slots/repos/repo/worktrees/slot-01";
+		const pi = new FakePi([
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout: worktreeOutput([
+					{ path: "/symlink/repo", branch: CURRENT },
+					{ path: slotPath, branch: "feature-a" },
+				]),
+			}),
+		]);
+
+		const conflicts = expectSuccess(
+			await detectWorktreeConflicts(pi, ROOT, CURRENT, ["feature-a", CURRENT], {
+				normalizePath: (path) => (path === ROOT || path === "/symlink/repo" ? "/real/repo" : `/real${path}`),
+			}),
+		);
+
+		pi.assertDone();
+		expect(conflicts).toEqual([
+			{ branch: CURRENT, path: "/symlink/repo", kind: "current" },
+			{ branch: "feature-a", path: slotPath, kind: "managed-slot" },
+		]);
 	});
 
 	test("detects managed slot paths and extracts slot names", () => {
