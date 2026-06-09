@@ -1,5 +1,5 @@
 import type { PrAddressContext } from "./context.ts";
-import { buildClassificationTemplateSchemaDocument } from "./classification-schemas.ts";
+import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
 import type { ClinkrExit } from "./clinkr-envelope.ts";
 
 export interface ExecRuntimeDeps {
@@ -69,7 +69,15 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 	return createExecOperationRegistry([
 		{
 			name: "classification-template",
-			handler: runClassificationTemplateSchemaOnly,
+			handler: runClassificationTemplateOperation,
+		},
+		{
+			name: "validate-feedback-classification",
+			handler: runValidateFeedbackClassificationOperation,
+		},
+		{
+			name: "plan-feedback",
+			handler: runPlanFeedbackOperation,
 		},
 	]);
 }
@@ -87,12 +95,3 @@ export function createExecOperationRegistry(definitions: readonly ExecOperationD
 	};
 }
 
-async function runClassificationTemplateSchemaOnly(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (!hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
-	invocation.deps.stdout(`${JSON.stringify(buildClassificationTemplateSchemaDocument(), null, 2)}\n`);
-	return { type: "raw-exit", exitCode: 0 };
-}
-
-function hasFlag(args: readonly string[], flag: string): boolean {
-	return args.includes(flag);
-}
