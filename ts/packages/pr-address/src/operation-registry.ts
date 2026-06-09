@@ -1,9 +1,11 @@
 import type { PrAddressContext } from "./context.ts";
 import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
 import type { ClinkrExit } from "./clinkr-envelope.ts";
+import { runGetDiscussionCommentsOperation, runGetFeedbackOperation, runGetPrForBranchOperation, runGetReviewCommentsOperation, runGetReviewsOperation } from "./feedback-collection.ts";
 import { runFinalizeRunOperation } from "./finalization.ts";
 import { runReadFeedbackDetailOperation } from "./read-feedback-detail.ts";
 import { runBuildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
+import { runStackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
 
 export interface ExecRuntimeDeps {
 	context: PrAddressContext;
@@ -87,8 +89,32 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 			handler: runBuildResolveThreadBatchPayloadOperation,
 		},
 		{
+			name: "get-pr-for-branch",
+			handler: runGetPrForBranchOperation,
+		},
+		{
+			name: "get-reviews",
+			handler: runGetReviewsOperation,
+		},
+		{
+			name: "get-review-comments",
+			handler: runGetReviewCommentsOperation,
+		},
+		{
+			name: "get-discussion-comments",
+			handler: runGetDiscussionCommentsOperation,
+		},
+		{
+			name: "get-feedback",
+			handler: runGetFeedbackOperation,
+		},
+		{
 			name: "read-feedback-detail",
 			handler: runReadFeedbackDetailOperation,
+		},
+		{
+			name: "stack-feedback-diff-current",
+			handler: runStackFeedbackDiffCurrentOperation,
 		},
 		{
 			name: "finalize-run",
