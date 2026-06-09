@@ -71,6 +71,13 @@ export interface StackSnapshot {
 	warnings: string[];
 }
 
+export interface LandingShape {
+	repoRoot: string;
+	current: string;
+	trunk: string;
+	stack: StackSnapshot;
+}
+
 export interface PullRequestSnapshot {
 	number: number;
 	title: string;

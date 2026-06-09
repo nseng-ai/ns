@@ -5,7 +5,7 @@ import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
 import { CURRENT_MARKER, GIT_TIMEOUT_MS, GT_TIMEOUT_MS, OTHER_MARKER } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
-import type { LandStackExtensionAPI, ParsedStackOutput, StackSnapshot } from "./types.ts";
+import type { LandStackExtensionAPI, LandingShape, ParsedStackOutput, StackSnapshot } from "./types.ts";
 
 export async function loadRepoRoot(pi: LandStackExtensionAPI, cwd: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "git", ["rev-parse", "--show-toplevel"], cwd, GIT_TIMEOUT_MS);
@@ -24,13 +24,13 @@ export async function loadCurrentBranch(pi: LandStackExtensionAPI, repoRoot: str
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
-				`Detached HEAD; check out a branch before running /code:land-stack.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+				`Detached HEAD; check out a branch before running /code:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
 			),
 		);
 	}
 	const branch = result.stdout.trim();
 	if (!branch) {
-		return failure(landStackFailure("Could not resolve current branch before running /code:land-stack."));
+		return failure(landStackFailure("Could not resolve current branch before running /code:land."));
 	}
 	return success(branch);
 }
@@ -45,6 +45,22 @@ export async function loadTrunk(pi: LandStackExtensionAPI, repoRoot: string): Pr
 		return failure(landStackFailure("gt trunk --no-interactive returned no branch."));
 	}
 	return success(trunk);
+}
+
+export async function loadLandingShape(pi: LandStackExtensionAPI, cwd: string): Promise<LandStackResult<LandingShape>> {
+	const repoRoot = await loadRepoRoot(pi, cwd);
+	if (repoRoot.type === "failure") return repoRoot;
+
+	const current = await loadCurrentBranch(pi, repoRoot.value);
+	if (current.type === "failure") return current;
+
+	const trunk = await loadTrunk(pi, repoRoot.value);
+	if (trunk.type === "failure") return trunk;
+
+	const stack = await loadStackSnapshot(pi, repoRoot.value, current.value, trunk.value);
+	if (stack.type === "failure") return stack;
+
+	return success({ repoRoot: repoRoot.value, current: current.value, trunk: trunk.value, stack: stack.value });
 }
 
 export async function loadStackSnapshot(

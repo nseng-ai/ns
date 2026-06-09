@@ -1,6 +1,6 @@
-export const COMMAND_NAME = "code:land-stack";
-export const STATUS_KEY = "land-stack";
-export const COMMAND_STREAM_MESSAGE_TYPE = "land-stack-command-stream";
+export const COMMAND_NAME = "code:land";
+export const STATUS_KEY = "land";
+export const COMMAND_STREAM_MESSAGE_TYPE = "land-command-stream";
 
 export const GIT_TIMEOUT_MS = 30_000;
 export const GH_TIMEOUT_MS = 30_000;

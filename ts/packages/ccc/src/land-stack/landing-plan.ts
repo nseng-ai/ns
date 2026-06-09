@@ -3,20 +3,13 @@ import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { collectPrSubmitRequirements, loadPr, validateInitialPrPreflight } from "./pr-facts.ts";
-import {
-	assertCleanRepo,
-	assertLocalBranchExists,
-	loadCurrentBranch,
-	loadLocalSha,
-	loadRepoRoot,
-	loadStackSnapshot,
-	loadTrunk,
-} from "./stack-facts.ts";
+import { assertCleanRepo, assertLocalBranchExists, loadLandingShape, loadLocalSha } from "./stack-facts.ts";
 import type {
 	BranchPlan,
 	DescendantMaintenancePlan,
 	LandStackExtensionAPI,
 	LandingPlan,
+	LandingShape,
 	RestackRequirement,
 	StackSnapshot,
 	WorktreeConflict,
@@ -26,73 +19,64 @@ import { detectWorktreeConflicts, formatManualWorktreeConflict } from "./worktre
 export async function buildLandingPlan(
 	pi: LandStackExtensionAPI,
 	cwd: string,
-	options: { allowSubmitRequiredState?: boolean } = {},
+	options: { allowSubmitRequiredState?: boolean; preloadedShape?: LandingShape } = {},
 ): Promise<LandStackResult<LandingPlan>> {
-	const repoRoot = await loadRepoRoot(pi, cwd);
-	if (repoRoot.type === "failure") return repoRoot;
+	const shape = options.preloadedShape ? success(options.preloadedShape) : await loadLandingShape(pi, cwd);
+	if (shape.type === "failure") return shape;
 
-	const current = await loadCurrentBranch(pi, repoRoot.value);
-	if (current.type === "failure") return current;
-
-	const trunk = await loadTrunk(pi, repoRoot.value);
-	if (trunk.type === "failure") return trunk;
-
-	const stack = await loadStackSnapshot(pi, repoRoot.value, current.value, trunk.value);
-	if (stack.type === "failure") return stack;
-
-	if (stack.value.current === stack.value.trunk || stack.value.landingBranches.length === 0) {
+	const { repoRoot, stack } = shape.value;
+	if (stack.current === stack.trunk || stack.landingBranches.length === 0) {
 		return failure(
-			landStackFailure(`Current branch is ${stack.value.current}, which is trunk or has no PR path to land. Nothing to do.`, { level: "info" }),
+			landStackFailure(`Current branch is ${stack.current}, which is trunk or has no PR path to land. Nothing to do.`, { level: "info" }),
 		);
 	}
 
-	const cleanRepo = await assertCleanRepo(pi, repoRoot.value);
+	const cleanRepo = await assertCleanRepo(pi, repoRoot);
 	if (cleanRepo.type === "failure") return cleanRepo;
 
-	const landingBranches = stack.value.landingBranches;
-	const descendantBranches = stack.value.descendantBranches;
+	const landingBranches = stack.landingBranches;
+	const descendantBranches = stack.descendantBranches;
 	for (const branch of landingBranches) {
-		const branchExists = await assertLocalBranchExists(pi, repoRoot.value, branch);
+		const branchExists = await assertLocalBranchExists(pi, repoRoot, branch);
 		if (branchExists.type === "failure") return branchExists;
 	}
 
 	const branchPlans: BranchPlan[] = [];
-	for (const branch of stack.value.landingBranches) {
-		const localSha = await loadLocalSha(pi, repoRoot.value, branch);
+	for (const branch of stack.landingBranches) {
+		const localSha = await loadLocalSha(pi, repoRoot, branch);
 		if (localSha.type === "failure") return localSha;
-		const pr = await loadPr(pi, repoRoot.value, branch);
+		const pr = await loadPr(pi, repoRoot, branch);
 		if (pr.type === "failure") return pr;
 		branchPlans.push({ branch, localSha: localSha.value, pr: pr.value });
 	}
-	const preflight = validateInitialPrPreflight(branchPlans, stack.value.trunk, {
+	const preflight = validateInitialPrPreflight(branchPlans, stack.trunk, {
 		allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState),
 	});
 	if (preflight.type === "failure") return preflight;
-	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.value.trunk);
+	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.trunk);
 
-	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot.value, current.value, landingBranches);
+	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot, stack.current, landingBranches);
 	if (landingConflicts.type === "failure") return landingConflicts;
 	const landingManualConflicts = landingConflicts.value.filter((conflict) => conflict.kind === "manual-worktree");
 	if (landingManualConflicts.length > 0) {
 		return failure(
 			landStackFailure(formatManualWorktreeConflict(landingManualConflicts), {
-				suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /code:land-stack.",
+				suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /code:land.",
 			}),
 		);
 	}
 
 	const descendantConflicts =
-		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot.value, current.value, descendantBranches) : success([]);
+		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot, stack.current, descendantBranches) : success([]);
 	if (descendantConflicts.type === "failure") return descendantConflicts;
 	const descendantMaintenance = buildDescendantMaintenancePlan(descendantBranches, descendantConflicts.value);
 
-	const submitRestackRequirements =
-		prSubmitRequirements.length > 0 ? await collectSubmitRestackRequirements(pi, repoRoot.value, stack.value) : success([]);
+	const submitRestackRequirements = prSubmitRequirements.length > 0 ? await collectSubmitRestackRequirements(pi, repoRoot, stack) : success([]);
 	if (submitRestackRequirements.type === "failure") return submitRestackRequirements;
 
 	return success({
-		repoRoot: repoRoot.value,
-		stack: stack.value,
+		repoRoot,
+		stack,
 		branchPlans,
 		prSubmitRequirements,
 		submitRestackRequirements: submitRestackRequirements.value,

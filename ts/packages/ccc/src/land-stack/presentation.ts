@@ -117,11 +117,12 @@ export function usage(): string {
 		"Usage:",
 		`/${COMMAND_NAME} [--yes] [--dry-run] [--help]`,
 		"",
-		"Lands the current Graphite stack path from bottom branch through the current branch, one PR at a time.",
-		"Requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
+		"Lands the current PR or Graphite stack into gt trunk.",
+		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
+		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
 		"",
 		"Options:",
-		"  --yes, -y    Skip the main landing confirmation. PR submit/update and landing-branch managed slot cleanup still require explicit UI confirmation.",
+		"  --yes, -y    Skip stack landing confirmation. PR submit/update and landing-branch managed slot cleanup still require explicit UI confirmation.",
 		"  --dry-run    Show the plan and exit before mutating anything.",
 		"  --help, -h   Show this help.",
 	].join("\n");
@@ -215,7 +216,7 @@ export function formatFailure(failure: LandStackFailure, landed: readonly Landed
 		return failure.message;
 	}
 
-	const lines = ["land-stack stopped."];
+	const lines = ["land stopped."];
 	if (landed.length > 0) {
 		lines.push("", "Already landed:");
 		for (const entry of landed) {
@@ -252,7 +253,7 @@ export function formatSuccessNotification(message: string, options: FormatSucces
 	const warningNotification = formatWarningSuccessNotification(warnings, details);
 	if (warningNotification !== undefined) return warningNotification;
 
-	const firstLine = firstNonEmptyLine(message) ?? "land-stack completed.";
+	const firstLine = firstNonEmptyLine(message) ?? "land completed.";
 	return details ? linkifyPrReferences(firstLine, prLinksFromDetails(details)) : firstLine;
 }
 
@@ -288,12 +289,12 @@ function nonBlank(value: string | undefined): string | undefined {
 export function formatFailureNotification(failure: LandStackFailure): string {
 	const detail = firstNonEmptyLine(failure.message) ?? "unknown error";
 	if (failure.failedBranch || failure.failedPr) {
-		return `land-stack stopped at ${formatFailedTarget(failure)}: ${detail}`;
+		return `land stopped at ${formatFailedTarget(failure)}: ${detail}`;
 	}
 	if (failure.level === "info") {
 		return detail;
 	}
-	return `land-stack stopped: ${detail}`;
+	return `land stopped: ${detail}`;
 }
 
 export function present(ctx: LandStackCommandContext, message: string, level: NotifyLevel): void {
@@ -314,7 +315,7 @@ export function presentBrief(ctx: LandStackCommandContext, fullMessage: string, 
 
 export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {
 	if (ctx.hasUI) {
-		ctx.ui.setStatus(STATUS_KEY, message ? `land-stack: ${message}` : undefined);
+		ctx.ui.setStatus(STATUS_KEY, message ? `land: ${message}` : undefined);
 	}
 }
 

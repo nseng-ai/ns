@@ -25,132 +25,154 @@ import {
 	setStatus,
 	usage,
 } from "./land-stack/presentation.ts";
-import type { LandStackCommandContext, LandStackExtensionAPI, LandedPr, LandingWarning, ParsedArgs } from "./land-stack/types.ts";
+import type { LandStackCommandContext, LandStackExtensionAPI, LandedPr, LandingShape, LandingWarning, ParsedArgs } from "./land-stack/types.ts";
 
 export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 
+export interface ExecuteStackLandingOptions {
+	skipMainConfirmation?: boolean;
+	preloadedShape?: LandingShape;
+}
+
 export function registerLandStackCommand(pi: LandStackExtensionAPI): void {
-	pi.registerMessageRenderer?.(COMMAND_STREAM_MESSAGE_TYPE, renderCommandStreamMessage);
+	registerLandStackRenderer(pi);
 
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Land the current Graphite stack path bottom-to-current, one PR at a time",
-		getArgumentCompletions: (prefix: string) => {
-			const options = ["--yes", "--dry-run", "--help"];
-			const token = prefix.trim().split(/\s+/).pop() ?? "";
-			const filtered = options.filter((option) => option.startsWith(token));
-			return filtered.length > 0 ? filtered.map((option) => ({ value: option, label: option })) : null;
-		},
+		description: "Land the current PR or Graphite stack into trunk",
+		getArgumentCompletions: landArgumentCompletions,
 		handler: async (rawArgs: string, ctx: LandStackCommandContext) => {
 			await ctx.waitForIdle();
 
-			const landed: LandedPr[] = [];
-			const warnings: LandingWarning[] = [];
-			const commandStream = new LandStackCommandStream(pi, ctx);
-			const runtimePi = withCommandStreaming(pi, commandStream);
-			try {
-				const args = parseArgs(rawArgs);
-				if (args.type === "failure") {
-					presentLandStackFailure({ ctx, commandStream, landed, failure: args.failure });
-					return;
-				}
-				if (args.value.help) {
-					present(ctx, usage(), "info");
-					return;
-				}
+			const args = parseArgs(rawArgs);
+			if (args.type === "failure") {
+				const commandStream = new LandStackCommandStream(pi, ctx);
+				presentLandStackFailure({ ctx, commandStream, landed: [], failure: args.failure });
+				return;
+			}
 
-				setStatus(ctx, "preflighting...");
-				let plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
-				if (plan.type === "failure") {
-					presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
-					return;
-				}
-				const planText = formatPlan(plan.value);
+			await executeStackLanding(pi, ctx, args.value);
+		},
+	});
+}
 
-				if (args.value.dryRun) {
-					commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-					present(ctx, `Dry run only; no PRs or local refs were changed.\n\n${planText}`, "info");
-					return;
-				}
+export function registerLandStackRenderer(pi: Pick<LandStackExtensionAPI, "registerMessageRenderer">): void {
+	pi.registerMessageRenderer?.(COMMAND_STREAM_MESSAGE_TYPE, renderCommandStreamMessage);
+}
 
-				if (!args.value.yes) {
-					if (!ctx.hasUI) {
-						presentLandStackFailure({
-							ctx,
-							commandStream,
-							landed,
-							failure: landStackFailure(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`),
-						});
-						return;
-					}
-					const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
-					if (!confirmed) {
-						presentLandStackFailure({
-							ctx,
-							commandStream,
-							landed,
-							failure: landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }),
-						});
-						return;
-					}
-				}
+export function landArgumentCompletions(prefix: string): Array<{ value: string; label: string }> | null {
+	const options = ["--yes", "--dry-run", "--help"];
+	const token = prefix.trim().split(/\s+/).pop() ?? "";
+	const filtered = options.filter((option) => option.startsWith(token));
+	return filtered.length > 0 ? filtered.map((option) => ({ value: option, label: option })) : null;
+}
 
-				if (plan.value.prSubmitRequirements.length > 0) {
-					const submitOutcome = await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan.value);
-					if (submitOutcome.type === "failure") {
-						presentLandStackFailure({ ctx, commandStream, landed, failure: submitOutcome.failure });
-						return;
-					}
-					setStatus(ctx, "rechecking preflight...");
-					plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
-					if (plan.type === "failure") {
-						presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
-						return;
-					}
-					if (plan.value.prSubmitRequirements.length > 0) {
-						presentLandStackFailure({
-							ctx,
-							commandStream,
-							landed,
-							failure: landStackFailure(formatRemainingSubmitRequirements(plan.value.prSubmitRequirements), {
-								suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.value.stack.current))} manually, inspect PR heads, and rerun /code:land-stack.`,
-							}),
-						});
-						return;
-					}
-				}
+export async function executeStackLanding(
+	pi: LandStackExtensionAPI,
+	ctx: LandStackCommandContext,
+	parsedArgs: ParsedArgs,
+	options: ExecuteStackLandingOptions = {},
+): Promise<void> {
+	const landed: LandedPr[] = [];
+	const warnings: LandingWarning[] = [];
+	const commandStream = new LandStackCommandStream(pi, ctx);
+	const runtimePi = withCommandStreaming(pi, commandStream);
+	try {
+		if (parsedArgs.help) {
+			present(ctx, usage(), "info");
+			return;
+		}
 
-				if (plan.value.managedSlotConflicts.length > 0) {
-					const slotOutcome = await confirmAndFreeManagedSlots(runtimePi, ctx, plan.value);
-					if (slotOutcome.type === "failure") {
-						presentLandStackFailure({ ctx, commandStream, landed, failure: slotOutcome.failure });
-						return;
-					}
-				}
+		setStatus(ctx, "preflighting...");
+		let plan = await buildLandingPlan(runtimePi, ctx.cwd, buildLandingPlanOptions(options));
+		if (plan.type === "failure") {
+			presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
+			return;
+		}
+		const planText = formatPlan(plan.value);
 
-				const mergeOutcome = await runMergeLoop(runtimePi, ctx, plan.value, landed, warnings, { commandStream, unstreamedPi: pi });
-				if (mergeOutcome.type === "failure") {
-					presentLandStackFailure({ ctx, commandStream, landed, failure: mergeOutcome.failure });
-					return;
-				}
+		if (parsedArgs.dryRun) {
+			commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
+			present(ctx, `Dry run only; no PRs or local refs were changed.\n\n${planText}`, "info");
+			return;
+		}
 
-				const successSummary = formatSuccessSummary(landed, plan.value.descendantMaintenance, warnings);
-				const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
-				const completionLevel = hasWarnings ? "warning" : "success";
-				const commandStreamDetails = commandStreamDetailsForLanded(landed);
-				commandStream.finishSuccess(successSummary, commandStreamDetails);
-				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
-			} catch (error) {
+		if (!parsedArgs.yes && !options.skipMainConfirmation) {
+			if (!ctx.hasUI) {
 				presentLandStackFailure({
 					ctx,
 					commandStream,
 					landed,
-					failure: landStackFailure(`land-stack failed unexpectedly: ${errorMessage(error)}`),
+					failure: landStackFailure(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`),
 				});
-			} finally {
-				setStatus(ctx, undefined);
+				return;
 			}
-		},
-	});
+			const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
+			if (!confirmed) {
+				presentLandStackFailure({
+					ctx,
+					commandStream,
+					landed,
+					failure: landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }),
+				});
+				return;
+			}
+		}
+
+		if (plan.value.prSubmitRequirements.length > 0) {
+			const submitOutcome = await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan.value);
+			if (submitOutcome.type === "failure") {
+				presentLandStackFailure({ ctx, commandStream, landed, failure: submitOutcome.failure });
+				return;
+			}
+			setStatus(ctx, "rechecking preflight...");
+			plan = await buildLandingPlan(runtimePi, ctx.cwd, buildLandingPlanOptions(options));
+			if (plan.type === "failure") {
+				presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
+				return;
+			}
+			if (plan.value.prSubmitRequirements.length > 0) {
+				presentLandStackFailure({
+					ctx,
+					commandStream,
+					landed,
+					failure: landStackFailure(formatRemainingSubmitRequirements(plan.value.prSubmitRequirements), {
+						suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.value.stack.current))} manually, inspect PR heads, and rerun /code:land.`,
+					}),
+				});
+				return;
+			}
+		}
+
+		if (plan.value.managedSlotConflicts.length > 0) {
+			const slotOutcome = await confirmAndFreeManagedSlots(runtimePi, ctx, plan.value);
+			if (slotOutcome.type === "failure") {
+				presentLandStackFailure({ ctx, commandStream, landed, failure: slotOutcome.failure });
+				return;
+			}
+		}
+
+		const mergeOutcome = await runMergeLoop(runtimePi, ctx, plan.value, landed, warnings, { commandStream, unstreamedPi: pi });
+		if (mergeOutcome.type === "failure") {
+			presentLandStackFailure({ ctx, commandStream, landed, failure: mergeOutcome.failure });
+			return;
+		}
+
+		const successSummary = formatSuccessSummary(landed, plan.value.descendantMaintenance, warnings);
+		const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
+		const completionLevel = hasWarnings ? "warning" : "success";
+		const commandStreamDetails = commandStreamDetailsForLanded(landed);
+		commandStream.finishSuccess(successSummary, commandStreamDetails);
+		presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
+	} catch (error) {
+		presentLandStackFailure({
+			ctx,
+			commandStream,
+			landed,
+			failure: landStackFailure(`land failed unexpectedly: ${errorMessage(error)}`),
+		});
+	} finally {
+		setStatus(ctx, undefined);
+	}
 }
 
 interface PresentLandStackFailureOptions {
@@ -158,6 +180,13 @@ interface PresentLandStackFailureOptions {
 	commandStream: LandStackCommandStream;
 	landed: readonly LandedPr[];
 	failure: LandStackFailure;
+}
+
+function buildLandingPlanOptions(options: ExecuteStackLandingOptions): { allowSubmitRequiredState: boolean; preloadedShape?: LandingShape } {
+	if (options.preloadedShape) {
+		return { allowSubmitRequiredState: true, preloadedShape: options.preloadedShape };
+	}
+	return { allowSubmitRequiredState: true };
 }
 
 function presentLandStackFailure(options: PresentLandStackFailureOptions): void {

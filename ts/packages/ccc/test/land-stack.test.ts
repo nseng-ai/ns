@@ -232,7 +232,7 @@ async function runLandStack(
 }> {
 	const pi = new FakePi(script);
 	landStackExtension(pi);
-	const command = pi.commands.get("code:land-stack");
+	const command = pi.commands.get("code:land");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
@@ -532,7 +532,7 @@ describe("land-stack extension registration", () => {
 		const pi = new FakePi();
 		landStackExtension(pi);
 
-		const command = pi.commands.get("code:land-stack");
+		const command = pi.commands.get("code:land");
 		expect(pi.commands.has("gt:land-stack")).toBe(false);
 		expect(pi.commands.has("land-stack")).toBe(false);
 		expect(command?.description).toContain("Graphite stack");
@@ -556,7 +556,7 @@ describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
 		expect(expectSuccess(parseArgs("--yes --dry-run --help"))).toEqual({ yes: true, dryRun: true, help: true });
 		expect(expectSuccess(parseArgs("-y -h"))).toEqual({ yes: true, dryRun: false, help: true });
-		expect(expectFailure(parseArgs("--wat")).message).toContain("Unknown /code:land-stack argument: --wat");
+		expect(expectFailure(parseArgs("--wat")).message).toContain("Unknown /code:land argument: --wat");
 	});
 
 	test("parses the current Graphite column and warns about off-column branches", () => {
@@ -1139,7 +1139,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).not.toContain(`✗ $ ${formatCommand("gt", getArgs)} — exit 1`);
 		expect(streamText).not.toContain("Completed with 1 warning:");
 		expect(streamText).not.toContain("fatal: 'main' is already checked out");
-		expect(streamText).not.toContain("land-stack stopped");
+		expect(streamText).not.toContain("land stopped");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete" && call.args[1] === "feature-b")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT)).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT)).toBe(false);
@@ -1156,7 +1156,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
-		expect(notifications.at(-1)?.message).toContain("land-stack stopped at feature-b");
+		expect(notifications.at(-1)?.message).toContain("land stopped at feature-b");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
@@ -1182,7 +1182,7 @@ describe("land-stack command scenarios", () => {
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Completed with 1 warning:");
 		expect(streamText).toContain("Restack failed after merging #102; descendant branch feature-c was left for manual restack/update.");
-		expect(streamText).not.toContain("land-stack stopped");
+		expect(streamText).not.toContain("land stopped");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT)).toBe(false);
 	});
 
@@ -1197,7 +1197,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(widgets).toEqual([]);
 		expect(messages.length).toBeGreaterThan(0);
-		expect(messages.every((message) => message.customType === "land-stack-command-stream" && message.display)).toBe(true);
+		expect(messages.every((message) => message.customType === "land-command-stream" && message.display)).toBe(true);
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("land-stack command stream");
 		expect(streamText).toContain("✓ $ git rev-parse --show-toplevel");
@@ -1257,7 +1257,7 @@ describe("land-stack command scenarios", () => {
 		const finalMessage = messages.at(-1);
 		expect(messageContentText(finalMessage?.content ?? "")).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(finalMessage?.details).toEqual({ prLinks: [{ number: 101, url: "https://github.example/pull/101" }] });
-		const renderer = pi.messageRenderers.get("land-stack-command-stream");
+		const renderer = pi.messageRenderers.get("land-command-stream");
 		expect(renderer).toBeDefined();
 		const rendered = renderer?.(finalMessage!, { expanded: false }, { fg: (_color: string, text: string) => text })
 			.render(200)
@@ -1268,12 +1268,12 @@ describe("land-stack command scenarios", () => {
 	test("command stream renderer ignores unsafe PR link URLs in details", () => {
 		const pi = new FakePi();
 		landStackExtension(pi);
-		const renderer = pi.messageRenderers.get("land-stack-command-stream");
+		const renderer = pi.messageRenderers.get("land-command-stream");
 		expect(renderer).toBeDefined();
 
 		const rendered = renderer?.(
 			{
-				customType: "land-stack-command-stream",
+				customType: "land-command-stream",
 				content: "✓ Landed 1 PR: #101 feature-a.",
 				display: true,
 				details: { prLinks: [{ number: 101, url: "javascript:alert(1)" }] },
@@ -1325,7 +1325,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(streamText).not.toContain("Completed with 1 warning:");
 		expect(streamText).not.toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
-		expect(streamText).not.toContain("land-stack stopped");
+		expect(streamText).not.toContain("land stopped");
 		expect(streamText).not.toContain("Failed at:");
 	});
 
@@ -1351,7 +1351,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(streamText).toContain("Completed with 1 warning:");
 		expect(streamText).toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
-		expect(streamText).not.toContain("land-stack stopped");
+		expect(streamText).not.toContain("land stopped");
 		expect(streamText).not.toContain("Failed at:");
 	});
 
@@ -1580,7 +1580,7 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("land-stack stopped at feature-b");
+		expect(notifications[0]?.message).toContain("land stopped at feature-b");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
@@ -1601,7 +1601,7 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("land-stack stopped at feature-b");
+		expect(notifications[0]?.message).toContain("land stopped at feature-b");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
