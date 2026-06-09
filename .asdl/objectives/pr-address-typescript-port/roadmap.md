@@ -2,9 +2,10 @@
 
 ## Work
 
-- [ ] Inventory the current public `pr-address` contract.
+- [x] Inventory the current public `pr-address` contract.
   - Evidence should include the public skill, README and development docs, `pyproject.toml` console script and plugin entry point, scenario/golden tests, and observed `exec` operation families.
   - Distinguish durable public contract from incidental Python behavior before designing the TypeScript implementation.
+  - Evidence: `updates/2026-06-09T121838Z-current-contract-inventory.md` records durable invocation, JSON envelope, payload, classification/planning, mutation safety, stack workflow, operation-surface, test/golden contracts, and incidental Python behavior.
 - [ ] Define the TypeScript migration boundary and package shape for `pr-address`.
   - Decide package name, CLI entry path, ASDL plugin compatibility approach, wrapper dispatch strategy, and what remains private/internal.
 - [ ] Identify the minimal command-runtime and schema seams needed by this slice.
