@@ -23,6 +23,7 @@ import {
 } from "@asdl/planned-branch";
 import type { ExecResult } from "./command-runtime.ts";
 import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
+import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
 import { derivePlanContentSlug, type PlanContentSlugEvidence } from "./planned-branch/plan-content-slug.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
 
@@ -57,6 +58,7 @@ export type {
 } from "@asdl/planned-branch";
 
 const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
+const WRITE_GRILLED_PLAN_COMMAND_NAME = "planned-branch:write-grilled-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
 const UP_AND_IMPL_COMMAND_NAME = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
@@ -336,6 +338,36 @@ ${formatSteeringBlock(steering)}
 ${promptBody}`;
 }
 
+export function buildWriteGrilledPlanPrompt(steering: string): string {
+	return `This is a /planned-branch:write-grilled-plan request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
+
+${formatSteeringBlock(steering)}
+
+Plan audience and target inference:
+- Treat the saved Markdown plan as self-contained context for a completely fresh downstream implementation session.
+- User steering may be empty. Infer the planning target from explicit steering, nearby conversation/session context, and repository evidence, such as a just-produced objective summary or prototype plan.
+- Inspect repository evidence before asking. Do not ask questions answerable from local files, docs, or commands.
+
+Structured grilling contract:
+- Use ${GRILL_ASK_TOOL_NAME} for every user-facing grilling question.
+- Ask exactly one question per ${GRILL_ASK_TOOL_NAME} call.
+- Each question must include 2–5 affirmative, mutually exclusive options and a recommendation with concise rationale.
+- Use an adaptive 3–7 high-leverage question budget. Stop early when requirements are resolved; exceed that budget only if the user explicitly asks to continue.
+- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_source_branch_plan_file.
+- If ${GRILL_ASK_TOOL_NAME} returns status_request, provide a compact status report and re-ask the same pending question; do not count it as an answer.
+- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_source_branch_plan_file.
+
+Save/no-save decision:
+- If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, validation scope, and compatibility expectations.
+- If only non-blocking assumptions remain, fold them into the normal saved plan sections and proceed.
+- Do not include a full Q&A transcript or special Q&A section in the saved plan.
+
+Final plan requirements:
+- Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation, risks/assumptions/open questions, and review/remediation.
+- Review the final Markdown plan for completeness, then call write_source_branch_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
+- Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
+}
+
 async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promise<WritePlanPromptBodyResolution> {
 	try {
 		const result = await pi.exec(
@@ -578,6 +610,11 @@ export default function registerPlannedBranchExtension(
 		handler: async (args, ctx) => handleWritePlanCommand(pi, args, ctx),
 	});
 
+	pi.registerCommand(WRITE_GRILLED_PLAN_COMMAND_NAME, {
+		description: "Write and save a grilled implementation plan using structured requirements UI.",
+		handler: async (args, ctx) => handleWriteGrilledPlanCommand(pi, args, ctx),
+	});
+
 	pi.registerCommand(CREATE_PLANNED_BRANCH_COMMAND_NAME, {
 		description: "Create a planned branch using a content-derived slug, then attach the saved plan in Branch Memory.",
 		handler: async (args, ctx) => handleCreatePlannedBranchCommand(pi, args, ctx, options),
@@ -607,6 +644,15 @@ async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: Comma
 		ctx.ui.notify(promptBody.warning, "warning");
 	}
 	pi.sendUserMessage(buildWritePlanPrompt(steering, promptBody.body));
+}
+
+async function handleWriteGrilledPlanCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+	await ctx.waitForIdle();
+	const steering = args.trim();
+	if (ctx.hasUI) {
+		ctx.ui.notify("Starting /planned-branch:write-grilled-plan planning grill…", "info");
+	}
+	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
 
 async function handleImplPlannedBranchCommand(
@@ -800,7 +846,7 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
-			"Use write_source_branch_plan_file for `/planned-branch:write-plan` after producing a reviewed final Markdown plan.",
+			"Use write_source_branch_plan_file for `/planned-branch:write-plan` and `/planned-branch:write-grilled-plan` after producing a reviewed final Markdown plan.",
 			"Do not generate or pass a saved-plan filename slug; write_source_branch_plan_file derives it from content through the Codex-backed slug model.",
 			"write_source_branch_plan_file writes the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
 			"write_source_branch_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",

@@ -120,6 +120,10 @@ _Avoid_: one-off skill, internal docs dependency, hidden installation requiremen
 The checked-in `.asdl/prompts/planned-branch-write-plan.md` static prompt body consumed by `/planned-branch:write-plan` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt planned-branch-write-plan --format json` with built-in fallback for usability.
 _Avoid_: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
 
+**Planned-branch write-grilled-plan prompt**:
+The Pi-only embedded prompt consumed by `/planned-branch:write-grilled-plan`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal planned-branch Saved plan with `write_source_branch_plan_file`.
+_Avoid_: repo-editable prompt policy, cross-agent skill contract, new storage artifact, Branch Memory attachment.
+
 **Handoff artifact**:
 A directed, durable work-context artifact for a specific future continuation.
 _Avoid_: Branch Memory entry as the user model, save/load operation language, generic session summary, compaction.
