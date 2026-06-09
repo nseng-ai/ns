@@ -121,6 +121,11 @@
       "sourceType": "local",
       "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
     },
+    "internal-code-gt-delete-stack": {
+      "source": "skills/internal-code-gt-delete-stack",
+      "sourceType": "local",
+      "computedHash": "904f6c8b12a994806f213d01fd56175a0901dcb5f910c538128770675245c847"
+    },
     "internal-code-gt-stackify-branch": {
       "source": "skills/internal-code-gt-stackify-branch",
       "sourceType": "local",
