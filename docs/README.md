@@ -17,6 +17,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Branch retrospective evidence](aretro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
+- [Skill/extension router pattern](skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
 - [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
 - [asdl exec commands](asdl-exec/README.md): deterministic command boundaries for skills and agents.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.

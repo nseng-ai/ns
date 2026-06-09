@@ -1,6 +1,6 @@
 # Skill/Extension Router Pattern
 
-Use this pattern to consolidate rare, related workflow skills behind one installed router skill, while keeping substantial playbooks lazy-loaded and optional Pi ergonomics deterministic.
+Use this pattern to consolidate rare, related workflow skills behind one installed router skill, while keeping substantial playbooks lazy-loaded and optional selector ergonomics deterministic.
 
 ## Use this pattern when
 
@@ -45,7 +45,7 @@ For repo-local skills, `skills/<name>/` is the canonical source. The installed `
 
 Avoid copying every current route into always-loaded repository context such as `AGENTS.md`. The router skill frontmatter is the discoverable entrypoint; the detailed route inventory belongs in the lazy-loaded router body.
 
-## Optional Pi selector command
+## Pi-specific: Optional selector command
 
 A Pi selector command can make route choice ergonomic without expanding the installed skill surface. Keep it deterministic:
 
