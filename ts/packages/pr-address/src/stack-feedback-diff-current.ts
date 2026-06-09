@@ -290,7 +290,7 @@ function validationErrors(options: {
 }
 
 function currentPrErrors(currentPrep: StackFeedbackPrepResult): DiffCurrentError[] {
-	return duplicateNumbers(currentPrep.stack.map((prResult) => prResult.pr_number)).map((prNumber) => errorItem("duplicate_current_pr", `current_prep contains duplicate PR number ${prNumber}.`, prNumber));
+	return duplicateNumbers(currentPrep.stack.map((prResult) => prResult.pr_number)).map((prNumber) => errorItem("duplicate_current_pr", `current_prep contains duplicate PR number ${prNumber}.`, { prNumber }));
 }
 
 function plannedThreadKeyErrors(plannedActionable: readonly StackFeedbackPlanItem[]): DiffCurrentError[] {
@@ -299,13 +299,13 @@ function plannedThreadKeyErrors(plannedActionable: readonly StackFeedbackPlanIte
 	for (const item of plannedActionable) {
 		const key = threadKey(item.pr_number, item.thread_id);
 		if (key === null) {
-			errors.push(errorItem("invalid_planned_thread_item", "Stack plan review-thread item must include a non-empty thread_id.", item.pr_number));
+			errors.push(errorItem("invalid_planned_thread_item", "Stack plan review-thread item must include a non-empty thread_id.", { prNumber: item.pr_number }));
 			continue;
 		}
 		keys.push(key);
 	}
 	for (const key of duplicateThreadKeys(keys)) {
-		errors.push(errorItem("duplicate_planned_thread", `Stack plan contains duplicate PR #${key[0]} thread ${key[1]}.`, key[0], key[1]));
+		errors.push(errorItem("duplicate_planned_thread", `Stack plan contains duplicate PR #${key[0]} thread ${key[1]}.`, { prNumber: key[0], threadId: key[1] }));
 	}
 	return errors;
 }
@@ -317,12 +317,12 @@ function currentThreadsByKey(currentPrep: StackFeedbackPrepResult): { currentByK
 		for (const thread of prResult.manifest.review_threads) {
 			const key = threadKey(prResult.pr_number, thread.thread_id);
 			if (key === null) {
-				errors.push(errorItem("invalid_current_thread", "current_prep review thread must include a non-empty thread_id.", prResult.pr_number));
+				errors.push(errorItem("invalid_current_thread", "current_prep review thread must include a non-empty thread_id.", { prNumber: prResult.pr_number }));
 				continue;
 			}
 			const serializedKey = stringKey(key);
 			if (currentByKey.has(serializedKey)) {
-				errors.push(errorItem("duplicate_current_thread", `current_prep contains duplicate PR #${key[0]} thread ${key[1]}.`, key[0], key[1]));
+				errors.push(errorItem("duplicate_current_thread", `current_prep contains duplicate PR #${key[0]} thread ${key[1]}.`, { prNumber: key[0], threadId: key[1] }));
 				continue;
 			}
 			currentByKey.set(serializedKey, thread);
@@ -338,11 +338,11 @@ function validateStackMembership(stackPlan: StackFeedbackPlanResult, currentPrNu
 	if (currentPrSet.size !== currentPrNumbers.length) return [];
 	const errors: DiffCurrentError[] = [];
 	for (const prNumber of plannedNumbers) {
-		if (!currentPrSet.has(prNumber)) errors.push(errorItem("missing_current_pr", `current_prep is missing planned PR #${prNumber}.`, prNumber));
+		if (!currentPrSet.has(prNumber)) errors.push(errorItem("missing_current_pr", `current_prep is missing planned PR #${prNumber}.`, { prNumber }));
 	}
 	const plannedSet = new Set(plannedNumbers);
 	for (const prNumber of currentPrNumbers) {
-		if (!plannedSet.has(prNumber)) errors.push(errorItem("unknown_current_pr", `current_prep contains PR #${prNumber} not present in stack_plan.`, prNumber));
+		if (!plannedSet.has(prNumber)) errors.push(errorItem("unknown_current_pr", `current_prep contains PR #${prNumber} not present in stack_plan.`, { prNumber }));
 	}
 	return errors;
 }
@@ -467,8 +467,13 @@ function stringKey(key: ThreadKey): string {
 	return `${key[0]}\u0000${key[1]}`;
 }
 
-function errorItem(code: string, message: string, prNumber: number | null = null, threadId: string | null = null): DiffCurrentError {
-	return { code, message, pr_number: prNumber, thread_id: threadId };
+interface ErrorItemOptions {
+	prNumber?: number | null;
+	threadId?: string | null;
+}
+
+function errorItem(code: string, message: string, options: ErrorItemOptions = {}): DiffCurrentError {
+	return { code, message, pr_number: options.prNumber ?? null, thread_id: options.threadId ?? null };
 }
 
 export function stackFeedbackPrFixture(options: { prNumber: number; branch: string; threads: readonly ThreadManifestItem[] }): StackFeedbackPrepPr {
