@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import replace
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -18,7 +17,6 @@ from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import (
     PRDiscussionComment,
     PRGatewayFailure,
-    PRLookupMiss,
     PRReview,
     PRReviewThread,
     PRState,
@@ -32,8 +30,12 @@ from asdl_pr_address.cli.pr_address.feedback_payload import (
     PrepareRunPayloadManifest,
     build_prepare_run_payload_manifest,
 )
-from asdl_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
-from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
+from asdl_pr_address.cli.pr_address.prepare_run_workflow import (
+    PreparedPrAddressRun,
+    PrepareRunNoPr,
+    PrepareRunPrLookupFailed,
+    prepare_pr_address_run,
+)
 
 RestructuredFiles = tuple[RestructuredFile, ...]
 
@@ -176,8 +178,15 @@ def run_prepare_run(
         store = open_clinkr_payload_store(request.payload_session_id)
 
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    branch_result = pr_address_context.git_gateway.get_current_branch(Path.cwd())
-    match branch_result:
+    outcome = prepare_pr_address_run(
+        pr_address_context.pr_gateway,
+        pr_address_context.git_gateway,
+        cwd=Path.cwd(),
+        include_all_threads=request.include_all_threads,
+        include_empty_reviews=request.include_empty_reviews,
+    )
+
+    match outcome:
         case GitCommandFailure() as failure:
             raise ClinkrFailure(error_type="git_failed", message=failure.message)
         case DetachedHead():
@@ -185,83 +194,38 @@ def run_prepare_run(
                 error_type="detached_head",
                 message="Detached HEAD: prepare-run requires a checked-out branch.",
             )
-        case str() as current_branch:
-            pass
-
-    pr = pr_address_context.pr_gateway.get_pr_for_branch(current_branch)
-    if isinstance(pr, PRGatewayFailure):
-        raise ClinkrFailure(
-            error_type="pr_gateway_failure",
-            message=_gateway_failure_message(
-                f"Failed to look up PR for current branch {current_branch!r}",
-                pr,
-            ),
-        )
-    if isinstance(pr, PRLookupMiss):
-        inline_result = PrepareRunInlineResult(
-            found=False,
-            current_branch=current_branch,
-            error=pr.stderr,
-            returncode=pr.returncode,
-        )
-        return _prepare_run_exit_for_payload_mode(
-            inline_result=inline_result,
-            payload_mode=request.payload_mode,
-            store=store,
-        )
-    # pr is now guaranteed to be a PR object, not PR lookup miss/failure.
-
-    raw_reviews = pr_address_context.pr_gateway.get_reviews(pr.number)
-    reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
-    snapshot_threads = pr_address_context.pr_gateway.get_review_threads(
-        pr.number,
-        include_resolved=True,
-    )
-    discussion_comments = pr_address_context.pr_gateway.get_pr_discussion_comments(pr.number)
-
-    warnings: list[str] = []
-    reopened_thread_ids: list[str] = []
-    for thread_id in _contested_thread_ids(snapshot_threads):
-        try:
-            pr_address_context.pr_gateway.unresolve_review_thread(thread_id)
-        except Exception as exc:
-            warnings.append(f"Failed to reopen contested thread {thread_id}: {exc}")
-            continue
-        reopened_thread_ids.append(thread_id)
-
-    normalized_threads = _normalize_threads(
-        snapshot_threads=snapshot_threads,
-        include_all_threads=request.include_all_threads,
-        reopened_thread_ids=tuple(reopened_thread_ids),
-    )
-
-    restructured_files: RestructuredFiles
-    files_result = pr_address_context.git_gateway.get_restructured_files(
-        Path.cwd(),
-        pr.base_ref_name,
-    )
-    if isinstance(files_result, GitCommandFailure):
-        warnings.append(files_result.message)
-        restructured_files = ()
-    else:
-        restructured_files = files_result
-
-    inline_result = PrepareRunInlineResult(
-        found=True,
-        current_branch=current_branch,
-        number=pr.number,
-        title=pr.title,
-        url=pr.url,
-        head_ref_name=pr.head_ref_name,
-        base_ref_name=pr.base_ref_name,
-        state=pr.state,
-        reviews=reviews,
-        review_threads=normalized_threads,
-        discussion_comments=discussion_comments,
-        reopened_thread_ids=tuple(reopened_thread_ids),
-        restructured_files=restructured_files,
-        warnings=tuple(warnings),
-    )
+        case PrepareRunPrLookupFailed() as failure:
+            raise ClinkrFailure(
+                error_type="pr_gateway_failure",
+                message=_gateway_failure_message(
+                    f"Failed to look up PR for current branch {failure.current_branch!r}",
+                    failure.failure,
+                ),
+            )
+        case PrepareRunNoPr() as no_pr:
+            inline_result = PrepareRunInlineResult(
+                found=False,
+                current_branch=no_pr.current_branch,
+                error=no_pr.error,
+                returncode=no_pr.returncode,
+            )
+        case PreparedPrAddressRun() as prepared:
+            inline_result = PrepareRunInlineResult(
+                found=True,
+                current_branch=prepared.current_branch,
+                number=prepared.number,
+                title=prepared.title,
+                url=prepared.url,
+                head_ref_name=prepared.head_ref_name,
+                base_ref_name=prepared.base_ref_name,
+                state=prepared.state,
+                reviews=prepared.reviews,
+                review_threads=prepared.review_threads,
+                discussion_comments=prepared.discussion_comments,
+                reopened_thread_ids=prepared.reopened_thread_ids,
+                restructured_files=prepared.restructured_files,
+                warnings=prepared.warnings,
+            )
     return _prepare_run_exit_for_payload_mode(
         inline_result=inline_result,
         payload_mode=request.payload_mode,
@@ -310,35 +274,3 @@ def _prepare_run_exit_for_payload_mode(
             returncode=inline_result.returncode,
         )
     )
-
-
-def _contested_thread_ids(review_threads: tuple[PRReviewThread, ...]) -> tuple[str, ...]:
-    contested: list[str] = []
-    for thread in review_threads:
-        if not thread.is_resolved:
-            continue
-        marker_indexes = [
-            index
-            for index, comment in enumerate(thread.comments)
-            if RESOLUTION_MARKER in comment.body
-        ]
-        if not marker_indexes:
-            continue
-        if marker_indexes[-1] < len(thread.comments) - 1:
-            contested.append(thread.id)
-    return tuple(contested)
-
-
-def _normalize_threads(
-    *,
-    snapshot_threads: tuple[PRReviewThread, ...],
-    include_all_threads: bool,
-    reopened_thread_ids: tuple[str, ...],
-) -> tuple[PRReviewThread, ...]:
-    reopened = set(reopened_thread_ids)
-    normalized: list[PRReviewThread] = []
-    for thread in snapshot_threads:
-        adjusted_thread = replace(thread, is_resolved=False) if thread.id in reopened else thread
-        if include_all_threads or not adjusted_thread.is_resolved:
-            normalized.append(adjusted_thread)
-    return tuple(normalized)

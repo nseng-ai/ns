@@ -27,7 +27,7 @@ Reference audit docs have been moved into this Objective at:
 
 Those reference docs are part of the Objective context and should be consulted before implementing, parking, or rejecting any roadmap row.
 
-After the first four projects shipped and the Git and GitHub slices of the `asdl-core` converter row landed, the remaining active implementation focus is intentionally narrowed to two rows: finish the `asdl-core` Graphite metadata reader disposition, and deepen `asdl-pr-address` feedback snapshot / prepare-run policy. The `roaster`, `areg`, `vibechk`, and `packagechk` rows are parked with reasons in the roadmap rather than pursued under this Objective.
+All ten priority projects now have durable dispositions. The `asdl-slots`, `asdl-core`, `asdl-objectives`, and `asdl-pr-address` rows shipped with completion evidence in the roadmap and Semantic Updates. The `roaster`, `areg`, `vibechk`, and `packagechk` rows are parked with reasons in the roadmap rather than pursued under this Objective.
 
 ## Non-Goals
 
@@ -52,18 +52,23 @@ Completion does not require every row to ship. It requires that none of the ten 
 **Assumptions**
 
 - The reference audit reports accurately reflect the current architecture at Objective creation time.
-- The priority order was a good starting order, but later implementation evidence and user direction narrowed the remaining active focus to `asdl-core` adapter conversion/disposition and `asdl-pr-address` feedback workflow deepening.
+- The priority order was a good starting order; later implementation evidence and user direction narrowed the final active focus to `asdl-core` adapter conversion/disposition and `asdl-pr-address` feedback workflow deepening, both of which now have shipped dispositions.
 - The previous closed `architecture-deepening` Objective is historical context, not an active container for this new priority roadmap.
 - Moving the audit docs into this Objective is acceptable because the Objective should be self-contained even if top-level `docs/` changes later.
 
 **Risks**
 
-- Some audit findings may become stale before implementation begins. Mitigation: reread the relevant package code and the package-specific reference doc before starting an active row; parked rows should be revalidated before any future unpark decision.
-- `asdl-core` work has high blast radius. Mitigation: keep the remaining adapter-conversion/disposition row narrow and preserve existing gateway interfaces unless evidence requires an interface change.
+- Some audit findings may become stale before future follow-up work begins. Mitigation: parked rows should be revalidated before any future unpark decision.
+- `asdl-core` work had high blast radius. Mitigation succeeded through narrow Git, GitHub, Graphite, and production-construction slices that preserved existing gateway interfaces while adding focused conversion, reader, and construction locality.
 - `asdl-slots` work revealed that the release workflow and checkout mutation fix should be split across separate branches/slices. The checkout mutation fix shipped separately, and the release/free/gc workflow shipped through staged preview-surface and execution-flow consolidation slices with lifecycle-focused tests plus CLI scenario regression coverage.
 - Moving the audit docs out of top-level `docs/` may surprise future readers looking there. Mitigation: this Objective path is checked in and should be referenced from future updates or handoffs that use the audit.
 
 ## Open Questions
 
-- Should the remaining `asdl-core` Graphite metadata reader disposition be an extraction slice, or should it be parked with reason because current code is already cohesive enough that extraction would be churn?
-- Should parked cleanup items from `asdl-handoff`, `aretro`, `brmem`, `roaster`, `areg`, `vibechk`, or `packagechk` ever be collected into a separate cleanup Objective, or should they remain opportunistic local refactors?
+No open questions remain for this Objective. Parked cleanup items from `asdl-handoff`, `aretro`, `brmem`, `roaster`, `areg`, `vibechk`, and `packagechk` should remain opportunistic local refactors unless a future explicit Objective revalidates and un-parks them.
+
+## Closure
+
+Closed as completed. All ten priority architecture-deepening projects have a durable disposition: shipped rows record evidence in the roadmap and Semantic Updates, and lower-priority rows are parked with reasons grounded in the audit and later narrowing decisions. The final `asdl-pr-address` prepare-run workflow slice introduced an in-process workflow module with fake-driven coverage while preserving CLI/payload behavior in the adapter.
+
+Closure caveat: full repository validation still reaches an unrelated TypeScript `ccc` failure in `ts/packages/ccc/src/worktree-status.ts`; focused Python/package validation for the final slice passed. Future work should treat parked cleanup items as new Objective or opportunistic refactor candidates only after current-code revalidation.
