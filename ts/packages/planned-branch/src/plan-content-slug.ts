@@ -14,6 +14,13 @@ import type { PlanCommandExecApi } from "@asdl/plans";
 export { MAX_PLAN_CONTENT_CHARS, normalizePlanContentSlugOutput, truncatePlanContentForSlug };
 export type PlanContentSlugEvidence = ContentSlugEvidence;
 
+export interface DerivePlanContentSlugInput {
+	filePath: string;
+	cwd: string;
+	signal?: AbortSignal | undefined;
+	readTextFile?: ((path: string) => Promise<string>) | undefined;
+}
+
 const PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 	slugKind: "planned-branch slug",
 	promptIntroLines: [
@@ -25,12 +32,14 @@ const PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 	noFallbackLine: "No filename or deterministic fallback was attempted.",
 };
 
-export async function derivePlanContentSlug(
-	pi: PlanCommandExecApi,
-	input: { filePath: string; cwd: string; signal?: AbortSignal | undefined },
-): Promise<PlanContentSlugEvidence> {
-	const content = await readFile(input.filePath, "utf8");
+export async function derivePlanContentSlug(pi: PlanCommandExecApi, input: DerivePlanContentSlugInput): Promise<PlanContentSlugEvidence> {
+	const readTextFile = input.readTextFile ?? defaultReadTextFile;
+	const content = await readTextFile(input.filePath);
 	return deriveContentSlug(pi, { content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) }, PLAN_CONTENT_SLUG_VARIANT);
+}
+
+function defaultReadTextFile(path: string): Promise<string> {
+	return readFile(path, "utf8");
 }
 
 export function buildPlanContentSlugPrompt(content: string): string {
