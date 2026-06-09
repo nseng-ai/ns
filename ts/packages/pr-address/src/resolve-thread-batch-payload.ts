@@ -24,7 +24,7 @@ const provenanceSchema = z.discriminatedUnion("kind", [
 	z.looseObject({ kind: z.literal("pr"), pr_number: z.number().int() }),
 ]);
 
-const decisionSchema = z.looseObject({
+export const resolveThreadBatchDecisionSchema = z.looseObject({
 	thread_id: z.string(),
 	action: z.string(),
 	mode: nullableStringSchema,
@@ -39,11 +39,11 @@ const buildResolveThreadBatchPayloadInputSchema = z.looseObject({
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema,
 	continue_on_error: z.boolean().default(false),
-	decisions: z.array(decisionSchema),
+	decisions: z.array(resolveThreadBatchDecisionSchema),
 });
 
 type BuildResolveThreadBatchPayloadInput = z.infer<typeof buildResolveThreadBatchPayloadInputSchema>;
-type ResolveThreadBatchDecision = z.infer<typeof decisionSchema>;
+export type ResolveThreadBatchDecision = z.infer<typeof resolveThreadBatchDecisionSchema>;
 type ResolutionMode = (typeof VALID_RESOLUTION_MODES)[number];
 
 interface BuildResolveThreadBatchPayloadError {
@@ -53,7 +53,7 @@ interface BuildResolveThreadBatchPayloadError {
 	thread_id: string | null;
 }
 
-interface ResolveThreadBatchItem {
+export interface ResolveThreadBatchItem {
 	thread_id: string;
 	mode: ResolutionMode;
 	message: string | null;
@@ -83,7 +83,7 @@ interface BuildResolveThreadBatchPayloadResult {
 	warnings: string[];
 }
 
-interface BuiltThreadResolutionDecision {
+export interface BuiltThreadResolutionDecision {
 	errors: Array<{ code: string; message: string }>;
 	payloadItem: ResolveThreadBatchItem | null;
 	skipReason: string | null;
@@ -270,7 +270,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 	};
 }
 
-function buildThreadResolutionDecision(options: {
+export function buildThreadResolutionDecision(options: {
 	threadId: string;
 	subjectLabel: string;
 	batchCommitSha: string | null;
