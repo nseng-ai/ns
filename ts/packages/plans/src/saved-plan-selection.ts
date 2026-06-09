@@ -3,19 +3,19 @@ import { basename, isAbsolute, resolve } from "node:path";
 
 import {
 	buildPlanFileName,
-	findLatestSourceBranchPlanFile,
+	findLatestSavedPlanFile,
 	resolvePlanStoreDirectory,
-	type LatestSourceBranchPlanFileEvidence,
+	type LatestSavedPlanFileEvidence,
 	type PlanStoreDirectoryEvidence,
-	type SourceBranchPlanFileEvidence,
-	type SourceBranchPlanFileOptions,
-} from "./source-plan-file.ts";
+	type SavedPlanFileEvidence,
+	type PlanStoreOptions,
+} from "./saved-plan-file.ts";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
 import { isRecord } from "./primitives.ts";
 
-export const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
+export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
 
-export type ValidatedSessionSavedPlan = LatestSourceBranchPlanFileEvidence & {
+export type ValidatedSessionSavedPlan = LatestSavedPlanFileEvidence & {
 	summary?: string;
 };
 
@@ -43,17 +43,17 @@ export type SelectedSavedPlanFile =
 	  }
 	| {
 			type: "latest";
-			plan: LatestSourceBranchPlanFileEvidence;
+			plan: LatestSavedPlanFileEvidence;
 			savedPlanFileStem: string;
 	  };
 
-export interface ResolveSelectedSavedPlanFileOptions extends SourceBranchPlanFileOptions {
+export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
 	explicitPath?: string | undefined;
 	sessionEntries?: readonly unknown[] | undefined;
 	shouldFallbackToLatest?: boolean | undefined;
 }
 
-export function extractSourceBranchPlanFileEvidenceFromSessionEntry(entry: unknown): SourceBranchPlanFileEvidence | undefined {
+export function extractSavedPlanFileEvidenceFromSessionEntry(entry: unknown): SavedPlanFileEvidence | undefined {
 	if (!isRecord(entry) || entry.type !== "message") {
 		return undefined;
 	}
@@ -62,7 +62,7 @@ export function extractSourceBranchPlanFileEvidenceFromSessionEntry(entry: unkno
 	if (!isRecord(message) || message.role !== "toolResult") {
 		return undefined;
 	}
-	if ((message.toolName ?? undefined) !== WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME || message.isError === true) {
+	if ((message.toolName ?? undefined) !== WRITE_SAVED_PLAN_FILE_TOOL_NAME || message.isError === true) {
 		return undefined;
 	}
 
@@ -71,11 +71,11 @@ export function extractSourceBranchPlanFileEvidenceFromSessionEntry(entry: unkno
 		return undefined;
 	}
 
-	return parseSourceBranchPlanFileEvidence(details);
+	return parseSavedPlanFileEvidence(details);
 }
 
 export async function validateSessionSavedPlanCandidate(
-	evidence: SourceBranchPlanFileEvidence,
+	evidence: SavedPlanFileEvidence,
 	directory: PlanStoreDirectoryEvidence,
 ): Promise<SessionSavedPlanValidation> {
 	if (!isAbsolute(evidence.filePath)) {
@@ -152,7 +152,7 @@ export async function findLatestSessionSavedPlanFile(
 ): Promise<LatestSessionSavedPlanResult> {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const entry = entries[index];
-		const evidence = extractSourceBranchPlanFileEvidenceFromSessionEntry(entry);
+		const evidence = extractSavedPlanFileEvidenceFromSessionEntry(entry);
 		if (evidence === undefined) {
 			continue;
 		}
@@ -204,14 +204,14 @@ export async function resolveSelectedSavedPlanFile(
 	}
 
 	if (options.shouldFallbackToLatest ?? false) {
-		const latest = await findLatestSourceBranchPlanFile(pi, options);
+		const latest = await findLatestSavedPlanFile(pi, options);
 		return { type: "latest", plan: latest, savedPlanFileStem: latest.slug };
 	}
 
 	throw new Error("No usable saved plan from /planned-branch:write-plan was found in the current session branch.");
 }
 
-function parseSourceBranchPlanFileEvidence(details: Record<string, unknown>): SourceBranchPlanFileEvidence | undefined {
+function parseSavedPlanFileEvidence(details: Record<string, unknown>): SavedPlanFileEvidence | undefined {
 	const slug = details.slug;
 	const repoRoot = details.repoRoot;
 	const repoKey = details.repoKey;
@@ -233,7 +233,7 @@ function parseSourceBranchPlanFileEvidence(details: Record<string, unknown>): So
 		return undefined;
 	}
 
-	const evidence: SourceBranchPlanFileEvidence = {
+	const evidence: SavedPlanFileEvidence = {
 		slug,
 		repoRoot,
 		repoKey,
@@ -252,7 +252,7 @@ function parseSourceBranchPlanFileEvidence(details: Record<string, unknown>): So
 	return { ...evidence, summary };
 }
 
-function validateDirectoryMetadata(evidence: SourceBranchPlanFileEvidence, directory: PlanStoreDirectoryEvidence): string | undefined {
+function validateDirectoryMetadata(evidence: SavedPlanFileEvidence, directory: PlanStoreDirectoryEvidence): string | undefined {
 	const mismatches: string[] = [];
 	if (evidence.repoRoot !== directory.repoRoot) {
 		mismatches.push(`repoRoot: evidence ${evidence.repoRoot}, current ${directory.repoRoot}`);

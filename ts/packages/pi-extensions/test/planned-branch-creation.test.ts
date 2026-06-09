@@ -10,7 +10,7 @@ import {
 	validateTargetBranchName,
 	type CreatePlannedBranchFromFileParams,
 } from "@asdl/planned-branch";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/planned-branch";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";

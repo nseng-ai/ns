@@ -3,24 +3,26 @@ import { formatPlannedBranchUpAndImplFollowUpFlow, runPlannedBranchUpAndImplLaun
 import {
 	PLAN_BRANCH_NAMESPACE,
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
-	WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 	buildImplPlannedBranchPrompt,
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
 	deriveTargetBranch,
 	formatLoadedAttachedPlanEvidence,
 	formatPlanBranchEvidence,
-	formatSourceBranchPlanFileEvidence,
 	loadPlannedBranchPlan,
-	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
-	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
 	type BranchCreationMethod,
-	type ExecOptions,
 	type LoadedAttachedPlan,
 	type PlannedBranchEvidence,
 	type PlannedBranchOutputDetails,
-	type SelectedSavedPlanFile,
-	type SourceBranchPlanFileEvidence,
 } from "@asdl/planned-branch";
+import {
+	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
+	formatSavedPlanFileEvidence,
+	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
+	writeSavedPlanFile as writeSavedPlanFilePrimitive,
+	type ExecOptions,
+	type SavedPlanFileEvidence,
+	type SelectedSavedPlanFile,
+} from "@asdl/plans";
 import type { ExecResult } from "./command-runtime.ts";
 import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
@@ -30,32 +32,33 @@ import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from ".
 export type { ExecResult } from "./command-runtime.ts";
 export {
 	PLAN_BRANCH_NAMESPACE,
-	buildRepoPlanStoreKey,
 	createPlannedBranchFromFile,
-	defaultPlanStoreRoot,
 	deriveTargetBranch,
+	validateTargetBranchName,
+} from "@asdl/planned-branch";
+export {
+	buildRepoPlanStoreKey,
+	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
-	findLatestSourceBranchPlanFile,
-	formatSourceBranchPlanFileEvidence,
+	findLatestSavedPlanFile,
+	formatSavedPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
 	resolvePlanStoreDirectory,
 	sanitizePlanPathSegment,
 	validatePlanSlug,
-	validateTargetBranchName,
-	writeSourceBranchPlanFile,
-} from "@asdl/planned-branch";
+	writeSavedPlanFile,
+} from "@asdl/plans";
+export type { BranchCreationMethod, CreatePlannedBranchFromFileParams } from "@asdl/planned-branch";
 export type {
-	BranchCreationMethod,
-	CreatePlannedBranchFromFileParams,
-	LatestSourceBranchPlanFileEvidence,
+	LatestSavedPlanFileEvidence,
 	PlanStoreDirectoryEvidence,
 	RepoIdentitySource,
-	SourceBranchPlanFileEvidence,
-	SourceBranchPlanFileOptions,
-	SourceBranchPlanFileParams,
-} from "@asdl/planned-branch";
+	SavedPlanFileEvidence,
+	SavedPlanFileParams,
+	PlanStoreOptions,
+} from "@asdl/plans";
 
 const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
 const WRITE_GRILLED_PLAN_COMMAND_NAME = "planned-branch:write-grilled-plan";
@@ -90,19 +93,19 @@ interface ToolResult {
 
 type ToolUpdateHandler = (update: Partial<ToolResult>) => void;
 
-interface WriteSourceBranchPlanFileToolParams {
+interface WriteSavedPlanFileToolParams {
 	content: string;
 	summary?: string;
 }
 
-interface WriteSourceBranchPlanFileToolDetails extends SourceBranchPlanFileEvidence {
+interface WriteSavedPlanFileToolDetails extends SavedPlanFileEvidence {
 	slugEvidence: SavedPlanContentSlugEvidence;
 }
 
-type WriteSourceBranchPlanFilePhase = "validating" | "deriving-slug" | "writing-file";
+type WriteSavedPlanFilePhase = "validating" | "deriving-slug" | "writing-file";
 
-interface WriteSourceBranchPlanFileProgressDetails {
-	phase: WriteSourceBranchPlanFilePhase;
+interface WriteSavedPlanFileProgressDetails {
+	phase: WriteSavedPlanFilePhase;
 	slug?: string;
 	elapsedSeconds?: number;
 }
@@ -630,7 +633,7 @@ export default function registerPlannedBranchExtension(
 		handler: async (args, ctx) => handleImplPlannedBranchCommand(pi, args, ctx, options),
 	});
 
-	pi.registerTool(buildWriteSourceBranchPlanFileTool(pi, options));
+	pi.registerTool(buildWriteSavedPlanFileTool(pi, options));
 }
 
 async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
@@ -837,9 +840,9 @@ async function createPlannedBranchFromPreview(
 	return createPlannedBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
 }
 
-function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {
+function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {
 	return {
-		name: WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
+		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
 			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
@@ -872,7 +875,7 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			try {
 				emitWriteSourcePlanProgress(onUpdate, ctx, "Validating saved plan input…", { phase: "validating" });
-				const toolParams = parseWriteSourceBranchPlanFileToolParams(params);
+				const toolParams = parseWriteSavedPlanFileToolParams(params);
 				emitWriteSourcePlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
 				const slugStartedAt = Date.now();
 				const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
@@ -909,14 +912,14 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 					{ phase: "writing-file", slug: slugEvidence.slug },
 				);
 				emitWriteSourcePlanProgress(onUpdate, ctx, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
-				const evidence = await writeSourceBranchPlanFilePrimitive(pi, buildSourceBranchPlanFileParams(toolParams, slugEvidence.slug), {
+				const evidence = await writeSavedPlanFilePrimitive(pi, buildSavedPlanFileParams(toolParams, slugEvidence.slug), {
 					cwd: ctx.cwd,
 					signal,
 					planStoreRoot: resolvePlanStoreRootOption(options),
 				});
-				const details: WriteSourceBranchPlanFileToolDetails = { ...evidence, slugEvidence };
+				const details: WriteSavedPlanFileToolDetails = { ...evidence, slugEvidence };
 				return {
-					content: [{ type: "text", text: formatSourceBranchPlanFileEvidenceWithSlugModel(evidence, slugEvidence) }],
+					content: [{ type: "text", text: formatSavedPlanFileEvidenceWithSlugModel(evidence, slugEvidence) }],
 					details,
 				};
 			} finally {
@@ -924,7 +927,7 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 			}
 		},
 		renderCall(args, _theme, context) {
-			return new Text(formatWriteSourceBranchPlanFileCall(args, context), 0, 0);
+			return new Text(formatWriteSavedPlanFileCall(args, context), 0, 0);
 		},
 		renderResult(result, { isPartial }) {
 			const text = formatToolResultText(result);
@@ -940,7 +943,7 @@ function emitWriteSourcePlanProgress(
 	onUpdate: ToolUpdateHandler | undefined,
 	ctx: ToolContext,
 	text: string,
-	details: WriteSourceBranchPlanFileProgressDetails,
+	details: WriteSavedPlanFileProgressDetails,
 ): void {
 	onUpdate?.({ content: [{ type: "text", text }], details });
 	setWriteSourcePlanStatus(ctx, text);
@@ -964,14 +967,14 @@ function formatToolResultText(result: ToolResult): string {
 	return result.content.map((item) => item.text).join("\n");
 }
 
-function formatWriteSourceBranchPlanFileCall(args: unknown, context: unknown): string {
+function formatWriteSavedPlanFileCall(args: unknown, context: unknown): string {
 	const content = isRecord(args) && typeof args.content === "string" ? args.content : undefined;
 	const tokenEstimate = content === undefined ? "" : ` ${formatEstimatedTokenCount(content)}`;
 	if (isToolExecutionStarted(context)) {
-		return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — saving reviewed plan…${tokenEstimate}`;
+		return `${WRITE_SAVED_PLAN_FILE_TOOL_NAME} — saving reviewed plan…${tokenEstimate}`;
 	}
 
-	return `${WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME} — receiving saved-plan content from model…${tokenEstimate}`;
+	return `${WRITE_SAVED_PLAN_FILE_TOOL_NAME} — receiving saved-plan content from model…${tokenEstimate}`;
 }
 
 function isToolExecutionStarted(context: unknown): boolean {
@@ -999,11 +1002,11 @@ function formatCompactNumber(value: number): string {
 	return formatted.replace(/\.0$/, "");
 }
 
-function parseWriteSourceBranchPlanFileToolParams(params: unknown): WriteSourceBranchPlanFileToolParams {
-	return parseWriteSourceBranchPlanFileToolParamsForName(params, WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME);
+function parseWriteSavedPlanFileToolParams(params: unknown): WriteSavedPlanFileToolParams {
+	return parseWriteSavedPlanFileToolParamsForName(params, WRITE_SAVED_PLAN_FILE_TOOL_NAME);
 }
 
-function parseWriteSourceBranchPlanFileToolParamsForName(params: unknown, toolName: string): WriteSourceBranchPlanFileToolParams {
+function parseWriteSavedPlanFileToolParamsForName(params: unknown, toolName: string): WriteSavedPlanFileToolParams {
 	if (!isRecord(params)) {
 		throw new Error(`${toolName} parameters must be an object.`);
 	}
@@ -1026,8 +1029,8 @@ function parseWriteSourceBranchPlanFileToolParamsForName(params: unknown, toolNa
 	return { content, summary };
 }
 
-function buildSourceBranchPlanFileParams(
-	params: WriteSourceBranchPlanFileToolParams,
+function buildSavedPlanFileParams(
+	params: WriteSavedPlanFileToolParams,
 	slug: string,
 ): { slug: string; content: string; summary?: string } {
 	if (params.summary === undefined) {
@@ -1036,11 +1039,11 @@ function buildSourceBranchPlanFileParams(
 	return { slug, content: params.content, summary: params.summary };
 }
 
-function formatSourceBranchPlanFileEvidenceWithSlugModel(
-	evidence: SourceBranchPlanFileEvidence,
+function formatSavedPlanFileEvidenceWithSlugModel(
+	evidence: SavedPlanFileEvidence,
 	slugEvidence: SavedPlanContentSlugEvidence,
 ): string {
-	return `${formatSourceBranchPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
+	return `${formatSavedPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
 
 interface PlannedBranchMessageDetails extends PlannedBranchOutputDetails {

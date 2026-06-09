@@ -12,19 +12,19 @@ import registerPlannedBranchExtension, {
 	buildWritePlanPrompt,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
-	findLatestSourceBranchPlanFile,
+	findLatestSavedPlanFile,
 	formatCreatePlannedBranchPreview,
-	formatSourceBranchPlanFileEvidence,
+	formatSavedPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
 	parseCreatePlannedBranchArgs,
 	validatePlanSlug,
-	writeSourceBranchPlanFile,
+	writeSavedPlanFile,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
-	type SourceBranchPlanFileEvidence,
+	type SavedPlanFileEvidence,
 	type ToolContext,
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
@@ -32,7 +32,7 @@ import { buildPlanContentSlugPrompt } from "../src/planned-branch/plan-content-s
 import { formatPlanBranchEvidence } from "../src/planned-branch-output.ts";
 import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, SLUG_MODEL_MODEL, SLUG_MODEL_PROVIDER } from "../src/model-slug.ts";
-import type { ExecOptions } from "@asdl/planned-branch";
+import type { ExecOptions } from "@asdl/plans";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, "../../../..");
@@ -321,7 +321,7 @@ async function writePlanStoreFile(
 	return filePath;
 }
 
-function sourcePlanEvidence(input: { slug: string; filePath: string; sourceBranch: string; origin?: string }): SourceBranchPlanFileEvidence {
+function sourcePlanEvidence(input: { slug: string; filePath: string; sourceBranch: string; origin?: string }): SavedPlanFileEvidence {
 	const origin = input.origin ?? "git@github.com:owner/repo.git";
 	return {
 		slug: input.slug,
@@ -334,11 +334,11 @@ function sourcePlanEvidence(input: { slug: string; filePath: string; sourceBranc
 	};
 }
 
-function sourcePlanToolResultEntry(evidence: SourceBranchPlanFileEvidence): unknown {
+function sourcePlanToolResultEntry(evidence: SavedPlanFileEvidence): unknown {
 	return sourcePlanToolResultEntryForTool(evidence, "write_source_branch_plan_file");
 }
 
-function sourcePlanToolResultEntryForTool(evidence: SourceBranchPlanFileEvidence, toolName: string): unknown {
+function sourcePlanToolResultEntryForTool(evidence: SavedPlanFileEvidence, toolName: string): unknown {
 	return {
 		type: "message",
 		message: {
@@ -634,7 +634,7 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(directoryPath, "ignored-source-plan.txt", 1_900_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		const evidence = await findLatestSourceBranchPlanFile(pi, { cwd: ROOT, planStoreRoot });
+		const evidence = await findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
 
 		pi.assertDone();
 		expect(evidence).toMatchObject({
@@ -653,7 +653,7 @@ describe("source branch plan path helpers", () => {
 		const sourceBranch = "main";
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		await expect(findLatestSourceBranchPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
+		await expect(findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
 			/No local plan store directory exists[\s\S]*Run \/planned-branch:write-plan first/,
 		);
 		pi.assertDone();
@@ -667,7 +667,7 @@ describe("source branch plan path helpers", () => {
 		await writeFile(join(directoryPath, "notes.txt"), "not a plan", "utf8");
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		await expect(findLatestSourceBranchPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
+		await expect(findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
 			/No Markdown saved plan files exist[\s\S]*Run \/planned-branch:write-plan first/,
 		);
 		pi.assertDone();
@@ -681,7 +681,7 @@ describe("source branch plan path helpers", () => {
 		const latestPath = await writePlanStoreFile(directoryPath, "bad.md", 1_800_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		const evidence = await findLatestSourceBranchPlanFile(pi, { cwd: ROOT, planStoreRoot });
+		const evidence = await findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
 
 		pi.assertDone();
 		expect(evidence.slug).toBe("bad");
@@ -696,7 +696,7 @@ describe("source branch plan path helpers", () => {
 		const expectedPath = await writePlanStoreFile(directoryPath, "zeta-source-plan.md", 1_800_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		const evidence = await findLatestSourceBranchPlanFile(pi, { cwd: ROOT, planStoreRoot });
+		const evidence = await findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
 
 		pi.assertDone();
 		expect(evidence.slug).toBe("zeta-source-plan");
@@ -930,9 +930,9 @@ describe("formatPlanBranchEvidence", () => {
 	});
 });
 
-describe("formatSourceBranchPlanFileEvidence", () => {
+describe("formatSavedPlanFileEvidence", () => {
 	test("reports all local plan store evidence", () => {
-		const text = formatSourceBranchPlanFileEvidence({
+		const text = formatSavedPlanFileEvidence({
 			slug: PLAN_SLUG,
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
@@ -2089,14 +2089,14 @@ describe("write_source_branch_plan_file tool", () => {
 	});
 });
 
-describe("writeSourceBranchPlanFile", () => {
+describe("writeSavedPlanFile", () => {
 	test("writes a source branch saved plan file with origin identity evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "planned-branches/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ stdout: `${origin}\n` })]);
 
-		const evidence = await writeSourceBranchPlanFile(
+		const evidence = await writeSavedPlanFile(
 			pi,
 			{
 				slug: PLAN_SLUG,
@@ -2129,7 +2129,7 @@ describe("writeSourceBranchPlanFile", () => {
 		const sourceBranch = "main";
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ code: 1, stderr: "no origin" })]);
 
-		const evidence = await writeSourceBranchPlanFile(
+		const evidence = await writeSavedPlanFile(
 			pi,
 			{ slug: PLAN_SLUG, content: "# Test Plan\n" },
 			{ cwd: ROOT, planStoreRoot },
@@ -2153,7 +2153,7 @@ describe("writeSourceBranchPlanFile", () => {
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ stdout: `${origin}\n` })]);
 
 		await expect(
-			writeSourceBranchPlanFile(pi, { slug: PLAN_SLUG, content: "# New Plan\n" }, { cwd: ROOT, planStoreRoot }),
+			writeSavedPlanFile(pi, { slug: PLAN_SLUG, content: "# New Plan\n" }, { cwd: ROOT, planStoreRoot }),
 		).rejects.toThrow("refusing to overwrite");
 
 		pi.assertDone();
@@ -2165,7 +2165,7 @@ describe("writeSourceBranchPlanFile", () => {
 		const pi = new FakePi();
 
 		await expect(
-			writeSourceBranchPlanFile(pi, { slug: "Bad Slug", content: "# Test Plan\n" }, { cwd: ROOT, planStoreRoot }),
+			writeSavedPlanFile(pi, { slug: "Bad Slug", content: "# Test Plan\n" }, { cwd: ROOT, planStoreRoot }),
 		).rejects.toThrow("Invalid saved plan slug");
 		expect(pi.execCalls).toEqual([]);
 	});
@@ -2175,7 +2175,7 @@ describe("writeSourceBranchPlanFile", () => {
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep("", { stdout: "\n" })]);
 
 		await expect(
-			writeSourceBranchPlanFile(pi, { slug: PLAN_SLUG, content: "# Test Plan\n" }, { cwd: ROOT, planStoreRoot }),
+			writeSavedPlanFile(pi, { slug: PLAN_SLUG, content: "# Test Plan\n" }, { cwd: ROOT, planStoreRoot }),
 		).rejects.toThrow("check out a named branch");
 
 		pi.assertDone();

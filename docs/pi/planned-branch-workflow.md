@@ -3,11 +3,13 @@
 ## Overview
 
 The planned-branch workflow turns a reviewed implementation plan into an
-implementation branch that carries its canonical plan with it. The portable core
-is the `@asdl/planned-branch` package and its `planned-branch` bin;
-Pi commands and installed agent skills are thin workflow surfaces over that CLI
-contract. The `planned-branch` umbrella/reference skill is the shared
-agent-skill reference root for the bundled step skills.
+implementation branch that carries its canonical plan with it. Saved-plan store
+primitives live in the `@asdl/plans` package and its `plans` inspection bin;
+branch creation, Branch Memory attachment, and implementation loading live in
+the `@asdl/planned-branch` package and its `planned-branch` bin. Pi commands and
+installed agent skills are thin workflow surfaces over those CLI contracts. The
+`planned-branch` umbrella/reference skill is the shared agent-skill reference
+root for the bundled step skills.
 
 Branch Memory is the lower storage adapter for the attached plan. It stores plan
 text under an explicit namespace/key contract, but it does not own
@@ -33,8 +35,10 @@ combines branch creation, `git checkout <branch>`, a fresh Pi session, and
 The agent skills form a bundled planned-branch skill family: the `planned-branch`
 umbrella/reference skill plus write-plan, create, and implement step entrypoints.
 
-The deterministic CLI operations are hidden under `planned-branch exec` so
-agents can share one package contract without duplicating implementation details.
+The deterministic planned-branch CLI operations are hidden under
+`planned-branch exec` so agents can share one branch-workflow contract without
+duplicating implementation details. The human-facing `plans list` command
+inspects the local saved-plan store.
 
 ## Command Flow
 
@@ -64,7 +68,7 @@ Other agents use the `planned-branch-write-plan` skill, which shells out to:
 planned-branch exec write-plan-file --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]
 ```
 
-The saved plan is written to:
+The saved plan is written by saved-plan store primitives to:
 
 ```text
 ~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
@@ -99,7 +103,7 @@ planned-branch create/implement skills. There is no current standalone CLI or
 skill counterpart for the grilled interaction itself; this is intentional Pi-only
 structured UI orchestration while storage remains shared.
 
-### Resolve a saved plan
+### Resolve or inspect saved plans
 
 Agents can resolve either an explicit plan path or the latest local saved plan
 for the current repo/source branch:
@@ -111,6 +115,18 @@ planned-branch exec resolve-plan [absolute-or-home-plan-file.md] [--format json]
 With no explicit file path, resolution finds the newest Markdown plan in the
 current repo/source-branch local plan store directory. Explicit paths may be
 absolute or current-user home-relative and must point to Markdown files.
+
+Humans can inspect saved plans for the current repository across all stored
+branch-key directories with:
+
+```text
+plans list [--format json] [--plan-store-root <path>]
+```
+
+Default text output includes each saved plan's slug, encoded branch key,
+modified time, and path. It intentionally displays the existing encoded
+`branchKey` rather than trying to recover exact original branch names, and omits
+the plan kind; the path suffix (`.md` or `.plan.ts`) disambiguates formats.
 
 ### Create a planned branch
 
@@ -192,10 +208,12 @@ The workflow has two storage locations with different jobs:
 - **Local plan store:**
   `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md` stores
   reviewed plans before an implementation branch exists. Here `<slug>` is the
-  saved-plan filename slug.
+  saved-plan filename slug. `@asdl/plans` owns these saved-plan store primitives;
+  `plans list` provides human inspection.
 - **Attached plan:** Branch Memory namespace `planned-branch`, key
   `<planned-branch-slug>.md`, on the implementation branch stores the canonical
-  plan that implementation should follow.
+  plan that implementation should follow. `@asdl/planned-branch` owns branch
+  creation and attached-plan loading.
 
 The planning layer owns saved plans and attached plans. Branch Memory only stores
 the attached plan content under the namespace/key contract, so other Branch
@@ -270,7 +288,13 @@ Common recovery paths:
   stored and no cleanup is attempted; inspect the created branch manually.
 - If loading reports multiple attached plans, rerun with the desired key or slug.
 
-For read-only inspection, use:
+For saved-plan store inspection, use:
+
+```text
+plans list [--format json]
+```
+
+For read-only attached-plan inspection, use:
 
 ```text
 brmem list --namespace planned-branch --branch <branch>
@@ -279,9 +303,10 @@ brmem get <key> --namespace planned-branch --branch <branch>
 
 ## Validation and Related Surfaces
 
-The portable package exposes the `planned-branch` bin. Pi commands and installed
-agent skills should treat the hidden `planned-branch exec` commands as the
-shared contract rather than duplicating package internals.
+The portable packages expose the `plans` and `planned-branch` bins. Pi commands
+and installed agent skills should treat the hidden `planned-branch exec` commands
+as the shared branch-workflow contract rather than duplicating package internals.
+Use `plans list` for human saved-plan store inspection.
 
 Related public surfaces:
 

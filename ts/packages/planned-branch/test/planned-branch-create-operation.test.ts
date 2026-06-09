@@ -10,7 +10,7 @@ import {
 	resolvePlannedBranchCreatePreviewContext,
 	tryNormalizeBranchCreationMethod,
 } from "../src/planned-branch-creation.ts";
-import type { PlanCommandExecApi } from "../src/plan-persistence.ts";
+import type { PlanCommandExecApi } from "@asdl/plans";
 import { InMemoryPlannedBranchGitGateway } from "./support/in-memory-git-gateway.ts";
 
 const PLAN_SLUG = "branch-scoped-plan";

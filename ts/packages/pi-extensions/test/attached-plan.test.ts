@@ -12,7 +12,8 @@ import {
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
 } from "@asdl/planned-branch";
-import { PLAN_BRANCH_NAMESPACE, type ExecOptions, type PlanCommandExecApi } from "@asdl/planned-branch";
+import { PLAN_BRANCH_NAMESPACE } from "@asdl/planned-branch";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";

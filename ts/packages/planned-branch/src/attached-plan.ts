@@ -5,8 +5,9 @@ import { TextEncoder } from "node:util";
 import { RealPlannedBranchBrmemGateway, type AttachedPlanEntry, type PlannedBranchBrmemGateway } from "./brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
-import type { PlanCommandExecApi } from "./plan-persistence.ts";
-import { resolveSelectedSavedPlanFile } from "./saved-plan-selection.ts";
+import { resolveSelectedSavedPlanFile, type PlanCommandExecApi } from "@asdl/plans";
+
+import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
 const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
 const ATTACHED_PLAN_SUFFIX = ".md";
@@ -156,7 +157,7 @@ async function loadSavedPlanFallback(
 ): Promise<LoadedAttachedPlan> {
 	const selected = await resolveSelectedSavedPlanFile(pi, {
 		cwd: options.cwd,
-		git: options.git,
+		git: adaptPlannedBranchGitGateway(options.git),
 		planStoreRoot: options.planStoreRoot,
 		sessionEntries: options.sessionEntries,
 		shouldFallbackToLatest: true,

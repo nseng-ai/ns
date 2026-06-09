@@ -1,5 +1,5 @@
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "./command-runtime.ts";
-import type { ExecOptions, PlanCommandExecApi } from "./plan-persistence.ts";
+import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;

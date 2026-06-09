@@ -54,6 +54,7 @@ Pi surfaces:
 
 CLI surfaces:
 
+- `plans list` for read-only local saved-plan store inspection
 - `planned-branch exec write-plan-file`
 - `planned-branch exec resolve-plan`
 - `planned-branch exec create`

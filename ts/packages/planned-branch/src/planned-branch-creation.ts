@@ -7,8 +7,9 @@ import { formatCommand } from "./command-runtime.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
-import { normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "./plan-persistence.ts";
-import { buildPlanFileName } from "./source-plan-file.ts";
+import { buildPlanFileName, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
+
+import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
 
 export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
@@ -71,7 +72,12 @@ export async function createPlannedBranchFromFile(
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
 	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
 	const graphite = options.graphite ?? new RealPlannedBranchGraphiteGateway(pi);
-	const sourceFile = await resolvePlanSourceFile(pi, { cwd: options.cwd, rawFilePath: operation.filePath, signal: options.signal, git });
+	const sourceFile = await resolvePlanSourceFile(pi, {
+		cwd: options.cwd,
+		rawFilePath: operation.filePath,
+		signal: options.signal,
+		git: adaptPlannedBranchGitGateway(git),
+	});
 
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
