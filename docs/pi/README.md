@@ -124,6 +124,12 @@ Rules:
 - Command descriptions should distinguish adjacent commands in autocomplete. If two command names intentionally share behavior, say which one is the alias or focused entrypoint.
 - For local command skills, use `description: "Command: <skill-name>"` rather than bare `Command`; keep richer routing in the skill body or original-description comment.
 
+## Skill/extension router pattern
+
+Rare internal workflow skills can be consolidated behind one terse router skill, with full playbooks lazy-loaded from `references/` and optional Pi selector commands for deterministic route choice without starting an LM turn.
+
+See [Skill/Extension Router Pattern](../skill-extension-router-pattern.md).
+
 ## Current cleanup ordering and dispositions
 
 The resource-surface cleanup proceeds in small slices:
