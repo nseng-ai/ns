@@ -1,0 +1,57 @@
+# Context Profiler
+
+## Thesis
+
+Productionize the episodic context profiler prototype as a first-class Pi extension, via a from-scratch rewrite on a branch off `master`. The prototype (`.pi/extensions/context-profiler-prototype.ts` on the `model-subagents` branch) validated the product direction — a live, interactive TUI overlay that explains where a session's context went: base regions, per-turn token accounting, LM-segmented episodes, per-episode efficiency/relevance judgments, and delegation detection. The rewrite owes the prototype fidelity of direction, not of code or exact UI. The sibling visualizer prototypes (`context-visualizer-prototype.ts`, the sidepanel and intelligence-board branches) are not carried forward; their branches remain in place but are not referenced as live work.
+
+## Scope
+
+- **Identity**: command `/context-profiler`; implementation at `ts/packages/pi-extensions/src/context-profiler/` as a multi-file module (the `grill-ui/` pattern) with the standard 2-line shim at `.pi/extensions/context-profiler.ts`.
+- **Capabilities** (in delivery order; see roadmap):
+  1. Deterministic core: base-region breakdown, flat per-turn list (role, tool names, token estimate, excerpt), verbatim content drill-down, live updates from `context` events.
+  2. LM episode segmentation over the turn list.
+  3. Per-episode efficiency/relevance analysis (`efficient/mixed/wasteful`; `load-bearing/still-useful/stale/rot`).
+  4. Delegation/subagent detection.
+- **Architecture**:
+  - `model.ts` holds pure derivation (entries/events → regions + turns); `view.ts`/`render.ts` hold TUI components consuming plain data; `runtime.ts` holds live-update state and event subscription glue; the top-level module wires the extension and registers the command.
+  - Token counts are best-effort estimates, clearly labeled. Estimation is isolated behind one function, and provenance ("reported" vs "estimated") is carried in the data so precision can improve later without a view rewrite.
+  - Episodes are optional annotations over the turn list (`{label, kind, turnRange}`), never structural. The deterministic view is complete without them; LM rows are additive.
+  - LM calls go behind a gateway interface with an in-memory fake (per `typescript-fake-driven-testing`). Model responses are validated with Zod boundary schemas and repaired (clamp episode/delegation claims to real turn indices) rather than trusted.
+  - Testing bar: Vitest unit tests for all derivation and render logic in `ts/packages/pi-extensions/test/context-profiler-*.test.ts`. No TUI e2e.
+- **LM policy**:
+  - On-demand only: segmentation/analysis fire on overlay open and manual refresh, never in the background while the overlay is closed. The profiler must not silently spend tokens or perturb the session it is profiling.
+  - A fixed cheap/fast analysis model, defined as a single code-level constant and resolved through the model registry — never the session's main model.
+  - Hard requirement — graceful degradation: if the analysis model is unavailable (no key, registry miss, request failure), the overlay remains fully functional deterministically with a clear "segmentation unavailable: <reason>" state. LM failure never blocks the view.
+- **Design principle**: diagnostic-only, non-mutating, never advisory. The profiler observes and explains; it does not recommend compaction, suggest dropping content, or mutate session state.
+- **Delivery**: each roadmap row is implemented as its own small Graphite stack off `master` (via the `objective-stack-impl` flow), with `objective-update` recording progress between rows.
+
+## Non-Goals
+
+- **Advisory/actionable layer** (e.g., flagging rot episodes as compaction candidates): future objective, not a rejected direction. The relevance taxonomy already produces the raw material; deferring keeps the tool observably side-effect-free while trust in its judgments is established.
+- **Headless transcript profiling** (offline CLI over session files): different product with different inputs (no `context` events, no model-registry context). `/context-profiler` carries an explicit cross-harness parity waiver as a TUI-native interactive diagnostic, recorded in the parity table per convention.
+- **Visualizer directions** (sidepanel rendering, intelligence-board concept from the abandoned prototype branches): not carried forward into the production version.
+- **User-facing model configurability** for the analysis model: not in initial scope (tracked as an open question).
+- **Background/automatic profiling**: rejected for this objective by the on-demand LM policy.
+
+## Completion Criteria
+
+All four capabilities landed on `master`: deterministic core, LM episode segmentation, per-episode analysis, and delegation detection — usable through `/context-profiler` with the degradation, testing, and architecture constraints in Scope. The full vision is the closure gate; re-scoping along the way happens through Semantic Updates, not by quietly shrinking the gate.
+
+## Assumptions and Risks
+
+Assumptions:
+
+- The prototype on `model-subagents` is a sufficient behavioral reference; no other spec exists or is needed. If that branch is deleted before the rewrite reaches core parity, the reference is lost.
+- The `@earendil-works/pi-coding-agent` extension API surface (`ContextEvent`, `SessionEntry`, `modelRegistry`, overlay/TUI primitives) remains the integration surface for the production extension.
+
+Risks:
+
+- **External API drift**: the extension depends on pi-coding-agent's event and type surface; a breaking change there breaks the profiler. Accepted — same exposure as every extension in `ts/packages/pi-extensions`.
+- **LM response fragility**: segmentation and analysis responses are model-emitted JSON. Mitigated by Zod boundary schemas plus the repair pattern carried from the prototype; not yet de-risked in production code.
+- **Long-session payload size**: the profile is shipped as JSON to a small model; very long sessions can exceed its context or get expensive. The segmentation row must define an explicit truncation/windowing policy rather than inherit an accident.
+- **`context` event availability**: the prototype needed a `branch-fallback` live source, implying the primary event is not always present. The rewrite must define which source is authoritative when sources disagree.
+
+## Open Questions
+
+- Should the analysis model become user-configurable, and through what mechanism? (Deferred from the LM-policy decision; default remains a single code-level constant.)
+- Should segmentation results persist/cache across overlay opens within a session, or recompute each time? Affects the runtime module's shape; decide no later than the segmentation row.
