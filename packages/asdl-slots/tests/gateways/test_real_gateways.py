@@ -6,11 +6,8 @@ from pathlib import Path
 import pytest
 
 from asdl_core.git import real_git_gateway
-from asdl_core.git.real_git_gateway import (
-    RealGitGateway,
-    parse_porcelain_status,
-    parse_worktree_list_output,
-)
+from asdl_core.git.output_conversion import parse_porcelain_status, parse_worktree_list_output
+from asdl_core.git.real_git_gateway import RealGitGateway
 from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from asdl_slots.gateway.real_storage import RealSlotsStorageGateway
 
