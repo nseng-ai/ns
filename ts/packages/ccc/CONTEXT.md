@@ -5,7 +5,7 @@
 ## Language
 
 **CCC**:
-The durable private TypeScript layer for coordinating multi-step, repo-opinionated command-and-control workflows that span Pi command surfaces, cmux workspaces, Graphite stack operations, Objective implementation, handoff continuation, planned-branch execution, autobranch/land/land-stack behavior, and worktree-status presentation.
+The durable private TypeScript layer for coordinating multi-step, repo-opinionated command-and-control workflows that span Pi command surfaces, cmux workspaces, Graphite stack operations, Objective implementation, handoff continuation, planned-branch execution, autobranch/unified-land behavior, and worktree-status presentation.
 _Avoid_: public slash-command namespace, published npm package, replacement for cmux, replacement for Graphite, generic automation framework.
 
 **Cmux Command and Control**:
@@ -33,7 +33,7 @@ The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/cc
 _Avoid_: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
 **Stable non-`ccc` orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns the repo-opinionated implementation behind it, such as `/objective:stack-impl`, `/code:autobranch`, `/code:land`, or `/code:land-stack`.
+A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns the repo-opinionated implementation behind it, such as `/objective:stack-impl`, `/code:autobranch`, or unified `/code:land`.
 _Avoid_: compatibility alias, new command taxonomy, evidence that the lower adapter owns the workflow policy.
 
 **Objective stack implementation orchestration**:
@@ -45,12 +45,8 @@ The CCC-owned implementation behind public `/code:autobranch`, composing pending
 _Avoid_: Pi registration adapter, `asdl-dev` checkpoint primitive, plain branch creation helper.
 
 **Land orchestration**:
-The CCC-owned implementation behind public `/code:land`, coordinating GitHub PR inspection, required-`master` base-branch refusal, match-head squash merging with PR title/body, and command-output/failure presentation.
-_Avoid_: Pi registration adapter, Graphite stack landing owner, general GitHub lifecycle owner.
-
-**Land-stack orchestration**:
-The CCC-owned implementation behind public `/code:land-stack`, coordinating current Graphite stack-path inspection, PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
-_Avoid_: Pi registration adapter, single-PR land command, generic GitHub lifecycle owner, lower Graphite/GitHub gateway.
+The CCC-owned implementation behind public unified `/code:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
+_Avoid_: Pi registration adapter, separate stack landing command, general GitHub lifecycle owner, lower Graphite/GitHub gateway.
 
 **Worktree status observability**:
 The CCC-owned operational model and presentation for repository status surfaced through the `worktree-status` Pi renderer: Branch Memory scope summaries, Graphite metadata-derived down/up state, branch-local commit marker, dirty marker, Graphite metadata diagnostics, and PR hyperlink rendering.

@@ -48,7 +48,6 @@ describe("code extension registration", () => {
 			"code:submit",
 			"code:autobranch",
 			"code:land",
-			"code:land-stack",
 			"code:pr-feedback-watch",
 		]);
 		expect(pi.commands.has("cp")).toBe(false);
@@ -58,6 +57,7 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("submit")).toBe(false);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("gt:land-stack")).toBe(false);
+		expect(pi.commands.has("code:land-stack")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
 		expect(pi.commands.has("land-stack")).toBe(false);
 		const oldCommandPrefix = "dev";
@@ -70,12 +70,12 @@ describe("code extension registration", () => {
 			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
 		);
 		expect(pi.commands.get("code:autobranch")?.description).toContain("latest commit when the worktree is clean");
-		expect(pi.commands.get("code:land")?.description).toBe("Squash-merge the current branch's GitHub PR into master");
+		expect(pi.commands.get("code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
 		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
-		expect(pi.messageRenderers.has("land-stack-command-stream")).toBe(true);
+		expect(pi.messageRenderers.has("land-command-stream")).toBe(true);
 	});
 
 	test("asdl-dev mirrors are split between code and dev namespaces when project-local extensions are loaded together", () => {
@@ -94,7 +94,6 @@ describe("code extension registration", () => {
 			"code:submit",
 			"code:autobranch",
 			"code:land",
-			"code:land-stack",
 			"code:pr-feedback-watch",
 			"dev:preview-url",
 		]);

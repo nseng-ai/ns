@@ -1,4 +1,19 @@
-export type NotifyLevel = "info" | "success" | "warning" | "error";
+import { executeStackLanding, landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
+import { landStackFailure } from "./land-stack/errors.ts";
+import { formatFailure, formatFailureNotification, presentBrief, usage } from "./land-stack/presentation.ts";
+import { loadLandingShape } from "./land-stack/stack-facts.ts";
+import type {
+	AutocompleteItem,
+	CustomMessage,
+	LandStackCommandContext,
+	LandingShape,
+	MessageRenderer,
+	NotifyLevel,
+	RenderTheme,
+	StackSnapshot,
+} from "./land-stack/types.ts";
+
+export type { NotifyLevel } from "./land-stack/types.ts";
 
 export interface ExecResult {
 	stdout: string;
@@ -13,13 +28,8 @@ export interface PrintOutput {
 	write(chunk: string): unknown;
 }
 
-export interface LandCommandContext {
-	cwd: string;
+export interface LandCommandContext extends LandStackCommandContext {
 	mode?: ExtensionMode;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
-	};
-	waitForIdle(): Promise<void>;
 	printOutput?: PrintOutput;
 }
 
@@ -28,14 +38,16 @@ export interface LandExtensionAPI {
 		name: string,
 		options: {
 			description: string;
+			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
 			handler(args: string, ctx: LandCommandContext): Promise<void> | void;
 		},
 	): void;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
 
 const COMMAND_NAME = "code:land";
-const REQUIRED_BASE_BRANCH = "master";
 const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
@@ -50,59 +62,153 @@ export interface ValidPullRequestView {
 }
 
 export function registerLandCommand(pi: LandExtensionAPI): void {
+	registerLandStackRenderer(pi);
+
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Squash-merge the current branch's GitHub PR into master",
-		handler: async (_args, ctx) => {
+		description: "Land the current PR or Graphite stack into trunk",
+		getArgumentCompletions: landArgumentCompletions,
+		handler: async (rawArgs, ctx) => {
 			await ctx.waitForIdle();
 
-			const pr = await loadPullRequest(pi, ctx.cwd);
-			if ("error" in pr) {
-				notify(ctx, pr.error, "error");
+			const args = parseArgs(rawArgs);
+			if (args.type === "failure") {
+				presentBrief(ctx, args.failure.message, args.failure.level, formatFailureNotification(args.failure));
+				return;
+			}
+			if (args.value.help) {
+				notify(ctx, usage(), "info");
 				return;
 			}
 
-			if (pr.baseRefName !== REQUIRED_BASE_BRANCH) {
-				notify(
+			const shape = await loadLandingShape(pi, ctx.cwd);
+			if (shape.type === "failure") {
+				presentBrief(ctx, formatFailure(shape.failure, []), shape.failure.level, formatFailureNotification(shape.failure));
+				return;
+			}
+
+			if (shape.value.stack.current === shape.value.stack.trunk || shape.value.stack.landingBranches.length === 0) {
+				presentBrief(
 					ctx,
-					`Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not '${REQUIRED_BASE_BRANCH}'. Merge not attempted.`,
-					"error",
+					`Current branch is ${shape.value.stack.current}, which is trunk or has no PR path to land. Nothing to do.`,
+					"info",
+					`Current branch is ${shape.value.stack.current}, which is trunk or has no PR path to land. Nothing to do.`,
 				);
 				return;
 			}
 
-			notify(ctx, "Running gh pr merge -s with PR title/body as commit message…", "info");
-
-			const result = await pi.exec(
-				"gh",
-				[
-					"pr",
-					"merge",
-					String(pr.number),
-					"-s",
-					"--match-head-commit",
-					pr.headRefOid,
-					"--subject",
-					pr.title,
-					"--body",
-					pr.body,
-				],
-				{
-					cwd: ctx.cwd,
-					timeout: PR_MERGE_TIMEOUT_MS,
-				},
-			);
-
-			const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
-			if (result.code === 0) {
-				const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
-				notify(ctx, output ? `${output}\n${message}` : message, "info");
+			if (isIsolatedFastPath(shape.value.stack)) {
+				await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
 				return;
 			}
 
-			const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
-			notify(ctx, output ? `${output}\n${message}` : message, "error");
+			const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, { dryRun: args.value.dryRun, yes: args.value.yes });
+			if (!confirmed) return;
+
+			await executeStackLanding(pi, ctx, args.value, { skipMainConfirmation: true, preloadedShape: shape.value });
 		},
 	});
+}
+
+export function isIsolatedFastPath(stack: StackSnapshot): boolean {
+	return (
+		stack.current !== stack.trunk &&
+		stack.landingBranches.length === 1 &&
+		stack.landingBranches[0] === stack.current &&
+		stack.descendantBranches.length === 0
+	);
+}
+
+async function confirmStackModeIfNeeded(
+	ctx: LandCommandContext,
+	shape: LandingShape,
+	options: { dryRun: boolean; yes: boolean },
+): Promise<boolean> {
+	if (options.dryRun || options.yes) return true;
+	if (!ctx.hasUI) {
+		presentBrief(
+			ctx,
+			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+			"error",
+			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+		);
+		return false;
+	}
+
+	const confirmed = await ctx.ui.confirm("Land stack?", formatUpfrontStackConfirmation(shape));
+	if (!confirmed) {
+		presentBrief(ctx, "Cancelled before merge; no PRs were landed.", "info", "Cancelled before merge; no PRs were landed.");
+		return false;
+	}
+	return true;
+}
+
+function formatUpfrontStackConfirmation(shape: LandingShape): string {
+	const stack = shape.stack;
+	const bottomBranch = stack.landingBranches[0] ?? stack.current;
+	const lines = [`Land ${stack.landingBranches.length} PRs from ${bottomBranch} through ${stack.current} into ${stack.trunk}?`];
+	if (stack.descendantBranches.length > 0) {
+		lines.push(`Descendants above ${stack.current} will not be merged; this command will try to maintain them after landing.`);
+	}
+	return lines.join("\n");
+}
+
+async function runFastLand(
+	pi: LandExtensionAPI,
+	ctx: LandCommandContext,
+	target: LandingShape,
+	options: { dryRun: boolean },
+): Promise<void> {
+	const pr = await loadPullRequest(pi, target.repoRoot);
+	if ("error" in pr) {
+		notify(ctx, pr.error, "error");
+		return;
+	}
+
+	if (pr.baseRefName !== target.trunk) {
+		notify(
+			ctx,
+			`Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${target.trunk}'. Merge not attempted.`,
+			"error",
+		);
+		return;
+	}
+
+	if (options.dryRun) {
+		notify(ctx, `Dry run only; would merge PR #${pr.number} into ${target.trunk}.`, "info");
+		return;
+	}
+
+	notify(ctx, "Running gh pr merge -s with PR title/body as commit message…", "info");
+
+	const result = await pi.exec(
+		"gh",
+		[
+			"pr",
+			"merge",
+			String(pr.number),
+			"-s",
+			"--match-head-commit",
+			pr.headRefOid,
+			"--subject",
+			pr.title,
+			"--body",
+			pr.body,
+		],
+		{
+			cwd: target.repoRoot,
+			timeout: PR_MERGE_TIMEOUT_MS,
+		},
+	);
+
+	const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+	if (result.code === 0) {
+		const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
+		notify(ctx, output ? `${output}\n${message}` : message, "info");
+		return;
+	}
+
+	const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
+	notify(ctx, output ? `${output}\n${message}` : message, "error");
 }
 
 function notify(ctx: LandCommandContext, message: string, level: NotifyLevel): void {
