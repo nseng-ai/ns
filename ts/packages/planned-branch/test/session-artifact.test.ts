@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	PLAN_BRANCH_NAMESPACE,
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	extractPlannedBranchEvidence,
 	formatPlanBranchEvidence,
@@ -11,9 +12,9 @@ const EVIDENCE = {
 	branch: "planned-branches/branch-scoped-plan",
 	branchCreation: "graphite",
 	startPoint: "0123456789abcdef0123456789abcdef01234567",
-	namespace: "plan",
+	namespace: PLAN_BRANCH_NAMESPACE,
 	key: "branch-scoped-plan.md",
-	refName: "refs/brmem/ns/plan/planned-branches---branch-scoped-plan:branch-scoped-plan.md",
+	refName: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/planned-branches---branch-scoped-plan:branch-scoped-plan.md`,
 	commit: "abc123",
 	sourceFile: "/tmp/branch-scoped-plan.md",
 	summary: "Create the branch.",

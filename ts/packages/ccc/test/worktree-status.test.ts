@@ -237,7 +237,7 @@ describe("loadWorktreeStatus", () => {
 				uvBrmemListStep(root, {
 					stdout: JSON.stringify({
 						exit_code: 0,
-						data: { entries: [{ namespace: "plans", key: "adapter/details.md" }] },
+						data: { entries: [{ namespace: "notes", key: "adapter/details.md" }] },
 					}),
 				}),
 				...basicGitStatusScript(),
@@ -247,7 +247,7 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.brmem).toBe("(plans: adapter)");
+			expect(status.brmem).toBe("(notes: adapter)");
 		});
 	});
 
@@ -259,8 +259,8 @@ describe("loadWorktreeStatus", () => {
 						exit_code: 0,
 						data: {
 							entries: [
-								{ namespace: "base", key: "scratch/plan.md" },
-								{ namespace: "plans", key: "adapter/details.md" },
+								{ namespace: "base", key: "scratch/note.md" },
+								{ namespace: "notes", key: "adapter/details.md" },
 							],
 						},
 					}),
@@ -272,7 +272,7 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.brmem).toBe("(base: scratch) (plans: adapter)");
+			expect(status.brmem).toBe("(base: scratch) (notes: adapter)");
 		});
 	});
 
@@ -313,7 +313,7 @@ describe("loadWorktreeStatus", () => {
 				uvBrmemListStep(root, {
 					stdout: JSON.stringify({
 						exit_code: 0,
-						data: { entries: [{ namespace: "plans", key: "fallback/details.md" }] },
+						data: { entries: [{ namespace: "notes", key: "fallback/details.md" }] },
 					}),
 				}),
 				...basicGitStatusScript(),
@@ -323,7 +323,7 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.brmem).toBe("(plans: fallback)");
+			expect(status.brmem).toBe("(notes: fallback)");
 		});
 	});
 
@@ -374,7 +374,7 @@ describe("loadWorktreeStatus", () => {
 						exit_code: 0,
 						data: {
 							entries: [
-								{ namespace: "plans", key: "adapter/details.md" },
+								{ namespace: "notes", key: "adapter/details.md" },
 								{ namespace: 123, key: "bad" },
 								{ namespace: "bad" },
 								null,
@@ -390,7 +390,7 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.brmem).toBe("(plans: adapter)");
+			expect(status.brmem).toBe("(notes: adapter)");
 		});
 	});
 

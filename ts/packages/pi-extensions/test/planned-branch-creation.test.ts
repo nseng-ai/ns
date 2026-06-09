@@ -138,7 +138,7 @@ function brmemPutStep(branch: string, key: string, filePath: string, result: Par
 	);
 }
 
-async function makeTempDir(prefix = "brmem-plan-branch-"): Promise<string> {
+async function makeTempDir(prefix = "planned-branch-create-"): Promise<string> {
 	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
 	tempDirs.push(dir);
 	return dir;
@@ -220,7 +220,7 @@ describe("branch name helpers", () => {
 });
 
 describe("createPlannedBranchFromFile", () => {
-	test("creates a plan branch with the default branch name equal to the slug", async () => {
+	test("creates a planned branch with the default branch name equal to the slug", async () => {
 		const filePath = await makePlanFile();
 		const { pi, evidence } = await runCreate(
 			{ slug: PLAN_SLUG, filePath, summary: "Store the plan on a new branch." },
@@ -268,7 +268,7 @@ describe("createPlannedBranchFromFile", () => {
 
 	test("uses an explicit branch name without changing the storage key", async () => {
 		const filePath = await makePlanFile();
-		const branch = "planned-branches/add-plan-branch-core";
+		const branch = "planned-branches/add-planned-branch-core";
 		const { pi, evidence } = await runCreate(
 			{ slug: PLAN_SLUG, filePath, branchName: `  ${branch}  ` },
 			successScript({ branch, key: PLAN_KEY, filePath }),
@@ -292,7 +292,7 @@ describe("createPlannedBranchFromFile", () => {
 		]);
 	});
 
-	test("creates a Graphite plan branch with an explicit prefixed branch name", async () => {
+	test("creates a Graphite planned branch with an explicit prefixed branch name", async () => {
 		const filePath = await makePlanFile();
 		const branch = `planned-branches/${PLAN_SLUG}`;
 		const { pi, evidence } = await runCreate(

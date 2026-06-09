@@ -41,7 +41,7 @@ const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "source-branch";
-const TARGET_BRANCH = "planned-branches/wire-create-plan-branch-command";
+const TARGET_BRANCH = "planned-branches/wire-create-planned-branch-command";
 const IMPL_BRANCH = `planned-branches/${PLAN_SLUG}`;
 const IMPL_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${IMPL_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const DEFAULT_PLAN_CONTENT = "# Test Plan\n\nDo the work.\n";
@@ -351,7 +351,7 @@ function sourcePlanToolResultEntryForTool(evidence: SavedPlanFileEvidence, toolN
 	};
 }
 
-function latestPlanBranchCustomMessageEntry(content: string): unknown {
+function plannedBranchOutputMessageEntry(content: string): unknown {
 	return {
 		type: "message",
 		message: {
@@ -570,7 +570,7 @@ describe("validatePlanSlug", () => {
 	test("accepts specific 3-7 word kebab slugs", () => {
 		for (const slug of [
 			"branch-scoped-plan-extension",
-			"brmem-backed-plan-command",
+			"attached-plan-command",
 			"semantic-plan-persistence-tool",
 		]) {
 			expect(validatePlanSlug(slug)).toBeUndefined();
@@ -583,7 +583,7 @@ describe("validatePlanSlug", () => {
 			"Branch-Scoped-Plan",
 			"branch scoped plan",
 			"branch-scoped-plan.md",
-			"brmem-plan",
+			"attached-plan",
 			"one-two-three-four-five-six-seven-eight",
 			"implementation-plan-task",
 			"branch-2026-plan-tool",
@@ -911,7 +911,7 @@ describe("formatPlanBranchEvidence", () => {
 			startPoint: START_POINT,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			key: PLAN_KEY,
-			refName: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/planned-branches---wire-create-plan-branch-command:${PLAN_KEY}`,
+			refName: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/planned-branches---wire-create-planned-branch-command:${PLAN_KEY}`,
 			commit: "abc123",
 			sourceFile: "/tmp/plan.md",
 			summary: "Plan the branch-creating flow.",
@@ -923,7 +923,7 @@ describe("formatPlanBranchEvidence", () => {
 		expect(text).toContain(`Start point: ${START_POINT}`);
 		expect(text).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(text).toContain(`Key: ${PLAN_KEY}`);
-		expect(text).toContain("Ref: refs/brmem/ns/planned-branch/planned-branches---wire-create-plan-branch-command");
+		expect(text).toContain("Ref: refs/brmem/ns/planned-branch/planned-branches---wire-create-planned-branch-command");
 		expect(text).toContain("Commit: abc123");
 		expect(text).toContain("Source file: /tmp/plan.md");
 		expect(text).toContain("Summary: Plan the branch-creating flow.");
@@ -988,13 +988,9 @@ describe("plan workflow commands", () => {
 			"planned-branch:write-grilled-plan",
 			"planned-branch:write-plan",
 		]);
-		expect(pi.commands.has("up-impl")).toBe(false);
-		expect(pi.commands.has("create-plan-file")).toBe(false);
-		expect(pi.commands.has("create-brmem-plan-branch")).toBe(false);
-		expect(pi.commands.has("create-latest-plan-branch")).toBe(false);
+		expect([...pi.commands.keys()].every((name) => name.startsWith("planned-branch:"))).toBe(true);
 		expect(pi.tools.has("write_source_branch_plan_file")).toBe(true);
-		expect(pi.tools.has("create_brmem_plan_branch_from_file")).toBe(false);
-		expect(pi.tools.has("persist_brmem_plan")).toBe(false);
+		expect([...pi.tools.keys()]).toEqual(["write_source_branch_plan_file"]);
 	});
 
 	test("planned-branch:write-grilled-plan waits for idle and dispatches embedded prompt without prompt resolution", async () => {
@@ -1286,7 +1282,7 @@ describe("plan workflow commands", () => {
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
 		const newerDiskSlug = "harden-cp-autobranch-validation";
 		const sessionKey = `${sessionSlug}.md`;
-		const contentSlug = "add-session-plan-branch";
+		const contentSlug = "add-session-planned-branch";
 		const sessionPath = await writePlanStoreFile(directoryPath, sessionKey, 1_700_000_000_000);
 		await writePlanStoreFile(directoryPath, `${newerDiskSlug}.md`, 1_800_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), planSlugStep(savedPlanFileContent(sessionKey), contentSlug)]);
@@ -1520,7 +1516,7 @@ describe("plan workflow commands", () => {
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch })),
-				latestPlanBranchCustomMessageEntry(
+				plannedBranchOutputMessageEntry(
 					`Cancelled: no branch was created and no plan was attached.\n\nLatest saved plan from local plan store:\nPath: ${stalePath}\nSlug: ${staleSlug}`,
 				),
 			],
@@ -1584,7 +1580,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Target branch already exists; refusing to overwrite.");
 	});
 
-	test("planned-branch:create --yes creates a plain-git plan branch using the content slug when the filename differs", async () => {
+	test("planned-branch:create --yes creates a plain-git planned branch using the content slug when the filename differs", async () => {
 		const savedPlanStem = "where-would-we-host-mossy-lampson";
 		const filePath = await makeNamedPlanFile(`${savedPlanStem}.md`);
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), ...successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath })]);
@@ -1896,7 +1892,6 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
-		expect(tool.promptGuidelines?.join("\n")).not.toContain("create-brmem-plan-branch");
 		const contentParameter = parameters.properties?.content as { description?: string } | undefined;
 		expect(contentParameter?.description).toContain("self-contained");
 		expect(contentParameter?.description).toContain("external research");
