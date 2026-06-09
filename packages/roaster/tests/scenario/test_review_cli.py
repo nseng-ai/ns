@@ -41,12 +41,14 @@ def _sample_source(
     *,
     include_default_model: bool = True,
     description: str = "Review Python diffs for style violations.",
+    applies_to: str = "",
 ) -> str:
     default_model_line = "default_model: sonnet\n" if include_default_model else ""
     return (
         "---\n"
         f"description: {description}\n"
         f"{default_model_line}"
+        f"{applies_to}"
         "---\n"
         "\n"
         "Flag concrete issues in the diff.\n"
@@ -92,17 +94,42 @@ def _context(
     payload: ReviewPayload | None = None,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
+    review_sources_by_key: dict[str, str] | None = None,
+    changed_paths: tuple[str, ...] = ("app.py",),
 ) -> ClinkrContextObject:
     ctx = _build_context(
         payload=payload,
         keys=keys,
         usage=usage,
+        review_sources_by_key=review_sources_by_key,
+        changed_paths=changed_paths,
     )
     return build_clinkr_context_object(lambda: ctx)
 
 
 def _obj(context: object) -> ClinkrContextObject:
     return build_clinkr_context_object(lambda: context)
+
+
+def _applicable_review_sources() -> dict[str, str]:
+    return {
+        "dignified-python": _sample_source(
+            applies_to=(
+                "applies_to:\n  include:\n    - '**/*.py'\n  exclude:\n    - '**/tests/**/*.py'\n"
+            )
+        ),
+        "typescript-style": _sample_source(
+            description="Review TypeScript diffs for style violations.",
+            applies_to=(
+                "applies_to:\n"
+                "  include:\n"
+                "    - '**/*.ts'\n"
+                "    - '**/*.tsx'\n"
+                "    - '**/*.mts'\n"
+                "    - '**/*.cts'\n"
+            ),
+        ),
+    }
 
 
 @pytest.fixture(scope="module")
@@ -237,6 +264,80 @@ def test_review_list_json_output(cli_group: ClinkrGroup) -> None:
     assert data["count"] == 2
     assert data["reviews"][0]["description"] == "Review Python diffs for style violations."
     assert "ci" not in data["reviews"][0]
+
+
+def test_review_list_applicable_includes_python_source_review(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
+        obj=_context(
+            keys=("dignified-python", "typescript-style"),
+            review_sources_by_key=_applicable_review_sources(),
+            changed_paths=("packages/asdl-core/src/asdl_core/project_config.py",),
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data["keys"] == ["dignified-python"]
+    assert data["count"] == 1
+
+
+def test_review_list_applicable_excludes_python_test_only_review(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
+        obj=_context(
+            keys=("dignified-python", "typescript-style"),
+            review_sources_by_key=_applicable_review_sources(),
+            changed_paths=("packages/asdl-core/tests/unit/prompts/test_resolver.py",),
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data["keys"] == []
+    assert data["count"] == 0
+
+
+def test_review_list_applicable_includes_typescript_family_review(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
+        obj=_context(
+            keys=("dignified-python", "typescript-style"),
+            review_sources_by_key=_applicable_review_sources(),
+            changed_paths=("ts/packages/pi-extensions/test/planned-branch-extension.test.ts",),
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data["keys"] == ["typescript-style"]
+    assert data["count"] == 1
+
+
+def test_review_list_applicable_excludes_docs_and_justfile_only_changes(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _build_context(
+        keys=("dignified-python", "typescript-style"),
+        review_sources_by_key=_applicable_review_sources(),
+        changed_paths=("docs/notes.md", "justfile"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data["keys"] == []
+    assert data["count"] == 0
+    assert isinstance(ctx.diff, FakeLocalDiffGateway)
+    assert ctx.diff.requested_base_refs == ("master",)
 
 
 def test_review_run_requires_model_when_definition_has_no_default(cli_group: ClinkrGroup) -> None:

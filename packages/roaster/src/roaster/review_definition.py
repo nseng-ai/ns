@@ -6,10 +6,13 @@ from typing import Any
 
 import yaml
 
-from roaster.models import ReviewDefinition
+from roaster.models import ReviewApplicability, ReviewDefinition
 
 _FRONTMATTER_FENCE = "---"
-_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset({"description", "default_model"})
+_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset(
+    {"applies_to", "description", "default_model"}
+)
+_ALLOWED_APPLIES_TO_KEYS: frozenset[str] = frozenset({"include", "exclude"})
 
 
 def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
@@ -41,6 +44,8 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         else:
             raise ValueError("Review definition field `default_model` must be a non-empty string.")
 
+    applicability = _parse_applicability(parsed_frontmatter)
+
     instructions = body.strip()
     if not instructions:
         raise ValueError("Review definition body (instructions) must not be empty.")
@@ -50,6 +55,7 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         description=description,
         instructions=instructions,
         default_model=default_model,
+        applicability=applicability,
     )
 
 
@@ -63,6 +69,68 @@ def _reject_unknown_keys(frontmatter: dict[str, Any]) -> None:
         f"Review definition frontmatter contains unknown field(s): {unknown_list}. "
         f"Allowed fields: {allowed}."
     )
+
+
+def _parse_applicability(frontmatter: dict[str, Any]) -> ReviewApplicability:
+    if "applies_to" not in frontmatter:
+        return ReviewApplicability()
+
+    value = frontmatter["applies_to"]
+    if not isinstance(value, dict):
+        raise ValueError("Review definition field `applies_to` must be a YAML mapping.")
+
+    unknown = sorted(key for key in value if key not in _ALLOWED_APPLIES_TO_KEYS)
+    if unknown:
+        unknown_list = ", ".join(f"`{key}`" for key in unknown)
+        raise ValueError(
+            f"Review definition field `applies_to` contains unknown field(s): {unknown_list}."
+        )
+
+    include = _require_pattern_list(value, field="include", allow_empty=False)
+    if "exclude" in value:
+        exclude = _require_pattern_list(value, field="exclude", allow_empty=True)
+    else:
+        exclude = ()
+    return ReviewApplicability(include=include, exclude=exclude)
+
+
+def _require_pattern_list(
+    applies_to: dict[str, Any],
+    *,
+    field: str,
+    allow_empty: bool,
+) -> tuple[str, ...]:
+    if field not in applies_to:
+        raise ValueError(f"Review definition field `applies_to.{field}` is required.")
+
+    value = applies_to[field]
+    if not isinstance(value, list):
+        raise ValueError(f"Review definition field `applies_to.{field}` must be a list of strings.")
+    if not value and not allow_empty:
+        raise ValueError(f"Review definition field `applies_to.{field}` must not be empty.")
+
+    patterns: list[str] = []
+    for pattern in value:
+        patterns.append(_validate_applicability_pattern(pattern, field=field))
+    return tuple(patterns)
+
+
+def _validate_applicability_pattern(pattern: Any, *, field: str) -> str:
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ValueError(
+            f"Review definition field `applies_to.{field}` must contain non-empty strings."
+        )
+
+    normalized = pattern.strip().replace("\\", "/")
+    if normalized.startswith(":("):
+        raise ValueError(
+            "Review definition applicability patterns must be globs, not git pathspecs."
+        )
+    if normalized.startswith("/"):
+        raise ValueError("Review definition applicability patterns must be repo-relative.")
+    if ".." in normalized.split("/"):
+        raise ValueError("Review definition applicability patterns must not contain `..` segments.")
+    return normalized
 
 
 def _split_frontmatter(source: str) -> tuple[str, str]:

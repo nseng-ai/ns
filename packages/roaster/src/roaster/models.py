@@ -222,6 +222,14 @@ class GitDiffFailedError(RoasterError):
 
 
 @dataclass(frozen=True)
+class ReviewApplicability:
+    """Repo-relative path patterns that determine whether a reviewer applies."""
+
+    include: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ReviewDefinition:
     """Parsed markdown definition of a CI reviewer."""
 
@@ -229,6 +237,7 @@ class ReviewDefinition:
     description: str
     instructions: str
     default_model: str | None
+    applicability: ReviewApplicability = ReviewApplicability()
 
 
 @dataclass(frozen=True)

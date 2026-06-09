@@ -11,10 +11,22 @@ def _roaster_workflow_text() -> str:
     return (_repo_root() / ".github" / "workflows" / "roaster.yml").read_text(encoding="utf-8")
 
 
-def test_roaster_workflow_discovers_all_ci_review_definitions() -> None:
+def test_roaster_workflow_discovers_applicable_ci_review_definitions() -> None:
     workflow = _roaster_workflow_text()
 
-    assert "uv run roaster review list --format json" in workflow
+    assert 'BASE_REF="${{ github.event.pull_request.base.ref }}"' in workflow
+    assert (
+        'uv run roaster review list --applicable --base-ref "$BASE_REF" --format json' in workflow
+    )
+
+
+def test_roaster_workflow_fetches_full_history_for_discover_diff() -> None:
+    workflow = _roaster_workflow_text()
+    discover_checkout_index = workflow.index("jobs:\n  discover:")
+    review_checkout_index = workflow.index("\n  review:")
+    discover_job = workflow[discover_checkout_index:review_checkout_index]
+
+    assert "fetch-depth: 0" in discover_job
 
 
 def test_roaster_workflow_runs_diff_findings_review_without_format_flag() -> None:

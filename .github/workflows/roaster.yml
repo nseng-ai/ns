@@ -26,10 +26,13 @@ jobs:
       count: ${{ steps.list.outputs.count }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup-python-uv
       - id: list
         run: |
-          output=$(uv run roaster review list --format json)
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          output=$(uv run roaster review list --applicable --base-ref "$BASE_REF" --format json)
           reviews=$(printf '%s' "$output" | jq -c '.data.keys')
           count=$(printf '%s' "$output" | jq '.data.count')
           {
