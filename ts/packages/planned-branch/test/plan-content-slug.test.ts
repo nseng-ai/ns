@@ -8,7 +8,7 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/index.ts";
-import { buildSlugModelArgs, DEFAULT_SLUG_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
 import type { ExecOptions, ExecResult, PlanCommandExecApi } from "@asdl/plans";
 
 const CWD = "/repo";
@@ -74,8 +74,8 @@ describe("derivePlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
 			rawOutput: "add-docs-portal-site\n",
-			provider: DEFAULT_SLUG_MODEL.provider,
-			model: DEFAULT_SLUG_MODEL.modelId,
+			provider: DEFAULT_FAST_MODEL.provider,
+			model: DEFAULT_FAST_MODEL.modelId,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");

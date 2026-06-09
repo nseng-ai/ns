@@ -24,11 +24,12 @@ describe("resolveCodexDraftModel", () => {
 		expect(resolved.value.label).toBe("acme/fast-1");
 	});
 
-	test("accepts a bare modelId override and keeps the default provider", () => {
+	test("warns and falls back for a bare modelId override", () => {
 		const resolved = resolveCodexDraftModel({ [DRAFT_MODEL_ENV]: "fast-1" });
-		expect(resolved.warning).toBeUndefined();
+		expect(resolved.warning).toContain(DRAFT_MODEL_ENV);
+		expect(resolved.warning).toContain('"fast-1"');
 		expect(resolved.value.provider).toBe(DEFAULT_FAST_MODEL.provider);
-		expect(resolved.value.modelId).toBe("fast-1");
+		expect(resolved.value.modelId).toBe(DEFAULT_FAST_MODEL.modelId);
 	});
 
 	test("warns and falls back to the default for an invalid override", () => {

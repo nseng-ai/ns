@@ -3,8 +3,8 @@ import {
 	deriveContentSlug,
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
-} from "./content-slug-derivation.ts";
-import type { PlanCommandExecApi } from "@asdl/plans";
+	type PlanCommandExecApi,
+} from "@asdl/plans";
 
 export type SavedPlanContentSlugEvidence = ContentSlugEvidence;
 

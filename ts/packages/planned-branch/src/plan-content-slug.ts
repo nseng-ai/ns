@@ -8,8 +8,8 @@ import {
 	truncatePlanContentForSlug,
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
-} from "./content-slug-derivation.ts";
-import type { PlanCommandExecApi } from "@asdl/plans";
+	type PlanCommandExecApi,
+} from "@asdl/plans";
 
 export { MAX_PLAN_CONTENT_CHARS, normalizePlanContentSlugOutput, truncatePlanContentForSlug };
 export type PlanContentSlugEvidence = ContentSlugEvidence;

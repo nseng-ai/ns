@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/planned-branch/saved-plan-content-slug.ts";
-import { buildSlugModelArgs, DEFAULT_SLUG_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
 import type { ExecResult } from "../src/command-runtime.ts";
 import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
 
@@ -52,8 +52,8 @@ describe("deriveSavedPlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "branch-scoped-plan-extension",
 			rawOutput: "branch-scoped-plan-extension\n",
-			provider: DEFAULT_SLUG_MODEL.provider,
-			model: DEFAULT_SLUG_MODEL.modelId,
+			provider: DEFAULT_FAST_MODEL.provider,
+			model: DEFAULT_FAST_MODEL.modelId,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");

@@ -1,3 +1,5 @@
+import { DEFAULT_FAST_MODEL_REF } from "@asdl/plans";
+
 export interface TextGenerationRequest {
 	modelRef: string;
 	system: string;
@@ -21,7 +23,7 @@ export interface TextGenerationConfig {
 }
 
 export const DEFAULT_TEXT_BACKEND: TextGenerationBackend = "pi";
-export const DEFAULT_CHECKPOINT_MODEL_REF = "openai-codex/gpt-5.4-mini";
+export const DEFAULT_CHECKPOINT_MODEL_REF = DEFAULT_FAST_MODEL_REF;
 export const TEXT_BACKEND_ENV = "ASDL_DEV_TEXT_BACKEND";
 export const CHECKPOINT_MODEL_ENV = "ASDL_DEV_CHECKPOINT_MODEL";
 

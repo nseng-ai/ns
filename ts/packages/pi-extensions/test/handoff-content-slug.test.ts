@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSlugModelArgs, DEFAULT_SLUG_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
 import {
 	buildHandoffContentSlugPrompt,
 	deriveHandoffContentSlug,
@@ -68,8 +68,8 @@ describe("deriveHandoffContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "associate-sessions-with-branches",
 			rawOutput: "associate-sessions-with-branches\n",
-			provider: DEFAULT_SLUG_MODEL.provider,
-			model: DEFAULT_SLUG_MODEL.modelId,
+			provider: DEFAULT_FAST_MODEL.provider,
+			model: DEFAULT_FAST_MODEL.modelId,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");

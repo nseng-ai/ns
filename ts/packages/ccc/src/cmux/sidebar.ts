@@ -1,5 +1,5 @@
 import { objectiveChoiceMap } from "@asdl/pi-extension-runtime/objective-picker";
-import { DEFAULT_FAST_MODEL_REF, parseModelRef } from "@asdl/plans";
+import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@asdl/plans";
 import { expandSkillBlock } from "@asdl/pi-extension-runtime/skill-expansion";
 import {
 	applyObjectiveSidebarFields,
@@ -245,19 +245,16 @@ async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): P
 	}
 }
 
-function configuredSidebarModelRef(): string {
-	return process.env[SIDEBAR_MODEL_ENV]?.trim() || DEFAULT_FAST_MODEL_REF;
-}
-
 async function switchToFastSidebarModel(pi: ExtensionAPI, ctx: CommandContext): Promise<RestoreState | undefined> {
-	const modelRef = configuredSidebarModelRef();
-	const parsed = parseModelRef(modelRef);
-	if (parsed === undefined) {
-		notify(ctx, `Invalid ${SIDEBAR_MODEL_ENV}=${JSON.stringify(modelRef)}; using current model.`, "warning");
+	const resolution = resolveModelRef(process.env, SIDEBAR_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
+	if (!resolution.ok) {
+		notify(ctx, `${resolution.error} Using current model.`, "warning");
 		return undefined;
 	}
 
-	const model = ctx.modelRegistry.find(parsed.provider, parsed.modelId);
+	const { provider, modelId } = resolution.value;
+	const modelRef = `${provider}/${modelId}`;
+	const model = ctx.modelRegistry.find(provider, modelId);
 	if (model === undefined) {
 		notify(ctx, `Fast sidebar model ${modelRef} not found; using current model.`, "warning");
 		return undefined;

@@ -31,6 +31,9 @@ importers:
 
   packages/asdl-dev:
     dependencies:
+      '@asdl/plans':
+        specifier: workspace:*
+        version: link:../plans
       '@earendil-works/pi-ai':
         specifier: 0.78.0
         version: 0.78.0(patch_hash=dfce1da0d75d0ff62c609550d6a8d408bf685907faf5639d139ba981dc53e9dc)(ws@8.21.0)(zod@4.4.3)
