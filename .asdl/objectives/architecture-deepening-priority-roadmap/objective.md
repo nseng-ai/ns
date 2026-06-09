@@ -58,7 +58,7 @@ Completion does not require every row to ship. It requires that none of the ten 
 
 - Some audit findings may become stale before implementation begins. Mitigation: reread the relevant package code and the package-specific reference doc before starting a row.
 - `asdl-core` work has high blast radius. Mitigation: keep those rows narrow and preserve existing gateway interfaces unless the row explicitly calls for an interface change.
-- `asdl-slots` work revealed that the release workflow and checkout mutation fix should be split across separate branches/slices. The checkout mutation fix is complete, and the release/free/gc workflow now has an in-progress planning/dry-run slice; execution-flow consolidation remains a follow-up risk to resolve before marking that row shipped.
+- `asdl-slots` work revealed that the release workflow and checkout mutation fix should be split across separate branches/slices. The checkout mutation fix shipped separately, and the release/free/gc workflow shipped through staged preview-surface and execution-flow consolidation slices with lifecycle-focused tests plus CLI scenario regression coverage.
 - Moving the audit docs out of top-level `docs/` may surprise future readers looking there. Mitigation: this Objective path is checked in and should be referenced from future updates or handoffs that use the audit.
 
 ## Open Questions
