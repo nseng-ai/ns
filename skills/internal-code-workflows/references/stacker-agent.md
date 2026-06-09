@@ -1,13 +1,6 @@
----
-name: internal-code-stacker-agent
-description: "Command: internal-code-stacker-agent"
-metadata:
-  internal: true
----
+<!-- Migrated from `internal-code-stacker-agent`; loaded through `internal-code-workflows`. -->
 
-<!-- INTERNAL SKILL: asdl-only. -->
-
-# internal-code-stacker-agent
+# stacker-agent
 
 Use when the user wants a multi-slice plan implemented as a local
 branch stack, or explicitly wants the slices recorded as commits on one
@@ -24,11 +17,11 @@ The coordinator's job is to:
 
 ## Read These References As Needed
 
-- `references/runtime-contract.md`: manifest and handoff schemas.
-- `references/brief-template.md`: worker brief template.
-- `references/harnesses/generic.md`, then the current harness note:
+- `references/stacker-agent/runtime-contract.md`: manifest and handoff schemas.
+- `references/stacker-agent/brief-template.md`: worker brief template.
+- `references/stacker-agent/harnesses/generic.md`, then the current harness note:
   how to map worker orchestration to this protocol.
-- `references/examples.md`: normalization examples.
+- `references/stacker-agent/examples.md`: normalization examples.
 
 ## Core Invariants
 
@@ -95,7 +88,7 @@ Bail and surface to the user if any fail:
 ### 2. Normalize the plan
 
 Convert the input plan into the internal `stacker-slice-manifest/v1`
-shape defined in `references/runtime-contract.md`.
+shape defined in `references/stacker-agent/runtime-contract.md`.
 
 Normalize slices by human-legible decision count and thesis clarity, not
 by diff size, file count, or line count. A large mechanical change can be
@@ -110,7 +103,7 @@ Record the run output shape too:
   on the default branch and no target branch is named, ask or bail.
   Create or check out the target before slice 1 when needed.
 
-Use the defaults in `references/runtime-contract.md`. In this repo,
+Use the defaults in `references/stacker-agent/runtime-contract.md`. In this repo,
 `validate.command` defaults to `just` at the repo root.
 
 If the plan provides richer hints such as file lists, do-not-touch
@@ -132,7 +125,7 @@ For each slice in order, do all of the following:
 
 **b. Compose the worker brief.**
 
-Fill `references/brief-template.md` from the normalized slice manifest
+Fill `references/stacker-agent/brief-template.md` from the normalized slice manifest
 plus the current base ref, downstream context, and one exact output
 instruction:
 
@@ -150,7 +143,7 @@ finish before doing anything else.
 **d. Require a structured handoff.**
 
 The worker must return a `stacker-handoff/v1` payload plus short prose,
-as defined in `references/runtime-contract.md`.
+as defined in `references/stacker-agent/runtime-contract.md`.
 
 **e. Verify before advancing.**
 

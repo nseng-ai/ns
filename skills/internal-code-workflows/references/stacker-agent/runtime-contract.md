@@ -1,7 +1,7 @@
 # Runtime contract
 
-This file defines the only required internal normalization for
-`internal-code-stacker-agent`.
+This file defines the only required internal normalization for the
+`stacker-agent` route.
 
 Humans do **not** need to author plans in this shape. The coordinator
 derives it from freeform plan text, harness-native planner output, or

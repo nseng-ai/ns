@@ -14,6 +14,7 @@ const PROJECT_EXTENSION_ADAPTERS = [
 	".pi/extensions/dispatch-runner-subagent.ts",
 	".pi/extensions/grill-ui.ts",
 	".pi/extensions/handoff.ts",
+	".pi/extensions/internal-code-workflows.ts",
 	".pi/extensions/just-fix.ts",
 	".pi/extensions/objective.ts",
 	".pi/extensions/planned-branch.ts",
@@ -48,7 +49,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 11 extension adapters");
+		expect(result.stdout).toContain("imported 12 extension adapters");
 	});
 
 	test("pi-extensions package imports workspace exports through package links under Node", () => {

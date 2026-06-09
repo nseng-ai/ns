@@ -1,6 +1,6 @@
 # Generic harness adapter
 
-Read this file first when applying `internal-code-stacker-agent` in any harness.
+Read this file first when applying the `stacker-agent` route in any harness.
 
 The core skill defines the protocol. This file defines the minimum
 capabilities a harness must provide to execute that protocol without

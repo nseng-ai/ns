@@ -10,7 +10,7 @@ Map **run worker** to a single `Agent` tool call.
 
 - Use `subagent_type: "general-purpose"`. Do not use `Plan` or
   `Explore` — those cannot implement and commit code.
-- Put the filled-in brief from `references/brief-template.md` directly
+- Put the filled-in brief from `references/stacker-agent/brief-template.md` directly
   into the `prompt` argument. Do not hand the worker a path and ask it
   to read the brief.
 - Give the tool call a short `description` naming the slice, e.g.

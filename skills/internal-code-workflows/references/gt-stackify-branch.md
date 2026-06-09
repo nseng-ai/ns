@@ -1,24 +1,6 @@
----
-name: internal-code-gt-stackify-branch
-description: "Command: internal-code-gt-stackify-branch"
-metadata:
-  internal: true
-allowed-tools:
-  - "Bash(gt *)"
-  - "Bash(git add *)"
-  - "Bash(git branch *)"
-  - "Bash(git checkout *)"
-  - "Bash(git diff *)"
-  - "Bash(git log *)"
-  - "Bash(git rebase *)"
-  - "Bash(git reset *)"
-  - "Bash(git show *)"
-  - "Bash(git status *)"
-  - "Bash(gh pr *)"
-  - "Bash(make *)"
----
+<!-- Migrated from `internal-code-gt-stackify-branch`; loaded through `internal-code-workflows`. -->
 
-# internal-code-gt-stackify-branch
+# gt-stackify-branch
 
 Use this skill when the user wants to turn one branch into a clean Graphite stack.
 

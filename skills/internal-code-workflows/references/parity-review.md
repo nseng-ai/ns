@@ -1,23 +1,6 @@
----
-name: internal-code-parity-review
-description: "Review Pi extension command/tool changes for cross-harness parity. Use when reviewing or changing Pi slash commands, custom tools, CLI-to-Pi bridge surfaces, skills, or the cross-harness parity table; checks that workflow behavior is reachable outside Pi through skills/CLIs/primitives or has an explicit waiver/tracked gap."
-allowed-tools:
-  - "Bash(git *)"
-  - "Bash(gt *)"
-  - "Bash(rg *)"
-  - "Bash(find *)"
-  - "Bash(ls *)"
-  - "Bash(readlink *)"
-  - "Bash(INSTALL_INTERNAL_SKILLS=1 npx skills list*)"
-  - "Bash(dprint check *)"
-  - "Read"
-  - "Edit"
-  - "Write"
-metadata:
-  internal: true
----
+<!-- Migrated from `internal-code-parity-review`; loaded through `internal-code-workflows`. -->
 
-# internal-code-parity-review
+# parity-review
 
 Review Pi extension command/tool changes for cross-harness parity. This skill is advisory: it reports findings and may update Objective parity tracking, but it does not declare a merge blocked.
 
@@ -158,10 +141,11 @@ The CI/manifest path is parked future work; plan it separately instead of adding
 
 ## Verify
 
-For ordinary reviews, report the evidence commands you ran. When editing this skill or Objective tracking, also run targeted formatting and whitespace checks such as:
+For ordinary reviews, report the evidence commands you ran. When editing this router reference or Objective tracking, also run targeted formatting and whitespace checks such as:
 
 ```bash
-dprint check skills/internal-code-parity-review/SKILL.md \
+dprint check skills/internal-code-workflows/SKILL.md \
+  skills/internal-code-workflows/references/parity-review.md \
   .asdl/objectives/cross-harness-parity/objective.md \
   .asdl/objectives/cross-harness-parity/roadmap.md \
   .asdl/objectives/cross-harness-parity/parity-table.md \
