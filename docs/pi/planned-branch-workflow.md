@@ -15,8 +15,9 @@ planned-branch policy.
 
 The public workflow surface is:
 
-1. `/planned-branch:write-plan` in Pi, or the `planned-branch-write-plan` skill,
-   saves a reviewed plan in the local plan store.
+1. `/planned-branch:write-plan` in Pi, `/planned-branch:write-grilled-plan`
+   in Pi, or the `planned-branch-write-plan` skill saves a reviewed plan in
+   the local plan store.
 2. `/planned-branch:create` in Pi, or the `planned-branch-create` skill,
    selects a saved plan, chooses a planned-branch slug, creates the
    implementation branch, and attaches the plan.
@@ -82,6 +83,21 @@ handoff point between planning and branch creation.
 Pi derives the saved-plan filename slug inside the planning turn. Agent skills
 derive the slug in the skill layer before calling the CLI, because the shared CLI
 operation intentionally receives an explicit slug.
+
+#### Pi structured grilling variant
+
+Pi users can run `/planned-branch:write-grilled-plan` when they want the planning
+turn to challenge requirements before saving. This command uses an embedded Pi
+prompt, not `.asdl/prompts/planned-branch-write-plan.md`, and requires the
+`grill_ask` structured UI tool. If structured UI is unavailable, the turn does
+not save a plan.
+
+The grilled variant produces the same local Saved plan artifact through
+`write_source_branch_plan_file`. The resulting plan remains compatible with
+`planned-branch exec resolve-plan`, `/planned-branch:create`, and the installed
+planned-branch create/implement skills. There is no current standalone CLI or
+skill counterpart for the grilled interaction itself; this is intentional Pi-only
+structured UI orchestration while storage remains shared.
 
 ### Resolve a saved plan
 
@@ -190,7 +206,8 @@ Memory use remains generic branch-scoped text storage.
 Pi commands and installed agent skills interoperate through the same filesystem
 and Branch Memory contracts:
 
-- A plan saved by `/planned-branch:write-plan` can be resolved by
+- A plan saved by `/planned-branch:write-plan` or
+  `/planned-branch:write-grilled-plan` can be resolved by
   `planned-branch exec resolve-plan` or used by the `planned-branch-create`
   skill.
 - A plan saved by `planned-branch-write-plan` can be passed to
@@ -268,7 +285,8 @@ shared contract rather than duplicating package internals.
 
 Related public surfaces:
 
-- Pi commands: `/planned-branch:write-plan`, `/planned-branch:create`,
+- Pi commands: `/planned-branch:write-plan`,
+  `/planned-branch:write-grilled-plan`, `/planned-branch:create`,
   `/planned-branch:up-and-impl`, and `/planned-branch:impl`.
 - Agent skills: `planned-branch` umbrella/reference skill, plus
   `planned-branch-write-plan`, `planned-branch-create`, and

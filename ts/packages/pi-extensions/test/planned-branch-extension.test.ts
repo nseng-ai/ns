@@ -8,6 +8,7 @@ import registerPlannedBranchExtension, {
 	CREATE_PLANNED_BRANCH_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	PLAN_BRANCH_NAMESPACE,
+	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
@@ -802,6 +803,33 @@ describe("buildWritePlanPrompt", () => {
 	});
 });
 
+describe("buildWriteGrilledPlanPrompt", () => {
+	test("includes structured grill requirements and save/no-save contract", () => {
+		const prompt = buildWriteGrilledPlanPrompt("plan the grilled command variant");
+
+		expect(prompt).toContain("/planned-branch:write-grilled-plan");
+		expect(prompt).toContain("plan the grilled command variant");
+		expect(prompt).toContain("write_source_branch_plan_file");
+		expect(prompt).toContain("grill_ask");
+		expect(prompt).toContain("3–7");
+		expect(prompt).toContain("Inspect repository evidence before asking");
+		expect(prompt).toContain("If grill_ask is unavailable");
+		expect(prompt).toContain("ui_unavailable");
+		expect(prompt).toContain("status_request");
+		expect(prompt).toContain("end_grill");
+		expect(prompt).toContain("do not call write_source_branch_plan_file");
+		expect(prompt).toContain("material requirements remain unresolved");
+		expect(prompt).toContain("do not save");
+		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
+		expect(prompt).toContain("Do not create a branch or write Branch Memory");
+		expect(prompt).not.toContain("GRILL_UI_CONTRACT");
+	});
+
+	test("renders empty steering as none", () => {
+		expect(buildWriteGrilledPlanPrompt("   ")).toContain("User steering for this planning request: (none)");
+	});
+});
+
 describe("formatCreatePlannedBranchPreview", () => {
 	test("reports latest saved plan and target details", () => {
 		const text = formatCreatePlannedBranchPreview({
@@ -945,6 +973,7 @@ describe("plan workflow commands", () => {
 			"planned-branch:create",
 			"planned-branch:impl",
 			"planned-branch:up-and-impl",
+			"planned-branch:write-grilled-plan",
 			"planned-branch:write-plan",
 		]);
 		expect(pi.commands.has("up-impl")).toBe(false);
@@ -954,6 +983,42 @@ describe("plan workflow commands", () => {
 		expect(pi.tools.has("write_source_branch_plan_file")).toBe(true);
 		expect(pi.tools.has("create_brmem_plan_branch_from_file")).toBe(false);
 		expect(pi.tools.has("persist_brmem_plan")).toBe(false);
+	});
+
+	test("planned-branch:write-grilled-plan waits for idle and dispatches embedded prompt without prompt resolution", async () => {
+		const events: string[] = [];
+		const pi = new FakePi([], events);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:write-grilled-plan");
+		expect(command).toBeDefined();
+		const context = createContext(events);
+
+		await command?.handler("  plan the grilled command variant  ", context.ctx);
+
+		pi.assertDone();
+		expect(context.waits()).toBe(1);
+		expect(events[0]).toBe("wait");
+		expect(events.at(-1)).toBe("send");
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([buildWriteGrilledPlanPrompt("plan the grilled command variant")]);
+		expect(pi.sentUserMessages[0]).toContain("grill_ask");
+		expect(pi.sentUserMessages[0]).toContain("write_source_branch_plan_file");
+		expect(context.notifications).toEqual([
+			{ message: "Starting /planned-branch:write-grilled-plan planning grill…", level: "info" },
+		]);
+	});
+
+	test("planned-branch:write-grilled-plan with empty args still sends a prompt with none steering", async () => {
+		const pi = new FakePi();
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:write-grilled-plan");
+		const context = createContext();
+
+		await command?.handler("   ", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([buildWriteGrilledPlanPrompt("")]);
+		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
 	test("planned-branch:write-plan waits for idle, resolves prompt, and dispatches the generated prompt", async () => {
@@ -1815,6 +1880,7 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
 		expect(tool.promptGuidelines?.join("\n")).toContain("/planned-branch:write-plan");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/planned-branch:write-grilled-plan");
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
