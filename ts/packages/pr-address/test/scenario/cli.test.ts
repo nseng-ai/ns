@@ -34,17 +34,22 @@ interface CliRun {
 	legacy: InMemoryLegacyPrAddressGateway;
 }
 
-function runWithFakeLegacy(args: readonly string[], exitCodes: readonly number[] = [0], deps: Pick<CliDeps, "registry" | "stdin"> = {}): CliRun {
+interface RunWithFakeLegacyOptions {
+	exitCodes?: readonly number[];
+	deps?: Pick<CliDeps, "registry" | "stdin">;
+}
+
+function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOptions = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway(exitCodes);
+	const legacy = new InMemoryLegacyPrAddressGateway(options.exitCodes ?? [0]);
 	return {
 		exit: runCli(args, {
 			context: { legacy },
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
-			stdin: deps.stdin,
-			registry: deps.registry,
+			stdin: options.deps?.stdin,
+			registry: options.deps?.registry,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),
@@ -90,7 +95,7 @@ describe("pr-address CLI scaffold", () => {
 	});
 
 	test("delegates exact exec args to the legacy gateway", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc", "--format", "json"], [7]);
+		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc", "--format", "json"], { exitCodes: [7] });
 
 		expect(await run.exit).toBe(7);
 		expect(run.stdout.join("")).toBe("");
@@ -104,14 +109,14 @@ describe("pr-address CLI scaffold", () => {
 	});
 
 	test("preserves arbitrary operation argv shape for fallback-backed commands", async () => {
-		const run = runWithFakeLegacy(["exec", "record-batch-checkpoint", "--format", "json"], [0]);
+		const run = runWithFakeLegacy(["exec", "record-batch-checkpoint", "--format", "json"], { exitCodes: [0] });
 
 		expect(await run.exit).toBe(0);
 		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "record-batch-checkpoint", "--format", "json"]]);
 	});
 
 	test("preserves nonzero legacy exit codes", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc"], [2]);
+		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc"], { exitCodes: [2] });
 
 		expect(await run.exit).toBe(2);
 		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--payload-session-id", "abc"]]);
@@ -137,8 +142,9 @@ describe("pr-address CLI scaffold", () => {
 			review_threads: [],
 			discussion_comments: [],
 		};
-		const run = runWithFakeLegacy(["exec", "classification-template", "--format", "json"], [0], {
-			stdin: async () => JSON.stringify(manifest),
+		const run = runWithFakeLegacy(["exec", "classification-template", "--format", "json"], {
+			exitCodes: [0],
+			deps: { stdin: async () => JSON.stringify(manifest) },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -164,9 +170,12 @@ describe("pr-address CLI scaffold", () => {
 				},
 			},
 		]);
-		const run = runWithFakeLegacy(["exec", "echo-json", "--format", "json"], [0], {
-			registry,
-			stdin: async () => '{"ok":true}',
+		const run = runWithFakeLegacy(["exec", "echo-json", "--format", "json"], {
+			exitCodes: [0],
+			deps: {
+				registry,
+				stdin: async () => '{"ok":true}',
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -186,11 +195,11 @@ describe("pr-address CLI scaffold", () => {
 			},
 		]);
 
-		const negative = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], [0], { registry });
+		const negative = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], { exitCodes: [0], deps: { registry } });
 		expect(await negative.exit).toBe(1);
 		expect(JSON.parse(negative.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
 
-		const failure = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], [0], { registry });
+		const failure = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], { exitCodes: [0], deps: { registry } });
 		expect(await failure.exit).toBe(2);
 		expect(JSON.parse(failure.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 
