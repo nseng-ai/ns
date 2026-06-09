@@ -103,11 +103,11 @@ describe("pr-address CLI scaffold", () => {
 		]);
 	});
 
-	test("preserves arbitrary operation argv shape for stdin-oriented commands", async () => {
-		const run = runWithFakeLegacy(["exec", "validate-feedback-classification", "--format", "json"], [0]);
+	test("preserves arbitrary operation argv shape for fallback-backed commands", async () => {
+		const run = runWithFakeLegacy(["exec", "record-batch-checkpoint", "--format", "json"], [0]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "validate-feedback-classification", "--format", "json"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "record-batch-checkpoint", "--format", "json"]]);
 	});
 
 	test("preserves nonzero legacy exit codes", async () => {
@@ -129,12 +129,21 @@ describe("pr-address CLI scaffold", () => {
 		expect(JSON.stringify(payload.output_json_schema)).toContain("classification_template");
 	});
 
-	test("falls back when a partially managed operation receives non-managed args", async () => {
-		const run = runWithFakeLegacy(["exec", "classification-template", "--format", "json"], [0]);
+	test("serves managed classification-template execution locally", async () => {
+		const manifest = {
+			payload_reference: { payload_path: "payload.json" },
+			pr_number: 42,
+			reviews: [],
+			review_threads: [],
+			discussion_comments: [],
+		};
+		const run = runWithFakeLegacy(["exec", "classification-template", "--format", "json"], [0], {
+			stdin: async () => JSON.stringify(manifest),
+		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "classification-template", "--format", "json"]]);
+		expect(JSON.parse(run.stdout.join("")).data).toMatchObject({ manifest_kind: "get_feedback", pr_number: 42 });
+		expect(run.legacy.calls).toEqual([]);
 	});
 
 	test("supports injected stdin for managed exec operations", async () => {
