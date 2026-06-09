@@ -67,7 +67,7 @@ describe("pr-address-run wrapper", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: pr-address");
-		expect(result.stdout).toContain("TypeScript package is currently a migration scaffold");
+		expect(result.stdout).toContain("PR review address operations");
 	});
 
 	test("ASDL_PR_ADDRESS_MODE=local forces the local TypeScript CLI", () => {
@@ -75,7 +75,7 @@ describe("pr-address-run wrapper", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: pr-address");
-		expect(result.stdout).toContain("TypeScript package is currently a migration scaffold");
+		expect(result.stdout).toContain("PR review address operations");
 	});
 
 	test("ASDL_PR_ADDRESS_MODE=ts-local is a local TypeScript CLI alias", () => {
@@ -83,7 +83,7 @@ describe("pr-address-run wrapper", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: pr-address");
-		expect(result.stdout).toContain("TypeScript package is currently a migration scaffold");
+		expect(result.stdout).toContain("PR review address operations");
 	});
 
 	test("ASDL_PR_ADDRESS_MODE=prod executes the bundled artifact with node", async () => {
@@ -125,14 +125,11 @@ describe("pr-address-run wrapper", () => {
 		expect(result.stdout).toBe("0.1.0\n");
 	});
 
-	test("ASDL_PR_ADDRESS_MODE=python-local reaches the local legacy Python command", async () => {
-		const fakeBin = await makeTempDir();
-		await writeFakeCommand(fakeBin, "uv", "uv");
+	test("ASDL_PR_ADDRESS_MODE=python-local is rejected now that the in-repo Python package is deleted", () => {
+		const result = runWrapper(["--help"], { env: { ...process.env, ASDL_PR_ADDRESS_MODE: "python-local" } });
 
-		const result = runWrapper(["--help"], { env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}`, ASDL_PR_ADDRESS_MODE: "python-local" } });
-
-		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toBe(`uv: run --project ${REPO_ROOT} pr-address --help\n`);
+		expect(result.status).toBe(2);
+		expect(result.stderr).toContain("unknown ASDL_PR_ADDRESS_MODE='python-local'");
 	});
 
 	test("ASDL_PR_ADDRESS_MODE=legacy-python uses the published PyPI rollback pin", async () => {
@@ -150,6 +147,6 @@ describe("pr-address-run wrapper", () => {
 
 		expect(result.status).toBe(2);
 		expect(result.stderr).toContain("unknown ASDL_PR_ADDRESS_MODE='bogus'");
-		expect(result.stderr).toContain("local, ts-local, python-local, legacy-python, prod");
+		expect(result.stderr).toContain("local, ts-local, legacy-python, prod");
 	});
 });

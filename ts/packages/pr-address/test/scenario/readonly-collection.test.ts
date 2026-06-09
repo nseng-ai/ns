@@ -5,14 +5,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import { discussionComment, InMemoryPrAddressGitHubGateway, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
 
 interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
 }
 
 interface Envelope {
@@ -29,10 +27,9 @@ afterEach(async () => {
 function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway, env: NodeJS.ProcessEnv = { PATH: "/fake/bin" }): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy, github },
+			context: { github },
 			cwd: "/repo",
 			env,
 			stdin: async () => "",
@@ -41,12 +38,11 @@ function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubG
 		}),
 		stdout,
 		stderr,
-		legacy,
 	};
 }
 
 describe("read-only GitHub-backed operations", () => {
-	test("looks up a PR for a branch without legacy fallback", async () => {
+	test("looks up a PR for a branch", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			prsByBranch: {
 				feature: {
@@ -62,7 +58,6 @@ describe("read-only GitHub-backed operations", () => {
 		const run = runWithGithub(["exec", "get-pr-for-branch", "feature", "--format", "json"], github);
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseEnvelope(run.stdout.join(""));
 		expect(envelope.data).toMatchObject({ found: true, number: 42, head_ref_name: "feature", base_ref_name: "main", state: "OPEN" });
 	});
@@ -94,12 +89,9 @@ describe("read-only GitHub-backed operations", () => {
 		expect(await discussionsRun.exit).toBe(0);
 		expect((parseEnvelope(discussionsRun.stdout.join("")).data.comments as Array<{ author: string }>)[0]?.author).toBe("Graphite Automations");
 
-		expect(reviewsRun.legacy.calls).toEqual([]);
-		expect(threadsRun.legacy.calls).toEqual([]);
-		expect(discussionsRun.legacy.calls).toEqual([]);
 	});
 
-	test("get-feedback manages inline and payload modes without legacy fallback", async () => {
+	test("get-feedback manages inline and payload modes", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			reviews: {
 				42: [
@@ -116,7 +108,6 @@ describe("read-only GitHub-backed operations", () => {
 		const inlineData = parseEnvelope(inlineRun.stdout.join("")).data;
 		expect(inlineData.payload_mode).toBe("inline");
 		expect((inlineData.reviews as Array<{ id: string }>).map((item) => item.id)).toEqual(["changes"]);
-		expect(inlineRun.legacy.calls).toEqual([]);
 
 		const tempDir = await mkdtemp(join(tmpdir(), "pr-address-readonly-collection-"));
 		tempDirs.push(tempDir);
@@ -127,7 +118,6 @@ describe("read-only GitHub-backed operations", () => {
 			ASDL_PAYLOAD_SESSION_ID: "sess-readonly",
 		});
 		expect(await payloadRun.exit).toBe(0);
-		expect(payloadRun.legacy.calls).toEqual([]);
 		const payloadData = parseEnvelope(payloadRun.stdout.join("")).data;
 		expect(payloadData.payload_mode).toBe("payload");
 		const reference = payloadData.payload_reference as { payload_path: string; descriptor: string; role: string };

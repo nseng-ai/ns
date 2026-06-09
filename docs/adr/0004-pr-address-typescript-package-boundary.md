@@ -21,6 +21,8 @@ The migration needs a TypeScript package boundary before individual operations a
 
 **Amendment (2026-06-09):** the `asdl pr-address ...` plugin is retired outright rather than ported or shimmed. The standalone `pr-address` CLI is the only invocation surface after cutover; the `asdl.plugins` entry point and plugin module were removed.
 
+**Amendment (2026-06-09, Python deletion):** the in-repo Python package `packages/asdl-pr-address` is deleted. All operations, `--json-schema` routes, and envelope rendering are TypeScript-owned, including the last three click usage-error shapes (invalid `--payload-mode`, invalid `--stdout-mode`, non-integer `--body-chars`), which now render TS-native `invalid_request` envelopes instead of click usage text. Rollback is the frozen published PyPI artifact (`asdl-pr-address==0.1.1` via `uvx`, wrapper mode `legacy-python`), not in-repo code; the wrapper's `python-local` mode was removed. The Python-generated golden contract fixtures moved to `ts/packages/pr-address/test/fixtures/golden/v1/` and remain the durable contract reference.
+
 ## Consequences
 
 This enables incremental operation ports behind a stable TypeScript package and CLI boundary. It avoids broad command-runtime framework work before repeated seams are proven, while maintaining local workflow compatibility through a short-lived Python fallback.

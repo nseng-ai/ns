@@ -47,8 +47,9 @@ export async function runPrepareRunOperation(invocation: ExecOperationInvocation
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for prepare-run: ${unexpectedPositional}`);
 	const payloadMode = parsed.options.values.get("--payload-mode") ?? "payload";
-	// Invalid --payload-mode values keep legacy click usage-error behavior.
-	if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+	if (payloadMode !== "inline" && payloadMode !== "payload") {
+		return exitFailure("invalid_request", `--payload-mode must be 'inline' or 'payload', got '${payloadMode}'.`);
+	}
 
 	// Python opens the payload store before any gateway work; preserve that ordering.
 	let store: PayloadStore | undefined;

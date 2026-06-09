@@ -13,14 +13,14 @@ you do not have to adopt the whole suite first.
 ```bash
 uv tool install asdl-slots
 uv tool install brmem
-uv tool install asdl-pr-address
 uv tool install aretro
 uv tool install asdl-objectives
 uv tool install roaster
 ```
 
-Each package provides its own console script, such as `slot`, `brmem`, or
-`pr-address`.
+Each package provides its own console script, such as `slot` or `brmem`.
+`pr-address` is the exception: it ships as a bundled Node CLI inside the
+[pr-address skill](/skills/pr-address/) rather than as a Python package.
 
 ## Umbrella command
 

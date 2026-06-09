@@ -10,10 +10,9 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import { finalizeRun } from "../../src/finalization.ts";
 import { buildGetFeedbackPayloadManifest, buildPrepareRunPayloadManifest } from "../../src/payload-manifest.ts";
 import { buildResolveThreadBatchPayload } from "../../src/resolve-thread-batch-payload.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
-const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
+const GOLDEN_ROOT = fileURLToPath(new URL("../fixtures/golden/v1", import.meta.url));
 const tempDirs: string[] = [];
 
 interface GoldenCase {
@@ -60,14 +59,9 @@ async function makeTempDir(): Promise<string> {
 function runWithNoFallback(args: readonly string[], deps: Pick<CliDeps, "stdin"> = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: {},
 			cwd: REPO_ROOT,
 			env: { PATH: "/fake/bin" },
 			stdin: deps.stdin,

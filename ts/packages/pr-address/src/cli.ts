@@ -63,12 +63,13 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
 	const operation = args[0];
 	if (operation === undefined || operation === "--help" || operation === "-h") {
-		deps.stdout(execHelp());
+		deps.stdout(execHelp(deps.registry));
 		return 0;
 	}
 
-	// Mirrors the legacy CLI's eager `--json-schema` flag: print the operation's
-	// input/output JSON Schema document and exit 0 before any argument validation.
+	// Mirrors the original Python CLI's eager `--json-schema` flag: print the
+	// operation's input/output JSON Schema document and exit 0 before any
+	// argument validation.
 	if (args.includes("--json-schema")) {
 		const schemaDocument = buildOperationSchemaDocument(operation);
 		if (schemaDocument !== undefined) {
@@ -78,36 +79,31 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	}
 
 	const registeredOperation = deps.registry.get(operation);
-	if (registeredOperation !== undefined) {
-		const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
-		switch (dispatchResult.type) {
-			case "exit":
-				return emitClinkrExit(dispatchResult.exit, {
-					format: hasFormatJson(args) ? "json" : "human",
-					stdout: deps.stdout,
-					stderr: deps.stderr,
-				});
-			case "raw-exit":
-				return dispatchResult.exitCode;
-			case "fallback":
-				break;
-		}
+	if (registeredOperation === undefined) {
+		deps.stderr(`Unknown operation: ${operation}\n\n${execHelp(deps.registry)}`);
+		return 2;
 	}
 
-	try {
-		return await deps.context.legacy.run(["exec", ...args], { cwd: deps.cwd, env: deps.env });
-	} catch (error) {
-		deps.stderr(`Error: ${errorMessage(error)}\n`);
-		return 2;
+	const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
+	switch (dispatchResult.type) {
+		case "exit":
+			return emitClinkrExit(dispatchResult.exit, {
+				format: hasFormatJson(args) ? "json" : "human",
+				stdout: deps.stdout,
+				stderr: deps.stderr,
+			});
+		case "raw-exit":
+			return dispatchResult.exitCode;
 	}
 }
 
 function topLevelHelp(): string {
-	return `Usage: pr-address [--help] [--version] <command>\n\nPR review address operations. This TypeScript package is currently a migration scaffold.\n\nOptions:\n  -h, --help     Show this help.\n  -V, --version  Show version.\n`;
+	return `Usage: pr-address [--help] [--version] <command>\n\nPR review address operations.\n\nOptions:\n  -h, --help     Show this help.\n  -V, --version  Show version.\n`;
 }
 
-function execHelp(): string {
-	return `Usage: pr-address exec <operation> [args...]\n\nHidden operations for the pr-address skill. This scaffold preserves the operation boundary while individual operations are ported.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to TypeScript when an operation slice is available and otherwise delegates to the legacy Python pr-address CLI with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations compatibility-backed by legacy Python unless explicitly handled by TypeScript:\n  add-issue-comment\n  add-reaction\n  add-review-thread-reply\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-discussion-comments\n  get-feedback\n  get-pr-for-branch\n  get-review-comments\n  get-reviews\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  unresolve-thread\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
+function execHelp(registry: ExecOperationRegistry): string {
+	const operationLines = registry.names().map((name) => `  ${name}`).join("\n");
+	return `Usage: pr-address exec <operation> [args...]\n\nHidden operations for the pr-address skill.\n\nOperations:\n${operationLines}\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
 }
 
 function hasFormatJson(args: readonly string[]): boolean {
@@ -125,11 +121,6 @@ async function readProcessStdin(): Promise<string> {
 		process.stdin.on("error", reject);
 		process.stdin.on("end", () => resolveStdin(data));
 	});
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }
 
 function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {

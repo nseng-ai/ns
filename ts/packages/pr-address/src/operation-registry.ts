@@ -39,7 +39,6 @@ export interface ExecOperationInvocation {
 }
 
 export type ExecOperationDispatchResult =
-	| { type: "fallback" }
 	| { type: "exit"; exit: ClinkrExit }
 	| { type: "raw-exit"; exitCode: number };
 
@@ -52,39 +51,8 @@ export interface ExecOperationDefinition {
 
 export interface ExecOperationRegistry {
 	get(operation: string): ExecOperationDefinition | undefined;
-	isTsManaged(operation: string): boolean;
+	names(): readonly string[];
 }
-
-export const LEGACY_EXEC_OPERATIONS: readonly string[] = [
-	"add-issue-comment",
-	"add-reaction",
-	"add-review-thread-reply",
-	"build-resolve-thread-batch-payload",
-	"build-stack-resolve-thread-payloads",
-	"classification-template",
-	"finalize-run",
-	"get-discussion-comments",
-	"get-feedback",
-	"get-pr-for-branch",
-	"get-review-comments",
-	"get-reviews",
-	"plan-feedback",
-	"prepare-run",
-	"read-feedback-detail",
-	"read-feedback-details",
-	"record-batch-checkpoint",
-	"reply-to-discussion",
-	"reply-to-review",
-	"resolve-thread",
-	"resolve-thread-batch",
-	"resolve-thread-with-reply",
-	"stack-feedback-diff-current",
-	"stack-feedback-plan",
-	"stack-feedback-prep",
-	"summarize-feedback",
-	"unresolve-thread",
-	"validate-feedback-classification",
-];
 
 export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 	return createExecOperationRegistry([
@@ -206,12 +174,13 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 export function createExecOperationRegistry(definitions: readonly ExecOperationDefinition[]): ExecOperationRegistry {
 	const byName = new Map<string, ExecOperationDefinition>();
 	for (const definition of definitions) byName.set(definition.name, definition);
+	const sortedNames = [...byName.keys()].sort();
 	return {
 		get(operation: string): ExecOperationDefinition | undefined {
 			return byName.get(operation);
 		},
-		isTsManaged(operation: string): boolean {
-			return byName.has(operation);
+		names(): readonly string[] {
+			return sortedNames;
 		},
 	};
 }

@@ -3,8 +3,6 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 
 interface BuildStackResolveThreadPayloadsCase {
 	name: string;
@@ -30,14 +28,9 @@ interface ManagedRun {
 function runManaged(args: readonly string[]): ManagedRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: {},
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => "",
@@ -78,11 +71,10 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		expect(envelope.message).toContain("--bogus");
 	});
 
-	test("serves --json-schema from TypeScript without invoking the legacy CLI", async () => {
+	test("serves --json-schema from TypeScript", async () => {
 		const stdout: string[] = [];
-		const legacy = new InMemoryLegacyPrAddressGateway([0]);
 		const exit = await runCli(["exec", "build-stack-resolve-thread-payloads", "--json-schema"], {
-			context: { legacy },
+			context: {},
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => "",
@@ -91,7 +83,6 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		});
 
 		expect(exit).toBe(0);
-		expect(legacy.calls).toEqual([]);
 		const document = JSON.parse(stdout.join("")) as Record<string, unknown>;
 		expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
 	});

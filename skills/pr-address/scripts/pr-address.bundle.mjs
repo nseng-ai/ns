@@ -8,8 +8,8 @@ var __export = (target, all) => {
 
 // src/cli.ts
 import { realpathSync } from "node:fs";
-import { resolve as resolve2 } from "node:path";
-import process5 from "node:process";
+import { resolve } from "node:path";
+import process4 from "node:process";
 import { fileURLToPath } from "node:url";
 
 // src/gateways.ts
@@ -14709,13 +14709,13 @@ var RealPrAddressGitGateway = class {
   }
 };
 async function runProcess(request) {
-  return await new Promise((resolve3) => {
+  return await new Promise((resolve2) => {
     const child = execFile(request.command, [...request.args], { cwd: request.cwd, env: request.env ?? process2.env }, (error51, stdout, stderr) => {
       if (error51 !== null && typeof error51 === "object" && "code" in error51 && typeof error51.code === "number") {
-        resolve3({ stdout, stderr, exitCode: error51.code });
+        resolve2({ stdout, stderr, exitCode: error51.code });
         return;
       }
-      resolve3({ stdout, stderr, exitCode: error51 === null ? 0 : 1 });
+      resolve2({ stdout, stderr, exitCode: error51 === null ? 0 : 1 });
     });
     child.stdin?.end();
   });
@@ -14830,93 +14830,9 @@ function jsonErrorMessage(error51) {
   return String(error51);
 }
 
-// src/legacy-python.ts
-import { spawn } from "node:child_process";
-import process3 from "node:process";
-
-// src/repo-root.ts
-import { existsSync } from "node:fs";
-import { dirname, join, parse as parse3, resolve } from "node:path";
-var LEGACY_PACKAGE_MARKER = join("packages", "asdl-pr-address", "pyproject.toml");
-function findLegacyCheckoutRoot(cwd) {
-  let current = resolve(cwd);
-  const root = parse3(current).root;
-  while (true) {
-    if (existsSync(join(current, LEGACY_PACKAGE_MARKER))) return current;
-    if (current === root) return void 0;
-    current = dirname(current);
-  }
-}
-
-// src/legacy-python.ts
-var LEGACY_PR_ADDRESS_VERSION = "0.1.1";
-var FORWARDED_SIGNALS = ["SIGHUP", "SIGINT", "SIGTERM"];
-var SIGNAL_EXIT_CODES = {
-  SIGHUP: 129,
-  SIGINT: 130,
-  SIGTERM: 143
-};
-var RealLegacyPrAddressGateway = class {
-  runProcess;
-  constructor(options = {}) {
-    this.runProcess = options.runProcess ?? runProcessWithInheritedStdio;
-  }
-  async run(args, options) {
-    const repoRoot = findLegacyCheckoutRoot(options.cwd);
-    const env = options.env ?? process3.env;
-    if (repoRoot !== void 0) {
-      return await this.runProcess({
-        command: "uv",
-        args: ["run", "--project", repoRoot, "pr-address", ...args],
-        cwd: options.cwd,
-        env,
-        stdio: "inherit"
-      });
-    }
-    return await this.runProcess({
-      command: "uvx",
-      args: ["--from", `asdl-pr-address==${LEGACY_PR_ADDRESS_VERSION}`, "pr-address", ...args],
-      cwd: options.cwd,
-      env,
-      stdio: "inherit"
-    });
-  }
-};
-async function runProcessWithInheritedStdio(request) {
-  return await new Promise((resolve3, reject) => {
-    const child = spawn(request.command, [...request.args], {
-      cwd: request.cwd,
-      env: request.env,
-      stdio: request.stdio
-    });
-    let signalExitCode;
-    const signalHandlers = FORWARDED_SIGNALS.map((signal) => {
-      function handler() {
-        signalExitCode = SIGNAL_EXIT_CODES[signal];
-        child.kill(signal);
-      }
-      process3.once(signal, handler);
-      return { signal, handler };
-    });
-    function cleanup() {
-      for (const { signal, handler } of signalHandlers) {
-        process3.off(signal, handler);
-      }
-    }
-    child.on("error", (error51) => {
-      cleanup();
-      reject(error51);
-    });
-    child.on("close", (code) => {
-      cleanup();
-      resolve3(code ?? signalExitCode ?? 1);
-    });
-  });
-}
-
 // src/context.ts
 function createRealPrAddressContext() {
-  return { legacy: new RealLegacyPrAddressGateway(), github: new RealPrAddressGitHubGateway(), git: new RealPrAddressGitGateway() };
+  return { github: new RealPrAddressGitHubGateway(), git: new RealPrAddressGitGateway() };
 }
 
 // src/clinkr-envelope.ts
@@ -15333,9 +15249,9 @@ function parseManagedOptions(args, valueOptions) {
 
 // src/payload-store.ts
 import { chmod, lstat, mkdir, open, readdir, stat, unlink } from "node:fs/promises";
-import { basename, dirname as dirname2, isAbsolute, join as join2 } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
-import process4 from "node:process";
+import process3 from "node:process";
 var ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
 var ASDL_PAYLOAD_SESSION_ID_ENV = "ASDL_PAYLOAD_SESSION_ID";
 var SAFE_SEGMENT_PATTERN_TEXT = "^[a-z0-9][a-z0-9._-]{0,127}$";
@@ -15349,17 +15265,17 @@ function requireSafeSegment(value, options) {
   throw new Error(`${options.label} must match safe segment pattern ${pythonRepr(SAFE_SEGMENT_PATTERN_TEXT)}: ${pythonRepr(value)}`);
 }
 function defaultPayloadRoot(options = {}) {
-  return join2(options.tempDir ?? tmpdir(), "asdl");
+  return join(options.tempDir ?? tmpdir(), "asdl");
 }
 function resolvePayloadRoot(options = {}) {
-  const sourceEnv = options.env ?? process4.env;
+  const sourceEnv = options.env ?? process3.env;
   const envValue = sourceEnv[ASDL_PAYLOAD_ROOT_ENV];
   if (envValue === void 0 || envValue === "") return { type: "ok", value: defaultPayloadRoot({ tempDir: options.tempDir }) };
   if (isAbsolute(envValue)) return { type: "ok", value: envValue };
   return payloadError("payload_root_invalid", `${ASDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${pythonRepr(envValue)}`);
 }
 function resolvePayloadSessionId(explicitSessionId, options = {}) {
-  const sourceEnv = options.env ?? process4.env;
+  const sourceEnv = options.env ?? process3.env;
   let sessionId;
   if (explicitSessionId !== void 0 && explicitSessionId !== null && explicitSessionId !== "") {
     sessionId = explicitSessionId;
@@ -15393,9 +15309,9 @@ var PayloadStore = class _PayloadStore {
     if (!isSafeSegment(options.sessionId)) {
       return payloadError("payload_session_invalid", `Payload session id must be a safe segment: ${pythonRepr(options.sessionId)}`);
     }
-    const sessionsDir = join2(options.root, "sessions");
-    const sessionDir = join2(sessionsDir, options.sessionId);
-    const payloadDir = join2(sessionDir, "payloads");
+    const sessionsDir = join(options.root, "sessions");
+    const sessionDir = join(sessionsDir, options.sessionId);
+    const payloadDir = join(sessionDir, "payloads");
     const directoryPlans = [
       { path: options.root, notDirectoryErrorType: "payload_root_invalid", createErrorType: "payload_root_invalid" },
       { path: sessionsDir, notDirectoryErrorType: "payload_directory_unsafe", createErrorType: "payload_directory_unsafe" },
@@ -15415,10 +15331,10 @@ var PayloadStore = class _PayloadStore {
   static async openContainingArtifact(payloadPath, options = {}) {
     const validated = await validateContainedArtifactPath(payloadPath);
     if (validated.type === "error") return validated;
-    const payloadDir = dirname2(payloadPath);
-    const sessionDir = dirname2(payloadDir);
+    const payloadDir = dirname(payloadPath);
+    const sessionDir = dirname(payloadDir);
     return await _PayloadStore.open({
-      root: dirname2(dirname2(sessionDir)),
+      root: dirname(dirname(sessionDir)),
       sessionId: basename(sessionDir),
       clock: options.clock
     });
@@ -15466,7 +15382,7 @@ var PayloadStore = class _PayloadStore {
       const sequenceResult = await this.nextSequence();
       if (sequenceResult.type === "error") return sequenceResult;
       const sequence = sequenceResult.value;
-      const payloadPath = join2(
+      const payloadPath = join(
         this.payloadDir,
         payloadFilename({ filenameTimestamp, sequence, descriptor: options.descriptor, role: options.role, extension: options.extension })
       );
@@ -15512,15 +15428,15 @@ async function validateContainedArtifactPath(payloadPath) {
   if (status === "symlink") return payloadError("payload_lookup_failed", `Payload artifact path must not be a symlink: ${payloadPath}`);
   if (status === "missing") return payloadError("payload_lookup_failed", `Payload artifact path does not exist: ${payloadPath}`);
   if (status === "not-file") return payloadError("payload_lookup_failed", `Payload artifact path must be a regular file: ${payloadPath}`);
-  const payloadDir = dirname2(payloadPath);
+  const payloadDir = dirname(payloadPath);
   if (basename(payloadDir) !== "payloads") {
     return payloadError("payload_lookup_failed", `Payload artifact must live under a payloads directory: ${payloadPath}`);
   }
-  const sessionId = basename(dirname2(payloadDir));
+  const sessionId = basename(dirname(payloadDir));
   if (!isSafeSegment(sessionId)) {
     return payloadError("payload_lookup_failed", `Payload artifact session id must be a safe segment: ${pythonRepr(sessionId)}`);
   }
-  if (basename(dirname2(dirname2(payloadDir))) !== "sessions") {
+  if (basename(dirname(dirname(payloadDir))) !== "sessions") {
     return payloadError("payload_lookup_failed", `Payload artifact must live under sessions/<session-id>/payloads: ${payloadPath}`);
   }
   const match = PAYLOAD_FILENAME_PATTERN.exec(basename(payloadPath));
@@ -15599,7 +15515,7 @@ async function ensurePrivateDirectory(path, options) {
   return await validatePrivateDirectory(path);
 }
 async function validatePrivateDirectory(path) {
-  if (process4.platform === "win32") return { type: "ok", value: null };
+  if (process3.platform === "win32") return { type: "ok", value: null };
   let mode;
   try {
     mode = (await stat(path)).mode & 511;
@@ -15644,7 +15560,7 @@ async function writeBytesExclusive(path, payload) {
     return { type: "error", message: errorMessage(error51) };
   }
   try {
-    if (process4.platform !== "win32") await fileHandle.chmod(384);
+    if (process3.platform !== "win32") await fileHandle.chmod(384);
     await fileHandle.write(payload);
     await fileHandle.close();
     return { type: "written" };
@@ -17473,7 +17389,9 @@ async function runGetFeedbackOperation(invocation) {
   });
   if (parsed.type === "error") return parsed.result;
   const payloadMode = parsed.values.get("--payload-mode") ?? "payload";
-  if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+  if (payloadMode !== "inline" && payloadMode !== "payload") {
+    return { type: "exit", exit: clinkrFailure("invalid_request", `--payload-mode must be 'inline' or 'payload', got '${payloadMode}'.`) };
+  }
   let store;
   if (payloadMode === "payload") {
     const storeResult = await PayloadStore.fromEnvironment({
@@ -18310,7 +18228,9 @@ async function runPrepareRunOperation(invocation) {
   const unexpectedPositional = parsed.options.positionals[0];
   if (unexpectedPositional !== void 0) return exitFailure("invalid_request", `Unexpected argument for prepare-run: ${unexpectedPositional}`);
   const payloadMode = parsed.options.values.get("--payload-mode") ?? "payload";
-  if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+  if (payloadMode !== "inline" && payloadMode !== "payload") {
+    return exitFailure("invalid_request", `--payload-mode must be 'inline' or 'payload', got '${payloadMode}'.`);
+  }
   let store;
   if (payloadMode === "payload") {
     const storeResult = await PayloadStore.fromEnvironment({
@@ -19612,7 +19532,9 @@ async function runStackFeedbackPrepOperation(invocation) {
   const unexpectedPositional = parsed.options.positionals[0];
   if (unexpectedPositional !== void 0) return exitFailure2("invalid_request", `Unexpected argument for stack-feedback-prep: ${unexpectedPositional}`);
   const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-  if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+  if (!STDOUT_MODES.has(stdoutMode)) {
+    return exitFailure2("invalid_request", `--stdout-mode must be 'full' or 'compact', got '${stdoutMode}'.`);
+  }
   const storeResult = await PayloadStore.fromEnvironment({
     explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,
     env: invocation.deps.env,
@@ -19667,7 +19589,9 @@ async function runStackFeedbackPlanOperation(invocation) {
   const unexpectedPositional = parsed.options.positionals[0];
   if (unexpectedPositional !== void 0) return exitFailure2("invalid_request", `Unexpected argument for stack-feedback-plan: ${unexpectedPositional}`);
   const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-  if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+  if (!STDOUT_MODES.has(stdoutMode)) {
+    return exitFailure2("invalid_request", `--stdout-mode must be 'full' or 'compact', got '${stdoutMode}'.`);
+  }
   const storeResult = await PayloadStore.fromEnvironment({
     explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,
     env: invocation.deps.env,
@@ -20651,7 +20575,9 @@ async function runSummarizeFeedbackOperation(invocation) {
   let bodyChars = DEFAULT_BODY_CHARS;
   if (rawBodyChars !== void 0) {
     const numericBodyChars = Number(rawBodyChars);
-    if (!Number.isInteger(numericBodyChars)) return { type: "fallback" };
+    if (!Number.isInteger(numericBodyChars)) {
+      return { type: "exit", exit: clinkrFailure("invalid_request", `--body-chars must be an integer, got '${rawBodyChars}'.`) };
+    }
     bodyChars = numericBodyChars;
   }
   if (bodyChars < 1 || bodyChars > MAX_BODY_CHARS) {
@@ -20902,12 +20828,13 @@ function createDefaultExecOperationRegistry() {
 function createExecOperationRegistry(definitions) {
   const byName = /* @__PURE__ */ new Map();
   for (const definition of definitions) byName.set(definition.name, definition);
+  const sortedNames = [...byName.keys()].sort();
   return {
     get(operation) {
       return byName.get(operation);
     },
-    isTsManaged(operation) {
-      return byName.has(operation);
+    names() {
+      return sortedNames;
     }
   };
 }
@@ -22124,11 +22051,11 @@ async function runCli(args, deps = {}) {
   const requiredDeps = {
     context: deps.context ?? createRealPrAddressContext(),
     registry: deps.registry ?? createDefaultExecOperationRegistry(),
-    cwd: deps.cwd ?? process5.cwd(),
-    env: deps.env ?? process5.env,
+    cwd: deps.cwd ?? process4.cwd(),
+    env: deps.env ?? process4.env,
     stdin: deps.stdin ?? readProcessStdin,
-    stdout: deps.stdout ?? ((text) => process5.stdout.write(text)),
-    stderr: deps.stderr ?? ((text) => process5.stderr.write(text))
+    stdout: deps.stdout ?? ((text) => process4.stdout.write(text)),
+    stderr: deps.stderr ?? ((text) => process4.stderr.write(text))
   };
   const command = args[0];
   if (command === void 0 || command === "--help" || command === "-h") {
@@ -22151,7 +22078,7 @@ ${topLevelHelp()}`);
 async function runExecCommand(args, deps) {
   const operation = args[0];
   if (operation === void 0 || operation === "--help" || operation === "-h") {
-    deps.stdout(execHelp());
+    deps.stdout(execHelp(deps.registry));
     return 0;
   }
   if (args.includes("--json-schema")) {
@@ -22163,76 +22090,42 @@ async function runExecCommand(args, deps) {
     }
   }
   const registeredOperation = deps.registry.get(operation);
-  if (registeredOperation !== void 0) {
-    const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
-    switch (dispatchResult.type) {
-      case "exit":
-        return emitClinkrExit(dispatchResult.exit, {
-          format: hasFormatJson(args) ? "json" : "human",
-          stdout: deps.stdout,
-          stderr: deps.stderr
-        });
-      case "raw-exit":
-        return dispatchResult.exitCode;
-      case "fallback":
-        break;
-    }
-  }
-  try {
-    return await deps.context.legacy.run(["exec", ...args], { cwd: deps.cwd, env: deps.env });
-  } catch (error51) {
-    deps.stderr(`Error: ${errorMessage4(error51)}
-`);
+  if (registeredOperation === void 0) {
+    deps.stderr(`Unknown operation: ${operation}
+
+${execHelp(deps.registry)}`);
     return 2;
+  }
+  const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
+  switch (dispatchResult.type) {
+    case "exit":
+      return emitClinkrExit(dispatchResult.exit, {
+        format: hasFormatJson(args) ? "json" : "human",
+        stdout: deps.stdout,
+        stderr: deps.stderr
+      });
+    case "raw-exit":
+      return dispatchResult.exitCode;
   }
 }
 function topLevelHelp() {
   return `Usage: pr-address [--help] [--version] <command>
 
-PR review address operations. This TypeScript package is currently a migration scaffold.
+PR review address operations.
 
 Options:
   -h, --help     Show this help.
   -V, --version  Show version.
 `;
 }
-function execHelp() {
+function execHelp(registry2) {
+  const operationLines = registry2.names().map((name) => `  ${name}`).join("\n");
   return `Usage: pr-address exec <operation> [args...]
 
-Hidden operations for the pr-address skill. This scaffold preserves the operation boundary while individual operations are ported.
+Hidden operations for the pr-address skill.
 
-Current behavior:
-  pr-address exec <operation> [args...] dispatches to TypeScript when an operation slice is available and otherwise delegates to the legacy Python pr-address CLI with the same arguments, stdin, stdout, stderr, and exit code.
-
-Operations compatibility-backed by legacy Python unless explicitly handled by TypeScript:
-  add-issue-comment
-  add-reaction
-  add-review-thread-reply
-  build-resolve-thread-batch-payload
-  build-stack-resolve-thread-payloads
-  classification-template
-  finalize-run
-  get-discussion-comments
-  get-feedback
-  get-pr-for-branch
-  get-review-comments
-  get-reviews
-  plan-feedback
-  prepare-run
-  read-feedback-detail
-  read-feedback-details
-  record-batch-checkpoint
-  reply-to-discussion
-  reply-to-review
-  resolve-thread
-  resolve-thread-batch
-  resolve-thread-with-reply
-  stack-feedback-diff-current
-  stack-feedback-plan
-  stack-feedback-prep
-  summarize-feedback
-  unresolve-thread
-  validate-feedback-classification
+Operations:
+${operationLines}
 
 Examples:
   pr-address exec prepare-run --payload-session-id pr-address-demo --format json
@@ -22246,30 +22139,26 @@ function hasFormatJson(args) {
 async function readProcessStdin() {
   return await new Promise((resolveStdin, reject) => {
     let data = "";
-    process5.stdin.setEncoding("utf8");
-    process5.stdin.on("data", (chunk) => {
+    process4.stdin.setEncoding("utf8");
+    process4.stdin.on("data", (chunk) => {
       data += chunk;
     });
-    process5.stdin.on("error", reject);
-    process5.stdin.on("end", () => resolveStdin(data));
+    process4.stdin.on("error", reject);
+    process4.stdin.on("end", () => resolveStdin(data));
   });
-}
-function errorMessage4(error51) {
-  if (error51 instanceof Error) return error51.message;
-  return String(error51);
 }
 function isDirectCliInvocation(metaUrl, argvPath) {
   if (argvPath === void 0) return false;
   try {
     const modulePath = realpathSync(fileURLToPath(metaUrl));
-    const entryPath = realpathSync(resolve2(argvPath));
+    const entryPath = realpathSync(resolve(argvPath));
     return modulePath === entryPath;
   } catch {
     return false;
   }
 }
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process5.argv[1])) {
-  process5.exitCode = await runCli(process5.argv.slice(2));
+if (import.meta.main || isDirectCliInvocation(import.meta.url, process4.argv[1])) {
+  process4.exitCode = await runCli(process4.argv.slice(2));
 }
 export {
   runCli

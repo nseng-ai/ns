@@ -1,28 +1,12 @@
 # @asdl/pr-address
 
-TypeScript migration scaffold for the public `pr-address` standalone CLI.
+TypeScript implementation of the public `pr-address` standalone CLI.
 
-This package establishes the TypeScript package boundary, direct Node CLI entrypoint, and local wrapper routing for `pr-address`. It is **not** a full operation port yet: unported `pr-address exec ...` operations delegate directly to the legacy Python CLI until each operation is ported and covered by parity tests.
+Every `pr-address exec ...` operation, every `--json-schema` route, and all envelope rendering is TypeScript-owned. The in-repo Python `asdl-pr-address` package is deleted; rollback is the frozen published PyPI artifact (`asdl-pr-address==0.1.1` via `uvx`), not in-repo code.
 
-## Current migration status
+## Invocation surfaces
 
 Local checkout invocation is TypeScript-first: `skills/pr-address/scripts/pr-address-run` executes `node ts/packages/pr-address/src/cli.ts` unless `ASDL_PR_ADDRESS_MODE` forces another path. Installed/prod skill invocation executes the checked-in self-contained bundle at `skills/pr-address/scripts/pr-address.bundle.mjs` (see "Bundled distribution" below). The `asdl pr-address ...` plugin is retired; the standalone `pr-address` CLI is the only invocation surface.
-
-TypeScript-managed local `exec` operation execution after the current stack:
-
-- Classification and planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`
-- Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`
-- Read-only GitHub fetch helpers: `get-pr-for-branch`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, plus `get-feedback` in both inline and default payload-artifact modes
-- Payload detail and stack diff helpers: `read-feedback-detail`, `read-feedback-details`, `stack-feedback-diff-current`
-- Stack orchestration helpers: `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
-- Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
-- Composite run preparation and summary: `prepare-run` (inline and default payload-artifact modes, contested-thread reopen, restructured-files detection) and `summarize-feedback`
-- Mutation helpers: `resolve-thread`, `resolve-thread-with-reply`, `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`, `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
-- JSON Schema documents: `--json-schema` for every exec operation is served by TypeScript (`src/operation-schemas.ts`), with structural semantic parity against captured Python fixtures (`test/fixtures/json-schemas/`)
-
-Compatibility-backed behavior that must stay in place for now:
-
-- Invalid `--payload-mode` values for `get-feedback` and `prepare-run`, invalid `--stdout-mode` values for `stack-feedback-prep` and `stack-feedback-plan`, and non-integer `--body-chars` values for `summarize-feedback` (click usage-error rendering)
 
 ## Bundled distribution
 
@@ -44,12 +28,17 @@ skills/pr-address/scripts/pr-address-run --help
 skills/pr-address/scripts/pr-address-run exec prepare-run --payload-session-id pr-address-demo --format json
 ```
 
-In a local checkout, `skills/pr-address/scripts/pr-address-run` defaults to this TypeScript scaffold. Wrapper modes:
+In a local checkout, `skills/pr-address/scripts/pr-address-run` defaults to the TypeScript sources. Wrapper modes:
 
 - `ASDL_PR_ADDRESS_MODE=local` (or `ts-local`) forces the checkout TypeScript sources.
 - `ASDL_PR_ADDRESS_MODE=prod` forces the checked-in bundle (`skills/pr-address/scripts/pr-address.bundle.mjs`), which is also the default outside a checkout.
-- `ASDL_PR_ADDRESS_MODE=python-local` forces the local legacy Python package via `uv run` for debugging.
 - `ASDL_PR_ADDRESS_MODE=legacy-python` is the rollback mode: `uvx --from asdl-pr-address==0.1.1`.
+
+## Contract fixtures
+
+Python-generated parity fixtures are checked into `test/fixtures/` (including the golden contract snapshots under `test/fixtures/golden/v1/`). They are the durable contract reference now that the Python implementation is deleted; update them only when a contract change is intentional, and review diffs case-by-case.
+
+Intentional divergence from the deleted Python CLI: the three former click usage-error shapes (invalid `--payload-mode`, invalid `--stdout-mode`, non-integer `--body-chars`) now render the package's standard `invalid_request` machine envelopes instead of click usage text.
 
 ## Validation
 
@@ -65,16 +54,6 @@ pnpm --dir ts run check
 pnpm --dir ts run test
 ```
 
-## Fallback retirement
+## Distribution
 
-The direct Python fallback exists only for the migration window. It must not call the `pr-address-run` wrapper, because the wrapper is now TypeScript-default in local checkouts and wrapper delegation would risk recursion.
-
-Retire fallback behavior only per proven operation. Required evidence before removing a fallback path:
-
-1. TypeScript scenario tests cover the public success, negative, validation, and `--format json` envelope behavior.
-2. Gateway-backed tests prove live-effect operations without writing to GitHub.
-3. Golden/parity fixtures cover payload-shape-sensitive helpers.
-4. Any advertised `--json-schema` output is served by TypeScript or intentionally documented as removed.
-5. Wrapper tests prove local, forced legacy, and prod modes still route predictably.
-
-Public distribution is decided: installed/prod mode executes the checked-in bundled artifact shipped inside the skill; `@asdl/pr-address` is not published to npm. The Python `asdl pr-address ...` plugin is retired outright; the standalone `pr-address` CLI is the only invocation surface. Rollback to the published Python package stays available through `ASDL_PR_ADDRESS_MODE=legacy-python` until the Python compatibility package is retired by an explicit later decision.
+Installed/prod mode executes the checked-in bundled artifact shipped inside the skill; `@asdl/pr-address` is not published to npm. Rollback to the published Python package stays available through `ASDL_PR_ADDRESS_MODE=legacy-python` against the frozen PyPI release.

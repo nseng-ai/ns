@@ -281,8 +281,9 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-prep: ${unexpectedPositional}`);
 	const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-	// Invalid --stdout-mode values keep legacy click usage-error behavior.
-	if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+	if (!STDOUT_MODES.has(stdoutMode)) {
+		return exitFailure("invalid_request", `--stdout-mode must be 'full' or 'compact', got '${stdoutMode}'.`);
+	}
 
 	// Python opens the payload store before reading the stack JSON; preserve that ordering.
 	const storeResult = await PayloadStore.fromEnvironment({
@@ -345,8 +346,9 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-plan: ${unexpectedPositional}`);
 	const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-	// Invalid --stdout-mode values keep legacy click usage-error behavior.
-	if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+	if (!STDOUT_MODES.has(stdoutMode)) {
+		return exitFailure("invalid_request", `--stdout-mode must be 'full' or 'compact', got '${stdoutMode}'.`);
+	}
 
 	// Python opens the payload store before reading the plan payload; preserve that ordering.
 	const storeResult = await PayloadStore.fromEnvironment({

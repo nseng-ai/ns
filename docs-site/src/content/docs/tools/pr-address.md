@@ -20,13 +20,17 @@ while skills get stable JSON.
 
 ## Install
 
+`pr-address` ships inside the [pr-address skill](/skills/pr-address/) as a
+self-contained bundled artifact. Installing the skill installs the CLI; run it
+through the skill's wrapper script (requires Node 24 or newer):
+
 ```bash
-uv tool install asdl-pr-address
-pr-address --help
+<skill-dir>/scripts/pr-address-run --help
 ```
 
 The standalone `pr-address` CLI is the only invocation surface; `pr-address` is
-not mounted under the `asdl` umbrella command.
+not mounted under the `asdl` umbrella command and is not published as a Python
+package for current releases.
 
 ## Common commands
 

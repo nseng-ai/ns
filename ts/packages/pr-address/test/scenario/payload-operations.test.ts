@@ -6,7 +6,6 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { PayloadStore, type PayloadClock, type PayloadResult } from "../../src/payload-store.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "../../src/gateways.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
@@ -121,14 +120,9 @@ interface ManagedRunOptions {
 function runManaged(args: readonly string[], options: ManagedRunOptions = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github: options.github, payloadClock: options.payloadClock },
+			context: { github: options.github, payloadClock: options.payloadClock },
 			cwd: "/repo",
 			env: options.env ?? { PATH: "/fake/bin" },
 			stdin: async () => "",

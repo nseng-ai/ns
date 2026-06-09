@@ -6,25 +6,21 @@ sessions.
 When this reference is used from the skill, replace literal `pr-address` with the
 bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
 
-## TypeScript migration status
+## Implementation status
 
-Every `exec` operation and every operation `--json-schema` route is
-TypeScript-managed. Local checkout invocation runs the checkout sources
-directly; installed/prod skill invocation runs the self-contained bundled
-artifact shipped inside the skill at `scripts/pr-address.bundle.mjs`. Both paths
-require `node` (Node 24 or newer).
+`pr-address` is fully TypeScript-implemented: every `exec` operation, every
+operation `--json-schema` route, and all envelope rendering. Local checkout
+invocation runs the checkout sources directly; installed/prod skill invocation
+runs the self-contained bundled artifact shipped inside the skill at
+`scripts/pr-address.bundle.mjs`. Both paths require `node` (Node 24 or newer).
 
-Compatibility-backed behavior that must remain for now:
-
-- a small set of malformed-option usage errors (invalid `--payload-mode`,
-  invalid `--stdout-mode`, non-integer `--body-chars`) still render through the
-  legacy Python CLI
-- the explicit `python-local` and `legacy-python` rollback modes
+Rollback is the explicit `legacy-python` wrapper mode, which runs the frozen
+published legacy Python package via `uvx`. Malformed-option usage errors
+(invalid `--payload-mode`, invalid `--stdout-mode`, non-integer `--body-chars`)
+render standard `invalid_request` machine envelopes.
 
 The standalone `pr-address` CLI is the only invocation surface; the former
-`asdl pr-address ...` umbrella plugin is retired. Do not treat this migration
-status as permission to delete the Python compatibility package; final
-retirement requires an explicit release decision.
+`asdl pr-address ...` umbrella plugin is retired.
 
 ## Invocation convention
 

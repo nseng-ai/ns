@@ -49,17 +49,19 @@
   - Preserve validation-before-action semantics, explicit decision requirements, durable resolution modes, planned provenance validation, and no-push behavior.
   - Policy: builder and fake mutation paths are directly executable after preview. Live GitHub writes require explicit user confirmation for the exact operation and target.
   - Evidence: `updates/2026-06-09T154839Z-mutation-safety-fake-gateways.md` records reply formatting parity, fake-backed mutation gateway operations, validation-before-action tests, planned provenance validation, and the explicit absence of live GitHub write probes.
-- [~] Cut over public skill, wrapper, plugin, and distribution paths to TypeScript default.
+- [x] Cut over public skill, wrapper, plugin, and distribution paths to TypeScript default.
   - Decided 2026-06-09: installed/prod mode executes a bundled JavaScript artifact shipped inside the installed skill (no npm publish), and the `asdl pr-address ...` plugin is retired outright. The current prod `uvx` pin (`0.1.0`) was never published and is broken; the rollback reference is PyPI `asdl-pr-address==0.1.1`.
   - Policy: docs, wrapper behavior and tests, bundle build machinery, local checkout behavior, and plugin retirement are directly executable after preview. Live npm/PyPI publishing and pushing installed-skill artifacts to external stores remain out of scope.
   - Evidence should include wrapper local/prod checks, installed-skill compatibility evidence where practical, and documentation updates.
   - Progress evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` records local TypeScript operation status, wrapper alias coverage, public docs/playbook updates, and explicit deferral of npm/prod/plugin cutover decisions.
-- [ ] Retire active Python fallback paths and fully delete `packages/asdl-pr-address`.
+  - Completion evidence: `updates/2026-06-09T210900Z-schema-bundle-plugin-deletion-cutover.md` records TS-owned schema routes, the deterministic checked-in bundle with prod wrapper cutover, the 0.1.1 rollback pin, and outright plugin retirement.
+- [x] Retire active Python fallback paths and fully delete `packages/asdl-pr-address`.
   - Decided 2026-06-09: the end state is full in-repo deletion within the endgame stack, gated on all operations being TypeScript-managed, all `--json-schema` routes TypeScript-owned, wrapper/bundle cutover landed, plugin retirement landed, and docs/tests free of Python invocation paths. PyPI `asdl-pr-address==0.1.1` is the external frozen rollback after deletion.
   - Policy: per-operation fallback removal and the final gated deletion are directly executable within the endgame stack once the listed gates are evidenced in earlier branches; outside that stack context, ask before broad deletion.
   - Evidence should include operation parity coverage, wrapper/distribution cutover evidence, and docs showing no active invocation path depends on the retired Python surface.
   - Current evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` documents why broad Python fallback retirement is still blocked by installed/prod wrapper, plugin, artifact-writing, stack orchestration, and schema-route compatibility requirements.
   - Updated readiness evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` confirms Python is still present and still required for unported operations, public schema fallback routes, installed/prod wrapper mode, rollback, and the `asdl pr-address ...` plugin; broad deletion is not ready.
+  - Completion evidence: `updates/2026-06-09T210900Z-schema-bundle-plugin-deletion-cutover.md` records the gated full deletion of `packages/asdl-pr-address`, TS fallback dispatch removal, TS-native usage-error envelopes, golden fixture relocation into the TS package, and full repo gate verification.
 - [ ] Feed lessons into the umbrella porting playbook.
   - Record reusable migration guidance for later `brmem`, `handoff`, `objective`, and other capability ports.
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.
@@ -80,14 +82,16 @@ Default branch sequence:
    - Thesis: port `prepare-run` (contested-thread reopen via the existing TypeScript mutation gateway, restructured-files via the git gateway, payload/inline modes) and `summarize-feedback` (deterministic excerpt/automation-marker heuristics). Fake-validated only; no live writes.
 4. `stack-orchestration` — landed as `pr-address-ts/stack-orchestration` (kept as one branch; the optional prep/plan vs payload-building split was not needed for thesis clarity).
    - Thesis: port `stack-feedback-prep`, `stack-feedback-plan`, and `build-stack-resolve-thread-payloads` on the store plus the already-ported planning/classification core. No Graphite dependency. The parent may split this into two adjacent branches (prep/plan vs payload building) for review size.
-5. `schema-routes`
+5. `schema-routes` — landed as `pr-address-ts/schema-routes`.
    - Thesis: make every remaining `pr-address exec ... --json-schema` route TypeScript-owned (structured semantic parity), removing the schema fallback dependency.
-6. `bundle-distribution`
+   - Landed note: the classification trio kept its already-shipped TS schema documents, exempted from the structural parity bar with Python fixtures checked in for a future tightening pass.
+6. `bundle-distribution` — landed as `pr-address-ts/bundle-distribution`.
    - Thesis: add bundle build machinery producing a self-contained JavaScript artifact inside the installed skill; wrapper prod mode executes the bundle; `legacy-python` rollback mode becomes `uvx --from asdl-pr-address==0.1.1` (the broken unpublished `0.1.0` pin is removed); wrapper tests and public docs updated. Building the bundle locally is in scope; publishing anything externally is not.
-7. `plugin-retirement`
+7. `plugin-retirement` — landed as `pr-address-ts/plugin-retirement`.
    - Thesis: remove the `asdl pr-address ...` plugin entry point, plugin module, and asdl-scope plugin smoke test; update docs to name the standalone CLI as the only invocation surface.
-8. `python-deletion`
+8. `python-deletion` — landed as `pr-address-ts/python-deletion`.
    - Thesis: remove fallback dispatch from the TypeScript CLI, delete `packages/asdl-pr-address` and asdl-core surfaces that become unused, and scrub workspace/config/test references. Validate with full repo checks, not just the TS package.
+   - Landed note: the wrapper's `python-local` mode was removed with the package; the three click usage-error cases now emit TS-native `invalid_request` envelopes; golden contract fixtures moved into the TS package as the durable post-deletion reference; `asdl_core.payloads` was kept (aretro consumers) while `asdl_core.clinkr.json_input` was deleted (zero remaining importers).
 9. `playbook`
    - Thesis: feed proven seams, portability limits, and bundle/retirement lessons into the umbrella porting playbook; record final Objective evidence.
 

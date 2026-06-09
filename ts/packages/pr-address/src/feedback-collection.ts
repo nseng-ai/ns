@@ -86,8 +86,9 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 	});
 	if (parsed.type === "error") return parsed.result;
 	const payloadMode = parsed.values.get("--payload-mode") ?? "payload";
-	// Invalid --payload-mode values keep legacy click usage-error behavior.
-	if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+	if (payloadMode !== "inline" && payloadMode !== "payload") {
+		return { type: "exit", exit: clinkrFailure("invalid_request", `--payload-mode must be 'inline' or 'payload', got '${payloadMode}'.`) };
+	}
 
 	// Python opens the payload store before any gateway fetch; preserve that ordering.
 	let store: PayloadStore | undefined;

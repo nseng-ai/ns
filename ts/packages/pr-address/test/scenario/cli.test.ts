@@ -1,7 +1,6 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { z } from "zod";
 import { afterEach, describe, expect, test } from "vitest";
@@ -10,10 +9,7 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import { clinkrFailure, clinkrNegative, clinkrOk, exitCodeForClinkrExit, toMachineEnvelope } from "../../src/clinkr-envelope.ts";
 import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
 import { createExecOperationRegistry } from "../../src/operation-registry.ts";
-import { RealLegacyPrAddressGateway, type ProcessRunRequest } from "../../src/legacy-python.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -31,21 +27,18 @@ interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
 }
 
-interface RunWithFakeLegacyOptions {
-	exitCodes?: readonly number[];
+interface RunCliOptions {
 	deps?: Pick<CliDeps, "registry" | "stdin">;
 }
 
-function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOptions = {}): CliRun {
+function runCliCapture(args: readonly string[], options: RunCliOptions = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway(options.exitCodes ?? [0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: {},
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: options.deps?.stdin,
@@ -55,81 +48,86 @@ function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOp
 		}),
 		stdout,
 		stderr,
-		legacy,
 	};
 }
 
-describe("pr-address CLI scaffold", () => {
+describe("pr-address CLI", () => {
 	test("prints top-level help and version", async () => {
-		const help = runWithFakeLegacy(["--help"]);
+		const help = runCliCapture(["--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: pr-address");
 		expect(help.stdout.join("")).not.toContain("exec");
-		expect(help.legacy.calls).toEqual([]);
 
-		const version = runWithFakeLegacy(["--version"]);
+		const version = runCliCapture(["--version"]);
 		expect(await version.exit).toBe(0);
 		expect(version.stdout.join("")).toBe("0.1.0\n");
-		expect(version.legacy.calls).toEqual([]);
 	});
 
 	test("rejects unknown top-level commands", async () => {
-		const run = runWithFakeLegacy(["bogus"]);
+		const run = runCliCapture(["bogus"]);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Unknown command: bogus");
 		expect(run.stderr.join("")).toContain("Usage: pr-address");
-		expect(run.legacy.calls).toEqual([]);
 	});
 
 	test("prints exec help for hidden agent operations", async () => {
-		const run = runWithFakeLegacy(["exec", "--help"]);
+		const run = runCliCapture(["exec", "--help"]);
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Usage: pr-address exec");
-		expect(run.stdout.join("")).toContain("dispatches to TypeScript");
 		expect(run.stdout.join("")).toContain("prepare-run");
 		expect(run.stdout.join("")).toContain("build-stack-resolve-thread-payloads");
-		expect(run.legacy.calls).toEqual([]);
 	});
 
-	// Every exec operation (including --json-schema routes) now executes in
-	// TypeScript; only click usage-error shapes still reach the legacy fallback.
-	test("delegates exact exec args to the legacy gateway for usage-error fallback routes", async () => {
-		const run = runWithFakeLegacy(["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"], { exitCodes: [7] });
-
-		expect(await run.exit).toBe(7);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("");
-		expect(run.legacy.calls).toEqual([
-			{
-				args: ["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"],
-				options: { cwd: "/repo", env: { PATH: "/fake/bin" } },
-			},
-		]);
-	});
-
-	test("preserves arbitrary operation argv shape for fallback-backed routes", async () => {
-		const run = runWithFakeLegacy(["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"], { exitCodes: [0] });
-
-		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"]]);
-	});
-
-	test("preserves nonzero legacy exit codes", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-mode", "bogus"], { exitCodes: [2] });
+	test("rejects unknown exec operations", async () => {
+		const run = runCliCapture(["exec", "not-a-real-operation"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--payload-mode", "bogus"]]);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Unknown operation: not-a-real-operation");
+		expect(run.stderr.join("")).toContain("Usage: pr-address exec");
 	});
 
-	test("serves managed classification-template schema locally without invoking legacy", async () => {
-		const run = runWithFakeLegacy(["exec", "classification-template", "--json-schema"]);
+	// Former click usage-error fallback routes now render TS-native
+	// invalid_request envelopes; the Python path is deleted.
+	test("rejects invalid --stdout-mode with an invalid_request envelope", async () => {
+		const run = runCliCapture(["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toBe("");
+		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			exit_code: 2,
+			error_type: "invalid_request",
+			message: "--stdout-mode must be 'full' or 'compact', got 'bogus'.",
+		});
+	});
+
+	test("rejects invalid --payload-mode for get-feedback with an invalid_request envelope", async () => {
+		const run = runCliCapture(["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			exit_code: 2,
+			error_type: "invalid_request",
+			message: "--payload-mode must be 'inline' or 'payload', got 'bogus'.",
+		});
+	});
+
+	test("rejects invalid --payload-mode for prepare-run in human format", async () => {
+		const run = runCliCapture(["exec", "prepare-run", "--payload-mode", "bogus"]);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: --payload-mode must be 'inline' or 'payload', got 'bogus'.\n");
+	});
+
+	test("serves managed classification-template schema locally", async () => {
+		const run = runCliCapture(["exec", "classification-template", "--json-schema"]);
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
-		expect(run.legacy.calls).toEqual([]);
 		const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 		expect(Object.keys(payload).sort()).toEqual(["input_json_schema", "output_json_schema"]);
 		expect(JSON.stringify(payload.input_json_schema)).toContain("manifest_json");
@@ -144,14 +142,12 @@ describe("pr-address CLI scaffold", () => {
 			review_threads: [],
 			discussion_comments: [],
 		};
-		const run = runWithFakeLegacy(["exec", "classification-template", "--format", "json"], {
-			exitCodes: [0],
+		const run = runCliCapture(["exec", "classification-template", "--format", "json"], {
 			deps: { stdin: async () => JSON.stringify(manifest) },
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toMatchObject({ manifest_kind: "get_feedback", pr_number: 42 });
-		expect(run.legacy.calls).toEqual([]);
 	});
 
 	test("supports injected stdin for managed exec operations", async () => {
@@ -172,8 +168,7 @@ describe("pr-address CLI scaffold", () => {
 				},
 			},
 		]);
-		const run = runWithFakeLegacy(["exec", "echo-json", "--format", "json"], {
-			exitCodes: [0],
+		const run = runCliCapture(["exec", "echo-json", "--format", "json"], {
 			deps: {
 				registry,
 				stdin: async () => '{"ok":true}',
@@ -183,7 +178,6 @@ describe("pr-address CLI scaffold", () => {
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({ ok: true });
 		expect(run.stderr.join("")).toBe("");
-		expect(run.legacy.calls).toEqual([]);
 	});
 
 	test("maps managed Clinkr envelope exits to process exit codes", async () => {
@@ -197,11 +191,11 @@ describe("pr-address CLI scaffold", () => {
 			},
 		]);
 
-		const negative = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], { exitCodes: [0], deps: { registry } });
+		const negative = runCliCapture(["exec", "envelope", "negative", "--format", "json"], { deps: { registry } });
 		expect(await negative.exit).toBe(1);
 		expect(JSON.parse(negative.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
 
-		const failure = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], { exitCodes: [0], deps: { registry } });
+		const failure = runCliCapture(["exec", "envelope", "failure", "--format", "json"], { deps: { registry } });
 		expect(await failure.exit).toBe(2);
 		expect(JSON.parse(failure.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 
@@ -311,53 +305,5 @@ describe("JSON input source helpers", () => {
 		});
 		expect(schemaError.type).toBe("error");
 		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid_request");
-	});
-});
-
-describe("legacy Python fallback routing", () => {
-	test("uses local uv project command when a legacy checkout marker is present", async () => {
-		const requests: ProcessRunRequest[] = [];
-		const gateway = new RealLegacyPrAddressGateway({
-			runProcess: async (request) => {
-				requests.push(request);
-				return 0;
-			},
-		});
-
-		const exit = await gateway.run(["exec", "prepare-run"], { cwd: REPO_ROOT, env: { PATH: "/fake/bin" } });
-
-		expect(exit).toBe(0);
-		expect(requests).toEqual([
-			{
-				command: "uv",
-				args: ["run", "--project", REPO_ROOT, "pr-address", "exec", "prepare-run"],
-				cwd: REPO_ROOT,
-				env: { PATH: "/fake/bin" },
-				stdio: "inherit",
-			},
-		]);
-	});
-
-	test("uses pinned uvx fallback outside a legacy checkout", async () => {
-		const requests: ProcessRunRequest[] = [];
-		const gateway = new RealLegacyPrAddressGateway({
-			runProcess: async (request) => {
-				requests.push(request);
-				return 3;
-			},
-		});
-
-		const exit = await gateway.run(["exec", "prepare-run"], { cwd: "/", env: { PATH: "/fake/bin" } });
-
-		expect(exit).toBe(3);
-		expect(requests).toEqual([
-			{
-				command: "uvx",
-				args: ["--from", "asdl-pr-address==0.1.1", "pr-address", "exec", "prepare-run"],
-				cwd: "/",
-				env: { PATH: "/fake/bin" },
-				stdio: "inherit",
-			},
-		]);
 	});
 });

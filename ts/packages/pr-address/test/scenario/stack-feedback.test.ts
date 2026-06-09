@@ -6,9 +6,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import type { PayloadClock } from "../../src/payload-store.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "../../src/gateways.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
 interface FixtureArtifact {
@@ -111,14 +109,9 @@ interface ManagedRun {
 function runManaged(args: readonly string[], options: { github?: PrAddressGitHubGateway | undefined; env: NodeJS.ProcessEnv; clockIso: string }): ManagedRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github: options.github, payloadClock: fixedClock(options.clockIso) },
+			context: { github: options.github, payloadClock: fixedClock(options.clockIso) },
 			cwd: "/repo",
 			env: options.env,
 			stdin: async () => "",
@@ -224,18 +217,17 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 	});
 });
 
-describe("stack feedback fallback guards", () => {
-	// --json-schema routes are TypeScript-owned now (see json-schema-routes.test.ts);
-	// only click usage-error shapes still delegate to the legacy CLI.
-	for (const fallbackArgs of [
+describe("stack feedback stdout-mode validation", () => {
+	// Former click usage-error fallback routes now render TS-native
+	// invalid_request envelopes; the Python path is deleted.
+	for (const invalidArgs of [
 		["stack-feedback-prep", "--stdout-mode", "bogus"],
 		["stack-feedback-plan", "--stdout-mode", "bogus"],
 	]) {
-		test(`delegates ${fallbackArgs.join(" ")} to the legacy CLI`, async () => {
+		test(`rejects ${invalidArgs.join(" ")} with an invalid_request envelope`, async () => {
 			const stdout: string[] = [];
-			const legacy = new InMemoryLegacyPrAddressGateway([0]);
-			const exit = await runCli(["exec", ...fallbackArgs], {
-				context: { legacy },
+			const exit = await runCli(["exec", ...invalidArgs, "--format", "json"], {
+				context: {},
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
 				stdin: async () => "",
@@ -243,8 +235,12 @@ describe("stack feedback fallback guards", () => {
 				stderr: () => {},
 			});
 
-			expect(exit).toBe(0);
-			expect(legacy.calls.map((call) => call.args)).toEqual([["exec", ...fallbackArgs]]);
+			expect(exit).toBe(2);
+			expect(JSON.parse(stdout.join(""))).toEqual({
+				exit_code: 2,
+				error_type: "invalid_request",
+				message: "--stdout-mode must be 'full' or 'compact', got 'bogus'.",
+			});
 		});
 	}
 });

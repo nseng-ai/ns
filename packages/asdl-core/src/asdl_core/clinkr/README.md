@@ -237,24 +237,6 @@ Every operation emits the `ClinkrExit` envelope on stdout when invoked with `--f
 
 Use `--json-schema` on any command to get the JSON Schema document for its input and output.
 
-### JSON option/file/stdin input
-
-Use `asdl_core.clinkr.json_input.load_json_input` in Clinkr CLI-layer helpers that accept JSON from an explicit inline option such as `--payload-json`, an optional file path option such as `--payload-file`, or stdin. The helper enforces at most one explicit inline/file source; when neither option is supplied, stdin is read by default unless `allow_stdin=False` is passed.
-
-```python
-payload = load_json_input(
-    option_value=request.payload_json,
-    file_path=request.payload_file,
-    command_name="import-items",
-    input_description="JSON payload",
-    option_name="--payload-json",
-    file_option_name="--payload-file",
-    parser=ImportItemsPayload.model_validate_json,
-)
-```
-
-It preserves standard Clinkr failure handling by translating empty input, missing files, malformed JSON, and Pydantic validation failures into `ClinkrFailure` through `Ensure`. JSON syntax failures are reported as `invalid_json`; schema/validation failures are reported as `invalid_request`.
-
 ### Parameter Mapping
 
 Pydantic request model fields map to Click parameters automatically:
@@ -278,7 +260,6 @@ Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` re
 | `non_ideal_state` | `NonIdealState` Protocol for failure types that pre-name their CLI translation      |
 | `group`           | `ClinkrGroup`                                                                       |
 | `command`         | Machine envelope emission                                                           |
-| `json_input`      | JSON option/file/stdin loading for CLI-layer helpers                                |
 | `json_schema`     | JSON Schema document assembly                                                       |
 | `models`          | Pydantic base models for clinkr DTOs                                                |
 | `params`          | Pydantic model-to-Click parameter extraction                                        |

@@ -96,8 +96,6 @@ substitute `<pr-address-runner>`. For example:
 
 - `local` or `ts-local` forces the local checkout implementation.
 - `prod` forces the bundled artifact shipped with the skill.
-- `python-local` forces the legacy Python compatibility path from a local
-  checkout.
 - `legacy-python` is the rollback mode: it runs the pinned published legacy
   Python package via `uvx`.
 
