@@ -14,6 +14,14 @@ Use a subagent when all of these are true:
 
 Do not launch a subagent just to avoid making a deterministic CLI call, running a supported selected-detail lookup, or reading a short file directly. Prefer direct inspection for small artifact bodies and deterministic local work.
 
+## Agent-to-Agent Interface Shape
+
+Subagents should usually return compact prose or Markdown reports keyed by stable IDs, paths, or locators. The report should state coverage, findings or classifications, evidence inspected, confidence, and blockers. Do not make strict JSON schemas the default final-text protocol between LLM routines.
+
+JSON is appropriate at deterministic boundaries, such as agent-to-CLI and tool-to-tool calls. When a downstream CLI needs a JSON packet, the parent agent owns constructing or filling that deterministic schema from the subagent's semantic report, then validating it before acting. Use a strict structured subagent contract only when the parent deliberately invokes terminal-capture mode, typed tool parameters, or another explicit structured capture mechanism.
+
+For the broader methodology, see `docs/subagent-pushdown.md`.
+
 ## Passing File Paths and Locators
 
 Pass artifact paths and locators instead of pasting large artifact bodies into the main transcript. A launch prompt should include:

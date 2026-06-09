@@ -19,8 +19,11 @@ judgment:
   for both template generation and validation.
 - `feedback_classification_template.py` builds a deterministic scaffold with
   IDs, locators, thread item pointers, and exact comment coverage prefilled.
-- An LLM fills only semantic fields such as disposition, summary, complexity,
-  and informational reason.
+- A parent agent fills only semantic fields in that scaffold, such as
+  disposition, summary, complexity, and informational reason, potentially from a
+  delegated subagent's prose classification report.
+- The delegated report is not the deterministic CLI contract;
+  `validate-feedback-classification` receives the parent-generated JSON packet.
 - `feedback_classification.py` validates the filled packet strictly before any
   execution plan is shown or any GitHub mutation is attempted.
 

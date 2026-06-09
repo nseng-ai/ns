@@ -164,12 +164,14 @@ comments, report that there is no outstanding feedback and stop.
 
 ### 3. Classify, validate, and plan
 
-Open `references/feedback-classifier.md` and follow its strict packet contract.
-The classifier output is a JSON packet with `schema_version: 1` and explicit
-`reviews`, `review_threads`, and `discussion_comments` entries.
+Open `references/feedback-classifier.md` and follow its classification rules.
+The parent ultimately builds the validated classification artifact: a JSON
+packet with `schema_version: 1` and explicit `reviews`, `review_threads`, and
+`discussion_comments` entries. That packet is the deterministic CLI boundary,
+not the default agent-to-agent subagent report.
 
-Generate a deterministic scaffold from the compact manifest before asking the
-LLM to classify semantics:
+Generate a deterministic scaffold from the compact manifest before asking for
+semantic classification:
 
 ```bash
 printf '%s' '<prepare-run data json>' \
@@ -177,9 +179,9 @@ printf '%s' '<prepare-run data json>' \
 ```
 
 The scaffold pre-fills IDs, locators, item pointers, and coverage skeletons.
-The raw scaffold is intentionally invalid until the classifier fills semantic
-fields such as `disposition`, `summary`, `action_summary`, `complexity`, and
-`informational_reason`.
+The raw scaffold is intentionally invalid until the parent fills semantic fields
+such as `disposition`, `summary`, `action_summary`, `complexity`, and
+`informational_reason`, potentially from a delegated classifier report.
 
 When running in an asdl checkout, also read `.asdl/prompts/subagent-launch.md`
 before launching a payload-aware summarizer/subagent. That policy describes how
@@ -192,16 +194,23 @@ Preferred classification path:
    the canonical cheap classification model named in the shared Pi launch policy
    when available. The prompt must include the compact manifest,
    `payload_reference.payload_path`, relevant body locators, the generated
-   `classification-template`, the `feedback-classifier` rules, the strict packet
-   contract, and completeness requirements.
-
-2. Require the summarizer to return only the strict classification packet,
-   preserving all prefilled IDs/locators/coverage fields and filling only the
-   semantic judgment fields.
-3. Follow the escalation conditions and concrete Pi escalation target guidance
+   `classification-template`, the `feedback-classifier` rules, the expected
+   classification report shape, and completeness requirements.
+2. Require the subagent to return a concise prose/Markdown classification report
+   keyed by exact review IDs, review-thread IDs, discussion-comment IDs, and
+   covered thread-comment IDs. The report must include disposition, summary,
+   action summary plus complexity for actionable items, informational reason for
+   informational items, `needs_reply` for discussion comments when relevant,
+   evidence locators or IDs inspected, confidence/blockers, and coverage counts.
+   The report is not the final validation JSON packet.
+3. The parent fills only semantic fields in the generated scaffold from the
+   report. Preserve all prefilled IDs, body locators, item pointers,
+   `thread_item_pointer` values, and `covered_comments` from the scaffold. Write
+   the parent-generated classification packet to a file when practical.
+4. Follow the escalation conditions and concrete Pi escalation target guidance
    in `references/feedback-classifier.md`.
-4. Do not paste the full `.raw.json` payload artifact into the main transcript.
-5. If `dispatch_runner_subagent` is unavailable, the requested cheap model is
+5. Do not paste the full `.raw.json` payload artifact into the main transcript.
+6. If `dispatch_runner_subagent` is unavailable, the requested cheap model is
    not available, or the harness cannot choose a model per dispatch, use the
    fallback path below and classify directly from artifact-backed selected
    detail lookup; do not pretend delegation/model routing occurred.
@@ -229,6 +238,10 @@ Fallback path when no subagent/separate subagent or helper is available:
   debugging, because it returns the selected value inline.
 - Stop if targeted lookup still leaves insufficient evidence. Do not switch to
   full inline payloads by default.
+
+In fallback mode there is no agent-to-agent boundary: the parent may classify
+and directly fill the JSON packet itself, while preserving the deterministic
+scaffold fields and validating before planning.
 
 Validate before displaying any execution plan. Prefer split manifest and
 classification inputs so no ad-hoc wrapper JSON is needed:
@@ -259,9 +272,16 @@ printf '%s' '{"manifest":{...},"classification":{...}}' \
 Validation outcomes:
 
 - If validation exits `0` and `data.valid` is true, continue to plan display.
-- If validation exits `1`, inspect `data.counts` and `data.errors`, pass those
-  diagnostics plus the original manifest/template evidence to a stronger/default
-  model for one correction attempt, then revalidate.
+- If validation exits `1`, inspect `data.counts` and `data.errors`.
+  - If the failure is malformed JSON, missing arrays, locator mismatch, copied
+    scaffold-field drift, or another parent translation/schema mistake, fix the
+    parent-generated packet locally and revalidate.
+  - If the failure shows missing or duplicate semantic judgments in the subagent
+    report, ask the subagent once for a corrected report with the diagnostics,
+    then refill the scaffold and revalidate.
+  - If semantic judgment remains ambiguous or human-sensitive, escalate to the
+    parent/default strong model or ask the user according to normal approval
+    rules.
 - If the retry still fails, stop and report the diagnostics.
 - If validation exits `2`, treat it as malformed workflow input and stop.
 
@@ -274,10 +294,11 @@ printf '%s' '<json wrapper>' \
 ```
 
 Use the same wrapper shape as validation. If `plan-feedback` exits `1`, inspect
-`data.validation.counts` and `data.validation.errors`, pass those diagnostics
-plus the original manifest/template evidence to a stronger/default model for one
-correction attempt, then re-run validation and planning. If it exits `2`, treat
-it as malformed workflow input and stop.
+`data.validation.counts` and `data.validation.errors` and handle them like
+classification validation failures: fix parent translation/schema mistakes
+locally, retry/escalate only for incomplete or ambiguous semantic judgments, then
+re-run validation and planning. If it exits `2`, treat it as malformed workflow
+input and stop.
 
 The returned plan, not hand-grouped scratch notes, drives execution:
 
