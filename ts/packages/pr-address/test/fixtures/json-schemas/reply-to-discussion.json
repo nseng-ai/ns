@@ -1,0 +1,137 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "pr_number": {
+        "title": "Pr Number",
+        "type": "integer"
+      },
+      "comment_id": {
+        "title": "Comment Id",
+        "type": "integer"
+      },
+      "comment_author": {
+        "title": "Comment Author",
+        "type": "string"
+      },
+      "original_body": {
+        "title": "Original Body",
+        "type": "string"
+      },
+      "response": {
+        "title": "Response",
+        "type": "string"
+      }
+    },
+    "required": [
+      "pr_number",
+      "comment_id",
+      "comment_author",
+      "original_body",
+      "response"
+    ],
+    "title": "ReplyToDiscussionRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "PRDiscussionComment": {
+        "description": "A top-level PR discussion comment.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "author",
+          "url"
+        ],
+        "title": "PRDiscussionComment",
+        "type": "object"
+      },
+      "Reaction": {
+        "description": "A reaction on a PR discussion comment.\n\n`content` is one of GitHub's reaction tokens: \"+1\", \"-1\", \"laugh\",\n\"confused\", \"heart\", \"hooray\", \"rocket\", \"eyes\".",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "comment_id": {
+            "title": "Comment Id",
+            "type": "integer"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "comment_id",
+          "content"
+        ],
+        "title": "Reaction",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "body": {
+        "title": "Body",
+        "type": "string"
+      },
+      "comment": {
+        "$ref": "#/$defs/PRDiscussionComment"
+      },
+      "reaction_added": {
+        "title": "Reaction Added",
+        "type": "boolean"
+      },
+      "reaction": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Reaction"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "warning": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Warning"
+      }
+    },
+    "required": [
+      "body",
+      "comment",
+      "reaction_added"
+    ],
+    "title": "ReplyToDiscussionResult",
+    "type": "object"
+  }
+}

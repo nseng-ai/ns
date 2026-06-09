@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { hasFlag, parseManagedOptions } from "./managed-options.ts";
+import { parseManagedOptions } from "./managed-options.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
@@ -118,7 +118,6 @@ interface BuildStackResolveThreadPayloadsResult {
 }
 
 export async function runBuildStackResolveThreadPayloadsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 
 	const options = parseManagedOptions(invocation.args, ["--payload-json"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };

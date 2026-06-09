@@ -1,0 +1,738 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "payload_json": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload Json"
+      },
+      "payload_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload File"
+      }
+    },
+    "title": "RecordBatchCheckpointRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "BatchCheckpointError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Batch Id"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Id"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review Id"
+          },
+          "discussion_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discussion Comment Id"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "BatchCheckpointError",
+        "type": "object"
+      },
+      "BatchCheckpointPlanItem": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "action_summary": {
+            "title": "Action Summary",
+            "type": "string"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review Id"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thread Id"
+          },
+          "discussion_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discussion Comment Id"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Line"
+          },
+          "covered_comment_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Covered Comment Ids",
+            "type": "array"
+          },
+          "needs_reply": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Needs Reply"
+          },
+          "pre_existing": {
+            "default": false,
+            "title": "Pre Existing",
+            "type": "boolean"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          }
+        },
+        "required": [
+          "source_kind",
+          "summary",
+          "action_summary"
+        ],
+        "title": "BatchCheckpointPlanItem",
+        "type": "object"
+      },
+      "BatchNonThreadOutcomeSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "enum": [
+              "review",
+              "discussion_comment"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Review Id"
+          },
+          "discussion_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discussion Comment Id"
+          },
+          "action": {
+            "enum": [
+              "replied",
+              "skipped",
+              "no_reply_needed"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "result_comment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Result Comment Id"
+          },
+          "reaction_added": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reaction Added"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Skip Reason"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "source_kind",
+          "action"
+        ],
+        "title": "BatchNonThreadOutcomeSummary",
+        "type": "object"
+      },
+      "BatchSkippedThreadSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Skip Reason"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "thread_id"
+        ],
+        "title": "BatchSkippedThreadSummary",
+        "type": "object"
+      },
+      "BatchThreadCheckpointSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "review_thread_count": {
+            "title": "Review Thread Count",
+            "type": "integer"
+          },
+          "payload_ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payload Ready"
+          },
+          "resolved_thread_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Resolved Thread Ids",
+            "type": "array"
+          },
+          "failed_thread_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Thread Ids",
+            "type": "array"
+          },
+          "skipped_thread_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped Thread Ids",
+            "type": "array"
+          },
+          "skipped_threads": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/BatchSkippedThreadSummary"
+            },
+            "title": "Skipped Threads",
+            "type": "array"
+          },
+          "ignored_non_thread_count": {
+            "default": 0,
+            "title": "Ignored Non Thread Count",
+            "type": "integer"
+          },
+          "all_succeeded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "All Succeeded"
+          }
+        },
+        "required": [
+          "review_thread_count"
+        ],
+        "title": "BatchThreadCheckpointSummary",
+        "type": "object"
+      },
+      "BatchValidationCommandEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exit Code"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "command",
+          "status"
+        ],
+        "title": "BatchValidationCommandEvidence",
+        "type": "object"
+      },
+      "PayloadReference": {
+        "additionalProperties": false,
+        "description": "Store-owned facts for a written payload artifact.",
+        "properties": {
+          "payload_path": {
+            "title": "Payload Path",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "descriptor": {
+            "title": "Descriptor",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "raw",
+              "summary",
+              "log"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "created_at_utc": {
+            "title": "Created At Utc",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "payload_bytes": {
+            "title": "Payload Bytes",
+            "type": "integer"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "extension": {
+            "enum": [
+              "json",
+              "txt"
+            ],
+            "title": "Extension",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload_path",
+          "session_id",
+          "descriptor",
+          "role",
+          "created_at_utc",
+          "sequence",
+          "payload_bytes",
+          "content_type",
+          "extension"
+        ],
+        "title": "PayloadReference",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "valid": {
+        "title": "Valid",
+        "type": "boolean"
+      },
+      "batch_complete": {
+        "title": "Batch Complete",
+        "type": "boolean"
+      },
+      "batch_id": {
+        "title": "Batch Id",
+        "type": "string"
+      },
+      "complexity": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Complexity"
+      },
+      "approval_required": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Approval Required"
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Pr Number"
+      },
+      "payload_path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload Path"
+      },
+      "checkpoint_reference": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PayloadReference"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "commit_sha": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Commit Sha"
+      },
+      "changed_files": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Changed Files",
+        "type": "array"
+      },
+      "validation_commands": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/BatchValidationCommandEvidence"
+        },
+        "title": "Validation Commands",
+        "type": "array"
+      },
+      "selected_items": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/BatchCheckpointPlanItem"
+        },
+        "title": "Selected Items",
+        "type": "array"
+      },
+      "thread_summary": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/BatchThreadCheckpointSummary"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "non_thread_outcomes": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/BatchNonThreadOutcomeSummary"
+        },
+        "title": "Non Thread Outcomes",
+        "type": "array"
+      },
+      "errors": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/BatchCheckpointError"
+        },
+        "title": "Errors",
+        "type": "array"
+      },
+      "warnings": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Warnings",
+        "type": "array"
+      }
+    },
+    "required": [
+      "valid",
+      "batch_complete",
+      "batch_id"
+    ],
+    "title": "RecordBatchCheckpointResult",
+    "type": "object"
+  }
+}

@@ -14,7 +14,6 @@ import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { hasFlag } from "./managed-options.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -277,7 +276,6 @@ interface StackFeedbackPlanResult {
 }
 
 export async function runStackFeedbackPrepOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const parsed = parseReadOptions(invocation.args, ["--stack-json", "--payload-session-id", "--stdout-mode"], ["--include-resolved", "--include-empty-reviews"]);
 	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
 	const unexpectedPositional = parsed.options.positionals[0];
@@ -342,7 +340,6 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 }
 
 export async function runStackFeedbackPlanOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const parsed = parseReadOptions(invocation.args, ["--payload-json", "--payload-session-id", "--stdout-mode"], []);
 	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
 	const unexpectedPositional = parsed.options.positionals[0];

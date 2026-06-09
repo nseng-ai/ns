@@ -3,7 +3,7 @@ import { z } from "zod";
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { hasFlag, parseManagedOptions } from "./managed-options.ts";
+import { parseManagedOptions } from "./managed-options.ts";
 import { PayloadStore, type PayloadClock, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
@@ -137,7 +137,6 @@ export interface RecordBatchCheckpointResult {
 }
 
 export async function runRecordBatchCheckpointOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({

@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { buildClassificationTemplateSchemaDocument, buildPlanFeedbackSchemaDocument, buildValidateFeedbackClassificationSchemaDocument } from "./classification-schemas.ts";
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
 import {
 	getFeedbackManifestSchema,
@@ -196,8 +195,6 @@ interface ClassifiedLookup {
 }
 
 export async function runClassificationTemplateOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return emitSchemaDocument(buildClassificationTemplateSchemaDocument(), invocation);
-
 	const options = parseOptions(invocation.args, ["--manifest-json", "--manifest-file"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 
@@ -219,8 +216,6 @@ export async function runClassificationTemplateOperation(invocation: ExecOperati
 }
 
 export async function runValidateFeedbackClassificationOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return emitSchemaDocument(buildValidateFeedbackClassificationSchemaDocument(), invocation);
-
 	const options = parseOptions(invocation.args, [
 		"--payload-json",
 		"--payload-file",
@@ -240,8 +235,6 @@ export async function runValidateFeedbackClassificationOperation(invocation: Exe
 }
 
 export async function runPlanFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return emitSchemaDocument(buildPlanFeedbackSchemaDocument(), invocation);
-
 	const options = parseOptions(invocation.args, ["--payload-json"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 
@@ -1209,11 +1202,6 @@ async function loadJsonObjectSource(options: {
 	return { type: "ok", value: parsed };
 }
 
-function emitSchemaDocument(document: unknown, invocation: ExecOperationInvocation): ExecOperationDispatchResult {
-	invocation.deps.stdout(`${JSON.stringify(document, null, 2)}\n`);
-	return { type: "raw-exit", exitCode: 0 };
-}
-
 function parseOptions(args: readonly string[], valueOptions: readonly string[]): { type: "ok"; values: Map<string, string> } | { type: "error"; message: string } {
 	const values = new Map<string, string>();
 	for (let index = 0; index < args.length; index += 1) {
@@ -1234,10 +1222,6 @@ function parseOptions(args: readonly string[], valueOptions: readonly string[]):
 		return { type: "error", message: `Unknown option for managed pr-address operation: ${arg}` };
 	}
 	return { type: "ok", values };
-}
-
-function hasFlag(args: readonly string[], flag: string): boolean {
-	return args.includes(flag);
 }
 
 function classificationLocatorRef(locator: BodyLocator): Record<string, string | null> {

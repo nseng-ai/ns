@@ -9,7 +9,6 @@ import {
 	parseReadOptions,
 } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
-import { hasFlag } from "./managed-options.ts";
 import { buildPrepareRunPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -43,7 +42,6 @@ interface PrepareRunInlineNoPr {
 type PrepareRunInlineResult = PrepareRunInlineFound | PrepareRunInlineNoPr;
 
 export async function runPrepareRunOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const parsed = parseReadOptions(invocation.args, ["--payload-mode", "--payload-session-id"], ["--include-all-threads", "--include-empty-reviews"]);
 	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
 	const unexpectedPositional = parsed.options.positionals[0];

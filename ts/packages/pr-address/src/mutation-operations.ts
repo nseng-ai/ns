@@ -53,7 +53,6 @@ interface ResolveThreadBatchItemResult {
 }
 
 export async function runResolveThreadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const threadId = parsed.positionals[0]?.trim() ?? "";
@@ -66,7 +65,6 @@ export async function runResolveThreadOperation(invocation: ExecOperationInvocat
 }
 
 export async function runUnresolveThreadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const threadId = parsed.positionals[0]?.trim() ?? "";
@@ -79,7 +77,6 @@ export async function runUnresolveThreadOperation(invocation: ExecOperationInvoc
 }
 
 export async function runAddIssueCommentOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const prNumber = integerArgument(parsed.positionals[0], "add-issue-comment requires an integer PR number argument.");
@@ -94,7 +91,6 @@ export async function runAddIssueCommentOperation(invocation: ExecOperationInvoc
 }
 
 export async function runAddReactionOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const commentId = integerArgument(parsed.positionals[0], "add-reaction requires an integer comment_id argument.");
@@ -109,7 +105,6 @@ export async function runAddReactionOperation(invocation: ExecOperationInvocatio
 }
 
 export async function runAddReviewThreadReplyOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const threadId = parsed.positionals[0]?.trim() ?? "";
@@ -124,7 +119,6 @@ export async function runAddReviewThreadReplyOperation(invocation: ExecOperation
 }
 
 export async function runReplyToReviewOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const prNumber = integerArgument(parsed.positionals[0], "reply-to-review requires an integer PR number argument.");
@@ -142,7 +136,6 @@ export async function runReplyToReviewOperation(invocation: ExecOperationInvocat
 }
 
 export async function runReplyToDiscussionOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, []);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const prNumber = integerArgument(parsed.positionals[0], "reply-to-discussion requires an integer PR number argument.");
@@ -168,7 +161,6 @@ export async function runReplyToDiscussionOperation(invocation: ExecOperationInv
 }
 
 export async function runResolveThreadWithReplyOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const parsed = parseMutationPositionals(invocation.args, ["--provenance-json"]);
 	if (parsed.type === "error") return failure("invalid_request", parsed.message);
 	const requestResult = await normalizeResolutionFromPositionals(invocation, parsed.positionals, parsed.values.get("--provenance-json"));
@@ -181,7 +173,6 @@ export async function runResolveThreadWithReplyOperation(invocation: ExecOperati
 }
 
 export async function runResolveThreadBatchOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return failure("invalid_request", options.message);
 	const payloadResult = await loadJsonInput({
@@ -434,10 +425,6 @@ function trimOptional(value: string | null | undefined): string | null {
 	if (value === null || value === undefined) return null;
 	const trimmed = value.trim();
 	return trimmed === "" ? null : trimmed;
-}
-
-function hasJsonSchemaFlag(args: readonly string[]): boolean {
-	return args.includes("--json-schema");
 }
 
 function githubGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitHubGateway } | { type: "error"; result: ExecOperationDispatchResult } {

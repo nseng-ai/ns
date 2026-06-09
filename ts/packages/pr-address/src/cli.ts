@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { emitClinkrExit } from "./clinkr-envelope.ts";
 import { createDefaultExecOperationRegistry, type ExecOperationRegistry } from "./operation-registry.ts";
+import { buildOperationSchemaDocument } from "./operation-schemas.ts";
 
 const VERSION = "0.1.0";
 
@@ -64,6 +65,16 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	if (operation === undefined || operation === "--help" || operation === "-h") {
 		deps.stdout(execHelp());
 		return 0;
+	}
+
+	// Mirrors the legacy CLI's eager `--json-schema` flag: print the operation's
+	// input/output JSON Schema document and exit 0 before any argument validation.
+	if (args.includes("--json-schema")) {
+		const schemaDocument = buildOperationSchemaDocument(operation);
+		if (schemaDocument !== undefined) {
+			deps.stdout(`${JSON.stringify(schemaDocument, null, 2)}\n`);
+			return 0;
+		}
 	}
 
 	const registeredOperation = deps.registry.get(operation);

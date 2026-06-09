@@ -1,0 +1,35 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "thread_id": {
+        "title": "Thread Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "thread_id"
+    ],
+    "title": "ResolveThreadRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "thread_id": {
+        "title": "Thread Id",
+        "type": "string"
+      },
+      "is_resolved": {
+        "title": "Is Resolved",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "thread_id",
+      "is_resolved"
+    ],
+    "title": "ResolveThreadResult",
+    "type": "object"
+  }
+}
