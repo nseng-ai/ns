@@ -1,24 +1,23 @@
-import { formatCommand, formatCommandFailure, type ExecOptions, type ExecResult, type PlanCommandExecApi } from "@asdl/plans";
+import {
+	formatCommand,
+	formatCommandFailure,
+	type ExecOptions,
+	type ExecResult,
+	type GitCwdParams,
+	type GitErrorInfo,
+	type GitOptionalResult,
+	type GitResult,
+	type PlanCommandExecApi,
+} from "@asdl/plans";
+
+export type { GitCwdParams, GitErrorInfo, GitOptionalResult, GitResult } from "@asdl/plans";
 
 const GIT_TIMEOUT_MS = 10_000;
-
-export interface GitCwdParams {
-	cwd: string;
-	signal?: AbortSignal | undefined;
-}
 
 export interface GitBranchParams extends GitCwdParams {
 	branch: string;
 }
 
-export interface GitErrorInfo {
-	code: string;
-	message: string;
-	displayCommand?: string;
-}
-
-export type GitResult<T> = { ok: true; value: T } | { ok: false; error: GitErrorInfo };
-export type GitOptionalResult<T> = { type: "found"; value: T } | { type: "missing" } | { type: "error"; error: GitErrorInfo };
 export type GitOperationResult = { ok: true } | { ok: false; error: GitErrorInfo };
 export type GitBranchPresenceResult =
 	| { type: "present"; refName: string; displayCommand: string }
