@@ -91,7 +91,11 @@ importers:
 
   packages/plans: {}
 
-  packages/pr-address: {}
+  packages/pr-address:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
 packages:
 

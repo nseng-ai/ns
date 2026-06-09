@@ -18,11 +18,12 @@
   - Minimal schema seams: compact payload/feedback manifests, manifest view, classification-template packet, counts, and Python/Pydantic-compatible explicit `null` fields where goldens expose them.
   - Policy: this row is complete enough for execution; refine details during the first port rather than pausing for broader framework design.
   - Evidence: `updates/2026-06-09T134424Z-execution-policy-and-first-slice-seams.md` records the execution policy and the first-slice seam decision.
-- [ ] Port `classification-template` as the first TypeScript operation slice.
+- [~] Port `classification-template` as the first TypeScript operation slice.
   - Add only local operation-runtime and schema helpers needed by this operation: registry/fallback dispatch, JSON envelope output, JSON input-source handling, `--json-schema`, manifest schemas/views, and classification-template output construction.
   - Preserve Python/Pydantic output compatibility intentionally, including explicit `null` fields where current goldens or schema probes require them.
   - Policy: directly executable after preview. Do not extract a shared command-runtime package in this row.
   - Evidence should include golden parity for the existing `classification-template` fixtures plus scenario coverage for stdin, inline JSON, file JSON, invalid JSON, source conflicts, fallback behavior for unported operations, and `--json-schema`.
+  - Progress evidence: `updates/2026-06-09T145038Z-runtime-schema-seams.md` records the local TypeScript operation registry/fallback, stdin/JSON input seams, Clinkr-compatible envelope helpers, local Zod schema emission, targeted package validation, and the deliberate deferral of full `classification-template` output parity to the next slice.
 - [ ] Port validation and deterministic planning on top of the first-slice seams.
   - Port `validate-feedback-classification` and `plan-feedback` after `classification-template` proves the manifest/view/schema boundary.
   - Preserve exact-once accounting, fail-closed validation, ordered batch semantics, and approval-required markers for cross-cutting/complex work.
