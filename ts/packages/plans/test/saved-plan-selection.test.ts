@@ -53,8 +53,8 @@ describe("saved plan session selection", () => {
 		const fixture = await makeFixture();
 		const entries = [
 			{ type: "message", message: { role: "toolResult", toolName: "other_tool", isError: false, details: {} } },
-			{ type: "message", message: { role: "toolResult", toolName: "write_source_branch_plan_file", isError: true, details: {} } },
-			{ type: "message", message: { role: "toolResult", toolName: "write_source_branch_plan_file", details: { slug: 123 } } },
+			{ type: "message", message: { role: "toolResult", toolName: "write_saved_plan_file", isError: true, details: {} } },
+			{ type: "message", message: { role: "toolResult", toolName: "write_saved_plan_file", details: { slug: 123 } } },
 		];
 
 		expect(extractSavedPlanFileEvidenceFromSessionEntry(entries[0])).toBeUndefined();
@@ -201,7 +201,7 @@ function evidence(
 }
 
 function savedPlanEntry(plan: SavedPlanFileEvidence): unknown {
-	return savedPlanEntryForTool(plan, "write_source_branch_plan_file");
+	return savedPlanEntryForTool(plan, "write_saved_plan_file");
 }
 
 function savedPlanEntryForTool(plan: SavedPlanFileEvidence, toolName: string): unknown {

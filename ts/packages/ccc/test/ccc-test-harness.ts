@@ -482,7 +482,7 @@ export function savedPlanEntry(repoRoot: string, planFile: string, overrides: Re
 		type: "message",
 		message: {
 			role: "toolResult",
-			toolName: "write_source_branch_plan_file",
+			toolName: "write_saved_plan_file",
 			isError: false,
 			details: {
 				slug: PLAN_SLUG,

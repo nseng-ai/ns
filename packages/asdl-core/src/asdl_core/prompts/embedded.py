@@ -6,7 +6,7 @@ from importlib.resources import files
 
 _DEFAULT_FILENAMES = {
     "subagent-launch": "subagent-launch.md",
-    "planned-branch-write-plan": "planned-branch-write-plan.md",
+    "plans-write": "plans-write.md",
 }
 
 

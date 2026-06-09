@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -78,7 +78,6 @@ interface CliRun {
 
 interface RunWithFakesOptions {
 	cwd: string;
-	stdin?: string;
 	planStoreRoot?: string;
 	git?: InMemoryGitGatewayState;
 	brmem?: InMemoryBrmemGatewayState;
@@ -122,7 +121,6 @@ function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] =
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
-			stdin: async () => options.stdin ?? "",
 			...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
 		}),
 	};
@@ -180,8 +178,10 @@ describe("planned-branch CLI help", () => {
 
 		const execHelp = runWithFakes(["exec", "--help"], [], { cwd: repoRoot });
 		expect(await execHelp.exit).toBe(0);
-		expect(execHelp.stdout.join("")).toContain("write-plan-file");
+		expect(execHelp.stdout.join("")).toContain("create");
 		expect(execHelp.stdout.join("")).toContain("load-plan");
+		expect(execHelp.stdout.join("")).not.toContain("write-plan-file");
+		expect(execHelp.stdout.join("")).not.toContain("resolve-plan");
 		expect(execHelp.stdout.join("")).not.toContain("preview-ts");
 	});
 });
@@ -247,57 +247,6 @@ describe("planned-branch CLI parse failures", () => {
 });
 
 describe("planned-branch exec", () => {
-	test("write-plan-file stores stdin content under the planned-branch local store", async () => {
-		const repoRoot = await makeTempDir();
-		const planStoreRoot = await makeTempDir();
-		const run = runWithFakes(["exec", "write-plan-file", "--slug", PLAN_SLUG, "--summary", "Save it", "--stdin", "--format", "json"], [], {
-			cwd: repoRoot,
-			stdin: "# Plan\n\nDo it.\n",
-			planStoreRoot,
-		});
-
-		expect(await run.exit).toBe(0);
-		run.commands.assertDone();
-		const payload = parseJson(run);
-		expect(payload).toMatchObject({
-			success: true,
-			slug: PLAN_SLUG,
-			repo_key: "gh--owner--repo",
-			source_branch: SOURCE_BRANCH,
-			branch_key: encodeBranchForPlanPath(SOURCE_BRANCH),
-			summary: "Save it",
-		});
-		expect(String(payload.file_path)).toContain(`${planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath(SOURCE_BRANCH)}/${PLAN_KEY}`);
-		expect(await readFile(String(payload.file_path), "utf8")).toBe("# Plan\n\nDo it.\n");
-	});
-
-	test("resolve-plan returns explicit paths and the latest saved source-branch plan", async () => {
-		const repoRoot = await makeTempDir();
-		const outsideDir = await makeTempDir();
-		const explicitPlan = join(outsideDir, "explicit.md");
-		await writeFile(explicitPlan, "# Explicit\n", "utf8");
-		const explicit = runWithFakes(["exec", "resolve-plan", explicitPlan, "--format", "json"], [], { cwd: repoRoot });
-		expect(await explicit.exit).toBe(0);
-		expect(parseJson(explicit)).toMatchObject({ success: true, source: "explicit", file_path: explicitPlan });
-
-		const planStoreRoot = await makeTempDir();
-		const planDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(SOURCE_BRANCH));
-		await mkdir(planDirectory, { recursive: true });
-		const older = join(planDirectory, "older-plan-file.md");
-		const newer = join(planDirectory, "newer-plan-file.md");
-		await writeFile(older, "older", "utf8");
-		await writeFile(newer, "newer", "utf8");
-		await utimes(older, new Date(1_000), new Date(1_000));
-		await utimes(newer, new Date(2_000), new Date(2_000));
-
-		const latest = runWithFakes(["exec", "resolve-plan", "--format", "json"], [], {
-			cwd: repoRoot,
-			planStoreRoot,
-		});
-		expect(await latest.exit).toBe(0);
-		expect(parseJson(latest)).toMatchObject({ success: true, source: "latest", slug: "newer-plan-file", file_path: newer });
-	});
-
 	test("create makes a plain git branch and attaches the plan in the planned-branch namespace", async () => {
 		const repoRoot = await makeTempDir();
 		const outsideDir = await makeTempDir();

@@ -4,7 +4,7 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 
 ## General diagnostics posture
 
-- Prefer `planned-branch exec resolve-plan` for saved-plan resolution.
+- Prefer `plans exec resolve` for saved-plan resolution.
 - Prefer `plans list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
 - Prefer `planned-branch exec load-plan` for attached-plan loading.
 - Use `brmem list/get` read-only only when diagnosing Branch Memory attachment state.

@@ -179,22 +179,22 @@
     "planned-branch": {
       "source": "skills/planned-branch",
       "sourceType": "local",
-      "computedHash": "5db7b76b0444ed7076cdc109c88ac89e7c0a645a2acd2113fa7de6b9dcc9441c"
+      "computedHash": "a3493fbdd91fd1be06536fcea69349b3fc5cffab62d99e058ca2c9bb66de2d06"
     },
     "planned-branch-create": {
       "source": "skills/planned-branch-create",
       "sourceType": "local",
-      "computedHash": "f87b3edaaea869c11383a9f6e5d720783ed3b9e3e11112f99c95ac9253cfd75e"
+      "computedHash": "394e29edff95aef62fa67d437930ebfdd398dcd4f53e35e5448b6a01977511de"
     },
     "planned-branch-impl": {
       "source": "skills/planned-branch-impl",
       "sourceType": "local",
       "computedHash": "9c661ab639b8ba720d06fdb6baa83775f8de87db8a2102466a2f7353373097d3"
     },
-    "planned-branch-write-plan": {
-      "source": "skills/planned-branch-write-plan",
+    "plans-write": {
+      "source": "skills/plans-write",
       "sourceType": "local",
-      "computedHash": "75e2198a84cdca562c395b447ada1367b43d2530eb6b4891fc6a82e019660987"
+      "computedHash": "acfc74a2f9127ef50dac313adca49203a1f9cc41ccf8ee77d0de6572b6c40c75"
     },
     "pr-address": {
       "source": "skills/pr-address",

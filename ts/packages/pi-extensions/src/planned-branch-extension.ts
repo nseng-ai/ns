@@ -61,12 +61,12 @@ export type {
 	PlanStoreOptions,
 } from "@asdl/plans";
 
-const WRITE_PLAN_COMMAND_NAME = "planned-branch:write-plan";
-const WRITE_GRILLED_PLAN_COMMAND_NAME = "planned-branch:write-grilled-plan";
+const WRITE_PLAN_COMMAND_NAME = "plans:write";
+const WRITE_GRILLED_PLAN_COMMAND_NAME = "plans:grill-and-write";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
 const UP_AND_IMPL_COMMAND_NAME = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
-const WRITE_PLAN_TOOL_STATUS_KEY = "planned-branch:write-plan";
+const WRITE_PLAN_TOOL_STATUS_KEY = "plans:write";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
 const UP_AND_IMPL_STATUS_KEY = "planned-branch:up-and-impl";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
@@ -256,7 +256,7 @@ Options:
 
 This command intentionally models the manual flow: /planned-branch:create, git checkout <branch>, /new, then /planned-branch:impl <key> in the new Pi session.`;
 
-const WRITE_PLAN_PROMPT_NAME = "planned-branch-write-plan";
+const WRITE_PLAN_PROMPT_NAME = "plans-write";
 const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contract:
@@ -286,7 +286,7 @@ Workflow:
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
 2. Produce a detailed Markdown implementation plan.
 3. Review the final Markdown plan content for completeness.
-4. Call write_source_branch_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
+4. Call write_saved_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
 5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any planned-branch command/tool.
 
@@ -295,15 +295,15 @@ Local plan store contract:
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
-- Existing saved plan file: write_source_branch_plan_file refuses to overwrite it; do not manually choose a replacement slug.
+- Existing saved plan file: write_saved_plan_file refuses to overwrite it; do not manually choose a replacement slug.
 - Working-tree behavior: no checked-in plan file is created.
 
 Saved-plan filename slug rules:
-- write_source_branch_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
+- write_saved_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
 - Do not generate, guess, or pass a slug yourself.
 - The derived slug is kebab-case, 3–7 words, specific to the work described by the final plan, and rejects dates, random IDs, and generic-only slugs.
 
-When the plan is ready, call write_source_branch_plan_file with:
+When the plan is ready, call write_saved_plan_file with:
 - content: the complete reviewed Markdown plan content
 - summary: optional one-sentence summary of the plan
 
@@ -333,7 +333,7 @@ type WritePlanPromptBodyResolution =
 	| { type: "fallback"; body: string; warning: string };
 
 export function buildWritePlanPrompt(steering: string, promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY): string {
-	return `This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.
+	return `This is a /plans:write request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
 
@@ -341,7 +341,7 @@ ${promptBody}`;
 }
 
 export function buildWriteGrilledPlanPrompt(steering: string): string {
-	return `This is a /planned-branch:write-grilled-plan request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
+	return `This is a /plans:grill-and-write request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
 
 ${formatSteeringBlock(steering)}
 
@@ -355,9 +355,9 @@ Structured grilling contract:
 - Ask exactly one question per ${GRILL_ASK_TOOL_NAME} call.
 - Each question must include 2–5 affirmative, mutually exclusive options and a recommendation with concise rationale.
 - Use an adaptive 3–7 high-leverage question budget. Stop early when requirements are resolved; exceed that budget only if the user explicitly asks to continue.
-- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_source_branch_plan_file.
+- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_saved_plan_file.
 - If ${GRILL_ASK_TOOL_NAME} returns status_request, provide a compact status report and re-ask the same pending question; do not count it as an answer.
-- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_source_branch_plan_file.
+- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_saved_plan_file.
 
 Save/no-save decision:
 - If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, validation scope, and compatibility expectations.
@@ -366,7 +366,7 @@ Save/no-save decision:
 
 Final plan requirements:
 - Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation, risks/assumptions/open questions, and review/remediation.
-- Review the final Markdown plan for completeness, then call write_source_branch_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
+- Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
 - Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
 }
 
@@ -401,7 +401,7 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 	return {
 		type: "fallback",
 		body: DEFAULT_WRITE_PLAN_PROMPT_BODY,
-		warning: `Falling back to built-in /planned-branch:write-plan prompt body because ${reason}`,
+		warning: `Falling back to built-in /plans:write prompt body because ${reason}`,
 	};
 }
 
@@ -639,7 +639,7 @@ async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: Comma
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /planned-branch:write-plan planning turn…", "info");
+		ctx.ui.notify("Starting /plans:write planning turn…", "info");
 	}
 	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
 	if (promptBody.type === "fallback" && ctx.hasUI) {
@@ -652,7 +652,7 @@ async function handleWriteGrilledPlanCommand(pi: ExtensionAPI, args: string, ctx
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /planned-branch:write-grilled-plan planning grill…", "info");
+		ctx.ui.notify("Starting /plans:grill-and-write planning grill…", "info");
 	}
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
@@ -848,12 +848,12 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExt
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
-			"Use write_source_branch_plan_file for `/planned-branch:write-plan` and `/planned-branch:write-grilled-plan` after producing a reviewed final Markdown plan.",
-			"Do not generate or pass a saved-plan filename slug; write_source_branch_plan_file derives it from content through the Codex-backed slug model.",
-			"write_source_branch_plan_file writes the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
-			"write_source_branch_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
-			"If planning used external/off-repo research, write_source_branch_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
-			"If write_source_branch_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",
+			"Use write_saved_plan_file for `/plans:write` and `/plans:grill-and-write` after producing a reviewed final Markdown plan.",
+			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
+			"write_saved_plan_file writes the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
+			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
+			"If write_saved_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",
 		],
 		parameters: {
 			type: "object",

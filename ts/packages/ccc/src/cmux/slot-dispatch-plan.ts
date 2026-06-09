@@ -40,7 +40,7 @@ Options:
   --dry-run    Show the selected plan and commands without mutating.
   --help, -h   Show this help.
 
-Run /planned-branch:write-plan first, then rerun /${COMMAND_NAME}.`;
+Run /plans:write first, then rerun /${COMMAND_NAME}.`;
 
 interface CommandArgs {
 	isDryRun: boolean;
@@ -197,8 +197,8 @@ async function resolveLatestSavedPlanFromSession(
 		case "not-found":
 			return {
 				error: [
-					"No saved plan from /planned-branch:write-plan was found in the current session branch.",
-					`Run /planned-branch:write-plan first, then rerun /${COMMAND_NAME}.`,
+					"No saved plan from /plans:write was found in the current session branch.",
+					`Run /plans:write first, then rerun /${COMMAND_NAME}.`,
 				].join("\n"),
 			};
 	}

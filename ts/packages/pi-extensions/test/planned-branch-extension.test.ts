@@ -171,16 +171,16 @@ interface ResolveWritePlanPromptStepOptions {
 function resolveWritePlanPromptStep(options: ResolveWritePlanPromptStepOptions = {}): ScriptedExec {
 	const content = options.content ?? DEFAULT_WRITE_PLAN_PROMPT_BODY;
 	const result = options.result ?? {};
-	return step("asdl", ["exec", "resolve-prompt", "planned-branch-write-plan", "--format", "json"], {
+	return step("asdl", ["exec", "resolve-prompt", "plans-write", "--format", "json"], {
 		stdout: JSON.stringify({
 			exit_code: 0,
 			data: {
-				name: "planned-branch-write-plan",
+				name: "plans-write",
 				content,
 				provenance: {
 					source: "repo",
-					repo_prompt_path: `${ROOT}/.asdl/prompts/planned-branch-write-plan.md`,
-					prompt_path: `${ROOT}/.asdl/prompts/planned-branch-write-plan.md`,
+					repo_prompt_path: `${ROOT}/.asdl/prompts/plans-write.md`,
+					prompt_path: `${ROOT}/.asdl/prompts/plans-write.md`,
 					default_name: null,
 				},
 			},
@@ -335,7 +335,7 @@ function sourcePlanEvidence(input: { slug: string; filePath: string; sourceBranc
 }
 
 function sourcePlanToolResultEntry(evidence: SavedPlanFileEvidence): unknown {
-	return sourcePlanToolResultEntryForTool(evidence, "write_source_branch_plan_file");
+	return sourcePlanToolResultEntryForTool(evidence, "write_saved_plan_file");
 }
 
 function sourcePlanToolResultEntryForTool(evidence: SavedPlanFileEvidence, toolName: string): unknown {
@@ -557,7 +557,7 @@ function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
 	};
 }
 
-function registeredTool(pi: FakePi, name = "write_source_branch_plan_file"): ToolDefinition {
+function registeredTool(pi: FakePi, name = "write_saved_plan_file"): ToolDefinition {
 	const tool = pi.tools.get(name);
 	expect(tool).toBeDefined();
 	if (!tool) {
@@ -740,9 +740,9 @@ describe("buildWritePlanPrompt", () => {
 	test("includes local plan store instructions without branch creation", () => {
 		const prompt = buildWritePlanPrompt("add a tiny docs note plan for testing");
 
-		expect(prompt).toContain("/planned-branch:write-plan request");
+		expect(prompt).toContain("/plans:write request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
-		expect(prompt).toContain("write_source_branch_plan_file");
+		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain("~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
@@ -771,11 +771,11 @@ describe("buildWritePlanPrompt", () => {
 	test("uses custom static prompt body without changing dynamic header", () => {
 		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n");
 
-		expect(prompt).toBe(`This is a /planned-branch:write-plan request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
+		expect(prompt).toBe(`This is a /plans:write request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
 	});
 
 	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
-		const promptPath = join(REPO_ROOT, ".asdl", "prompts", "planned-branch-write-plan.md");
+		const promptPath = join(REPO_ROOT, ".asdl", "prompts", "plans-write.md");
 		const checkedInContent = await readFile(promptPath, "utf8");
 
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
@@ -819,9 +819,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 	test("includes structured grill requirements and save/no-save contract", () => {
 		const prompt = buildWriteGrilledPlanPrompt("plan the grilled command variant");
 
-		expect(prompt).toContain("/planned-branch:write-grilled-plan");
+		expect(prompt).toContain("/plans:grill-and-write");
 		expect(prompt).toContain("plan the grilled command variant");
-		expect(prompt).toContain("write_source_branch_plan_file");
+		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain("grill_ask");
 		expect(prompt).toContain("3–7");
 		expect(prompt).toContain("Inspect repository evidence before asking");
@@ -829,7 +829,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("ui_unavailable");
 		expect(prompt).toContain("status_request");
 		expect(prompt).toContain("end_grill");
-		expect(prompt).toContain("do not call write_source_branch_plan_file");
+		expect(prompt).toContain("do not call write_saved_plan_file");
 		expect(prompt).toContain("material requirements remain unresolved");
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
@@ -977,7 +977,7 @@ describe("normalizePlanFilePath", () => {
 });
 
 describe("plan workflow commands", () => {
-	test("registers only the planned-branch command surface and write-plan tool", () => {
+	test("registers plans write commands, planned-branch workflow commands, and write tool", () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
 
@@ -985,19 +985,19 @@ describe("plan workflow commands", () => {
 			"planned-branch:create",
 			"planned-branch:impl",
 			"planned-branch:up-and-impl",
-			"planned-branch:write-grilled-plan",
-			"planned-branch:write-plan",
+			"plans:grill-and-write",
+			"plans:write",
 		]);
-		expect([...pi.commands.keys()].every((name) => name.startsWith("planned-branch:"))).toBe(true);
-		expect(pi.tools.has("write_source_branch_plan_file")).toBe(true);
-		expect([...pi.tools.keys()]).toEqual(["write_source_branch_plan_file"]);
+		expect([...pi.commands.keys()].filter((name) => name.startsWith("plans:"))).toEqual(["plans:write", "plans:grill-and-write"]);
+		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
+		expect([...pi.tools.keys()]).toEqual(["write_saved_plan_file"]);
 	});
 
-	test("planned-branch:write-grilled-plan waits for idle and dispatches embedded prompt without prompt resolution", async () => {
+	test("plans:grill-and-write waits for idle and dispatches embedded prompt without prompt resolution", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([], events);
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-grilled-plan");
+		const command = pi.commands.get("plans:grill-and-write");
 		expect(command).toBeDefined();
 		const context = createContext(events);
 
@@ -1010,16 +1010,16 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([buildWriteGrilledPlanPrompt("plan the grilled command variant")]);
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
-		expect(pi.sentUserMessages[0]).toContain("write_source_branch_plan_file");
+		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(context.notifications).toEqual([
-			{ message: "Starting /planned-branch:write-grilled-plan planning grill…", level: "info" },
+			{ message: "Starting /plans:grill-and-write planning grill…", level: "info" },
 		]);
 	});
 
-	test("planned-branch:write-grilled-plan with empty args still sends a prompt with none steering", async () => {
+	test("plans:grill-and-write with empty args still sends a prompt with none steering", async () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-grilled-plan");
+		const command = pi.commands.get("plans:grill-and-write");
 		const context = createContext();
 
 		await command?.handler("   ", context.ctx);
@@ -1029,11 +1029,11 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
-	test("planned-branch:write-plan waits for idle, resolves prompt, and dispatches the generated prompt", async () => {
+	test("plans:write waits for idle, resolves prompt, and dispatches the generated prompt", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([resolveWritePlanPromptStep()], events);
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-plan");
+		const command = pi.commands.get("plans:write");
 		expect(command).toBeDefined();
 		const context = createContext(events);
 
@@ -1046,25 +1046,25 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls).toEqual([
 			{
 				command: "asdl",
-				args: ["exec", "resolve-prompt", "planned-branch-write-plan", "--format", "json"],
+				args: ["exec", "resolve-prompt", "plans-write", "--format", "json"],
 				options: { cwd: ROOT, timeout: 10_000 },
 			},
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toBe(buildWritePlanPrompt("add a tiny docs note plan for testing"));
-		expect(pi.sentUserMessages[0]).toContain("write_source_branch_plan_file");
+		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(pi.sentUserMessages[0]).toContain("~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md");
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
 		expect(pi.sentUserMessages[0]).toContain("External research/context contract");
 		expect(pi.sentUserMessages[0]).not.toContain("create_brmem_plan_branch_from_file");
 		expect(pi.sentUserMessages[0]).not.toContain("branchCreation");
-		expect(context.notifications).toEqual([{ message: "Starting /planned-branch:write-plan planning turn…", level: "info" }]);
+		expect(context.notifications).toEqual([{ message: "Starting /plans:write planning turn…", level: "info" }]);
 	});
 
-	test("planned-branch:write-plan with empty args still sends a prompt with none steering", async () => {
+	test("plans:write with empty args still sends a prompt with none steering", async () => {
 		const pi = new FakePi([resolveWritePlanPromptStep()]);
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-plan");
+		const command = pi.commands.get("plans:write");
 		const context = createContext();
 
 		await command?.handler("   ", context.ctx);
@@ -1074,25 +1074,25 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
-	test("planned-branch:write-plan uses custom resolved prompt body", async () => {
+	test("plans:write uses custom resolved prompt body", async () => {
 		const pi = new FakePi([resolveWritePlanPromptStep({ content: "Custom plan body\n" })]);
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-plan");
+		const command = pi.commands.get("plans:write");
 		const context = createContext();
 
 		await command?.handler("customize this", context.ctx);
 
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("customize this", "Custom plan body\n")]);
-		expect(context.notifications).toEqual([{ message: "Starting /planned-branch:write-plan planning turn…", level: "info" }]);
+		expect(context.notifications).toEqual([{ message: "Starting /plans:write planning turn…", level: "info" }]);
 	});
 
-	test("planned-branch:write-plan falls back and warns when resolver fails", async () => {
+	test("plans:write falls back and warns when resolver fails", async () => {
 		const pi = new FakePi([
 			resolveWritePlanPromptStep({ result: { code: 1, stdout: "", stderr: "prompt_not_found: missing" } }),
 		]);
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-plan");
+		const command = pi.commands.get("plans:write");
 		const context = createContext();
 
 		await command?.handler("fallback please", context.ctx);
@@ -1100,19 +1100,19 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("fallback please")]);
 		expect(context.notifications).toEqual([
-			{ message: "Starting /planned-branch:write-plan planning turn…", level: "info" },
+			{ message: "Starting /plans:write planning turn…", level: "info" },
 			{
 				message:
-					"Falling back to built-in /planned-branch:write-plan prompt body because asdl exec resolve-prompt failed with exit code 1: prompt_not_found: missing",
+					"Falling back to built-in /plans:write prompt body because asdl exec resolve-prompt failed with exit code 1: prompt_not_found: missing",
 				level: "warning",
 			},
 		]);
 	});
 
-	test("planned-branch:write-plan falls back without UI warning when resolver returns malformed JSON", async () => {
+	test("plans:write falls back without UI warning when resolver returns malformed JSON", async () => {
 		const pi = new FakePi([resolveWritePlanPromptStep({ result: { stdout: "not json" } })]);
 		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:write-plan");
+		const command = pi.commands.get("plans:write");
 		const context = createContext([], { hasUI: false });
 
 		await command?.handler("malformed", context.ctx);
@@ -1869,11 +1869,11 @@ describe("plan workflow commands", () => {
 	});
 });
 
-describe("write_source_branch_plan_file tool", () => {
+describe("write_saved_plan_file tool", () => {
 	test("describes the local plan store contract and strict parameters", () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 		const parameters = tool.parameters as {
 			properties?: Record<string, unknown>;
 			required?: string[];
@@ -1887,8 +1887,8 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(tool.description).toContain("Codex-backed slug model");
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/planned-branch:write-plan");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/planned-branch:write-grilled-plan");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/plans:write");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/plans:grill-and-write");
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
@@ -1912,7 +1912,7 @@ describe("write_source_branch_plan_file tool", () => {
 			gitOriginStep({ stdout: `${origin}\n` }),
 		]);
 		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 
 		const result = await tool.execute(
 			"tool-call",
@@ -1952,7 +1952,7 @@ describe("write_source_branch_plan_file tool", () => {
 			gitOriginStep({ stdout: `${origin}\n` }),
 		]);
 		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 		const updates: ToolUpdate[] = [];
 		const toolContext = createToolContext({ hasUI: true });
 
@@ -1980,14 +1980,14 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "validating" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "deriving-slug" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "writing-file", slug: PLAN_SLUG });
-		expect(toolContext.statuses).toContainEqual({ key: "planned-branch:write-plan", value: "Validating saved plan input…" });
-		expect(toolContext.statuses).toContainEqual({ key: "planned-branch:write-plan", value: "Deriving saved-plan filename slug with Codex…" });
+		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Validating saved plan input…" });
+		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Deriving saved-plan filename slug with Codex…" });
 		expect(toolContext.statuses).toContainEqual({
-			key: "planned-branch:write-plan",
+			key: "plans:write",
 			value: `Derived slug ${PLAN_SLUG}; resolving repo/branch and writing plan file…`,
 		});
-		expect(toolContext.statuses).toContainEqual({ key: "planned-branch:write-plan", value: "Writing plan file…" });
-		expect(toolContext.statuses.at(-1)).toEqual({ key: "planned-branch:write-plan", value: undefined });
+		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Writing plan file…" });
+		expect(toolContext.statuses.at(-1)).toEqual({ key: "plans:write", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(`Slug model: ${SLUG_MODEL_PROVIDER}/${SLUG_MODEL_MODEL}`);
 		expect(result.details).toMatchObject({
@@ -1998,10 +1998,10 @@ describe("write_source_branch_plan_file tool", () => {
 		expect(await readFile(expectedPath, "utf8")).toBe(content);
 	});
 
-	test("rejects assistant-provided saved-plan slugs so /planned-branch:write-plan cannot bypass Codex slugging", async () => {
+	test("rejects assistant-provided saved-plan slugs so /plans:write cannot bypass Codex slugging", async () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 
 		await expect(
 			tool.execute("tool-call", { slug: PLAN_SLUG, content: DEFAULT_PLAN_CONTENT }, undefined, undefined, { cwd: ROOT }),
@@ -2012,7 +2012,7 @@ describe("write_source_branch_plan_file tool", () => {
 	test("clears write-plan status when validation fails", async () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 		const toolContext = createToolContext({ hasUI: true });
 
 		await expect(tool.execute("tool-call", { content: 42 }, undefined, undefined, toolContext.ctx)).rejects.toThrow(
@@ -2021,20 +2021,20 @@ describe("write_source_branch_plan_file tool", () => {
 
 		expect(pi.execCalls).toEqual([]);
 		expect(toolContext.statuses).toEqual([
-			{ key: "planned-branch:write-plan", value: "Validating saved plan input…" },
-			{ key: "planned-branch:write-plan", value: undefined },
+			{ key: "plans:write", value: "Validating saved plan input…" },
+			{ key: "plans:write", value: undefined },
 		]);
 	});
 
 	test("renders tool-call argument streaming progress without dumping plan content", () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 		const renderCall = tool.renderCall;
 
 		expect(renderCall).toBeDefined();
 		if (renderCall === undefined) {
-			throw new Error("write_source_branch_plan_file renderCall was not registered");
+			throw new Error("write_saved_plan_file renderCall was not registered");
 		}
 
 		const distinctivePlanBody = "SECRET_PLAN_BODY_SHOULD_NOT_RENDER";
@@ -2047,7 +2047,7 @@ describe("write_source_branch_plan_file tool", () => {
 		const receivingText = receivingContent.render(100).join("\n");
 		const savingText = savingContent.render(100).join("\n");
 
-		expect(missingText).toContain("write_source_branch_plan_file");
+		expect(missingText).toContain("write_saved_plan_file");
 		expect(missingText).toContain("receiving saved-plan content from model");
 		expect(receivingText).toContain("receiving saved-plan content from model");
 		expect(receivingText).toMatch(/\d+(?:\.\d)?k tokens \(est\.\)/);
@@ -2062,12 +2062,12 @@ describe("write_source_branch_plan_file tool", () => {
 	test("renders partial write-plan progress with an in-progress heading", () => {
 		const pi = new FakePi();
 		registerPlannedBranchExtension(pi);
-		const tool = registeredTool(pi, "write_source_branch_plan_file");
+		const tool = registeredTool(pi, "write_saved_plan_file");
 		const renderResult = tool.renderResult;
 
 		expect(renderResult).toBeDefined();
 		if (renderResult === undefined) {
-			throw new Error("write_source_branch_plan_file renderResult was not registered");
+			throw new Error("write_saved_plan_file renderResult was not registered");
 		}
 
 		const partial = renderResult(

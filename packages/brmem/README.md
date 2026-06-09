@@ -33,9 +33,9 @@ Adapter for attached plans, but the workflow itself belongs to the Pi/planning
 layer rather than the generic Branch Memory CLI.
 
 See [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md) for
-`/planned-branch:write-plan`, `/planned-branch:create`,
-`/planned-branch:up-and-impl`, `/planned-branch:impl`, and the companion Claude
-Code skills over the `planned-branch` CLI.
+`/plans:write`, `/planned-branch:create`,
+`/planned-branch:up-and-impl`, `/planned-branch:impl`, and the companion agent
+skills over the `plans` and `planned-branch` CLIs.
 
 ## Mental Model
 

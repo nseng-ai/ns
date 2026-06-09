@@ -227,16 +227,16 @@ def test_resolve_prompt_uses_packaged_subagent_launch_default(tmp_path: Path) ->
 
 
 def test_resolve_prompt_uses_packaged_planned_branch_write_plan_default(tmp_path: Path) -> None:
-    resolution = resolve_prompt("planned-branch-write-plan", repo_root=tmp_path)
+    resolution = resolve_prompt("plans-write", repo_root=tmp_path)
 
     assert resolution.provenance.source == "embedded_default"
     assert resolution.provenance.repo_prompt_path == (
-        tmp_path / ".asdl" / "prompts" / "planned-branch-write-plan.md"
+        tmp_path / ".asdl" / "prompts" / "plans-write.md"
     )
     assert resolution.provenance.prompt_path is None
-    assert resolution.provenance.default_name == "planned-branch-write-plan"
+    assert resolution.provenance.default_name == "plans-write"
     assert "Plan audience and context contract:" in resolution.content
-    assert "write_source_branch_plan_file" in resolution.content
+    assert "write_saved_plan_file" in resolution.content
 
 
 def test_resolve_prompt_reports_missing_prompt_when_default_absent(tmp_path: Path) -> None:
@@ -257,14 +257,14 @@ def test_checked_in_subagent_launch_prompt_matches_embedded_default() -> None:
 
 def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_override() -> None:
     repo_root = _repo_root()
-    checked_in_prompt = repo_root / ".asdl" / "prompts" / "planned-branch-write-plan.md"
+    checked_in_prompt = repo_root / ".asdl" / "prompts" / "plans-write.md"
     checked_in_content = checked_in_prompt.read_text(encoding="utf-8")
-    embedded_prompt = load_embedded_default_prompt("planned-branch-write-plan")
+    embedded_prompt = load_embedded_default_prompt("plans-write")
 
     assert embedded_prompt is not None
     assert checked_in_content != embedded_prompt
 
-    resolution = resolve_prompt("planned-branch-write-plan", repo_root=repo_root)
+    resolution = resolve_prompt("plans-write", repo_root=repo_root)
 
     assert resolution.provenance.source == "repo"
     assert resolution.provenance.prompt_path == checked_in_prompt

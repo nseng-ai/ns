@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -205,6 +205,72 @@ describe("plans list CLI", () => {
 			],
 		});
 		expect(payload.plans[0]?.modified_time_ms).toBe(1_700_000_000_000);
+	});
+});
+
+describe("plans exec CLI", () => {
+	test("write stores stdin content under the local plan store", async () => {
+		const fixture = await makeFixture();
+		const output = createOutputCapture();
+
+		const exitCode = await runCli(["exec", "write", "--slug", "branch-scoped-plan", "--summary", "Save it", "--stdin", "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands: unusedCommands,
+			stdin: () => Promise.resolve("# Plan\n\nDo it.\n"),
+			stdout: output.stdout,
+			stderr: output.stderr,
+			planStoreRoot: fixture.planStoreRoot,
+		});
+
+		expect(exitCode).toBe(0);
+		expect(output.stderrText()).toBe("");
+		const payload = JSON.parse(output.stdoutText());
+		expect(payload).toMatchObject({
+			success: true,
+			slug: "branch-scoped-plan",
+			repo_key: "gh--owner--repo",
+			source_branch: "feature/source-plan",
+			branch_key: encodeBranchForPlanPath("feature/source-plan"),
+			summary: "Save it",
+		});
+		expect(String(payload.file_path)).toContain(`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`);
+		expect(await readFile(String(payload.file_path), "utf8")).toBe("# Plan\n\nDo it.\n");
+	});
+
+	test("resolve returns explicit paths and the latest saved source-branch plan", async () => {
+		const fixture = await makeFixture();
+		const outsideDir = await makeTempDir();
+		const explicitPlan = join(outsideDir, "explicit.md");
+		await writeFile(explicitPlan, "# Explicit\n", "utf8");
+
+		const explicitOutput = createOutputCapture();
+		const explicitExitCode = await runCli(["exec", "resolve", explicitPlan, "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands: unusedCommands,
+			stdout: explicitOutput.stdout,
+			stderr: explicitOutput.stderr,
+		});
+		expect(explicitExitCode).toBe(0);
+		expect(JSON.parse(explicitOutput.stdoutText())).toMatchObject({ success: true, source: "explicit", file_path: await realpath(explicitPlan) });
+
+		const branchKey = encodeBranchForPlanPath("feature/source-plan");
+		const older = await writePlanFile({ fixture, branchKey, fileName: "older-plan-file.md", modifiedTimeMs: 1_000 });
+		const newer = await writePlanFile({ fixture, branchKey, fileName: "newer-plan-file.md", modifiedTimeMs: 2_000 });
+		void older;
+
+		const latestOutput = createOutputCapture();
+		const latestExitCode = await runCli(["exec", "resolve", "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands: unusedCommands,
+			stdout: latestOutput.stdout,
+			stderr: latestOutput.stderr,
+			planStoreRoot: fixture.planStoreRoot,
+		});
+		expect(latestExitCode).toBe(0);
+		expect(JSON.parse(latestOutput.stdoutText())).toMatchObject({ success: true, source: "latest", slug: "newer-plan-file", file_path: newer });
 	});
 });
 

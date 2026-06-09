@@ -17,8 +17,8 @@ planned-branch policy.
 
 The public workflow surface is:
 
-1. `/planned-branch:write-plan` in Pi, `/planned-branch:write-grilled-plan`
-   in Pi, or the `planned-branch-write-plan` skill saves a reviewed plan in
+1. `/plans:write` in Pi, `/plans:grill-and-write`
+   in Pi, or the `plans-write` skill saves a reviewed plan in
    the local plan store.
 2. `/planned-branch:create` in Pi, or the `planned-branch-create` skill,
    selects a saved plan, chooses a planned-branch slug, creates the
@@ -44,28 +44,28 @@ inspects the local saved-plan store.
 
 ### Save a source-branch plan
 
-Pi users run `/planned-branch:write-plan`. The Pi command injects its command
+Pi users run `/plans:write`. The Pi command injects its command
 header and user steering dynamically, then resolves the static planning-policy
 body from the checked-in repo prompt file:
 
 ```text
-.asdl/prompts/planned-branch-write-plan.md
+.asdl/prompts/plans-write.md
 ```
 
 Resolution goes through the deterministic root CLI operation:
 
 ```text
-asdl exec resolve-prompt planned-branch-write-plan --format json
+asdl exec resolve-prompt plans-write --format json
 ```
 
 Editing this repo-local prompt customizes future write-plan content policy only.
 The embedded fallback defaults, saved-plan storage mechanics, branch creation,
 and Branch Memory attachment contracts are unchanged.
 
-Other agents use the `planned-branch-write-plan` skill, which shells out to:
+Other agents use the `plans-write` skill, which shells out to:
 
 ```text
-planned-branch exec write-plan-file --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]
+plans exec write --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]
 ```
 
 The saved plan is written by saved-plan store primitives to:
@@ -90,15 +90,15 @@ operation intentionally receives an explicit slug.
 
 #### Pi structured grilling variant
 
-Pi users can run `/planned-branch:write-grilled-plan` when they want the planning
+Pi users can run `/plans:grill-and-write` when they want the planning
 turn to challenge requirements before saving. This command uses an embedded Pi
-prompt, not `.asdl/prompts/planned-branch-write-plan.md`, and requires the
+prompt, not `.asdl/prompts/plans-write.md`, and requires the
 `grill_ask` structured UI tool. If structured UI is unavailable, the turn does
 not save a plan.
 
 The grilled variant produces the same local Saved plan artifact through
-`write_source_branch_plan_file`. The resulting plan remains compatible with
-`planned-branch exec resolve-plan`, `/planned-branch:create`, and the installed
+`write_saved_plan_file`. The resulting plan remains compatible with
+`plans exec resolve`, `/planned-branch:create`, and the installed
 planned-branch create/implement skills. There is no current standalone CLI or
 skill counterpart for the grilled interaction itself; this is intentional Pi-only
 structured UI orchestration while storage remains shared.
@@ -109,7 +109,7 @@ Agents can resolve either an explicit plan path or the latest local saved plan
 for the current repo/source branch:
 
 ```text
-planned-branch exec resolve-plan [absolute-or-home-plan-file.md] [--format json]
+plans exec resolve [absolute-or-home-plan-file.md] [--format json]
 ```
 
 With no explicit file path, resolution finds the newest Markdown plan in the
@@ -159,7 +159,7 @@ Branch: <target-implementation-branch>
 ### Start implementation in one Pi command
 
 Pi users in this repo can run `/planned-branch:up-and-impl` after
-`/planned-branch:write-plan` to perform the common implementation flow in one
+`/plans:write` to perform the common implementation flow in one
 step:
 
 ```text
@@ -229,11 +229,11 @@ Memory use remains generic branch-scoped text storage.
 Pi commands and installed agent skills interoperate through the same filesystem
 and Branch Memory contracts:
 
-- A plan saved by `/planned-branch:write-plan` or
-  `/planned-branch:write-grilled-plan` can be resolved by
-  `planned-branch exec resolve-plan` or used by the `planned-branch-create`
+- A plan saved by `/plans:write` or
+  `/plans:grill-and-write` can be resolved by
+  `plans exec resolve` or used by the `planned-branch-create`
   skill.
-- A plan saved by `planned-branch-write-plan` can be passed to
+- A plan saved by `plans-write` can be passed to
   `/planned-branch:create <path>`.
 - A branch created by either Pi or an installed agent skill stores the attached
   plan in namespace `planned-branch`, so `/planned-branch:impl` and
@@ -315,11 +315,11 @@ Use `plans list` for human saved-plan store inspection.
 
 Related public surfaces:
 
-- Pi commands: `/planned-branch:write-plan`,
-  `/planned-branch:write-grilled-plan`, `/planned-branch:create`,
+- Pi commands: `/plans:write`,
+  `/plans:grill-and-write`, `/planned-branch:create`,
   `/planned-branch:up-and-impl`, and `/planned-branch:impl`.
 - Agent skills: `planned-branch` umbrella/reference skill, plus
-  `planned-branch-write-plan`, `planned-branch-create`, and
+  `plans-write`, `planned-branch-create`, and
   `planned-branch-impl` step skills.
 - Branch Memory documentation: `packages/brmem/README.md` for the generic
   storage CLI that planned-branch uses for attached plans.

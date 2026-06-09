@@ -1,6 +1,6 @@
 ---
 name: planned-branch
-description: "Use for explicit planned-branch lifecycle, reference, diagnostics, admin, or repair work: planned-branch, planned branch, saved planned-branch plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair planned-branch metadata, or Pi commands `/planned-branch:write-plan`, `/planned-branch:write-grilled-plan`, `/planned-branch:create`, `/planned-branch:up-and-impl`, `/planned-branch:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless planned-branch intent is explicit."
+description: "Use for explicit planned-branch lifecycle, reference, diagnostics, admin, or repair work: planned-branch, planned branch, saved planned-branch plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair planned-branch metadata, or Pi commands `/plans:write`, `/plans:grill-and-write`, `/planned-branch:create`, `/planned-branch:up-and-impl`, `/planned-branch:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless planned-branch intent is explicit."
 ---
 
 # planned-branch
@@ -11,7 +11,7 @@ Shared lifecycle, terminology, safety posture, diagnostics, and administration f
 
 Step entrypoints carry their own command and recovery and are runnable standalone:
 
-- `planned-branch-write-plan` — save a source-branch plan.
+- `plans-write` — save a source-branch plan.
 - `planned-branch-create` — create a planned branch and attach the plan.
 - `planned-branch-impl` — load and implement an attached plan.
 
@@ -29,7 +29,7 @@ Admin and repair requests include changing or retargeting a saved plan's source 
 
 - Inspect before mutating.
 - Refuse collisions, existing files, existing branches, and existing Branch Memory entries unless the user gives explicit replacement/destructive intent.
-- Prefer deterministic `planned-branch exec` commands over manual file or Branch Memory operations when available.
+- Prefer deterministic `plans exec` commands for Saved plans and `planned-branch exec` commands for branch/attachment operations when available.
 - Use read-only Branch Memory inspection only for diagnostics.
 - If plan content appears stale relative to repository state, explain the discrepancy before changing scope.
 
