@@ -4,6 +4,27 @@ TypeScript migration scaffold for the public `pr-address` standalone CLI.
 
 This package establishes the TypeScript package boundary, direct Node CLI entrypoint, and local wrapper routing for `pr-address`. It is **not** a full operation port yet: unported `pr-address exec ...` operations delegate directly to the legacy Python CLI until each operation is ported and covered by parity tests.
 
+## Current migration status
+
+Local checkout invocation is TypeScript-first: `skills/pr-address/scripts/pr-address-run` executes `node ts/packages/pr-address/src/cli.ts` unless `ASDL_PR_ADDRESS_MODE` forces another path. Installed/prod skill invocation and the `asdl pr-address ...` plugin remain Python-backed compatibility paths.
+
+TypeScript-managed local `exec` operation execution after the current stack:
+
+- Classification and planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`
+- Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`
+- Read-only GitHub fetch helpers: `get-pr-for-branch`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, plus `get-feedback --payload-mode inline`
+- Payload detail and stack diff helpers: `read-feedback-detail`, `stack-feedback-diff-current`
+- Mutation helpers: `resolve-thread`, `resolve-thread-with-reply`, `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`, `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+
+Compatibility-backed behavior that must stay in place for now:
+
+- Composite/default payload workflow: `prepare-run`, `summarize-feedback`, and default `get-feedback` payload mode
+- Stack orchestration helpers: `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
+- Batch checkpoint recovery: `record-batch-checkpoint`
+- Bulk payload reading: `read-feedback-details`
+- Any operation-specific `--json-schema` path not yet served by TypeScript
+- Installed/prod wrapper mode and the Python `asdl pr-address ...` plugin
+
 ## Local usage
 
 From the repo root:
@@ -32,4 +53,14 @@ pnpm --dir ts run test
 
 ## Fallback retirement
 
-The direct Python fallback exists only for the migration window. It must not call the `pr-address-run` wrapper, because the wrapper is now TypeScript-default in local checkouts and wrapper delegation would risk recursion. Remove the fallback once operation parity and distribution cutover are complete.
+The direct Python fallback exists only for the migration window. It must not call the `pr-address-run` wrapper, because the wrapper is now TypeScript-default in local checkouts and wrapper delegation would risk recursion.
+
+Retire fallback behavior only per proven operation. Required evidence before removing a fallback path:
+
+1. TypeScript scenario tests cover the public success, negative, validation, and `--format json` envelope behavior.
+2. Gateway-backed tests prove live-effect operations without writing to GitHub.
+3. Golden/parity fixtures cover payload-shape-sensitive helpers.
+4. Any advertised `--json-schema` output is served by TypeScript or intentionally documented as removed.
+5. Wrapper tests prove local, forced legacy, and prod modes still route predictably.
+
+Public distribution cutover requires an explicit decision after npm/bin packaging, installed-skill wrapper behavior, rollback mode, and plugin compatibility are proven. Until then, keep the Python compatibility package and Python `asdl pr-address ...` plugin intact.

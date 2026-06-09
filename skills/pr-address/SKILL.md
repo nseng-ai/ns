@@ -64,7 +64,16 @@ This skill bundles a wrapper at `scripts/pr-address-run` that dispatches to the
 local checkout implementation when available or to the pinned installed
 compatibility package otherwise, so the skill works without a local clone.
 During the TypeScript migration, local checkouts use the TypeScript scaffold by
-default while unported `exec` operations remain compatibility-backed.
+default while unported `exec` operations remain compatibility-backed. Installed
+skill/prod use and the `asdl pr-address ...` plugin still use the Python
+compatibility path until a later explicit cutover.
+
+Current local TypeScript-managed execution covers classification/planning,
+selected read-only fetch helpers, selected payload/finalization helpers,
+selected stack-diff/detail helpers, and review mutation/reply helpers. Composite
+default payload setup, stack orchestration, batch checkpoint recovery, bulk
+payload reading, and unported schema routes remain compatibility-backed. See
+`references/cli-reference.md` for the operation-level migration status.
 
 Resolve the wrapper from this skill's own directory, not from a harness-specific
 path. For the rest of this document, `<pr-address-runner>` means the executable

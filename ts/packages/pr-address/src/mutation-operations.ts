@@ -31,15 +31,15 @@ type ResolveThreadBatchPayload = z.infer<typeof resolveThreadBatchPayloadSchema>
 
 type PositionalParseResult = { type: "ok"; positionals: readonly string[]; values: ReadonlyMap<string, string> } | { type: "error"; message: string };
 
-type NormalizedResolutionRequest = {
+interface NormalizedResolutionRequest {
 	threadId: string;
 	mode: ResolutionReplyMode;
 	message: string | null;
 	commitSha: string | null;
 	provenance: ResolutionProvenance | null;
-};
+}
 
-type ResolveThreadBatchItemResult = {
+interface ResolveThreadBatchItemResult {
 	index: number;
 	thread_id: string;
 	mode: ResolutionReplyMode;
@@ -50,7 +50,7 @@ type ResolveThreadBatchItemResult = {
 	error_type?: string | undefined;
 	error_message?: string | undefined;
 	provenance?: ResolutionProvenance | null | undefined;
-};
+}
 
 export async function runResolveThreadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	if (hasJsonSchemaFlag(invocation.args)) return { type: "fallback" };

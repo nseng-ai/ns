@@ -16,7 +16,7 @@ export interface ReadJsonInputTextOptions {
 	inputDescription: string;
 	optionName: string;
 	fileOptionName?: string | undefined;
-	allowStdin?: boolean | undefined;
+	canReadStdin?: boolean | undefined;
 	stdin: () => Promise<string>;
 }
 
@@ -25,7 +25,7 @@ export interface LoadJsonInputOptions<T> extends ReadJsonInputTextOptions {
 }
 
 export async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<JsonInputResult<string>> {
-	const allowStdin = options.allowStdin ?? true;
+	const canReadStdin = options.canReadStdin ?? true;
 	const sourceCount = Number(options.optionValue !== undefined) + Number(options.filePath !== undefined);
 	if (sourceCount > 1) {
 		return {
@@ -37,10 +37,10 @@ export async function readJsonInputText(options: ReadJsonInputTextOptions): Prom
 		};
 	}
 
-	const rawPayloadResult = await readRawPayload(options, allowStdin);
+	const rawPayloadResult = await readRawPayload(options, canReadStdin);
 	if (rawPayloadResult.type === "error") return rawPayloadResult;
 
-	const sourceDescription = describeSources(options.optionName, options.fileOptionName, allowStdin);
+	const sourceDescription = describeSources(options.optionName, options.fileOptionName, canReadStdin);
 	if (rawPayloadResult.value.trim() === "") {
 		return {
 			type: "error",
@@ -83,10 +83,10 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 	return { type: "ok", value: parseResult.data };
 }
 
-async function readRawPayload(options: ReadJsonInputTextOptions, allowStdin: boolean): Promise<JsonInputResult<string>> {
+async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
 	if (options.optionValue !== undefined) return { type: "ok", value: options.optionValue };
 	if (options.filePath !== undefined) return await readJsonInputFile(options.filePath, options.commandName, options.inputDescription, options.fileOptionName);
-	if (allowStdin) return { type: "ok", value: await options.stdin() };
+	if (canReadStdin) return { type: "ok", value: await options.stdin() };
 
 	return {
 		type: "error",
@@ -116,9 +116,9 @@ async function readJsonInputFile(
 	}
 }
 
-function describeSources(optionName: string, fileOptionNameValue: string | undefined, allowStdin: boolean): string {
+function describeSources(optionName: string, fileOptionNameValue: string | undefined, canReadStdin: boolean): string {
 	const sources: string[] = [];
-	if (allowStdin) sources.push("stdin");
+	if (canReadStdin) sources.push("stdin");
 	sources.push(optionName);
 	if (fileOptionNameValue !== undefined) sources.push(fileOptionNameValue);
 	if (sources.length === 1) return sources[0] ?? optionName;

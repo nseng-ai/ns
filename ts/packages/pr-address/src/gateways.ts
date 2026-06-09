@@ -92,7 +92,7 @@ export interface PrAddressGitHubGateway {
 	getPr(prNumber: number, options: GatewayOptions): Promise<PRLookupResult>;
 	getPrForBranch(branch: string, options: GatewayOptions): Promise<PRLookupResult>;
 	getReviews(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>>;
-	getReviewThreads(prNumber: number, options: GatewayOptions & { includeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>>;
+	getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>>;
 	getDiscussionComments(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>>;
 	addPrDiscussionComment(prNumber: number, body: string, options: GatewayOptions): Promise<GatewayResult<PRDiscussionComment>>;
 	addPrDiscussionCommentReaction(commentId: number, reaction: string, options: GatewayOptions): Promise<GatewayResult<Reaction>>;
@@ -229,13 +229,13 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		return { type: "ok", value: parseResult.value.reviews.map(normalizeReview) };
 	}
 
-	async getReviewThreads(prNumber: number, options: GatewayOptions & { includeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
+	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
 		const result = await this.runGh(["pr", "view", String(prNumber), "--json", "reviewThreads"], options);
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
 		const parseResult = parseJson(result.stdout, z.object({ reviewThreads: z.array(ghReviewThreadSchema).default([]) }).loose());
 		if (parseResult.type === "failure") return parseResult;
 		const threads = parseResult.value.reviewThreads.map(normalizeReviewThread);
-		return { type: "ok", value: options.includeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
+		return { type: "ok", value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
 	}
 
 	async getDiscussionComments(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
