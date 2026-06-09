@@ -83,6 +83,28 @@ export type GatewayResult<T> = { ok: true; value: T } | { ok: false; error: Erro
 
 Application logic decides whether a gateway failure is fatal, recoverable, or a warning.
 
+Two companion shapes cover the remaining method kinds:
+
+- Lookups where absence is an expected outcome, not an error:
+
+  ```ts
+  export type OptionalResult<T> = { type: "found"; value: T } | { type: "missing" } | { type: "error"; error: ErrorInfo };
+  ```
+
+- Effects with no return value — drop `value` from the success arm:
+
+  ```ts
+  export type OperationResult = { ok: true } | { ok: false; error: ErrorInfo };
+  ```
+
+For subprocess-backed gateways, error info may carry one blessed optional extension: `displayCommand?: string`, a human-readable rendering of the failed command for diagnostics.
+
+### Shape, not names
+
+This contract specifies shape, not names, and implies no shared module. Each gateway declares its own domain-named structural twins — e.g., a git-backed gateway might define its own error-info and result aliases — and consumers rely on structural typing.
+
+Copies of these shapes across packages are fine. Deduplicate only along dependency edges that already exist; never add a dependency or a shared "result" package solely to share these types.
+
 ## Anti-patterns
 
 - Scripted mocks as the primary scenario fake.
