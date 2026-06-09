@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Productionize the episodic context profiler prototype as a first-class Pi extension, via a from-scratch rewrite on a branch off `master`. The prototype (`.pi/extensions/context-profiler-prototype.ts` on the `model-subagents` branch) validated the product direction — a live, interactive TUI overlay that explains where a session's context went: base regions, per-turn token accounting, LM-segmented episodes, per-episode efficiency/relevance judgments, and delegation detection. The rewrite owes the prototype fidelity of direction, not of code or exact UI. The sibling visualizer prototypes (`context-visualizer-prototype.ts`, the sidepanel and intelligence-board branches) are not carried forward; their branches remain in place but are not referenced as live work.
+Productionize the episodic context profiler prototype as a first-class Pi extension, via a from-scratch rewrite on a branch off `master`. The prototype (`.pi/extensions/context-profiler-prototype.ts` on the `model-subagents` branch) validated the product direction — a live, interactive TUI overlay that explains where a session's context went: base regions, per-turn token accounting, LM-segmented episodes, per-episode efficiency/relevance judgments, and delegation detection. The rewrite owes the prototype fidelity of direction **and of its validated interaction design** (recorded under "UI design" in Scope) — not fidelity of code. The sibling visualizer prototypes (`context-visualizer-prototype.ts`, the sidepanel and intelligence-board branches) are not carried forward, **including as a UI reference**; their branches remain in place but are not referenced as live work.
 
 ## Scope
 
@@ -22,6 +22,17 @@ Productionize the episodic context profiler prototype as a first-class Pi extens
   - On-demand only: segmentation/analysis fire on overlay open and manual refresh, never in the background while the overlay is closed. The profiler must not silently spend tokens or perturb the session it is profiling.
   - A fixed cheap/fast analysis model, defined as a single code-level constant and resolved through the model registry — never the session's main model.
   - Hard requirement — graceful degradation: if the analysis model is unavailable (no key, registry miss, request failure), the overlay remains fully functional deterministically with a clear "segmentation unavailable: <reason>" state. LM failure never blocks the view.
+- **UI design** (validated by the prototype on `model-subagents`; the rewrite owes fidelity to this interaction design, not to the prototype's code):
+  - **Frame-stack navigation**: full-screen bordered overlay; frames form a stack — overview → base-region detail / episode list / episode detail → verbatim content. `⏎` pushes, `Esc`/`q` pops (closing from overview), `r` re-snapshots and resets to overview, `?` toggles help. Breadcrumb path in the frame title (`context profiler › <region> › <member>`); key-hint footer always pinned.
+  - **Overview layout**: top usage bar (base vs. live vs. free, scaled to the context window) over two sections, `BASE` and `LIVE`, with uniform rows: `▌` selection marker · label · 14-char `█`/`░` bar scaled to the largest _visible_ row · `≈`-prefixed compact token column (`42k`, `3.5k`, `1.2M`) · percent column · dense 8-char status column (outcome glyph `✓ ● ✗ ? ·` + kind abbrev `exp/edit/dbg/test/rev/chat/—` + `⇄` delegation marker).
+  - **Health-based theme colors**, never hard-coded: accent = active / load-bearing / efficient, muted = completed / still-useful / mixed, warning = abandoned / errored / stale / rot, dim = unknown; selected row inverted on the selection background.
+  - **Density control**: episodes under ~1/24 of live tokens coalesce into one expandable `▸ N small episodes` row; live turns capped (first 16 + last 64) with the elided middle stated in the section header; scroll note (`rows N–M of Total`) appears only when content overflows.
+  - **Claim lines**: every drill-down frame opens with a one-line claim stating what the view shows and what `⏎` does; LM-derived structure is labeled as a claim (`LM claim: kind=… · outcome=… · turns N–M`).
+  - **Verbatim content view**: renders message parts semantically (`⏺ <tool>` call/result headers, `[thinking]`, `[image]`), sanitizes CR/tabs, wraps ANSI-aware, and scrolls without selection.
+  - **Visible-but-never-blocking LM states**: `symbolizing…` while segmenting with deterministic fallback episodes shown meanwhile; `no symbols: <reason>` on failure; per-episode `analysis: …` / `analysis failed: <message>`; verdicts rendered inline, colored by judgment; heuristic delegations marked `(inferred)`.
+  - **Estimation honesty**: every estimated count carries the `≈` prefix; methodology and data provenance live in the `?`-toggled help layer, not in always-on chrome.
+  - **Frozen snapshot**: the profile is captured at open and frozen; live events update data for the next `r` refresh, never the open view.
+  - **Rendering discipline**: every cell truncates-then-pads to its exact column width (no jitter across renders); bar/token/percent/status widths are fixed with the label absorbing the remainder; minimum-width floors degrade narrow terminals gracefully.
 - **Design principle**: diagnostic-only, non-mutating, never advisory. The profiler observes and explains; it does not recommend compaction, suggest dropping content, or mutate session state.
 - **Delivery**: each roadmap row is implemented as its own small Graphite stack off `master` (via the `objective-stack-impl` flow), with `objective-update` recording progress between rows.
 
@@ -41,7 +52,7 @@ All four capabilities landed on `master`: deterministic core, LM episode segment
 
 Assumptions:
 
-- The prototype on `model-subagents` is a sufficient behavioral reference; no other spec exists or is needed. If that branch is deleted before the rewrite reaches core parity, the reference is lost.
+- The prototype on `model-subagents` is a sufficient behavioral reference; no other spec exists or is needed. _(Revised: the interaction design is now recorded durably under "UI design" in Scope, so losing the branch no longer loses the UI lessons; the branch remains the only behavioral/code reference for derivation logic until the deterministic core lands.)_
 - The `@earendil-works/pi-coding-agent` extension API surface (`ContextEvent`, `SessionEntry`, `modelRegistry`, overlay/TUI primitives) remains the integration surface for the production extension.
 
 Risks:
