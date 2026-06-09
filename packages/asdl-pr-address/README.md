@@ -45,21 +45,24 @@ unported operations delegate to this package for compatibility.
 ## Migration status
 
 After the current TypeScript migration stack, this package remains the safe
-compatibility path for installed/prod skill use, the `asdl pr-address ...`
-plugin, composite/default payload operations such as `prepare-run`, stack
-orchestration helpers, bulk payload reading, batch checkpoint recovery, and any
-operation schema route not yet served by TypeScript.
+compatibility path for explicit rollback modes, a small set of usage-error
+envelope shapes, composite/default payload operations such as `prepare-run`,
+stack orchestration helpers, bulk payload reading, batch checkpoint recovery,
+and any operation schema route not yet served by TypeScript.
 
-Do not remove this package or switch public distribution to TypeScript until npm
-package execution, installed wrapper behavior, rollback, and plugin
-compatibility have all been proven and explicitly approved.
+The `asdl pr-address ...` plugin is retired: this package no longer registers
+an `asdl.plugins` entry point, and the standalone `pr-address` CLI is the only
+invocation surface.
+
+Do not remove this package or switch public distribution to TypeScript until
+npm package execution, installed wrapper behavior, and rollback have all been
+proven and explicitly approved.
 
 ## CLI surface
 
 This package currently provides the legacy compatibility implementation for:
 
 - Standalone CLI fallback: `pr-address` console script (declared in `pyproject.toml`).
-- ASDL plugin: `asdl pr-address …` (via the `asdl.plugins` entry point).
 - Operation groups:
   - `pr-address exec ...` for normal CLI usage; pass `--format json` for
     machine-readable output

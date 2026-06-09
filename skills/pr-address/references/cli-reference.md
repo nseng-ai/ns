@@ -19,12 +19,12 @@ Compatibility-backed behavior that must remain for now:
 - a small set of malformed-option usage errors (invalid `--payload-mode`,
   invalid `--stdout-mode`, non-integer `--body-chars`) still render through the
   legacy Python CLI
-- the Python `asdl pr-address ...` plugin
 - the explicit `python-local` and `legacy-python` rollback modes
 
-Do not treat this migration status as permission to delete the Python
-compatibility package. Plugin cutover and final retirement require an explicit
-release decision.
+The standalone `pr-address` CLI is the only invocation surface; the former
+`asdl pr-address ...` umbrella plugin is retired. Do not treat this migration
+status as permission to delete the Python compatibility package; final
+retirement requires an explicit release decision.
 
 ## Invocation convention
 

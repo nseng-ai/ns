@@ -15,7 +15,6 @@ from asdl_handoff.cli import plugin as handoff_plugin
 from asdl_handoff.cli.handoff.context import HandoffCliContext
 from asdl_handoff.cli.handoff.group import build_handoff_group
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
@@ -212,34 +211,19 @@ def test_discover_plugins_installs_context_on_root_for_json_mode(
     assert payload["data"]["handoffs"][0]["slug"] == "root-json"
 
 
-def test_pr_address_plugin_integration() -> None:
+def test_pr_address_is_not_mounted_as_parent_asdl_plugin() -> None:
+    # The `asdl pr-address ...` plugin is retired outright; the standalone
+    # `pr-address` CLI is the only invocation surface. A stale installed entry
+    # point must not mount the retired plugin.
     parent = click.Group("test")
-    ep = FakePluginEntryPoint(
+    stale_ep = FakePluginEntryPoint(
         name="pr_address",
         value="asdl_pr_address.cli.plugin:build_pr_address_plugin",
     )
 
-    discover_plugins(parent, source=_entry_point_source(ep))
+    discover_plugins(parent, source=_entry_point_source(stale_ep))
 
-    runner = CliRunner()
-    ctx = PrAddressCliContext(
-        pr_gateway=FakePRGateway(),
-        git_gateway=FakeGitGateway(),
-    )
-    obj = build_clinkr_context_object(lambda: ctx)
-
-    # Plugin mounts at expected subgroup name; exec subgroup is hidden, so it
-    # must not appear in top-level help output.
-    result = runner.invoke(parent, ["pr-address", "--help"])
-    assert result.exit_code == 0
-    assert "exec" not in result.output
-
-    # A representative operation routes correctly through the plugin path,
-    # confirming the exec subgroup is still invocable despite being hidden.
-    result = runner.invoke(parent, ["pr-address", "exec", "get-review-comments", "99"], obj=obj)
-    assert result.exit_code == 0
-    output = json.loads(result.output)
-    assert output["count"] == 0
+    assert "pr-address" not in parent.commands
 
 
 def test_slots_plugin_integration(tmp_path: Path) -> None:

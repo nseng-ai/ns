@@ -166,7 +166,6 @@ plugins = [
     { name = "asdl-dispatcher" },
     { name = "asdl-handoff" },
     { name = "asdl-objectives" },
-    { name = "asdl-pr-address" },
     { name = "asdl-slots" },
 ]
 
@@ -196,7 +195,6 @@ requires-dist = [
     { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
     { name = "asdl-handoff", marker = "extra == 'plugins'", editable = "packages/asdl-handoff" },
     { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
-    { name = "asdl-pr-address", marker = "extra == 'plugins'", editable = "packages/asdl-pr-address" },
     { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
     { name = "click", specifier = ">=8.1.7" },
 ]

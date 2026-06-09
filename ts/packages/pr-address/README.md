@@ -6,7 +6,7 @@ This package establishes the TypeScript package boundary, direct Node CLI entryp
 
 ## Current migration status
 
-Local checkout invocation is TypeScript-first: `skills/pr-address/scripts/pr-address-run` executes `node ts/packages/pr-address/src/cli.ts` unless `ASDL_PR_ADDRESS_MODE` forces another path. Installed/prod skill invocation executes the checked-in self-contained bundle at `skills/pr-address/scripts/pr-address.bundle.mjs` (see "Bundled distribution" below). Only the `asdl pr-address ...` plugin remains a Python-backed compatibility path.
+Local checkout invocation is TypeScript-first: `skills/pr-address/scripts/pr-address-run` executes `node ts/packages/pr-address/src/cli.ts` unless `ASDL_PR_ADDRESS_MODE` forces another path. Installed/prod skill invocation executes the checked-in self-contained bundle at `skills/pr-address/scripts/pr-address.bundle.mjs` (see "Bundled distribution" below). The `asdl pr-address ...` plugin is retired; the standalone `pr-address` CLI is the only invocation surface.
 
 TypeScript-managed local `exec` operation execution after the current stack:
 
@@ -23,7 +23,6 @@ TypeScript-managed local `exec` operation execution after the current stack:
 Compatibility-backed behavior that must stay in place for now:
 
 - Invalid `--payload-mode` values for `get-feedback` and `prepare-run`, invalid `--stdout-mode` values for `stack-feedback-prep` and `stack-feedback-plan`, and non-integer `--body-chars` values for `summarize-feedback` (click usage-error rendering)
-- The Python `asdl pr-address ...` plugin
 
 ## Bundled distribution
 
@@ -78,4 +77,4 @@ Retire fallback behavior only per proven operation. Required evidence before rem
 4. Any advertised `--json-schema` output is served by TypeScript or intentionally documented as removed.
 5. Wrapper tests prove local, forced legacy, and prod modes still route predictably.
 
-Public distribution is decided: installed/prod mode executes the checked-in bundled artifact shipped inside the skill; `@asdl/pr-address` is not published to npm. Rollback to the published Python package stays available through `ASDL_PR_ADDRESS_MODE=legacy-python` until the Python compatibility package and the Python `asdl pr-address ...` plugin are retired by an explicit later decision.
+Public distribution is decided: installed/prod mode executes the checked-in bundled artifact shipped inside the skill; `@asdl/pr-address` is not published to npm. The Python `asdl pr-address ...` plugin is retired outright; the standalone `pr-address` CLI is the only invocation surface. Rollback to the published Python package stays available through `ASDL_PR_ADDRESS_MODE=legacy-python` until the Python compatibility package is retired by an explicit later decision.

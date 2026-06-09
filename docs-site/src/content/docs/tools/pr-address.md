@@ -23,8 +23,10 @@ while skills get stable JSON.
 ```bash
 uv tool install asdl-pr-address
 pr-address --help
-asdl pr-address --help
 ```
+
+The standalone `pr-address` CLI is the only invocation surface; `pr-address` is
+not mounted under the `asdl` umbrella command.
 
 ## Common commands
 

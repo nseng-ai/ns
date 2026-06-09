@@ -68,8 +68,9 @@ otherwise, so the skill works without a local clone. Both paths require `node`
 
 Every `exec` operation and every `--json-schema` route runs the same
 implementation in both paths. The legacy Python compatibility package remains
-available only as an explicit rollback mode; the `asdl pr-address ...` plugin
-still uses the Python path until its own cutover.
+available only as an explicit rollback mode. The standalone `pr-address` CLI
+(via the wrapper) is the only invocation surface; there is no `asdl pr-address`
+umbrella command.
 
 Resolve the wrapper from this skill's own directory, not from a harness-specific
 path. For the rest of this document, `<pr-address-runner>` means the executable

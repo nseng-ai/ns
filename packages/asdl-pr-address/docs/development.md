@@ -72,9 +72,10 @@ Or run the full suite from the repo root with `just`.
 
 ## Operation inventory
 
-This Python package remains the compatibility implementation for the
-`asdl pr-address ...` plugin, the explicit `python-local` / `legacy-python`
-rollback modes, and a small set of usage-error envelope shapes. Treat the public
+This Python package remains the compatibility implementation for the explicit
+`python-local` / `legacy-python` rollback modes and a small set of usage-error
+envelope shapes. The `asdl pr-address ...` plugin is retired; the standalone
+`pr-address` CLI is the only invocation surface. Treat the public
 skill, `skills/pr-address/references/cli-reference.md`, source registration,
 scenario tests, and golden fixtures as stronger contract sources than this
 developer overview when porting behavior.
@@ -92,7 +93,6 @@ Keep Python fallback for:
   `--stdout-mode` values for `stack-feedback-prep` and `stack-feedback-plan`,
   and non-integer `--body-chars` values for `summarize-feedback` (click
   usage-error rendering)
-- the `asdl pr-address ...` plugin
 
 The current legacy operation set, by category:
 
@@ -126,9 +126,10 @@ Payload-shape-sensitive helpers need golden or parity fixtures.
 The distribution decision is recorded: installed/prod skill invocation executes
 the checked-in bundle shipped inside the skill, and `@asdl/pr-address` is not
 published to npm. `ASDL_PR_ADDRESS_MODE=legacy-python` remains the rollback path
-to the published PyPI release. Do not broadly delete this package, and do not
-replace the Python `asdl pr-address ...` plugin until TypeScript plugin wiring
-is proven non-breaking for existing `asdl` users.
+to the published PyPI release. The `asdl pr-address ...` plugin is retired
+outright (not shimmed or ported); the standalone `pr-address` CLI is the only
+invocation surface. Do not broadly delete this package while the rollback modes
+and remaining usage-error fallback still depend on it.
 
 ## Relationship to the `pr-address` skill
 

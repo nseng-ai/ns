@@ -19,6 +19,8 @@ The migration needs a TypeScript package boundary before individual operations a
 - Keep `asdl pr-address ...` TypeScript compatibility deferred; the existing Python plugin path remains the compatibility path for now.
 - Keep installed/prod behavior on the pinned Python package for now; npm publishing and installed-skill TypeScript cutover are deferred.
 
+**Amendment (2026-06-09):** the `asdl pr-address ...` plugin is retired outright rather than ported or shimmed. The standalone `pr-address` CLI is the only invocation surface after cutover; the `asdl.plugins` entry point and plugin module were removed.
+
 ## Consequences
 
 This enables incremental operation ports behind a stable TypeScript package and CLI boundary. It avoids broad command-runtime framework work before repeated seams are proven, while maintaining local workflow compatibility through a short-lived Python fallback.

@@ -50,7 +50,6 @@ plugins = [
   "asdl-dispatcher",
   "asdl-handoff",
   "asdl-objectives",
-  "asdl-pr-address",
   "asdl-slots",
 ]
 
