@@ -111,10 +111,10 @@ describe("pr-address CLI scaffold", () => {
 	});
 
 	test("preserves nonzero legacy exit codes", async () => {
-		const run = runWithFakeLegacy(["exec", "resolve-thread", "PRRT_123"], [2]);
+		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-session-id", "abc"], [2]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "resolve-thread", "PRRT_123"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--payload-session-id", "abc"]]);
 	});
 
 	test("serves managed classification-template schema locally without invoking legacy", async () => {
