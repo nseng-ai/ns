@@ -5,14 +5,22 @@ import {
 	computeSegmentationFingerprint,
 	MAX_EPISODES,
 	parseSegmentationResponseText,
+	repairDelegations,
 	repairEpisodes,
 	SEGMENTATION_PAYLOAD_MAX_CHARS,
+	SEGMENTATION_SYSTEM_PROMPT,
+	type LmDelegationClaim,
 	type LmEpisodeStart,
 } from "../src/context-profiler/segmentation.ts";
+import { MAX_DELEGATIONS } from "../src/context-profiler/model.ts";
 import { makeProfile, makeTurn, makeTurns, sequentialTurns } from "./context-profiler-fakes.ts";
 
 function makeStart(startTurn: number, overrides: Partial<LmEpisodeStart> = {}): LmEpisodeStart {
 	return { startTurn, label: `episode ${startTurn}`, kind: "explore", outcome: "completed", ...overrides };
+}
+
+function makeDelegation(turn: number, overrides: Partial<LmDelegationClaim> = {}): LmDelegationClaim {
+	return { turn, label: `delegation ${turn}`, confidence: "high", ...overrides };
 }
 
 /** Capped-shape turn list: first 16 turns plus last 64, middle elided. */
@@ -28,6 +36,15 @@ const VALID_RESPONSE = JSON.stringify({
 		{ startTurn: 5, label: "the fix", kind: "edit", outcome: "active" },
 	],
 	summary: "A session that explored and then fixed something.",
+	delegations: [{ turn: 4, label: "ask a helper", confidence: "high" }],
+});
+
+describe("segmentation prompt", () => {
+	test("asks for delegation claims and semantic detection rules", () => {
+		expect(SEGMENTATION_SYSTEM_PROMPT).toContain('"delegations"');
+		expect(SEGMENTATION_SYSTEM_PROMPT).toContain("judge by call/result semantics, not tool name");
+		expect(SEGMENTATION_SYSTEM_PROMPT).toContain('confidence:"low" when unsure');
+	});
 });
 
 describe("parseSegmentationResponseText", () => {
@@ -40,6 +57,7 @@ describe("parseSegmentationResponseText", () => {
 			{ startTurn: 5, label: "the fix", kind: "edit", outcome: "active" },
 		]);
 		expect(result.value.summary).toBe("A session that explored and then fixed something.");
+		expect(result.value.delegations).toEqual([{ turn: 4, label: "ask a helper", confidence: "high" }]);
 	});
 
 	test("parses fenced and prose-wrapped JSON", () => {
@@ -91,11 +109,24 @@ describe("parseSegmentationResponseText", () => {
 		expect(result.value.episodes[0]).toEqual({ startTurn: 3, label: "odd", kind: "uncategorized", outcome: "unknown" });
 	});
 
-	test("tolerates unknown envelope keys like the prototype's delegations", () => {
+	test("parses lenient delegation claims without allowing LM-inferred confidence", () => {
 		const result = parseSegmentationResponseText(
-			JSON.stringify({ episodes: [{ startTurn: 1, label: "a", kind: "chat", outcome: "active" }], delegations: [{ turn: 4 }] }),
+			JSON.stringify({
+				episodes: [{ startTurn: 1, label: "a", kind: "chat", outcome: "active" }],
+				delegations: [
+					{ turn: "4", label: "  delegated\nwork  ", confidence: "high" },
+					{ turn: 5, label: "", confidence: "inferred" },
+					{ label: "missing turn", confidence: "low" },
+					"garbage",
+				],
+			}),
 		);
 		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.delegations).toEqual([
+			{ turn: 4, label: "delegated work", confidence: "high" },
+			{ turn: 5, label: "delegation", confidence: "low" },
+		]);
 	});
 
 	test("normalizes blank labels and caps episode count", () => {
@@ -199,6 +230,34 @@ describe("repairEpisodes", () => {
 		expect(episodes.map((episode) => episode.label)).toEqual(["early", "early", "late"]);
 		expect(episodes.map((episode) => episode.kind)).toEqual(["explore", "explore", "edit"]);
 		expect(episodes.map((episode) => episode.outcome)).toEqual(["completed", "completed", "active"]);
+	});
+});
+
+describe("repairDelegations", () => {
+	test("returns nothing for an empty turn list", () => {
+		expect(repairDelegations([makeDelegation(1)], [])).toEqual([]);
+	});
+
+	test("snaps out-of-range and elided turns to real capped turns, dedupes, and sorts", () => {
+		const turns = makeTurns([1, 2, 3, 4, 90, 91, 92, 93]);
+		const claims = [
+			makeDelegation(999, { label: "late" }),
+			makeDelegation(40, { label: "middle winner", confidence: "low" }),
+			makeDelegation(40.2, { label: "middle loser" }),
+			makeDelegation(0, { label: "early" }),
+		];
+		expect(repairDelegations(claims, turns)).toEqual([
+			{ turn: 1, label: "early", confidence: "high" },
+			{ turn: 90, label: "middle winner", confidence: "low" },
+			{ turn: 93, label: "late", confidence: "high" },
+		]);
+	});
+
+	test("caps repaired delegation claims", () => {
+		const turns = sequentialTurns(MAX_DELEGATIONS + 5);
+		const repaired = repairDelegations(turns.map((turn) => makeDelegation(turn.index)), turns);
+		expect(repaired).toHaveLength(MAX_DELEGATIONS);
+		expect(repaired[repaired.length - 1]?.turn).toBe(MAX_DELEGATIONS);
 	});
 });
 

@@ -11,6 +11,8 @@ import {
 	composeOverviewRowText,
 	contentSourceForMember,
 	contentSourceForTurn,
+	delegationClaimText,
+	delegationSummaryLine,
 	fitToWidth,
 	formatCompactNumber,
 	formatTokenCount,
@@ -205,6 +207,15 @@ describe("buildOverviewRowCells", () => {
 		expect(loadBearing.health).toBe("accent");
 	});
 
+	test("appends the delegation glyph in the exact-width status column", () => {
+		const cells = buildOverviewRowCells(
+			{ type: "live", region: makeLiveRegion({ kind: "chat", outcome: "completed", relevance: "load-bearing", isCurrent: false, source: "annotation" }) },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH, hasDelegation: true },
+		);
+		expect(cells.status).toBe("✓ chat ldb ⇄");
+		expect(visibleWidth(cells.status)).toBe(STATUS_COLUMN_WIDTH);
+	});
+
 	test("labels live rows with their turn range", () => {
 		const cells = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
 		expect(cells.label.trimEnd()).toBe("conversation turns · 1–12");
@@ -244,7 +255,7 @@ describe("section headers and claims", () => {
 
 	test("segmentationStatusText surfaces loading and error states only", () => {
 		expect(segmentationStatusText({ type: "idle" })).toBeNull();
-		expect(segmentationStatusText({ type: "ready", episodes: [], summary: null, analysis: [] })).toBeNull();
+		expect(segmentationStatusText({ type: "ready", episodes: [], summary: null, delegations: [], analysis: [] })).toBeNull();
 		expect(segmentationStatusText({ type: "loading" })).toBe("symbolizing…");
 		expect(segmentationStatusText({ type: "error", message: "no API key" })).toBe("no symbols: no API key");
 	});
@@ -267,12 +278,21 @@ describe("section headers and claims", () => {
 		expect(scrollNote(1, 40, 2_000, "lines")).toBe("lines 1–40 of 2,000");
 	});
 
-	test("annotation claim lines include verdicts and per-episode analysis status", () => {
+	test("annotation claim lines include verdicts, analysis status, and delegation counts", () => {
 		const claim = turnListClaim(
 			makeLiveRegion({ source: "annotation", efficiency: "mixed", relevance: "stale", turnRange: { start: 4, end: 8 } }),
 			"analysis failed: invalid JSON",
+			2,
 		);
-		expect(claim).toContain("efficiency=mixed · relevance=stale · analysis failed: invalid JSON");
+		expect(claim).toContain("efficiency=mixed · relevance=stale · analysis failed: invalid JSON · delegations=2");
+	});
+
+	test("formats delegation drill-down summaries with inferred suffixes", () => {
+		expect(delegationClaimText({ turn: 3, label: "run subtask", confidence: "inferred" })).toBe("t3 run subtask (inferred)");
+		expect(delegationSummaryLine([
+			{ turn: 3, label: "run subtask", confidence: "inferred" },
+			{ turn: 8, label: "review result", confidence: "high" },
+		])).toBe("delegations: t3 run subtask (inferred) · t8 review result");
 	});
 });
 
@@ -284,9 +304,10 @@ describe("list rows", () => {
 		expect(cells.barFilled).toBe("█".repeat(BAR_WIDTH / 2));
 	});
 
-	test("turnListRowText includes index, role, tools, and excerpt", () => {
+	test("turnListRowText includes index, role, tools, excerpt, and delegation prefix", () => {
 		expect(turnListRowText(makeTurn({ toolNames: ["read", "bash"] }))).toBe("t3 assistant [read,bash] · doing things");
 		expect(turnListRowText(makeTurn())).toBe("t3 assistant · doing things");
+		expect(turnListRowText(makeTurn(), true)).toBe("⇄ t3 assistant · doing things");
 	});
 });
 

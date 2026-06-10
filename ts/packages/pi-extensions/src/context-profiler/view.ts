@@ -9,8 +9,8 @@
 import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { BaseMember, BaseRegion, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
-import { buildLiveRegions, turnsInRange } from "./model.ts";
+import type { BaseMember, BaseRegion, DelegationClaim, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
+import { buildLiveRegions, delegationsInSpan, displayDelegations, turnsInRange } from "./model.ts";
 import type { EpisodeAnalysisStatus, SegmentationState } from "./segmentation.ts";
 import {
 	BASE_DETAIL_CLAIM,
@@ -22,6 +22,7 @@ import {
 	composeListRowText,
 	composeOverviewRowText,
 	contentSourceForMember,
+	delegationSummaryLine,
 	contentSourceForTurn,
 	fitToWidth,
 	formatTokenCountLong,
@@ -212,6 +213,10 @@ export class ProfilerView implements Component {
 		return this.profile.liveRegions;
 	}
 
+	private currentDelegations(): DelegationClaim[] {
+		return displayDelegations(this.profile, this.segmentation);
+	}
+
 	private currentTurnListRegion(region: LiveRegion): LiveRegion {
 		return this.liveRegions().find((candidate) => candidate.id === region.id) ?? region;
 	}
@@ -275,9 +280,12 @@ export class ProfilerView implements Component {
 				});
 			case "turn-list": {
 				const region = this.currentTurnListRegion(frame.region);
+				const delegations = delegationsInSpan(this.currentDelegations(), region.turnRange);
+				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
 				return this.composeListBody({
-					claim: turnListClaim(region, this.analysisStatusTextForRegion(region)),
-					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn) })),
+					claim: turnListClaim(region, this.analysisStatusTextForRegion(region), delegations.length),
+					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
+					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
 					state: frame,
 					emptyText: "no turns in this span",
 					innerWidth,
@@ -313,7 +321,9 @@ export class ProfilerView implements Component {
 		lines.push("");
 		lines.push(this.sectionHeader(liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)), innerWidth));
 		if (this.segmentation.type === "ready" && this.segmentation.summary !== null) {
-			lines.push(this.theme.fg("dim", truncateToWidth(this.segmentation.summary, innerWidth, "…", true)));
+			for (const line of wrapTextWithAnsi(this.segmentation.summary, innerWidth)) {
+				lines.push(this.theme.fg("dim", line));
+			}
 		}
 		if (liveRegions.length === 0) lines.push(this.theme.fg("dim", "no live conversation turns yet"));
 		rows.forEach((row, index) => {
@@ -324,6 +334,7 @@ export class ProfilerView implements Component {
 		if (this.isHelpVisible) {
 			lines.push("");
 			lines.push(this.theme.fg("dim", "≈ sizes are chars/4 estimates and need not sum to the measured total."));
+			lines.push(this.theme.fg("dim", "⇄ marks delegation claims; (inferred) marks the deterministic tool-name heuristic."));
 			lines.push(this.theme.fg("dim", `opened ${this.profile.openedAt} · source ${this.profile.liveSource} · model ${this.profile.model}`));
 			lines.push(this.theme.fg("dim", "bars are scaled to the largest visible row; ⏎ zooms one level into the selection."));
 		}
@@ -360,7 +371,8 @@ export class ProfilerView implements Component {
 	}
 
 	private renderOverviewRow(source: OverviewRowSource, isSelected: boolean, maxTokens: number, totalTokens: number, innerWidth: number): string {
-		const cells = buildOverviewRowCells(source, { maxTokens, totalTokens, innerWidth });
+		const hasDelegation = source.type === "live" && delegationsInSpan(this.currentDelegations(), source.region.turnRange).length > 0;
+		const cells = buildOverviewRowCells(source, { maxTokens, totalTokens, innerWidth, hasDelegation });
 		if (isSelected) {
 			return this.theme.bg("selectedBg", fitToWidth(composeOverviewRowText(cells), innerWidth));
 		}
@@ -372,13 +384,15 @@ export class ProfilerView implements Component {
 
 	private composeListBody(options: {
 		claim: string;
+		headerLines?: readonly string[];
 		rows: readonly ListRow[];
 		state: { selection: number; scroll: number };
 		emptyText: string;
 		innerWidth: number;
 		bodyHeight: number;
 	}): string[] {
-		const areaHeight = Math.max(1, options.bodyHeight - 3);
+		const headerLines = options.headerLines ?? [];
+		const areaHeight = Math.max(1, options.bodyHeight - 3 - headerLines.length);
 		const count = options.rows.length;
 		const state = options.state;
 		// Selection is clamped at input time; scroll is reconciled at render time because it depends on layout.
@@ -389,7 +403,8 @@ export class ProfilerView implements Component {
 			.slice(state.scroll, state.scroll + areaHeight)
 			.map((row, offset) => this.renderListRow(row, state.scroll + offset === state.selection, maxTokens, options.innerWidth));
 		const body = visible.length === 0 ? [this.theme.fg("dim", options.emptyText)] : visible;
-		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), "", ...body];
+		const dimHeaderLines = headerLines.map((line) => this.theme.fg("dim", truncateToWidth(line, options.innerWidth, "…", true)));
+		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), ...dimHeaderLines, "", ...body];
 		const note = count > areaHeight ? `${scrollNote(state.scroll + 1, Math.min(count, state.scroll + areaHeight), count, "rows")} · ` : "";
 		return pinFooter(lines, this.theme.fg("dim", `${note}${LIST_HINT}`), options.bodyHeight);
 	}

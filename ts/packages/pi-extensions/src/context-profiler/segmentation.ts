@@ -19,6 +19,8 @@ import { z } from "zod";
 import {
 	EPISODE_KIND_VALUES,
 	EPISODE_OUTCOME_VALUES,
+	MAX_DELEGATIONS,
+	type DelegationClaim,
 	type EpisodeAnnotation,
 	type LiveTurn,
 	type ProfileSnapshot,
@@ -33,6 +35,7 @@ export const MIN_TURNS_FOR_SEGMENTATION = 3;
 export const SEGMENTATION_PAYLOAD_MAX_CHARS = 60_000;
 
 const LABEL_MAX_CHARS = 80;
+const DELEGATION_LABEL_MAX_CHARS = 60;
 const SUMMARY_MAX_CHARS = 220;
 
 export type EpisodeAnalysisStatus = "loading" | "ready" | { type: "error"; message: string };
@@ -40,11 +43,11 @@ export type EpisodeAnalysisStatus = "loading" | "ready" | { type: "error"; messa
 export type SegmentationState =
 	| { type: "idle" }
 	| { type: "loading" }
-	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null; analysis: EpisodeAnalysisStatus[] }
+	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null; delegations: DelegationClaim[]; analysis: EpisodeAnalysisStatus[] }
 	| { type: "error"; message: string };
 
 export const SEGMENTATION_SYSTEM_PROMPT = `You symbolize a deterministic Pi context profiler.
-Return JSON only with this exact shape: {"episodes":[{"startTurn":1,"label":"short neutral label","kind":"explore|edit|debug|test|review|chat","outcome":"active|completed|abandoned|errored"}],"summary":"exactly one descriptive sentence"}
+Return JSON only with this exact shape: {"episodes":[{"startTurn":1,"label":"short neutral label","kind":"explore|edit|debug|test|review|chat","outcome":"active|completed|abandoned|errored"}],"summary":"exactly one descriptive sentence","delegations":[{"turn":17,"label":"short description of the delegated task","confidence":"high|low"}]}
 Rules:
 - Qualitative only: do not compute or return token counts, percentages, end turns, or sizes.
 - Identify episodes only by startTurn from the provided turn list.
@@ -52,17 +55,19 @@ Rules:
 - Return at most ${MAX_EPISODES} episodes; prefer few coherent episodes.
 - Labels and summary are neutral and descriptive, never advisory or prescriptive.
 - outcome:"active" is only for the final ongoing episode.
+- A delegation is a turn where the assistant hands a self-contained prompt/task to another agent-like tool and later receives its report; judge by call/result semantics, not tool name.
+- Tag the turn containing the delegating tool call; return delegations:[] when none; prefer precision over recall; use confidence:"low" when unsure.
 - Output the JSON object only; no Markdown, prose, or code fences.`;
 
 /**
- * Envelope: episodes array is required; unknown keys (e.g. a model still
- * emitting the prototype's delegations field) are stripped by Zod, not
- * rejected. Per-episode coercion is lenient — invalid entries are dropped,
- * unknown kind/outcome values fall back instead of failing the response.
+ * Envelope: episodes array is required. Optional delegation claims are parsed
+ * leniently; invalid entries are dropped, and unknown kind/outcome values fall
+ * back instead of failing the response.
  */
 const segmentationEnvelopeSchema = z.object({
 	episodes: z.array(z.unknown()),
 	summary: z.unknown().optional(),
+	delegations: z.array(z.unknown()).catch([]),
 });
 
 const startTurnSchema = z
@@ -79,12 +84,24 @@ const lmEpisodeStartSchema = z.object({
 	outcome: z.enum(EPISODE_OUTCOME_VALUES).catch("unknown"),
 });
 
+const lmDelegationClaimSchema = z.object({
+	turn: startTurnSchema,
+	label: z
+		.string()
+		.catch("delegation")
+		.transform((label) => normalizeDelegationLabel(label)),
+	confidence: z.enum(["high", "low"]).catch("low"),
+});
+
 /** One LM-claimed episode start, validated but not yet repaired to real turns. */
 export type LmEpisodeStart = z.infer<typeof lmEpisodeStartSchema>;
+
+export type LmDelegationClaim = z.infer<typeof lmDelegationClaimSchema>;
 
 export interface LmSegmentation {
 	episodes: LmEpisodeStart[];
 	summary: string | null;
+	delegations: LmDelegationClaim[];
 }
 
 export type SegmentationParseResult =
@@ -108,8 +125,14 @@ export function parseSegmentationResponseText(text: string): SegmentationParseRe
 			return episode.success ? [episode.data] : [];
 		})
 		.slice(0, MAX_EPISODES);
+	const delegations = envelope.data.delegations
+		.flatMap((candidate): LmDelegationClaim[] => {
+			const delegation = lmDelegationClaimSchema.safeParse(candidate);
+			return delegation.success ? [delegation.data] : [];
+		})
+		.slice(0, MAX_DELEGATIONS);
 	const summary = typeof envelope.data.summary === "string" ? normalizeSummary(envelope.data.summary) : null;
-	return { ok: true, value: { episodes, summary } };
+	return { ok: true, value: { episodes, summary, delegations } };
 }
 
 function extractJsonObjectText(text: string): string | null {
@@ -126,6 +149,12 @@ function normalizeLabel(label: string): string {
 	const collapsed = collapseWhitespace(label);
 	if (collapsed.length === 0) return "uncategorized";
 	return truncateChars(collapsed, LABEL_MAX_CHARS);
+}
+
+function normalizeDelegationLabel(label: string): string {
+	const collapsed = collapseWhitespace(label);
+	if (collapsed.length === 0) return "delegation";
+	return truncateChars(collapsed, DELEGATION_LABEL_MAX_CHARS);
 }
 
 function normalizeSummary(summary: string): string | null {
@@ -231,6 +260,18 @@ function snapStartTurn(startTurn: number, turns: readonly LiveTurn[]): number {
 		if (turn.index >= clamped) return turn.index;
 	}
 	return last;
+}
+
+export function repairDelegations(claims: readonly LmDelegationClaim[], turns: readonly LiveTurn[]): DelegationClaim[] {
+	if (turns.length === 0) return [];
+	const claimsByTurn = new Map<number, DelegationClaim>();
+	for (const claim of claims) {
+		const turn = snapStartTurn(claim.turn, turns);
+		if (!claimsByTurn.has(turn)) {
+			claimsByTurn.set(turn, { turn, label: claim.label, confidence: claim.confidence });
+		}
+	}
+	return [...claimsByTurn.values()].sort((left, right) => left.turn - right.turn).slice(0, MAX_DELEGATIONS);
 }
 
 /**

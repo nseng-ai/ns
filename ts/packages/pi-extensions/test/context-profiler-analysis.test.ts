@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildEpisodeAnalysisPayload, parseEpisodeAnalysisResponseText } from "../src/context-profiler/analysis.ts";
+import { buildEpisodeAnalysisPayload, EPISODE_ANALYSIS_SYSTEM_PROMPT, parseEpisodeAnalysisResponseText } from "../src/context-profiler/analysis.ts";
 import type { EpisodeAnnotation } from "../src/context-profiler/model.ts";
 import { makeProfile, makeTurn } from "./context-profiler-fakes.ts";
 
@@ -30,6 +30,13 @@ describe("parseEpisodeAnalysisResponseText", () => {
 	});
 });
 
+describe("EPISODE_ANALYSIS_SYSTEM_PROMPT", () => {
+	test("includes the delegation efficiency weighting rule", () => {
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("delegation that kept large work out of this context is efficient");
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("Be qualitative and descriptive only");
+	});
+});
+
 describe("buildEpisodeAnalysisPayload", () => {
 	test("serializes one target episode with full normalized turn text and compact episode map", () => {
 		const profile = makeProfile([
@@ -37,12 +44,21 @@ describe("buildEpisodeAnalysisPayload", () => {
 			makeTurn(2, { role: "assistant", toolNames: ["bash"], message: { role: "assistant", toolName: null, parts: [{ kind: "toolCall", name: "bash", argsJson: "{\n  \"cmd\": \"test\"\n}" }], detailsJson: null } }),
 			makeTurn(3, { role: "toolResult", message: { role: "toolResult", toolName: "bash", parts: [{ kind: "text", text: "passed" }], detailsJson: "{\n  \"exitCode\": 0\n}" } }),
 		], { cap: { originalCount: 20, includedCount: 3, elidedMiddleTurns: 17 } });
-		const payload = buildEpisodeAnalysisPayload({ profile, episodes: EPISODES, episodeIndex: 1, summary: "A short session." });
+		const payload = buildEpisodeAnalysisPayload({
+			profile,
+			episodes: EPISODES,
+			episodeIndex: 1,
+			summary: "A short session.",
+			delegations: [
+				{ turn: 1, label: "out of span", confidence: "high" },
+				{ turn: 2, label: "delegate fix", confidence: "low" },
+			],
+		});
 		const request = JSON.parse(payload.json) as {
 			metadata: { model: string; turnCount: number; includedTurnCount: number; elidedMiddleTurns: number };
 			summary: string;
 			episodeMap: unknown[];
-			targetEpisode: { episode: number; label: string; turns: { turn: number; text: string }[] };
+			targetEpisode: { episode: number; label: string; delegations: unknown[]; turns: { turn: number; text: string }[] };
 		};
 
 		expect(request.metadata.model).toBe("anthropic/claude-fable-5");
@@ -54,6 +70,7 @@ describe("buildEpisodeAnalysisPayload", () => {
 		]);
 		expect(request.targetEpisode.episode).toBe(2);
 		expect(request.targetEpisode.label).toBe("fix");
+		expect(request.targetEpisode.delegations).toEqual([{ turn: 2, label: "delegate fix", confidence: "low" }]);
 		expect(request.targetEpisode.turns.map((turn) => turn.turn)).toEqual([2, 3]);
 		expect(request.targetEpisode.turns[0]?.text).toContain("⏺ bash");
 		expect(request.targetEpisode.turns[1]?.text).toContain("⏺ tool result · bash");

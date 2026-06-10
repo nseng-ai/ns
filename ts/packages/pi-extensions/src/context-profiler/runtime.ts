@@ -24,6 +24,7 @@ import {
 	buildLiveRegions,
 	capTurns,
 	deriveLiveTurns,
+	type DelegationClaim,
 	type EpisodeAnnotation,
 	type ProfileSnapshot,
 } from "./model.ts";
@@ -31,6 +32,7 @@ import {
 	buildSegmentationPayload,
 	computeSegmentationFingerprint,
 	MIN_TURNS_FOR_SEGMENTATION,
+	repairDelegations,
 	repairEpisodes,
 	type EpisodeAnalysisStatus,
 	type SegmentationState,
@@ -41,6 +43,7 @@ export interface SegmentationCacheEntry {
 	fingerprint: string;
 	episodes: EpisodeAnnotation[];
 	summary: string | null;
+	delegations: DelegationClaim[];
 }
 
 export interface ProfilerState {
@@ -138,7 +141,7 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 	const cached = state.segmentationCache;
 	const controller = new AbortController();
 	if (!force && cached !== null && cached.fingerprint === fingerprint) {
-		const initial = readyState(cached.episodes, cached.summary, initialAnalysisStatuses(cached.episodes));
+		const initial = readyState(cached.episodes, cached.summary, cached.delegations, initialAnalysisStatuses(cached.episodes));
 		startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate });
 		return { initial, abort: () => controller.abort() };
 	}
@@ -160,9 +163,10 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 				return;
 			}
 			const episodes = repairEpisodes(result.value.episodes, profile.liveTurns);
-			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary };
+			const delegations = repairDelegations(result.value.delegations, profile.liveTurns);
+			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary, delegations };
 			const analysis = initialAnalysisStatuses(episodes);
-			onUpdate(readyState(episodes, result.value.summary, analysis));
+			onUpdate(readyState(episodes, result.value.summary, delegations, analysis));
 			startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate, statuses: analysis });
 		},
 		(error: unknown) => {
@@ -190,7 +194,13 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 	cache.episodes.forEach((episode, episodeIndex) => {
 		if (hasAnalysisVerdicts(episode)) return;
 		statuses[episodeIndex] = "loading";
-		const payload = buildEpisodeAnalysisPayload({ profile: options.profile, episodes: cache.episodes, episodeIndex, summary: cache.summary });
+		const payload = buildEpisodeAnalysisPayload({
+			profile: options.profile,
+			episodes: cache.episodes,
+			episodeIndex,
+			summary: cache.summary,
+			delegations: cache.delegations,
+		});
 		void options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.controller.signal }).then(
 			(result) => {
 				if (options.controller.signal.aborted) return;
@@ -199,28 +209,33 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 				if (!result.ok) {
 					if (result.error.code === "aborted") return;
 					statuses[episodeIndex] = { type: "error", message: result.error.message };
-					options.onUpdate(readyState(currentCache.episodes, currentCache.summary, statuses));
+					options.onUpdate(readyState(currentCache.episodes, currentCache.summary, currentCache.delegations, statuses));
 					return;
 				}
 				currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
 					? { ...candidate, efficiency: result.value.efficiency, relevance: result.value.relevance }
 					: candidate);
 				statuses[episodeIndex] = "ready";
-				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, statuses));
+				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, currentCache.delegations, statuses));
 			},
 			(error: unknown) => {
 				if (options.controller.signal.aborted) return;
 				const currentCache = options.state.segmentationCache;
 				if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
 				statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
-				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, statuses));
+				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, currentCache.delegations, statuses));
 			},
 		);
 	});
 }
 
-function readyState(episodes: readonly EpisodeAnnotation[], summary: string | null, analysis: readonly EpisodeAnalysisStatus[]): SegmentationState {
-	return { type: "ready", episodes: [...episodes], summary, analysis: [...analysis] };
+function readyState(
+	episodes: readonly EpisodeAnnotation[],
+	summary: string | null,
+	delegations: readonly DelegationClaim[],
+	analysis: readonly EpisodeAnalysisStatus[],
+): SegmentationState {
+	return { type: "ready", episodes: [...episodes], summary, delegations: [...delegations], analysis: [...analysis] };
 }
 
 function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {

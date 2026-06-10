@@ -6,10 +6,12 @@
 
 import { z } from "zod";
 import {
+	delegationsInSpan,
 	EFFICIENCY_VALUES,
 	RELEVANCE_VALUES,
 	renderNormalizedMessageText,
 	turnsInRange,
+	type DelegationClaim,
 	type EfficiencyVerdict,
 	type EpisodeAnnotation,
 	type LiveTurn,
@@ -29,6 +31,7 @@ Definitions:
 - relevance=rot: the episode is misleading or contradicted by later work.
 Rules:
 - Judge only the target episode, using the episode map and summary for session position.
+- When the episode delegated work to subagents (see delegations), weigh that in efficiency: delegation that kept large work out of this context is efficient; the returned report's size is visible in the turn data.
 - Be qualitative and descriptive only; do not advise compaction, dropping, or action.
 - Do not compute or return token counts, percentages, or explanations.
 - Output the JSON object only; no Markdown, prose, or code fences.`;
@@ -52,6 +55,7 @@ export interface EpisodeAnalysisPayloadOptions {
 	episodes: readonly EpisodeAnnotation[];
 	episodeIndex: number;
 	summary: string | null;
+	delegations: readonly DelegationClaim[];
 }
 
 export interface EpisodeAnalysisPayload {
@@ -77,6 +81,7 @@ export function buildEpisodeAnalysisPayload(options: EpisodeAnalysisPayloadOptio
 	const episode = options.episodes[options.episodeIndex];
 	if (episode === undefined) throw new Error(`episode index ${options.episodeIndex} is out of range`);
 	const targetTurns = turnsInRange(options.profile.liveTurns, episode.turnRange);
+	const targetDelegations = delegationsInSpan(options.delegations, episode.turnRange);
 	// No per-turn clamp by design: per-episode requests keep the dominant path
 	// well below the fixed analysis model context window. A provider that
 	// silently truncates overlong prompts could still judge unseen content; this
@@ -107,6 +112,7 @@ export function buildEpisodeAnalysisPayload(options: EpisodeAnalysisPayloadOptio
 					kind: episode.kind,
 					outcome: episode.outcome,
 					turnRange: episode.turnRange,
+					delegations: targetDelegations.map(serializeDelegation),
 					turns: targetTurns.map(serializeTurn),
 				},
 			},
@@ -124,6 +130,10 @@ function serializeTurn(turn: LiveTurn): { turn: number; role: string; tokens: nu
 		tools: turn.toolNames,
 		text: renderNormalizedMessageText(turn.message),
 	};
+}
+
+function serializeDelegation(claim: DelegationClaim): { turn: number; label: string; confidence: string } {
+	return { turn: claim.turn, label: claim.label, confidence: claim.confidence };
 }
 
 function extractJsonObjectText(text: string): string | null {

@@ -87,6 +87,22 @@ export const RELEVANCE_VALUES = ["load-bearing", "still-useful", "stale", "rot"]
 
 export type RelevanceVerdict = (typeof RELEVANCE_VALUES)[number];
 
+/** Runtime value list kept alongside the type so Zod enums can derive from it. */
+export const DELEGATION_CONFIDENCE_VALUES = ["high", "low", "inferred"] as const;
+
+export type DelegationConfidence = (typeof DELEGATION_CONFIDENCE_VALUES)[number];
+
+export interface DelegationClaim {
+	/** 1-based turn index containing the delegating tool call. */
+	turn: number;
+	label: string;
+	confidence: DelegationConfidence;
+}
+
+export const MAX_DELEGATIONS = 24;
+
+const INFERRED_DELEGATION_TOOL_PATTERN = /(^|[_-])(sub)?agent($|[_-])|subagent|task|dispatch|spawn/i;
+
 export interface TurnRange {
 	start: number;
 	end: number;
@@ -432,6 +448,28 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 
 export function turnsInRange(turns: readonly LiveTurn[], range: TurnRange): LiveTurn[] {
 	return turns.filter((turn) => turn.index >= range.start && turn.index <= range.end);
+}
+
+export function inferredDelegations(turns: readonly LiveTurn[]): DelegationClaim[] {
+	return turns
+		.flatMap((turn): DelegationClaim[] => {
+			const label = turn.toolNames.find((toolName) => INFERRED_DELEGATION_TOOL_PATTERN.test(toolName));
+			return label === undefined ? [] : [{ turn: turn.index, label, confidence: "inferred" }];
+		})
+		.slice(0, MAX_DELEGATIONS);
+}
+
+export function delegationsInSpan(claims: readonly DelegationClaim[], turnRange: TurnRange): DelegationClaim[] {
+	return claims.filter((claim) => claim.turn >= turnRange.start && claim.turn <= turnRange.end);
+}
+
+export type DelegationDisplaySegmentation =
+	| { type: "ready"; delegations: readonly DelegationClaim[] }
+	| { type: "idle" | "loading" | "error" };
+
+export function displayDelegations(profile: Pick<ProfileSnapshot, "liveTurns">, segmentation: DelegationDisplaySegmentation): DelegationClaim[] {
+	if (segmentation.type === "ready") return [...segmentation.delegations];
+	return inferredDelegations(profile.liveTurns);
 }
 
 /** Render a normalized message verbatim with semantic part headers. */

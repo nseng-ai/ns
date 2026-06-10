@@ -21,6 +21,7 @@ const SUCCESS: SegmentationCallResult = {
 	value: {
 		episodes: [{ startTurn: 1, label: "the work", kind: "edit", outcome: "active" }],
 		summary: "A short session.",
+		delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 	},
 };
 
@@ -52,15 +53,21 @@ describe("startSegmentation", () => {
 			type: "ready",
 			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 } }],
 			summary: "A short session.",
+			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 			analysis: ["loading"],
 		});
 		expect(updates[1]).toEqual({
 			type: "ready",
 			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
 			summary: "A short session.",
+			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 			analysis: ["ready"],
 		});
-		expect(state.segmentationCache).toMatchObject({ fingerprint: computeSegmentationFingerprint(profile), summary: "A short session." });
+		expect(state.segmentationCache).toMatchObject({
+			fingerprint: computeSegmentationFingerprint(profile),
+			summary: "A short session.",
+			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
+		});
 		expect(gateway.calls).toHaveLength(1);
 		expect(gateway.analysisCalls).toHaveLength(1);
 	});
@@ -79,6 +86,7 @@ describe("startSegmentation", () => {
 			type: "ready",
 			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
 			summary: "A short session.",
+			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 			analysis: ["ready"],
 		});
 		await settled();
@@ -93,6 +101,7 @@ describe("startSegmentation", () => {
 		state.segmentationCache = {
 			fingerprint: computeSegmentationFingerprint(profile),
 			summary: "A short session.",
+			delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 			episodes: [
 				{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
 				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
@@ -105,6 +114,7 @@ describe("startSegmentation", () => {
 		expect(initial).toEqual({
 			type: "ready",
 			summary: "A short session.",
+			delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 			analysis: ["ready", "loading"],
 			episodes: [
 				{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
@@ -115,10 +125,12 @@ describe("startSegmentation", () => {
 
 		expect(gateway.calls).toHaveLength(0);
 		expect(gateway.analysisCalls).toHaveLength(1);
+		expect(JSON.parse(gateway.analysisCalls[0]?.json ?? "{}").targetEpisode.delegations).toEqual([{ turn: 6, label: "delegate fix", confidence: "low" }]);
 		expect(updates).toEqual([
 			{
 				type: "ready",
 				summary: "A short session.",
+				delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 				analysis: ["ready", "ready"],
 				episodes: [
 					{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
