@@ -256,6 +256,10 @@ function gitBranchStep(branch: string, result: Partial<ExecResult> = {}): Script
 	return step("git", ["branch", branch, "HEAD"], result);
 }
 
+function gtInfoStep(branch: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["info", branch, "--no-interactive"], result);
+}
+
 function gtTrackStep(branch: string, parent: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
 	return step("gt", ["track", branch, "--parent", parent, "--no-interactive"], result);
 }
@@ -453,6 +457,7 @@ function graphiteSuccessScript(input: { branch: string; key: string; filePath: s
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
 		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
 		gitCurrentBranchStep(),
+		gtInfoStep(),
 		gitBranchStep(input.branch),
 		gtTrackStep(input.branch),
 		brmemPutStep(input.branch, input.key, input.filePath, {
@@ -984,7 +989,7 @@ describe("plan workflow commands", () => {
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"planned-branch:create",
 			"planned-branch:impl",
-			"planned-branch:up-and-impl",
+			"planned-branch:upstack-impl-session",
 			"plans:grill-and-write",
 			"plans:write",
 		]);
@@ -1628,6 +1633,10 @@ describe("plan workflow commands", () => {
 			args: ["branch", "--show-current"],
 		});
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
+			command: "gt",
+			args: ["info", SOURCE_BRANCH, "--no-interactive"],
+		});
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
 			command: "git",
 			args: ["branch", PLAN_SLUG, "HEAD"],
 		});
@@ -1655,6 +1664,10 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.map((call) => call.command)).toContain("gt");
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
 			command: "gt",
+			args: ["info", SOURCE_BRANCH, "--no-interactive"],
+		});
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
+			command: "gt",
 			args: ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"],
 		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
@@ -1662,15 +1675,15 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("planned-branch:up-and-impl creates with Graphite, checks out the branch, and dispatches impl in a new session", async () => {
+	test("planned-branch:upstack-impl-session creates with Graphite, checks out the branch, and dispatches impl in a new session", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi(
 			[planSlugStep(DEFAULT_PLAN_CONTENT), ...graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }), gitCheckoutStep(PLAN_SLUG)],
 			events,
 		);
-		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "graphite" });
-		const command = pi.commands.get("planned-branch:up-and-impl");
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:upstack-impl-session");
 		const context = createContext(events, { sessionFile: "/sessions/source.jsonl" });
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -1685,6 +1698,7 @@ describe("plan workflow commands", () => {
 			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`] },
 			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_SLUG, "--format", "json"] },
 			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "gt", args: ["info", SOURCE_BRANCH, "--no-interactive"] },
 			{ command: "git", args: ["branch", PLAN_SLUG, "HEAD"] },
 			{ command: "gt", args: ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"] },
 			{
@@ -1700,14 +1714,14 @@ describe("plan workflow commands", () => {
 		expect(context.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
 		expect(events.indexOf("new-session")).toBeGreaterThan(events.indexOf("status"));
 		expect(events.indexOf("replacement-send")).toBeGreaterThan(events.indexOf("new-session"));
-		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:up-and-impl", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:upstack-impl-session", value: undefined });
 	});
 
-	test("planned-branch:up-and-impl dry-run previews checkout and new-session implementation", async () => {
+	test("planned-branch:upstack-impl-session dry-run defaults to Graphite even when the extension option says plain Git", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "graphite" });
-		const command = pi.commands.get("planned-branch:up-and-impl");
+		registerPlannedBranchExtension(pi, { plannedBranchDefaultCreation: "plain-git" });
+		const command = pi.commands.get("planned-branch:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --dry-run`, context.ctx);
@@ -1722,13 +1736,53 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`/planned-branch:impl ${PLAN_KEY}`);
 	});
 
-	test("planned-branch:up-and-impl supports plain Git creation before checkout", async () => {
+	test("planned-branch:upstack-impl-session with an untracked Graphite parent fails before branch creation or checkout", async () => {
+		const filePath = await makeNamedPlanFile();
+		const pi = new FakePi([
+			planSlugStep(DEFAULT_PLAN_CONTENT),
+			gitRootStep(),
+			refFormatStep(PLAN_SLUG),
+			headStep(),
+			localBranchCheckStep(PLAN_SLUG, { code: 1, stderr: "absent" }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 1, stderr: "absent" }),
+			gitCurrentBranchStep(),
+			gtInfoStep(SOURCE_BRANCH, { code: 1, stderr: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.` }),
+		]);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		const context = createContext();
+
+		await command?.handler(`${filePath} --yes`, context.ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+			planSlugExecCall(DEFAULT_PLAN_CONTENT),
+			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
+			{ command: "git", args: ["check-ref-format", "--branch", PLAN_SLUG] },
+			{ command: "git", args: ["rev-parse", "HEAD"] },
+			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_SLUG, "--format", "json"] },
+			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "gt", args: ["info", SOURCE_BRANCH, "--no-interactive"] },
+		]);
+		const content = pi.sentMessages[0]?.content ?? "";
+		expect(content).toContain("Failed to create planned branch and attach the plan.");
+		expect(content).toContain("Current branch is not tracked by Graphite; refusing to stack a planned branch on it.");
+		expect(content).toContain(`Parent branch: ${SOURCE_BRANCH}`);
+		expect(content).toContain("No branch was created and no plan was attached.");
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["checkout", PLAN_SLUG]);
+		expect(context.replacementUserMessages).toEqual([]);
+		expect(context.newSessionParentSessions).toEqual([]);
+	});
+
+	test("planned-branch:upstack-impl-session supports plain Git creation before checkout", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), ...successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }), gitCheckoutStep(PLAN_SLUG)]);
 		registerPlannedBranchExtension(pi, {
 			plannedBranchDefaultCreation: "graphite",
 		});
-		const command = pi.commands.get("planned-branch:up-and-impl");
+		const command = pi.commands.get("planned-branch:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes --plain-git`, context.ctx);

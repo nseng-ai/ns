@@ -47,6 +47,8 @@ export {
 } from "./git-gateway.ts";
 export {
 	RealPlannedBranchGraphiteGateway,
+	type GraphiteBranchTrackedResult,
+	type GraphiteCheckBranchTrackedParams,
 	type GraphiteErrorInfo,
 	type GraphiteOperationResult,
 	type GraphiteTrackBranchParams,

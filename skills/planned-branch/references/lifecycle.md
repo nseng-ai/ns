@@ -50,7 +50,7 @@ Pi surfaces:
 - `/plans:write`
 - `/plans:grill-and-write` (Pi-only structured UI over the same Saved plan artifact)
 - `/planned-branch:create`
-- `/planned-branch:up-and-impl`
+- `/planned-branch:upstack-impl-session`
 - `/planned-branch:impl`
 
 CLI surfaces:

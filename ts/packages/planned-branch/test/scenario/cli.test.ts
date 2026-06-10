@@ -290,6 +290,7 @@ describe("planned-branch exec", () => {
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([]);
 		expect(run.graphite.trackBranchCalls).toEqual([]);
 		expect(run.brmem.attachedPlans).toContainEqual({
 			branch,
@@ -338,8 +339,57 @@ describe("planned-branch exec", () => {
 			key: PLAN_KEY,
 			source_file: planFile,
 		});
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
 		expect(run.graphite.trackBranchCalls).toEqual([{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH }]);
 		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+	});
+
+	test("untracked Graphite parents fail before creating a branch or attaching Branch Memory", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(
+			[
+				"exec",
+				"create",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				planFile,
+				"--branch",
+				branch,
+				"--branch-creation",
+				"graphite",
+				"--format",
+				"json",
+			],
+			[],
+			{
+				cwd: repoRoot,
+				git: { headCommit: START_POINT },
+				graphite: {
+					untrackedBranches: [SOURCE_BRANCH],
+					untrackedDetail: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.`,
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload.success).toBe(false);
+		const message = String((payload.error as { message: string }).message);
+		expect(message).toContain("Current branch is not tracked by Graphite; refusing to stack a planned branch on it.");
+		expect(message).toContain(`Parent branch: ${SOURCE_BRANCH}`);
+		expect(message).toContain("No branch was created and no plan was attached.");
+		expect(message).toContain("ERROR: Cannot perform this operation on untracked branch");
+		expect(run.git.existingBranches).not.toContain(branch);
+		expect(run.git.createBranchAtHeadCalls).toEqual([]);
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
+		expect(run.graphite.trackBranchCalls).toEqual([]);
+		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
 	test("Graphite tracking failures keep the local branch and skip Branch Memory attach", async () => {
@@ -380,6 +430,7 @@ describe("planned-branch exec", () => {
 		expect(String((payload.error as { message: string }).message)).toContain("No attached plan was stored.");
 		expect(String((payload.error as { message: string }).message)).toContain("gt track failed");
 		expect(run.git.existingBranches).toContain(branch);
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
 		expect(run.graphite.trackBranchCalls).toEqual([{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH }]);
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});

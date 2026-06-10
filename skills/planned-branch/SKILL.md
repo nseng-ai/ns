@@ -1,6 +1,6 @@
 ---
 name: planned-branch
-description: "Use for explicit planned-branch lifecycle, reference, diagnostics, admin, or repair work: planned-branch, planned branch, saved planned-branch plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair planned-branch metadata, or Pi commands `/plans:write`, `/plans:grill-and-write`, `/planned-branch:create`, `/planned-branch:up-and-impl`, `/planned-branch:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless planned-branch intent is explicit."
+description: "Use for explicit planned-branch lifecycle, reference, diagnostics, admin, or repair work: planned-branch, planned branch, saved planned-branch plan, Local plan store, Source branch plan file, planned-branch slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair planned-branch metadata, or Pi commands `/plans:write`, `/plans:grill-and-write`, `/planned-branch:create`, `/planned-branch:upstack-impl-session`, `/planned-branch:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless planned-branch intent is explicit."
 ---
 
 # planned-branch

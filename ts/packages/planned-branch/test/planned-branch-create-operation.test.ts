@@ -1,9 +1,13 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { formatCommand } from "@asdl/plans";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	buildPlannedBranchCreateOperation,
+	createPlannedBranchFromFile,
 	formatPlannedBranchCreateFailure,
 	formatPlannedBranchCreatePreview,
 	formatPlannedBranchEvidence,
@@ -11,7 +15,9 @@ import {
 	tryNormalizeBranchCreationMethod,
 } from "../src/planned-branch-creation.ts";
 import type { PlanCommandExecApi } from "@asdl/plans";
+import { InMemoryPlannedBranchBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryPlannedBranchGitGateway } from "./support/in-memory-git-gateway.ts";
+import { InMemoryPlannedBranchGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
@@ -19,12 +25,33 @@ const PLAN_FILE = "/tmp/branch-scoped-plan.md";
 const TARGET_BRANCH = "planned-branches/branch-scoped-plan";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "feature/source-plan";
+const ROOT = "/repo";
+
+const tempDirs: string[] = [];
 
 const NO_COMMANDS: PlanCommandExecApi = {
 	async exec() {
 		throw new Error("unexpected command execution");
 	},
 };
+
+afterEach(async () => {
+	const dirs = tempDirs.splice(0);
+	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+async function makeTempDir(prefix = "planned-branch-create-operation-"): Promise<string> {
+	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
+	tempDirs.push(dir);
+	return dir;
+}
+
+async function makePlanFile(): Promise<string> {
+	const dir = await makeTempDir();
+	const filePath = join(dir, "plan.md");
+	await writeFile(filePath, "# Plan\n", "utf8");
+	return filePath;
+}
 
 describe("buildPlannedBranchCreateOperation", () => {
 	test("derives the default branch, key, namespace, params, and normalized summary", () => {
@@ -110,6 +137,7 @@ describe("planned-branch create preview", () => {
 		expect(text).toContain(`Start point: ${START_POINT}`);
 		expect(text).toContain(`Branch Memory namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(text).toContain(formatCommand("gt", ["info", SOURCE_BRANCH, "--no-interactive"]));
 		expect(text).toContain(formatCommand("git", ["branch", TARGET_BRANCH, "HEAD"]));
 		expect(text).toContain(formatCommand("gt", ["track", TARGET_BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"]));
 		expect(text).toContain(
@@ -123,6 +151,7 @@ describe("planned-branch create preview", () => {
 		const text = formatPlannedBranchCreatePreview(operation, { startPoint: START_POINT });
 
 		expect(text).toContain(formatCommand("git", ["branch", PLAN_SLUG, "HEAD"]));
+		expect(text).not.toContain("gt info");
 		expect(text).not.toContain("gt track");
 	});
 
@@ -133,6 +162,50 @@ describe("planned-branch create preview", () => {
 
 		expect(context).toEqual({ startPoint: START_POINT });
 		expect(git.headCommitCalls).toEqual([{ cwd: "/repo" }]);
+	});
+});
+
+describe("planned-branch create execution", () => {
+	test("Graphite creation checks parent trackedness before tracking the new branch", async () => {
+		const git = new InMemoryPlannedBranchGitGateway({ optionalRepoRoot: { type: "missing" }, sourceBranch: SOURCE_BRANCH, headCommit: START_POINT });
+		const brmem = new InMemoryPlannedBranchBrmemGateway();
+		const graphite = new InMemoryPlannedBranchGraphiteGateway();
+		const filePath = await makePlanFile();
+
+		const evidence = await createPlannedBranchFromFile(
+			NO_COMMANDS,
+			{ slug: PLAN_SLUG, filePath, branchName: TARGET_BRANCH, branchCreation: "graphite" },
+			{ cwd: ROOT, git, brmem, graphite },
+		);
+
+		expect(evidence).toMatchObject({ branch: TARGET_BRANCH, branchCreation: "graphite", key: PLAN_KEY, sourceFile: filePath });
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: SOURCE_BRANCH }]);
+		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(graphite.trackBranchCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, parentBranch: SOURCE_BRANCH }]);
+		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile: filePath }]);
+	});
+
+	test("untracked Graphite parents fail before creating a branch or attaching the plan", async () => {
+		const git = new InMemoryPlannedBranchGitGateway({ optionalRepoRoot: { type: "missing" }, sourceBranch: SOURCE_BRANCH, headCommit: START_POINT });
+		const brmem = new InMemoryPlannedBranchBrmemGateway();
+		const graphite = new InMemoryPlannedBranchGraphiteGateway({
+			untrackedBranches: [SOURCE_BRANCH],
+			untrackedDetail: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.`,
+		});
+		const filePath = await makePlanFile();
+
+		await expect(
+			createPlannedBranchFromFile(
+				NO_COMMANDS,
+				{ slug: PLAN_SLUG, filePath, branchName: TARGET_BRANCH, branchCreation: "graphite" },
+				{ cwd: ROOT, git, brmem, graphite },
+			),
+		).rejects.toThrow("Current branch is not tracked by Graphite; refusing to stack a planned branch on it.");
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: SOURCE_BRANCH }]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
 	});
 });
 

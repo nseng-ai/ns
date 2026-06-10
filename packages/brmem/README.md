@@ -34,7 +34,7 @@ layer rather than the generic Branch Memory CLI.
 
 See [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md) for
 `/plans:write`, `/planned-branch:create`,
-`/planned-branch:up-and-impl`, `/planned-branch:impl`, and the companion agent
+`/planned-branch:upstack-impl-session`, `/planned-branch:impl`, and the companion agent
 skills over the `plans` and `planned-branch` CLIs.
 
 ## Mental Model
