@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { runCli } from "../../src/cli.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
@@ -15,6 +15,76 @@ const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
+
+const TOP_LEVEL_HELP = [
+	"Usage: planned-branch [options] [command]",
+	"",
+	"Planned branch operations.",
+	"",
+	"Options:",
+	"  -V, --version  Show the package version.",
+	"  --runtime      Show CLI runtime diagnostics and exit.",
+	"  -h, --help     display help for command",
+	"",
+].join("\n");
+// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from top-level help.
+
+const EXEC_HELP = [
+	"Usage: planned-branch exec [options] [command]",
+	"",
+	"Run hidden deterministic planned-branch operations for agents.",
+	"",
+	"Options:",
+	"  -h, --help                         display help for command",
+	"",
+	"Commands:",
+	"  create [options]                   Create a planned branch and attach a plan",
+	"                                     with Branch Memory.",
+	"  load-plan [options] [key-or-slug]  Load an attached plan and render the",
+	"                                     implementation prompt.",
+	"",
+].join("\n");
+
+const CREATE_HELP = [
+	"Usage: planned-branch exec create [options]",
+	"",
+	"Create a planned branch and attach a plan with Branch Memory.",
+	"",
+	"Options:",
+	"  --slug <value>             Planned branch slug.",
+	"  --plan-file <value>        Plan file path (must live outside the repository).",
+	"  --branch <value>           Branch name (defaults to the slug).",
+	'  --branch-creation <value>  Branch creation method. (default: "plain-git")',
+	'                             (choices: "plain-git", "graphite")',
+	"  --summary <value>          Optional plan summary.",
+	'  --format <format>          Output format. (choices: "human", "json", default:',
+	'                             "human")',
+	"  --json-schema              Print the JSON Schema for this command's",
+	"                             input/output and exit.",
+	"  -h, --help                 display help for command",
+	"",
+].join("\n");
+
+const LOAD_PLAN_HELP = [
+	"Usage: planned-branch exec load-plan [options] [key-or-slug]",
+	"",
+	"Load an attached plan and render the implementation prompt.",
+	"",
+	"Arguments:",
+	"  key-or-slug            Attached plan key or slug.",
+	"",
+	"Options:",
+	"  --prompt-file <value>  Write the implementation prompt to this file.",
+	"  --include-content      Include the attached plan content in JSON output.",
+	"  --include-prompt       Include the implementation prompt in JSON output.",
+	'  --format <format>      Output format. (choices: "human", "json", default:',
+	'                         "human")',
+	"  --json-schema          Print the JSON Schema for this command's input/output",
+	"                         and exit.",
+	"  -h, --help             display help for command",
+	"",
+].join("\n");
+
 interface ExecCall {
 	command: string;
 	args: string[];
@@ -134,12 +204,12 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
-	return { command, args, result };
-}
-
 function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function jsonFailure(message: string): string {
+	return `${JSON.stringify({ success: false, error: { code: "planned_branch_error", message } })}\n`;
 }
 
 function parseJson(run: CliRun): Record<string, unknown> {
@@ -171,93 +241,143 @@ function expectNoGitOrBrmemCalls(run: CliRun): void {
 	expect(run.brmem.getAttachedPlanCalls).toEqual([]);
 }
 
-describe("planned-branch CLI help", () => {
-	test("prints top-level help, version, and exec help", async () => {
+describe("planned-branch CLI help, version, and dispatch pins", () => {
+	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help for %j", async (args) => {
 		const repoRoot = await makeTempDir();
-		const help = runWithFakes(["--help"], [], { cwd: repoRoot });
-		expect(await help.exit).toBe(0);
-		expect(help.stdout.join("")).toContain("Usage: planned-branch");
-		expect(help.stdout.join("")).toContain("--runtime");
-		expect(help.stdout.join("")).toContain("exec");
+		const run = runWithFakes(args, [], { cwd: repoRoot });
 
-		const version = runWithFakes(["--version"], [], { cwd: repoRoot });
-		expect(await version.exit).toBe(0);
-		expect(version.stdout.join("")).toBe("0.1.0\n");
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(TOP_LEVEL_HELP);
+		expect(run.stderr.join("")).toBe("");
+		expectNoGitOrBrmemCalls(run);
+	});
 
-		const runtime = runWithFakes(["--runtime"], [], { cwd: repoRoot });
-		expect(await runtime.exit).toBe(0);
-		expect(runtime.stdout.join("")).toBe(
+	test.each([[["-V"]], [["--version"]]])("pins version output for %j", async (args) => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(args, [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("0.1.0\n");
+		expect(run.stderr.join("")).toBe("");
+		expectNoGitOrBrmemCalls(run);
+	});
+
+	test("pins --runtime output", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["--runtime"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
 			"runtime: typescript\nentry_point: @asdl/planned-branch bin planned-branch -> ts/packages/planned-branch/src/cli.ts\n",
 		);
-		expectNoGitOrBrmemCalls(runtime);
+		expect(run.stderr.join("")).toBe("");
+		expectNoGitOrBrmemCalls(run);
+	});
 
-		const execHelp = runWithFakes(["exec", "--help"], [], { cwd: repoRoot });
-		expect(await execHelp.exit).toBe(0);
-		expect(execHelp.stdout.join("")).toContain("create");
-		expect(execHelp.stdout.join("")).toContain("load-plan");
-		expect(execHelp.stdout.join("")).not.toContain("write-plan-file");
-		expect(execHelp.stdout.join("")).not.toContain("resolve-plan");
-		expect(execHelp.stdout.join("")).not.toContain("preview-ts");
+	test.each([
+		[["exec"], EXEC_HELP],
+		[["exec", "--help"], EXEC_HELP],
+		[["exec", "-h"], EXEC_HELP],
+		[["exec", "create", "--help"], CREATE_HELP],
+		[["exec", "create", "-h"], CREATE_HELP],
+		[["exec", "load-plan", "--help"], LOAD_PLAN_HELP],
+		[["exec", "load-plan", "-h"], LOAD_PLAN_HELP],
+	])("prints exact help for %j", async (args, help) => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(args, [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(help);
+		expect(run.stderr.join("")).toBe("");
+		expectNoGitOrBrmemCalls(run);
+	});
+
+	test("pins unknown command and unknown exec operation stderr", async () => {
+		const repoRoot = await makeTempDir();
+		const unknown = runWithFakes(["bogus"], [], { cwd: repoRoot });
+		expect(await unknown.exit).toBe(2);
+		expect(unknown.stdout.join("")).toBe("");
+		expect(unknown.stderr.join("")).toBe("error: unknown command 'bogus'\n");
+
+		const unknownExec = runWithFakes(["exec", "bogus"], [], { cwd: repoRoot });
+		expect(await unknownExec.exit).toBe(2);
+		expect(unknownExec.stderr.join("")).toBe("error: unknown command 'bogus'\n");
+
+		const unknownExecJson = runWithFakes(["exec", "bogus", "--format", "json"], [], { cwd: repoRoot });
+		expect(await unknownExecJson.exit).toBe(2);
+		expect(unknownExecJson.stdout.join("")).toBe("");
+		expect(unknownExecJson.stderr.join("")).toBe("error: unknown command 'bogus'\n");
+		// PINNED CLINKR SEMANTICS: unknown exec operations bypass --format json.
 	});
 });
 
 describe("planned-branch CLI parse failures", () => {
-	test("reports missing flag values as human errors without running commands", async () => {
+	test("reports missing flag values as raw stderr without running commands", async () => {
 		const repoRoot = await makeTempDir();
 		const run = runWithFakes(["exec", "create", "--slug"], [], { cwd: repoRoot });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Error: --slug requires a value.\n");
+		expect(run.stderr.join("")).toBe("error: option '--slug <value>' argument missing\n");
 		expect(run.commands.execCalls).toEqual([]);
 	});
 
-	test("reports missing flag values as JSON errors without running commands", async () => {
+	test("missing flag value before --format json consumes the next flag", async () => {
 		const repoRoot = await makeTempDir();
 		const run = runWithFakes(["exec", "create", "--slug", "--format", "json"], [], { cwd: repoRoot });
 
 		expect(await run.exit).toBe(2);
-		expect(parseJson(run)).toEqual({
-			success: false,
-			error: { code: "planned_branch_error", message: "--slug requires a value." },
-		});
-		expect(run.stderr.join("")).toBe("");
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: too many arguments for 'create'. Expected 0 arguments but got 1.\n");
 		expect(run.commands.execCalls).toEqual([]);
+		// PINNED QUIRK (clinkr-migration): commander consumes "--format" as the --slug
+		// value, leaving "json" as an excess positional; usage errors stay raw stderr.
 	});
 
-	test("reports malformed arguments as human errors without running commands", async () => {
+	test("reports missing required options as zod usage errors", async () => {
 		const repoRoot = await makeTempDir();
-		const run = runWithFakes(["exec", "load-plan", "--bogus"], [], { cwd: repoRoot });
+		const run = runWithFakes(["exec", "create"], [], { cwd: repoRoot });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Error: Unknown option: --bogus\n");
+		expect(run.stderr.join("")).toBe(
+			[
+				"error: --slug: Invalid input: expected string, received undefined",
+				"error: --plan-file: Invalid input: expected string, received undefined",
+				"",
+			].join("\n"),
+		);
 		expect(run.commands.execCalls).toEqual([]);
 	});
 
-	test("reports malformed arguments as JSON errors without running commands", async () => {
+	test("reports unknown options as raw stderr in human and JSON modes", async () => {
 		const repoRoot = await makeTempDir();
-		const run = runWithFakes(["exec", "load-plan", "--format", "json", "--bogus"], [], { cwd: repoRoot });
+		const human = runWithFakes(["exec", "load-plan", "--bogus"], [], { cwd: repoRoot });
+		expect(await human.exit).toBe(2);
+		expect(human.stdout.join("")).toBe("");
+		expect(human.stderr.join("")).toBe("error: unknown option '--bogus'\n");
+		expect(human.commands.execCalls).toEqual([]);
 
-		expect(await run.exit).toBe(2);
-		expect(parseJson(run)).toEqual({
-			success: false,
-			error: { code: "planned_branch_error", message: "Unknown option: --bogus" },
-		});
-		expect(run.stderr.join("")).toBe("");
-		expect(run.commands.execCalls).toEqual([]);
+		const json = runWithFakes(["exec", "load-plan", "--format", "json", "--bogus"], [], { cwd: repoRoot });
+		expect(await json.exit).toBe(2);
+		expect(json.stdout.join("")).toBe("");
+		expect(json.stderr.join("")).toBe("error: unknown option '--bogus'\n");
+		expect(json.commands.execCalls).toEqual([]);
+		// PINNED CLINKR SEMANTICS: usage errors are raw stderr, never JSON-enveloped.
 	});
 
-	test("rejects JSON-only load-plan fields in text mode before loading a plan", async () => {
+	test("pins invalid planned branch slug failures in human and JSON modes", async () => {
 		const repoRoot = await makeTempDir();
-		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content"], [], { cwd: repoRoot });
+		const message = "Invalid planned branch slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.";
+		const human = runWithFakes(["exec", "create", "--slug", "Not-Kebab-Case", "--plan-file", "/tmp/plan.md"], [], { cwd: repoRoot });
+		expect(await human.exit).toBe(2);
+		expect(human.stdout.join("")).toBe("");
+		expect(human.stderr.join("")).toBe(`error: ${message}\n`);
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Error: --include-content and --include-prompt require --format json.\n");
-		expect(run.commands.execCalls).toEqual([]);
-		expect(run.brmem.listAttachedPlansCalls).toEqual([]);
-		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+		const json = runWithFakes(["exec", "create", "--slug", "Not-Kebab-Case", "--plan-file", "/tmp/plan.md", "--format", "json"], [], { cwd: repoRoot });
+		expect(await json.exit).toBe(2);
+		expect(json.stdout.join("")).toBe(jsonFailure(message));
+		expect(json.stderr.join("")).toBe("");
 	});
 });
 
@@ -547,54 +667,44 @@ describe("planned-branch exec", () => {
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
+
+	test("load-plan accepts JSON-only include flags in human mode without changing output", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const content = "# Attached Plan\n\n- Implement from this.\n";
+		const fakes = {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
+		};
+		const withFlags = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content", "--include-prompt"], [], fakes);
+		expect(await withFlags.exit).toBe(0);
+		expect(withFlags.stderr.join("")).toBe("");
+		expect(withFlags.stdout.join("")).toContain(`Selected key: ${PLAN_KEY}`);
+		expect(withFlags.stdout.join("")).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
+
+		const withoutFlags = runWithFakes(["exec", "load-plan", PLAN_SLUG], [], fakes);
+		expect(await withoutFlags.exit).toBe(0);
+		expect(withoutFlags.stdout.join("")).toBe(withFlags.stdout.join(""));
+		// PINNED CLINKR SEMANTICS (behavior change): --include-content/--include-prompt
+		// no longer require --format json; they are accepted and ignored in human mode.
+	});
 });
 
 describe("planned-branch CLI surface pinning", () => {
-	const topLevelHelp = [
-		"Usage: planned-branch [--version] [--runtime] <command>",
-		"",
-		"Commands:",
-		"  exec    Run hidden deterministic planned-branch operations for agents.",
-		"",
-		"Options:",
-		"  -h, --help       Show this help.",
-		"  -V, --version    Show the package version.",
-		"  --runtime        Show CLI runtime diagnostics and exit.",
-		"",
-	].join("\n");
-
-	function jsonFailure(message: string): string {
-		return `${JSON.stringify({ success: false, error: { code: "planned_branch_error", message } })}\n`;
-	}
-
-	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help for %j", async (args) => {
+	test("accepts inline equals syntax for create flags", async () => {
 		const repoRoot = await makeTempDir();
-		const run = runWithFakes(args, [], { cwd: repoRoot });
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const run = runWithFakes(["exec", "create", `--slug=${PLAN_SLUG}`, `--plan-file=${planFile}`, "--format=json"], [], {
+			cwd: repoRoot,
+			git: { headCommit: START_POINT },
+		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(topLevelHelp);
-		expect(run.stderr.join("")).toBe("");
-		expectNoGitOrBrmemCalls(run);
-	});
-
-	test("pins -V output", async () => {
-		const repoRoot = await makeTempDir();
-		const run = runWithFakes(["-V"], [], { cwd: repoRoot });
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("0.1.0\n");
-		expect(run.stderr.join("")).toBe("");
-		expectNoGitOrBrmemCalls(run);
-	});
-
-	test("rejects inline equals syntax for create flags", async () => {
-		const repoRoot = await makeTempDir();
-		const run = runWithFakes(["exec", "create", "--slug=branch-scoped-plan"], [], { cwd: repoRoot });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Error: Unknown option: --slug=branch-scoped-plan\n");
-		// PINNED QUIRK (clinkr-migration): planned-branch does not accept --flag=value syntax.
+		expect(parseJson(run)).toMatchObject({ success: true, slug: PLAN_SLUG, branch: PLAN_SLUG, source_file: planFile });
+		// PINNED CLINKR SEMANTICS: commander accepts --flag=value syntax.
 	});
 
 	test("last duplicate --slug wins in create JSON output", async () => {
@@ -624,17 +734,37 @@ describe("planned-branch CLI surface pinning", () => {
 		// PINNED QUIRK (clinkr-migration): duplicate scalar flags are accepted and the last value wins.
 	});
 
-	test("pins invalid branch-creation in human and JSON formats", async () => {
+	test("pins invalid branch-creation as a raw commander choices error in human and JSON modes", async () => {
 		const repoRoot = await makeTempDir();
+		const message = "error: option '--branch-creation <value>' argument 'bogus' is invalid. Allowed choices are plain-git, graphite.\n";
 		const human = runWithFakes(["exec", "create", "--slug", PLAN_SLUG, "--plan-file", "/tmp/plan.md", "--branch-creation", "bogus"], [], { cwd: repoRoot });
 		expect(await human.exit).toBe(2);
-		expect(human.stderr.join("")).toBe("Error: --branch-creation must be one of plain-git or graphite.\n");
+		expect(human.stdout.join("")).toBe("");
+		expect(human.stderr.join("")).toBe(message);
 
 		const json = runWithFakes(["exec", "create", "--slug", PLAN_SLUG, "--plan-file", "/tmp/plan.md", "--branch-creation", "bogus", "--format", "json"], [], {
 			cwd: repoRoot,
 		});
 		expect(await json.exit).toBe(2);
-		expect(json.stdout.join("")).toBe(jsonFailure("--branch-creation must be one of plain-git or graphite."));
+		expect(json.stdout.join("")).toBe("");
+		expect(json.stderr.join("")).toBe(message);
+		// PINNED CLINKR SEMANTICS: enum choice errors are raw stderr, never JSON-enveloped.
+	});
+
+	test("accepts --format human explicitly", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const content = "# Attached Plan\n";
+		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "human"], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.stdout.join("")).toContain(`Selected key: ${PLAN_KEY}`);
+		// PINNED CLINKR SEMANTICS: --format human is an accepted choice (was rejected pre-migration).
 	});
 
 	test("create flags are order-independent and success JSON is byte-exact", async () => {
@@ -705,6 +835,8 @@ describe("planned-branch CLI surface pinning", () => {
 
 		const duplicate = runWithFakes(["exec", "load-plan", PLAN_SLUG, "other-plan", "--format", "json"], [], { cwd: repoRoot });
 		expect(await duplicate.exit).toBe(2);
-		expect(duplicate.stdout.join("")).toBe(jsonFailure("load-plan accepts at most one key or slug."));
+		expect(duplicate.stdout.join("")).toBe("");
+		expect(duplicate.stderr.join("")).toBe("error: too many arguments for 'load-plan'. Expected 1 argument but got 2.\n");
+		// PINNED CLINKR SEMANTICS: excess positionals are a raw commander usage error, never JSON-enveloped.
 	});
 });
