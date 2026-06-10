@@ -100,7 +100,7 @@ export async function loadStackSnapshot(options: LoadStackSnapshotOptions): Prom
 	const topology = await loadGraphiteTopology(pi, repoRoot, metadataDbPath);
 	if (topology.type === "failure") return topology;
 
-	const landingBranches = derivePathToTrunk(topology.value, current, trunk, metadataDbPath);
+	const landingBranches = derivePathToTrunk({ topology: topology.value, current, trunk, dbPath: metadataDbPath });
 	if (landingBranches.type === "failure") return landingBranches;
 
 	const violations = detectForkViolations(topology.value, landingBranches.value);

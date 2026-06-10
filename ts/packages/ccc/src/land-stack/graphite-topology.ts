@@ -136,12 +136,15 @@ function optionalText(value: unknown): string | undefined {
 	return text.length > 0 ? text : undefined;
 }
 
-export function derivePathToTrunk(
-	topology: GraphiteTopology,
-	current: string,
-	trunk: string,
-	dbPath: string,
-): LandStackResult<string[]> {
+export interface DerivePathToTrunkOptions {
+	topology: GraphiteTopology;
+	current: string;
+	trunk: string;
+	dbPath: string;
+}
+
+export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackResult<string[]> {
+	const { topology, current, trunk, dbPath } = options;
 	if (current === trunk) return success([]);
 	if (!topology.has(current)) {
 		return failure(
@@ -263,12 +266,15 @@ export function formatForkViolations(violations: ForkViolation[], trunk: string)
 	});
 }
 
-export async function loadBranchChildrenFresh(
-	pi: LandStackExtensionAPI,
-	repoRoot: string,
-	dbPath: string,
-	branch: string,
-): Promise<LandStackResult<string[]>> {
+export interface LoadBranchChildrenFreshOptions {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	dbPath: string;
+	branch: string;
+}
+
+export async function loadBranchChildrenFresh(options: LoadBranchChildrenFreshOptions): Promise<LandStackResult<string[]>> {
+	const { pi, repoRoot, dbPath, branch } = options;
 	const query = `SELECT children FROM branch_metadata WHERE branch_name = ${sqliteTextLiteral(branch)} LIMIT 1`;
 	const args = ["-readonly", "-json", dbPath, query];
 	const result = await exec(pi, "sqlite3", args, repoRoot, SQLITE_TIMEOUT_MS);

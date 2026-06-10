@@ -455,7 +455,7 @@ export async function runMergeLoop(
 		// Re-check the branch's Graphite children right before the forced delete: a
 		// child that appeared since planning means another stack now depends on it.
 		const skippedScope = maintenance.kind === "optional-descendant" ? `local branch ${branch} cleanup and descendant restack/update were` : `local branch ${branch} cleanup was`;
-		const childrenNow = await loadBranchChildrenFresh(pi, repoRoot, plan.metadataDbPath, branch);
+		const childrenNow = await loadBranchChildrenFresh({ pi, repoRoot, dbPath: plan.metadataDbPath, branch });
 		if (childrenNow.type === "failure") {
 			warnings.push({
 				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${childrenNow.failure.message}`,

@@ -639,8 +639,8 @@ describe("land-stack pure helpers", () => {
 			"feature-b": { parent: "feature-a", children: [] },
 		});
 
-		expect(expectSuccess(derivePathToTrunk(topology, "feature-b", "main", DB_PATH))).toEqual(["feature-a", "feature-b"]);
-		expect(expectSuccess(derivePathToTrunk(topology, "main", "main", DB_PATH))).toEqual([]);
+		expect(expectSuccess(derivePathToTrunk({ topology, current: "feature-b", trunk: "main", dbPath: DB_PATH }))).toEqual(["feature-a", "feature-b"]);
+		expect(expectSuccess(derivePathToTrunk({ topology, current: "main", trunk: "main", dbPath: DB_PATH }))).toEqual([]);
 	});
 
 	test("fails closed when the current branch is untracked or the parent chain is broken", () => {
@@ -649,10 +649,10 @@ describe("land-stack pure helpers", () => {
 			orphan: { children: [] },
 		});
 
-		expect(expectFailure(derivePathToTrunk(topology, "ghost", "main", DB_PATH)).message).toContain(
+		expect(expectFailure(derivePathToTrunk({ topology, current: "ghost", trunk: "main", dbPath: DB_PATH })).message).toContain(
 			`Current branch ghost is not tracked in Graphite metadata (${DB_PATH})`,
 		);
-		expect(expectFailure(derivePathToTrunk(topology, "orphan", "main", DB_PATH)).message).toContain(
+		expect(expectFailure(derivePathToTrunk({ topology, current: "orphan", trunk: "main", dbPath: DB_PATH })).message).toContain(
 			"ends at orphan without reaching trunk main",
 		);
 
@@ -660,7 +660,7 @@ describe("land-stack pure helpers", () => {
 			"feature-a": { parent: "feature-b", children: [] },
 			"feature-b": { parent: "feature-a", children: [] },
 		});
-		expect(expectFailure(derivePathToTrunk(cyclic, "feature-a", "main", DB_PATH)).message).toContain("cycle");
+		expect(expectFailure(derivePathToTrunk({ topology: cyclic, current: "feature-a", trunk: "main", dbPath: DB_PATH })).message).toContain("cycle");
 	});
 
 	test("derives the full descendant subtree in pre-order, not just the first-child chain", () => {
