@@ -6,21 +6,27 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
+import { emitClinkrExit } from "./clinkr-envelope.ts";
+import { createDefaultExecOperationRegistry, type ExecOperationRegistry } from "./operation-registry.ts";
 
 const VERSION = "0.1.0";
 
 export interface CliDeps {
 	context?: PrAddressContext | undefined;
+	registry?: ExecOperationRegistry | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
+	stdin?: (() => Promise<string>) | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 }
 
 interface RequiredCliDeps {
 	context: PrAddressContext;
+	registry: ExecOperationRegistry;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
+	stdin: () => Promise<string>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 }
@@ -28,8 +34,10 @@ interface RequiredCliDeps {
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const requiredDeps: RequiredCliDeps = {
 		context: deps.context ?? createRealPrAddressContext(),
+		registry: deps.registry ?? createDefaultExecOperationRegistry(),
 		cwd: deps.cwd ?? process.cwd(),
 		env: deps.env ?? process.env,
+		stdin: deps.stdin ?? readProcessStdin,
 		stdout: deps.stdout ?? ((text: string) => process.stdout.write(text)),
 		stderr: deps.stderr ?? ((text: string) => process.stderr.write(text)),
 	};
@@ -58,6 +66,23 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 		return 0;
 	}
 
+	const registeredOperation = deps.registry.get(operation);
+	if (registeredOperation !== undefined) {
+		const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
+		switch (dispatchResult.type) {
+			case "exit":
+				return emitClinkrExit(dispatchResult.exit, {
+					format: hasFormatJson(args) ? "json" : "human",
+					stdout: deps.stdout,
+					stderr: deps.stderr,
+				});
+			case "raw-exit":
+				return dispatchResult.exitCode;
+			case "fallback":
+				break;
+		}
+	}
+
 	try {
 		return await deps.context.legacy.run(["exec", ...args], { cwd: deps.cwd, env: deps.env });
 	} catch (error) {
@@ -71,7 +96,24 @@ function topLevelHelp(): string {
 }
 
 function execHelp(): string {
-	return `Usage: pr-address exec <operation> [args...]\n\nHidden operations for the pr-address skill. This scaffold preserves the operation boundary while individual operations are ported.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] delegates directly to the legacy Python pr-address CLI with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations currently compatibility-backed by legacy Python:\n  add-issue-comment\n  add-reaction\n  add-review-thread-reply\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-discussion-comments\n  get-feedback\n  get-pr-for-branch\n  get-review-comments\n  get-reviews\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  unresolve-thread\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
+	return `Usage: pr-address exec <operation> [args...]\n\nHidden operations for the pr-address skill. This scaffold preserves the operation boundary while individual operations are ported.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to TypeScript when an operation slice is available and otherwise delegates to the legacy Python pr-address CLI with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations compatibility-backed by legacy Python unless explicitly handled by TypeScript:\n  add-issue-comment\n  add-reaction\n  add-review-thread-reply\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-discussion-comments\n  get-feedback\n  get-pr-for-branch\n  get-review-comments\n  get-reviews\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  unresolve-thread\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
+}
+
+function hasFormatJson(args: readonly string[]): boolean {
+	const formatIndex = args.indexOf("--format");
+	return formatIndex >= 0 && args[formatIndex + 1] === "json";
+}
+
+async function readProcessStdin(): Promise<string> {
+	return await new Promise<string>((resolveStdin, reject) => {
+		let data = "";
+		process.stdin.setEncoding("utf8");
+		process.stdin.on("data", (chunk) => {
+			data += chunk;
+		});
+		process.stdin.on("error", reject);
+		process.stdin.on("end", () => resolveStdin(data));
+	});
 }
 
 function errorMessage(error: unknown): string {

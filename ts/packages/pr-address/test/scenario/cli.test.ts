@@ -1,13 +1,31 @@
-import { resolve } from "node:path";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, test } from "vitest";
+import { z } from "zod";
+import { afterEach, describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
+import { runCli, type CliDeps } from "../../src/cli.ts";
+import { clinkrFailure, clinkrNegative, clinkrOk, exitCodeForClinkrExit, toMachineEnvelope } from "../../src/clinkr-envelope.ts";
+import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
+import { createExecOperationRegistry } from "../../src/operation-registry.ts";
 import { RealLegacyPrAddressGateway, type ProcessRunRequest } from "../../src/legacy-python.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+	const dirs = tempDirs.splice(0);
+	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+async function makeTempDir(): Promise<string> {
+	const dir = await mkdtemp(join(tmpdir(), "pr-address-cli-"));
+	tempDirs.push(dir);
+	return dir;
+}
 
 interface CliRun {
 	exit: Promise<number>;
@@ -16,7 +34,7 @@ interface CliRun {
 	legacy: InMemoryLegacyPrAddressGateway;
 }
 
-function runWithFakeLegacy(args: readonly string[], exitCodes: readonly number[] = [0]): CliRun {
+function runWithFakeLegacy(args: readonly string[], exitCodes: readonly number[] = [0], deps: Pick<CliDeps, "registry" | "stdin"> = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const legacy = new InMemoryLegacyPrAddressGateway(exitCodes);
@@ -25,6 +43,8 @@ function runWithFakeLegacy(args: readonly string[], exitCodes: readonly number[]
 			context: { legacy },
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
+			stdin: deps.stdin,
+			registry: deps.registry,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),
@@ -63,7 +83,7 @@ describe("pr-address CLI scaffold", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Usage: pr-address exec");
-		expect(run.stdout.join("")).toContain("delegates directly to the legacy Python");
+		expect(run.stdout.join("")).toContain("dispatches to TypeScript");
 		expect(run.stdout.join("")).toContain("prepare-run");
 		expect(run.stdout.join("")).toContain("build-stack-resolve-thread-payloads");
 		expect(run.legacy.calls).toEqual([]);
@@ -95,6 +115,182 @@ describe("pr-address CLI scaffold", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "resolve-thread", "PRRT_123"]]);
+	});
+
+	test("serves managed classification-template schema locally without invoking legacy", async () => {
+		const run = runWithFakeLegacy(["exec", "classification-template", "--json-schema"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.legacy.calls).toEqual([]);
+		const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
+		expect(Object.keys(payload).sort()).toEqual(["input_json_schema", "output_json_schema"]);
+		expect(JSON.stringify(payload.input_json_schema)).toContain("manifest_json");
+		expect(JSON.stringify(payload.output_json_schema)).toContain("classification_template");
+	});
+
+	test("falls back when a partially managed operation receives non-managed args", async () => {
+		const run = runWithFakeLegacy(["exec", "classification-template", "--format", "json"], [0]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "classification-template", "--format", "json"]]);
+	});
+
+	test("supports injected stdin for managed exec operations", async () => {
+		const registry = createExecOperationRegistry([
+			{
+				name: "echo-json",
+				handler: async ({ deps }) => {
+					const input = await loadJsonInput({
+						optionValue: undefined,
+						commandName: "echo-json",
+						inputDescription: "payload",
+						optionName: "--payload-json",
+						schema: z.object({ ok: z.boolean() }),
+						stdin: deps.stdin,
+					});
+					if (input.type === "error") return { type: "exit", exit: clinkrFailure(input.error.errorType, input.error.message) };
+					return { type: "exit", exit: clinkrOk(input.value) };
+				},
+			},
+		]);
+		const run = runWithFakeLegacy(["exec", "echo-json", "--format", "json"], [0], {
+			registry,
+			stdin: async () => '{"ok":true}',
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(JSON.parse(run.stdout.join("")).data).toEqual({ ok: true });
+		expect(run.stderr.join("")).toBe("");
+		expect(run.legacy.calls).toEqual([]);
+	});
+
+	test("maps managed Clinkr envelope exits to process exit codes", async () => {
+		const registry = createExecOperationRegistry([
+			{
+				name: "envelope",
+				handler: async ({ args }) => {
+					if (args[0] === "negative") return { type: "exit", exit: clinkrNegative({ valid: false }, "not valid") };
+					return { type: "exit", exit: clinkrFailure("invalid_request", "bad input") };
+				},
+			},
+		]);
+
+		const negative = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], [0], { registry });
+		expect(await negative.exit).toBe(1);
+		expect(JSON.parse(negative.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
+
+		const failure = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], [0], { registry });
+		expect(await failure.exit).toBe(2);
+		expect(JSON.parse(failure.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+
+		expect(exitCodeForClinkrExit(clinkrOk({}))).toBe(0);
+		expect(toMachineEnvelope(clinkrFailure("invalid_request", "bad input"))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+	});
+});
+
+describe("JSON input source helpers", () => {
+	test("loads stdin, inline JSON, and file JSON", async () => {
+		const schema = z.object({ value: z.string() });
+		const stdinResult = await loadJsonInput({
+			optionValue: undefined,
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			schema,
+			stdin: async () => '{"value":"stdin"}',
+		});
+		expect(stdinResult).toEqual({ type: "ok", value: { value: "stdin" } });
+
+		const inlineResult = await loadJsonInput({
+			optionValue: '{"value":"inline"}',
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			schema,
+			stdin: async () => "",
+		});
+		expect(inlineResult).toEqual({ type: "ok", value: { value: "inline" } });
+
+		const tempDir = await makeTempDir();
+		const payloadPath = join(tempDir, "payload.json");
+		await writeFile(payloadPath, '{"value":"file"}', "utf8");
+		const fileResult = await loadJsonInput({
+			optionValue: undefined,
+			filePath: payloadPath,
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			fileOptionName: "--payload-file",
+			schema,
+			stdin: async () => "",
+		});
+		expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
+	});
+
+	test("reports source conflicts, empty input, invalid JSON, missing files, and schema errors", async () => {
+		const schema = z.object({ value: z.string() });
+		const conflict = await readJsonInputText({
+			optionValue: "{}",
+			filePath: "/tmp/payload.json",
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			fileOptionName: "--payload-file",
+			stdin: async () => "",
+		});
+		expect(conflict).toEqual({
+			type: "error",
+			error: {
+				errorType: "invalid_request",
+				message: "demo accepts only one payload source; do not pass both --payload-json and --payload-file.",
+			},
+		});
+
+		const empty = await readJsonInputText({
+			optionValue: "   ",
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			stdin: async () => "unused",
+		});
+		expect(empty.type).toBe("error");
+		if (empty.type === "error") expect(empty.error.errorType).toBe("invalid_request");
+
+		const invalidJson = await loadJsonInput({
+			optionValue: "{",
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			schema,
+			stdin: async () => "",
+		});
+		expect(invalidJson.type).toBe("error");
+		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid_json");
+
+		const missingFile = await readJsonInputText({
+			optionValue: undefined,
+			filePath: "/tmp/definitely-missing-pr-address-payload.json",
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			fileOptionName: "--payload-file",
+			stdin: async () => "",
+		});
+		expect(missingFile.type).toBe("error");
+		if (missingFile.type === "error") expect(missingFile.error.errorType).toBe("invalid_request");
+
+		const schemaError = await loadJsonInput({
+			optionValue: '{"value": 3}',
+			commandName: "demo",
+			inputDescription: "payload",
+			optionName: "--payload-json",
+			schema,
+			stdin: async () => "",
+		});
+		expect(schemaError.type).toBe("error");
+		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid_request");
 	});
 });
 
