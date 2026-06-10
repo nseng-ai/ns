@@ -66,10 +66,42 @@ Or run the full suite from the repo root with `just`.
 
 ## Operation inventory
 
-This Python package remains the legacy/current implementation for unported
+This Python package remains the compatibility implementation for installed/prod
+skill invocation, the `asdl pr-address ...` plugin, and unported local TypeScript
 operations. Treat the public skill, `skills/pr-address/references/cli-reference.md`,
 source registration, scenario tests, and golden fixtures as stronger contract
 sources than this developer overview when porting behavior.
+
+### Current TypeScript-managed local execution
+
+When the wrapper selects the local TypeScript CLI, these `exec` operations are
+handled by TypeScript after the current migration stack:
+
+- **Classification / planning**: `classification-template`,
+  `validate-feedback-classification`, `plan-feedback`
+- **Payload / finalization helpers**: `build-resolve-thread-batch-payload`,
+  `finalize-run`
+- **Read-only fetch helpers**: `get-pr-for-branch`, `get-reviews`,
+  `get-review-comments`, `get-discussion-comments`, and
+  `get-feedback --payload-mode inline`
+- **Payload detail / stack diff helpers**: `read-feedback-detail`,
+  `stack-feedback-diff-current`
+- **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
+  `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
+- **Replies / comments / reactions**: `reply-to-review`,
+  `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+
+### Compatibility-backed local behavior still required
+
+Keep Python fallback for:
+
+- `prepare-run`, `summarize-feedback`, default payload-mode `get-feedback`
+- `stack-feedback-prep`, `stack-feedback-plan`,
+  `build-stack-resolve-thread-payloads`
+- `record-batch-checkpoint`
+- `read-feedback-details`
+- operation-specific `--json-schema` routes not yet implemented in TypeScript
+- installed/prod skill wrapper mode and the `asdl pr-address ...` plugin
 
 The current legacy operation set, by category:
 
@@ -90,6 +122,21 @@ The current legacy operation set, by category:
     provenance-validated `planned` follow-up.
 - **Replies / comments / reactions**: `reply-to-review`,
   `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+
+## Cutover and fallback retirement playbook
+
+Retire fallback behavior one operation at a time. Before removing any Python
+fallback route, require TypeScript tests or fixtures for success, negative,
+validation, `--format json` envelope behavior, and any schema output that remains
+part of the public contract. For live-effect operations, fake-backed gateway
+tests must prove the mutation plan and result shape without writing to GitHub.
+Payload-shape-sensitive helpers need golden or parity fixtures.
+
+Do not broadly delete this package or change installed/prod skill routing until
+there is an explicit distribution decision covering npm package publication,
+wrapper rollback mode, pinned Python fallback handling, and release notes. Do not
+replace the Python `asdl pr-address ...` plugin until TypeScript plugin wiring is
+proven non-breaking for existing `asdl` users.
 
 ## Relationship to the `pr-address` skill
 

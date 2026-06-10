@@ -114,9 +114,9 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		return { type: "ok", value: clone(this.reviews.get(prNumber) ?? []) };
 	}
 
-	async getReviewThreads(prNumber: number, options: GatewayOptions & { includeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
+	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
 		const threads = clone(this.reviewThreads.get(prNumber) ?? []);
-		return { type: "ok", value: options.includeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
+		return { type: "ok", value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
 	}
 
 	async getDiscussionComments(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {

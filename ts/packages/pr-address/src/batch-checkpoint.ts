@@ -149,12 +149,12 @@ export function recordBatchCheckpoint(input: unknown): unknown {
 	const batchId = request.batch_id.trim();
 	const commitSha = trimOptional(request.commit_sha);
 	if (!plan.valid) {
-		return result({ valid: false, batchComplete: false, batchId, commitSha, errors: [errorItem({ code: "invalid_plan", message: "plan.valid must be true before recording batch checkpoint evidence.", batchId })] });
+		return result({ valid: false, isBatchComplete: false, batchId, commitSha, errors: [errorItem({ code: "invalid_plan", message: "plan.valid must be true before recording batch checkpoint evidence.", batchId })] });
 	}
-	if (batchId === "") return result({ valid: false, batchComplete: false, batchId, commitSha, errors: [errorItem({ code: "empty_batch_id", message: "batch_id must be non-empty." })] });
+	if (batchId === "") return result({ valid: false, isBatchComplete: false, batchId, commitSha, errors: [errorItem({ code: "empty_batch_id", message: "batch_id must be non-empty." })] });
 	const selectedBatch = plan.batches.find((batch) => batch.batch_id === batchId) ?? null;
 	if (selectedBatch === null) {
-		return result({ valid: false, batchComplete: false, batchId, prNumber: plan.pr_number, payloadPath: plan.payload_path, commitSha, errors: [errorItem({ code: "unknown_batch", message: `No plan batch found for batch_id '${batchId}'.`, batchId })] });
+		return result({ valid: false, isBatchComplete: false, batchId, prNumber: plan.pr_number, payloadPath: plan.payload_path, commitSha, errors: [errorItem({ code: "unknown_batch", message: `No plan batch found for batch_id '${batchId}'.`, batchId })] });
 	}
 
 	const collector = createIssueCollector();
@@ -169,10 +169,10 @@ export function recordBatchCheckpoint(input: unknown): unknown {
 	const valid = !collector.hasInvalid();
 	return result({
 		valid,
-		batchComplete: valid && !collector.hasIssues(),
+		isBatchComplete: valid && !collector.hasIssues(),
 		batchId,
 		complexity: selectedBatch.complexity,
-		approvalRequired: selectedBatch.approval_required,
+		isApprovalRequired: selectedBatch.approval_required,
 		prNumber: plan.pr_number,
 		payloadPath: plan.payload_path,
 		commitSha,
@@ -487,10 +487,10 @@ function createIssueCollector(): IssueCollector {
 
 function result(options: {
 	valid: boolean;
-	batchComplete: boolean;
+	isBatchComplete: boolean;
 	batchId: string;
 	complexity?: string | null | undefined;
-	approvalRequired?: boolean | null | undefined;
+	isApprovalRequired?: boolean | null | undefined;
 	prNumber?: number | null | undefined;
 	payloadPath?: string | null | undefined;
 	commitSha?: string | null | undefined;
@@ -504,10 +504,10 @@ function result(options: {
 }): unknown {
 	return {
 		valid: options.valid,
-		batch_complete: options.batchComplete,
+		batch_complete: options.isBatchComplete,
 		batch_id: options.batchId,
 		complexity: options.complexity ?? null,
-		approval_required: options.approvalRequired ?? null,
+		approval_required: options.isApprovalRequired ?? null,
 		pr_number: options.prNumber ?? null,
 		payload_path: options.payloadPath ?? null,
 		checkpoint_reference: null,

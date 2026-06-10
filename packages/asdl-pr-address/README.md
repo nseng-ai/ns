@@ -42,6 +42,18 @@ falls back to the pinned Python package via `uvx`, so no local asdl clone is
 required. Local checkouts now route through the TypeScript scaffold first while
 unported operations delegate to this package for compatibility.
 
+## Migration status
+
+After the current TypeScript migration stack, this package remains the safe
+compatibility path for installed/prod skill use, the `asdl pr-address ...`
+plugin, composite/default payload operations such as `prepare-run`, stack
+orchestration helpers, bulk payload reading, batch checkpoint recovery, and any
+operation schema route not yet served by TypeScript.
+
+Do not remove this package or switch public distribution to TypeScript until npm
+package execution, installed wrapper behavior, rollback, and plugin
+compatibility have all been proven and explicitly approved.
+
 ## CLI surface
 
 This package currently provides the legacy compatibility implementation for:

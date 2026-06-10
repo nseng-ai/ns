@@ -59,6 +59,14 @@ describe("pr-address-run wrapper", () => {
 		expect(result.stdout).toContain("TypeScript package is currently a migration scaffold");
 	});
 
+	test("ASDL_PR_ADDRESS_MODE=ts-local is a local TypeScript CLI alias", () => {
+		const result = runWrapper(["--help"], { env: { ...process.env, ASDL_PR_ADDRESS_MODE: "ts-local" } });
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toContain("Usage: pr-address");
+		expect(result.stdout).toContain("TypeScript package is currently a migration scaffold");
+	});
+
 	test("ASDL_PR_ADDRESS_MODE=prod keeps the pinned legacy Python PyPI path", async () => {
 		const fakeBin = await makeTempDir();
 		await writeFakeCommand(fakeBin, "uvx", "uvx");
@@ -74,6 +82,16 @@ describe("pr-address-run wrapper", () => {
 		await writeFakeCommand(fakeBin, "uv", "uv");
 
 		const result = runWrapper(["--help"], { env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}`, ASDL_PR_ADDRESS_MODE: "python-local" } });
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe(`uv: run --project ${REPO_ROOT} pr-address --help\n`);
+	});
+
+	test("ASDL_PR_ADDRESS_MODE=legacy-python is a local legacy Python alias", async () => {
+		const fakeBin = await makeTempDir();
+		await writeFakeCommand(fakeBin, "uv", "uv");
+
+		const result = runWrapper(["--help"], { env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}`, ASDL_PR_ADDRESS_MODE: "legacy-python" } });
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toBe(`uv: run --project ${REPO_ROOT} pr-address --help\n`);

@@ -252,7 +252,7 @@ export async function runClassificationTemplateOperation(invocation: ExecOperati
 	const manifestResult = await loadJsonObjectSource({
 		inlineJson: options.values.get("--manifest-json"),
 		filePath: options.values.get("--manifest-file"),
-		allowStdin: true,
+		canReadStdin: true,
 		commandName: "classification-template",
 		inputName: "compact manifest",
 		inlineOption: "--manifest-json",
@@ -1196,7 +1196,7 @@ async function loadValidatePayload(values: Map<string, string>, stdin: () => Pro
 	const manifest = await loadJsonObjectSource({
 		inlineJson: values.get("--manifest-json"),
 		filePath: values.get("--manifest-file"),
-		allowStdin: false,
+		canReadStdin: false,
 		commandName: "validate-feedback-classification",
 		inputName: "manifest",
 		inlineOption: "--manifest-json",
@@ -1207,7 +1207,7 @@ async function loadValidatePayload(values: Map<string, string>, stdin: () => Pro
 	const classification = await loadJsonObjectSource({
 		inlineJson: values.get("--classification-json"),
 		filePath: values.get("--classification-file"),
-		allowStdin: false,
+		canReadStdin: false,
 		commandName: "validate-feedback-classification",
 		inputName: "classification",
 		inlineOption: "--classification-json",
@@ -1234,7 +1234,7 @@ type LoadPayloadResult<T> = LoadPayloadOk<T> | LoadPayloadError;
 async function loadJsonObjectSource(options: {
 	inlineJson: string | undefined;
 	filePath: string | undefined;
-	allowStdin: boolean;
+	canReadStdin: boolean;
 	commandName: string;
 	inputName: string;
 	inlineOption: string;
@@ -1244,7 +1244,7 @@ async function loadJsonObjectSource(options: {
 	const textResult = await readJsonInputText({
 		optionValue: options.inlineJson,
 		filePath: options.filePath,
-		allowStdin: options.allowStdin,
+		canReadStdin: options.canReadStdin,
 		commandName: options.commandName,
 		inputDescription: options.inputName,
 		optionName: options.inlineOption,

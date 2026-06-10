@@ -153,7 +153,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		return invalidResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			errors: [errorItem(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, batchId, null)],
 		});
 	}
@@ -163,7 +163,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		return invalidResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			errors: [errorItem("invalid_plan_shape", INVALID_PLAN_SHAPE_MESSAGE, batchId, null)],
 		});
 	}
@@ -172,7 +172,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		return invalidResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			errors: [errorItem("invalid_plan", "plan.valid must be true before building a resolve-thread-batch payload.", batchId, null)],
 		});
 	}
@@ -182,7 +182,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		return invalidResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			errors: [errorItem("unknown_batch", `No plan batch found for batch_id '${batchId}'.`, batchId, null)],
 		});
 	}
@@ -254,12 +254,12 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 	}
 
 	const reviewThreadCount = candidates.length;
-	if (errors.length > 0) return invalidResult({ batchId, commitSha: batchCommitSha, continueOnError: request.continue_on_error, reviewThreadCount, ignoredNonThreadItems: ignored, errors });
+	if (errors.length > 0) return invalidResult({ batchId, commitSha: batchCommitSha, shouldContinueOnError: request.continue_on_error, reviewThreadCount, ignoredNonThreadItems: ignored, errors });
 	if (candidates.length === 0) {
 		return noPayloadResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			reviewThreadCount: 0,
 			ignoredNonThreadItems: ignored,
 			skippedItems: [],
@@ -270,7 +270,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		return noPayloadResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			reviewThreadCount,
 			ignoredNonThreadItems: ignored,
 			skippedItems,
@@ -282,7 +282,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		return invalidResult({
 			batchId,
 			commitSha: batchCommitSha,
-			continueOnError: request.continue_on_error,
+			shouldContinueOnError: request.continue_on_error,
 			reviewThreadCount,
 			ignoredNonThreadItems: ignored,
 			errors: [errorItem("canonical_payload_invalid", `Duplicate thread_id in resolve-thread-batch payload: ${duplicatePayloadThreadId}`, batchId, duplicatePayloadThreadId)],
@@ -427,7 +427,7 @@ function otherBatchReviewThreads(plan: FeedbackPlan, selectedBatchId: string): M
 function invalidResult(options: {
 	batchId: string;
 	commitSha: string | null;
-	continueOnError: boolean;
+	shouldContinueOnError: boolean;
 	errors: BuildResolveThreadBatchPayloadError[];
 	reviewThreadCount?: number | undefined;
 	ignoredNonThreadItems?: unknown[] | undefined;
@@ -437,7 +437,7 @@ function invalidResult(options: {
 		payload_ready: false,
 		batch_id: options.batchId,
 		commit_sha: options.commitSha,
-		continue_on_error: options.continueOnError,
+		continue_on_error: options.shouldContinueOnError,
 		review_thread_count: options.reviewThreadCount ?? 0,
 		resolved_thread_count: 0,
 		skipped_thread_count: 0,
@@ -452,7 +452,7 @@ function invalidResult(options: {
 function noPayloadResult(options: {
 	batchId: string;
 	commitSha: string | null;
-	continueOnError: boolean;
+	shouldContinueOnError: boolean;
 	reviewThreadCount: number;
 	ignoredNonThreadItems: unknown[];
 	skippedItems: SkippedResolveThreadItem[];
@@ -463,7 +463,7 @@ function noPayloadResult(options: {
 		payload_ready: false,
 		batch_id: options.batchId,
 		commit_sha: options.commitSha,
-		continue_on_error: options.continueOnError,
+		continue_on_error: options.shouldContinueOnError,
 		review_thread_count: options.reviewThreadCount,
 		resolved_thread_count: 0,
 		skipped_thread_count: options.skippedItems.length,

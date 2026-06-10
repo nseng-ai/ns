@@ -44,7 +44,7 @@ describe("stack-feedback-diff-current", () => {
 	test("returns ok when planned actionable threads still match current feedback", async () => {
 		const run = runDiff({
 			stack_plan: stackPlan({ threadId: "PRRT_1" }),
-			current_prep: currentPrep({ includeResolved: true, threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
+			current_prep: currentPrep({ shouldIncludeResolved: true, threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -57,7 +57,7 @@ describe("stack-feedback-diff-current", () => {
 	test("returns negative when current feedback has drift", async () => {
 		const run = runDiff({
 			stack_plan: stackPlan({ threadId: "PRRT_1" }),
-			current_prep: currentPrep({ includeResolved: true, threads: [thread({ thread_id: "PRRT_1", path: "renamed.ts", is_resolved: false }), thread({ thread_id: "PRRT_new", is_resolved: false })] }),
+			current_prep: currentPrep({ shouldIncludeResolved: true, threads: [thread({ thread_id: "PRRT_1", path: "renamed.ts", is_resolved: false }), thread({ thread_id: "PRRT_new", is_resolved: false })] }),
 		});
 
 		expect(await run.exit).toBe(1);
@@ -73,7 +73,7 @@ describe("stack-feedback-diff-current", () => {
 		plan.batches[0]?.items.push({ ...plan.batches[0].items[0] });
 		const run = runDiff({
 			stack_plan: plan,
-			current_prep: currentPrep({ includeResolved: true, prNumber: 100, threads: [thread({ thread_id: "PRRT_1" })] }),
+			current_prep: currentPrep({ shouldIncludeResolved: true, prNumber: 100, threads: [thread({ thread_id: "PRRT_1" })] }),
 		});
 
 		expect(await run.exit).toBe(1);
@@ -124,10 +124,10 @@ function stackPlan(options: { threadId: string }): {
 	};
 }
 
-function currentPrep(options: { includeResolved: boolean; prNumber?: number | undefined; threads: Array<Record<string, unknown>> }): Record<string, unknown> {
+function currentPrep(options: { shouldIncludeResolved: boolean; prNumber?: number | undefined; threads: Array<Record<string, unknown>> }): Record<string, unknown> {
 	return {
 		payload_session_id: "session",
-		include_resolved: options.includeResolved,
+		include_resolved: options.shouldIncludeResolved,
 		stack: [
 			{
 				pr_number: options.prNumber ?? 42,
