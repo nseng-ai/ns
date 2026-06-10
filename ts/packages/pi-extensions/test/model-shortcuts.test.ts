@@ -1,15 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import modelShortcutExtension from "../src/model-fable.ts";
-import type { ExtensionAPI } from "../src/model-fable.ts";
+import modelShortcutExtension from "../src/model-shortcuts.ts";
+import type { ExtensionAPI } from "../src/model-shortcuts.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type NotifyLevel = "info" | "warning" | "error";
 
 interface ExpectedShortcut {
 	command: string;
-	ref: string;
-	model: ModelInfo;
+	provider: string;
+	modelId: string;
 }
 
 interface Notification {
@@ -23,11 +23,11 @@ interface ModelInfo {
 }
 
 const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
-	{ command: "model:fable", ref: "anthropic/claude-fable-5", model: { provider: "anthropic", id: "claude-fable-5" } },
-	{ command: "model:spud", ref: "openai-codex/gpt-5.5", model: { provider: "openai-codex", id: "gpt-5.5" } },
-	{ command: "model:gpt-mini", ref: "openai-codex/gpt-5.4-mini", model: { provider: "openai-codex", id: "gpt-5.4-mini" } },
-	{ command: "model:haiku", ref: "anthropic/claude-haiku-4-5", model: { provider: "anthropic", id: "claude-haiku-4-5" } },
-	{ command: "model:opus", ref: "anthropic/claude-opus-4-8", model: { provider: "anthropic", id: "claude-opus-4-8" } },
+	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
+	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.5" },
+	{ command: "model:gpt-mini", provider: "openai-codex", modelId: "gpt-5.4-mini" },
+	{ command: "model:haiku", provider: "anthropic", modelId: "claude-haiku-4-5" },
+	{ command: "model:opus", provider: "anthropic", modelId: "claude-opus-4-8" },
 ];
 
 class FakePi implements ExtensionAPI {
@@ -55,6 +55,14 @@ function commandFor(pi: FakePi, name: string): RegisteredCommand {
 		throw new Error(`Expected command to be registered: ${name}`);
 	}
 	return command;
+}
+
+function modelFromShortcut(shortcut: ExpectedShortcut): ModelInfo {
+	return { provider: shortcut.provider, id: shortcut.modelId };
+}
+
+function modelRef(shortcut: ExpectedShortcut): string {
+	return `${shortcut.provider}/${shortcut.modelId}`;
 }
 
 function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean } = {}): {
@@ -87,19 +95,20 @@ describe("modelShortcutExtension", () => {
 		modelShortcutExtension(pi);
 
 		expect([...pi.commands.entries()].map(([name, command]) => [name, command.description])).toEqual(
-			EXPECTED_SHORTCUTS.map((shortcut) => [shortcut.command, `Switch to ${shortcut.ref}`]),
+			EXPECTED_SHORTCUTS.map((shortcut) => [shortcut.command, `Switch to ${modelRef(shortcut)}`]),
 		);
 	});
 
-	test.each(EXPECTED_SHORTCUTS)("switches $command to $ref", async ({ command, ref, model }) => {
+	test.each(EXPECTED_SHORTCUTS)("switches $command to $provider/$modelId", async (shortcut) => {
 		const pi = new FakePi();
 		modelShortcutExtension(pi);
+		const model = modelFromShortcut(shortcut);
 		const { ctx, notifications } = createContext({ models: [model] });
 
-		await commandFor(pi, command).handler("", ctx);
+		await commandFor(pi, shortcut.command).handler("", ctx);
 
 		expect(pi.setModels).toEqual([model]);
-		expect(notifications).toEqual([{ message: `Switched model to ${ref}.`, level: "info" }]);
+		expect(notifications).toEqual([{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" }]);
 	});
 
 	test("notifies when a shortcut model is missing", async () => {
