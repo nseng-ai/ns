@@ -213,8 +213,15 @@ export function segmentationStatusText(state: SegmentationState): string | null 
 
 export const BASE_DETAIL_CLAIM = "members sorted by estimated size, descending · ⏎ views content";
 
-export function turnListClaim(region: LiveRegion, analysisStatus?: string | null, delegationCount = 0): string {
+export interface TurnListClaimOptions {
+	analysisStatus?: string | null;
+	delegationCount?: number;
+}
+
+export function turnListClaim(region: LiveRegion, options: TurnListClaimOptions = {}): string {
 	if (region.source === "annotation") {
+		const analysisStatus = options.analysisStatus;
+		const delegationCount = options.delegationCount ?? 0;
 		const efficiency = region.efficiency ?? "unanalyzed";
 		const relevance = region.relevance ?? "unanalyzed";
 		const status = analysisStatus === undefined || analysisStatus === null ? "" : ` · ${analysisStatus}`;

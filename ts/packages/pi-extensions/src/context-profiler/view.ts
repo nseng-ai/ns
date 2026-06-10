@@ -283,7 +283,7 @@ export class ProfilerView implements Component {
 				const delegations = delegationsInSpan(this.currentDelegations(), region.turnRange);
 				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
 				return this.composeListBody({
-					claim: turnListClaim(region, this.analysisStatusTextForRegion(region), delegations.length),
+					claim: turnListClaim(region, { analysisStatus: this.analysisStatusTextForRegion(region), delegationCount: delegations.length }),
 					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
 					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
 					state: frame,
@@ -316,7 +316,7 @@ export class ProfilerView implements Component {
 		rows.forEach((row, index) => {
 			if (row.type !== "base") return;
 			if (index === frame.selection) selectedLine = lines.length;
-			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
+			lines.push(this.renderOverviewRow(row, { isSelected: index === frame.selection, maxTokens, totalTokens, innerWidth }));
 		});
 		lines.push("");
 		lines.push(this.sectionHeader(liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)), innerWidth));
@@ -329,7 +329,7 @@ export class ProfilerView implements Component {
 		rows.forEach((row, index) => {
 			if (row.type !== "live") return;
 			if (index === frame.selection) selectedLine = lines.length;
-			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
+			lines.push(this.renderOverviewRow(row, { isSelected: index === frame.selection, maxTokens, totalTokens, innerWidth }));
 		});
 		if (this.isHelpVisible) {
 			lines.push("");
@@ -370,7 +370,8 @@ export class ProfilerView implements Component {
 		return this.theme.bold(this.theme.fg("muted", truncateToWidth(text, innerWidth, "…", true)));
 	}
 
-	private renderOverviewRow(source: OverviewRowSource, isSelected: boolean, maxTokens: number, totalTokens: number, innerWidth: number): string {
+	private renderOverviewRow(source: OverviewRowSource, options: { isSelected: boolean; maxTokens: number; totalTokens: number; innerWidth: number }): string {
+		const { isSelected, maxTokens, totalTokens, innerWidth } = options;
 		const hasDelegation = source.type === "live" && delegationsInSpan(this.currentDelegations(), source.region.turnRange).length > 0;
 		const cells = buildOverviewRowCells(source, { maxTokens, totalTokens, innerWidth, hasDelegation });
 		if (isSelected) {
@@ -401,7 +402,8 @@ export class ProfilerView implements Component {
 		const maxTokens = Math.max(1, ...options.rows.map((row) => row.tokens.value));
 		const visible = options.rows
 			.slice(state.scroll, state.scroll + areaHeight)
-			.map((row, offset) => this.renderListRow(row, state.scroll + offset === state.selection, maxTokens, options.innerWidth));
+			.map((row, offset) =>
+				this.renderListRow(row, { isSelected: state.scroll + offset === state.selection, maxTokens, innerWidth: options.innerWidth }));
 		const body = visible.length === 0 ? [this.theme.fg("dim", options.emptyText)] : visible;
 		const dimHeaderLines = headerLines.map((line) => this.theme.fg("dim", truncateToWidth(line, options.innerWidth, "…", true)));
 		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), ...dimHeaderLines, "", ...body];
@@ -409,7 +411,8 @@ export class ProfilerView implements Component {
 		return pinFooter(lines, this.theme.fg("dim", `${note}${LIST_HINT}`), options.bodyHeight);
 	}
 
-	private renderListRow(row: ListRow, isSelected: boolean, maxTokens: number, innerWidth: number): string {
+	private renderListRow(row: ListRow, options: { isSelected: boolean; maxTokens: number; innerWidth: number }): string {
+		const { isSelected, maxTokens, innerWidth } = options;
 		const cells = buildListRowCells(row.tokens, row.text, maxTokens);
 		if (isSelected) {
 			return this.theme.bg("selectedBg", fitToWidth(composeListRowText(cells), innerWidth));

@@ -281,8 +281,7 @@ describe("section headers and claims", () => {
 	test("annotation claim lines include verdicts, analysis status, and delegation counts", () => {
 		const claim = turnListClaim(
 			makeLiveRegion({ source: "annotation", efficiency: "mixed", relevance: "stale", turnRange: { start: 4, end: 8 } }),
-			"analysis failed: invalid JSON",
-			2,
+			{ analysisStatus: "analysis failed: invalid JSON", delegationCount: 2 },
 		);
 		expect(claim).toContain("efficiency=mixed · relevance=stale · analysis failed: invalid JSON · delegations=2");
 	});
