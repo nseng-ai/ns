@@ -305,13 +305,18 @@ const resolutionProvenanceInputSchema = z.discriminatedUnion("kind", [
 
 // --- shared request shapes ----------------------------------------------------
 
-const payloadJsonRequestSchema = z.object({
-	payload_json: nullableStringSchema.optional(),
-});
-
 const payloadJsonOrFileRequestSchema = z.object({
 	payload_json: nullableStringSchema.optional(),
 	payload_file: nullableStringSchema.optional(),
+});
+
+const stackFeedbackDiffCurrentRequestSchema = payloadJsonOrFileRequestSchema.extend({
+	stack_plan_reference: nullableStringSchema.optional(),
+	current_prep_reference: nullableStringSchema.optional(),
+});
+
+const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileRequestSchema.extend({
+	stack_plan_reference: nullableStringSchema.optional(),
 });
 
 // --- mutation operations --------------------------------------------------------
@@ -1029,6 +1034,8 @@ const stackFeedbackPrepResultUnionSchema = z.union([stackFeedbackPrepResultSchem
 
 const stackFeedbackPlanRequestSchema = z.object({
 	payload_json: nullableStringSchema.optional(),
+	payload_file: nullableStringSchema.optional(),
+	prep_reference: nullableStringSchema.optional(),
 	payload_session_id: nullableStringSchema.optional(),
 	stdout_mode: z.enum(["full", "compact"]).optional(),
 });
@@ -1207,8 +1214,8 @@ function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): Json
 }
 
 const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = new Map([
-	["build-resolve-thread-batch-payload", () => schemaDocument(payloadJsonRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
-	["build-stack-resolve-thread-payloads", () => schemaDocument(payloadJsonRequestSchema, buildStackResolveThreadPayloadsResultSchema)],
+	["build-resolve-thread-batch-payload", () => schemaDocument(payloadJsonOrFileRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
+	["build-stack-resolve-thread-payloads", () => schemaDocument(buildStackResolveThreadPayloadsRequestSchema, buildStackResolveThreadPayloadsResultSchema)],
 	["classification-template", buildClassificationTemplateSchemaDocument],
 	["finalize-run", () => schemaDocument(payloadJsonOrFileRequestSchema, finalizeRunResultSchema)],
 	["get-feedback", () => schemaDocument(getFeedbackRequestSchema, getFeedbackResultSchema)],
@@ -1221,7 +1228,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["reply-to-review", () => schemaDocument(replyToReviewRequestSchema, replyToReviewResultSchema)],
 	["resolve-thread-batch", () => schemaDocument(payloadJsonOrFileRequestSchema, resolveThreadBatchResultSchema)],
 	["resolve-thread-with-reply", () => schemaDocument(resolveThreadWithReplyRequestSchema, resolveThreadWithReplyResultSchema)],
-	["stack-feedback-diff-current", () => schemaDocument(payloadJsonOrFileRequestSchema, stackFeedbackDiffCurrentResultSchema)],
+	["stack-feedback-diff-current", () => schemaDocument(stackFeedbackDiffCurrentRequestSchema, stackFeedbackDiffCurrentResultSchema)],
 	["stack-feedback-plan", () => schemaDocument(stackFeedbackPlanRequestSchema, stackFeedbackPlanResultUnionSchema)],
 	["stack-feedback-prep", () => schemaDocument(stackFeedbackPrepRequestSchema, stackFeedbackPrepResultUnionSchema)],
 	["summarize-feedback", () => schemaDocument(summarizeFeedbackRequestSchema, summarizeFeedbackResultSchema)],

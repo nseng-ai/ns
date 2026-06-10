@@ -213,4 +213,22 @@ describe("managed classification/planning CLI operations", () => {
 		expect(await planRun.exit).toBe(0);
 		expect(JSON.parse(planRun.stdout.join("")).data.valid).toBe(true);
 	});
+
+	test("plan-feedback accepts --payload-file and rejects mixed payload sources", async () => {
+		const inputPath = join(GOLDEN_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
+		const payload = await readFile(inputPath, "utf8");
+		const tempDir = await makeTempDir();
+		const payloadPath = join(tempDir, "wrapper-payload.json");
+		await writeFile(payloadPath, payload, "utf8");
+
+		const fileRun = runWithNoFallback(["exec", "plan-feedback", "--payload-file", payloadPath, "--format", "json"]);
+		expect(await fileRun.exit).toBe(0);
+		expect(JSON.parse(fileRun.stdout.join("")).data.valid).toBe(true);
+
+		const conflictRun = runWithNoFallback(["exec", "plan-feedback", "--payload-json", payload, "--payload-file", payloadPath, "--format", "json"]);
+		expect(await conflictRun.exit).toBe(2);
+		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
+		expect(conflictEnvelope.error_type).toBe("invalid_request");
+		expect(conflictEnvelope.message).toContain("--payload-file");
+	});
 });

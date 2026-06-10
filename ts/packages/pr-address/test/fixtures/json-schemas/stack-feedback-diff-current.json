@@ -25,6 +25,30 @@
         ],
         "default": null,
         "title": "Payload File"
+      },
+      "stack_plan_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Stack Plan Reference"
+      },
+      "current_prep_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Current Prep Reference"
       }
     },
     "title": "StackFeedbackDiffCurrentRequest",

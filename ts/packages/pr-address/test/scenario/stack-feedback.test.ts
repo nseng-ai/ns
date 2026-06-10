@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -67,6 +67,12 @@ async function makePayloadRoot(): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), "pr-address-stack-feedback-"));
 	tempDirs.push(dir);
 	return join(dir, "payload-root");
+}
+
+async function makeScratchDir(): Promise<string> {
+	const dir = await mkdtemp(join(tmpdir(), "pr-address-stack-feedback-input-"));
+	tempDirs.push(dir);
+	return dir;
 }
 
 function fixedClock(iso: string): PayloadClock {
@@ -224,6 +230,127 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 	});
 });
 
+describe("stack-feedback-plan reference and file inputs", () => {
+	const validPlanCase = requiredPlanCase("valid-full");
+
+	function runPlan(args: readonly string[], root: string): ManagedRun {
+		return runManaged(["exec", "stack-feedback-plan", ...args, "--format", "json"], {
+			env: payloadEnv("session", root, planFixture.session_id),
+			clockIso: planFixture.clock_iso,
+		});
+	}
+
+	function planTemplate(): { prep: unknown; classifications: unknown } {
+		return JSON.parse(validPlanCase.payload_json_template) as { prep: unknown; classifications: unknown };
+	}
+
+	function errorEnvelope(run: ManagedRun): { error_type: string; message: string } {
+		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+	}
+
+	test("builds the plan from --prep-reference plus a classifications-only payload", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const template = planTemplate();
+		const prepPath = join(scratch, "stack-prep.json");
+		await writeFile(prepPath, JSON.stringify(template.prep), "utf8");
+
+		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: template.classifications })], root);
+
+		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
+		expect(run.stdout.join("")).toBe(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root));
+	});
+
+	test("accepts --payload-file for the full plan payload", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const payloadPath = join(scratch, "plan-payload.json");
+		await writeFile(payloadPath, validPlanCase.payload_json_template, "utf8");
+
+		const run = runPlan(["--payload-file", payloadPath], root);
+
+		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
+		expect(run.stdout.join("")).toBe(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root));
+	});
+
+	test("rejects --prep-reference combined with an embedded prep key", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const prepPath = join(scratch, "stack-prep.json");
+		await writeFile(prepPath, JSON.stringify(planTemplate().prep), "utf8");
+
+		const run = runPlan(["--prep-reference", prepPath, "--payload-json", validPlanCase.payload_json_template], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("cannot mix an embedded prep payload key with --prep-reference");
+	});
+
+	test("rejects --payload-json combined with --payload-file", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const payloadPath = join(scratch, "plan-payload.json");
+		await writeFile(payloadPath, validPlanCase.payload_json_template, "utf8");
+
+		const run = runPlan(["--payload-json", validPlanCase.payload_json_template, "--payload-file", payloadPath], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("only one");
+	});
+
+	test("requires a prep source when neither the payload key nor --prep-reference is given", async () => {
+		const root = await makePayloadRoot();
+
+		const run = runPlan(["--payload-json", JSON.stringify({ classifications: planTemplate().classifications })], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("requires a prep input");
+	});
+
+	test("rejects a missing --prep-reference file", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+
+		const run = runPlan(["--prep-reference", join(scratch, "missing.json"), "--payload-json", JSON.stringify({ classifications: [] })], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("must point to an existing file");
+	});
+
+	test("rejects malformed --prep-reference JSON", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const prepPath = join(scratch, "broken.json");
+		await writeFile(prepPath, "{", "utf8");
+
+		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: [] })], root);
+
+		expect(await run.exit).toBe(2);
+		expect(errorEnvelope(run).error_type).toBe("invalid_json");
+	});
+
+	test("rejects a --prep-reference artifact with the wrong shape", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const prepPath = join(scratch, "stack-plan.json");
+		await writeFile(prepPath, JSON.stringify({ valid: true, batches: [], validation: { all_valid: true, per_pr: [] } }), "utf8");
+
+		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: [] })], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("stack-feedback-prep data object");
+	});
+});
+
 describe("stack feedback fallback guards", () => {
 	// --json-schema routes are TypeScript-owned now (see json-schema-routes.test.ts);
 	// only click usage-error shapes still delegate to the legacy CLI.
@@ -248,6 +375,12 @@ describe("stack feedback fallback guards", () => {
 		});
 	}
 });
+
+function requiredPlanCase(name: string): StackFeedbackPlanCase {
+	const planCase = planFixture.cases.find((candidate) => candidate.name === name);
+	if (planCase === undefined) throw new Error(`Missing stack-feedback-plan fixture case: ${name}`);
+	return planCase;
+}
 
 function stackInputJson(): string {
 	return JSON.stringify({

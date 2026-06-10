@@ -18,6 +18,7 @@ const validateFeedbackClassificationRequestSchema = z
 const planFeedbackRequestSchema = z
 	.object({
 		payload_json: nullableCliStringSchema.describe("Inline wrapper payload JSON."),
+		payload_file: nullableCliStringSchema.describe("Path to a wrapper payload JSON file."),
 	})
 	.strict();
 

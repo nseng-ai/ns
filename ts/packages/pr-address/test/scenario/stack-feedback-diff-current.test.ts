@@ -1,7 +1,24 @@
-import { describe, expect, test } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+	const dirs = tempDirs.splice(0);
+	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+async function makeTempDir(): Promise<string> {
+	const dir = await mkdtemp(join(tmpdir(), "pr-address-stack-diff-"));
+	tempDirs.push(dir);
+	return dir;
+}
 
 interface CliRun {
 	exit: Promise<number>;
@@ -21,16 +38,16 @@ interface DiffEnvelope {
 	};
 }
 
-function runDiff(payload: unknown): CliRun {
+function runDiffWithArgs(args: readonly string[], stdinText = ""): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
-		exit: runCli(["exec", "stack-feedback-diff-current", "--format", "json"], {
+		exit: runCli(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], {
 			context: { legacy },
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
-			stdin: async () => JSON.stringify(payload),
+			stdin: async () => stdinText,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),
@@ -38,6 +55,10 @@ function runDiff(payload: unknown): CliRun {
 		stderr,
 		legacy,
 	};
+}
+
+function runDiff(payload: unknown): CliRun {
+	return runDiffWithArgs([], JSON.stringify(payload));
 }
 
 describe("stack-feedback-diff-current", () => {
@@ -79,6 +100,125 @@ describe("stack-feedback-diff-current", () => {
 		expect(await run.exit).toBe(1);
 		const codes = parseDiffEnvelope(run.stdout.join(""));
 		expect(codes.data.errors.map((error) => error.code)).toEqual(["missing_current_pr", "unknown_current_pr", "duplicate_planned_thread"]);
+	});
+});
+
+describe("stack-feedback-diff-current reference inputs", () => {
+	function referencedCurrentPrep(): Record<string, unknown> {
+		return { ...currentPrep({ shouldIncludeResolved: true, threads: [thread()] }), summary: { prs: 1 } };
+	}
+
+	function errorEnvelope(run: CliRun): { error_type: string; message: string } {
+		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+	}
+
+	test("diffs from --stack-plan-reference and --current-prep-reference without a payload", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		const prepPath = join(dir, "current-prep.json");
+		await writeFile(planPath, JSON.stringify(stackPlan({ threadId: "PRRT_1" })), "utf8");
+		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
+
+		const run = runDiffWithArgs(["--stack-plan-reference", planPath, "--current-prep-reference", prepPath]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.legacy.calls).toEqual([]);
+		const envelope = parseDiffEnvelope(run.stdout.join(""));
+		expect(envelope.data.safe_to_resolve_planned).toBe(true);
+		expect(envelope.data.summary).toMatchObject({ planned_still_unresolved: 1, new_unresolved_threads: 0 });
+	});
+
+	test("combines one reference with the embedded payload key", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		await writeFile(planPath, JSON.stringify(stackPlan({ threadId: "PRRT_1" })), "utf8");
+
+		const run = runDiffWithArgs(
+			["--stack-plan-reference", planPath],
+			JSON.stringify({ current_prep: currentPrep({ shouldIncludeResolved: true, threads: [thread()] }) }),
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseDiffEnvelope(run.stdout.join("")).data.safe_to_resolve_planned).toBe(true);
+	});
+
+	test("rejects --stack-plan-reference combined with an embedded stack_plan key", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		await writeFile(planPath, JSON.stringify(stackPlan({ threadId: "PRRT_1" })), "utf8");
+
+		const run = runDiffWithArgs(
+			["--stack-plan-reference", planPath],
+			JSON.stringify({ stack_plan: stackPlan({ threadId: "PRRT_1" }), current_prep: referencedCurrentPrep() }),
+		);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("cannot mix an embedded stack_plan payload key with --stack-plan-reference");
+	});
+
+	test("rejects --current-prep-reference combined with an embedded current_prep key", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		const prepPath = join(dir, "current-prep.json");
+		await writeFile(planPath, JSON.stringify(stackPlan({ threadId: "PRRT_1" })), "utf8");
+		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
+
+		const run = runDiffWithArgs(
+			["--stack-plan-reference", planPath, "--current-prep-reference", prepPath, "--payload-json", JSON.stringify({ current_prep: referencedCurrentPrep() })],
+		);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("cannot mix an embedded current_prep payload key with --current-prep-reference");
+	});
+
+	test("rejects a missing reference file", async () => {
+		const dir = await makeTempDir();
+		const prepPath = join(dir, "current-prep.json");
+		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
+
+		const run = runDiffWithArgs(["--stack-plan-reference", join(dir, "missing.json"), "--current-prep-reference", prepPath]);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("must point to an existing file");
+	});
+
+	test("rejects malformed reference JSON", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		const prepPath = join(dir, "current-prep.json");
+		await writeFile(planPath, "{", "utf8");
+		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
+
+		const run = runDiffWithArgs(["--stack-plan-reference", planPath, "--current-prep-reference", prepPath]);
+
+		expect(await run.exit).toBe(2);
+		expect(errorEnvelope(run).error_type).toBe("invalid_json");
+	});
+
+	test("rejects reference artifacts with the wrong shape", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		const prepPath = join(dir, "current-prep.json");
+		await writeFile(planPath, JSON.stringify(stackPlan({ threadId: "PRRT_1" })), "utf8");
+		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
+
+		const planAsPrep = runDiffWithArgs(["--stack-plan-reference", prepPath, "--current-prep-reference", prepPath]);
+		expect(await planAsPrep.exit).toBe(2);
+		const planAsPrepEnvelope = errorEnvelope(planAsPrep);
+		expect(planAsPrepEnvelope.error_type).toBe("invalid_request");
+		expect(planAsPrepEnvelope.message).toContain("stack-feedback-plan data artifact");
+
+		const prepAsPlan = runDiffWithArgs(["--stack-plan-reference", planPath, "--current-prep-reference", planPath]);
+		expect(await prepAsPlan.exit).toBe(2);
+		const prepAsPlanEnvelope = errorEnvelope(prepAsPlan);
+		expect(prepAsPlanEnvelope.error_type).toBe("invalid_request");
+		expect(prepAsPlanEnvelope.message).toContain("stack-feedback-prep data artifact");
 	});
 });
 

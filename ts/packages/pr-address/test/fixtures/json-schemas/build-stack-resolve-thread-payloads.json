@@ -13,6 +13,30 @@
         ],
         "default": null,
         "title": "Payload Json"
+      },
+      "payload_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload File"
+      },
+      "stack_plan_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Stack Plan Reference"
       }
     },
     "title": "BuildStackResolveThreadPayloadsRequest",
