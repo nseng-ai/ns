@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { ClinkrFailure, ClinkrGroup, createProcessIo, ok, type ClinkrExit, type ClinkrIo, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
-import { NodeCommandExecApi, type PlanCommandExecApi } from "./command-runtime.ts";
+import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 import { normalizePlanFilePath, resolvePlanSourceFile, validatePlanSlug } from "./plan-persistence.ts";
 import {
@@ -66,7 +66,7 @@ type WriteData = Record<string, unknown>;
 type ResolveData = Record<string, unknown>;
 
 export interface CliDeps {
-	commands?: PlanCommandExecApi | undefined;
+	commands?: CommandExecApi | undefined;
 	git?: PlansGitGateway | undefined;
 	cwd?: string | undefined;
 	stdout?: ((text: string) => void) | undefined;
@@ -76,7 +76,7 @@ export interface CliDeps {
 }
 
 export interface PlansCliContext {
-	commands: PlanCommandExecApi;
+	commands: CommandExecApi;
 	git: PlansGitGateway;
 	cwd: string;
 	stdin: () => Promise<string>;

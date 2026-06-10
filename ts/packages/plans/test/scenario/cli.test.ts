@@ -3,15 +3,15 @@ import { mkdir, mkdtemp, readFile, realpath, rm, stat, utimes, writeFile } from 
 import { homedir, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
+import { type CommandExecApi, type ExecOptions } from "@asdl/core/exec";
+
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	runCli,
-	type ExecOptions,
 	type GitCwdParams,
 	type GitOptionalResult,
 	type GitResult,
-	type PlanCommandExecApi,
 	type PlansGitGateway,
 } from "../../src/index.ts";
 
@@ -190,7 +190,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-const unusedCommands: PlanCommandExecApi = {
+const unusedCommands: CommandExecApi = {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<never> {
 		void command;
 		void args;

@@ -1,7 +1,7 @@
-import type { ExecResult } from "../command-runtime.ts";
+import type { ExecResult } from "@asdl/core/exec";
 import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
-export type { ExecResult } from "../command-runtime.ts";
+export type { ExecResult } from "@asdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";

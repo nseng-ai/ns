@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { RealPrAddressGitHubGateway, reviewThreadsQuery, type ProcessRequest, type ProcessResult } from "../../src/gateways.ts";
+import { RealPrAddressGitGateway, RealPrAddressGitHubGateway, reviewThreadsQuery, type ProcessRequest, type ProcessResult } from "../../src/gateways.ts";
 
 function graphqlResponse(nodes: readonly unknown[]): string {
 	return JSON.stringify({ data: { repository: { pullRequest: { reviewThreads: { nodes } } } } });
@@ -56,6 +56,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 				args: ["api", "graphql", "-F", "owner={owner}", "-F", "repo={repo}", "-F", "number=1157", "-f", `query=${reviewThreadsQuery}`],
 				cwd: "/repo",
 				env,
+				timeout: 30_000,
 			},
 		]);
 		expect(reviewThreadsQuery).toContain("line: originalLine");
@@ -161,5 +162,30 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		expect(result.type).toBe("ok");
 		if (result.type === "ok") expect(result.value[0]?.comments.map((comment) => comment.id)).toEqual([7]);
+	});
+});
+
+describe("RealPrAddressGitGateway", () => {
+	test("passes timeout to git commands", async () => {
+		const requests: ProcessRequest[] = [];
+		const gateway = new RealPrAddressGitGateway({
+			runProcess: async (request) => {
+				requests.push(request);
+				return { stdout: "feature/demo\n", stderr: "", exitCode: 0 };
+			},
+		});
+
+		const result = await gateway.getCurrentBranch({ cwd: "/repo", env: { PATH: "/fake/bin" } });
+
+		expect(result).toEqual({ type: "branch", branch: "feature/demo" });
+		expect(requests).toEqual([
+			{
+				command: "git",
+				args: ["branch", "--show-current"],
+				cwd: "/repo",
+				env: { PATH: "/fake/bin" },
+				timeout: 10_000,
+			},
+		]);
 	});
 });

@@ -10,7 +10,7 @@ import {
 	type SavedPlanFileEvidence,
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
-import type { PlanCommandExecApi } from "./command-runtime.ts";
+import type { CommandExecApi } from "@asdl/core/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@asdl/core/primitives";
 
@@ -173,7 +173,7 @@ export async function findLatestSessionSavedPlanFile(
 }
 
 export async function resolveSelectedSavedPlanFile(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	options: ResolveSelectedSavedPlanFileOptions,
 ): Promise<SelectedSavedPlanFile> {
 	if (options.explicitPath !== undefined) {

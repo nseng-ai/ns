@@ -1,8 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { RealPlannedBranchGitGateway } from "../../src/git-gateway.ts";
-import type { ExecResult } from "@asdl/plans";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryPlannedBranchGitGateway } from "../support/in-memory-git-gateway.ts";
 
 const ROOT = "/repo";
@@ -27,7 +26,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class ScriptedCommands implements PlanCommandExecApi {
+class ScriptedCommands implements CommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];

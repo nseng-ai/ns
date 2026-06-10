@@ -6,22 +6,6 @@ export {
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
 export {
-	formatCommand,
-	formatExecFailure,
-	formatExecStartupFailure,
-	formatOutputSection,
-	formatPlainOutputSection,
-	formatShellArg,
-	normalizeExecResult,
-	shellQuote,
-	stripTerminalEscapes,
-	tailText,
-	truncateTail,
-	type ExecResult,
-	type PiExecResultLike,
-	type TailTextOptions,
-} from "./command-runtime.ts";
-export {
 	parseMachineEnvelopeData,
 	type MachineEnvelopeDataParseInvalid,
 	type MachineEnvelopeDataParseResult,
@@ -75,17 +59,3 @@ export {
 	type PrLink,
 	type PrLinksDetails,
 } from "./terminal-presentation.ts";
-export {
-	formatBrmemUnavailableError,
-	formatBrmemUnavailableMessage,
-	resolveBrmemCommandCandidates,
-	runBrmemCandidate,
-	runFirstAvailableBrmemCommand,
-	type BrmemCandidateRun,
-	type BrmemCommandCandidate,
-	type BrmemExecGateway,
-	type CompletedBrmemRun,
-	type FirstAvailableBrmemCommandRun,
-	type NoAvailableBrmemCommandRun,
-	type UnavailableBrmemRun,
-} from "./brmem-cli.ts";

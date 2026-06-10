@@ -2,8 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { RealPlannedBranchBrmemGateway, parseBrmemGetContent, parseBrmemListEntries, parseBrmemPutData } from "../../src/brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
-import type { ExecResult } from "@asdl/plans";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryPlannedBranchBrmemGateway } from "../support/in-memory-brmem-gateway.ts";
 
 const ROOT = "/no-such-planned-branch-repo";
@@ -32,7 +31,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class ScriptedCommands implements PlanCommandExecApi {
+class ScriptedCommands implements CommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];

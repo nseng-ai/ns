@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
-import type { ExecResult } from "../src/command-runtime.ts";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import type { ExecResult } from "@asdl/core/exec";
+import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 
 const CWD = "/repo";
 const SAVED_PLAN_CONTENT = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
@@ -14,7 +14,7 @@ interface ExecCall {
 	options: ExecOptions | undefined;
 }
 
-class FakeSlugPi implements PlanCommandExecApi {
+class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
 	private readonly behavior: { result?: Partial<ExecResult>; error?: Error };
 

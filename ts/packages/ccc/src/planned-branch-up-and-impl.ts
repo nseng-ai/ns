@@ -1,5 +1,5 @@
 import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
-import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import type { ExecResult } from "@asdl/core/exec";
 import type { PlannedBranchEvidence } from "@asdl/planned-branch";
 
 export interface PlannedBranchUpAndImplHost {

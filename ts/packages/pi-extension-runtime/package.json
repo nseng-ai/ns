@@ -5,7 +5,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./branch-slug": "./src/branch-slug.ts",
-    "./command-runtime": "./src/command-runtime.ts",
     "./machine-envelope": "./src/machine-envelope.ts",
     "./objective-list": "./src/objective-list.ts",
     "./objective-picker": "./src/objective-picker.ts",
@@ -14,13 +13,14 @@
     "./terminal-presentation": "./src/terminal-presentation.ts",
     "./cmux/pi-launch": "./src/cmux/pi-launch.ts",
     "./cmux/primitives": "./src/cmux/primitives.ts",
-    "./cmux/types": "./src/cmux/types.ts",
-    "./brmem-cli": "./src/brmem-cli.ts"
+    "./cmux/types": "./src/cmux/types.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pi-extension-runtime/test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@asdl/core": "workspace:*"
+  },
   "devDependencies": {}
 }

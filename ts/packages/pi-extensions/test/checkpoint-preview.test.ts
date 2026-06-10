@@ -9,7 +9,7 @@ import checkpointPreviewExtension, {
 	type ExtensionAPI,
 	untrackedFilesFromPorcelain,
 } from "../src/checkpoint-preview.ts";
-import type { ExecResult } from "../src/command-runtime.ts";
+import type { ExecResult } from "@asdl/core/exec";
 
 interface RegisteredCommand {
 	description?: string;

@@ -10,6 +10,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/asdl-dev/test"
   },
   "dependencies": {
+    "@asdl/core": "workspace:*",
     "@asdl/plans": "workspace:*",
     "@earendil-works/pi-ai": "0.78.0",
     "@earendil-works/pi-coding-agent": "0.78.0"

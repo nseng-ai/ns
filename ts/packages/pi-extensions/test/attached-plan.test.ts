@@ -16,8 +16,8 @@ import {
 	type PlannedBranchGitGateway,
 } from "@asdl/planned-branch";
 import { PLAN_BRANCH_NAMESPACE } from "@asdl/planned-branch";
-import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath, type ExecOptions, type PlanCommandExecApi } from "@asdl/plans";
-import type { ExecResult } from "../src/command-runtime.ts";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -50,7 +50,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class FakePi implements PlanCommandExecApi {
+class FakePi implements CommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];

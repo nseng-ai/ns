@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand, type ExecResult } from "@asdl/core/exec";
 import {
 	exec,
 	execRaw,

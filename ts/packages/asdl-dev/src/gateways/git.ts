@@ -1,7 +1,9 @@
-import { runCommand, type CommandResult, type CommandRunner } from "../command-runner.ts";
+import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
 import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
 
 const STDERR_DETAIL_LIMIT_CHARS = 1_200;
+
+type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
 
 export interface GitGateway {
 	currentBranch(params: { cwd: string }): Promise<GatewayResult<string>>;
@@ -17,7 +19,7 @@ export class RealGitGateway implements GitGateway {
 
 	async currentBranch(params: { cwd: string }): Promise<GatewayResult<string>> {
 		const result = await this.runner("git", ["branch", "--show-current"], { cwd: params.cwd });
-		const commandError = commandFailure(result, "branch_unresolved", "Could not resolve the current git branch.");
+		const commandError = commandFailure("git", ["branch", "--show-current"], result, "branch_unresolved", "Could not resolve the current git branch.");
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
@@ -35,7 +37,7 @@ export class RealGitGateway implements GitGateway {
 
 	async repoRoot(params: { cwd: string }): Promise<GatewayResult<string>> {
 		const result = await this.runner("git", ["rev-parse", "--show-toplevel"], { cwd: params.cwd });
-		const commandError = commandFailure(result, "repo_root_unresolved", "Could not resolve the git repository root.");
+		const commandError = commandFailure("git", ["rev-parse", "--show-toplevel"], result, "repo_root_unresolved", "Could not resolve the git repository root.");
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
@@ -49,18 +51,18 @@ export class RealGitGateway implements GitGateway {
 	}
 }
 
-function commandFailure(result: CommandResult, code: string, message: string): ErrorInfo | undefined {
-	if (result.exitCode === 0 && result.startupError === undefined) {
+function commandFailure(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
+	if (result.code === 0 && !result.killed) {
 		return undefined;
 	}
 
 	const details: Record<string, unknown> = {
-		command: result.command,
-		args: result.args,
-		exit_code: result.exitCode,
+		command,
+		args: [...args],
+		exit_code: result.code,
 	};
-	if (result.startupError !== undefined) {
-		details.startup_error = result.startupError;
+	if (isStartupFailure(result)) {
+		details.startup_error = result.stderr;
 	}
 	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT_CHARS);
 	if (stderr !== "") {
@@ -68,6 +70,10 @@ function commandFailure(result: CommandResult, code: string, message: string): E
 	}
 
 	return { code, message, details };
+}
+
+function isStartupFailure(result: ExecResult): boolean {
+	return result.code === 127 && !result.killed && result.stderr.trim().length > 0;
 }
 
 function tailText(text: string, maxChars: number): string {

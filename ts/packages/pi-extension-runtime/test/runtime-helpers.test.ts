@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, formatExecFailure, formatExecStartupFailure, parseMachineEnvelopeData, stripTerminalEscapes } from "../src/index.ts";
+import { formatCommand, formatExecFailure, formatExecStartupFailure, stripTerminalEscapes } from "@asdl/core/exec";
+
+import { parseMachineEnvelopeData } from "../src/index.ts";
 import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext } from "../src/objective-selection.ts";
 import type { CommandContext, ExecResult } from "../src/cmux/types.ts";
 

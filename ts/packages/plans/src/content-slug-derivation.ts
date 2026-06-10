@@ -1,4 +1,4 @@
-import { formatOutputSection, type PlanCommandExecApi } from "./command-runtime.ts";
+import { formatOutputSection, type CommandExecApi } from "@asdl/core/exec";
 import { deriveSlugWithModel, type SlugModelEvidence } from "./model-slug.ts";
 import { validatePlanSlug } from "./plan-persistence.ts";
 
@@ -24,7 +24,7 @@ export interface DeriveContentSlugInput {
 export type ContentSlugEvidence = SlugModelEvidence;
 
 export async function deriveContentSlug(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	input: DeriveContentSlugInput,
 	variant: ContentSlugDerivationVariant,
 ): Promise<ContentSlugEvidence> {

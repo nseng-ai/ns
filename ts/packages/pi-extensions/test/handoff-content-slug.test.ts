@@ -6,7 +6,7 @@ import {
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
 } from "../src/handoff/content-slug.ts";
-import type { ExecResult } from "../src/command-runtime.ts";
+import type { ExecResult } from "@asdl/core/exec";
 import type { ExtensionAPI } from "../src/handoff.ts";
 
 const CWD = "/repo";

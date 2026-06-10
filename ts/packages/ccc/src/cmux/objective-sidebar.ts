@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { formatCommand, formatPlainOutputSection, tailText, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand, formatPlainOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { parseObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
 import { formatErrorMessage } from "./primitives.ts";

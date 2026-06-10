@@ -1,4 +1,4 @@
-import type { ExecResult, PiExecResultLike } from "@asdl/pi-extension-runtime/command-runtime";
+import type { ExecResult, PiExecResultLike } from "@asdl/core/exec";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 

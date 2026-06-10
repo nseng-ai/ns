@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, type ExecResult } from "@asdl/core/exec";
 
 export const CHECKPOINT_PREVIEW_COMMAND_NAME = "cp-preview";
 export const CHECKPOINT_PREVIEW_ALIAS_COMMAND_NAME = "checkpoint-preview";

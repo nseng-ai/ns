@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand, type ExecResult } from "@asdl/core/exec";
 import {
 	isGtDeleteCheckedOutElsewhere,
 	isGtDeleteMissingBranch,

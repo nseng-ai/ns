@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { formatCommand } from "@asdl/plans";
+import { formatCommand } from "@asdl/core/exec";
 import {
 	PLAN_BRANCH_NAMESPACE,
 	buildPlannedBranchCreateOperation,
@@ -14,7 +14,7 @@ import {
 	resolvePlannedBranchCreatePreviewContext,
 	tryNormalizeBranchCreationMethod,
 } from "../src/planned-branch-creation.ts";
-import type { PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi } from "@asdl/core/exec";
 import { InMemoryPlannedBranchBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryPlannedBranchGitGateway } from "./support/in-memory-git-gateway.ts";
 import { InMemoryPlannedBranchGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
@@ -29,7 +29,7 @@ const ROOT = "/repo";
 
 const tempDirs: string[] = [];
 
-const NO_COMMANDS: PlanCommandExecApi = {
+const NO_COMMANDS: CommandExecApi = {
 	async exec() {
 		throw new Error("unexpected command execution");
 	},

@@ -4,9 +4,10 @@ import { TextEncoder } from "node:util";
 
 import { RealPlannedBranchBrmemGateway, type AttachedPlanEntry, type PlannedBranchBrmemGateway } from "./brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
-import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
-import { resolveSelectedSavedPlanFile, type PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi } from "@asdl/core/exec";
+import { resolveSelectedSavedPlanFile } from "@asdl/plans";
 
+import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
 const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
@@ -79,7 +80,7 @@ export class NoAttachedPlannedBranchPlanEntriesError extends Error {
 }
 
 export async function loadPlannedBranchPlan(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
@@ -113,7 +114,7 @@ function isSavedPlanFallbackEligibleError(error: unknown): error is NoAttachedPl
 }
 
 export async function loadAttachedPlan(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
@@ -152,7 +153,7 @@ export async function loadAttachedPlan(
 }
 
 async function loadSavedPlanFallback(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	branch: string,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {

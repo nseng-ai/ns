@@ -1,4 +1,4 @@
-import { formatCommand, formatCommandFailure, type ExecOptions, type ExecResult, type PlanCommandExecApi } from "./command-runtime.ts";
+import { formatCommand, formatCommandFailure, type ExecOptions, type ExecResult, type CommandExecApi } from "@asdl/core/exec";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -31,9 +31,9 @@ interface CommandRun {
 type CommandRunResult = { ok: true; value: CommandRun } | { ok: false; error: GitErrorInfo };
 
 export class RealPlansGitGateway implements PlansGitGateway {
-	private readonly execApi: PlanCommandExecApi;
+	private readonly execApi: CommandExecApi;
 
-	constructor(execApi: PlanCommandExecApi) {
+	constructor(execApi: CommandExecApi) {
 		this.execApi = execApi;
 	}
 

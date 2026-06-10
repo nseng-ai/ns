@@ -19,7 +19,7 @@ import {
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@asdl/plans";
-import { formatCommand, formatShellArg } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand, formatShellArg } from "@asdl/core/exec";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";

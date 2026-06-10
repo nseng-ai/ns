@@ -16,21 +16,20 @@ import {
 	type PlannedBranchEvidence,
 	type PlannedBranchOutputDetails,
 } from "@asdl/planned-branch";
+import type { ExecOptions, ExecResult } from "@asdl/core/exec";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	formatSavedPlanFileEvidence,
 	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
 	writeSavedPlanFile as writeSavedPlanFilePrimitive,
-	type ExecOptions,
 	type SavedPlanFileEvidence,
 	type SelectedSavedPlanFile,
 } from "@asdl/plans";
-import type { ExecResult } from "./command-runtime.ts";
 import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
 
-export type { ExecResult } from "./command-runtime.ts";
+export type { ExecResult } from "@asdl/core/exec";
 export {
 	PLAN_BRANCH_NAMESPACE,
 	createPlannedBranchFromFile,

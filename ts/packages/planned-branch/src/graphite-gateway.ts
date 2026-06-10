@@ -1,4 +1,4 @@
-import { formatCommand, formatCommandFailure, type ExecOptions, type ExecResult, type PlanCommandExecApi } from "@asdl/plans";
+import { formatCommand, formatCommandFailure, type CommandExecApi, type ExecOptions, type ExecResult } from "@asdl/core/exec";
 
 const GT_TIMEOUT_MS = 30_000;
 
@@ -39,9 +39,9 @@ interface CommandRun {
 }
 
 export class RealPlannedBranchGraphiteGateway implements PlannedBranchGraphiteGateway {
-	private readonly pi: PlanCommandExecApi;
+	private readonly pi: CommandExecApi;
 
-	constructor(pi: PlanCommandExecApi) {
+	constructor(pi: CommandExecApi) {
 		this.pi = pi;
 	}
 

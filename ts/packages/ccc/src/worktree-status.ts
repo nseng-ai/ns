@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/pi-extension-runtime/brmem-cli";
-import { normalizeExecResult, type PiExecResultLike } from "@asdl/pi-extension-runtime/command-runtime";
+import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
+import { normalizeExecResult, type PiExecResultLike } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,

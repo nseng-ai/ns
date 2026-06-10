@@ -1,4 +1,4 @@
-import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand } from "@asdl/core/exec";
 import { linkifyPrReferences, prLinksFromDetails, truncateDisplayLine } from "@asdl/pi-extension-runtime/terminal-presentation";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";

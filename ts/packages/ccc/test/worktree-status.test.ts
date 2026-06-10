@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@asdl/pi-extension-runtime/command-runtime";
+import { stripTerminalEscapes } from "@asdl/core/exec";
 import type { GraphiteMetadataWorkerDiagnostic } from "@asdl/ccc/worktree-status/graphite-metadata";
 import {
 	makeGitRepo,

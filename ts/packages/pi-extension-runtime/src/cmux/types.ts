@@ -1,7 +1,8 @@
-import type { SkillCommandInfo } from "../skill-expansion.ts";
-import type { ExecResult } from "../command-runtime.ts";
+import type { ExecResult } from "@asdl/core/exec";
 
-export type { ExecResult } from "../command-runtime.ts";
+import type { SkillCommandInfo } from "../skill-expansion.ts";
+
+export type { ExecResult } from "@asdl/core/exec";
 export type NotifyLevel = "info" | "warning" | "error" | "success";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 

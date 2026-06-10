@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
-import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand } from "@asdl/core/exec";
 import { CURRENT_MARKER, GIT_TIMEOUT_MS, GT_TIMEOUT_MS, OTHER_MARKER } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
