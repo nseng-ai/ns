@@ -86,13 +86,14 @@ Assumptions:
 - The strongest current public-contract sources are the public skill (`skills/pr-address/SKILL.md`), `skills/pr-address/references/cli-reference.md`, source group registration, standalone scenario tests, and golden fixtures. Treat these as stronger compatibility evidence than partial developer prose when sources disagree.
 - A vertical-slice migration will reveal better shared command runtime and gateway abstractions than pre-porting Python `asdl-core` as a module map.
 - Compatibility-preserving TypeScript internals can still add cleaner TS-native APIs behind or alongside stable public contracts where useful.
+- Canonical Zod-first TypeScript contract modules are the right source of truth for feedback manifests and plan-feedback outputs once they preserve existing runtime JSON shapes and leave legacy-broader consumer parsing explicit.
 
 Risks:
 
 - Shared command-runtime work could overfit to `pr-address` if extracted before repeated seams are proven.
 - Skill or wrapper semantics could change accidentally, especially local/prod detection, payload defaults, mutation-helper ownership, or no-push guarantees.
-- Keeping Python fallback too long could create duplicate maintenance and obscure which path is authoritative.
-- Deleting Python too early could remove a useful rollback/reference path before contract parity is mature.
+- Keeping Python fallback too long could create duplicate maintenance and obscure which path is authoritative; canonical TypeScript feedback contracts reduce this risk for classification/planning data but do not resolve distribution, plugin, artifact, stack, or schema-route fallback dependencies.
+- Deleting Python too early could remove a useful rollback/reference path before contract parity is mature. Current evidence says broad deletion is still unsafe while `prepare-run`, `summarize-feedback`, default payload-writing `get-feedback`, stack orchestration helpers, `read-feedback-details`, public `record-batch-checkpoint`, several `--json-schema` routes, installed/prod wrapper mode, and the `asdl pr-address ...` plugin still depend on Python fallback.
 - npm distribution, package binaries, and installed-skill execution may expose surprises not visible in the current `uv`/`uvx` flow.
 - GitHub mutation safety could regress if helper boundaries or validation-before-action semantics are weakened.
 - Stack-feedback behavior may be more complex than current scenario coverage shows.
@@ -103,5 +104,5 @@ Risks:
 - How should `asdl pr-address ...` plugin compatibility be preserved or replaced after the standalone TypeScript path is proven?
 - Which golden outputs require byte-for-byte parity, and which represent structured compatibility where key order or formatting may intentionally differ?
 - How should TypeScript output handle Python/Pydantic compatibility details such as explicit `null` fields in otherwise optional manifest/template data?
-- What exact evidence is enough to begin and then complete the short Python fallback retirement phase?
+- What exact evidence is enough to begin and then complete the short Python fallback retirement phase? Current evidence indicates the phase cannot complete until unported operations, schema fallback routes, installed/prod wrapper behavior, rollback, and plugin compatibility have explicit TypeScript replacements or retirement decisions.
 - Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
