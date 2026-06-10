@@ -77,6 +77,16 @@ export const EPISODE_OUTCOME_VALUES = ["active", "completed", "abandoned", "erro
 
 export type EpisodeOutcome = (typeof EPISODE_OUTCOME_VALUES)[number];
 
+/** Runtime value list kept alongside the type so Zod enums can derive from it. */
+export const EFFICIENCY_VALUES = ["efficient", "mixed", "wasteful"] as const;
+
+export type EfficiencyVerdict = (typeof EFFICIENCY_VALUES)[number];
+
+/** Runtime value list kept alongside the type so Zod enums can derive from it. */
+export const RELEVANCE_VALUES = ["load-bearing", "still-useful", "stale", "rot"] as const;
+
+export type RelevanceVerdict = (typeof RELEVANCE_VALUES)[number];
+
 export interface TurnRange {
 	start: number;
 	end: number;
@@ -92,6 +102,10 @@ export interface EpisodeAnnotation {
 	kind: EpisodeKind;
 	outcome: EpisodeOutcome;
 	turnRange: TurnRange;
+	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
+	efficiency?: EfficiencyVerdict;
+	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
+	relevance?: RelevanceVerdict;
 }
 
 /** One LIVE-section overview row: a span of turns with a label. */
@@ -106,6 +120,12 @@ export interface LiveRegion {
 	/** True when the span contains the last live turn. */
 	isCurrent: boolean;
 	source: "deterministic" | "annotation";
+	/** Index into the ready state's episode/status arrays; null for deterministic rows. */
+	episodeIndex: number | null;
+	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
+	efficiency?: EfficiencyVerdict;
+	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
+	relevance?: RelevanceVerdict;
 }
 
 export type LiveSource = "context-event" | "branch-fallback";
@@ -351,6 +371,7 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 				tokens: { value: sumTurnTokens(turns), provenance: "estimated" },
 				isCurrent: true,
 				source: "deterministic",
+				episodeIndex: null,
 			},
 		];
 	}
@@ -380,6 +401,7 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 			tokens: { value: sumTurnTokens(gapTurns), provenance: "estimated" },
 			isCurrent: range.end >= lastIndex,
 			source: "deterministic",
+			episodeIndex: null,
 		});
 	};
 	let cursor = firstIndex;
@@ -396,6 +418,9 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 			tokens: { value: sumTurnTokens(turnsInRange(turns, episode.turnRange)), provenance: "estimated" },
 			isCurrent: episode.turnRange.end >= lastIndex,
 			source: "annotation",
+			episodeIndex: position,
+			...(episode.efficiency === undefined ? {} : { efficiency: episode.efficiency }),
+			...(episode.relevance === undefined ? {} : { relevance: episode.relevance }),
 		});
 		cursor = Math.max(cursor, episode.turnRange.end + 1);
 	});
@@ -407,6 +432,30 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 
 export function turnsInRange(turns: readonly LiveTurn[], range: TurnRange): LiveTurn[] {
 	return turns.filter((turn) => turn.index >= range.start && turn.index <= range.end);
+}
+
+/** Render a normalized message verbatim with semantic part headers. */
+export function renderNormalizedMessageText(message: NormalizedMessage): string {
+	const sections: string[] = [];
+	if (message.toolName !== null) sections.push(`⏺ tool result · ${message.toolName}`);
+	sections.push(...message.parts.map(renderMessagePartSection));
+	if (message.detailsJson !== null) sections.push(`[details]\n${message.detailsJson}`);
+	return sections.join("\n\n");
+}
+
+function renderMessagePartSection(part: MessagePart): string {
+	switch (part.kind) {
+		case "text":
+			return part.text;
+		case "thinking":
+			return `[thinking]\n${part.text}`;
+		case "toolCall":
+			return `⏺ ${part.name}\n${part.argsJson}`;
+		case "image":
+			return "[image]";
+		case "opaque":
+			return part.json;
+	}
 }
 
 /**

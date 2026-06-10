@@ -2,13 +2,17 @@ import { describe, expect, test } from "vitest";
 
 import { createProfilerState, startSegmentation } from "../src/context-profiler/runtime.ts";
 import { computeSegmentationFingerprint, type SegmentationState } from "../src/context-profiler/segmentation.ts";
-import type { SegmentationCallResult, SegmentationGateway } from "../src/context-profiler/segmentation-gateway.ts";
+import type { AnalysisModelGateway, SegmentationCallResult } from "../src/context-profiler/analysis-model-gateway.ts";
 import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
 
 /** Models a buggy gateway that violates the errors-as-values contract by rejecting. */
-class RejectingSegmentationGateway implements SegmentationGateway {
+class RejectingSegmentationGateway implements AnalysisModelGateway {
 	async segmentTurns(): Promise<SegmentationCallResult> {
 		throw new Error("gateway contract violation");
+	}
+
+	async analyzeEpisode(): Promise<never> {
+		throw new Error("should not analyze after segmentation rejection");
 	}
 }
 
@@ -26,7 +30,8 @@ function collectUpdates(): { updates: SegmentationState[]; onUpdate: (state: Seg
 }
 
 async function settled(): Promise<void> {
-	// Two microtask hops cover the gateway promise plus the .then handler.
+	// Three microtask hops cover segmentation plus one wave of episode-analysis handlers.
+	await Promise.resolve();
 	await Promise.resolve();
 	await Promise.resolve();
 }
@@ -42,14 +47,22 @@ describe("startSegmentation", () => {
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 
-		expect(updates).toHaveLength(1);
+		expect(updates).toHaveLength(2);
 		expect(updates[0]).toEqual({
 			type: "ready",
 			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 } }],
 			summary: "A short session.",
+			analysis: ["loading"],
+		});
+		expect(updates[1]).toEqual({
+			type: "ready",
+			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
+			summary: "A short session.",
+			analysis: ["ready"],
 		});
 		expect(state.segmentationCache).toMatchObject({ fingerprint: computeSegmentationFingerprint(profile), summary: "A short session." });
 		expect(gateway.calls).toHaveLength(1);
+		expect(gateway.analysisCalls).toHaveLength(1);
 	});
 
 	test("cache hit: initial is ready and the gateway is never called", async () => {
@@ -64,12 +77,71 @@ describe("startSegmentation", () => {
 		const { initial } = startSegmentation({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
 		expect(initial).toEqual({
 			type: "ready",
-			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 } }],
+			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
 			summary: "A short session.",
+			analysis: ["ready"],
 		});
 		await settled();
 		expect(updates).toEqual([]);
 		expect(gateway.calls).toHaveLength(1);
+		expect(gateway.analysisCalls).toHaveLength(1);
+	});
+
+	test("cache hit with missing verdicts analyzes only the gaps", async () => {
+		const state = createProfilerState();
+		const profile = makeProfile(sequentialTurns(8));
+		state.segmentationCache = {
+			fingerprint: computeSegmentationFingerprint(profile),
+			summary: "A short session.",
+			episodes: [
+				{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
+				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
+			],
+		};
+		const gateway = new FakeSegmentationGateway({ result: SUCCESS, analysisResult: { ok: true, value: { efficiency: "mixed", relevance: "still-useful" } } });
+		const { updates, onUpdate } = collectUpdates();
+
+		const { initial } = startSegmentation({ gateway, profile, state, force: false, onUpdate });
+		expect(initial).toEqual({
+			type: "ready",
+			summary: "A short session.",
+			analysis: ["ready", "loading"],
+			episodes: [
+				{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
+				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
+			],
+		});
+		await settled();
+
+		expect(gateway.calls).toHaveLength(0);
+		expect(gateway.analysisCalls).toHaveLength(1);
+		expect(updates).toEqual([
+			{
+				type: "ready",
+				summary: "A short session.",
+				analysis: ["ready", "ready"],
+				episodes: [
+					{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
+					{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 }, efficiency: "mixed", relevance: "still-useful" },
+				],
+			},
+		]);
+	});
+
+	test("episode analysis failure is visible but not cached", async () => {
+		const state = createProfilerState();
+		const gateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			analysisResult: { ok: false, error: { code: "invalid-response", message: "response JSON has no valid verdict pair" } },
+		});
+		const { updates, onUpdate } = collectUpdates();
+
+		startSegmentation({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		await settled();
+
+		expect(updates[0]).toMatchObject({ type: "ready", analysis: ["loading"] });
+		expect(updates[1]).toMatchObject({ type: "ready", analysis: [{ type: "error", message: "response JSON has no valid verdict pair" }] });
+		expect(state.segmentationCache?.episodes[0]).not.toHaveProperty("efficiency");
 	});
 
 	test("a changed snapshot misses the cache", async () => {
@@ -82,6 +154,7 @@ describe("startSegmentation", () => {
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 		expect(gateway.calls).toHaveLength(2);
+		expect(gateway.analysisCalls).toHaveLength(2);
 	});
 
 	test("force bypasses a valid cache and replaces it", async () => {
@@ -96,6 +169,7 @@ describe("startSegmentation", () => {
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 		expect(gateway.calls).toHaveLength(2);
+		expect(gateway.analysisCalls).toHaveLength(2);
 		expect(state.segmentationCache).not.toBe(firstCache);
 	});
 

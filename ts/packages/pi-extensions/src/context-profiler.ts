@@ -4,9 +4,9 @@
  * context files, skills, tools) plus a flat per-turn accounting with verbatim
  * drill-down. The deterministic layer spends zero LM tokens and never mutates
  * the session it profiles; on top of it, opening or refreshing the overlay
- * fires one on-demand, clearly-labeled LM segmentation call (fixed cheap
- * model) whose episodes render as an additive annotation layer — LM failure
- * never blocks the deterministic view.
+ * fires on-demand, clearly-labeled LM segmentation/analysis calls (fixed
+ * cheap model) whose episodes render as an additive annotation layer — LM
+ * failure never blocks the deterministic view.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -20,7 +20,7 @@ import {
 	startSegmentation,
 	type ProfilerState,
 } from "./context-profiler/runtime.ts";
-import { createCodexSegmentationGateway } from "./context-profiler/segmentation-gateway.ts";
+import { createCodexAnalysisModelGateway } from "./context-profiler/analysis-model-gateway.ts";
 import type { SegmentationState } from "./context-profiler/segmentation.ts";
 import { ProfilerView } from "./context-profiler/view.ts";
 
@@ -62,12 +62,12 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 	if (state.lastPromptOptions === null) {
 		capturePromptState(ctx, state);
 	}
-	const gateway = createCodexSegmentationGateway(ctx.modelRegistry);
+	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
 	const session: OverlaySession = { close: () => {}, handle: null, view: null, abortSegmentation: null };
 	holder.current = session;
-	// Open and `r` refresh are the only segmentTurns call sites — the LM is
-	// never consulted while the overlay is closed.
+	// Open and `r` refresh are the only LM call sites — the model is never
+	// consulted while the overlay is closed.
 	const onSegmentationUpdate = (segmentation: SegmentationState): void => {
 		if (holder.current === session) session.view?.setSegmentation(segmentation);
 	};

@@ -11,7 +11,7 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { BaseMember, BaseRegion, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
 import { buildLiveRegions, turnsInRange } from "./model.ts";
-import type { SegmentationState } from "./segmentation.ts";
+import type { EpisodeAnalysisStatus, SegmentationState } from "./segmentation.ts";
 import {
 	BASE_DETAIL_CLAIM,
 	BASE_SECTION_HEADER,
@@ -212,6 +212,23 @@ export class ProfilerView implements Component {
 		return this.profile.liveRegions;
 	}
 
+	private currentTurnListRegion(region: LiveRegion): LiveRegion {
+		return this.liveRegions().find((candidate) => candidate.id === region.id) ?? region;
+	}
+
+	private analysisStatusTextForRegion(region: LiveRegion): string | null {
+		const status = this.analysisStatusForRegion(region);
+		if (status === null || status === "ready") return null;
+		if (status === "loading") return "analysis: …";
+		return `analysis failed: ${status.message}`;
+	}
+
+	private analysisStatusForRegion(region: LiveRegion): EpisodeAnalysisStatus | null {
+		if (this.segmentation.type !== "ready") return null;
+		if (region.episodeIndex === null) return null;
+		return this.segmentation.analysis[region.episodeIndex] ?? null;
+	}
+
 	private breadcrumbTitle(): string {
 		const crumbs = this.frames.flatMap((frame): string[] => {
 			switch (frame.type) {
@@ -235,7 +252,7 @@ export class ProfilerView implements Component {
 			case "base-detail":
 				return formatTokenCountLong(frame.region.tokens);
 			case "turn-list":
-				return formatTokenCountLong(frame.region.tokens);
+				return formatTokenCountLong(this.currentTurnListRegion(frame.region).tokens);
 			case "content":
 				return frame.source.meta;
 		}
@@ -256,15 +273,17 @@ export class ProfilerView implements Component {
 					innerWidth,
 					bodyHeight,
 				});
-			case "turn-list":
+			case "turn-list": {
+				const region = this.currentTurnListRegion(frame.region);
 				return this.composeListBody({
-					claim: turnListClaim(frame.region),
+					claim: turnListClaim(region, this.analysisStatusTextForRegion(region)),
 					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn) })),
 					state: frame,
 					emptyText: "no turns in this span",
 					innerWidth,
 					bodyHeight,
 				});
+			}
 			case "content":
 				return this.composeContentBody(frame, innerWidth, bodyHeight);
 		}
