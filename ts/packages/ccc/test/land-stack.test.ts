@@ -32,6 +32,7 @@ import type {
 	PullRequestSnapshot,
 } from "../src/land-stack/types.ts";
 import { detectWorktreeConflicts, isManagedSlotPath, parseWorktreeList, slotNameFromPath } from "../src/land-stack/worktrees.ts";
+import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
 
 const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const ROOT = "/repo";
@@ -44,19 +45,7 @@ const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
 
 const GIT_COMMON_DIR = `${ROOT}/.git`;
 const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
-const TOPOLOGY_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
-const TOPOLOGY_ARGS = ["-readonly", "-json", DB_PATH, TOPOLOGY_QUERY];
-
-function metadataDbJson(rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>): string {
-	return JSON.stringify(
-		rows.map((row) => ({
-			branch_name: row.branch,
-			parent_branch_name: row.parent ?? null,
-			children: row.children ? JSON.stringify(row.children) : null,
-			validation_result: row.trunk ? "TRUNK" : "VALID",
-		})),
-	);
-}
+const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
