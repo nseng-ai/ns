@@ -163,8 +163,8 @@ export function recordBatchCheckpoint(input: unknown): unknown {
 	const changedFiles = validatedChangedFiles(request.changed_files, batchId, collector);
 	if (changedFiles.length > 0 && commitSha === null) collector.invalid(errorItem({ code: "missing_commit_sha_for_changed_files", message: "commit_sha is required when changed_files is non-empty.", batchId }));
 	const validationCommands = validatedValidationCommands(request.validation_commands, batchId, collector);
-	const threadSummary = threadSummaryForRequest(request, selectedBatch, collector, warnings);
-	const nonThreadOutcomes = nonThreadOutcomesForRequest(request.non_thread_outcomes, selectedBatch, batchId, collector);
+	const threadSummary = threadSummaryForRequest({ request, selectedBatch, collector, warnings });
+	const nonThreadOutcomes = nonThreadOutcomesForRequest({ outcomes: request.non_thread_outcomes, selectedBatch, batchId, collector });
 	if (plan.payload_path === null && !collector.hasInvalid()) warnings.push("plan.payload_path is null; checkpoint artifact was not written.");
 	const valid = !collector.hasInvalid();
 	return result({
@@ -255,10 +255,18 @@ function validatedValidationCommands(commands: readonly z.infer<typeof validatio
 	return validated;
 }
 
-function threadSummaryForRequest(request: RecordBatchCheckpointInput, selectedBatch: FeedbackPlanBatch, collector: IssueCollector, warnings: string[]): BatchThreadCheckpointSummary {
+interface ThreadSummaryForRequestOptions {
+	request: RecordBatchCheckpointInput;
+	selectedBatch: FeedbackPlanBatch;
+	collector: IssueCollector;
+	warnings: string[];
+}
+
+function threadSummaryForRequest(options: ThreadSummaryForRequestOptions): BatchThreadCheckpointSummary {
+	const { request, selectedBatch, collector, warnings } = options;
 	const selectedThreadIds = selectedThreadIdsForBatch(selectedBatch);
 	const batchId = selectedBatch.batch_id;
-	if (selectedThreadIds.length === 0) return noSelectedThreadSummary(request, batchId, collector, warnings);
+	if (selectedThreadIds.length === 0) return noSelectedThreadSummary({ request, batchId, collector, warnings });
 	if (request.thread_payload_build === null) {
 		collector.invalid(errorItem({ code: "missing_thread_payload_build", message: "thread_payload_build is required for batches with review-thread items.", batchId }));
 		return emptyThreadSummary(selectedThreadIds.length);
@@ -267,8 +275,8 @@ function threadSummaryForRequest(request: RecordBatchCheckpointInput, selectedBa
 	let summary = summaryFromPayloadBuild(build);
 	if (build.batch_id !== batchId) collector.invalid(errorItem({ code: "thread_payload_build_batch_mismatch", message: `thread_payload_build.batch_id '${build.batch_id}' does not match selected batch_id '${batchId}'.`, batchId }));
 	if (!build.valid) for (const buildError of build.errors) collector.invalid(errorFromPayloadBuildError(buildError, batchId));
-	validatePayloadBuildThreads(build, selectedThreadIds, batchId, collector);
-	if (build.payload_ready) summary = validateThreadResolutionResult(request.thread_resolution_result, build, summary, batchId, collector);
+	validatePayloadBuildThreads({ build, selectedThreadIds, batchId, collector });
+	if (build.payload_ready) summary = validateThreadResolutionResult({ resolution: request.thread_resolution_result, build, summary, batchId, collector });
 	else if (request.thread_resolution_result !== null) collector.invalid(errorItem({ code: "unexpected_thread_resolution_result", message: "thread_resolution_result must be omitted when thread_payload_build.payload_ready is false.", batchId }));
 	return summary;
 }
@@ -283,7 +291,15 @@ function selectedThreadIdsForBatch(selectedBatch: FeedbackPlanBatch): string[] {
 	return threadIds;
 }
 
-function noSelectedThreadSummary(request: RecordBatchCheckpointInput, batchId: string, collector: IssueCollector, warnings: string[]): BatchThreadCheckpointSummary {
+interface NoSelectedThreadSummaryOptions {
+	request: RecordBatchCheckpointInput;
+	batchId: string;
+	collector: IssueCollector;
+	warnings: string[];
+}
+
+function noSelectedThreadSummary(options: NoSelectedThreadSummaryOptions): BatchThreadCheckpointSummary {
+	const { request, batchId, collector, warnings } = options;
 	if (request.thread_resolution_result !== null) collector.invalid(errorItem({ code: "unexpected_thread_resolution_result", message: "thread_resolution_result must be omitted for batches without review-thread items.", batchId }));
 	if (request.thread_payload_build === null) return emptyThreadSummary(0);
 	const build = request.thread_payload_build;
@@ -314,7 +330,15 @@ function summaryFromPayloadBuild(build: ThreadPayloadBuild): BatchThreadCheckpoi
 	};
 }
 
-function validatePayloadBuildThreads(build: ThreadPayloadBuild, selectedThreadIds: readonly string[], batchId: string, collector: IssueCollector): void {
+interface ValidatePayloadBuildThreadsOptions {
+	build: ThreadPayloadBuild;
+	selectedThreadIds: readonly string[];
+	batchId: string;
+	collector: IssueCollector;
+}
+
+function validatePayloadBuildThreads(options: ValidatePayloadBuildThreadsOptions): void {
+	const { build, selectedThreadIds, batchId, collector } = options;
 	const selectedSet = new Set(selectedThreadIds);
 	if (selectedSet.size !== selectedThreadIds.length) collector.invalid(errorItem({ code: "duplicate_plan_thread", message: "Selected batch contains duplicate review-thread IDs.", batchId }));
 	const payloadThreadIds = new Set(build.payload?.items.map((item) => item.thread_id) ?? []);
@@ -324,13 +348,16 @@ function validatePayloadBuildThreads(build: ThreadPayloadBuild, selectedThreadId
 	for (const threadId of difference(evidencedThreadIds, selectedSet)) collector.invalid(errorItem({ code: "thread_not_in_selected_batch", message: `Thread evidence references thread ${threadId} outside selected batch.`, batchId, threadId }));
 }
 
-function validateThreadResolutionResult(
-	resolution: ThreadResolutionResult | null,
-	build: ThreadPayloadBuild,
-	summary: BatchThreadCheckpointSummary,
-	batchId: string,
-	collector: IssueCollector,
-): BatchThreadCheckpointSummary {
+interface ValidateThreadResolutionResultOptions {
+	resolution: ThreadResolutionResult | null;
+	build: ThreadPayloadBuild;
+	summary: BatchThreadCheckpointSummary;
+	batchId: string;
+	collector: IssueCollector;
+}
+
+function validateThreadResolutionResult(options: ValidateThreadResolutionResultOptions): BatchThreadCheckpointSummary {
+	const { resolution, build, summary, batchId, collector } = options;
 	if (build.payload === null) {
 		collector.invalid(errorItem({ code: "missing_thread_payload", message: "thread_payload_build.payload_ready is true but payload is missing.", batchId }));
 		return summary;
@@ -357,7 +384,15 @@ function errorFromPayloadBuildError(error: z.infer<typeof buildErrorSchema>, fal
 	return errorItem({ code: error.code, message: error.message, batchId: error.batch_id ?? fallbackBatchId, threadId: error.thread_id });
 }
 
-function nonThreadOutcomesForRequest(outcomes: readonly NonThreadOutcomeInput[], selectedBatch: FeedbackPlanBatch, batchId: string, collector: IssueCollector): unknown[] {
+interface NonThreadOutcomesForRequestOptions {
+	outcomes: readonly NonThreadOutcomeInput[];
+	selectedBatch: FeedbackPlanBatch;
+	batchId: string;
+	collector: IssueCollector;
+}
+
+function nonThreadOutcomesForRequest(options: NonThreadOutcomesForRequestOptions): unknown[] {
+	const { outcomes, selectedBatch, batchId, collector } = options;
 	const selected = selectedNonThreadItems(selectedBatch);
 	const seen = new Set<string>();
 	const summaries: unknown[] = [];
@@ -374,7 +409,7 @@ function nonThreadOutcomesForRequest(outcomes: readonly NonThreadOutcomeInput[],
 			collector.invalid(nonThreadKeyError("non_thread_outcome_not_in_selected_batch", `Non-thread outcome references ${key.sourceKind} ${key.id} outside selected batch.`, key, batchId));
 			continue;
 		}
-		const summary = validatedNonThreadOutcome(outcome, key, batchId, collector);
+		const summary = validatedNonThreadOutcome({ outcome, key, batchId, collector });
 		if (summary !== null) summaries.push(summary);
 	}
 	for (const keyId of selected.keys()) {
@@ -422,7 +457,15 @@ function nonThreadOutcomeKey(outcome: NonThreadOutcomeInput, batchId: string, co
 	return { sourceKind: "discussion_comment", id: outcome.discussion_comment_id };
 }
 
-function validatedNonThreadOutcome(outcome: NonThreadOutcomeInput, key: NonThreadKey, batchId: string, collector: IssueCollector): unknown | null {
+interface ValidatedNonThreadOutcomeOptions {
+	outcome: NonThreadOutcomeInput;
+	key: NonThreadKey;
+	batchId: string;
+	collector: IssueCollector;
+}
+
+function validatedNonThreadOutcome(options: ValidatedNonThreadOutcomeOptions): unknown | null {
+	const { outcome, key, batchId, collector } = options;
 	const skipReason = trimOptional(outcome.skip_reason);
 	const summary = trimOptional(outcome.summary);
 	const keyErrors: BatchCheckpointError[] = [];

@@ -47,7 +47,7 @@ export async function runGetPrForBranchOperation(invocation: ExecOperationInvoca
 }
 
 export async function runGetReviewsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation(invocation.args, "get-reviews");
+	const parsed = parsePrNumberOperation({ args: invocation.args, commandName: "get-reviews" });
 	if (parsed.type === "error") return parsed.result;
 	const gateway = githubGateway(invocation);
 	if (gateway.type === "error") return gateway.result;
@@ -57,7 +57,7 @@ export async function runGetReviewsOperation(invocation: ExecOperationInvocation
 }
 
 export async function runGetReviewCommentsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation(invocation.args, "get-review-comments", ["--include-resolved"]);
+	const parsed = parsePrNumberOperation({ args: invocation.args, commandName: "get-review-comments", flagOptions: ["--include-resolved"] });
 	if (parsed.type === "error") return parsed.result;
 	const gateway = githubGateway(invocation);
 	if (gateway.type === "error") return gateway.result;
@@ -67,7 +67,7 @@ export async function runGetReviewCommentsOperation(invocation: ExecOperationInv
 }
 
 export async function runGetDiscussionCommentsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation(invocation.args, "get-discussion-comments");
+	const parsed = parsePrNumberOperation({ args: invocation.args, commandName: "get-discussion-comments" });
 	if (parsed.type === "error") return parsed.result;
 	const gateway = githubGateway(invocation);
 	if (gateway.type === "error") return gateway.result;
@@ -77,7 +77,12 @@ export async function runGetDiscussionCommentsOperation(invocation: ExecOperatio
 }
 
 export async function runGetFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation(invocation.args, "get-feedback", ["--include-resolved", "--include-empty-reviews"], ["--payload-mode", "--payload-session-id"]);
+	const parsed = parsePrNumberOperation({
+		args: invocation.args,
+		commandName: "get-feedback",
+		flagOptions: ["--include-resolved", "--include-empty-reviews"],
+		valueOptions: ["--payload-mode", "--payload-session-id"],
+	});
 	if (parsed.type === "error") return parsed.result;
 	const payloadMode = parsed.values.get("--payload-mode") ?? "payload";
 	if (payloadMode !== "inline") return { type: "fallback" };
@@ -175,17 +180,19 @@ export function contestedThreadIds(reviewThreads: readonly PRReviewThread[]): re
 	return contested;
 }
 
-function parsePrNumberOperation(
-	args: readonly string[],
-	commandName: string,
-	flagOptions: readonly string[] = [],
-	valueOptions: readonly string[] = [],
-): { type: "ok"; prNumber: number; flags: ReadonlySet<string>; values: ReadonlyMap<string, string> } | { type: "error"; result: ExecOperationDispatchResult } {
-	const parsed = parseReadOptions(args, valueOptions, flagOptions);
+interface ParsePrNumberOperationOptions {
+	args: readonly string[];
+	commandName: string;
+	flagOptions?: readonly string[];
+	valueOptions?: readonly string[];
+}
+
+function parsePrNumberOperation(options: ParsePrNumberOperationOptions): { type: "ok"; prNumber: number; flags: ReadonlySet<string>; values: ReadonlyMap<string, string> } | { type: "error"; result: ExecOperationDispatchResult } {
+	const parsed = parseReadOptions(options.args, options.valueOptions ?? [], options.flagOptions ?? []);
 	if (parsed.type === "error") return { type: "error", result: { type: "exit", exit: clinkrFailure("invalid_request", parsed.message) } };
 	const rawPrNumber = parsed.options.positionals[0];
 	const prNumber = rawPrNumber === undefined ? Number.NaN : Number(rawPrNumber);
-	if (!Number.isInteger(prNumber)) return { type: "error", result: { type: "exit", exit: clinkrFailure("invalid_request", `${commandName} requires an integer PR number argument.`) } };
+	if (!Number.isInteger(prNumber)) return { type: "error", result: { type: "exit", exit: clinkrFailure("invalid_request", `${options.commandName} requires an integer PR number argument.`) } };
 	return { type: "ok", prNumber, flags: parsed.options.flags, values: parsed.options.values };
 }
 

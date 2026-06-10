@@ -129,6 +129,7 @@ function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): b
 		const entryPath = realpathSync(resolve(argvPath));
 		return modulePath === entryPath;
 	} catch {
+		// If either path cannot be resolved, this process is not a direct CLI entrypoint.
 		return false;
 	}
 }
