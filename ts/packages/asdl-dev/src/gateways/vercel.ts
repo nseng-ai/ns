@@ -1,11 +1,8 @@
-import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { defaultCommandResolver, runCommand, type CommandResolver, type CommandRunner } from "@asdl/core/exec";
 
 import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
-import { defaultCommandResolver, resolveVercelCommandPrefix, type CommandResolver } from "./vercel-command.ts";
-
-const STDERR_DETAIL_LIMIT_CHARS = 1_200;
-
-type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
+import { commandFailure } from "./command-failure.ts";
+import { resolveVercelCommandPrefix } from "./vercel-command.ts";
 
 export interface DeploymentCandidate {
 	url: string;
@@ -56,42 +53,25 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 			return err(vercelUnavailableError());
 		}
 
-		const result = await this.runner(
-			prefix.command,
-			[
-				...prefix.args,
-				"ls",
-				params.project,
-				"--scope",
-				params.scope,
-				"--format=json",
-				"--status",
-				"READY",
-				"--environment",
-				"preview",
-				"-m",
-				`githubCommitRef=${params.branch}`,
-				"--non-interactive",
-			],
-			{ cwd: params.cwd },
-		);
+		const args = [
+			...prefix.args,
+			"ls",
+			params.project,
+			"--scope",
+			params.scope,
+			"--format=json",
+			"--status",
+			"READY",
+			"--environment",
+			"preview",
+			"-m",
+			`githubCommitRef=${params.branch}`,
+			"--non-interactive",
+		];
+		const result = await this.runner(prefix.command, args, { cwd: params.cwd });
 		const commandError = commandFailure(
 			prefix.command,
-			[
-				...prefix.args,
-				"ls",
-				params.project,
-				"--scope",
-				params.scope,
-				"--format=json",
-				"--status",
-				"READY",
-				"--environment",
-				"preview",
-				"-m",
-				`githubCommitRef=${params.branch}`,
-				"--non-interactive",
-			],
+			args,
 			result,
 			"vercel_list_failed",
 			`Vercel deployment list command failed for githubCommitRef=${params.branch}.`,
@@ -110,14 +90,11 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 		}
 
 		const inspectedUrl = toHttpsUrl(params.url);
-		const result = await this.runner(
-			prefix.command,
-			[...prefix.args, "inspect", inspectedUrl, "--scope", params.scope, "--format=json", "--non-interactive"],
-			{ cwd: params.cwd },
-		);
+		const args = [...prefix.args, "inspect", inspectedUrl, "--scope", params.scope, "--format=json", "--non-interactive"];
+		const result = await this.runner(prefix.command, args, { cwd: params.cwd });
 		const commandError = commandFailure(
 			prefix.command,
-			[...prefix.args, "inspect", inspectedUrl, "--scope", params.scope, "--format=json", "--non-interactive"],
+			args,
 			result,
 			"vercel_inspect_failed",
 			`Vercel inspect command failed for deployment ${params.url}.`,
@@ -253,39 +230,6 @@ function stringArrayField(record: Record<string, unknown>, key: string): string[
 	const value = record[key];
 	if (!Array.isArray(value)) return [];
 	return value.filter((item): item is string => typeof item === "string");
-}
-
-function commandFailure(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
-	if (result.code === 0 && !result.killed) {
-		return undefined;
-	}
-
-	const details: Record<string, unknown> = {
-		command,
-		args: [...args],
-		exit_code: result.code,
-	};
-	if (isStartupFailure(result)) {
-		details.startup_error = result.stderr;
-	}
-	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT_CHARS);
-	if (stderr !== "") {
-		details.stderr = stderr;
-	}
-
-	return { code, message, details };
-}
-
-function isStartupFailure(result: ExecResult): boolean {
-	return result.code === 127 && !result.killed && result.stderr.trim().length > 0;
-}
-
-function tailText(text: string, maxChars: number): string {
-	const trimmed = text.trim();
-	if (trimmed.length <= maxChars) {
-		return trimmed;
-	}
-	return `…${trimmed.slice(-maxChars)}`;
 }
 
 function toHttpsUrl(value: string): string {

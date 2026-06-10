@@ -1,4 +1,4 @@
-import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 
 const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
 const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
@@ -109,8 +109,6 @@ export type CurrentPrVerificationResult =
 			output: SubmitCommandOutput;
 			cause: CurrentPrVerificationFailureCause;
 	  };
-
-type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
 
 export interface SubmitGateway {
 	checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult>;
@@ -327,13 +325,9 @@ function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
 		stdout: result.stdout,
 		stderr: result.stderr,
 		exitCode: result.code,
-		...(isStartupFailure(result) ? { startupError: result.stderr } : {}),
+		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
 		...(result.killed ? { killed: true } : {}),
 	};
-}
-
-function isStartupFailure(result: ExecResult): boolean {
-	return result.code === 127 && !result.killed && result.stderr.trim().length > 0;
 }
 
 function isSuccessfulOutput(output: SubmitCommandOutput): boolean {

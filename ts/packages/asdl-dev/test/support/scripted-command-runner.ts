@@ -1,8 +1,6 @@
 import { expect } from "vitest";
 
-import type { ExecOptions, ExecResult } from "@asdl/core/exec";
-
-type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
+import type { CommandRunner, ExecResult } from "@asdl/core/exec";
 
 export interface RunnerCall {
 	command: string;
@@ -81,5 +79,6 @@ function result(_command: string, _args: readonly string[], fields: ResultFields
 		stdout: fields.stdout ?? "",
 		stderr: fields.startupError ?? fields.stderr ?? "",
 		killed: fields.killed === true,
+		...(fields.startupError === undefined ? {} : { startupError: fields.startupError }),
 	};
 }

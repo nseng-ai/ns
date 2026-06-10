@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, formatExecFailure, formatExecStartupFailure, stripTerminalEscapes } from "@asdl/core/exec";
+import { formatCommand, formatCommandFailure, formatCommandStartupFailure, stripTerminalEscapes } from "@asdl/core/exec";
 
 import { parseMachineEnvelopeData } from "../src/index.ts";
 import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext } from "../src/objective-selection.ts";
@@ -20,11 +20,11 @@ describe("pi extension runtime helpers", () => {
 		});
 	});
 
-	test("formats exec failures with an optional command subject", () => {
+	test("formats exec failures with the canonical command dialect", () => {
 		const result = { stdout: "", stderr: "boom", code: 2, killed: false };
-		expect(formatExecFailure("objective list", result, { subject: "objective command" }).startsWith("objective command failed (exit code 2)."))
+		expect(formatCommandFailure("objective command failed", "objective list", result).startsWith("objective command failed (exit code 2)."))
 			.toBe(true);
-		expect(formatExecStartupFailure("objective list", new Error("missing"), { subject: "objective command" }).startsWith("objective command failed before completion."))
+		expect(formatCommandStartupFailure("objective command failed", "objective list", new Error("missing")).startsWith("objective command failed (failed before completion)."))
 			.toBe(true);
 	});
 

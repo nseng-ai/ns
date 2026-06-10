@@ -6,6 +6,7 @@ import process from "node:process";
 
 import {
 	formatCommand,
+	formatCommandStartupFailure,
 	formatOutputSection,
 	formatShellArg,
 	normalizeExecResult,
@@ -13,7 +14,6 @@ import {
 	shellQuote,
 	stripTerminalEscapes,
 	tailText,
-	truncateTail,
 } from "@asdl/core/exec";
 
 const tempDirs: string[] = [];
@@ -40,11 +40,12 @@ describe("exec presentation helpers", () => {
 			code: 2,
 			killed: false,
 		});
-		expect(normalizeExecResult({ stdout: "out", stderr: "err", code: 9, killed: true })).toEqual({
+		expect(normalizeExecResult({ stdout: "out", stderr: "err", code: 9, killed: true, startupError: "spawn missing" })).toEqual({
 			stdout: "out",
 			stderr: "err",
 			code: 9,
 			killed: true,
+			startupError: "spawn missing",
 		});
 	});
 
@@ -72,7 +73,6 @@ describe("exec presentation helpers", () => {
 
 	test("tailText keeps final chars with an ellipsis when char-limited", () => {
 		expect(tailText("abcdefghijklmnopqrstuvwxyz", { maxChars: 5 })).toBe("…vwxyz");
-		expect(truncateTail("abcdefghijklmnopqrstuvwxyz", 5)).toBe("[Output truncated to the last 5 characters.]\n\nvwxyz");
 	});
 
 	test("formatOutputSection strips escapes, normalizes carriage returns, and labels empty output", () => {
@@ -80,6 +80,10 @@ describe("exec presentation helpers", () => {
 			"----- stdout tail -----\nfirst\nsecond",
 		);
 		expect(formatOutputSection("stderr", "\n", { maxLines: 10, maxChars: 100 })).toBe("----- stderr tail -----\n(empty)");
+	});
+
+	test("formatCommandStartupFailure uses the command failure dialect", () => {
+		expect(formatCommandStartupFailure("objective command failed", "objective list", new Error("missing")).startsWith("objective command failed (failed before completion).\n\nCommand: objective list")).toBe(true);
 	});
 });
 
@@ -127,11 +131,12 @@ setTimeout(() => process.exit(0), 30);
 		expect(stderrChunks.join("")).toBe(result.stderr);
 	});
 
-	test("startup error returns 127 and stderr", async () => {
+	test("startup error returns 127, stderr, and explicit startupError", async () => {
 		const result = await runCommand("__asdl_core_missing_command_for_test__", []);
 
 		expect(result.code).toBe(127);
 		expect(result.stderr.length).toBeGreaterThan(0);
+		expect(result.startupError).toBe(result.stderr);
 		expect(result.killed).toBe(false);
 		expect(result.stdout).toBe("");
 	});

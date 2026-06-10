@@ -4,14 +4,11 @@ import { dirname, join, resolve } from "node:path";
 import {
 	formatCommand,
 	formatCommandFailure,
-	formatExecStartupFailure,
+	formatCommandStartupFailure,
 	normalizeExecResult,
-	tailText,
 	type ExecResult,
 	type PiExecResultLike,
 } from "./exec.ts";
-
-const MAX_ERROR_CHARS = 4_000;
 
 export interface BrmemExecGateway {
 	exec(
@@ -191,13 +188,13 @@ function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefin
 }
 
 function formatStartupFailure(displayCommand: string, error: unknown): string {
-	return tailText(formatExecStartupFailure(displayCommand, error, { subject: "brmem command" }).replace("$ ", "Command: "), {
-		maxChars: MAX_ERROR_CHARS,
-		maxLines: 80,
-	});
+	return formatCommandStartupFailure("brmem command", displayCommand, error);
 }
 
 function isLikelyCommandNotFound(result: ExecResult): boolean {
+	if (result.startupError !== undefined) {
+		return true;
+	}
 	if (result.code !== 127 || result.killed) {
 		return false;
 	}

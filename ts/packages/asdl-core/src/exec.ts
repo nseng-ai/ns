@@ -6,7 +6,7 @@ import process from "node:process";
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;
 const STARTUP_FAILURE_EXIT_CODE = 127;
-const MAX_ERROR_CHARS = 4_000;
+export const MAX_ERROR_CHARS = 4_000;
 const TERMINAL_ESCAPE_PATTERN = /\x1B(?:\](?:[^\x07\x1B]|\x1B(?!\\))*?(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
 export interface ExecResult {
@@ -14,6 +14,7 @@ export interface ExecResult {
 	stderr: string;
 	code: number;
 	killed: boolean;
+	startupError?: string;
 }
 
 export interface ExecOptions {
@@ -26,6 +27,8 @@ export interface ExecOptions {
 	onStderr?: (text: string) => void;
 }
 
+export type CommandRunner = (executable: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
+
 export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
@@ -35,15 +38,12 @@ export interface PiExecResultLike {
 	stderr?: string;
 	code: number;
 	killed?: boolean;
+	startupError?: string;
 }
 
 export interface TailTextOptions {
 	maxChars: number;
 	maxLines?: number;
-}
-
-export interface FormatExecFailureOptions {
-	subject?: string;
 }
 
 export type CommandResolver = (name: string) => string | undefined;
@@ -65,6 +65,7 @@ export async function runCommand(command: string, args: readonly string[], optio
 		let stderr = "";
 		let settled = false;
 		let hasTimedOut = false;
+		let startupError: string | undefined;
 		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 		let killTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -96,6 +97,7 @@ export async function runCommand(command: string, args: readonly string[], optio
 				stderr,
 				code: hasTimedOut ? TIMEOUT_EXIT_CODE : exitCode,
 				killed: hasTimedOut || killed,
+				...(startupError === undefined ? {} : { startupError }),
 			});
 		};
 
@@ -128,7 +130,8 @@ export async function runCommand(command: string, args: readonly string[], optio
 			options.onStderr?.(chunk);
 		});
 		child.on("error", (error) => {
-			if (stderr.length === 0) stderr = error instanceof Error ? error.message : String(error);
+			startupError = error instanceof Error ? error.message : String(error);
+			if (stderr.length === 0) stderr = startupError;
 			finish(STARTUP_FAILURE_EXIT_CODE, false);
 		});
 		child.on("close", (code, signal) => {
@@ -143,6 +146,7 @@ export function normalizeExecResult(result: PiExecResultLike): ExecResult {
 		stderr: result.stderr ?? "",
 		code: result.code,
 		killed: Boolean(result.killed),
+		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
 	};
 }
 
@@ -182,24 +186,10 @@ export function tailText(text: string, options: TailTextOptions): string {
 	return tail;
 }
 
-export function truncateTail(text: string, maxChars: number): string {
-	const tail = tailText(text, { maxChars });
-	if (tail === text) {
-		return text;
-	}
-
-	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
-}
-
 export function formatOutputSection(name: "stdout" | "stderr", output: string, options: TailTextOptions): string {
 	const normalizedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n").trimEnd();
 	const tail = normalizedOutput.length > 0 ? tailText(normalizedOutput, options) : "";
 	return [`----- ${name} tail -----`, tail.length > 0 ? tail : "(empty)"].join("\n");
-}
-
-export function formatPlainOutputSection(name: string, output: string, options: TailTextOptions): string {
-	const trimmed = output.trim();
-	return trimmed.length > 0 ? `${name}:\n${tailText(trimmed, options)}` : "";
 }
 
 export function formatCommandFailure(title: string, displayCommand: string, result: ExecResult): string {
@@ -215,21 +205,16 @@ export function formatCommandFailure(title: string, displayCommand: string, resu
 	);
 }
 
-export function formatExecFailure(commandDisplay: string, result: ExecResult, options: FormatExecFailureOptions = {}): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	const subject = options.subject ?? "command";
-	return truncateTail(
-		`${subject} failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-		MAX_ERROR_CHARS,
+export function formatCommandStartupFailure(title: string, displayCommand: string, error: unknown): string {
+	const message = stripTerminalEscapes(error instanceof Error ? error.message : String(error)).replace(/\r/g, "\n").trimEnd();
+	return tailText(
+		[
+			`${title} (failed before completion).`,
+			`Command: ${displayCommand}`,
+			["error:", message.length > 0 ? message : "(empty)"].join("\n"),
+		].join("\n\n"),
+		{ maxChars: MAX_ERROR_CHARS, maxLines: 120 },
 	);
-}
-
-export function formatExecStartupFailure(commandDisplay: string, error: unknown, options: FormatExecFailureOptions = {}): string {
-	const message = error instanceof Error ? error.message : String(error);
-	const subject = options.subject ?? "command";
-	return truncateTail(`${subject} failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
 export function defaultCommandResolver(name: string): string | undefined {

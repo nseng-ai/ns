@@ -1,6 +1,4 @@
-import { defaultCommandResolver, type CommandPrefix, type CommandResolver } from "@asdl/core/exec";
-
-export { defaultCommandResolver, type CommandResolver };
+import type { CommandPrefix, CommandResolver } from "@asdl/core/exec";
 
 export function resolveVercelCommandPrefix(resolveCommand: CommandResolver): CommandPrefix | undefined {
 	const vercel = resolveCommand("vercel");
