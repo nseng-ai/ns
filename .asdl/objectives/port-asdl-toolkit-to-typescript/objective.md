@@ -99,7 +99,7 @@ Risks:
 ## Open Questions
 
 - Which remaining parked ledger entries have enough active-use or strategic-value evidence to promote into in-scope capability subobjectives?
-- What exact package name and public/private boundary should the internal JS/TS clinkr foundation use during its first slices?
+- Resolved (2026-06-10): the internal JS/TS clinkr foundation ships as two repo-private workspace packages — `@asdl/clinkr` (schema-first command framework) and `@asdl/core` (foundation modules: primitives, exec runtime, brmem-cli, with gateways and testing exports to follow). Both unpublished by design; tracked by the `ts-cli-foundation` subobjective.
 - What is the minimal compatibility window for each Python fallback retirement phase?
 - Which capability should follow `pr-address` once integration leverage is reassessed with fresh evidence?
 - Where should the reusable porting playbook live after the first full cutover proves the pattern?

@@ -50,3 +50,13 @@ Risks:
 - Does #5b (one spec generating both the option allowlist and the request-schema document) land here, in the thermo-review objective's "single operation table" row, or only when pr-address migrates to clinkr?
 - Shape layer: delete (downstream validators like `invalid_stack_plan_shape` already speak) or keep-but-canonical (earlier "wrong file at this path" diagnostics)? One rule must win for all three reference options.
 - When pr-address migrates to clinkr, does `loadOperationPayload` become a clinkr feature (first-class payload/reference support, currently a clinkr non-goal "until a TS CLI needs them" — this is that need) or stay package-local?
+
+## Closure
+
+Outcome: intentionally subsumed into `pr-address-typescript-port` (2026-06-10).
+
+This record was created deliberately as a standalone, possibly-duplicative record while `pr-address-ts-thermo-review-followups` and `ts-clinkr-commander` were open on other lines; its own roadmap's "post-merge reconciliation" row is satisfied by this consolidation. The PR 1–3 rows (shared XOR-source resolver, one reference-validation/diagnostics rule, declarative `loadOperationPayload` spec, stdin-edge documentation and pinning) moved to the survivor's sequenced roadmap as its payload/reference-consolidation group.
+
+Dispositions recorded with the closure: the parked #5b (spec-driven option/schema generation from the payload spec) dissolves into the clinkr shell migration rather than landing standalone, per this record's own overlap analysis; the eventual `loadOperationPayload` lift decision (clinkr first-class vs package-local) is owned by `ts-cli-foundation`'s payload-home decision row, with the survivor keeping the spec design clinkr-compatible in the meantime.
+
+The thesis, scope, and roadmap above are preserved as historical source material; active tracking now belongs to `.asdl/objectives/pr-address-typescript-port/`.

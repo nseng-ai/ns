@@ -63,3 +63,13 @@ Risks:
 - Resolved (2026-06-10): npm package name is scoped `@asdl/core`. Six of seven existing workspace packages are `@asdl/*`-scoped; `asdl-dev` is the lone unscoped outlier. Directory is `ts/packages/asdl-core`.
 - Whether the testing harness ships as a subpath export (`asdl-core/testing`) or needs a sibling package if production/test dependency separation becomes a problem in practice.
 - How much of the clinkr tri-state semantics beyond the envelope (e.g. negative-vs-failure exit-code conventions per operation) should be normative for non-exec, human-facing command output.
+
+## Closure
+
+Outcome: intentionally subsumed into `ts-cli-foundation` (2026-06-10).
+
+Shipped under this record: the `@asdl/core` package at `ts/packages/asdl-core` with `primitives` (single-sourced `isRecord`/`formatErrorMessage`), the unified `exec` subprocess runtime (adopted by 7 packages: `plans`, `planned-branch`, `asdl-dev`, `pr-address`, `ccc`, `pi-extension-runtime`, `pi-extensions`), and `brmem-cli` (the brmem command-candidate resolver and runner).
+
+This record and `ts-clinkr-commander` both claimed the umbrella's "minimal TS migration scaffold" / "JS/TS clinkr foundation" rows, and their open rows had begun to conflict. The "CLI scaffolding layer" row here is superseded by shipped `@asdl/clinkr` v1 — clinkr is the scaffolding layer. The "Result type and tri-state envelope" row is superseded by the clinkr `legacyMachine` decision; uniform envelope adoption and negative/failure classification now live in the umbrella's `migration-debt.md` (entries 1–4).
+
+The remaining live rows (shared git gateway, Zod boundary validation, asdl-dev public surface, scenario-test harness, umbrella reconciliation) moved to `.asdl/objectives/ts-cli-foundation/`, which is now the active owner of the shared TS CLI layer. The thesis, scope, and roadmap above are preserved as historical source material.
