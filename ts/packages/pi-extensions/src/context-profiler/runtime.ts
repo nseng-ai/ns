@@ -201,28 +201,29 @@ interface StartEpisodeAnalysisOptions {
 }
 
 function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void {
-	const cache = options.state.segmentationCache;
-	if (cache === null || cache.fingerprint !== options.fingerprint) return;
+	const { controller, fingerprint, gateway, onUpdate, profile, state } = options;
+	const cache = state.segmentationCache;
+	if (cache === null || cache.fingerprint !== fingerprint) return;
 	const statuses = initialAnalysisStatuses(cache.episodes);
 	const guardedEmit = (buildNext: (cache: SegmentationCacheEntry) => SegmentationCacheEntry): void => {
-		if (options.controller.signal.aborted) return;
-		const currentCache = options.state.segmentationCache;
-		if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
+		if (controller.signal.aborted) return;
+		const currentCache = state.segmentationCache;
+		if (currentCache === null || currentCache.fingerprint !== fingerprint) return;
 		const nextCache = buildNext(currentCache);
-		options.state.segmentationCache = nextCache;
-		options.onUpdate(readyState({ episodes: nextCache.episodes, summary: nextCache.summary, delegations: nextCache.delegations, analysis: statuses }));
+		state.segmentationCache = nextCache;
+		onUpdate(readyState({ episodes: nextCache.episodes, summary: nextCache.summary, delegations: nextCache.delegations, analysis: statuses }));
 	};
 	cache.episodes.forEach((episode, episodeIndex) => {
 		if (hasAnalysisVerdicts(episode)) return;
 		statuses[episodeIndex] = "loading";
 		const payload = buildEpisodeAnalysisPayload({
-			profile: options.profile,
+			profile,
 			episodes: cache.episodes,
 			episodeIndex,
 			summary: cache.summary,
 			delegations: cache.delegations,
 		});
-		void options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.controller.signal }).then(
+		void gateway.analyzeEpisode({ json: payload.json }, { signal: controller.signal }).then(
 			(result) => {
 				if (!result.ok) {
 					if (result.error.code === "aborted") return;
