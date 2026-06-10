@@ -3,11 +3,37 @@ import { describe, expect, test } from "vitest";
 import {
 	envelopeJsonText,
 	exitCodeForExit,
+	failure,
 	negative,
 	ok,
 	toMachineEnvelope,
 	type ClinkrExit,
 } from "../src/exit.ts";
+
+describe("failure", () => {
+	test("builds a failure exit with errorType and message", () => {
+		expect(failure("missing_branch", "branch not found")).toEqual({
+			type: "failure",
+			errorType: "missing_branch",
+			message: "branch not found",
+		});
+	});
+
+	test("maps to exit code 2", () => {
+		expect(exitCodeForExit(failure("boom", "bad"))).toBe(2);
+	});
+
+	test("produces the same machine envelope as a hand-built failure exit", () => {
+		const handBuilt: ClinkrExit<never> = {
+			type: "failure",
+			errorType: "missing_branch",
+			message: "branch not found",
+		};
+		expect(toMachineEnvelope(failure("missing_branch", "branch not found"))).toEqual(
+			toMachineEnvelope(handBuilt),
+		);
+	});
+});
 
 describe("exitCodeForExit", () => {
 	test("ok maps to 0", () => {

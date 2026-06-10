@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./primitives": "./src/primitives.ts",
+    "./cli-entry": "./src/cli-entry.ts",
     "./exec": "./src/exec.ts",
     "./brmem-cli": "./src/brmem-cli.ts"
   },

@@ -37,6 +37,10 @@ export function negative<T = never>(message: string, data?: T): ClinkrNegativeEx
 	return { type: "negative", message, data };
 }
 
+export function failure(errorType: string, message: string): ClinkrFailureExit {
+	return { type: "failure", errorType, message };
+}
+
 export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 	switch (exit.type) {
 		case "ok":
