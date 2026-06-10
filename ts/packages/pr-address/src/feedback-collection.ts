@@ -213,7 +213,7 @@ function gatewayFailureResult(prefix: string, failure: GatewayFailure): { type: 
 }
 
 export function gatewayFailureDetail(failure: GatewayFailure): string {
-	return failure.stderr || failure.stdout || `exit code ${failure.returncode}`;
+	return failure.stderr ?? failure.stdout ?? `exit code ${failure.returncode}`;
 }
 
 export function gatewayFailureMessage(prefix: string, failure: GatewayFailure): string {

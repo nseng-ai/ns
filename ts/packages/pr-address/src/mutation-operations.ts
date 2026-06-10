@@ -376,7 +376,7 @@ function gatewayFailureExit(prefix: string, failure: GatewayFailure): ExecOperat
 }
 
 function gatewayFailureDetail(failure: GatewayFailure): string {
-	return failure.stderr || failure.stdout || `exit code ${failure.returncode}`;
+	return failure.stderr ?? failure.stdout ?? `exit code ${failure.returncode}`;
 }
 
 function failure(errorType: string, message: string): ExecOperationDispatchResult {

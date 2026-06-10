@@ -85,7 +85,14 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 
 async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
 	if (options.optionValue !== undefined) return { type: "ok", value: options.optionValue };
-	if (options.filePath !== undefined) return await readJsonInputFile(options.filePath, options.commandName, options.inputDescription, options.fileOptionName);
+	if (options.filePath !== undefined) {
+		return await readJsonInputFile({
+			filePath: options.filePath,
+			commandName: options.commandName,
+			inputDescription: options.inputDescription,
+			fileOptionNameValue: options.fileOptionName,
+		});
+	}
 	if (canReadStdin) return { type: "ok", value: await options.stdin() };
 
 	return {
@@ -97,20 +104,22 @@ async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: b
 	};
 }
 
-async function readJsonInputFile(
-	filePath: string,
-	commandName: string,
-	inputDescription: string,
-	fileOptionNameValue: string | undefined,
-): Promise<JsonInputResult<string>> {
+interface ReadJsonInputFileOptions {
+	filePath: string;
+	commandName: string;
+	inputDescription: string;
+	fileOptionNameValue: string | undefined;
+}
+
+async function readJsonInputFile(options: ReadJsonInputFileOptions): Promise<JsonInputResult<string>> {
 	try {
-		return { type: "ok", value: await readFile(filePath, "utf8") };
+		return { type: "ok", value: await readFile(options.filePath, "utf8") };
 	} catch {
 		return {
 			type: "error",
 			error: {
 				errorType: "invalid_request",
-				message: `${commandName} ${fileOptionName(fileOptionNameValue)} must point to an existing file for ${inputDescription}: ${filePath}`,
+				message: `${options.commandName} ${fileOptionName(options.fileOptionNameValue)} must point to an existing file for ${options.inputDescription}: ${options.filePath}`,
 			},
 		};
 	}

@@ -118,7 +118,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 			batchId,
 			commitSha: batchCommitSha,
 			shouldContinueOnError: request.continue_on_error,
-			errors: [errorItem(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, batchId, null)],
+			errors: [errorItem({ code: STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE, message: STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, batchId })],
 		});
 	}
 
@@ -128,7 +128,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 			batchId,
 			commitSha: batchCommitSha,
 			shouldContinueOnError: request.continue_on_error,
-			errors: [errorItem("invalid_plan_shape", INVALID_PLAN_SHAPE_MESSAGE, batchId, null)],
+			errors: [errorItem({ code: "invalid_plan_shape", message: INVALID_PLAN_SHAPE_MESSAGE, batchId })],
 		});
 	}
 	const plan = planResult.data;
@@ -137,7 +137,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 			batchId,
 			commitSha: batchCommitSha,
 			shouldContinueOnError: request.continue_on_error,
-			errors: [errorItem("invalid_plan", "plan.valid must be true before building a resolve-thread-batch payload.", batchId, null)],
+			errors: [errorItem({ code: "invalid_plan", message: "plan.valid must be true before building a resolve-thread-batch payload.", batchId })],
 		});
 	}
 
@@ -147,7 +147,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 			batchId,
 			commitSha: batchCommitSha,
 			shouldContinueOnError: request.continue_on_error,
-			errors: [errorItem("unknown_batch", `No plan batch found for batch_id '${batchId}'.`, batchId, null)],
+			errors: [errorItem({ code: "unknown_batch", message: `No plan batch found for batch_id '${batchId}'.`, batchId })],
 		});
 	}
 
@@ -158,7 +158,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		if (item.source_kind !== "review_thread") continue;
 		const threadId = trimOptional(item.thread_id);
 		if (threadId === null) {
-			errors.push(errorItem("invalid_plan_thread_item", "Selected batch contains a review-thread item without a thread_id.", batchId, null));
+			errors.push(errorItem({ code: "invalid_plan_thread_item", message: "Selected batch contains a review-thread item without a thread_id.", batchId }));
 			continue;
 		}
 		candidates.push(item);
@@ -179,29 +179,29 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 	request.decisions.forEach((decision, index) => {
 		const threadId = decision.thread_id.trim();
 		if (threadId === "") {
-			errors.push(errorItem("empty_thread_decision", `decisions[${index}].thread_id must be non-empty.`, batchId, null));
+			errors.push(errorItem({ code: "empty_thread_decision", message: `decisions[${index}].thread_id must be non-empty.`, batchId }));
 			return;
 		}
 		if (decisionsByThread.has(threadId)) {
 			duplicateThreadIds.add(threadId);
-			errors.push(errorItem("duplicate_thread_decision", `Duplicate decision supplied for thread ${threadId}.`, batchId, threadId));
+			errors.push(errorItem({ code: "duplicate_thread_decision", message: `Duplicate decision supplied for thread ${threadId}.`, batchId, threadId }));
 			return;
 		}
 		decisionsByThread.set(threadId, decision);
 		if (selectedThreadIds.has(threadId)) return;
 		const otherBatchId = otherBatchByThread.get(threadId);
 		if (otherBatchId !== undefined) {
-			errors.push(errorItem("thread_not_in_selected_batch", `Decision for thread ${threadId} belongs to batch '${otherBatchId}', not selected batch '${batchId}'.`, batchId, threadId));
+			errors.push(errorItem({ code: "thread_not_in_selected_batch", message: `Decision for thread ${threadId} belongs to batch '${otherBatchId}', not selected batch '${batchId}'.`, batchId, threadId }));
 		} else if (informationalThreadIds.has(threadId)) {
-			errors.push(errorItem("informational_thread_not_in_batch", `Decision for informational thread ${threadId} cannot be converted into a resolve-thread-batch payload item.`, batchId, threadId));
+			errors.push(errorItem({ code: "informational_thread_not_in_batch", message: `Decision for informational thread ${threadId} cannot be converted into a resolve-thread-batch payload item.`, batchId, threadId }));
 		} else {
-			errors.push(errorItem("unknown_thread_decision", `Decision references unknown thread ${threadId}.`, batchId, threadId));
+			errors.push(errorItem({ code: "unknown_thread_decision", message: `Decision references unknown thread ${threadId}.`, batchId, threadId }));
 		}
 	});
 
 	for (const item of candidates) {
 		const threadId = trimRequired(item.thread_id);
-		if (!decisionsByThread.has(threadId)) errors.push(errorItem("missing_thread_decision", `Missing explicit resolve or skip decision for thread ${threadId}.`, batchId, threadId));
+		if (!decisionsByThread.has(threadId)) errors.push(errorItem({ code: "missing_thread_decision", message: `Missing explicit resolve or skip decision for thread ${threadId}.`, batchId, threadId }));
 	}
 
 	const payloadItems: ResolveThreadBatchItem[] = [];
@@ -211,7 +211,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 		const decision = decisionsByThread.get(threadId);
 		if (duplicateThreadIds.has(threadId) || decision === undefined) continue;
 		const built = buildThreadResolutionDecision({ threadId, subjectLabel: `thread ${threadId}`, batchCommitSha, decision });
-		for (const issue of built.errors) errors.push(errorItem(issue.code, issue.message, batchId, threadId));
+		for (const issue of built.errors) errors.push(errorItem({ code: issue.code, message: issue.message, batchId, threadId }));
 		if (built.errors.length > 0) continue;
 		if (built.payloadItem !== null) payloadItems.push(built.payloadItem);
 		if (built.skipReason !== null) skippedItems.push({ thread_id: threadId, skip_reason: built.skipReason, summary: item.summary });
@@ -249,7 +249,7 @@ export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThre
 			shouldContinueOnError: request.continue_on_error,
 			reviewThreadCount,
 			ignoredNonThreadItems: ignored,
-			errors: [errorItem("canonical_payload_invalid", `Duplicate thread_id in resolve-thread-batch payload: ${duplicatePayloadThreadId}`, batchId, duplicatePayloadThreadId)],
+			errors: [errorItem({ code: "canonical_payload_invalid", message: `Duplicate thread_id in resolve-thread-batch payload: ${duplicatePayloadThreadId}`, batchId, threadId: duplicatePayloadThreadId })],
 		});
 	}
 	return {
@@ -439,8 +439,8 @@ function noPayloadResult(options: {
 	};
 }
 
-function errorItem(code: string, message: string, batchId: string | null, threadId: string | null): BuildResolveThreadBatchPayloadError {
-	return { code, message, batch_id: batchId, thread_id: threadId };
+function errorItem(options: { code: string; message: string; batchId?: string | null | undefined; threadId?: string | null | undefined }): BuildResolveThreadBatchPayloadError {
+	return { code: options.code, message: options.message, batch_id: options.batchId ?? null, thread_id: options.threadId ?? null };
 }
 
 function hasSingleErrorCode(result: BuildResolveThreadBatchPayloadResult, errorCode: string): boolean {
