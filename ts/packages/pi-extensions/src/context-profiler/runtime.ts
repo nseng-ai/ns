@@ -91,7 +91,7 @@ function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptio
  * while an overlay is open update `state` for the *next* build; they never
  * mutate a snapshot already on screen.
  */
-export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState, episodes?: readonly EpisodeAnnotation[]): ProfileSnapshot {
+export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState): ProfileSnapshot {
 	const live = deriveLiveTurns({
 		contextMessages: state.latestContextMessages,
 		branchEntries: ctx.sessionManager.getBranch(),
@@ -103,7 +103,7 @@ export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState,
 		usage: ctx.getContextUsage(),
 		baseRegions: buildBaseRegions(state.lastPromptOptions, state.lastSystemPrompt),
 		liveTurns: capped.turns,
-		liveRegions: buildLiveRegions(capped.turns, episodes),
+		liveRegions: buildLiveRegions(capped.turns),
 		liveSource: live.source,
 		cap: capped.cap,
 		openedAt: new Date().toLocaleTimeString(),
@@ -137,9 +137,16 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 	}
 	const controller = new AbortController();
 	const payload = buildSegmentationPayload(profile);
-	void gateway
-		.segmentTurns({ json: payload.json }, { signal: controller.signal })
-		.then((result) => {
+	// Rejection handling is scoped to the gateway promise via the two-argument
+	// .then form: gateway failures are values, so a rejection is a programmer
+	// error in the gateway; surface it as an error state to keep the overlay
+	// functional. A throw from inside the fulfillment handler is also a
+	// programmer error, but it must NOT be converted into an error update —
+	// onUpdate(ready) may already have fired and the cache been written, so a
+	// contradictory error update would corrupt view state. It surfaces as an
+	// unhandled rejection instead.
+	void gateway.segmentTurns({ json: payload.json }, { signal: controller.signal }).then(
+		(result) => {
 			if (controller.signal.aborted) return;
 			if (!result.ok) {
 				if (result.error.code === "aborted") return;
@@ -149,12 +156,11 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 			const episodes = repairEpisodes(result.value.episodes, profile.liveTurns);
 			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary };
 			onUpdate({ type: "ready", episodes, summary: result.value.summary });
-		})
-		.catch((error: unknown) => {
-			// Gateway failures are values; a rejection is a programmer error, but
-			// the overlay must stay functional, so surface it as an error state.
+		},
+		(error: unknown) => {
 			if (controller.signal.aborted) return;
 			onUpdate({ type: "error", message: error instanceof Error ? error.message : String(error) });
-		});
+		},
+	);
 	return { initial: { type: "loading" }, abort: () => controller.abort() };
 }

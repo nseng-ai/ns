@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import type { LiveTurn, ProfileSnapshot } from "../src/context-profiler/model.ts";
-import { normalizeMessage } from "../src/context-profiler/model.ts";
 import {
 	buildSegmentationPayload,
 	computeSegmentationFingerprint,
@@ -11,45 +9,17 @@ import {
 	SEGMENTATION_PAYLOAD_MAX_CHARS,
 	type LmEpisodeStart,
 } from "../src/context-profiler/segmentation.ts";
-
-function makeTurn(index: number, overrides: Partial<LiveTurn> = {}): LiveTurn {
-	return {
-		index,
-		role: "user",
-		tokens: { value: 4, provenance: "estimated" },
-		toolNames: [],
-		excerpt: `turn ${index}`,
-		message: normalizeMessage({ role: "user", content: `turn ${index}` }),
-		...overrides,
-	};
-}
-
-function makeTurns(indices: readonly number[]): LiveTurn[] {
-	return indices.map((index) => makeTurn(index));
-}
-
-function sequentialTurns(count: number): LiveTurn[] {
-	return makeTurns(Array.from({ length: count }, (_unused, position) => position + 1));
-}
+import { makeProfile, makeTurn, makeTurns, sequentialTurns } from "./context-profiler-fakes.ts";
 
 function makeStart(startTurn: number, overrides: Partial<LmEpisodeStart> = {}): LmEpisodeStart {
 	return { startTurn, label: `episode ${startTurn}`, kind: "explore", outcome: "completed", ...overrides };
 }
 
-function makeProfile(turns: LiveTurn[], overrides: Partial<ProfileSnapshot> = {}): ProfileSnapshot {
-	const originalCount = overrides.cap?.originalCount ?? turns.length;
-	return {
-		cwd: "/repo",
-		model: "anthropic/claude-fable-5",
-		usage: undefined,
-		baseRegions: [],
-		liveTurns: turns,
-		liveRegions: [],
-		liveSource: "context-event",
-		cap: { originalCount, includedCount: turns.length, elidedMiddleTurns: originalCount - turns.length },
-		openedAt: "12:00:00",
-		...overrides,
-	};
+/** Capped-shape turn list: first 16 turns plus last 64, middle elided. */
+function cappedSeamIndices(): number[] {
+	const first = Array.from({ length: 16 }, (_unused, position) => position + 1);
+	const last = Array.from({ length: 64 }, (_unused, position) => position + 137);
+	return [...first, ...last];
 }
 
 const VALID_RESPONSE = JSON.stringify({
@@ -197,6 +167,38 @@ describe("repairEpisodes", () => {
 			turns,
 		);
 		expect(episodes.map((episode) => episode.outcome)).toEqual(["unknown", "completed", "active"]);
+	});
+
+	test("splits an episode crossing the elision seam into included-turn runs", () => {
+		const turns = makeTurns(cappedSeamIndices());
+		const episodes = repairEpisodes([makeStart(1, { label: "the work", kind: "edit", outcome: "active" })], turns);
+		expect(episodes).toEqual([
+			// Label and kind carry over to both pieces; "active" survives only on the truly last piece.
+			{ label: "the work", kind: "edit", outcome: "unknown", turnRange: { start: 1, end: 16 } },
+			{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 137, end: 200 } },
+		]);
+		const included = new Set(turns.map((turn) => turn.index));
+		for (const episode of episodes) {
+			for (let index = episode.turnRange.start; index <= episode.turnRange.end; index += 1) {
+				expect(included.has(index)).toBe(true);
+			}
+		}
+	});
+
+	test("seam-splitting only affects the episode whose run crosses the seam", () => {
+		const turns = makeTurns(cappedSeamIndices());
+		const episodes = repairEpisodes(
+			[makeStart(1, { label: "early", kind: "explore", outcome: "completed" }), makeStart(150, { label: "late", kind: "edit", outcome: "active" })],
+			turns,
+		);
+		expect(episodes.map((episode) => episode.turnRange)).toEqual([
+			{ start: 1, end: 16 },
+			{ start: 137, end: 149 },
+			{ start: 150, end: 200 },
+		]);
+		expect(episodes.map((episode) => episode.label)).toEqual(["early", "early", "late"]);
+		expect(episodes.map((episode) => episode.kind)).toEqual(["explore", "explore", "edit"]);
+		expect(episodes.map((episode) => episode.outcome)).toEqual(["completed", "completed", "active"]);
 	});
 });
 

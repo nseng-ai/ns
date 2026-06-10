@@ -331,7 +331,10 @@ export function capTurns(turns: readonly LiveTurn[]): { turns: LiveTurn[]; cap: 
  * Derive LIVE-section overview rows. Without annotations this is one
  * deterministic span over all turns; with annotations each becomes a row,
  * with uncovered spans kept as "unannotated turns" rows so every turn stays
- * reachable (annotations are claims over the list, never structure).
+ * reachable (annotations are claims over the list, never structure). A gap
+ * that covers only elided (capped-out) turns — the index-space hole at an
+ * elision seam — contains no real turns and is skipped, never rendered as a
+ * ghost zero-token row.
  */
 export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly EpisodeAnnotation[]): LiveRegion[] {
 	if (turns.length === 0) return [];
@@ -364,10 +367,25 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 		.sort((left, right) => left.turnRange.start - right.turnRange.start);
 
 	const regions: LiveRegion[] = [];
+	const pushUnannotated = (range: TurnRange): void => {
+		const gapTurns = turnsInRange(turns, range);
+		// An index-space gap with no included turns is an elision seam, not a region.
+		if (gapTurns.length === 0) return;
+		regions.push({
+			id: `unannotated-${range.start}`,
+			label: "unannotated turns",
+			kind: "uncategorized",
+			outcome: null,
+			turnRange: range,
+			tokens: { value: sumTurnTokens(gapTurns), provenance: "estimated" },
+			isCurrent: range.end >= lastIndex,
+			source: "deterministic",
+		});
+	};
 	let cursor = firstIndex;
 	clamped.forEach((episode, position) => {
 		if (episode.turnRange.start > cursor) {
-			regions.push(unannotatedRegion(turns, { start: cursor, end: episode.turnRange.start - 1 }, lastIndex));
+			pushUnannotated({ start: cursor, end: episode.turnRange.start - 1 });
 		}
 		regions.push({
 			id: `episode-${position + 1}`,
@@ -382,26 +400,13 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 		cursor = Math.max(cursor, episode.turnRange.end + 1);
 	});
 	if (cursor <= lastIndex) {
-		regions.push(unannotatedRegion(turns, { start: cursor, end: lastIndex }, lastIndex));
+		pushUnannotated({ start: cursor, end: lastIndex });
 	}
 	return regions;
 }
 
 export function turnsInRange(turns: readonly LiveTurn[], range: TurnRange): LiveTurn[] {
 	return turns.filter((turn) => turn.index >= range.start && turn.index <= range.end);
-}
-
-function unannotatedRegion(turns: readonly LiveTurn[], range: TurnRange, lastIndex: number): LiveRegion {
-	return {
-		id: `unannotated-${range.start}`,
-		label: "unannotated turns",
-		kind: "uncategorized",
-		outcome: null,
-		turnRange: range,
-		tokens: { value: sumTurnTokens(turnsInRange(turns, range)), provenance: "estimated" },
-		isCurrent: range.end >= lastIndex,
-		source: "deterministic",
-	};
 }
 
 /**

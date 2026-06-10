@@ -22,6 +22,7 @@ import {
 	type EpisodeAnnotation,
 	type LiveTurn,
 	type ProfileSnapshot,
+	type TurnRange,
 } from "./model.ts";
 
 /** Fixed analysis model — never the session's main model. */
@@ -145,14 +146,18 @@ function truncateChars(text: string, max: number): string {
  * where episodes start, code owns the indices. Start turns are clamped to the
  * list's range and snapped forward to the next real turn (which skips the
  * elided middle), deduped by turn, the first turn is forced to be a start,
- * starts are sorted and capped, end turns derive from the next start's
- * position in the capped list, and "active" is demoted to "unknown" on every
- * non-final episode.
+ * starts are sorted and capped, and end turns derive from the next start's
+ * position in the capped list. An episode whose position run crosses an
+ * elision seam (consecutive capped turns with non-adjacent indices) is split
+ * into one annotation per contiguous run of included turns, so every
+ * turnRange contains only included turns and its displayed claim, token sum,
+ * and drill-down agree. Splitting may push the annotation count past
+ * MAX_EPISODES — the cap bounds LM output, not repaired regions. Finally,
+ * "active" is demoted to "unknown" on every non-final annotation.
  */
 export function repairEpisodes(starts: readonly LmEpisodeStart[], turns: readonly LiveTurn[]): EpisodeAnnotation[] {
 	const firstTurn = turns[0];
-	const lastTurn = turns[turns.length - 1];
-	if (firstTurn === undefined || lastTurn === undefined) return [];
+	if (firstTurn === undefined) return [];
 
 	const startsByTurn = new Map<number, LmEpisodeStart>();
 	for (const start of starts) {
@@ -167,23 +172,52 @@ export function repairEpisodes(starts: readonly LmEpisodeStart[], turns: readonl
 	const startPositions = startIndices
 		.map((startIndex) => turns.findIndex((turn) => turn.index === startIndex))
 		.filter((position) => position !== -1);
-	return startPositions.map((position, episodeNumber): EpisodeAnnotation => {
+	const episodes = startPositions.flatMap((position, episodeNumber): EpisodeAnnotation[] => {
 		const start = startsByTurn.get(turns[position]?.index ?? firstTurn.index) ?? {
 			startTurn: firstTurn.index,
 			label: "uncategorized",
 			kind: "uncategorized",
 			outcome: "unknown",
 		};
-		const nextPosition = startPositions[episodeNumber + 1] ?? turns.length;
-		const end = turns[nextPosition - 1] ?? lastTurn;
-		const isFinal = episodeNumber === startPositions.length - 1;
-		return {
-			label: start.label,
-			kind: start.kind,
-			outcome: start.outcome === "active" && !isFinal ? "unknown" : start.outcome,
-			turnRange: { start: start.startTurn, end: end.index },
-		};
+		const endPosition = (startPositions[episodeNumber + 1] ?? turns.length) - 1;
+		return splitRunAtSeams(turns, position, endPosition).map(
+			(turnRange): EpisodeAnnotation => ({
+				label: start.label,
+				kind: start.kind,
+				outcome: start.outcome,
+				turnRange,
+			}),
+		);
 	});
+	return episodes.map((episode, position): EpisodeAnnotation => {
+		const isFinal = position === episodes.length - 1;
+		return episode.outcome === "active" && !isFinal ? { ...episode, outcome: "unknown" } : episode;
+	});
+}
+
+/**
+ * Split the position run [startPosition..endPosition] of the capped turn list
+ * into turn-index ranges containing only included turns, breaking wherever two
+ * consecutive capped turns have non-adjacent indices (an elision seam). Seams
+ * are detected from the turn list itself, not cap metadata.
+ */
+function splitRunAtSeams(turns: readonly LiveTurn[], startPosition: number, endPosition: number): TurnRange[] {
+	const ranges: TurnRange[] = [];
+	let runStartPosition = startPosition;
+	for (let position = startPosition; position < endPosition; position += 1) {
+		const current = turns[position];
+		const next = turns[position + 1];
+		if (current === undefined || next === undefined) break;
+		if (next.index !== current.index + 1) {
+			ranges.push({ start: turns[runStartPosition]?.index ?? current.index, end: current.index });
+			runStartPosition = position + 1;
+		}
+	}
+	const runEnd = turns[endPosition];
+	if (runEnd !== undefined) {
+		ranges.push({ start: turns[runStartPosition]?.index ?? runEnd.index, end: runEnd.index });
+	}
+	return ranges;
 }
 
 /** Clamp to the list's range, then snap forward to the next real turn index. */
@@ -201,6 +235,14 @@ function snapStartTurn(startTurn: number, turns: readonly LiveTurn[]): number {
  * Cache key for a segmentation result: live source, full turn count, and the
  * identity of the last turn. Reopening over an unchanged conversation reuses
  * the cached result; any new turn (or a different live source) misses.
+ *
+ * Deliberately NOT part of the key: middle-turn content. A conversation with
+ * the same turn count and same last turn but altered middle content would
+ * serve the cached episodes as "ready" even though buildSegmentationPayload
+ * serializes every capped turn. This is a cheap heuristic, accepted on
+ * purpose: in this harness realistic drift always changes the turn count or
+ * the last turn, and the `r` force-refresh keybinding is the escape hatch
+ * when it does not.
  */
 export function computeSegmentationFingerprint(profile: ProfileSnapshot): string {
 	const last = profile.liveTurns[profile.liveTurns.length - 1];

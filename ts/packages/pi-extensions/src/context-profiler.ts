@@ -118,6 +118,11 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 			ctx.ui.notify(`Context profiler failed: ${message}`, "error");
 		})
 		.finally(() => {
+			// Single cancellation authority: every close path (q/Esc → done(),
+			// closeProfiler → close() → done(), factory errors → .catch) settles
+			// this chain, so aborting here guarantees no in-flight LM call from a
+			// closed session can write the cache or reach the view.
+			session.abortSegmentation?.();
 			if (holder.current === session) {
 				holder.current = null;
 				ctx.ui.setStatus(STATUS_KEY, undefined);
@@ -127,9 +132,9 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 }
 
 function closeProfiler(ctx: ExtensionContext, holder: { current: OverlaySession | null }): void {
-	// Abort any in-flight segmentation first (session_shutdown routes here too);
-	// aborted results never reach the view.
-	holder.current?.abortSegmentation?.();
+	// Teardown converges in the ui.custom(...).finally() in openProfiler:
+	// close() settles that chain, which aborts any in-flight segmentation
+	// (session_shutdown routes here too).
 	holder.current?.close();
 	holder.current?.handle?.hide();
 	holder.current = null;
