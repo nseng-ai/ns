@@ -1,14 +1,14 @@
 # @asdl/pr-address
 
-TypeScript migration scaffold for the public `pr-address` standalone CLI.
+TypeScript implementation of the public `pr-address` standalone CLI.
 
-This package establishes the TypeScript package boundary and direct Node CLI entrypoint for `pr-address`. It is **not** a full operation port yet: unported `pr-address exec ...` operations delegate directly to the legacy Python CLI until each operation is ported and covered by parity tests.
+This package owns the package boundary and direct Node CLI entrypoint for `pr-address`. Every `pr-address exec ...` operation executes in TypeScript; the legacy Python CLI remains only as a compatibility fallback for a few click usage-error shapes (see "Compatibility-backed behavior" below).
 
 ## Current migration status
 
 Invocation is TypeScript-first: the `pr-address` shim on `PATH` executes `node ts/packages/pr-address/src/cli.ts` from the enclosing asdl checkout when invoked inside one, and from the installing checkout everywhere else (see "Distribution" below). Only the `asdl pr-address ...` plugin remains a Python-backed compatibility path.
 
-TypeScript-managed local `exec` operation execution after the current stack:
+TypeScript-managed local `exec` operation execution:
 
 - Classification and planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`
 - Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`

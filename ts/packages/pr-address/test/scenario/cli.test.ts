@@ -59,12 +59,12 @@ function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOp
 	};
 }
 
-describe("pr-address CLI scaffold", () => {
+describe("pr-address CLI", () => {
 	test("prints top-level help and version", async () => {
 		const help = runWithFakeLegacy(["--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: pr-address");
-		expect(help.stdout.join("")).not.toContain("exec");
+		expect(help.stdout.join("")).toContain("exec");
 		expect(help.legacy.calls).toEqual([]);
 
 		const version = runWithFakeLegacy(["--version"]);
@@ -83,7 +83,7 @@ describe("pr-address CLI scaffold", () => {
 		expect(run.legacy.calls).toEqual([]);
 	});
 
-	test("prints exec help for hidden agent operations", async () => {
+	test("prints exec help for agent operations", async () => {
 		const run = runWithFakeLegacy(["exec", "--help"]);
 
 		expect(await run.exit).toBe(0);
