@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from asdl_core.cli_runtime import add_runtime_option
 from vibechk.deps import CliDeps
 from vibechk.errors import VibechkError
 from vibechk.reports import (
@@ -26,7 +27,10 @@ def package_version() -> str:
 
 
 def build_cli(deps: CliDeps | None = None) -> click.Command:
-    active_deps = deps or CliDeps.production()
+    def get_deps() -> CliDeps:
+        if deps is not None:
+            return deps
+        return CliDeps.production()
 
     @click.group(
         name="vibechk",
@@ -82,6 +86,7 @@ def build_cli(deps: CliDeps | None = None) -> click.Command:
         store_path: Path | None,
     ) -> None:
         try:
+            active_deps = get_deps()
             result = execute_run(
                 plan_path=plan_path,
                 workdir=workdir,
@@ -178,6 +183,7 @@ def build_cli(deps: CliDeps | None = None) -> click.Command:
             raise click.ClickException(str(error)) from None
         click.echo(render_comparison_report(baseline, treatment), nl=False)
 
+    add_runtime_option(cli, runtime="python", entry_point="vibechk.cli:main")
     cli.add_command(run_command)
     cli.add_command(runs_command)
     cli.add_command(show_command)

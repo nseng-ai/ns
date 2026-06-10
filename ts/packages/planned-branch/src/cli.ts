@@ -69,13 +69,6 @@ interface JsonFailure {
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
 	const stderr = deps.stderr ?? ((text: string) => process.stderr.write(text));
-	const requiredDeps: RequiredCliDeps = {
-		context: deps.context ?? createRealPlannedBranchContext(),
-		cwd: deps.cwd ?? process.cwd(),
-		stdout,
-		stderr,
-		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
-	};
 
 	const command = args[0];
 	if (command === undefined || command === "--help" || command === "-h") {
@@ -86,6 +79,18 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		stdout(`${VERSION}\n`);
 		return 0;
 	}
+	if (command === "--runtime") {
+		stdout(runtimeInfo());
+		return 0;
+	}
+
+	const requiredDeps: RequiredCliDeps = {
+		context: deps.context ?? createRealPlannedBranchContext(),
+		cwd: deps.cwd ?? process.cwd(),
+		stdout,
+		stderr,
+		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+	};
 	if (command !== "exec") {
 		stderr(`Unknown command: ${command}\n\n${topLevelHelp()}`);
 		return 2;
@@ -385,9 +390,13 @@ function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+function runtimeInfo(): string {
+	return "runtime: typescript\nentry_point: @asdl/planned-branch bin planned-branch -> ts/packages/planned-branch/src/cli.ts\n";
+}
+
 function topLevelHelp(): string {
 	return [
-		"Usage: planned-branch [--version] <command>",
+		"Usage: planned-branch [--version] [--runtime] <command>",
 		"",
 		"Commands:",
 		"  exec    Run hidden deterministic planned-branch operations for agents.",
@@ -395,6 +404,7 @@ function topLevelHelp(): string {
 		"Options:",
 		"  -h, --help       Show this help.",
 		"  -V, --version    Show the package version.",
+		"  --runtime        Show CLI runtime diagnostics and exit.",
 		"",
 	].join("\n");
 }

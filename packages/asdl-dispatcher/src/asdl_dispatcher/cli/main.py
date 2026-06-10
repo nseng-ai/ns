@@ -7,9 +7,17 @@ from asdl_dispatcher.cli.plugin import build_dispatcher_plugin
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``dispatcher`` CLI group."""
-    return build_standalone_cli(build_dispatcher_plugin(), package_name="asdl-dispatcher")
+    return build_standalone_cli(
+        build_dispatcher_plugin(),
+        package_name="asdl-dispatcher",
+        entry_point="asdl_dispatcher.cli.main:main",
+    )
 
 
 def main() -> None:
     """Entry point for the standalone ``dispatcher`` CLI."""
-    invoke_standalone_cli(build_dispatcher_plugin(), package_name="asdl-dispatcher")
+    invoke_standalone_cli(
+        build_dispatcher_plugin(),
+        package_name="asdl-dispatcher",
+        entry_point="asdl_dispatcher.cli.main:main",
+    )

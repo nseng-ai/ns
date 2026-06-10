@@ -21,6 +21,17 @@ describe("plans Node runtime CLI entrypoint", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: plans");
+		expect(result.stdout).toContain("--runtime");
 		expect(result.stdout).toContain("list");
+	});
+
+	test("prints TypeScript runtime diagnostics", () => {
+		const result = spawnSync(process.execPath, [CLI_SOURCE_PATH, "--runtime"], {
+			cwd: TS_WORKSPACE_ROOT,
+			encoding: "utf8",
+		});
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe("runtime: typescript\nentry_point: @asdl/plans bin plans -> ts/packages/plans/src/cli.ts\n");
 	});
 });

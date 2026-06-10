@@ -302,11 +302,15 @@ name = "packagechk"
 version = "0.1.0"
 source = { editable = "packages/packagechk" }
 dependencies = [
+    { name = "asdl-core" },
     { name = "click" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
+requires-dist = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "click", specifier = ">=8.1.7" },
+]
 
 [[package]]
 name = "packaging"
@@ -641,8 +645,12 @@ name = "vibechk"
 version = "0.1.0"
 source = { editable = "packages/vibechk" }
 dependencies = [
+    { name = "asdl-core" },
     { name = "click" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
+requires-dist = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "click", specifier = ">=8.1.7" },
+]

@@ -134,6 +134,10 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		stdout(topLevelHelp());
 		return 0;
 	}
+	if (commandName === "--runtime") {
+		stdout(runtimeInfo());
+		return 0;
+	}
 
 	const command = COMMANDS.find((candidate) => candidate.name === commandName);
 	if (command === undefined) {
@@ -374,9 +378,13 @@ function inlineOptionValue(arg: string, optionName: string): string | undefined 
 	return arg.slice(prefix.length);
 }
 
+function runtimeInfo(): string {
+	return "runtime: typescript\nentry_point: asdl-dev bin asdl-dev -> ts/packages/asdl-dev/src/cli.ts\n";
+}
+
 function topLevelHelp(): string {
 	const commandLines = COMMANDS.map((command) => `  ${command.name.padEnd(12)}  ${command.description}`).join("\n");
-	return `Usage: asdl-dev <command> [options]
+	return `Usage: asdl-dev [--runtime] <command> [options]
 
 Developer tools for asdl-tools.
 
@@ -387,6 +395,7 @@ ${commandLines}
 
 Options:
   -h, --help    Show this help message.
+  --runtime     Show CLI runtime diagnostics and exit.
 `;
 }
 

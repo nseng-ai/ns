@@ -11,6 +11,7 @@ from areg.gateways.skillx_workspace.real import RealSkillxWorkspaceInstaller
 from areg.init_project import init_project_cmd
 from areg.skillx import exec_group
 from areg.update_skills import update_skills_cmd
+from asdl_core.cli_runtime import add_runtime_option
 
 
 @click.group()
@@ -27,6 +28,7 @@ def main(ctx: click.Context) -> None:
         )
 
 
+add_runtime_option(main, runtime="python", entry_point="areg.cli:main")
 main.add_command(init_project_cmd)
 main.add_command(check_cmd)
 main.add_command(exec_group)
