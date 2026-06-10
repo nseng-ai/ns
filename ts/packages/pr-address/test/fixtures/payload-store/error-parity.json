@@ -1,0 +1,130 @@
+{
+  "document": {
+    "a": [
+      1
+    ],
+    "scalar": 5
+  },
+  "cases": [
+    {
+      "name": "resolve_root_relative",
+      "error_type": "payload_root_invalid",
+      "message": "ASDL_PAYLOAD_ROOT must be an absolute path: 'relative/root'"
+    },
+    {
+      "name": "session_required",
+      "error_type": "payload_session_required",
+      "message": "Payload artifact mode requires a session id from an explicit option or ASDL_PAYLOAD_SESSION_ID."
+    },
+    {
+      "name": "session_invalid_env",
+      "error_type": "payload_session_invalid",
+      "message": "Payload session id must be a safe segment: 'Bad Session'"
+    },
+    {
+      "name": "session_invalid_explicit",
+      "error_type": "payload_session_invalid",
+      "message": "Payload session id must be a safe segment: 'UPPER'"
+    },
+    {
+      "name": "open_relative_root",
+      "error_type": "payload_root_invalid",
+      "message": "Payload root must be an absolute path: relative-root"
+    },
+    {
+      "name": "open_invalid_session",
+      "error_type": "payload_session_invalid",
+      "message": "Payload session id must be a safe segment: 'Session!'"
+    },
+    {
+      "name": "descriptor_value_error",
+      "error_type": "value_error",
+      "message": "descriptor must match safe segment pattern '^[a-z0-9][a-z0-9._-]{0,127}$': 'Bad Descriptor'"
+    },
+    {
+      "name": "artifact_relative",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact path must be absolute: relative/20260603t123456z-0001-x.raw.json"
+    },
+    {
+      "name": "artifact_missing",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact path does not exist: {ROOT}/missing/20260603t123456z-0001-x.raw.json"
+    },
+    {
+      "name": "artifact_not_payloads_dir",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact must live under a payloads directory: {ROOT}/payload-root/sessions/sess-1/other/20260603t123456z-0001-probe.raw.json"
+    },
+    {
+      "name": "artifact_bad_session",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact session id must be a safe segment: 'BadSession'"
+    },
+    {
+      "name": "artifact_not_under_sessions",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact must live under sessions/<session-id>/payloads: {ROOT}/store/nosessions/sess-1/payloads/20260603t123456z-0001-probe.raw.json"
+    },
+    {
+      "name": "artifact_bad_filename",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact filename does not match payload contract: notmatching.json"
+    },
+    {
+      "name": "lookup_role_not_allowed",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact role 'log' is not allowed for this lookup: {ROOT}/payload-root/sessions/sess-1/payloads/20260603t123456z-0001-run-log.log.txt"
+    },
+    {
+      "name": "lookup_extension_not_json",
+      "error_type": "payload_lookup_failed",
+      "message": "Payload artifact extension must be json: {ROOT}/payload-root/sessions/sess-1/payloads/20260603t123456z-0042-probe.raw.txt"
+    },
+    {
+      "name": "pointer_no_slash",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer must be empty or start with '/': 'foo'"
+    },
+    {
+      "name": "pointer_missing_token",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer token 'b' was not found in object: '/b'"
+    },
+    {
+      "name": "pointer_index_out_of_range",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer array index 1 is out of range for array of length 1: '/a/1'"
+    },
+    {
+      "name": "pointer_dash_token",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer '-' token is not a valid array index: '/a/-'"
+    },
+    {
+      "name": "pointer_leading_zero",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer array index must not contain leading zeroes: '/a/01'"
+    },
+    {
+      "name": "pointer_not_integer",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer array token is not a non-negative integer: '/a/x'"
+    },
+    {
+      "name": "pointer_scalar_traverse",
+      "error_type": "payload_lookup_failed",
+      "message": "JSON Pointer cannot traverse scalar value at token 'b': '/scalar/b'"
+    },
+    {
+      "name": "pointer_bad_escape",
+      "error_type": "payload_lookup_failed",
+      "message": "Invalid JSON Pointer escape '~2' in '/~2'"
+    },
+    {
+      "name": "pointer_trailing_tilde",
+      "error_type": "payload_lookup_failed",
+      "message": "Invalid JSON Pointer escape in '/~': trailing '~'"
+    }
+  ]
+}
