@@ -144,7 +144,7 @@ const ghReviewSchema = z
 	.loose();
 const ghReviewCommentSchema = z
 	.object({
-		databaseId: z.number().int().optional(),
+		databaseId: z.number().int().nullable().optional(),
 		id: z.union([z.number().int(), z.string()]).optional(),
 		body: z.string().default(""),
 		author: ghAuthorSchema.default(""),
@@ -156,13 +156,13 @@ const ghReviewCommentSchema = z
 	.loose();
 const ghReviewThreadSchema = z
 	.object({
-		id: z.string(),
+		id: z.string().nullable().default(null),
 		path: z.string().default(""),
 		line: z.number().int().nullable().default(null),
 		startLine: z.number().int().nullable().optional(),
 		isResolved: z.boolean().default(false),
 		isOutdated: z.boolean().default(false),
-		comments: z.union([z.array(ghReviewCommentSchema), z.object({ nodes: z.array(ghReviewCommentSchema).default([]) }).loose()]).default([]),
+		comments: z.object({ nodes: z.array(ghReviewCommentSchema).default([]) }).loose().default({ nodes: [] }),
 	})
 	.loose();
 const ghDiscussionCommentSchema = z
@@ -184,6 +184,17 @@ const ghReactionSchema = z
 	.loose();
 const ghReviewThreadStateSchema = z.object({ id: z.string(), isResolved: z.boolean() }).loose();
 const ghGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
+const ghReviewThreadsResponseSchema = z
+	.object({
+		data: z.object({
+			repository: z.object({
+				pullRequest: z.object({
+					reviewThreads: z.object({ nodes: z.array(ghReviewThreadSchema).default([]) }),
+				}),
+			}),
+		}),
+	})
+	.loose();
 
 const resolveReviewThreadMutation = `
 mutation($threadId: ID!) {
@@ -203,6 +214,27 @@ const addReviewThreadReplyMutation = `
 mutation($threadId: ID!, $body: String!) {
   addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $threadId, body: $body}) {
     comment { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
+  }
+}`;
+
+export const reviewThreadsQuery = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          isOutdated
+          path
+          line
+          startLine
+          comments(first: 20) {
+            nodes { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
+          }
+        }
+      }
+    }
   }
 }`;
 
@@ -230,11 +262,11 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
-		const result = await this.runGh(["pr", "view", String(prNumber), "--json", "reviewThreads"], options);
+		const result = await this.runGh(["api", "graphql", "-F", "owner={owner}", "-F", "repo={repo}", "-F", `number=${prNumber}`, "-f", `query=${reviewThreadsQuery}`], options);
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
-		const parseResult = parseJson(result.stdout, z.object({ reviewThreads: z.array(ghReviewThreadSchema).default([]) }).loose());
+		const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadsResponseSchema);
 		if (parseResult.type === "failure") return parseResult;
-		const threads = parseResult.value.reviewThreads.map(normalizeReviewThread);
+		const threads = parseResult.value.data.repository.pullRequest.reviewThreads.nodes.flatMap(normalizeReviewThread);
 		return { type: "ok", value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
 	}
 
@@ -368,17 +400,19 @@ function normalizeReview(review: z.infer<typeof ghReviewSchema>): PRReview {
 	};
 }
 
-function normalizeReviewThread(thread: z.infer<typeof ghReviewThreadSchema>): PRReviewThread {
-	const comments = Array.isArray(thread.comments) ? thread.comments : thread.comments.nodes;
-	return {
-		id: thread.id,
-		path: thread.path,
-		line: thread.line,
-		start_line: thread.startLine ?? null,
-		is_resolved: thread.isResolved,
-		is_outdated: thread.isOutdated,
-		comments: comments.map(normalizeReviewComment).filter((comment) => comment.id !== 0),
-	};
+function normalizeReviewThread(thread: z.infer<typeof ghReviewThreadSchema>): PRReviewThread[] {
+	if (thread.id === null) return [];
+	return [
+		{
+			id: thread.id,
+			path: thread.path,
+			line: thread.line,
+			start_line: thread.startLine ?? null,
+			is_resolved: thread.isResolved,
+			is_outdated: thread.isOutdated,
+			comments: thread.comments.nodes.map(normalizeReviewComment).filter((comment) => comment.id !== 0),
+		},
+	];
 }
 
 function normalizeReviewComment(comment: z.infer<typeof ghReviewCommentSchema>): PRReviewComment {
@@ -407,7 +441,7 @@ function normalizeAuthor(author: z.infer<typeof ghAuthorSchema>): string {
 	return author?.login ?? "";
 }
 
-function numericId(value: string | number | undefined): number {
+function numericId(value: string | number | null | undefined): number {
 	if (typeof value === "number") return value;
 	if (typeof value === "string") {
 		const numeric = Number(value);
