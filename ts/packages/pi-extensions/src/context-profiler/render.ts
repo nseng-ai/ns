@@ -11,6 +11,7 @@ import type {
 	BaseMember,
 	BaseRegion,
 	EpisodeKind,
+	EpisodeOutcome,
 	LiveRegion,
 	LiveTurn,
 	MessagePart,
@@ -18,6 +19,7 @@ import type {
 	TokenCount,
 	TurnCapInfo,
 } from "./model.ts";
+import type { SegmentationState } from "./segmentation.ts";
 
 export const BAR_WIDTH = 14;
 export const TOKENS_COLUMN_WIDTH = 8;
@@ -39,6 +41,14 @@ export const EPISODE_KIND_ABBREV = {
 	chat: "chat",
 	uncategorized: "—",
 } as const satisfies Record<EpisodeKind, string>;
+
+export const EPISODE_OUTCOME_GLYPH = {
+	active: "●",
+	completed: "✓",
+	abandoned: "✗",
+	errored: "✗",
+	unknown: "?",
+} as const satisfies Record<EpisodeOutcome, string>;
 
 export type OverviewRowSource =
 	| { type: "base"; region: BaseRegion }
@@ -92,15 +102,35 @@ function regionRowLabel(source: OverviewRowSource): string {
 
 function rowStatus(source: OverviewRowSource): string {
 	if (source.type === "base") return "";
-	const glyph = source.region.isCurrent ? "●" : "·";
-	return `${glyph} ${EPISODE_KIND_ABBREV[source.region.kind]}`;
+	const region = source.region;
+	if (region.outcome !== null) {
+		return `${EPISODE_OUTCOME_GLYPH[region.outcome]} ${EPISODE_KIND_ABBREV[region.kind]}`;
+	}
+	const glyph = region.isCurrent ? "●" : "·";
+	return `${glyph} ${EPISODE_KIND_ABBREV[region.kind]}`;
 }
 
 function rowHealth(source: OverviewRowSource): Health {
 	if (source.type === "base") return "neutral";
-	if (source.region.isCurrent) return "accent";
-	if (source.region.kind === "uncategorized") return "dim";
+	const region = source.region;
+	if (region.outcome !== null) return healthForOutcome(region.outcome);
+	if (region.isCurrent) return "accent";
+	if (region.kind === "uncategorized") return "dim";
 	return "neutral";
+}
+
+function healthForOutcome(outcome: EpisodeOutcome): Health {
+	switch (outcome) {
+		case "active":
+			return "accent";
+		case "completed":
+			return "muted";
+		case "abandoned":
+		case "errored":
+			return "warning";
+		case "unknown":
+			return "dim";
+	}
 }
 
 export interface UsageBarSegments {
@@ -131,14 +161,25 @@ export function buildUsageBarSegments(usage: ContextUsage | undefined, baseToken
 
 export const BASE_SECTION_HEADER = "BASE · system prompt";
 
-export function liveSectionHeader(cap: TurnCapInfo): string {
+export function liveSectionHeader(cap: TurnCapInfo, segmentationStatus?: string | null): string {
 	const elided = cap.elidedMiddleTurns > 0 ? ` · ${cap.elidedMiddleTurns.toLocaleString()} middle turns elided` : "";
-	return `LIVE · ${cap.includedCount.toLocaleString()}/${cap.originalCount.toLocaleString()} turns${elided}`;
+	const status = segmentationStatus === undefined || segmentationStatus === null ? "" : ` · ${segmentationStatus}`;
+	return `LIVE · ${cap.includedCount.toLocaleString()}/${cap.originalCount.toLocaleString()} turns${elided}${status}`;
+}
+
+/** Header status for the LM layer; null when there is nothing to surface. */
+export function segmentationStatusText(state: SegmentationState): string | null {
+	if (state.type === "loading") return "symbolizing…";
+	if (state.type === "error") return `no symbols: ${state.message}`;
+	return null;
 }
 
 export const BASE_DETAIL_CLAIM = "members sorted by estimated size, descending · ⏎ views content";
 
 export function turnListClaim(region: LiveRegion): string {
+	if (region.source === "annotation") {
+		return `LM claim: kind=${region.kind} · outcome=${region.outcome ?? "unknown"} · turns ${region.turnRange.start}–${region.turnRange.end} · ⏎ views turn content`;
+	}
 	return `turns ${region.turnRange.start}–${region.turnRange.end} of this span, in order · ⏎ views turn content`;
 }
 

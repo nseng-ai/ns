@@ -11,7 +11,8 @@
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/planned-branch": "workspace:*",
     "@asdl/plans": "workspace:*",
-    "asdl-dev": "workspace:*"
+    "asdl-dev": "workspace:*",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
