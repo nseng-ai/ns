@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
-import type { BaseRegion, LiveRegion, LiveTurn, TokenCount } from "../src/context-profiler/model.ts";
+import type { BaseRegion, LiveRegion, LiveTurn, NormalizedMessage, TokenCount } from "../src/context-profiler/model.ts";
 import {
 	BAR_WIDTH,
 	BASE_DETAIL_CLAIM,
@@ -58,6 +58,16 @@ function makeLiveRegion(overrides: Partial<LiveRegion> = {}): LiveRegion {
 	};
 }
 
+function makeMessage(overrides: Partial<NormalizedMessage> = {}): NormalizedMessage {
+	return {
+		role: "assistant",
+		toolName: null,
+		parts: [{ kind: "text", text: "doing things" }],
+		detailsJson: null,
+		...overrides,
+	};
+}
+
 function makeTurn(overrides: Partial<LiveTurn> = {}): LiveTurn {
 	return {
 		index: 3,
@@ -65,7 +75,7 @@ function makeTurn(overrides: Partial<LiveTurn> = {}): LiveTurn {
 		tokens: estimated(120),
 		toolNames: [],
 		excerpt: "doing things",
-		message: { role: "assistant", content: "doing things" },
+		message: makeMessage(),
 		...overrides,
 	};
 }
@@ -221,23 +231,29 @@ describe("list rows", () => {
 
 describe("verbatim content", () => {
 	test("renderMessageText emits semantic part headers", () => {
-		const text = renderMessageText({
+		const text = renderMessageText(makeMessage({
 			role: "toolResult",
 			toolName: "bash",
-			content: [
-				{ type: "text", text: "stdout here" },
-				{ type: "thinking", thinking: "hmm" },
-				{ type: "toolCall", name: "read", arguments: { path: "/x" } },
-				{ type: "image", data: "ZGF0YQ==" },
+			parts: [
+				{ kind: "text", text: "stdout here" },
+				{ kind: "thinking", text: "hmm" },
+				{ kind: "toolCall", name: "read", argsJson: JSON.stringify({ path: "/x" }, null, 2) },
+				{ kind: "image" },
+				{ kind: "opaque", json: '{\n  "type": "mystery"\n}' },
 			],
-			details: { exitCode: 0 },
-		});
+			detailsJson: JSON.stringify({ exitCode: 0 }, null, 2),
+		}));
 		expect(text).toContain("⏺ tool result · bash");
 		expect(text).toContain("stdout here");
 		expect(text).toContain("[thinking]\nhmm");
 		expect(text).toContain("⏺ read\n");
 		expect(text).toContain("[image]");
+		expect(text).toContain('"type": "mystery"');
 		expect(text).toContain("[details]");
+	});
+
+	test("renderMessageText renders an empty message as the empty string", () => {
+		expect(renderMessageText(makeMessage({ parts: [] }))).toBe("");
 	});
 
 	test("sanitizeContentText strips CR and expands tabs", () => {

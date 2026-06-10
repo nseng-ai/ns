@@ -164,10 +164,9 @@ export class ProfilerView implements Component {
 
 	private topFrame(): ViewFrame {
 		const frame = this.frames[this.frames.length - 1];
-		if (frame !== undefined) return frame;
-		const overview: OverviewFrame = { type: "overview", selection: 0 };
-		this.frames.push(overview);
-		return overview;
+		// The constructor seeds the stack and pop is guarded by length > 1.
+		if (frame === undefined) throw new Error("profiler frame stack is empty");
+		return frame;
 	}
 
 	private overviewRows(): OverviewRowSource[] {
@@ -237,7 +236,6 @@ export class ProfilerView implements Component {
 
 	private renderOverviewBody(frame: OverviewFrame, innerWidth: number, bodyHeight: number): string[] {
 		const rows = this.overviewRows();
-		frame.selection = clamp(frame.selection, 0, Math.max(0, rows.length - 1));
 		const baseTokens = this.profile.baseRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
 		const liveTokens = this.profile.liveRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
 		const totalTokens = Math.max(1, baseTokens + liveTokens);
@@ -306,7 +304,7 @@ export class ProfilerView implements Component {
 		const areaHeight = Math.max(1, options.bodyHeight - 3);
 		const count = options.rows.length;
 		const state = options.state;
-		state.selection = clamp(state.selection, 0, Math.max(0, count - 1));
+		// Selection is clamped at input time; scroll is reconciled at render time because it depends on layout.
 		state.scroll = clamp(state.scroll, state.selection - areaHeight + 1, state.selection);
 		state.scroll = clamp(state.scroll, 0, Math.max(0, count - areaHeight));
 		const maxTokens = Math.max(1, ...options.rows.map((row) => row.tokens.value));
@@ -333,6 +331,7 @@ export class ProfilerView implements Component {
 		const areaHeight = Math.max(1, bodyHeight - 3);
 		const wrapped = frame.source.text.trim().length === 0 ? [this.theme.fg("dim", "(empty)")] : wrapTextWithAnsi(frame.source.text, innerWidth);
 		const maxScroll = Math.max(0, wrapped.length - areaHeight);
+		// Scroll is reconciled at render time because it depends on layout (wrap width / area height).
 		frame.scroll = clamp(frame.scroll, 0, maxScroll);
 		const visible = wrapped.slice(frame.scroll, frame.scroll + areaHeight);
 		const lines = [this.theme.fg("dim", truncateToWidth(frame.source.note, innerWidth, "…", true)), "", ...visible];
