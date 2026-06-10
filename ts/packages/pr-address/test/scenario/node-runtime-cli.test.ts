@@ -35,7 +35,18 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: pr-address");
+		expect(result.stdout).toContain("--runtime");
 		expect(result.stdout).toContain("exec");
+	});
+
+	test("prints TypeScript runtime diagnostics", () => {
+		const result = spawnSync(process.execPath, [CLI_SOURCE_PATH, "--runtime"], {
+			cwd: TS_WORKSPACE_ROOT,
+			encoding: "utf8",
+		});
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe("runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n");
 	});
 
 	test("Node executes the TypeScript entrypoint through a package-manager-style symlink", async () => {
@@ -43,12 +54,12 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 		const shimPath = join(tempDir, "pr-address");
 		await symlink(new URL("../../src/cli.ts", import.meta.url), shimPath);
 
-		const result = spawnSync(process.execPath, [shimPath, "--help"], {
+		const result = spawnSync(process.execPath, [shimPath, "--runtime"], {
 			cwd: TS_WORKSPACE_ROOT,
 			encoding: "utf8",
 		});
 
 		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toContain("Usage: pr-address");
+		expect(result.stdout).toBe("runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n");
 	});
 });

@@ -5,6 +5,7 @@ description = "Check package-name availability across registries"
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",
+  "asdl-core",
 ]
 
 [project.scripts]

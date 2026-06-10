@@ -64,6 +64,7 @@ describe("pr-address CLI", () => {
 		const help = runWithFakeLegacy(["--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: pr-address");
+		expect(help.stdout.join("")).toContain("--runtime");
 		expect(help.stdout.join("")).toContain("exec");
 		expect(help.legacy.calls).toEqual([]);
 
@@ -71,6 +72,11 @@ describe("pr-address CLI", () => {
 		expect(await version.exit).toBe(0);
 		expect(version.stdout.join("")).toBe("0.1.0\n");
 		expect(version.legacy.calls).toEqual([]);
+
+		const runtime = runWithFakeLegacy(["--runtime"]);
+		expect(await runtime.exit).toBe(0);
+		expect(runtime.stdout.join("")).toBe("runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n");
+		expect(runtime.legacy.calls).toEqual([]);
 	});
 
 	test("rejects unknown top-level commands", async () => {

@@ -7,9 +7,17 @@ from asdl_handoff.cli.plugin import build_handoff_plugin
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``handoff`` CLI group."""
-    return build_standalone_cli(build_handoff_plugin(), package_name="asdl-handoff")
+    return build_standalone_cli(
+        build_handoff_plugin(),
+        package_name="asdl-handoff",
+        entry_point="asdl_handoff.cli.main:main",
+    )
 
 
 def main() -> None:
     """Entry point for the standalone ``handoff`` CLI."""
-    invoke_standalone_cli(build_handoff_plugin(), package_name="asdl-handoff")
+    invoke_standalone_cli(
+        build_handoff_plugin(),
+        package_name="asdl-handoff",
+        entry_point="asdl_handoff.cli.main:main",
+    )

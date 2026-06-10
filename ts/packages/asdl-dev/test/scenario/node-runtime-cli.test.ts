@@ -21,6 +21,17 @@ describe("asdl-dev Node runtime CLI entrypoint", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: asdl-dev");
+		expect(result.stdout).toContain("--runtime");
 		expect(result.stdout).toContain("preview-url");
+	});
+
+	test("prints TypeScript runtime diagnostics", () => {
+		const result = spawnSync(process.execPath, [CLI_SOURCE_PATH, "--runtime"], {
+			cwd: TS_WORKSPACE_ROOT,
+			encoding: "utf8",
+		});
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe("runtime: typescript\nentry_point: asdl-dev bin asdl-dev -> ts/packages/asdl-dev/src/cli.ts\n");
 	});
 });

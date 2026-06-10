@@ -52,6 +52,13 @@ def test_aretro_version(cli_group: ClinkrGroup) -> None:
     assert "version" in result.output.lower()
 
 
+def test_aretro_runtime(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["--runtime"])
+
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: aretro.main:main\n"
+
+
 def test_aretro_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["exec", "--help"])
 

@@ -178,11 +178,19 @@ describe("planned-branch CLI help", () => {
 		const help = runWithFakes(["--help"], [], { cwd: repoRoot });
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: planned-branch");
+		expect(help.stdout.join("")).toContain("--runtime");
 		expect(help.stdout.join("")).toContain("exec");
 
 		const version = runWithFakes(["--version"], [], { cwd: repoRoot });
 		expect(await version.exit).toBe(0);
 		expect(version.stdout.join("")).toBe("0.1.0\n");
+
+		const runtime = runWithFakes(["--runtime"], [], { cwd: repoRoot });
+		expect(await runtime.exit).toBe(0);
+		expect(runtime.stdout.join("")).toBe(
+			"runtime: typescript\nentry_point: @asdl/planned-branch bin planned-branch -> ts/packages/planned-branch/src/cli.ts\n",
+		);
+		expectNoGitOrBrmemCalls(runtime);
 
 		const execHelp = runWithFakes(["exec", "--help"], [], { cwd: repoRoot });
 		expect(await execHelp.exit).toBe(0);

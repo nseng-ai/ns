@@ -94,6 +94,16 @@ describe("pr-address shim", () => {
 		expect(result.stdout).toBe("0.1.0\n");
 	});
 
+	test("forwards runtime diagnostics to the TypeScript CLI", async () => {
+		const outsideDir = await makeTempDir();
+		const shimPath = await installShim(REPO_ROOT);
+
+		const result = runShim(shimPath, ["--runtime"], { cwd: outsideDir, outsideCheckout: true });
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe("runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n");
+	});
+
 	test("fails clearly when the checkout has no installed ts dependencies", async () => {
 		const fakeCheckout = await makeFakeCheckout({ includeNodeModules: false });
 		const shimPath = await installShim("/nonexistent/canonical/checkout");

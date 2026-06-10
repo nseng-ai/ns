@@ -33,25 +33,32 @@ interface RequiredCliDeps {
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
+	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
+	const stderr = deps.stderr ?? ((text: string) => process.stderr.write(text));
+
+	const command = args[0];
+	if (command === undefined || command === "--help" || command === "-h") {
+		stdout(topLevelHelp());
+		return 0;
+	}
+	if (command === "--version" || command === "-V") {
+		stdout(`${VERSION}\n`);
+		return 0;
+	}
+	if (command === "--runtime") {
+		stdout(runtimeInfo());
+		return 0;
+	}
+
 	const requiredDeps: RequiredCliDeps = {
 		context: deps.context ?? createRealPrAddressContext(),
 		registry: deps.registry ?? createDefaultExecOperationRegistry(),
 		cwd: deps.cwd ?? process.cwd(),
 		env: deps.env ?? process.env,
 		stdin: deps.stdin ?? readProcessStdin,
-		stdout: deps.stdout ?? ((text: string) => process.stdout.write(text)),
-		stderr: deps.stderr ?? ((text: string) => process.stderr.write(text)),
+		stdout,
+		stderr,
 	};
-
-	const command = args[0];
-	if (command === undefined || command === "--help" || command === "-h") {
-		requiredDeps.stdout(topLevelHelp());
-		return 0;
-	}
-	if (command === "--version" || command === "-V") {
-		requiredDeps.stdout(`${VERSION}\n`);
-		return 0;
-	}
 	if (command !== "exec") {
 		requiredDeps.stderr(`Unknown command: ${command}\n\n${topLevelHelp()}`);
 		return 2;
@@ -102,8 +109,12 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	}
 }
 
+function runtimeInfo(): string {
+	return "runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n";
+}
+
 function topLevelHelp(): string {
-	return `Usage: pr-address [--help] [--version] <command>\n\nPR review address operations.\n\nCommands:\n  exec  Operations for the pr-address skill. See 'pr-address exec --help' for the operation list.\n\nOptions:\n  -h, --help     Show this help.\n  -V, --version  Show version.\n`;
+	return `Usage: pr-address [--help] [--version] [--runtime] <command>\n\nPR review address operations.\n\nCommands:\n  exec  Operations for the pr-address skill. See 'pr-address exec --help' for the operation list.\n\nOptions:\n  -h, --help     Show this help.\n  -V, --version  Show version.\n  --runtime      Show CLI runtime diagnostics and exit.\n`;
 }
 
 function execHelp(): string {

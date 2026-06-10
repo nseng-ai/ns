@@ -10,12 +10,20 @@ from asdl_core.plugin import AsdlPluginSpec, build_standalone_cli, invoke_standa
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``aretro`` CLI group."""
-    return build_standalone_cli(_build_aretro_spec(), package_name="aretro")
+    return build_standalone_cli(
+        _build_aretro_spec(),
+        package_name="aretro",
+        entry_point="aretro.main:main",
+    )
 
 
 def main() -> None:
     """Entry point for the standalone ``aretro`` CLI."""
-    invoke_standalone_cli(_build_aretro_spec(), package_name="aretro")
+    invoke_standalone_cli(
+        _build_aretro_spec(),
+        package_name="aretro",
+        entry_point="aretro.main:main",
+    )
 
 
 def _build_aretro_spec() -> AsdlPluginSpec:

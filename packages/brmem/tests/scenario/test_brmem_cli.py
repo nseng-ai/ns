@@ -88,6 +88,13 @@ def test_brmem_version(cli_group: ClinkrGroup) -> None:
     assert "version" in result.output
 
 
+def test_brmem_runtime(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["--runtime"])
+
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: brmem.main:main\n"
+
+
 def test_brmem_unavailable_context_returns_clinkr_failure(cli_group: ClinkrGroup) -> None:
     unavailable = BrmemCliUnavailable(
         error_type="not-a-git-repo",

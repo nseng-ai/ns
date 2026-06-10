@@ -56,11 +56,20 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
+		expect(help).toContain("--runtime");
 		expect(help).toContain("preview-url");
 		expect(help).toContain("cp");
 		expect(help).toContain("submit");
 		expect(help).toContain("flat list of task commands");
 		expect(help).not.toContain("latest-branch-deployment");
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("top-level runtime reports the TypeScript entrypoint", async () => {
+		const run = runWithFakes(["--runtime"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("runtime: typescript\nentry_point: asdl-dev bin asdl-dev -> ts/packages/asdl-dev/src/cli.ts\n");
 		expect(run.stderr.join("")).toBe("");
 	});
 

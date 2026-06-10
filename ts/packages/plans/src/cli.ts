@@ -79,16 +79,6 @@ type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEviden
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
 	const stderr = deps.stderr ?? ((text: string) => process.stderr.write(text));
-	const commands = deps.commands ?? new NodeCommandExecApi();
-	const requiredDeps: RequiredCliDeps = {
-		commands,
-		git: deps.git ?? new RealPlansGitGateway(commands),
-		cwd: deps.cwd ?? process.cwd(),
-		stdout,
-		stderr,
-		stdin: deps.stdin ?? readStdin,
-		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
-	};
 
 	const command = args[0];
 	if (command === undefined || command === "--help" || command === "-h") {
@@ -99,6 +89,21 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		stdout(`${VERSION}\n`);
 		return 0;
 	}
+	if (command === "--runtime") {
+		stdout(runtimeInfo());
+		return 0;
+	}
+
+	const commands = deps.commands ?? new NodeCommandExecApi();
+	const requiredDeps: RequiredCliDeps = {
+		commands,
+		git: deps.git ?? new RealPlansGitGateway(commands),
+		cwd: deps.cwd ?? process.cwd(),
+		stdout,
+		stderr,
+		stdin: deps.stdin ?? readStdin,
+		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+	};
 	if (command === "list") {
 		return runList(args.slice(1), requiredDeps);
 	}
@@ -469,9 +474,13 @@ async function readStdin(): Promise<string> {
 	return content;
 }
 
+function runtimeInfo(): string {
+	return "runtime: typescript\nentry_point: @asdl/plans bin plans -> ts/packages/plans/src/cli.ts\n";
+}
+
 function topLevelHelp(): string {
 	return [
-		"Usage: plans [--version] <command>",
+		"Usage: plans [--version] [--runtime] <command>",
 		"",
 		"Commands:",
 		"  list    List saved plans for the current repository across all branch keys.",
@@ -480,6 +489,7 @@ function topLevelHelp(): string {
 		"Options:",
 		"  -h, --help       Show this help.",
 		"  -V, --version    Show the package version.",
+		"  --runtime        Show CLI runtime diagnostics and exit.",
 		"",
 	].join("\n");
 }

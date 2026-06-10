@@ -29,6 +29,13 @@ def test_packagechk_version() -> None:
     assert "version" in result.output.lower()
 
 
+def test_packagechk_runtime_uses_root_diagnostics_not_legacy_check() -> None:
+    result = CliRunner().invoke(build_cli(), ["--runtime"])
+
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: packagechk.cli:main\n"
+
+
 def test_packagechk_rejects_brew_registry_as_not_implemented() -> None:
     result = CliRunner().invoke(build_cli(), ["sample-name", "--registry", "brew"])
 

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from asdl_core.cli_runtime import add_runtime_option
 from packagechk.check import check_package_name, registry_selection
 from packagechk.claim import (
     ClaimProjectSpec,
@@ -29,7 +30,7 @@ from packagechk.pypi import normalize_pypi_name, pypi_validation_error
 
 REGISTRY_CHOICES = ("pypi", "npm", "brew")
 LEGACY_CHECK_COMMAND_NAME = "check"
-HELP_AND_VERSION_OPTIONS = {"-h", "--help", "--version"}
+HELP_AND_VERSION_OPTIONS = {"-h", "--help", "--version", "--runtime"}
 DEFAULT_CLAIM_VERSION = "0.0.1"
 DEFAULT_CLAIM_DESCRIPTION = "Claimed package name"
 DEFAULT_NPM_CLAIM_LICENSE = "MIT"
@@ -64,10 +65,6 @@ def build_cli(
     pypi_publish_gateway: PypiPublishGateway | None = None,
     npm_publish_gateway: NpmPublishGateway | None = None,
 ) -> click.Command:
-    registry = registry_gateway or RealPackageRegistryGateway()
-    publisher = pypi_publish_gateway or RealPypiPublishGateway()
-    npm_publisher = npm_publish_gateway or RealNpmPublishGateway()
-
     @click.group(
         cls=PackagechkCommandGroup,
         name="packagechk",
@@ -107,7 +104,7 @@ def build_cli(
             name=name,
             registry_options=registry_options,
             json_output=json_output,
-            registry_gateway=registry,
+            registry_gateway=registry_gateway or RealPackageRegistryGateway(),
         )
 
     @click.command(
@@ -146,8 +143,8 @@ def build_cli(
             dry_run=dry_run,
             force=force,
             skip_check=skip_check,
-            registry_gateway=registry,
-            publish_gateway=publisher,
+            registry_gateway=registry_gateway or RealPackageRegistryGateway(),
+            publish_gateway=pypi_publish_gateway or RealPypiPublishGateway(),
         )
 
     @click.command(
@@ -190,10 +187,11 @@ def build_cli(
             dry_run=dry_run,
             force=force,
             skip_check=skip_check,
-            registry_gateway=registry,
-            publish_gateway=npm_publisher,
+            registry_gateway=registry_gateway or RealPackageRegistryGateway(),
+            publish_gateway=npm_publish_gateway or RealNpmPublishGateway(),
         )
 
+    add_runtime_option(cli, runtime="python", entry_point="packagechk.cli:main")
     cli.add_command(check_command)
     cli.add_command(claim_pypi_command)
     cli.add_command(claim_npm_command)
