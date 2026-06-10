@@ -5,8 +5,11 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { buildPlanFeedbackSchemaDocument } from "../../src/classification-schemas.ts";
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification } from "../../src/classification-core.ts";
+import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
+import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
@@ -116,6 +119,35 @@ describe("plan-feedback TypeScript parity", () => {
 			expect(planFeedback(input)).toEqual(expected);
 		});
 	}
+});
+
+describe("canonical feedback contracts", () => {
+	test("plan-feedback output parses the canonical result schema", async () => {
+		const input = asWrapperInput(await readJson(join(GOLDEN_ROOT, "plan-feedback/mixed-actionable-and-informational-counts/input.json")));
+		const output = planFeedback(input);
+
+		expect(() => feedbackPlanResultSchema.parse(output)).not.toThrow();
+	});
+
+	test("plan-feedback JSON schema exposes concrete item contracts", () => {
+		const schemaText = JSON.stringify(buildPlanFeedbackSchemaDocument().output_json_schema);
+
+		expect(schemaText).toContain("action_summary");
+		expect(schemaText).toContain("covered_comment_ids");
+		expect(schemaText).toContain("informational_reason");
+		expect(schemaText).toContain("allowed_decisions");
+	});
+
+	test("body locator contract preserves null item pointers", () => {
+		const locator = bodyLocatorSchema.parse({
+			body_chars: 12,
+			json_pointer: "/data/reviews/0/body",
+			item_pointer: null,
+			domain: { kind: "review", review_id: "R1" },
+		});
+
+		expect(locator.item_pointer).toBeNull();
+	});
 });
 
 describe("managed classification/planning CLI operations", () => {

@@ -1,7 +1,8 @@
 import { z } from "zod";
 
+import { feedbackPlanResultSchema, feedbackPlanningValidationResultSchema } from "./feedback-plan-contracts.ts";
+
 const nullableCliStringSchema = z.string().nullable().default(null);
-const unknownJsonObjectSchema = z.record(z.string(), z.unknown());
 
 const validateFeedbackClassificationRequestSchema = z
 	.object({
@@ -20,34 +21,6 @@ const planFeedbackRequestSchema = z
 	})
 	.strict();
 
-const feedbackClassificationValidationCountsSchema = z.object({
-	reviews_expected: z.number().int(),
-	reviews_classified: z.number().int(),
-	review_threads_expected: z.number().int(),
-	review_threads_classified: z.number().int(),
-	thread_comments_expected: z.number().int(),
-	thread_comments_covered: z.number().int(),
-	discussion_comments_expected: z.number().int(),
-	discussion_comments_classified: z.number().int(),
-});
-
-const feedbackClassificationValidationErrorSchema = z.object({
-	code: z.string(),
-	message: z.string(),
-	kind: z.string(),
-	identifier: z.union([z.string(), z.number()]).nullable(),
-	path: z.string().nullable(),
-});
-
-const feedbackClassificationValidationResultSchema = z.object({
-	valid: z.boolean(),
-	manifest_kind: z.string(),
-	pr_number: z.number().int().nullable(),
-	payload_path: z.string().nullable(),
-	counts: feedbackClassificationValidationCountsSchema,
-	errors: z.array(feedbackClassificationValidationErrorSchema),
-});
-
 export const classificationTemplateRequestSchema = z
 	.object({
 		manifest_json: nullableCliStringSchema.describe("Inline compact payload manifest JSON."),
@@ -58,7 +31,7 @@ export const classificationTemplateRequestSchema = z
 export const bodyLocatorSchema = z
 	.object({
 		json_pointer: z.string(),
-		item_pointer: z.string().optional(),
+		item_pointer: z.string().nullable().default(null),
 	})
 	.loose();
 
@@ -135,24 +108,13 @@ export function buildClassificationTemplateSchemaDocument(): JsonSchemaDocument 
 export function buildValidateFeedbackClassificationSchemaDocument(): JsonSchemaDocument {
 	return {
 		input_json_schema: z.toJSONSchema(validateFeedbackClassificationRequestSchema),
-		output_json_schema: z.toJSONSchema(feedbackClassificationValidationResultSchema),
+		output_json_schema: z.toJSONSchema(feedbackPlanningValidationResultSchema),
 	};
 }
 
 export function buildPlanFeedbackSchemaDocument(): JsonSchemaDocument {
-	const planOutputSchema = z.object({
-		valid: z.boolean(),
-		manifest_kind: z.string(),
-		pr_number: z.number().int().nullable(),
-		payload_path: z.string().nullable(),
-		validation: feedbackClassificationValidationResultSchema,
-		counts: unknownJsonObjectSchema.nullable(),
-		batches: z.array(unknownJsonObjectSchema),
-		informational: z.array(unknownJsonObjectSchema),
-		warnings: z.array(z.string()),
-	});
 	return {
 		input_json_schema: z.toJSONSchema(planFeedbackRequestSchema),
-		output_json_schema: z.toJSONSchema(planOutputSchema),
+		output_json_schema: z.toJSONSchema(feedbackPlanResultSchema),
 	};
 }
