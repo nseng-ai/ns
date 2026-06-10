@@ -10,7 +10,7 @@ import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { BaseMember, BaseRegion, DelegationClaim, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
-import { buildLiveRegions, delegationsInSpan, displayDelegations, turnsInRange } from "./model.ts";
+import { buildLiveRegions, delegationsInSpan, inferredDelegations, turnsInRange } from "./model.ts";
 import type { EpisodeAnalysisStatus, SegmentationState } from "./segmentation.ts";
 import {
 	BASE_DETAIL_CLAIM,
@@ -214,7 +214,7 @@ export class ProfilerView implements Component {
 	}
 
 	private currentDelegations(): DelegationClaim[] {
-		return displayDelegations(this.profile, this.segmentation);
+		return this.segmentation.type === "ready" ? [...this.segmentation.delegations] : inferredDelegations(this.profile.liveTurns);
 	}
 
 	private currentTurnListRegion(region: LiveRegion): LiveRegion {

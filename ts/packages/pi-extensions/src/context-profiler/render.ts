@@ -16,7 +16,6 @@ import type {
 	EpisodeOutcome,
 	LiveRegion,
 	LiveTurn,
-	NormalizedMessage,
 	RelevanceVerdict,
 	TokenCount,
 	TurnCapInfo,
@@ -302,12 +301,8 @@ export function contentSourceForTurn(turn: LiveTurn): ContentSource {
 		title: `t${turn.index} ${turn.role}${tools}`,
 		meta: formatTokenCountLong(turn.tokens),
 		note: "verbatim message content · tool args/results and details pretty-printed",
-		text: sanitizeContentText(renderMessageText(turn.message)),
+		text: sanitizeContentText(renderNormalizedMessageText(turn.message)),
 	};
-}
-
-export function renderMessageText(message: NormalizedMessage): string {
-	return renderNormalizedMessageText(message);
 }
 
 export function sanitizeContentText(text: string): string {
