@@ -35,7 +35,8 @@ Verdict rules:
 - When the episode delegated work to subagents (see delegations), weigh that in efficiency: delegation that kept large work out of this context is efficient; the returned report's size is visible in the turn data.
 Summary rules:
 - Write a blunt, opinionated characterization of the episode: what it did, what it produced, and why it earned its verdicts.
-- Target 4-8 lines of plain prose; no Markdown, no bullet syntax.
+- Format the summary as 4-8 short bullet points, one per line, each line starting with "- " (hyphen, space). Separate points with \n inside the JSON string.
+- No Markdown beyond the leading hyphens; no headers, no nested bullets, no blank lines between points.
 - Cite specific turn numbers (t12) and tool names so claims can be checked against the turn list.
 - You may cite token figures from the turn data; prefix every token figure with ≈ because they are estimates.
 - Judge and describe only; never advise. Do not recommend compaction, deletion, retries, or any other action.

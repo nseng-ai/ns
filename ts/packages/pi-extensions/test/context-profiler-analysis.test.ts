@@ -49,7 +49,7 @@ describe("EPISODE_ANALYSIS_SYSTEM_PROMPT", () => {
 
 	test("demands decisive verdicts and an opinionated, never-advisory summary", () => {
 		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("mixed and still-useful are not safe defaults");
-		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("Target 4-8 lines of plain prose");
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("4-8 short bullet points, one per line");
 		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("prefix every token figure with ≈");
 		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("never advise");
 	});
