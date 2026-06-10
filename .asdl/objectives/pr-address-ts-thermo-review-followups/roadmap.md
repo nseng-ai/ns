@@ -2,8 +2,6 @@
 
 ## Work
 
-- [ ] Restore `read-feedback-detail` (singular) Python containment parity
-      Rewrite `readFeedbackDetail` (`src/read-feedback-detail.ts:39-60`) as a thin composition of the plural op's existing helpers (`readRawClinkrEnvelope`, `resolvePayloadJsonPointer`, `detailKindForPointer`); delete the bespoke `readJsonFile`, local `resolveJsonPointer`, `isJsonValue`, `JsonValue`, duplicate `pythonRepr`. Move the scenario fixture to a contained `sessions/<id>/payloads/` path and assert the Python rejection messages. Evidence: parity error cases (relative path, symlink, uncontained dir) covered.
 - [ ] Fix CLI argument compat gaps: `--format=json` and strict integer parsing
       Centralize `--format` handling once in `cli.ts` (both `--format json` and `--format=json`), stripping it before handlers; replace `Number()` coercion with strict `/^-?\d+$/` parsing in `summarize-feedback.ts:110` and `feedback-collection.ts:216` so `1e2`/`0x10` are usage errors as in click.
 - [ ] Dead-code sweep
@@ -29,5 +27,6 @@
 
 ## Parked
 
+- [ ] Restore `read-feedback-detail` (singular) Python containment parity — defer until the Clinkr JavaScript port lands, because that work is expected to provide first-class payload support features that should own or simplify this containment boundary. Original slice: rewrite `readFeedbackDetail` (`src/read-feedback-detail.ts:39-60`) as a thin composition of the plural op's existing helpers (`readRawClinkrEnvelope`, `resolvePayloadJsonPointer`, `detailKindForPointer`); delete the bespoke `readJsonFile`, local `resolveJsonPointer`, `isJsonValue`, `JsonValue`, duplicate `pythonRepr`; move the scenario fixture to a contained `sessions/<id>/payloads/` path and assert Python rejection messages for relative path, symlink, and uncontained-dir cases.
 - [ ] Discriminated classified-item union narrowing after validation (deletes `requiredActionComplexity` throw and nullable-complexity plumbing) — worthwhile, but touches the validation/planning seam; revisit after the decomposition row lands.
 - [ ] Post-cutover fixture simplification: replace byte-exact `expected_envelope_text` comparisons with structural equality plus one byte-format test per emitter, and delete the parity comparator + captured fixtures alongside the Python package retirement (owned jointly with `pr-address-typescript-port`).

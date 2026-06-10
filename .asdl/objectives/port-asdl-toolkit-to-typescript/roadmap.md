@@ -25,6 +25,9 @@
   - Preserve stable CLI/skill contracts during takeover.
   - Add cleaner TS-native APIs behind or alongside those contracts where useful.
   - Keep Python only for a short explicit retirement phase after TS default, then delete or archive it when callers, docs, and tests no longer depend on it.
+- [ ] Burn down the end-of-migration debt ledger (`migration-debt.md`).
+  - Each entry is a transitional compromise (legacy machine-output shapes, snake_case schema keys, Python-parity envelope) accepted to keep the port moving; every entry must be killed or deliberately recommitted before the umbrella closes.
+  - New compromises of this type made during capability subobjectives must be appended to `migration-debt.md` when they are accepted.
 - [ ] Complete final migration cleanup.
   - Ensure public skills, wrappers, docs, package distribution, and migration ledger agree on the TS-default toolkit state.
   - Mark any remaining Python as deleted, archived, retired, or explicitly out of scope.
