@@ -392,12 +392,11 @@ export async function runMergeLoop(
 		const prUrl = verified.value.url ?? currentPr.url;
 		landed.push({ branch, number: currentPr.number, title: currentPr.title, ...(prUrl ? { url: prUrl } : {}) });
 
-		const maintenance = await performGraphiteMaintenance(pi, ctx, plan, {
-			index,
-			branch,
-			prNumber: currentPr.number,
-			state,
-			options,
+		const maintenance = await performGraphiteMaintenance({
+			pi,
+			ctx,
+			plan,
+			step: { index, branch, prNumber: currentPr.number, state, options },
 		});
 		if (maintenance.kind === "halt") return failure(maintenance.failure);
 	}
@@ -414,12 +413,15 @@ function failOrWarn(
 	return { kind: "skip" };
 }
 
-function graphiteRefreshFailure(
-	prNumber: number,
-	maintenanceBranch: string,
-	getCommandDisplay: string,
-	got: ExecResult,
-): LandStackFailure {
+interface GraphiteRefreshFailureOptions {
+	prNumber: number;
+	maintenanceBranch: string;
+	getCommandDisplay: string;
+	got: ExecResult;
+}
+
+function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): LandStackFailure {
+	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
 	const checkoutConflict = parseGitCheckedOutElsewhere(got);
 	if (checkoutConflict) {
 		return landStackFailure(
@@ -441,12 +443,15 @@ function graphiteRefreshFailure(
 	});
 }
 
-async function performGraphiteMaintenance(
-	pi: LandStackExtensionAPI,
-	ctx: LandStackCommandContext,
-	plan: LandingPlan,
-	step: GraphiteMaintenanceStep,
-): Promise<GraphiteMaintenanceOutcome> {
+interface PerformGraphiteMaintenanceOptions {
+	pi: LandStackExtensionAPI;
+	ctx: LandStackCommandContext;
+	plan: LandingPlan;
+	step: GraphiteMaintenanceStep;
+}
+
+async function performGraphiteMaintenance(maintenanceOptions: PerformGraphiteMaintenanceOptions): Promise<GraphiteMaintenanceOutcome> {
+	const { pi, ctx, plan, step } = maintenanceOptions;
 	const { repoRoot, stack } = plan;
 	const { index, branch, prNumber, state, options } = step;
 	const maintenance = nextGraphiteMaintenance(plan, index);
@@ -497,7 +502,7 @@ async function performGraphiteMaintenance(
 		const got = getResult.result;
 		if (got.code !== 0) {
 			if (maintenance.kind === "required-next-landing") {
-				return { kind: "halt", failure: graphiteRefreshFailure(prNumber, maintenance.branch, getCommandDisplay, got) };
+				return { kind: "halt", failure: graphiteRefreshFailure({ prNumber, maintenanceBranch: maintenance.branch, getCommandDisplay, got }) };
 			}
 
 			if (getResult.checkoutConflict) {
