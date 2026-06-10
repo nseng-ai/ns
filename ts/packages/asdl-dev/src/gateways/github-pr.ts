@@ -52,7 +52,13 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	async getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>> {
 		const args = ["pr", "view", String(params.number), "--json", "commits"];
 		const result = await this.runGh(args, params.cwd, VIEW_TIMEOUT_MS);
-		const failure = commandFailure("gh", args, result, "github_pr_commits_failed", `Could not read commit messages for PR #${params.number}.`);
+		const failure = commandFailure({
+			command: "gh",
+			args,
+			result,
+			code: "github_pr_commits_failed",
+			message: `Could not read commit messages for PR #${params.number}.`,
+		});
 		if (failure !== undefined) return err(failure);
 
 		const parsed = parseJson(result.stdout);
@@ -75,7 +81,13 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	async getPrDiff(params: { cwd: string; number: number }): Promise<GatewayResult<string>> {
 		const args = ["pr", "diff", String(params.number)];
 		const result = await this.runGh(args, params.cwd, DIFF_TIMEOUT_MS);
-		const failure = commandFailure("gh", args, result, "github_pr_diff_failed", `Could not read diff for PR #${params.number}.`);
+		const failure = commandFailure({
+			command: "gh",
+			args,
+			result,
+			code: "github_pr_diff_failed",
+			message: `Could not read diff for PR #${params.number}.`,
+		});
 		if (failure !== undefined) return err(failure);
 		return ok(result.stdout);
 	}
@@ -87,7 +99,13 @@ export class RealGithubPrGateway implements GithubPrGateway {
 			await writeFile(bodyPath, `${params.body}\n`, "utf8");
 			const args = ["pr", "edit", String(params.number), "--title", params.title, "--body-file", bodyPath];
 			const result = await this.runGh(args, params.cwd, EDIT_TIMEOUT_MS);
-			const failure = commandFailure("gh", args, result, "github_pr_edit_failed", `Could not update PR #${params.number}.`);
+			const failure = commandFailure({
+				command: "gh",
+				args,
+				result,
+				code: "github_pr_edit_failed",
+				message: `Could not update PR #${params.number}.`,
+			});
 			if (failure !== undefined) return err(failure);
 			return ok(undefined);
 		} finally {
@@ -97,7 +115,13 @@ export class RealGithubPrGateway implements GithubPrGateway {
 
 	private async viewPrWithArgs(params: { cwd: string; args: string[] }): Promise<GatewayResult<GithubPrDetails>> {
 		const result = await this.runGh(params.args, params.cwd, VIEW_TIMEOUT_MS);
-		const failure = commandFailure("gh", params.args, result, "github_pr_view_failed", "Could not read GitHub PR details.");
+		const failure = commandFailure({
+			command: "gh",
+			args: params.args,
+			result,
+			code: "github_pr_view_failed",
+			message: "Could not read GitHub PR details.",
+		});
 		if (failure !== undefined) return err(failure);
 
 		const parsed = parseGithubPrDetails(result.stdout);
