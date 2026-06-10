@@ -14,6 +14,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/planned-branch/test"
   },
   "dependencies": {
+    "@asdl/core": "workspace:*",
     "@asdl/plans": "workspace:*"
   },
   "devDependencies": {}

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@asdl/clinkr": "workspace:*",
+    "@asdl/core": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {}

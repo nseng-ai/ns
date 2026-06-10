@@ -12,7 +12,7 @@ import {
 } from "./saved-plan-file.ts";
 import type { PlanCommandExecApi } from "./command-runtime.ts";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
-import { isRecord } from "./primitives.ts";
+import { isRecord } from "@asdl/core/primitives";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";
 

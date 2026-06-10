@@ -6,7 +6,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 import type { PlanCommandExecApi } from "./command-runtime.ts";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
-import { isRecord } from "./primitives.ts";
+import { isRecord } from "@asdl/core/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
