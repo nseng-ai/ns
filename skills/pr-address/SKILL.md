@@ -73,8 +73,9 @@ available only as an explicit manual rollback
 (`uvx --from asdl-pr-address==0.1.1 pr-address ...`); the `asdl pr-address ...`
 plugin still uses the Python path until its own cutover.
 
-All commands in this skill and in `references/cli-reference.md` are written as
-literal `pr-address ...` invocations and can be run as shown. For example:
+All commands in this skill and in the `references/cli-*.md` reference files are
+written as literal `pr-address ...` invocations and can be run as shown. For
+example:
 
 ```bash
 pr-address exec prepare-run \
@@ -334,11 +335,15 @@ All `pr-address exec <helper> --format json` helpers emit the machine envelope
 stdout. Failures exit 2 with `error_type` and `message` set.
 
 **Before calling any `pr-address exec <helper> --format json`, open
-`references/cli-reference.md` and read that helper's input field table and enum
-values.** Do not guess field names, omit required fields, or invent enum values
-(for example, `mode`). The reference is authoritative — if it disagrees with
-memory, the reference wins. If unsure about a field's exact shape, also run
-`pr-address exec <helper> --json-schema` to print the JSON schema.
+`references/cli-reference.md` for the shared conventions and its helper routing
+table, then read only the mapped category file's section for that helper**
+(`references/cli-collection.md`, `references/cli-planning.md`,
+`references/cli-mutation.md`, or `references/cli-lifecycle.md`). Never read all
+category files up front. Do not guess field names, omit required fields, or
+invent enum values (for example, `mode`). The reference is authoritative — if
+it disagrees with memory, the reference wins. If unsure about a field's exact
+shape, also run `pr-address exec <helper> --json-schema` to print the JSON
+schema.
 
 Commit format:
 
@@ -371,7 +376,9 @@ If the bot is wrong:
 - keep the explanation factual and brief
 
 Use the composite helpers for GitHub mutations. Read each helper's entry in
-`references/cli-reference.md` before calling it — do not guess the JSON shape:
+`references/cli-mutation.md` (or `references/cli-lifecycle.md` for
+`record-batch-checkpoint` and `finalize-run`) before calling it — do not guess
+the JSON shape:
 
 - `build-resolve-thread-batch-payload` — after a single-PR batch commit,
   validate explicit per-thread resolve/skip decisions against the selected
