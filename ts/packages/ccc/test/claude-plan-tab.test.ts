@@ -102,7 +102,7 @@ describe("claude plan tab", () => {
 		expect(buildClaudePlanTabTitle("123456789012345678901234567890123456789012345")).toBe("claude-plan: 123456789012345678901234567890123456789…");
 	});
 
-	test("writes the seed verbatim and launches Claude in a focused cmux tab", async () => {
+	test("writes the last assistant seed verbatim when invoked without arguments", async () => {
 		const promptDir = await makeTempDir();
 		const promptFile = join(promptDir, "123-claude-plan.md");
 		const command = buildClaudePlanLaunchCommand(promptFile);
@@ -124,13 +124,29 @@ describe("claude plan tab", () => {
 		expect(notificationMessages(ctx).at(-1)).toContain(`Command: ${command}`);
 	});
 
-	test("fails before cmux when there is no assistant seed", async () => {
+	test("uses a non-empty command argument as the seed instead of the last assistant message", async () => {
+		const promptDir = await makeTempDir();
+		const promptFile = join(promptDir, "123-claude-plan.md");
+		const command = buildClaudePlanLaunchCommand(promptFile);
+		const tabTitle = "claude-plan: Explicit plan";
+		const pi = new FakePi({ script: [cmuxIdentifyStep(), cmuxCreateSurfaceStep(), renameStep(tabTitle), sendStep(command)] });
+		registerCccClaudePlanTabCommand(pi, { promptDir, now: () => 123 });
+		const ctx = new FakeCommandContext({ branchEntries: [assistantEntry([{ type: "text", text: SEED }])] });
+
+		await pi.commands.get("ccc:claude-plan-tab")?.handler("Explicit plan", ctx);
+
+		pi.assertDone();
+		expect(await readFile(promptFile, "utf8")).toBe("Explicit plan");
+		expect(notificationMessages(ctx).at(-1)).toContain(`Tab title: ${tabTitle}`);
+	});
+
+	test("fails before cmux when there is no argument or assistant seed", async () => {
 		const promptDir = await makeTempDir();
 		const pi = new FakePi();
 		registerCccClaudePlanTabCommand(pi, { promptDir, now: () => 123 });
 		const ctx = new FakeCommandContext({ branchEntries: [userEntry("hello")] });
 
-		await pi.commands.get("ccc:claude-plan-tab")?.handler("", ctx);
+		await pi.commands.get("ccc:claude-plan-tab")?.handler("   ", ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls).toEqual([]);

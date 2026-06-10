@@ -36,9 +36,10 @@ export type ClaudePlanTabLaunchResult =
 export function registerCccClaudePlanTabCommand(pi: ExtensionAPI, options: CccClaudePlanTabOptions = {}): void {
 	const resolvedOptions = resolveCccClaudePlanTabOptions(options);
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open a new cmux tab running Claude Code in plan mode, seeded with the last assistant message.",
-		handler: async (_args, ctx) => {
-			await handleCccClaudePlanTab({ pi, ctx, options: resolvedOptions });
+		description: "Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
+		argumentHint: "[seed prompt]",
+		handler: async (args, ctx) => {
+			await handleCccClaudePlanTab({ pi, ctx, args, options: resolvedOptions });
 		},
 	});
 }
@@ -46,6 +47,7 @@ export function registerCccClaudePlanTabCommand(pi: ExtensionAPI, options: CccCl
 export async function handleCccClaudePlanTab(options: {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
+	args: string;
 	options: ResolvedCccClaudePlanTabOptions;
 }): Promise<void> {
 	const result = await launchCccClaudePlanTab(options);
@@ -60,13 +62,13 @@ export async function handleCccClaudePlanTab(options: {
 export async function launchCccClaudePlanTab(options: {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
+	args: string;
 	options: ResolvedCccClaudePlanTabOptions;
 }): Promise<ClaudePlanTabLaunchResult> {
 	const { pi, ctx } = options;
 	await ctx.waitForIdle();
 
-	const entries = ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [];
-	const seed = extractLastAssistantText(entries);
+	const seed = resolveClaudePlanSeed(ctx, options.args);
 	if (seed === undefined) {
 		return { type: "failed", message: "No assistant message found in this session to use as a seed plan." };
 	}
@@ -150,6 +152,13 @@ export function extractLastAssistantText(entries: unknown[]): string | undefined
 
 export function buildClaudePlanLaunchCommand(promptFilePath: string): string {
 	return `claude --permission-mode plan "$(cat ${formatShellArg(promptFilePath)})"`;
+}
+
+function resolveClaudePlanSeed(ctx: CommandContext, args: string): string | undefined {
+	if (args.trim().length > 0) return args;
+
+	const entries = ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [];
+	return extractLastAssistantText(entries);
 }
 
 export function buildClaudePlanTabTitle(seed: string): string {
