@@ -329,6 +329,7 @@ describe("buildLiveRegions", () => {
 		expect(regions[0]).toMatchObject({
 			label: "conversation turns",
 			kind: "chat",
+			outcome: null,
 			turnRange: { start: 1, end: 5 },
 			tokens: { value: 20, provenance: "estimated" },
 			isCurrent: true,
@@ -339,18 +340,25 @@ describe("buildLiveRegions", () => {
 	test("renders annotation rows plus unannotated gaps when episodes are supplied", () => {
 		const turns = makeTurns(10, 4);
 		const regions = buildLiveRegions(turns, [
-			{ label: "setup", kind: "explore", turnRange: { start: 1, end: 4 } },
-			{ label: "fix", kind: "edit", turnRange: { start: 7, end: 10 } },
+			{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 } },
+			{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 7, end: 10 } },
 		]);
 		expect(regions.map((region) => region.label)).toEqual(["setup", "unannotated turns", "fix"]);
-		expect(regions[0]).toMatchObject({ kind: "explore", turnRange: { start: 1, end: 4 }, tokens: { value: 16 }, isCurrent: false, source: "annotation" });
-		expect(regions[1]).toMatchObject({ kind: "uncategorized", turnRange: { start: 5, end: 6 }, tokens: { value: 8 }, source: "deterministic" });
-		expect(regions[2]).toMatchObject({ kind: "edit", turnRange: { start: 7, end: 10 }, tokens: { value: 16 }, isCurrent: true });
+		expect(regions[0]).toMatchObject({
+			kind: "explore",
+			outcome: "completed",
+			turnRange: { start: 1, end: 4 },
+			tokens: { value: 16 },
+			isCurrent: false,
+			source: "annotation",
+		});
+		expect(regions[1]).toMatchObject({ kind: "uncategorized", outcome: null, turnRange: { start: 5, end: 6 }, tokens: { value: 8 }, source: "deterministic" });
+		expect(regions[2]).toMatchObject({ kind: "edit", outcome: "active", turnRange: { start: 7, end: 10 }, tokens: { value: 16 }, isCurrent: true });
 	});
 
 	test("clamps annotation ranges to real turn indices", () => {
 		const turns = makeTurns(4, 4);
-		const regions = buildLiveRegions(turns, [{ label: "everything", kind: "chat", turnRange: { start: 0, end: 99 } }]);
+		const regions = buildLiveRegions(turns, [{ label: "everything", kind: "chat", outcome: "active", turnRange: { start: 0, end: 99 } }]);
 		expect(regions).toHaveLength(1);
 		expect(regions[0]?.turnRange).toEqual({ start: 1, end: 4 });
 		expect(regions[0]?.tokens.value).toBe(16);

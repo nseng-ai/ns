@@ -67,7 +67,15 @@ export interface LiveTurn {
 	message: NormalizedMessage;
 }
 
-export type EpisodeKind = "explore" | "edit" | "debug" | "test" | "review" | "chat" | "uncategorized";
+/** Runtime value list kept alongside the type so Zod enums can derive from it. */
+export const EPISODE_KIND_VALUES = ["explore", "edit", "debug", "test", "review", "chat", "uncategorized"] as const;
+
+export type EpisodeKind = (typeof EPISODE_KIND_VALUES)[number];
+
+/** Runtime value list kept alongside the type so Zod enums can derive from it. */
+export const EPISODE_OUTCOME_VALUES = ["active", "completed", "abandoned", "errored", "unknown"] as const;
+
+export type EpisodeOutcome = (typeof EPISODE_OUTCOME_VALUES)[number];
 
 export interface TurnRange {
 	start: number;
@@ -76,12 +84,13 @@ export interface TurnRange {
 
 /**
  * Optional annotation over the turn list. Episodes are never structural: the
- * deterministic view is complete without them, and LM segmentation (a later
- * roadmap row) only supplies these as additive input.
+ * deterministic view is complete without them, and LM segmentation only
+ * supplies these as additive input.
  */
 export interface EpisodeAnnotation {
 	label: string;
 	kind: EpisodeKind;
+	outcome: EpisodeOutcome;
 	turnRange: TurnRange;
 }
 
@@ -90,6 +99,8 @@ export interface LiveRegion {
 	id: string;
 	label: string;
 	kind: EpisodeKind;
+	/** Null for deterministic/unannotated rows; set only by episode annotations. */
+	outcome: EpisodeOutcome | null;
 	turnRange: TurnRange;
 	tokens: TokenCount;
 	/** True when the span contains the last live turn. */
@@ -332,6 +343,7 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 				id: "live-conversation",
 				label: turns.length < 3 ? "current exchange" : "conversation turns",
 				kind: "chat",
+				outcome: null,
 				turnRange: { start: firstIndex, end: lastIndex },
 				tokens: { value: sumTurnTokens(turns), provenance: "estimated" },
 				isCurrent: true,
@@ -361,6 +373,7 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 			id: `episode-${position + 1}`,
 			label: episode.label,
 			kind: episode.kind,
+			outcome: episode.outcome,
 			turnRange: episode.turnRange,
 			tokens: { value: sumTurnTokens(turnsInRange(turns, episode.turnRange)), provenance: "estimated" },
 			isCurrent: episode.turnRange.end >= lastIndex,
@@ -383,6 +396,7 @@ function unannotatedRegion(turns: readonly LiveTurn[], range: TurnRange, lastInd
 		id: `unannotated-${range.start}`,
 		label: "unannotated turns",
 		kind: "uncategorized",
+		outcome: null,
 		turnRange: range,
 		tokens: { value: sumTurnTokens(turnsInRange(turns, range)), provenance: "estimated" },
 		isCurrent: range.end >= lastIndex,

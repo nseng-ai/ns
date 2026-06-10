@@ -84,6 +84,9 @@ importers:
       asdl-dev:
         specifier: workspace:*
         version: link:../asdl-dev
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 0.78.0

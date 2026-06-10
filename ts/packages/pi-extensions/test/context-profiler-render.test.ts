@@ -22,6 +22,7 @@ import {
 	renderMessageText,
 	sanitizeContentText,
 	scrollNote,
+	segmentationStatusText,
 	STATUS_COLUMN_WIDTH,
 	TOKENS_COLUMN_WIDTH,
 	turnListClaim,
@@ -50,6 +51,7 @@ function makeLiveRegion(overrides: Partial<LiveRegion> = {}): LiveRegion {
 		id: "live-conversation",
 		label: "conversation turns",
 		kind: "chat",
+		outcome: null,
 		turnRange: { start: 1, end: 12 },
 		tokens: estimated(2_000),
 		isCurrent: true,
@@ -171,6 +173,27 @@ describe("buildOverviewRowCells", () => {
 		expect(unannotated.health).toBe("dim");
 	});
 
+	test("renders outcome glyph and health on annotated rows, exact width preserved", () => {
+		const cases = [
+			{ outcome: "active", glyph: "●", health: "accent" },
+			{ outcome: "completed", glyph: "✓", health: "muted" },
+			{ outcome: "abandoned", glyph: "✗", health: "warning" },
+			{ outcome: "errored", glyph: "✗", health: "warning" },
+			{ outcome: "unknown", glyph: "?", health: "dim" },
+		] as const;
+		for (const { outcome, glyph, health } of cases) {
+			const cells = buildOverviewRowCells(
+				{ type: "live", region: makeLiveRegion({ kind: "edit", outcome, isCurrent: false, source: "annotation" }) },
+				2_000,
+				3_000,
+				INNER_WIDTH,
+			);
+			expect(cells.status).toBe(fitToWidth(`${glyph} edit`, STATUS_COLUMN_WIDTH));
+			expect(visibleWidth(cells.status)).toBe(STATUS_COLUMN_WIDTH);
+			expect(cells.health).toBe(health);
+		}
+	});
+
 	test("labels live rows with their turn range", () => {
 		const cells = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, 2_000, 3_000, INNER_WIDTH);
 		expect(cells.label.trimEnd()).toBe("conversation turns · 1–12");
@@ -202,11 +225,30 @@ describe("section headers and claims", () => {
 		expect(liveSectionHeader({ originalCount: 92, includedCount: 80, elidedMiddleTurns: 12 })).toBe("LIVE · 80/92 turns · 12 middle turns elided");
 	});
 
+	test("liveSectionHeader appends the segmentation status only when present", () => {
+		const cap = { originalCount: 10, includedCount: 10, elidedMiddleTurns: 0 };
+		expect(liveSectionHeader(cap, null)).toBe("LIVE · 10/10 turns");
+		expect(liveSectionHeader(cap, "symbolizing…")).toBe("LIVE · 10/10 turns · symbolizing…");
+	});
+
+	test("segmentationStatusText surfaces loading and error states only", () => {
+		expect(segmentationStatusText({ type: "idle" })).toBeNull();
+		expect(segmentationStatusText({ type: "ready", episodes: [], summary: null })).toBeNull();
+		expect(segmentationStatusText({ type: "loading" })).toBe("symbolizing…");
+		expect(segmentationStatusText({ type: "error", message: "no API key" })).toBe("no symbols: no API key");
+	});
+
 	test("claim lines state what the view shows and what ⏎ does", () => {
 		expect(BASE_DETAIL_CLAIM).toContain("⏎");
 		const claim = turnListClaim(makeLiveRegion({ turnRange: { start: 3, end: 9 } }));
 		expect(claim).toContain("turns 3–9");
 		expect(claim).toContain("⏎");
+		expect(claim).not.toContain("LM claim");
+	});
+
+	test("annotation regions claim their LM provenance in the turn list", () => {
+		const claim = turnListClaim(makeLiveRegion({ source: "annotation", kind: "debug", outcome: "errored", turnRange: { start: 4, end: 8 } }));
+		expect(claim).toBe("LM claim: kind=debug · outcome=errored · turns 4–8 · ⏎ views turn content");
 	});
 
 	test("scrollNote formats the visible window", () => {
