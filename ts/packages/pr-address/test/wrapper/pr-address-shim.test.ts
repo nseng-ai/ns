@@ -98,7 +98,7 @@ describe("pr-address shim", () => {
 		const outsideDir = await makeTempDir();
 		const shimPath = await installShim(REPO_ROOT);
 
-		const result = runShim(shimPath, ["--runtime"], { cwd: outsideDir, outsideCheckout: true });
+		const result = runShim(shimPath, ["--runtime"], { cwd: outsideDir, isOutsideCheckout: true });
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toBe("runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n");
