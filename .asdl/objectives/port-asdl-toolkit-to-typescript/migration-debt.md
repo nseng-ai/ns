@@ -1,6 +1,6 @@
 # End-of-Migration Debt Ledger
 
-Transitional compromises deliberately accepted during the TypeScript port. Each entry exists to preserve Python parity or current-consumer behavior while the migration is in flight, and each MUST be killed before the umbrella objective closes. This ledger is distinct from the capability-status Migration Ledger in `objective.md`: that tracks *what* gets ported; this tracks *compromises made along the way* that have an expiry.
+Transitional compromises deliberately accepted during the TypeScript port. Each entry exists to preserve Python parity or current-consumer behavior while the migration is in flight, and each MUST be killed before the umbrella objective closes. This ledger is distinct from the capability-status Migration Ledger in `objective.md`: that tracks _what_ gets ported; this tracks _compromises made along the way_ that have an expiry.
 
 Entry contract: what the compromise is, why it exists, and the kill action. Kill condition for every entry is the end of the overall TS migration unless noted otherwise.
 
