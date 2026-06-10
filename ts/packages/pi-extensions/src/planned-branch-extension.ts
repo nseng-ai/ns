@@ -64,11 +64,11 @@ export type {
 const WRITE_PLAN_COMMAND_NAME = "plans:write";
 const WRITE_GRILLED_PLAN_COMMAND_NAME = "plans:grill-and-write";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
-const UP_AND_IMPL_COMMAND_NAME = "planned-branch:up-and-impl";
+const UP_AND_IMPL_COMMAND_NAME = "planned-branch:upstack-impl-session";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
 const WRITE_PLAN_TOOL_STATUS_KEY = "plans:write";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
-const UP_AND_IMPL_STATUS_KEY = "planned-branch:up-and-impl";
+const UP_AND_IMPL_STATUS_KEY = "planned-branch:upstack-impl-session";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -242,9 +242,9 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const UP_AND_IMPL_USAGE = `Usage: /planned-branch:up-and-impl [options] [absolute-or-home-plan-file.md]
+export const UP_AND_IMPL_USAGE = `Usage: /planned-branch:upstack-impl-session [options] [absolute-or-home-plan-file.md]
 
-Stack a planned branch on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and launch /planned-branch:impl for the attached plan in that new session.
+Stack a planned branch on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /planned-branch:impl for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.

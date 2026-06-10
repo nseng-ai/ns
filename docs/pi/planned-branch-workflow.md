@@ -28,7 +28,7 @@ The public workflow surface is:
 4. `/planned-branch:impl [key-or-slug]` in Pi, or the `planned-branch-impl`
    skill, loads the canonical attached plan and starts implementation.
 
-For Pi users, `/planned-branch:up-and-impl` stacks the planned branch on the
+For Pi users, `/planned-branch:upstack-impl-session` stacks the planned branch on the
 current branch with Graphite by default everywhere, with `--plain-git` as an
 escape hatch, then combines `git checkout <branch>`, a fresh Pi session, and
 `/planned-branch:impl` after a plan has been written.
@@ -159,7 +159,7 @@ Branch: <target-implementation-branch>
 
 ### Start implementation in one Pi command
 
-Pi users in this repo can run `/planned-branch:up-and-impl` after
+Pi users in this repo can run `/planned-branch:upstack-impl-session` after
 `/plans:write` to perform the common implementation flow in one
 step:
 
@@ -319,7 +319,7 @@ Related public surfaces:
 
 - Pi commands: `/plans:write`,
   `/plans:grill-and-write`, `/planned-branch:create`,
-  `/planned-branch:up-and-impl`, and `/planned-branch:impl`.
+  `/planned-branch:upstack-impl-session`, and `/planned-branch:impl`.
 - Agent skills: `planned-branch` umbrella/reference skill, plus
   `plans-write`, `planned-branch-create`, and
   `planned-branch-impl` step skills.

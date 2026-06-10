@@ -11,7 +11,7 @@ import { FakePi, ROOT, step } from "./ccc-test-harness.ts";
 
 const BRANCH = "planned-branches/widget-flow";
 const KEY = "widget-flow.md";
-const STATUS_KEY = "planned-branch:up-and-impl";
+const STATUS_KEY = "planned-branch:upstack-impl-session";
 
 class FakeUpAndImplContext implements PlannedBranchUpAndImplContext {
 	readonly cwd = ROOT;
