@@ -2,22 +2,37 @@
  * Context profiler Pi extension: a diagnostic, non-mutating overlay that
  * explains where the session's context went — base regions (system prompt,
  * context files, skills, tools) plus a flat per-turn accounting with verbatim
- * drill-down. Deterministic only: it spends zero LM tokens and never mutates
- * the session it profiles.
+ * drill-down. The deterministic layer spends zero LM tokens and never mutates
+ * the session it profiles; on top of it, opening or refreshing the overlay
+ * fires one on-demand, clearly-labeled LM segmentation call (fixed cheap
+ * model) whose episodes render as an additive annotation layer — LM failure
+ * never blocks the deterministic view.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
-import { buildProfile, capturePromptState, createProfilerState, handleBeforeAgentStart, handleContext, type ProfilerState } from "./context-profiler/runtime.ts";
+import {
+	buildProfile,
+	capturePromptState,
+	createProfilerState,
+	handleBeforeAgentStart,
+	handleContext,
+	startSegmentation,
+	type ProfilerState,
+} from "./context-profiler/runtime.ts";
+import { createCodexSegmentationGateway } from "./context-profiler/segmentation-gateway.ts";
+import type { SegmentationState } from "./context-profiler/segmentation.ts";
 import { ProfilerView } from "./context-profiler/view.ts";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 const STATUS_KEY = "context-profiler";
 
-/** One open overlay: its close callback and, once available, its handle. */
+/** One open overlay: its close callback and, once available, its handle and view. */
 interface OverlaySession {
 	close: () => void;
 	handle: OverlayHandle | null;
+	view: ProfilerView | null;
+	abortSegmentation: (() => void) | null;
 }
 
 export function registerContextProfilerExtension(pi: ExtensionAPI): void {
@@ -47,24 +62,43 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 	if (state.lastPromptOptions === null) {
 		capturePromptState(ctx, state);
 	}
+	const gateway = createCodexSegmentationGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
-	const session: OverlaySession = { close: () => {}, handle: null };
+	const session: OverlaySession = { close: () => {}, handle: null, view: null, abortSegmentation: null };
 	holder.current = session;
+	// Open and `r` refresh are the only segmentTurns call sites — the LM is
+	// never consulted while the overlay is closed.
+	const onSegmentationUpdate = (segmentation: SegmentationState): void => {
+		if (holder.current === session) session.view?.setSegmentation(segmentation);
+	};
 	void ctx.ui
 		.custom<void>(
 			(tui: TUI, theme: Theme, _keybindings, done) => {
 				session.close = () => done(undefined);
-				return new ProfilerView({
+				// Computed inside the factory, right before the view exists: the
+				// initial state feeds the constructor, and session.view is set
+				// before any async onUpdate can fire.
+				const segmentation = startSegmentation({ gateway, profile, state, force: false, onUpdate: onSegmentationUpdate });
+				session.abortSegmentation = segmentation.abort;
+				const view = new ProfilerView({
 					tui,
 					theme,
 					profile,
+					segmentation: segmentation.initial,
 					onClose: () => session.close(),
 					onRefresh: () => {
-						// The open snapshot is frozen; r re-captures and rebuilds.
+						// The open snapshot is frozen; r re-captures, rebuilds, and
+						// always recomputes segmentation (force bypasses the cache).
+						session.abortSegmentation?.();
 						capturePromptState(ctx, state);
-						return buildProfile(ctx, state);
+						const refreshedProfile = buildProfile(ctx, state);
+						const refreshed = startSegmentation({ gateway, profile: refreshedProfile, state, force: true, onUpdate: onSegmentationUpdate });
+						session.abortSegmentation = refreshed.abort;
+						return { profile: refreshedProfile, segmentation: refreshed.initial };
 					},
 				});
+				session.view = view;
+				return view;
 			},
 			{
 				overlay: true,
@@ -93,6 +127,9 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 }
 
 function closeProfiler(ctx: ExtensionContext, holder: { current: OverlaySession | null }): void {
+	// Abort any in-flight segmentation first (session_shutdown routes here too);
+	// aborted results never reach the view.
+	holder.current?.abortSegmentation?.();
 	holder.current?.close();
 	holder.current?.handle?.hide();
 	holder.current = null;

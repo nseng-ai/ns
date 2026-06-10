@@ -25,11 +25,27 @@ import {
 	type EpisodeAnnotation,
 	type ProfileSnapshot,
 } from "./model.ts";
+import {
+	buildSegmentationPayload,
+	computeSegmentationFingerprint,
+	MIN_TURNS_FOR_SEGMENTATION,
+	repairEpisodes,
+	type SegmentationState,
+} from "./segmentation.ts";
+import type { SegmentationGateway } from "./segmentation-gateway.ts";
+
+/** Last successful segmentation, reused while the snapshot fingerprint holds. */
+export interface SegmentationCacheEntry {
+	fingerprint: string;
+	episodes: EpisodeAnnotation[];
+	summary: string | null;
+}
 
 export interface ProfilerState {
 	lastPromptOptions: BuildSystemPromptOptions | null;
 	lastSystemPrompt: string | null;
 	latestContextMessages: readonly unknown[] | null;
+	segmentationCache: SegmentationCacheEntry | null;
 }
 
 export function createProfilerState(): ProfilerState {
@@ -37,6 +53,7 @@ export function createProfilerState(): ProfilerState {
 		lastPromptOptions: null,
 		lastSystemPrompt: null,
 		latestContextMessages: null,
+		segmentationCache: null,
 	};
 }
 
@@ -91,4 +108,53 @@ export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState,
 		cap: capped.cap,
 		openedAt: new Date().toLocaleTimeString(),
 	};
+}
+
+export interface StartSegmentationOptions {
+	gateway: SegmentationGateway;
+	profile: ProfileSnapshot;
+	state: ProfilerState;
+	/** Bypass the fingerprint cache and always recompute (the `r` refresh path). */
+	force: boolean;
+	onUpdate: (segmentation: SegmentationState) => void;
+}
+
+/**
+ * On-demand segmentation controller. Resolves synchronously to idle (too few
+ * turns) or a cached ready state; otherwise returns loading and fires one
+ * gateway call whose outcome arrives via onUpdate. Aborted calls never reach
+ * onUpdate, and errors are surfaced but never cached — the next open retries.
+ */
+export function startSegmentation(options: StartSegmentationOptions): { initial: SegmentationState; abort: () => void } {
+	const { gateway, profile, state, force, onUpdate } = options;
+	if (profile.liveTurns.length < MIN_TURNS_FOR_SEGMENTATION) {
+		return { initial: { type: "idle" }, abort: () => {} };
+	}
+	const fingerprint = computeSegmentationFingerprint(profile);
+	const cached = state.segmentationCache;
+	if (!force && cached !== null && cached.fingerprint === fingerprint) {
+		return { initial: { type: "ready", episodes: cached.episodes, summary: cached.summary }, abort: () => {} };
+	}
+	const controller = new AbortController();
+	const payload = buildSegmentationPayload(profile);
+	void gateway
+		.segmentTurns({ json: payload.json }, { signal: controller.signal })
+		.then((result) => {
+			if (controller.signal.aborted) return;
+			if (!result.ok) {
+				if (result.error.code === "aborted") return;
+				onUpdate({ type: "error", message: result.error.message });
+				return;
+			}
+			const episodes = repairEpisodes(result.value.episodes, profile.liveTurns);
+			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary };
+			onUpdate({ type: "ready", episodes, summary: result.value.summary });
+		})
+		.catch((error: unknown) => {
+			// Gateway failures are values; a rejection is a programmer error, but
+			// the overlay must stay functional, so surface it as an error state.
+			if (controller.signal.aborted) return;
+			onUpdate({ type: "error", message: error instanceof Error ? error.message : String(error) });
+		});
+	return { initial: { type: "loading" }, abort: () => controller.abort() };
 }
