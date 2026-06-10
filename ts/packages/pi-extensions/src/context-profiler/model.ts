@@ -122,6 +122,8 @@ export interface EpisodeAnnotation {
 	efficiency?: EfficiencyVerdict;
 	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
 	relevance?: RelevanceVerdict;
+	/** Optional opinionated-descriptive LM prose; absence means unanalyzed or omitted output. */
+	analysisSummary?: string;
 }
 
 /** One LIVE-section overview row: a span of turns with a label. */
@@ -142,6 +144,8 @@ export interface LiveRegion {
 	efficiency?: EfficiencyVerdict;
 	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
 	relevance?: RelevanceVerdict;
+	/** Optional opinionated-descriptive LM prose; absence means unanalyzed or omitted output. */
+	analysisSummary?: string;
 }
 
 export type LiveSource = "context-event" | "branch-fallback";
@@ -437,6 +441,7 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 			episodeIndex: position,
 			...(episode.efficiency === undefined ? {} : { efficiency: episode.efficiency }),
 			...(episode.relevance === undefined ? {} : { relevance: episode.relevance }),
+			...(episode.analysisSummary === undefined ? {} : { analysisSummary: episode.analysisSummary }),
 		});
 		cursor = Math.max(cursor, episode.turnRange.end + 1);
 	});

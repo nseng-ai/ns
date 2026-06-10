@@ -33,7 +33,7 @@ Productionize the episodic context profiler prototype as a first-class Pi extens
   - **Estimation honesty**: every estimated count carries the `≈` prefix; methodology and data provenance live in the `?`-toggled help layer, not in always-on chrome.
   - **Frozen snapshot**: the profile is captured at open and frozen; live events update data for the next `r` refresh, never the open view.
   - **Rendering discipline**: every cell truncates-then-pads to its exact column width (no jitter across renders); bar/token/percent/status widths are fixed with the label absorbing the remainder; minimum-width floors degrade narrow terminals gracefully.
-- **Design principle**: diagnostic-only, non-mutating, never advisory. The profiler observes and explains; it does not recommend compaction, suggest dropping content, or mutate session state.
+- **Design principle**: diagnostic-only, non-mutating, never advisory. The profiler observes and explains; it does not recommend compaction, suggest dropping content, or mutate session state. _(Refined: "never advisory" is the hard boundary, not blandness — per-episode judgments are deliberately opinionated-descriptive: blunt, committed characterization with reasons, stopping short of recommending any action.)_
 - **Delivery**: each roadmap row is implemented as its own small Graphite stack off `master` (via the `objective-stack-impl` flow), with `objective-update` recording progress between rows.
 
 ## Non-Goals

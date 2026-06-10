@@ -284,6 +284,9 @@ export class ProfilerView implements Component {
 				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
 				return this.composeListBody({
 					claim: turnListClaim(region, { analysisStatus: this.analysisStatusTextForRegion(region), delegationCount: delegations.length }),
+					// The opinionated summary renders in full (prompt-steered length, no
+					// renderer truncation); the turn rows scroll beneath it.
+					summaryLines: region.analysisSummary === undefined ? [] : wrapTextWithAnsi(region.analysisSummary, innerWidth),
 					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
 					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
 					state: frame,
@@ -385,6 +388,8 @@ export class ProfilerView implements Component {
 
 	private composeListBody(options: {
 		claim: string;
+		/** Pre-wrapped prose block rendered in full between the claim and header lines. */
+		summaryLines?: readonly string[];
 		headerLines?: readonly string[];
 		rows: readonly ListRow[];
 		state: { selection: number; scroll: number };
@@ -392,8 +397,9 @@ export class ProfilerView implements Component {
 		innerWidth: number;
 		bodyHeight: number;
 	}): string[] {
+		const summaryLines = options.summaryLines ?? [];
 		const headerLines = options.headerLines ?? [];
-		const areaHeight = Math.max(1, options.bodyHeight - 3 - headerLines.length);
+		const areaHeight = Math.max(1, options.bodyHeight - 3 - summaryLines.length - headerLines.length);
 		const count = options.rows.length;
 		const state = options.state;
 		// Selection is clamped at input time; scroll is reconciled at render time because it depends on layout.
@@ -405,8 +411,9 @@ export class ProfilerView implements Component {
 			.map((row, offset) =>
 				this.renderListRow(row, { isSelected: state.scroll + offset === state.selection, maxTokens, innerWidth: options.innerWidth }));
 		const body = visible.length === 0 ? [this.theme.fg("dim", options.emptyText)] : visible;
+		const proseSummaryLines = summaryLines.map((line) => this.theme.fg("text", line));
 		const dimHeaderLines = headerLines.map((line) => this.theme.fg("dim", truncateToWidth(line, options.innerWidth, "…", true)));
-		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), ...dimHeaderLines, "", ...body];
+		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), ...proseSummaryLines, ...dimHeaderLines, "", ...body];
 		const note = count > areaHeight ? `${scrollNote(state.scroll + 1, Math.min(count, state.scroll + areaHeight), count, "rows")} · ` : "";
 		return pinFooter(lines, this.theme.fg("dim", `${note}${LIST_HINT}`), options.bodyHeight);
 	}

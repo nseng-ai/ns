@@ -148,12 +148,14 @@ describe("createCodexAnalysisModelGateway", () => {
 		const seen: { context?: PiAi.Context } = {};
 		const completeFn = ((_model: unknown, context: PiAi.Context) => {
 			seen.context = context;
-			return Promise.resolve(makeResponse({ content: [{ type: "text", text: JSON.stringify({ efficiency: "mixed", relevance: "stale" }) }] }));
+			return Promise.resolve(
+				makeResponse({ content: [{ type: "text", text: JSON.stringify({ efficiency: "mixed", relevance: "stale", summary: "t1 re-reads superseded docs." }) }] }),
+			);
 		}) as CompleteSimpleFunction;
 		const gateway = createCodexAnalysisModelGateway(makeRegistry(), { completeFn });
 
 		const result = await gateway.analyzeEpisode({ json: "{\"targetEpisode\":1}" }, { signal: signal() });
-		expect(result).toEqual({ ok: true, value: { efficiency: "mixed", relevance: "stale" } });
+		expect(result).toEqual({ ok: true, value: { efficiency: "mixed", relevance: "stale", summary: "t1 re-reads superseded docs." } });
 		expect(seen.context?.systemPrompt).toBe(EPISODE_ANALYSIS_SYSTEM_PROMPT);
 		expect(seen.context?.messages[0]).toMatchObject({ role: "user", content: [{ type: "text", text: "{\"targetEpisode\":1}" }] });
 	});

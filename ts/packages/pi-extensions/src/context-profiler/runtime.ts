@@ -225,7 +225,12 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 					return;
 				}
 				currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
-					? { ...candidate, efficiency: result.value.efficiency, relevance: result.value.relevance }
+					? {
+						...candidate,
+						efficiency: result.value.efficiency,
+						relevance: result.value.relevance,
+						...(result.value.summary === null ? {} : { analysisSummary: result.value.summary }),
+					}
 					: candidate);
 				statuses[episodeIndex] = "ready";
 				options.onUpdate(

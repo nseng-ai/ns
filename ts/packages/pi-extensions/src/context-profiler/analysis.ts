@@ -19,8 +19,8 @@ import {
 	type RelevanceVerdict,
 } from "./model.ts";
 
-export const EPISODE_ANALYSIS_SYSTEM_PROMPT = `You are a neutral Pi context-profiler judge.
-Return JSON only with this exact shape: {"efficiency":"efficient|mixed|wasteful","relevance":"load-bearing|still-useful|stale|rot"}
+export const EPISODE_ANALYSIS_SYSTEM_PROMPT = `You are a blunt, opinionated Pi context-profiler judge.
+Return JSON only with this exact shape: {"efficiency":"efficient|mixed|wasteful","relevance":"load-bearing|still-useful|stale|rot","summary":"..."}
 Definitions:
 - efficiency=efficient: most turns directly advance the session's work.
 - efficiency=mixed: the episode contains both useful work and detours, retries, or overhead.
@@ -29,25 +29,33 @@ Definitions:
 - relevance=still-useful: the episode remains useful background, but is not central.
 - relevance=stale: the episode was useful then, but later work mostly superseded it.
 - relevance=rot: the episode is misleading or contradicted by later work.
-Rules:
+Verdict rules:
 - Judge only the target episode, using the episode map and summary for session position.
+- Commit to a verdict. mixed and still-useful are not safe defaults; use them only when the evidence is genuinely divided.
 - When the episode delegated work to subagents (see delegations), weigh that in efficiency: delegation that kept large work out of this context is efficient; the returned report's size is visible in the turn data.
-- Be qualitative and descriptive only; do not advise compaction, dropping, or action.
-- Do not compute or return token counts, percentages, or explanations.
-- Output the JSON object only; no Markdown, prose, or code fences.`;
+Summary rules:
+- Write a blunt, opinionated characterization of the episode: what it did, what it produced, and why it earned its verdicts.
+- Target 4-8 lines of plain prose; no Markdown, no bullet syntax.
+- Cite specific turn numbers (t12) and tool names so claims can be checked against the turn list.
+- You may cite token figures from the turn data; prefix every token figure with ≈ because they are estimates.
+- Judge and describe only; never advise. Do not recommend compaction, deletion, retries, or any other action.
+- Output the JSON object only; no Markdown or code fences around it.`;
 
 const episodeAnalysisSchema = z.object({
 	efficiency: z.enum(EFFICIENCY_VALUES),
 	relevance: z.enum(RELEVANCE_VALUES),
+	summary: z.string().optional(),
 });
 
-export interface EpisodeAnalysisVerdicts {
+export interface EpisodeAnalysis {
 	efficiency: EfficiencyVerdict;
 	relevance: RelevanceVerdict;
+	/** Opinionated-descriptive prose; null when the model omitted or blanked it. */
+	summary: string | null;
 }
 
 export type EpisodeAnalysisParseResult =
-	| { ok: true; value: EpisodeAnalysisVerdicts }
+	| { ok: true; value: EpisodeAnalysis }
 	| { ok: false; error: string };
 
 export interface EpisodeAnalysisPayloadOptions {
@@ -72,9 +80,17 @@ export function parseEpisodeAnalysisResponseText(text: string): EpisodeAnalysisP
 	} catch (error) {
 		return { ok: false, error: `invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
 	}
-	const verdicts = episodeAnalysisSchema.safeParse(parsed);
-	if (!verdicts.success) return { ok: false, error: "response JSON has no valid verdict pair" };
-	return { ok: true, value: verdicts.data };
+	const analysis = episodeAnalysisSchema.safeParse(parsed);
+	if (!analysis.success) return { ok: false, error: "response JSON has no valid verdict pair" };
+	const summary = analysis.data.summary?.trim() ?? "";
+	return {
+		ok: true,
+		value: {
+			efficiency: analysis.data.efficiency,
+			relevance: analysis.data.relevance,
+			summary: summary.length === 0 ? null : summary,
+		},
+	};
 }
 
 export function buildEpisodeAnalysisPayload(options: EpisodeAnalysisPayloadOptions): EpisodeAnalysisPayload {

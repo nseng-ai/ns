@@ -107,7 +107,7 @@ describe("startSegmentation", () => {
 				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
 			],
 		};
-		const gateway = new FakeSegmentationGateway({ result: SUCCESS, analysisResult: { ok: true, value: { efficiency: "mixed", relevance: "still-useful" } } });
+		const gateway = new FakeSegmentationGateway({ result: SUCCESS, analysisResult: { ok: true, value: { efficiency: "mixed", relevance: "still-useful", summary: null } } });
 		const { updates, onUpdate } = collectUpdates();
 
 		const { initial } = startSegmentation({ gateway, profile, state, force: false, onUpdate });
@@ -138,6 +138,26 @@ describe("startSegmentation", () => {
 				],
 			},
 		]);
+	});
+
+	test("analysis summary is cached on the episode and surfaced as analysisSummary", async () => {
+		const state = createProfilerState();
+		const summary = "t1-t5 land the edit directly; ≈minimal churn, one decisive bash run at t3.";
+		const gateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			analysisResult: { ok: true, value: { efficiency: "efficient", relevance: "load-bearing", summary } },
+		});
+		const { updates, onUpdate } = collectUpdates();
+
+		startSegmentation({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		await settled();
+
+		expect(updates[1]).toMatchObject({
+			type: "ready",
+			analysis: ["ready"],
+			episodes: [{ efficiency: "efficient", relevance: "load-bearing", analysisSummary: summary }],
+		});
+		expect(state.segmentationCache?.episodes[0]?.analysisSummary).toBe(summary);
 	});
 
 	test("episode analysis failure is visible but not cached", async () => {

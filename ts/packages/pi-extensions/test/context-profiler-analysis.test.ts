@@ -10,9 +10,21 @@ const EPISODES: EpisodeAnnotation[] = [
 ];
 
 describe("parseEpisodeAnalysisResponseText", () => {
-	test("parses a clean JSON verdict pair", () => {
+	test("parses a clean JSON verdict pair without a summary", () => {
 		const result = parseEpisodeAnalysisResponseText(JSON.stringify({ efficiency: "efficient", relevance: "load-bearing" }));
-		expect(result).toEqual({ ok: true, value: { efficiency: "efficient", relevance: "load-bearing" } });
+		expect(result).toEqual({ ok: true, value: { efficiency: "efficient", relevance: "load-bearing", summary: null } });
+	});
+
+	test("parses and trims the opinionated summary; blank summaries become null", () => {
+		const withSummary = parseEpisodeAnalysisResponseText(
+			JSON.stringify({ efficiency: "wasteful", relevance: "rot", summary: "  t2-t4 retry the same failing bash call; ≈1.2k tokens of churn.  " }),
+		);
+		expect(withSummary).toEqual({
+			ok: true,
+			value: { efficiency: "wasteful", relevance: "rot", summary: "t2-t4 retry the same failing bash call; ≈1.2k tokens of churn." },
+		});
+		const blank = parseEpisodeAnalysisResponseText(JSON.stringify({ efficiency: "mixed", relevance: "stale", summary: "   " }));
+		expect(blank).toEqual({ ok: true, value: { efficiency: "mixed", relevance: "stale", summary: null } });
 	});
 
 	test("parses fenced and prose-wrapped JSON", () => {
@@ -33,7 +45,13 @@ describe("parseEpisodeAnalysisResponseText", () => {
 describe("EPISODE_ANALYSIS_SYSTEM_PROMPT", () => {
 	test("includes the delegation efficiency weighting rule", () => {
 		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("delegation that kept large work out of this context is efficient");
-		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("Be qualitative and descriptive only");
+	});
+
+	test("demands decisive verdicts and an opinionated, never-advisory summary", () => {
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("mixed and still-useful are not safe defaults");
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("Target 4-8 lines of plain prose");
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("prefix every token figure with ≈");
+		expect(EPISODE_ANALYSIS_SYSTEM_PROMPT).toContain("never advise");
 	});
 });
 
