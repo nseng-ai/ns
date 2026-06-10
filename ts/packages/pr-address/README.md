@@ -12,12 +12,12 @@ TypeScript-managed local `exec` operation execution:
 
 - Classification and planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`
 - Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`
-- Read-only GitHub fetch helpers: `get-pr-for-branch`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, plus `get-feedback` in both inline and default payload-artifact modes
+- Read-only GitHub fetch helpers: `get-feedback` in both inline and default payload-artifact modes
 - Payload detail and stack diff helpers: `read-feedback-detail`, `read-feedback-details`, `stack-feedback-diff-current`
 - Stack orchestration helpers: `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
 - Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
 - Composite run preparation and summary: `prepare-run` (inline and default payload-artifact modes, contested-thread reopen, restructured-files detection) and `summarize-feedback`
-- Mutation helpers: `resolve-thread`, `resolve-thread-with-reply`, `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`, `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+- Mutation helpers: `resolve-thread-with-reply`, `resolve-thread-batch`, `reply-to-review`, `reply-to-discussion`
 - JSON Schema documents: `--json-schema` for every exec operation is served by TypeScript (`src/operation-schemas.ts`), with structural semantic parity against captured Python fixtures (`test/fixtures/json-schemas/`)
 
 Compatibility-backed behavior that must stay in place for now:

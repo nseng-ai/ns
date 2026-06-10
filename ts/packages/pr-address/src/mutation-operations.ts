@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
-import type { GatewayFailure, GatewayOptions, GatewayResult, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
+import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -50,72 +50,6 @@ interface ResolveThreadBatchItemResult {
 	error_type?: string | undefined;
 	error_message?: string | undefined;
 	provenance?: ResolutionProvenance | null | undefined;
-}
-
-export async function runResolveThreadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return failure("invalid_request", parsed.message);
-	const threadId = parsed.positionals[0]?.trim() ?? "";
-	if (threadId === "") return failure("invalid_request", "resolve-thread requires a non-empty thread_id argument.");
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.resolveReviewThread(threadId, gatewayOptions(invocation));
-	if (result.type === "failure") return gatewayFailureExit("Failed to resolve review thread", result.failure);
-	return { type: "exit", exit: clinkrOk({ thread_id: result.value.thread_id, is_resolved: result.value.is_resolved }) };
-}
-
-export async function runUnresolveThreadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return failure("invalid_request", parsed.message);
-	const threadId = parsed.positionals[0]?.trim() ?? "";
-	if (threadId === "") return failure("invalid_request", "unresolve-thread requires a non-empty thread_id argument.");
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.unresolveReviewThread(threadId, gatewayOptions(invocation));
-	if (result.type === "failure") return gatewayFailureExit("Failed to unresolve review thread", result.failure);
-	return { type: "exit", exit: clinkrOk({ thread_id: result.value.thread_id, is_resolved: result.value.is_resolved }) };
-}
-
-export async function runAddIssueCommentOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return failure("invalid_request", parsed.message);
-	const prNumber = integerArgument(parsed.positionals[0], "add-issue-comment requires an integer PR number argument.");
-	if (prNumber.type === "error") return failure("invalid_request", prNumber.message);
-	const body = await bodyArgument(parsed.positionals[1], invocation, "add-issue-comment requires a body argument.");
-	if (body.type === "error") return failure("invalid_request", body.message);
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.addPrDiscussionComment(prNumber.value, body.value, gatewayOptions(invocation));
-	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", result.failure);
-	return { type: "exit", exit: clinkrOk({ comment: result.value }) };
-}
-
-export async function runAddReactionOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return failure("invalid_request", parsed.message);
-	const commentId = integerArgument(parsed.positionals[0], "add-reaction requires an integer comment_id argument.");
-	if (commentId.type === "error") return failure("invalid_request", commentId.message);
-	const reaction = parsed.positionals[1];
-	if (reaction === undefined) return failure("invalid_request", "add-reaction requires a reaction argument.");
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.addPrDiscussionCommentReaction(commentId.value, reaction, gatewayOptions(invocation));
-	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment reaction", result.failure);
-	return { type: "exit", exit: clinkrOk({ id: result.value.id, comment_id: result.value.comment_id, content: result.value.content }) };
-}
-
-export async function runAddReviewThreadReplyOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return failure("invalid_request", parsed.message);
-	const threadId = parsed.positionals[0]?.trim() ?? "";
-	if (threadId === "") return failure("invalid_request", "add-review-thread-reply requires a non-empty thread_id argument.");
-	const body = await bodyArgument(parsed.positionals[1], invocation, "add-review-thread-reply requires a body argument.");
-	if (body.type === "error") return failure("invalid_request", body.message);
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await gateway.gateway.addReviewThreadReply(threadId, body.value, gatewayOptions(invocation));
-	if (result.type === "failure") return gatewayFailureExit("Failed to add review thread reply", result.failure);
-	return { type: "exit", exit: clinkrOk({ comment: result.value }) };
 }
 
 export async function runReplyToReviewOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
@@ -402,12 +336,6 @@ function provenanceShapeError(provenance: ProvenanceInput): string | null {
 	if (provenance.kind === "local_branch") return trimOptional(provenance.branch) === null ? "kind='local_branch' provenance requires a non-empty branch" : null;
 	if (provenance.pr_number <= 0) return "kind='pr' provenance requires a positive pr_number";
 	return null;
-}
-
-async function bodyArgument(value: string | undefined, invocation: ExecOperationInvocation, missingMessage: string): Promise<{ type: "ok"; value: string } | { type: "error"; message: string }> {
-	if (value === undefined) return { type: "error", message: missingMessage };
-	if (value === "-") return { type: "ok", value: await invocation.deps.stdin() };
-	return { type: "ok", value };
 }
 
 function integerArgument(value: string | undefined, message: string): { type: "ok"; value: number } | { type: "error"; message: string } {

@@ -1342,8 +1342,8 @@ Reaction failure produces a warning, not a batch failure.
 ## Other commands
 
 Lower-level helpers available via `pr-address exec <command> --format json`.
-The composite helpers above call these internally — use them directly only when
-the workflow requires it. Run `<command> --json-schema` for full schemas.
+Use them directly only when the workflow requires it. Run
+`<command> --json-schema` for full schemas.
 
 | Command                               | Description                                                                                                                                                            |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1358,13 +1358,4 @@ the workflow requires it. Run `<command> --json-schema` for full schemas.
 | `build-stack-resolve-thread-payloads` | Detailed above. Build and validate non-mutating per-PR payloads for `resolve-thread-batch` from a selected stack plan batch and explicit decisions.                    |
 | `finalize-run`                        | Detailed above. Summarize final unresolved, skipped, and checkpoint evidence without mutating GitHub or printing raw feedback bodies.                                  |
 | `summarize-feedback`                  | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                                 |
-| `get-pr-for-branch`                   | Look up the open PR for a branch                                                                                                                                       |
-| `get-reviews`                         | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                  |
-| `get-review-comments`                 | Fetch review threads for a PR                                                                                                                                          |
-| `get-discussion-comments`             | Fetch discussion comments for a PR                                                                                                                                     |
-| `add-issue-comment`                   | Add a discussion comment to a PR                                                                                                                                       |
-| `add-reaction`                        | Add a reaction to a comment                                                                                                                                            |
-| `add-review-thread-reply`             | Post a reply comment on a PR review thread                                                                                                                             |
-| `resolve-thread`                      | Resolve a PR review thread by its GraphQL node ID                                                                                                                      |
 | `resolve-thread-batch`                | Mutating helper: reply to and resolve multiple PR review threads from one JSON payload.                                                                                |
-| `unresolve-thread`                    | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                           |

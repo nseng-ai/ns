@@ -104,33 +104,6 @@ describe("reply formatting TypeScript parity", () => {
 });
 
 describe("mutation operations use fake gateways", () => {
-	test("add-issue-comment, add-reaction, thread resolve, unresolve, and reply mutations call fakes", async () => {
-		const addIssue = runWithFakes(["exec", "add-issue-comment", "42", "Addressed.", "--format", "json"]);
-		expect(await addIssue.exit).toBe(0);
-		expect(JSON.parse(addIssue.stdout.join("")).data.comment.body).toBe("Addressed.");
-		expect(addIssue.github.comments).toEqual([{ prNumber: 42, body: "Addressed." }]);
-
-		const addReaction = runWithFakes(["exec", "add-reaction", "9001", "--", "-1", "--format", "json"]);
-		expect(await addReaction.exit).toBe(0);
-		expect(JSON.parse(addReaction.stdout.join("")).data.content).toBe("-1");
-		expect(addReaction.github.reactions).toEqual([{ commentId: 9001, reaction: "-1" }]);
-
-		const addThreadReply = runWithFakes(["exec", "add-review-thread-reply", "PRRT_abc", "Fixed.", "--format", "json"]);
-		expect(await addThreadReply.exit).toBe(0);
-		expect(JSON.parse(addThreadReply.stdout.join("")).data.comment.body).toBe("Fixed.");
-		expect(addThreadReply.github.threadReplies).toEqual([{ threadId: "PRRT_abc", body: "Fixed." }]);
-
-		const resolve = runWithFakes(["exec", "resolve-thread", "PRRT_abc", "--format", "json"]);
-		expect(await resolve.exit).toBe(0);
-		expect(JSON.parse(resolve.stdout.join("")).data.is_resolved).toBe(true);
-		expect(resolve.github.resolvedThreadIds).toEqual(["PRRT_abc"]);
-
-		const unresolve = runWithFakes(["exec", "unresolve-thread", "PRRT_abc", "--format", "json"]);
-		expect(await unresolve.exit).toBe(0);
-		expect(JSON.parse(unresolve.stdout.join("")).data.is_resolved).toBe(false);
-		expect(unresolve.github.unresolvedThreadIds).toEqual(["PRRT_abc"]);
-	});
-
 	test("reply builders post formatted comments and preserve reaction warning success", async () => {
 		const review = runWithFakes(["exec", "reply-to-review", "42", "reviewer", "--", "- Updated tests", "--format", "json"]);
 		expect(await review.exit).toBe(0);

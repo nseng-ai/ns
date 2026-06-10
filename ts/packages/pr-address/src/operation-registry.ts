@@ -2,18 +2,13 @@ import type { PrAddressContext } from "./context.ts";
 import { runRecordBatchCheckpointOperation } from "./batch-checkpoint.ts";
 import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
 import type { ClinkrExit } from "./clinkr-envelope.ts";
-import { runGetDiscussionCommentsOperation, runGetFeedbackOperation, runGetPrForBranchOperation, runGetReviewCommentsOperation, runGetReviewsOperation } from "./feedback-collection.ts";
+import { runGetFeedbackOperation } from "./feedback-collection.ts";
 import { runFinalizeRunOperation } from "./finalization.ts";
 import {
-	runAddIssueCommentOperation,
-	runAddReactionOperation,
-	runAddReviewThreadReplyOperation,
 	runReplyToDiscussionOperation,
 	runReplyToReviewOperation,
 	runResolveThreadBatchOperation,
-	runResolveThreadOperation,
 	runResolveThreadWithReplyOperation,
-	runUnresolveThreadOperation,
 } from "./mutation-operations.ts";
 import { runPrepareRunOperation } from "./prepare-run.ts";
 import { runReadFeedbackDetailOperation, runReadFeedbackDetailsOperation } from "./read-feedback-detail.ts";
@@ -56,18 +51,11 @@ export interface ExecOperationRegistry {
 }
 
 export const LEGACY_EXEC_OPERATIONS: readonly string[] = [
-	"add-issue-comment",
-	"add-reaction",
-	"add-review-thread-reply",
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",
 	"classification-template",
 	"finalize-run",
-	"get-discussion-comments",
 	"get-feedback",
-	"get-pr-for-branch",
-	"get-review-comments",
-	"get-reviews",
 	"plan-feedback",
 	"prepare-run",
 	"read-feedback-detail",
@@ -75,31 +63,17 @@ export const LEGACY_EXEC_OPERATIONS: readonly string[] = [
 	"record-batch-checkpoint",
 	"reply-to-discussion",
 	"reply-to-review",
-	"resolve-thread",
 	"resolve-thread-batch",
 	"resolve-thread-with-reply",
 	"stack-feedback-diff-current",
 	"stack-feedback-plan",
 	"stack-feedback-prep",
 	"summarize-feedback",
-	"unresolve-thread",
 	"validate-feedback-classification",
 ];
 
 export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 	return createExecOperationRegistry([
-		{
-			name: "add-issue-comment",
-			handler: runAddIssueCommentOperation,
-		},
-		{
-			name: "add-reaction",
-			handler: runAddReactionOperation,
-		},
-		{
-			name: "add-review-thread-reply",
-			handler: runAddReviewThreadReplyOperation,
-		},
 		{
 			name: "reply-to-discussion",
 			handler: runReplyToDiscussionOperation,
@@ -109,20 +83,12 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 			handler: runReplyToReviewOperation,
 		},
 		{
-			name: "resolve-thread",
-			handler: runResolveThreadOperation,
-		},
-		{
 			name: "resolve-thread-batch",
 			handler: runResolveThreadBatchOperation,
 		},
 		{
 			name: "resolve-thread-with-reply",
 			handler: runResolveThreadWithReplyOperation,
-		},
-		{
-			name: "unresolve-thread",
-			handler: runUnresolveThreadOperation,
 		},
 		{
 			name: "classification-template",
@@ -139,22 +105,6 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "build-resolve-thread-batch-payload",
 			handler: runBuildResolveThreadBatchPayloadOperation,
-		},
-		{
-			name: "get-pr-for-branch",
-			handler: runGetPrForBranchOperation,
-		},
-		{
-			name: "get-reviews",
-			handler: runGetReviewsOperation,
-		},
-		{
-			name: "get-review-comments",
-			handler: runGetReviewCommentsOperation,
-		},
-		{
-			name: "get-discussion-comments",
-			handler: runGetDiscussionCommentsOperation,
 		},
 		{
 			name: "get-feedback",

@@ -46,59 +46,6 @@ function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubG
 }
 
 describe("read-only GitHub-backed operations", () => {
-	test("looks up a PR for a branch without legacy fallback", async () => {
-		const github = new InMemoryPrAddressGitHubGateway({
-			prsByBranch: {
-				feature: {
-					number: 42,
-					title: "Add feature",
-					url: "https://github.com/acme/repo/pull/42",
-					head_ref_name: "feature",
-					base_ref_name: "main",
-					state: "OPEN",
-				},
-			},
-		});
-		const run = runWithGithub(["exec", "get-pr-for-branch", "feature", "--format", "json"], github);
-
-		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
-		const envelope = parseEnvelope(run.stdout.join(""));
-		expect(envelope.data).toMatchObject({ found: true, number: 42, head_ref_name: "feature", base_ref_name: "main", state: "OPEN" });
-	});
-
-	test("reports PR lookup miss as found false", async () => {
-		const run = runWithGithub(["exec", "get-pr-for-branch", "missing", "--format", "json"], new InMemoryPrAddressGitHubGateway());
-
-		expect(await run.exit).toBe(0);
-		const envelope = parseEnvelope(run.stdout.join(""));
-		expect(envelope.data).toEqual({ found: false, error: "no PR found", returncode: 1 });
-	});
-
-	test("fetches reviews, review threads, and discussion comments", async () => {
-		const github = new InMemoryPrAddressGitHubGateway({
-			reviews: { 42: [review({ id: "PRR_1" }), review({ id: "PRR_2", author: "approver", state: "APPROVED", body: "LGTM" })] },
-			reviewThreads: { 42: [reviewThread({ id: "open", is_resolved: false }), reviewThread({ id: "resolved", is_resolved: true })] },
-			discussionComments: { 42: [discussionComment({ id: 99, author: "Graphite Automations" })] },
-		});
-
-		const reviewsRun = runWithGithub(["exec", "get-reviews", "42", "--format", "json"], github);
-		expect(await reviewsRun.exit).toBe(0);
-		expect(parseEnvelope(reviewsRun.stdout.join("")).data.count).toBe(2);
-
-		const threadsRun = runWithGithub(["exec", "get-review-comments", "42", "--include-resolved", "--format", "json"], github);
-		expect(await threadsRun.exit).toBe(0);
-		expect((parseEnvelope(threadsRun.stdout.join("")).data.threads as Array<{ id: string }>).map((thread) => thread.id)).toEqual(["open", "resolved"]);
-
-		const discussionsRun = runWithGithub(["exec", "get-discussion-comments", "42", "--format", "json"], github);
-		expect(await discussionsRun.exit).toBe(0);
-		expect((parseEnvelope(discussionsRun.stdout.join("")).data.comments as Array<{ author: string }>)[0]?.author).toBe("Graphite Automations");
-
-		expect(reviewsRun.legacy.calls).toEqual([]);
-		expect(threadsRun.legacy.calls).toEqual([]);
-		expect(discussionsRun.legacy.calls).toEqual([]);
-	});
-
 	test("get-feedback manages inline and payload modes without legacy fallback", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			reviews: {

@@ -316,35 +316,6 @@ const payloadJsonOrFileRequestSchema = z.object({
 
 // --- mutation operations --------------------------------------------------------
 
-const addIssueCommentRequestSchema = z.object({
-	pr_number: z.int(),
-	body: z.string(),
-});
-
-const addIssueCommentResultSchema = z.object({
-	comment: prDiscussionCommentSchema,
-});
-
-const addReactionRequestSchema = z.object({
-	comment_id: z.int(),
-	reaction: z.string(),
-});
-
-const addReactionResultSchema = z.object({
-	id: z.int(),
-	comment_id: z.int(),
-	content: z.string(),
-});
-
-const addReviewThreadReplyRequestSchema = z.object({
-	thread_id: z.string(),
-	body: z.string(),
-});
-
-const addReviewThreadReplyResultSchema = z.object({
-	comment: prReviewCommentSchema,
-});
-
 const replyToDiscussionRequestSchema = z.object({
 	pr_number: z.int(),
 	comment_id: z.int(),
@@ -370,15 +341,6 @@ const replyToReviewRequestSchema = z.object({
 const replyToReviewResultSchema = z.object({
 	body: z.string(),
 	comment: prDiscussionCommentSchema,
-});
-
-const threadIdRequestSchema = z.object({
-	thread_id: z.string(),
-});
-
-const threadResolutionResultSchema = z.object({
-	thread_id: z.string(),
-	is_resolved: z.boolean(),
 });
 
 const resolveThreadWithReplyRequestSchema = z.object({
@@ -420,47 +382,6 @@ const resolveThreadBatchResultSchema = z.object({
 });
 
 // --- read-only collection operations -------------------------------------------
-
-const getPrForBranchRequestSchema = z.object({
-	branch: z.string(),
-});
-
-const getPrForBranchResultSchema = z.object({
-	found: z.boolean(),
-	number: nullableIntSchema.optional(),
-	title: nullableStringSchema.optional(),
-	url: nullableStringSchema.optional(),
-	head_ref_name: nullableStringSchema.optional(),
-	base_ref_name: nullableStringSchema.optional(),
-	state: prStateSchema.nullable().optional(),
-	error: nullableStringSchema.optional(),
-	returncode: nullableIntSchema.optional(),
-});
-
-const getReviewsRequestSchema = z.object({
-	pr_number: z.int(),
-});
-
-const getReviewsResultSchema = z.object({
-	reviews: z.array(prReviewSchema),
-});
-
-const getReviewCommentsRequestSchema = z.object({
-	pr_number: z.int(),
-	include_resolved: z.boolean().optional(),
-});
-
-const getReviewCommentsResultSchema = z.object({
-	threads: z.array(prReviewThreadSchema),
-});
-
-const getDiscussionCommentsRequestSchema = z.object({
-	pr_number: z.int(),
-});
-
-const getDiscussionCommentsResultSchema = z.object({
-	comments: z.array(prDiscussionCommentSchema),
-});
 
 const getFeedbackRequestSchema = z.object({
 	pr_number: z.int(),
@@ -1286,18 +1207,11 @@ function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): Json
 }
 
 const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = new Map([
-	["add-issue-comment", () => schemaDocument(addIssueCommentRequestSchema, addIssueCommentResultSchema)],
-	["add-reaction", () => schemaDocument(addReactionRequestSchema, addReactionResultSchema)],
-	["add-review-thread-reply", () => schemaDocument(addReviewThreadReplyRequestSchema, addReviewThreadReplyResultSchema)],
 	["build-resolve-thread-batch-payload", () => schemaDocument(payloadJsonRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
 	["build-stack-resolve-thread-payloads", () => schemaDocument(payloadJsonRequestSchema, buildStackResolveThreadPayloadsResultSchema)],
 	["classification-template", buildClassificationTemplateSchemaDocument],
 	["finalize-run", () => schemaDocument(payloadJsonOrFileRequestSchema, finalizeRunResultSchema)],
-	["get-discussion-comments", () => schemaDocument(getDiscussionCommentsRequestSchema, getDiscussionCommentsResultSchema)],
 	["get-feedback", () => schemaDocument(getFeedbackRequestSchema, getFeedbackResultSchema)],
-	["get-pr-for-branch", () => schemaDocument(getPrForBranchRequestSchema, getPrForBranchResultSchema)],
-	["get-review-comments", () => schemaDocument(getReviewCommentsRequestSchema, getReviewCommentsResultSchema)],
-	["get-reviews", () => schemaDocument(getReviewsRequestSchema, getReviewsResultSchema)],
 	["plan-feedback", buildPlanFeedbackSchemaDocument],
 	["prepare-run", () => schemaDocument(prepareRunRequestSchema, prepareRunResultSchema)],
 	["read-feedback-detail", () => schemaDocument(readFeedbackDetailRequestSchema, readFeedbackDetailResultSchema)],
@@ -1305,14 +1219,12 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["record-batch-checkpoint", () => schemaDocument(payloadJsonOrFileRequestSchema, recordBatchCheckpointResultSchema)],
 	["reply-to-discussion", () => schemaDocument(replyToDiscussionRequestSchema, replyToDiscussionResultSchema)],
 	["reply-to-review", () => schemaDocument(replyToReviewRequestSchema, replyToReviewResultSchema)],
-	["resolve-thread", () => schemaDocument(threadIdRequestSchema, threadResolutionResultSchema)],
 	["resolve-thread-batch", () => schemaDocument(payloadJsonOrFileRequestSchema, resolveThreadBatchResultSchema)],
 	["resolve-thread-with-reply", () => schemaDocument(resolveThreadWithReplyRequestSchema, resolveThreadWithReplyResultSchema)],
 	["stack-feedback-diff-current", () => schemaDocument(payloadJsonOrFileRequestSchema, stackFeedbackDiffCurrentResultSchema)],
 	["stack-feedback-plan", () => schemaDocument(stackFeedbackPlanRequestSchema, stackFeedbackPlanResultUnionSchema)],
 	["stack-feedback-prep", () => schemaDocument(stackFeedbackPrepRequestSchema, stackFeedbackPrepResultUnionSchema)],
 	["summarize-feedback", () => schemaDocument(summarizeFeedbackRequestSchema, summarizeFeedbackResultSchema)],
-	["unresolve-thread", () => schemaDocument(threadIdRequestSchema, threadResolutionResultSchema)],
 	["validate-feedback-classification", buildValidateFeedbackClassificationSchemaDocument],
 ]);
 

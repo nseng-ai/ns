@@ -9,6 +9,7 @@ from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.types import PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.plugin import AsdlPluginSpec
 from asdl_handoff.cli import plugin as handoff_plugin
@@ -223,7 +224,18 @@ def test_pr_address_plugin_integration() -> None:
 
     runner = CliRunner()
     ctx = PrAddressCliContext(
-        pr_gateway=FakePRGateway(),
+        pr_gateway=FakePRGateway(
+            prs=[
+                PRSummary(
+                    number=99,
+                    title="Add feature",
+                    url="https://github.com/dagster-io/asdl/pull/99",
+                    head_ref_name="feature",
+                    base_ref_name="master",
+                    state="OPEN",
+                )
+            ]
+        ),
         git_gateway=FakeGitGateway(),
     )
     obj = build_clinkr_context_object(lambda: ctx)
@@ -236,10 +248,10 @@ def test_pr_address_plugin_integration() -> None:
 
     # A representative operation routes correctly through the plugin path,
     # confirming the exec subgroup is still invocable despite being hidden.
-    result = runner.invoke(parent, ["pr-address", "exec", "get-review-comments", "99"], obj=obj)
-    assert result.exit_code == 0
+    result = runner.invoke(parent, ["pr-address", "exec", "summarize-feedback", "99"], obj=obj)
+    assert result.exit_code == 0, result.output
     output = json.loads(result.output)
-    assert output["count"] == 0
+    assert output["pr"]["number"] == 99
 
 
 def test_slots_plugin_integration(tmp_path: Path) -> None:
