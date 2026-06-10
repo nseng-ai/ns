@@ -58,7 +58,10 @@ type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest
 
 type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
-type ListData = { plans: Record<string, unknown>[] };
+interface ListData {
+	plans: Record<string, unknown>[];
+}
+
 type WriteData = Record<string, unknown>;
 type ResolveData = Record<string, unknown>;
 
