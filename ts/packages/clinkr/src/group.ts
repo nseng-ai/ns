@@ -183,7 +183,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	}
 	if (registered.plan.positionals.length > 0) {
 		const parts = registered.plan.positionals.map((positional) =>
-			positional.required ? `<${positional.name}>` : `[${positional.name}]`,
+			positional.isRequired ? `<${positional.name}>` : `[${positional.name}]`,
 		);
 		command.usage(`[options] ${parts.join(" ")}`);
 	}

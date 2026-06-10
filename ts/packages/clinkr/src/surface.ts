@@ -23,7 +23,7 @@ export interface PositionalPlan {
 	key: string;
 	name: string;
 	kind: FieldKind;
-	required: boolean;
+	isRequired: boolean;
 	description: string;
 }
 
@@ -151,7 +151,7 @@ export function buildSurfacePlan(
 			}
 			positionalEntries.push({
 				position: positionalSpec.position,
-				plan: { key, name: kebabCase(key), kind, required: isRequired, description },
+				plan: { key, name: kebabCase(key), kind, isRequired, description },
 			});
 			continue;
 		}
