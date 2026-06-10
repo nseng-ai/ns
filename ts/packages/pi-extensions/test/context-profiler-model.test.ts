@@ -11,6 +11,7 @@ import {
 	capTurns,
 	deriveLiveTurns,
 	estimateTokensFromChars,
+	normalizeMessage,
 	type LiveTurn,
 } from "../src/context-profiler/model.ts";
 
@@ -63,7 +64,7 @@ function makeTurns(count: number, tokensEach = 4): LiveTurn[] {
 		tokens: { value: tokensEach, provenance: "estimated" as const },
 		toolNames: [],
 		excerpt: `turn ${position + 1}`,
-		message: { role: "user", content: `turn ${position + 1}` },
+		message: normalizeMessage({ role: "user", content: `turn ${position + 1}` }),
 	}));
 }
 
@@ -160,7 +161,8 @@ describe("buildTurnsFromMessages", () => {
 			],
 		};
 		const turns = buildTurnsFromMessages([message]);
-		const expectedChars = 4 + 4 + "read".length + JSON.stringify(args).length;
+		// Tool args count as pretty JSON — exactly what the verbatim view renders.
+		const expectedChars = 4 + 4 + "read".length + JSON.stringify(args, null, 2).length;
 		expect(turns[0]?.tokens.value).toBe(Math.ceil(expectedChars / 4));
 		expect(turns[0]?.toolNames).toEqual(["read"]);
 	});
@@ -174,11 +176,11 @@ describe("buildTurnsFromMessages", () => {
 		expect(buildTurnsFromMessages([message])[0]?.toolNames).toEqual(["bash"]);
 	});
 
-	test("falls back excerpt to tool name, then JSON preview", () => {
+	test("falls back excerpt to tool name, then collapsed JSON of the whole message", () => {
 		const toolOnly = { role: "toolResult", toolName: "bash", content: [] };
 		expect(buildTurnsFromMessages([toolOnly])[0]?.excerpt).toBe("bash");
 		const bare = { role: "custom" };
-		expect(buildTurnsFromMessages([bare])[0]?.excerpt).toBe(JSON.stringify(bare));
+		expect(buildTurnsFromMessages([bare])[0]?.excerpt).toBe('{ "role": "custom" }');
 	});
 
 	test("collapses whitespace and caps the excerpt at 120 chars", () => {
@@ -188,6 +190,58 @@ describe("buildTurnsFromMessages", () => {
 		expect(excerpt.startsWith("lead x")).toBe(true);
 		expect(excerpt).toHaveLength(120);
 		expect(excerpt.endsWith("…")).toBe(true);
+	});
+});
+
+describe("normalizeMessage", () => {
+	test("wraps a non-record message in a single opaque part", () => {
+		expect(normalizeMessage("plain string")).toEqual({
+			role: "message",
+			toolName: null,
+			parts: [{ kind: "opaque", json: '"plain string"' }],
+			detailsJson: null,
+		});
+	});
+
+	test("normalizes typed parts and falls back to 'tool' for nameless tool calls", () => {
+		const normalized = normalizeMessage({
+			role: "assistant",
+			content: [
+				{ type: "text", text: "hi" },
+				{ type: "thinking", thinking: "hmm" },
+				{ type: "toolCall", arguments: { a: 1 } },
+				{ type: "image", data: "ZGF0YQ==" },
+			],
+		});
+		expect(normalized.role).toBe("assistant");
+		expect(normalized.parts).toEqual([
+			{ kind: "text", text: "hi" },
+			{ kind: "thinking", text: "hmm" },
+			{ kind: "toolCall", name: "tool", argsJson: JSON.stringify({ a: 1 }, null, 2) },
+			{ kind: "image" },
+		]);
+	});
+
+	test("turns unknown record parts into opaque JSON and skips non-record parts", () => {
+		const normalized = normalizeMessage({ role: "assistant", content: [{ type: "mystery", payload: 1 }, 42] });
+		expect(normalized.parts).toEqual([{ kind: "opaque", json: JSON.stringify({ type: "mystery", payload: 1 }, null, 2) }]);
+	});
+
+	test("keeps an empty message with only a toolName free of parts", () => {
+		const normalized = normalizeMessage({ role: "toolResult", toolName: "bash", content: [] });
+		expect(normalized.toolName).toBe("bash");
+		expect(normalized.parts).toEqual([]);
+		expect(normalized.detailsJson).toBeNull();
+	});
+
+	test("represents a fully empty message as one opaque part of its own JSON", () => {
+		const bare = { role: "custom" };
+		expect(normalizeMessage(bare).parts).toEqual([{ kind: "opaque", json: JSON.stringify(bare, null, 2) }]);
+	});
+
+	test("pretty-prints details when present", () => {
+		const normalized = normalizeMessage({ role: "toolResult", content: "out", details: { exitCode: 0 } });
+		expect(normalized.detailsJson).toBe(JSON.stringify({ exitCode: 0 }, null, 2));
 	});
 });
 

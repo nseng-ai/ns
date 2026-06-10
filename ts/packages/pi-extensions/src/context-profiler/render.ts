@@ -13,10 +13,11 @@ import type {
 	EpisodeKind,
 	LiveRegion,
 	LiveTurn,
+	MessagePart,
+	NormalizedMessage,
 	TokenCount,
 	TurnCapInfo,
 } from "./model.ts";
-import { isRecord, stringField } from "./model.ts";
 
 export const BAR_WIDTH = 14;
 export const TOKENS_COLUMN_WIDTH = 8;
@@ -206,29 +207,28 @@ export function contentSourceForTurn(turn: LiveTurn): ContentSource {
 	};
 }
 
-/** Render a raw message verbatim with semantic part headers. */
-export function renderMessageText(message: unknown): string {
-	if (!isRecord(message)) return stableJsonPretty(message);
+/** Render a normalized message verbatim with semantic part headers. */
+export function renderMessageText(message: NormalizedMessage): string {
 	const sections: string[] = [];
-	const toolName = stringField(message, "toolName");
-	if (toolName !== null) sections.push(`⏺ tool result · ${toolName}`);
-	sections.push(...renderContentSections(message.content));
-	if (message.details !== undefined) sections.push(`[details]\n${stableJsonPretty(message.details)}`);
-	if (sections.length === 0) return stableJsonPretty(message);
+	if (message.toolName !== null) sections.push(`⏺ tool result · ${message.toolName}`);
+	sections.push(...message.parts.map(renderPartSection));
+	if (message.detailsJson !== null) sections.push(`[details]\n${message.detailsJson}`);
 	return sections.join("\n\n");
 }
 
-function renderContentSections(content: unknown): string[] {
-	if (typeof content === "string") return content.length === 0 ? [] : [content];
-	if (!Array.isArray(content)) return [];
-	return content.flatMap((part): string[] => {
-		if (!isRecord(part)) return [];
-		if (part.type === "text" && typeof part.text === "string") return [part.text];
-		if (part.type === "thinking" && typeof part.thinking === "string") return [`[thinking]\n${part.thinking}`];
-		if (part.type === "toolCall") return [`⏺ ${stringField(part, "name") ?? "tool"}\n${stableJsonPretty(part.arguments)}`];
-		if (part.type === "image") return ["[image]"];
-		return [stableJsonPretty(part)];
-	});
+function renderPartSection(part: MessagePart): string {
+	switch (part.kind) {
+		case "text":
+			return part.text;
+		case "thinking":
+			return `[thinking]\n${part.text}`;
+		case "toolCall":
+			return `⏺ ${part.name}\n${part.argsJson}`;
+		case "image":
+			return "[image]";
+		case "opaque":
+			return part.json;
+	}
 }
 
 export function sanitizeContentText(text: string): string {
@@ -276,15 +276,6 @@ export function fitToWidth(text: string, width: number): string {
 export function padRight(text: string, width: number): string {
 	const missing = Math.max(0, width - visibleWidth(text));
 	return text + " ".repeat(missing);
-}
-
-function stableJsonPretty(value: unknown): string {
-	if (value === undefined) return "undefined";
-	try {
-		return JSON.stringify(value, null, 2) ?? String(value);
-	} catch {
-		return String(value);
-	}
 }
 
 export function clamp(value: number, min: number, max: number): number {

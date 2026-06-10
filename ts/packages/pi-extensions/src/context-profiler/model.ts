@@ -36,6 +36,26 @@ export interface BaseRegion {
 	members: BaseMember[];
 }
 
+/**
+ * One typed piece of a normalized message. `normalizeMessage` is the only
+ * code that inspects raw `unknown` messages; everything downstream (token
+ * estimation, excerpts, verbatim rendering) is a trivial fold over these.
+ */
+export type MessagePart =
+	| { kind: "text"; text: string }
+	| { kind: "thinking"; text: string }
+	| { kind: "toolCall"; name: string; argsJson: string }
+	| { kind: "image" }
+	| { kind: "opaque"; json: string };
+
+export interface NormalizedMessage {
+	role: string;
+	toolName: string | null;
+	parts: MessagePart[];
+	/** Pretty-printed `details`, null when absent. */
+	detailsJson: string | null;
+}
+
 export interface LiveTurn {
 	/** 1-based position in the live message list. */
 	index: number;
@@ -43,8 +63,8 @@ export interface LiveTurn {
 	tokens: TokenCount;
 	toolNames: string[];
 	excerpt: string;
-	/** Raw message this turn was derived from; rendered verbatim in the content view. */
-	message: unknown;
+	/** Normalized message this turn was derived from; rendered verbatim in the content view. */
+	message: NormalizedMessage;
 }
 
 export type EpisodeKind = "explore" | "edit" | "debug" | "test" | "review" | "chat" | "uncategorized";
@@ -257,14 +277,17 @@ export function deriveLiveTurns(input: LiveTurnsInput): { turns: LiveTurn[]; sou
 }
 
 export function buildTurnsFromMessages(messages: readonly unknown[]): LiveTurn[] {
-	return messages.map((message, index) => ({
-		index: index + 1,
-		role: messageRole(message),
-		tokens: estimateTokensFromChars(estimateMessageChars(message)),
-		toolNames: toolNamesOf(message),
-		excerpt: excerptForMessage(message),
-		message,
-	}));
+	return messages.map((message, index) => {
+		const normalized = normalizeMessage(message);
+		return {
+			index: index + 1,
+			role: normalized.role,
+			tokens: estimateTokensFromChars(messageChars(normalized)),
+			toolNames: turnToolNames(normalized),
+			excerpt: excerptOf(normalized),
+			message: normalized,
+		};
+	});
 }
 
 export function buildTurnsFromEntries(entries: readonly SessionEntry[]): LiveTurn[] {
@@ -367,42 +390,98 @@ function unannotatedRegion(turns: readonly LiveTurn[], range: TurnRange, lastInd
 	};
 }
 
-function messageRole(message: unknown): string {
-	if (!isRecord(message)) return "message";
-	return typeof message.role === "string" ? message.role : "message";
-}
-
-function toolNamesOf(message: unknown): string[] {
-	if (!isRecord(message)) return [];
-	const direct = typeof message.toolName === "string" ? [message.toolName] : [];
-	const contentTools = Array.isArray(message.content)
-		? message.content.flatMap((part): string[] => (isRecord(part) && part.type === "toolCall" && typeof part.name === "string" ? [part.name] : []))
-		: [];
-	return [...new Set([...direct, ...contentTools])];
-}
-
-function excerptForMessage(message: unknown): string {
-	if (!isRecord(message)) return "";
-	const content = describeContent(message.content);
-	if (content.length > 0) return collapseToExcerpt(content);
+/**
+ * Normalize one raw message into the typed model. This is the only function
+ * that handles `unknown` message shapes; its rules consolidate the previous
+ * per-walker decisions:
+ *
+ * - Non-record message → role "message", one opaque part with its pretty JSON.
+ * - String content → one text part (empty string contributes no part).
+ * - Array content → typed parts; unknown record parts become opaque JSON,
+ *   non-record parts are skipped.
+ * - Empty message (no parts, no toolName, no details) → one opaque part with
+ *   the pretty JSON of the whole message, so it still renders and counts.
+ */
+export function normalizeMessage(message: unknown): NormalizedMessage {
+	if (!isRecord(message)) {
+		return { role: "message", toolName: null, parts: opaqueParts(message), detailsJson: null };
+	}
 	const toolName = stringField(message, "toolName");
-	if (toolName !== null) return collapseToExcerpt(toolName);
-	return collapseToExcerpt(stableJsonPreview(message));
+	const detailsJson = stableJsonPretty(message.details);
+	const parts = normalizeContent(message.content);
+	if (parts.length === 0 && toolName === null && detailsJson === null) {
+		parts.push(...opaqueParts(message));
+	}
+	return {
+		role: typeof message.role === "string" ? message.role : "message",
+		toolName,
+		parts,
+		detailsJson,
+	};
 }
 
-function describeContent(content: unknown): string {
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content.map(describeContentPart).filter((part) => part.length > 0).join(" ");
+function normalizeContent(content: unknown): MessagePart[] {
+	if (typeof content === "string") return content.length === 0 ? [] : [{ kind: "text", text: content }];
+	if (!Array.isArray(content)) return [];
+	return content.flatMap((part): MessagePart[] => {
+		if (!isRecord(part)) return [];
+		if (part.type === "text" && typeof part.text === "string") return [{ kind: "text", text: part.text }];
+		if (part.type === "thinking" && typeof part.thinking === "string") return [{ kind: "thinking", text: part.thinking }];
+		if (part.type === "toolCall") return [{ kind: "toolCall", name: stringField(part, "name") ?? "tool", argsJson: stableJsonPretty(part.arguments) ?? "" }];
+		if (part.type === "image") return [{ kind: "image" }];
+		return opaqueParts(part);
+	});
 }
 
-function describeContentPart(part: unknown): string {
-	if (!isRecord(part)) return "";
-	if (part.type === "text" && typeof part.text === "string") return part.text;
-	if (part.type === "thinking" && typeof part.thinking === "string") return part.thinking;
-	if (part.type === "toolCall") return `tool:${stringField(part, "name") ?? "unknown"}`;
-	if (part.type === "image") return "[image]";
+function opaqueParts(value: unknown): MessagePart[] {
+	const json = stableJsonPretty(value);
+	return json === null ? [] : [{ kind: "opaque", json }];
+}
+
+function turnToolNames(message: NormalizedMessage): string[] {
+	const direct = message.toolName === null ? [] : [message.toolName];
+	const fromParts = message.parts.flatMap((part): string[] => (part.kind === "toolCall" ? [part.name] : []));
+	return [...new Set([...direct, ...fromParts])];
+}
+
+function messageChars(message: NormalizedMessage): number {
+	const contentChars = message.parts.reduce((total, part) => total + partChars(part), 0);
+	return (message.toolName?.length ?? 0) + (message.detailsJson?.length ?? 0) + contentChars;
+}
+
+function partChars(part: MessagePart): number {
+	switch (part.kind) {
+		case "text":
+		case "thinking":
+			return part.text.length;
+		case "toolCall":
+			return part.name.length + part.argsJson.length;
+		case "image":
+			return 0;
+		case "opaque":
+			return part.json.length;
+	}
+}
+
+function excerptOf(message: NormalizedMessage): string {
+	const joined = message.parts.map(partExcerpt).filter((text) => text.length > 0).join(" ");
+	if (joined.length > 0) return collapseToExcerpt(joined);
+	if (message.toolName !== null) return collapseToExcerpt(message.toolName);
 	return "";
+}
+
+function partExcerpt(part: MessagePart): string {
+	switch (part.kind) {
+		case "text":
+		case "thinking":
+			return part.text;
+		case "toolCall":
+			return `tool:${part.name}`;
+		case "image":
+			return "[image]";
+		case "opaque":
+			return part.json;
+	}
 }
 
 function collapseToExcerpt(text: string): string {
@@ -411,30 +490,22 @@ function collapseToExcerpt(text: string): string {
 	return `${collapsed.slice(0, EXCERPT_MAX_CHARS - 1)}…`;
 }
 
-function estimateMessageChars(message: unknown): number {
-	if (!isRecord(message)) return 0;
-	const toolNameChars = typeof message.toolName === "string" ? message.toolName.length : 0;
-	return toolNameChars + estimateContentChars(message.content) + stableJsonLength(message.details);
-}
-
-function estimateContentChars(content: unknown): number {
-	if (typeof content === "string") return content.length;
-	if (!Array.isArray(content)) return 0;
-	return content.reduce((total: number, part) => total + estimateContentPartChars(part), 0);
-}
-
-function estimateContentPartChars(part: unknown): number {
-	if (!isRecord(part) || typeof part.type !== "string") return 0;
-	if (part.type === "text" && typeof part.text === "string") return part.text.length;
-	if (part.type === "thinking" && typeof part.thinking === "string") return part.thinking.length;
-	if (part.type === "toolCall") {
-		const nameChars = typeof part.name === "string" ? part.name.length : 0;
-		return nameChars + stableJsonLength(part.arguments);
+/**
+ * The single JSON stringify helper for messages: pretty-printed so estimates
+ * count exactly what the verbatim view renders. Null when the value is absent
+ * or not serializable.
+ */
+function stableJsonPretty(value: unknown): string | null {
+	if (value === undefined) return null;
+	try {
+		return JSON.stringify(value, null, 2) ?? null;
+	} catch {
+		// Circular or non-serializable values contribute nothing.
+		return null;
 	}
-	return 0;
 }
 
-export function stableJsonLength(value: unknown): number {
+function stableJsonLength(value: unknown): number {
 	if (value === undefined) return 0;
 	try {
 		return JSON.stringify(value)?.length ?? 0;
@@ -444,19 +515,11 @@ export function stableJsonLength(value: unknown): number {
 	}
 }
 
-function stableJsonPreview(value: unknown): string {
-	try {
-		return JSON.stringify(value) ?? "";
-	} catch {
-		return "";
-	}
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-export function stringField(value: Record<string, unknown>, key: string): string | null {
+function stringField(value: Record<string, unknown>, key: string): string | null {
 	const field = value[key];
 	return typeof field === "string" ? field : null;
 }
