@@ -10,7 +10,8 @@ import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { BaseMember, BaseRegion, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
-import { turnsInRange } from "./model.ts";
+import { buildLiveRegions, turnsInRange } from "./model.ts";
+import type { SegmentationState } from "./segmentation.ts";
 import {
 	BASE_DETAIL_CLAIM,
 	BASE_SECTION_HEADER,
@@ -27,6 +28,7 @@ import {
 	formatUsage,
 	liveSectionHeader,
 	scrollNote,
+	segmentationStatusText,
 	turnListClaim,
 	turnListRowText,
 	type ContentSource,
@@ -78,17 +80,19 @@ export interface ProfilerViewOptions {
 	tui: TUI;
 	theme: Theme;
 	profile: ProfileSnapshot;
+	segmentation: SegmentationState;
 	onClose: () => void;
-	/** Re-snapshot for `r`; the returned profile replaces the frozen one. */
-	onRefresh: () => ProfileSnapshot;
+	/** Re-snapshot for `r`; the returned pair replaces the frozen one. */
+	onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState };
 }
 
 export class ProfilerView implements Component {
 	private readonly tui: TUI;
 	private readonly theme: Theme;
 	private readonly onClose: () => void;
-	private readonly onRefresh: () => ProfileSnapshot;
+	private readonly onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState };
 	private profile: ProfileSnapshot;
+	private segmentation: SegmentationState;
 	private frames: ViewFrame[];
 	private showHelp: boolean;
 
@@ -98,8 +102,23 @@ export class ProfilerView implements Component {
 		this.onClose = options.onClose;
 		this.onRefresh = options.onRefresh;
 		this.profile = options.profile;
+		this.segmentation = options.segmentation;
 		this.frames = [{ type: "overview", selection: 0 }];
 		this.showHelp = false;
+	}
+
+	/**
+	 * Async segmentation arrival. The frozen snapshot is untouched — episodes
+	 * are an annotation layer recomputed over it — but the overview row count
+	 * can change, so the root selection is re-clamped.
+	 */
+	setSegmentation(state: SegmentationState): void {
+		this.segmentation = state;
+		const root = this.frames[0];
+		if (root !== undefined && root.type === "overview") {
+			root.selection = clamp(root.selection, 0, Math.max(0, this.overviewRows().length - 1));
+		}
+		this.tui.requestRender();
 	}
 
 	render(width: number): string[] {
@@ -129,7 +148,9 @@ export class ProfilerView implements Component {
 			return;
 		}
 		if (data === "r") {
-			this.profile = this.onRefresh();
+			const refreshed = this.onRefresh();
+			this.profile = refreshed.profile;
+			this.segmentation = refreshed.segmentation;
 			this.frames = [{ type: "overview", selection: 0 }];
 			this.showHelp = false;
 			this.requestRender();
@@ -172,8 +193,20 @@ export class ProfilerView implements Component {
 	private overviewRows(): OverviewRowSource[] {
 		return [
 			...this.profile.baseRegions.map((region): OverviewRowSource => ({ type: "base", region })),
-			...this.profile.liveRegions.map((region): OverviewRowSource => ({ type: "live", region })),
+			...this.liveRegions().map((region): OverviewRowSource => ({ type: "live", region })),
 		];
+	}
+
+	/**
+	 * LIVE rows: ready episodes are recomputed as an annotation layer over the
+	 * frozen snapshot's turns; every other state falls back to the snapshot's
+	 * deterministic regions, so LM failure never blocks the view.
+	 */
+	private liveRegions(): LiveRegion[] {
+		if (this.segmentation.type === "ready" && this.segmentation.episodes.length > 0) {
+			return buildLiveRegions(this.profile.liveTurns, this.segmentation.episodes);
+		}
+		return this.profile.liveRegions;
 	}
 
 	private breadcrumbTitle(): string {
@@ -236,8 +269,9 @@ export class ProfilerView implements Component {
 
 	private renderOverviewBody(frame: OverviewFrame, innerWidth: number, bodyHeight: number): string[] {
 		const rows = this.overviewRows();
+		const liveRegions = this.liveRegions();
 		const baseTokens = this.profile.baseRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
-		const liveTokens = this.profile.liveRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
+		const liveTokens = liveRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
 		const totalTokens = Math.max(1, baseTokens + liveTokens);
 		const maxTokens = Math.max(1, ...rows.map((row) => row.region.tokens.value));
 		const lines: string[] = [];
@@ -249,8 +283,11 @@ export class ProfilerView implements Component {
 			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
 		});
 		lines.push("");
-		lines.push(this.sectionHeader(liveSectionHeader(this.profile.cap), innerWidth));
-		if (this.profile.liveRegions.length === 0) lines.push(this.theme.fg("dim", "no live conversation turns yet"));
+		lines.push(this.sectionHeader(liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)), innerWidth));
+		if (this.segmentation.type === "ready" && this.segmentation.summary !== null) {
+			lines.push(this.theme.fg("dim", truncateToWidth(this.segmentation.summary, innerWidth, "…", true)));
+		}
+		if (liveRegions.length === 0) lines.push(this.theme.fg("dim", "no live conversation turns yet"));
 		rows.forEach((row, index) => {
 			if (row.type !== "live") return;
 			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
