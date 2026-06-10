@@ -17,6 +17,8 @@ import type {
 	ExtensionCommandContext,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { buildEpisodeAnalysisPayload } from "./analysis.ts";
+import type { AnalysisModelGateway } from "./analysis-model-gateway.ts";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
@@ -30,9 +32,9 @@ import {
 	computeSegmentationFingerprint,
 	MIN_TURNS_FOR_SEGMENTATION,
 	repairEpisodes,
+	type EpisodeAnalysisStatus,
 	type SegmentationState,
 } from "./segmentation.ts";
-import type { SegmentationGateway } from "./segmentation-gateway.ts";
 
 /** Last successful segmentation, reused while the snapshot fingerprint holds. */
 export interface SegmentationCacheEntry {
@@ -111,7 +113,7 @@ export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState)
 }
 
 export interface StartSegmentationOptions {
-	gateway: SegmentationGateway;
+	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
 	state: ProfilerState;
 	/** Bypass the fingerprint cache and always recompute (the `r` refresh path). */
@@ -120,10 +122,12 @@ export interface StartSegmentationOptions {
 }
 
 /**
- * On-demand segmentation controller. Resolves synchronously to idle (too few
- * turns) or a cached ready state; otherwise returns loading and fires one
- * gateway call whose outcome arrives via onUpdate. Aborted calls never reach
- * onUpdate, and errors are surfaced but never cached — the next open retries.
+ * On-demand segmentation + per-episode analysis controller. Resolves
+ * synchronously to idle (too few turns), a fully-cached ready state, or a
+ * cached ready state whose missing verdicts are being analyzed. Fresh
+ * segmentation returns loading first, then emits ready when symbols exist.
+ * Aborted calls never reach onUpdate, and errors are surfaced but never block
+ * deterministic rows. Analysis failures are not cached, so reopen retries.
  */
 export function startSegmentation(options: StartSegmentationOptions): { initial: SegmentationState; abort: () => void } {
 	const { gateway, profile, state, force, onUpdate } = options;
@@ -132,10 +136,12 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 	}
 	const fingerprint = computeSegmentationFingerprint(profile);
 	const cached = state.segmentationCache;
-	if (!force && cached !== null && cached.fingerprint === fingerprint) {
-		return { initial: { type: "ready", episodes: cached.episodes, summary: cached.summary }, abort: () => {} };
-	}
 	const controller = new AbortController();
+	if (!force && cached !== null && cached.fingerprint === fingerprint) {
+		const initial = readyState(cached.episodes, cached.summary, initialAnalysisStatuses(cached.episodes));
+		startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate });
+		return { initial, abort: () => controller.abort() };
+	}
 	const payload = buildSegmentationPayload(profile);
 	// Rejection handling is scoped to the gateway promise via the two-argument
 	// .then form: gateway failures are values, so a rejection is a programmer
@@ -155,7 +161,9 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 			}
 			const episodes = repairEpisodes(result.value.episodes, profile.liveTurns);
 			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary };
-			onUpdate({ type: "ready", episodes, summary: result.value.summary });
+			const analysis = initialAnalysisStatuses(episodes);
+			onUpdate(readyState(episodes, result.value.summary, analysis));
+			startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate, statuses: analysis });
 		},
 		(error: unknown) => {
 			if (controller.signal.aborted) return;
@@ -163,4 +171,62 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 		},
 	);
 	return { initial: { type: "loading" }, abort: () => controller.abort() };
+}
+
+interface StartEpisodeAnalysisOptions {
+	gateway: AnalysisModelGateway;
+	profile: ProfileSnapshot;
+	state: ProfilerState;
+	fingerprint: string;
+	controller: AbortController;
+	onUpdate: (segmentation: SegmentationState) => void;
+	statuses?: EpisodeAnalysisStatus[];
+}
+
+function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void {
+	const cache = options.state.segmentationCache;
+	if (cache === null || cache.fingerprint !== options.fingerprint) return;
+	const statuses = options.statuses ?? initialAnalysisStatuses(cache.episodes);
+	cache.episodes.forEach((episode, episodeIndex) => {
+		if (hasAnalysisVerdicts(episode)) return;
+		statuses[episodeIndex] = "loading";
+		const payload = buildEpisodeAnalysisPayload({ profile: options.profile, episodes: cache.episodes, episodeIndex, summary: cache.summary });
+		void options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.controller.signal }).then(
+			(result) => {
+				if (options.controller.signal.aborted) return;
+				const currentCache = options.state.segmentationCache;
+				if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
+				if (!result.ok) {
+					if (result.error.code === "aborted") return;
+					statuses[episodeIndex] = { type: "error", message: result.error.message };
+					options.onUpdate(readyState(currentCache.episodes, currentCache.summary, statuses));
+					return;
+				}
+				currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
+					? { ...candidate, efficiency: result.value.efficiency, relevance: result.value.relevance }
+					: candidate);
+				statuses[episodeIndex] = "ready";
+				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, statuses));
+			},
+			(error: unknown) => {
+				if (options.controller.signal.aborted) return;
+				const currentCache = options.state.segmentationCache;
+				if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
+				statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
+				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, statuses));
+			},
+		);
+	});
+}
+
+function readyState(episodes: readonly EpisodeAnnotation[], summary: string | null, analysis: readonly EpisodeAnalysisStatus[]): SegmentationState {
+	return { type: "ready", episodes: [...episodes], summary, analysis: [...analysis] };
+}
+
+function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {
+	return episodes.map((episode): EpisodeAnalysisStatus => hasAnalysisVerdicts(episode) ? "ready" : "loading");
+}
+
+function hasAnalysisVerdicts(episode: EpisodeAnnotation): boolean {
+	return episode.efficiency !== undefined && episode.relevance !== undefined;
 }

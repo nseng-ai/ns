@@ -380,4 +380,15 @@ describe("buildLiveRegions", () => {
 		expect(regions[0]?.tokens.value).toBe(16);
 		expect(regions[0]?.isCurrent).toBe(true);
 	});
+
+	test("carries optional episode verdicts and episode indices into live regions", () => {
+		const turns = makeTurns(4, 4);
+		const regions = buildLiveRegions(turns, [
+			{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 2 }, efficiency: "mixed", relevance: "still-useful" },
+			{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 3, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
+		]);
+		expect(regions.map((region) => region.episodeIndex)).toEqual([0, 1]);
+		expect(regions[0]).toMatchObject({ efficiency: "mixed", relevance: "still-useful" });
+		expect(regions[1]).toMatchObject({ efficiency: "efficient", relevance: "load-bearing" });
+	});
 });

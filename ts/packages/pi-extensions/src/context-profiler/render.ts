@@ -7,6 +7,7 @@
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { ContextUsage } from "@earendil-works/pi-coding-agent";
+import { renderNormalizedMessageText } from "./model.ts";
 import type {
 	BaseMember,
 	BaseRegion,
@@ -14,8 +15,8 @@ import type {
 	EpisodeOutcome,
 	LiveRegion,
 	LiveTurn,
-	MessagePart,
 	NormalizedMessage,
+	RelevanceVerdict,
 	TokenCount,
 	TurnCapInfo,
 } from "./model.ts";
@@ -24,8 +25,8 @@ import type { SegmentationState } from "./segmentation.ts";
 export const BAR_WIDTH = 14;
 export const TOKENS_COLUMN_WIDTH = 8;
 export const PERCENT_COLUMN_WIDTH = 5;
-/** Wide enough for "● chat" plus a future delegation marker. */
-export const STATUS_COLUMN_WIDTH = 8;
+/** Wide enough for "● chat ldb" plus a future delegation marker. */
+export const STATUS_COLUMN_WIDTH = 12;
 export const MIN_LABEL_WIDTH = 8;
 /** Marker+space, label gap, and the two spaces before the status column. */
 const OVERVIEW_ROW_SEPARATOR_WIDTH = 5;
@@ -49,6 +50,13 @@ export const EPISODE_OUTCOME_GLYPH = {
 	errored: "✗",
 	unknown: "?",
 } as const satisfies Record<EpisodeOutcome, string>;
+
+export const RELEVANCE_ABBREV = {
+	"load-bearing": "ldb",
+	"still-useful": "stl",
+	stale: "sta",
+	rot: "rot",
+} as const satisfies Record<RelevanceVerdict, string>;
 
 export type OverviewRowSource =
 	| { type: "base"; region: BaseRegion }
@@ -110,16 +118,16 @@ function regionRowLabel(source: OverviewRowSource): string {
 function rowStatus(source: OverviewRowSource): string {
 	if (source.type === "base") return "";
 	const region = source.region;
-	if (region.outcome !== null) {
-		return `${EPISODE_OUTCOME_GLYPH[region.outcome]} ${EPISODE_KIND_ABBREV[region.kind]}`;
-	}
-	const glyph = region.isCurrent ? "●" : "·";
-	return `${glyph} ${EPISODE_KIND_ABBREV[region.kind]}`;
+	const base = region.outcome === null
+		? `${region.isCurrent ? "●" : "·"} ${EPISODE_KIND_ABBREV[region.kind]}`
+		: `${EPISODE_OUTCOME_GLYPH[region.outcome]} ${EPISODE_KIND_ABBREV[region.kind]}`;
+	return region.relevance === undefined ? base : `${base} ${RELEVANCE_ABBREV[region.relevance]}`;
 }
 
 function rowHealth(source: OverviewRowSource): Health {
 	if (source.type === "base") return "neutral";
 	const region = source.region;
+	if (region.relevance !== undefined) return healthForRelevance(region.relevance);
 	if (region.outcome !== null) return healthForOutcome(region.outcome);
 	if (region.isCurrent) return "accent";
 	if (region.kind === "uncategorized") return "dim";
@@ -137,6 +145,18 @@ function healthForOutcome(outcome: EpisodeOutcome): Health {
 			return "warning";
 		case "unknown":
 			return "dim";
+	}
+}
+
+function healthForRelevance(relevance: RelevanceVerdict): Health {
+	switch (relevance) {
+		case "load-bearing":
+			return "accent";
+		case "still-useful":
+			return "muted";
+		case "stale":
+		case "rot":
+			return "warning";
 	}
 }
 
@@ -190,9 +210,12 @@ export function segmentationStatusText(state: SegmentationState): string | null 
 
 export const BASE_DETAIL_CLAIM = "members sorted by estimated size, descending · ⏎ views content";
 
-export function turnListClaim(region: LiveRegion): string {
+export function turnListClaim(region: LiveRegion, analysisStatus?: string | null): string {
 	if (region.source === "annotation") {
-		return `LM claim: kind=${region.kind} · outcome=${region.outcome ?? "unknown"} · turns ${region.turnRange.start}–${region.turnRange.end} · ⏎ views turn content`;
+		const efficiency = region.efficiency ?? "unanalyzed";
+		const relevance = region.relevance ?? "unanalyzed";
+		const status = analysisStatus === undefined || analysisStatus === null ? "" : ` · ${analysisStatus}`;
+		return `LM claim: kind=${region.kind} · outcome=${region.outcome ?? "unknown"} · efficiency=${efficiency} · relevance=${relevance}${status} · turns ${region.turnRange.start}–${region.turnRange.end} · ⏎ views turn content`;
 	}
 	return `turns ${region.turnRange.start}–${region.turnRange.end} of this span, in order · ⏎ views turn content`;
 }
@@ -262,28 +285,8 @@ export function contentSourceForTurn(turn: LiveTurn): ContentSource {
 	};
 }
 
-/** Render a normalized message verbatim with semantic part headers. */
 export function renderMessageText(message: NormalizedMessage): string {
-	const sections: string[] = [];
-	if (message.toolName !== null) sections.push(`⏺ tool result · ${message.toolName}`);
-	sections.push(...message.parts.map(renderPartSection));
-	if (message.detailsJson !== null) sections.push(`[details]\n${message.detailsJson}`);
-	return sections.join("\n\n");
-}
-
-function renderPartSection(part: MessagePart): string {
-	switch (part.kind) {
-		case "text":
-			return part.text;
-		case "thinking":
-			return `[thinking]\n${part.text}`;
-		case "toolCall":
-			return `⏺ ${part.name}\n${part.argsJson}`;
-		case "image":
-			return "[image]";
-		case "opaque":
-			return part.json;
-	}
+	return renderNormalizedMessageText(message);
 }
 
 export function sanitizeContentText(text: string): string {

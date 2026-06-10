@@ -35,10 +35,12 @@ export const SEGMENTATION_PAYLOAD_MAX_CHARS = 60_000;
 const LABEL_MAX_CHARS = 80;
 const SUMMARY_MAX_CHARS = 220;
 
+export type EpisodeAnalysisStatus = "loading" | "ready" | { type: "error"; message: string };
+
 export type SegmentationState =
 	| { type: "idle" }
 	| { type: "loading" }
-	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null }
+	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null; analysis: EpisodeAnalysisStatus[] }
 	| { type: "error"; message: string };
 
 export const SEGMENTATION_SYSTEM_PROMPT = `You symbolize a deterministic Pi context profiler.

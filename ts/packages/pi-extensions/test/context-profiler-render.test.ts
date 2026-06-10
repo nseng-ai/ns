@@ -56,6 +56,7 @@ function makeLiveRegion(overrides: Partial<LiveRegion> = {}): LiveRegion {
 		tokens: estimated(2_000),
 		isCurrent: true,
 		source: "deterministic",
+		episodeIndex: null,
 		...overrides,
 	};
 }
@@ -188,6 +189,22 @@ describe("buildOverviewRowCells", () => {
 		}
 	});
 
+	test("appends relevance abbreviations and lets relevance drive row health", () => {
+		const staleCompleted = buildOverviewRowCells(
+			{ type: "live", region: makeLiveRegion({ kind: "edit", outcome: "completed", relevance: "stale", isCurrent: false, source: "annotation" }) },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
+		expect(staleCompleted.status).toBe(fitToWidth("✓ edit sta", STATUS_COLUMN_WIDTH));
+		expect(staleCompleted.health).toBe("warning");
+
+		const loadBearing = buildOverviewRowCells(
+			{ type: "live", region: makeLiveRegion({ kind: "review", outcome: "unknown", relevance: "load-bearing", isCurrent: false, source: "annotation" }) },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
+		expect(loadBearing.status).toBe(fitToWidth("? rev ldb", STATUS_COLUMN_WIDTH));
+		expect(loadBearing.health).toBe("accent");
+	});
+
 	test("labels live rows with their turn range", () => {
 		const cells = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
 		expect(cells.label.trimEnd()).toBe("conversation turns · 1–12");
@@ -227,7 +244,7 @@ describe("section headers and claims", () => {
 
 	test("segmentationStatusText surfaces loading and error states only", () => {
 		expect(segmentationStatusText({ type: "idle" })).toBeNull();
-		expect(segmentationStatusText({ type: "ready", episodes: [], summary: null })).toBeNull();
+		expect(segmentationStatusText({ type: "ready", episodes: [], summary: null, analysis: [] })).toBeNull();
 		expect(segmentationStatusText({ type: "loading" })).toBe("symbolizing…");
 		expect(segmentationStatusText({ type: "error", message: "no API key" })).toBe("no symbols: no API key");
 	});
@@ -242,12 +259,20 @@ describe("section headers and claims", () => {
 
 	test("annotation regions claim their LM provenance in the turn list", () => {
 		const claim = turnListClaim(makeLiveRegion({ source: "annotation", kind: "debug", outcome: "errored", turnRange: { start: 4, end: 8 } }));
-		expect(claim).toBe("LM claim: kind=debug · outcome=errored · turns 4–8 · ⏎ views turn content");
+		expect(claim).toBe("LM claim: kind=debug · outcome=errored · efficiency=unanalyzed · relevance=unanalyzed · turns 4–8 · ⏎ views turn content");
 	});
 
 	test("scrollNote formats the visible window", () => {
 		expect(scrollNote(5, 20, 132, "rows")).toBe("rows 5–20 of 132");
 		expect(scrollNote(1, 40, 2_000, "lines")).toBe("lines 1–40 of 2,000");
+	});
+
+	test("annotation claim lines include verdicts and per-episode analysis status", () => {
+		const claim = turnListClaim(
+			makeLiveRegion({ source: "annotation", efficiency: "mixed", relevance: "stale", turnRange: { start: 4, end: 8 } }),
+			"analysis failed: invalid JSON",
+		);
+		expect(claim).toContain("efficiency=mixed · relevance=stale · analysis failed: invalid JSON");
 	});
 });
 

@@ -1,17 +1,18 @@
 /**
  * In-memory fakes and shared data builders for context-profiler tests.
- * Fakes are constructor-state style: the fake models a segmentation backend
- * that already has an answer (or a deferred gate), rather than scripting
- * ordered calls.
+ * Fakes are constructor-state style: the fake models an analysis backend that
+ * already has answers (or a deferred gate), rather than scripting ordered calls.
  */
 
 import type { LiveTurn, ProfileSnapshot } from "../src/context-profiler/model.ts";
 import { normalizeMessage } from "../src/context-profiler/model.ts";
 import type {
+	AnalysisModelGateway,
+	EpisodeAnalysisCallResult,
+	EpisodeAnalysisRequest,
 	SegmentationCallResult,
-	SegmentationGateway,
 	SegmentationRequest,
-} from "../src/context-profiler/segmentation-gateway.ts";
+} from "../src/context-profiler/analysis-model-gateway.ts";
 
 export function makeTurn(index: number, overrides: Partial<LiveTurn> = {}): LiveTurn {
 	return {
@@ -52,31 +53,49 @@ export function makeProfile(turns: readonly LiveTurn[], overrides: Partial<Profi
 
 export interface FakeSegmentationGatewayOptions {
 	result: SegmentationCallResult;
-	/** When set, segmentTurns resolves only after this promise settles. */
+	analysisResult?: EpisodeAnalysisCallResult;
+	/** When set, segmentTurns and analyzeEpisode resolve only after this promise settles. */
 	gate?: Promise<void>;
 }
 
-export class FakeSegmentationGateway implements SegmentationGateway {
+export class FakeSegmentationGateway implements AnalysisModelGateway {
 	private readonly result: SegmentationCallResult;
+	private readonly analysisResult: EpisodeAnalysisCallResult;
 	private readonly gate: Promise<void> | null;
-	private readonly log: SegmentationRequest[] = [];
+	private readonly segmentationLog: SegmentationRequest[] = [];
+	private readonly analysisLog: EpisodeAnalysisRequest[] = [];
 
 	constructor(options: FakeSegmentationGatewayOptions) {
 		this.result = options.result;
+		this.analysisResult = options.analysisResult ?? { ok: true, value: { efficiency: "efficient", relevance: "load-bearing" } };
 		this.gate = options.gate ?? null;
 	}
 
-	/** Read-only call log; calls have no other observable state to inspect. */
+	/** Read-only segmentation call log; calls have no other observable state to inspect. */
 	get calls(): readonly SegmentationRequest[] {
-		return [...this.log];
+		return [...this.segmentationLog];
+	}
+
+	/** Read-only episode-analysis call log; calls have no other observable state to inspect. */
+	get analysisCalls(): readonly EpisodeAnalysisRequest[] {
+		return [...this.analysisLog];
 	}
 
 	async segmentTurns(request: SegmentationRequest, options: { signal: AbortSignal }): Promise<SegmentationCallResult> {
-		this.log.push(request);
+		this.segmentationLog.push(request);
 		if (this.gate !== null) await this.gate;
 		if (options.signal.aborted) {
 			return { ok: false, error: { code: "aborted", message: "segmentation request aborted" } };
 		}
 		return this.result;
+	}
+
+	async analyzeEpisode(request: EpisodeAnalysisRequest, options: { signal: AbortSignal }): Promise<EpisodeAnalysisCallResult> {
+		this.analysisLog.push(request);
+		if (this.gate !== null) await this.gate;
+		if (options.signal.aborted) {
+			return { ok: false, error: { code: "aborted", message: "episode analysis request aborted" } };
+		}
+		return this.analysisResult;
 	}
 }
