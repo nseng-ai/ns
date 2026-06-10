@@ -6,7 +6,7 @@
  * segmentation.ts and analysis.ts.
  */
 
-import type * as PiAi from "@earendil-works/pi-ai";
+import { callPiModelText, type CompleteSimpleFunction, type PiModelRegistryLike } from "../pi-model-call.ts";
 import { EPISODE_ANALYSIS_SYSTEM_PROMPT, parseEpisodeAnalysisResponseText, type EpisodeAnalysis } from "./analysis.ts";
 import {
 	parseSegmentationResponseText,
@@ -15,6 +15,8 @@ import {
 	SEGMENTATION_SYSTEM_PROMPT,
 	type LmSegmentation,
 } from "./segmentation.ts";
+
+export type { PiModelRegistryLike as AnalysisModelRegistry } from "../pi-model-call.ts";
 
 /** Fixed analysis model — never the session's main model. */
 export const ANALYSIS_MODEL_PROVIDER = SEGMENTATION_PROVIDER;
@@ -55,20 +57,8 @@ export interface AnalysisModelGateway {
 	analyzeEpisode(request: EpisodeAnalysisRequest, options: { signal: AbortSignal }): Promise<EpisodeAnalysisCallResult>;
 }
 
-type AnalysisModelAuth =
-	| { ok: true; apiKey?: string; headers?: Record<string, string> }
-	| { ok: false; error: string };
-
-/** Minimal structural twin of ctx.modelRegistry (same pattern as fast-text-draft). */
-export interface AnalysisModelRegistry {
-	find(provider: string, modelId: string): unknown | undefined;
-	getApiKeyAndHeaders(model: unknown): Promise<AnalysisModelAuth>;
-}
-
-type CompleteSimpleFunction = typeof PiAi.completeSimple;
-
 export function createCodexAnalysisModelGateway(
-	registry: AnalysisModelRegistry,
+	registry: PiModelRegistryLike,
 	overrides: { completeFn?: CompleteSimpleFunction } = {},
 ): AnalysisModelGateway {
 	return {
@@ -100,7 +90,7 @@ export function createCodexAnalysisModelGateway(
 }
 
 interface CallAnalysisModelOptions<T> {
-	registry: AnalysisModelRegistry;
+	registry: PiModelRegistryLike;
 	overrides: { completeFn?: CompleteSimpleFunction };
 	signal: AbortSignal;
 	systemPrompt: string;
@@ -111,50 +101,39 @@ interface CallAnalysisModelOptions<T> {
 }
 
 async function callAnalysisModel<T>(options: CallAnalysisModelOptions<T>): Promise<{ ok: true; value: T } | { ok: false; error: AnalysisModelError }> {
-	const model = options.registry.find(ANALYSIS_MODEL_PROVIDER, ANALYSIS_MODEL_ID);
-	if (model === undefined) {
-		return failure("model-unavailable", `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID} is not available`);
-	}
-	const auth = await options.registry.getApiKeyAndHeaders(model);
-	if (!auth.ok) return failure("auth", auth.error);
-	if (auth.apiKey === undefined || auth.apiKey.length === 0) {
-		return failure("auth", `no ${ANALYSIS_MODEL_PROVIDER} auth found; run /login or configure Pi auth`);
-	}
-	try {
-		const completeFn = options.overrides.completeFn ?? (await loadCompleteSimple());
-		const response = await completeFn(
-			model as PiAi.Model<PiAi.Api>,
-			{
-				systemPrompt: options.systemPrompt,
-				messages: [{ role: "user", content: [{ type: "text", text: options.json }], timestamp: Date.now() }],
-			},
-			{
-				apiKey: auth.apiKey,
-				...(auth.headers === undefined ? {} : { headers: auth.headers }),
-				signal: options.signal,
-				maxTokens: options.maxTokens,
-				reasoning: "minimal",
-			},
-		);
-		if (response.stopReason === "aborted") return failure("aborted", options.abortedMessage);
-		if (response.stopReason === "error") return failure("request-failed", response.errorMessage ?? "analysis model request failed");
-		const text = response.content
-			.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
-			.map((part) => part.text)
-			.join("\n");
-		const parsed = options.parse(text);
-		if (!parsed.ok) return failure("invalid-response", parsed.error);
-		return { ok: true, value: parsed.value };
-	} catch (error) {
-		if (options.signal.aborted) return failure("aborted", options.abortedMessage);
-		return failure("request-failed", error instanceof Error ? error.message : String(error));
-	}
+	const response = await callPiModelText({
+		registry: options.registry,
+		provider: ANALYSIS_MODEL_PROVIDER,
+		modelId: ANALYSIS_MODEL_ID,
+		systemPrompt: options.systemPrompt,
+		userText: options.json,
+		maxTokens: options.maxTokens,
+		reasoning: "minimal",
+		signal: options.signal,
+		...(options.overrides.completeFn === undefined ? {} : { completeFn: options.overrides.completeFn }),
+	});
+	if (!response.ok) return mapModelFailure(response, options.abortedMessage);
+	const parsed = options.parse(response.text);
+	if (!parsed.ok) return failure("invalid-response", parsed.error);
+	return { ok: true, value: parsed.value };
 }
 
-/** Lazy so the profiler's deterministic path never pays the pi-ai import. */
-async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
-	const piAi = await import("@earendil-works/pi-ai");
-	return piAi.completeSimple;
+function mapModelFailure(
+	response: Exclude<Awaited<ReturnType<typeof callPiModelText>>, { ok: true }>,
+	abortedMessage: string,
+): { ok: false; error: AnalysisModelError } {
+	switch (response.reason) {
+		case "model-unavailable":
+			return failure("model-unavailable", `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID} is not available`);
+		case "auth":
+			return failure("auth", response.message ?? "analysis model auth failed");
+		case "empty-auth":
+			return failure("auth", `no ${ANALYSIS_MODEL_PROVIDER} auth found; run /login or configure Pi auth`);
+		case "aborted":
+			return failure("aborted", abortedMessage);
+		case "request-failed":
+			return failure("request-failed", response.message ?? "analysis model request failed");
+	}
 }
 
 function failure(code: AnalysisModelErrorCode, message: string): { ok: false; error: AnalysisModelError } {

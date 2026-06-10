@@ -18,6 +18,7 @@ import {
 	type ProfileSnapshot,
 	type RelevanceVerdict,
 } from "./model.ts";
+import { parseLmJson } from "./lm-json.ts";
 
 export const EPISODE_ANALYSIS_SYSTEM_PROMPT = `You are a blunt, opinionated Pi context-profiler judge.
 Return JSON only with this exact shape: {"efficiency":"efficient|mixed|wasteful","relevance":"load-bearing|still-useful|stale|rot","summary":"..."}
@@ -73,22 +74,14 @@ export interface EpisodeAnalysisPayload {
 }
 
 export function parseEpisodeAnalysisResponseText(text: string): EpisodeAnalysisParseResult {
-	const jsonText = extractJsonObjectText(text);
-	if (jsonText === null) return { ok: false, error: "response contains no JSON object" };
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(jsonText);
-	} catch (error) {
-		return { ok: false, error: `invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
-	}
-	const analysis = episodeAnalysisSchema.safeParse(parsed);
-	if (!analysis.success) return { ok: false, error: "response JSON has no valid verdict pair" };
-	const summary = analysis.data.summary?.trim() ?? "";
+	const analysis = parseLmJson(text, episodeAnalysisSchema, { invalidShapeError: "response JSON has no valid verdict pair" });
+	if (!analysis.ok) return analysis;
+	const summary = analysis.value.summary?.trim() ?? "";
 	return {
 		ok: true,
 		value: {
-			efficiency: analysis.data.efficiency,
-			relevance: analysis.data.relevance,
+			efficiency: analysis.value.efficiency,
+			relevance: analysis.value.relevance,
 			summary: summary.length === 0 ? null : summary,
 		},
 	};
@@ -151,14 +144,4 @@ function serializeTurn(turn: LiveTurn): { turn: number; role: string; tokens: nu
 
 function serializeDelegation(claim: DelegationClaim): { turn: number; label: string; confidence: string } {
 	return { turn: claim.turn, label: claim.label, confidence: claim.confidence };
-}
-
-function extractJsonObjectText(text: string): string | null {
-	const trimmed = text.trim();
-	const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-	const candidate = fenced?.[1] ?? trimmed;
-	const first = candidate.indexOf("{");
-	const last = candidate.lastIndexOf("}");
-	if (first === -1 || last <= first) return null;
-	return candidate.slice(first, last + 1);
 }

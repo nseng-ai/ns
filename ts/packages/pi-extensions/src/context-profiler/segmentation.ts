@@ -26,6 +26,7 @@ import {
 	type ProfileSnapshot,
 	type TurnRange,
 } from "./model.ts";
+import { parseLmJson } from "./lm-json.ts";
 
 /** Fixed analysis model — never the session's main model. */
 export const SEGMENTATION_PROVIDER = "openai-codex";
@@ -109,40 +110,22 @@ export type SegmentationParseResult =
 	| { ok: false; error: string };
 
 export function parseSegmentationResponseText(text: string): SegmentationParseResult {
-	const jsonText = extractJsonObjectText(text);
-	if (jsonText === null) return { ok: false, error: "response contains no JSON object" };
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(jsonText);
-	} catch (error) {
-		return { ok: false, error: `invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
-	}
-	const envelope = segmentationEnvelopeSchema.safeParse(parsed);
-	if (!envelope.success) return { ok: false, error: "response JSON has no episodes array" };
-	const episodes = envelope.data.episodes
+	const envelope = parseLmJson(text, segmentationEnvelopeSchema, { invalidShapeError: "response JSON has no episodes array" });
+	if (!envelope.ok) return envelope;
+	const episodes = envelope.value.episodes
 		.flatMap((candidate): LmEpisodeStart[] => {
 			const episode = lmEpisodeStartSchema.safeParse(candidate);
 			return episode.success ? [episode.data] : [];
 		})
 		.slice(0, MAX_EPISODES);
-	const delegations = envelope.data.delegations
+	const delegations = envelope.value.delegations
 		.flatMap((candidate): LmDelegationClaim[] => {
 			const delegation = lmDelegationClaimSchema.safeParse(candidate);
 			return delegation.success ? [delegation.data] : [];
 		})
 		.slice(0, MAX_DELEGATIONS);
-	const summary = typeof envelope.data.summary === "string" ? normalizeSummary(envelope.data.summary) : null;
+	const summary = typeof envelope.value.summary === "string" ? normalizeSummary(envelope.value.summary) : null;
 	return { ok: true, value: { episodes, summary, delegations } };
-}
-
-function extractJsonObjectText(text: string): string | null {
-	const trimmed = text.trim();
-	const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-	const candidate = fenced?.[1] ?? trimmed;
-	const first = candidate.indexOf("{");
-	const last = candidate.lastIndexOf("}");
-	if (first === -1 || last <= first) return null;
-	return candidate.slice(first, last + 1);
 }
 
 function normalizeLabel(label: string): string {
