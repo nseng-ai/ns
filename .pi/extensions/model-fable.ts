@@ -1,3 +1,3 @@
-import modelFableExtension from "../../ts/packages/pi-extensions/src/model-fable.ts";
+import modelShortcutExtension from "../../ts/packages/pi-extensions/src/model-fable.ts";
 
-export default modelFableExtension;
+export default modelShortcutExtension;

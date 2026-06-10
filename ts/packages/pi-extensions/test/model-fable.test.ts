@@ -1,10 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import modelFableExtension from "../src/model-fable.ts";
+import modelShortcutExtension from "../src/model-fable.ts";
 import type { ExtensionAPI } from "../src/model-fable.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type NotifyLevel = "info" | "warning" | "error";
+
+interface ExpectedShortcut {
+	command: string;
+	ref: string;
+	model: ModelInfo;
+}
 
 interface Notification {
 	message: string;
@@ -15,6 +21,14 @@ interface ModelInfo {
 	provider: string;
 	id: string;
 }
+
+const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
+	{ command: "model:fable", ref: "anthropic/claude-fable-5", model: { provider: "anthropic", id: "claude-fable-5" } },
+	{ command: "model:spud", ref: "openai-codex/gpt-5.5", model: { provider: "openai-codex", id: "gpt-5.5" } },
+	{ command: "model:gpt-mini", ref: "openai-codex/gpt-5.4-mini", model: { provider: "openai-codex", id: "gpt-5.4-mini" } },
+	{ command: "model:haiku", ref: "anthropic/claude-haiku-4-5", model: { provider: "anthropic", id: "claude-haiku-4-5" } },
+	{ command: "model:opus", ref: "anthropic/claude-opus-4-8", model: { provider: "anthropic", id: "claude-opus-4-8" } },
+];
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -43,7 +57,7 @@ function commandFor(pi: FakePi, name: string): RegisteredCommand {
 	return command;
 }
 
-function createContext(options: { model?: ModelInfo; hasUI?: boolean } = {}): {
+function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean } = {}): {
 	ctx: Parameters<RegisteredCommand["handler"]>[1];
 	notifications: Notification[];
 } {
@@ -54,10 +68,7 @@ function createContext(options: { model?: ModelInfo; hasUI?: boolean } = {}): {
 			hasUI: options.hasUI ?? true,
 			modelRegistry: {
 				find(provider, modelId) {
-					if (options.model?.provider === provider && options.model.id === modelId) {
-						return options.model;
-					}
-					return undefined;
+					return options.models?.find((model) => model.provider === provider && model.id === modelId);
 				},
 			},
 			ui: {
@@ -69,59 +80,60 @@ function createContext(options: { model?: ModelInfo; hasUI?: boolean } = {}): {
 	};
 }
 
-describe("modelFableExtension", () => {
-	test("registers the model:fable command", () => {
+describe("modelShortcutExtension", () => {
+	test("registers direct model shortcut commands", () => {
 		const pi = new FakePi();
 
-		modelFableExtension(pi);
+		modelShortcutExtension(pi);
 
-		expect(pi.commands.get("model:fable")?.description).toBe("Switch to anthropic/claude-fable-5");
+		expect([...pi.commands.entries()].map(([name, command]) => [name, command.description])).toEqual(
+			EXPECTED_SHORTCUTS.map((shortcut) => [shortcut.command, `Switch to ${shortcut.ref}`]),
+		);
 	});
 
-	test("switches to Claude Fable when the model is available", async () => {
-		const model = { provider: "anthropic", id: "claude-fable-5" };
+	test.each(EXPECTED_SHORTCUTS)("switches $command to $ref", async ({ command, ref, model }) => {
 		const pi = new FakePi();
-		modelFableExtension(pi);
-		const { ctx, notifications } = createContext({ model });
+		modelShortcutExtension(pi);
+		const { ctx, notifications } = createContext({ models: [model] });
 
-		await commandFor(pi, "model:fable").handler("", ctx);
+		await commandFor(pi, command).handler("", ctx);
 
 		expect(pi.setModels).toEqual([model]);
-		expect(notifications).toEqual([{ message: "Switched model to anthropic/claude-fable-5.", level: "info" }]);
+		expect(notifications).toEqual([{ message: `Switched model to ${ref}.`, level: "info" }]);
 	});
 
-	test("notifies when the Fable model is missing", async () => {
+	test("notifies when a shortcut model is missing", async () => {
 		const pi = new FakePi();
-		modelFableExtension(pi);
+		modelShortcutExtension(pi);
 		const { ctx, notifications } = createContext();
 
-		await commandFor(pi, "model:fable").handler("", ctx);
+		await commandFor(pi, "model:spud").handler("", ctx);
 
 		expect(pi.setModels).toEqual([]);
-		expect(notifications).toEqual([{ message: "Model anthropic/claude-fable-5 not found.", level: "error" }]);
+		expect(notifications).toEqual([{ message: "Model openai-codex/gpt-5.5 not found.", level: "error" }]);
 	});
 
-	test("notifies when the model cannot be selected", async () => {
-		const model = { provider: "anthropic", id: "claude-fable-5" };
+	test("notifies when a shortcut model cannot be selected", async () => {
+		const model = { provider: "anthropic", id: "claude-opus-4-8" };
 		const pi = new FakePi(false);
-		modelFableExtension(pi);
-		const { ctx, notifications } = createContext({ model });
+		modelShortcutExtension(pi);
+		const { ctx, notifications } = createContext({ models: [model] });
 
-		await commandFor(pi, "model:fable").handler("", ctx);
+		await commandFor(pi, "model:opus").handler("", ctx);
 
 		expect(pi.setModels).toEqual([model]);
 		expect(notifications).toEqual([
-			{ message: "Model anthropic/claude-fable-5 is unavailable; run /login or configure Pi auth.", level: "error" },
+			{ message: "Model anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.", level: "error" },
 		]);
 	});
 
 	test("does not notify when UI is unavailable", async () => {
-		const model = { provider: "anthropic", id: "claude-fable-5" };
+		const model = { provider: "anthropic", id: "claude-haiku-4-5" };
 		const pi = new FakePi();
-		modelFableExtension(pi);
-		const { ctx, notifications } = createContext({ hasUI: false, model });
+		modelShortcutExtension(pi);
+		const { ctx, notifications } = createContext({ hasUI: false, models: [model] });
 
-		await commandFor(pi, "model:fable").handler("", ctx);
+		await commandFor(pi, "model:haiku").handler("", ctx);
 
 		expect(pi.setModels).toEqual([model]);
 		expect(notifications).toEqual([]);
