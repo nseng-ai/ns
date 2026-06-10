@@ -12,6 +12,10 @@ const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.m
 
 // Operations whose schema documents were ported in this slice and must hold
 // structural semantic parity with the captured Python (Pydantic) fixtures.
+// Fixture input schemas for stack-feedback-plan, stack-feedback-diff-current,
+// build-stack-resolve-thread-payloads, and build-resolve-thread-batch-payload
+// additionally carry TypeScript-owned option fields (payload_file and artifact
+// reference options) that intentionally extend the original Python contract.
 const PARITY_OPERATIONS = [
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",

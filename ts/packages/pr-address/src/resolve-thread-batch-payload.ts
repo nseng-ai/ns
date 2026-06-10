@@ -91,13 +91,15 @@ export interface BuiltThreadResolutionDecision {
 
 export async function runBuildResolveThreadBatchPayloadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 
-	const options = parseManagedOptions(invocation.args, ["--payload-json"]);
+	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({
 		optionValue: options.options.values.get("--payload-json"),
+		filePath: options.options.values.get("--payload-file"),
 		commandName: "build-resolve-thread-batch-payload",
 		inputDescription: "JSON payload",
 		optionName: "--payload-json",
+		fileOptionName: "--payload-file",
 		schema: buildResolveThreadBatchPayloadInputSchema,
 		stdin: invocation.deps.stdin,
 	});

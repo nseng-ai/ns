@@ -13,6 +13,18 @@
         ],
         "default": null,
         "title": "Payload Json"
+      },
+      "payload_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload File"
       }
     },
     "title": "BuildResolveThreadBatchPayloadRequest",

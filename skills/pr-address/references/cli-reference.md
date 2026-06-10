@@ -248,8 +248,24 @@ Validate stack classifications, run deterministic per-PR planning, merge batches
 by `plan-feedback` order, write a stack plan summary artifact, and produce a
 compact decision docket.
 
-**Invocation:** reads payload JSON from stdin by default. `--payload-json` is
-also available.
+**Invocation:** reads payload JSON from stdin by default. `--payload-json` and
+`--payload-file` are also available; pass only one explicit payload source.
+`--prep-reference <path>` reads the prep input directly from a saved
+`stack-feedback-prep` artifact (for example
+`data.stack_summary_reference.payload_path` from a compact prep run), so the
+payload only needs `classifications`:
+
+```bash
+printf '%s' '{"classifications":[{"pr_number":1009,"classification":{...}}]}' \
+  | pr-address exec stack-feedback-plan \
+      --prep-reference /path/to/payload-sessions/.../stack-feedback-prep.summary.json \
+      --payload-session-id pr-stack-address-20260604t120000z-a1 \
+      --stdout-mode compact \
+      --format json \
+  > stack-plan.compact.json
+```
+
+The embedded form remains available:
 
 ```bash
 printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
@@ -262,13 +278,21 @@ printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification"
 
 **Input fields:**
 
-| Field                              | Required | Description                                                                          |
-| ---------------------------------- | -------- | ------------------------------------------------------------------------------------ |
-| `prep`                             | yes      | Complete `data` object from `stack-feedback-prep`                                    |
-| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                      |
-| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                       |
-| `payload_session_id`               | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules  |
-| `stdout_mode`                      | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows |
+| Field                              | Required | Description                                                                           |
+| ---------------------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `prep`                             | source   | Complete `data` object from `stack-feedback-prep`; omit when using `--prep-reference` |
+| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                       |
+| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                        |
+| `prep_reference`                   | source   | `--prep-reference <path>`: read the prep data object from a saved prep artifact file  |
+| `payload_session_id`               | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules   |
+| `stdout_mode`                      | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows  |
+
+Exactly one prep source is required: the embedded `prep` payload key or
+`--prep-reference`. Passing both fails with `exit_code: 2`, as does a missing,
+unreadable, or non-JSON reference file, or a referenced file that is not a
+`stack-feedback-prep` data object (the artifact may come from any payload
+session; only its shape is validated, and `stack_summary_reference` is `null`
+inside the saved artifact).
 
 Every prep PR must have exactly one classification. Unknown, duplicate, or
 missing PR classifications fail with `exit_code: 2`.
@@ -609,8 +633,9 @@ classification packet. The helper validates internally before planning, uses
 only compact manifest locators and classification summaries, and does not read
 or print raw feedback body text.
 
-**Invocation:** reads the wrapper JSON from stdin by default. `--payload-json` is
-also available for direct/manual invocation.
+**Invocation:** reads the wrapper JSON from stdin by default. `--payload-json`
+and `--payload-file` are also available for direct/manual invocation; pass only
+one explicit payload source.
 
 ```bash
 printf '%s' '{"manifest":{...},"classification":{...}}' \
@@ -787,8 +812,9 @@ explicit post-edit decisions. This helper does not mutate GitHub.
 Use this after making and committing an approved batch, before calling the
 mutating `resolve-thread-batch` helper.
 
-**Invocation:** reads JSON from stdin by default. `--payload-json` is also
-available for direct/manual invocation.
+**Invocation:** reads JSON from stdin by default. `--payload-json` and
+`--payload-file` are also available for direct/manual invocation; pass only one
+explicit payload source.
 
 ```bash
 printf '%s' '{"plan":{...},"batch_id":"single_file","commit_sha":"abc1234","decisions":[{"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Updated the guard."}]}' \
@@ -900,7 +926,20 @@ printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
       --format json
 ```
 
-Then diff the saved plan against that fresh prep:
+Then diff the saved plan against that fresh prep. With both reference options,
+no stdin payload is needed at all — point each option at the saved artifact
+(`data.stack_plan_reference.payload_path` from the plan run and
+`data.stack_summary_reference.payload_path` from the fresh prep run):
+
+```bash
+pr-address exec stack-feedback-diff-current \
+  --stack-plan-reference /path/to/.../stack-feedback-plan.summary.json \
+  --current-prep-reference /path/to/.../stack-feedback-prep.summary.json \
+  --format json
+```
+
+Embedded payload forms remain available, and one reference may be combined with
+an embedded payload carrying the other key:
 
 ```bash
 printf '%s' '{"stack_plan":{...},"current_prep":{...}}' \
@@ -913,10 +952,18 @@ pr-address exec stack-feedback-diff-current \
 
 **Input fields:**
 
-| Field          | Required | Description                                                                                 |
-| -------------- | -------- | ------------------------------------------------------------------------------------------- |
-| `stack_plan`   | yes      | `data` object returned by `stack-feedback-plan`; must have `valid == true`                  |
-| `current_prep` | yes      | Fresh `data` object returned by `stack-feedback-prep --include-resolved` for the same stack |
+| Field                    | Required | Description                                                                                         |
+| ------------------------ | -------- | --------------------------------------------------------------------------------------------------- |
+| `stack_plan`             | source   | `data` object returned by `stack-feedback-plan`; must have `valid == true`; omit with its reference |
+| `current_prep`           | source   | Fresh `data` object from `stack-feedback-prep --include-resolved` for the same stack                |
+| `stack_plan_reference`   | source   | `--stack-plan-reference <path>`: read `stack_plan` from a saved stack plan artifact file            |
+| `current_prep_reference` | source   | `--current-prep-reference <path>`: read `current_prep` from a saved prep artifact file              |
+
+Each input requires exactly one source: its embedded payload key or its
+reference option. Mixing a reference with its embedded key fails with
+`exit_code: 2`, as does a missing, unreadable, or non-JSON reference file or a
+referenced file with the wrong artifact shape. References are validated by
+shape, not provenance, so artifacts from any payload session are accepted.
 
 **Output fields (under `data`):**
 
@@ -959,8 +1006,21 @@ Use this in stack-address workflows after making and committing an approved
 stack batch. The merged stack plan remains the provenance source; callers do not
 reconstruct per-PR `plan-feedback` wrappers.
 
-**Invocation:** reads JSON from stdin by default. `--payload-json` is also
-available for direct/manual invocation.
+**Invocation:** reads JSON from stdin by default. `--payload-json` and
+`--payload-file` are also available for direct/manual invocation; pass only one
+explicit payload source. `--stack-plan-reference <path>` reads `stack_plan`
+directly from a saved stack plan artifact
+(`data.stack_plan_reference.payload_path` from the plan run), so the payload
+only needs the batch fields and decisions:
+
+```bash
+printf '%s' '{"batch_id":"local","commit_sha":"abc1234","continue_on_error":true,"decisions":[{"pr_number":1009,"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Fixed in the stack-tip omnibus commit."}]}' \
+  | pr-address exec build-stack-resolve-thread-payloads \
+      --stack-plan-reference /path/to/.../stack-feedback-plan.summary.json \
+      --format json
+```
+
+The embedded form remains available:
 
 ```bash
 printf '%s' '{"stack_plan":{...},"batch_id":"local","commit_sha":"abc1234","continue_on_error":true,"decisions":[{"pr_number":1009,"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Fixed in the stack-tip omnibus commit."}]}' \
@@ -969,13 +1029,20 @@ printf '%s' '{"stack_plan":{...},"batch_id":"local","commit_sha":"abc1234","cont
 
 **Input fields:**
 
-| Field               | Required | Description                                                                                  |
-| ------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `stack_plan`        | yes      | `data` object returned by `stack-feedback-plan`; must have `valid == true`                   |
-| `batch_id`          | yes      | Exact merged `data.batches[].batch_id` to build from                                         |
-| `commit_sha`        | mode     | Batch/omnibus commit SHA; required when any `fixed` decision lacks an item-level SHA         |
-| `continue_on_error` | no       | Copied into every generated `resolve-thread-batch` payload                                   |
-| `decisions`         | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch |
+| Field                  | Required | Description                                                                                         |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `stack_plan`           | source   | `data` object returned by `stack-feedback-plan`; must have `valid == true`; omit with its reference |
+| `stack_plan_reference` | source   | `--stack-plan-reference <path>`: read `stack_plan` from a saved stack plan artifact file            |
+| `batch_id`             | yes      | Exact merged `data.batches[].batch_id` to build from                                                |
+| `commit_sha`           | mode     | Batch/omnibus commit SHA; required when any `fixed` decision lacks an item-level SHA                |
+| `continue_on_error`    | no       | Copied into every generated `resolve-thread-batch` payload                                          |
+| `decisions`            | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch        |
+
+Exactly one stack plan source is required: the embedded `stack_plan` payload
+key or `--stack-plan-reference`. Passing both fails with `exit_code: 2`, as
+does a missing, unreadable, or non-JSON reference file or a referenced file
+that is not a `stack-feedback-plan` data artifact. References are validated by
+shape, not provenance.
 
 Each decision requires `pr_number` and `thread_id`, plus the same resolution
 fields used by the single-PR builder. The `pr_number` requirement lets the

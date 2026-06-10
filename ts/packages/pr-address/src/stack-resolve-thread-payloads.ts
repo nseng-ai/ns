@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { loadArtifactReference, loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -20,6 +20,19 @@ const buildStackResolveThreadPayloadsInputSchema = z.looseObject({
 	commit_sha: nullableStringSchema,
 	continue_on_error: z.boolean().default(false),
 	decisions: z.array(stackResolveThreadDecisionSchema),
+});
+
+/** Wire payload: `stack_plan` may be omitted when `--stack-plan-reference` supplies it. */
+const buildStackResolveThreadPayloadsWirePayloadSchema = buildStackResolveThreadPayloadsInputSchema.extend({
+	stack_plan: z.unknown().optional(),
+});
+
+// Cheap structural check for `--stack-plan-reference` artifacts; the builder
+// still performs the deep stack-plan validation on whatever this accepts.
+const stackPlanReferenceShapeSchema = z.looseObject({
+	valid: z.boolean(),
+	batches: z.array(z.unknown()),
+	validation: z.looseObject({}),
 });
 
 const stackPlanItemSchema = z.looseObject({
@@ -119,18 +132,54 @@ interface BuildStackResolveThreadPayloadsResult {
 
 export async function runBuildStackResolveThreadPayloadsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 
-	const options = parseManagedOptions(invocation.args, ["--payload-json"]);
+	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file", "--stack-plan-reference"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({
 		optionValue: options.options.values.get("--payload-json"),
+		filePath: options.options.values.get("--payload-file"),
 		commandName: "build-stack-resolve-thread-payloads",
 		inputDescription: "JSON payload",
 		optionName: "--payload-json",
-		schema: buildStackResolveThreadPayloadsInputSchema,
+		fileOptionName: "--payload-file",
+		schema: buildStackResolveThreadPayloadsWirePayloadSchema,
 		stdin: invocation.deps.stdin,
 	});
 	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
-	const result = buildStackResolveThreadPayloads(payloadResult.value);
+
+	let request = payloadResult.value;
+	const stackPlanReferencePath = options.options.values.get("--stack-plan-reference");
+	if (stackPlanReferencePath === undefined) {
+		if (request.stack_plan === undefined) {
+			return {
+				type: "exit",
+				exit: clinkrFailure(
+					"invalid_request",
+					"build-stack-resolve-thread-payloads requires a stack_plan input via the payload stack_plan key or --stack-plan-reference.",
+				),
+			};
+		}
+	} else {
+		if (request.stack_plan !== undefined) {
+			return {
+				type: "exit",
+				exit: clinkrFailure(
+					"invalid_request",
+					"build-stack-resolve-thread-payloads cannot mix an embedded stack_plan payload key with --stack-plan-reference; pass exactly one stack plan source.",
+				),
+			};
+		}
+		const referenceResult = await loadArtifactReference({
+			filePath: stackPlanReferencePath,
+			commandName: "build-stack-resolve-thread-payloads",
+			optionName: "--stack-plan-reference",
+			artifactDescription: "a stack-feedback-plan data artifact",
+			schema: stackPlanReferenceShapeSchema,
+		});
+		if (referenceResult.type === "error") return { type: "exit", exit: clinkrFailure(referenceResult.error.errorType, referenceResult.error.message) };
+		request = { ...request, stack_plan: referenceResult.value };
+	}
+
+	const result = buildStackResolveThreadPayloads(request);
 	if (result.valid) return { type: "exit", exit: clinkrOk(result) };
 	return { type: "exit", exit: clinkrNegative(result, "Stack resolve-thread payload decisions failed validation; no payloads produced.") };
 }

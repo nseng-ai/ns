@@ -90,6 +90,9 @@ Load these when their domain is touched:
   files with `>` and print only small `jq` summaries; do not `tee` full helper
   JSON into the transcript.
 - Do not use `--payload-mode inline` except for explicit debugging or migration.
+- In linked worktrees `.git` is a pointer file, not a directory — never use
+  `.git/` as a scratch location; derive real git paths with
+  `git rev-parse --git-dir` if a git-adjacent path is ever needed.
 
 ### 1. Preflight and stack PR coverage
 
@@ -165,12 +168,14 @@ For each PR with feedback:
 
 ### 3. Validate and merge the stack plan
 
-Run `stack-feedback-plan` with the full prep artifact data and one classification
-per PR:
+Run `stack-feedback-plan` with `--prep-reference` pointing at the saved full
+prep artifact and one classification per PR; do not re-embed the prep artifact
+in the payload:
 
 ```bash
-printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
+printf '%s' '{"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
+      --prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' stack-prep.compact.json)" \
       --payload-session-id <payload-session-id> \
       --stdout-mode compact \
       --format json \
@@ -271,13 +276,14 @@ printf '%s' '<same-stack-json>' \
   > stack-current-prep.compact.json
 ```
 
-Then load the full current prep from
-`data.stack_summary_reference.payload_path` and compare the saved full validated
-stack plan to that fresh full prep:
+Then compare the saved validated stack plan artifact to the fresh full prep
+artifact directly by reference — no stdin payload and no artifact embedding:
 
 ```bash
-printf '%s' '{"stack_plan":{...},"current_prep":{...}}' \
-  | pr-address exec stack-feedback-diff-current --format json
+pr-address exec stack-feedback-diff-current \
+  --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' stack-plan.compact.json)" \
+  --current-prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' stack-current-prep.compact.json)" \
+  --format json
 ```
 
 Proceed to payload building only when the diff exits `0`, `data.valid == true`,
@@ -314,13 +320,16 @@ For each selected stack batch represented in an omnibus commit:
    - `action: "resolve"`, `mode: "pre_existing"` for moved/restructured
      pre-existing bot comments.
    - `action: "skip"` with `skip_reason` for deferred threads.
-2. Include `stack_plan`, exact `batch_id`, batch `commit_sha`,
-   `continue_on_error: true`, and `decisions[]` in the builder input.
+2. Include exact `batch_id`, batch `commit_sha`, `continue_on_error: true`, and
+   `decisions[]` in the builder input; supply the stack plan with
+   `--stack-plan-reference` instead of embedding it.
 3. Build non-mutating per-PR payloads:
 
    ```bash
-   printf '%s' '<builder-input-json>' \
-     | pr-address exec build-stack-resolve-thread-payloads --format json
+   printf '%s' '{"batch_id":"local","commit_sha":"<sha>","continue_on_error":true,"decisions":[...]}' \
+     | pr-address exec build-stack-resolve-thread-payloads \
+         --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' stack-plan.compact.json)" \
+         --format json
    ```
 
 4. For each `data.payloads[]` entry where `payload_ready == true`, pipe

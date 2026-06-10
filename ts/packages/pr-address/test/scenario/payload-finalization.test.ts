@@ -145,6 +145,23 @@ describe("managed payload/finalization CLI operations", () => {
 		expect(JSON.parse(finalizeRunResult.stdout.join("")).data.ready_to_stop).toBe(true);
 	});
 
+	test("build-resolve-thread-batch-payload accepts --payload-file and rejects mixed payload sources", async () => {
+		const buildPayload = await readFile(join(GOLDEN_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
+		const tempDir = await makeTempDir();
+		const payloadPath = join(tempDir, "build-payload.json");
+		await writeFile(payloadPath, buildPayload, "utf8");
+
+		const fileRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-file", payloadPath, "--format", "json"]);
+		expect(await fileRun.exit).toBe(0);
+		expect(JSON.parse(fileRun.stdout.join("")).data.payload_ready).toBe(true);
+
+		const conflictRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--payload-file", payloadPath, "--format", "json"]);
+		expect(await conflictRun.exit).toBe(2);
+		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
+		expect(conflictEnvelope.error_type).toBe("invalid_request");
+		expect(conflictEnvelope.message).toContain("--payload-file");
+	});
+
 	test("read-feedback-detail reads allowed raw payload pointers without legacy fallback", async () => {
 		const tempDir = await makeTempDir();
 		const payloadPath = join(tempDir, "20260603t123456z-0001-feedback.raw.json");

@@ -13,7 +13,7 @@ import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions,
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -102,8 +102,14 @@ const stackFeedbackPlanInputSchema = z.looseObject({
 	classifications: z.array(z.looseObject({ pr_number: z.number().int(), classification: z.record(z.string(), z.unknown()) })),
 });
 
+/** Wire payload for stack-feedback-plan: `prep` may be omitted when `--prep-reference` supplies it. */
+const stackFeedbackPlanPayloadSchema = stackFeedbackPlanInputSchema.extend({
+	prep: stackPrepResultInputSchema.optional(),
+});
+
 type StackFeedbackPrInput = z.infer<typeof stackFeedbackPrInputSchema>;
 type StackPrepPrResultInput = z.infer<typeof stackPrepPrResultSchema>;
+type StackPrepResultInput = z.infer<typeof stackPrepResultInputSchema>;
 type StackFeedbackPlanInput = z.infer<typeof stackFeedbackPlanInputSchema>;
 type FeedbackCounts = z.infer<typeof feedbackCountsSchema>;
 
@@ -340,7 +346,7 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 }
 
 export async function runStackFeedbackPlanOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--payload-json", "--payload-session-id", "--stdout-mode"], []);
+	const parsed = parseReadOptions(invocation.args, ["--payload-json", "--payload-file", "--prep-reference", "--payload-session-id", "--stdout-mode"], []);
 	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-plan: ${unexpectedPositional}`);
@@ -359,14 +365,19 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 
 	const payloadResult = await loadJsonInput({
 		optionValue: parsed.options.values.get("--payload-json"),
+		filePath: parsed.options.values.get("--payload-file"),
 		commandName: "stack-feedback-plan",
 		inputDescription: "stack feedback plan JSON payload",
 		optionName: "--payload-json",
-		schema: stackFeedbackPlanInputSchema,
+		fileOptionName: "--payload-file",
+		schema: stackFeedbackPlanPayloadSchema,
 		stdin: invocation.deps.stdin,
 	});
 	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
-	const payload = payloadResult.value;
+
+	const prepResult = await resolvePlanPrepInput(payloadResult.value.prep, parsed.options.values.get("--prep-reference"));
+	if (prepResult.type === "error") return exitFailure(prepResult.error.errorType, prepResult.error.message);
+	const payload: StackFeedbackPlanInput = { ...payloadResult.value, prep: prepResult.value };
 
 	const classificationsResult = classificationsByPr(payload);
 	if (classificationsResult.type === "error") return exitFailure("invalid_request", classificationsResult.message);
@@ -407,6 +418,32 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	const result: StackFeedbackPlanResult = { ...resultWithoutReference, stack_plan_reference: stackPlanReference.value };
 	if (stdoutMode === "compact") return { type: "exit", exit: clinkrOk(compactPlanResult(result)) };
 	return { type: "exit", exit: clinkrOk(result) };
+}
+
+/** Resolve the plan's prep input from exactly one source: the embedded payload key or `--prep-reference`. */
+async function resolvePlanPrepInput(embeddedPrep: StackPrepResultInput | undefined, prepReferencePath: string | undefined): Promise<JsonInputResult<StackPrepResultInput>> {
+	if (prepReferencePath === undefined) {
+		if (embeddedPrep === undefined) {
+			return {
+				type: "error",
+				error: { errorType: "invalid_request", message: "stack-feedback-plan requires a prep input via the payload prep key or --prep-reference." },
+			};
+		}
+		return { type: "ok", value: embeddedPrep };
+	}
+	if (embeddedPrep !== undefined) {
+		return {
+			type: "error",
+			error: { errorType: "invalid_request", message: "stack-feedback-plan cannot mix an embedded prep payload key with --prep-reference; pass exactly one prep source." },
+		};
+	}
+	return await loadArtifactReference({
+		filePath: prepReferencePath,
+		commandName: "stack-feedback-plan",
+		optionName: "--prep-reference",
+		artifactDescription: "the stack-feedback-prep data object",
+		schema: stackPrepResultInputSchema,
+	});
 }
 
 async function prepareStackPr(options: {

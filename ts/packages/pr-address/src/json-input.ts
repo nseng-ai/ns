@@ -53,6 +53,54 @@ export async function readJsonInputText(options: ReadJsonInputTextOptions): Prom
 	return rawPayloadResult;
 }
 
+export interface LoadArtifactReferenceOptions<T> {
+	filePath: string;
+	commandName: string;
+	optionName: string;
+	artifactDescription: string;
+	schema: z.ZodType<T>;
+}
+
+/**
+ * Read and validate a store-owned artifact referenced by a CLI path option.
+ * Validation is structural only: references may come from any payload session,
+ * so provenance is deliberately not checked.
+ */
+export async function loadArtifactReference<T>(options: LoadArtifactReferenceOptions<T>): Promise<JsonInputResult<T>> {
+	const fileResult = await readJsonInputFile({
+		filePath: options.filePath,
+		commandName: options.commandName,
+		inputDescription: options.artifactDescription,
+		fileOptionNameValue: options.optionName,
+	});
+	if (fileResult.type === "error") return fileResult;
+
+	let parsedJson: unknown;
+	try {
+		parsedJson = JSON.parse(fileResult.value);
+	} catch (error) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_json",
+				message: `Invalid ${options.commandName} ${options.optionName} file: ${jsonParseMessage(error)}`,
+			},
+		};
+	}
+
+	const parseResult = options.schema.safeParse(parsedJson);
+	if (!parseResult.success) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_request",
+				message: `${options.commandName} ${options.optionName} must reference ${options.artifactDescription}: ${options.filePath}`,
+			},
+		};
+	}
+	return { type: "ok", value: parseResult.data };
+}
+
 export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {
 	const textResult = await readJsonInputText(options);
 	if (textResult.type === "error") return textResult;

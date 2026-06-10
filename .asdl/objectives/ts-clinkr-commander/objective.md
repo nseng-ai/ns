@@ -59,6 +59,7 @@ Risks:
 ## Open Questions
 
 - Do `asdl-dev`'s commands that depend on `@earendil-works/pi-ai` / `pi-coding-agent` need anything beyond the v1 feature set (e.g., streaming output that resists the envelope model)? Stays open until the `asdl-dev` migration; if a streaming need appears, it gets its own escape hatch rather than reshaping the renderer contract.
+- Does the standalone `payload-reference-generalization` objective's declarative payload spec (`loadOperationPayload` with reference-backed fields in pr-address) lift into clinkr as first-class payload/JSON-input support when the pr-address migration starts, or stay package-local? JSON-input loading is a v1 non-goal "until a TS CLI needs them" — pr-address now has that need. Reconcile after both lines merge to master. See `updates/2026-06-10T170322Z-payload-reference-generalization-overlap.md`.
 
 Resolved (2026-06-10 design grilling):
 

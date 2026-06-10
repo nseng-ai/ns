@@ -235,14 +235,16 @@ export async function runValidateFeedbackClassificationOperation(invocation: Exe
 }
 
 export async function runPlanFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseOptions(invocation.args, ["--payload-json"]);
+	const options = parseOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
 
 	const payloadResult = await loadJsonInput({
 		optionValue: options.values.get("--payload-json"),
+		filePath: options.values.get("--payload-file"),
 		commandName: "plan-feedback",
 		inputDescription: "JSON payload",
 		optionName: "--payload-json",
+		fileOptionName: "--payload-file",
 		schema: wrapperPayloadSchema,
 		stdin: invocation.deps.stdin,
 	});

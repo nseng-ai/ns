@@ -34,6 +34,30 @@
         ],
         "title": "Stdout Mode",
         "type": "string"
+      },
+      "payload_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload File"
+      },
+      "prep_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Prep Reference"
       }
     },
     "title": "StackFeedbackPlanRequest",
