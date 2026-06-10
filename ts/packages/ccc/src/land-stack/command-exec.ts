@@ -4,7 +4,7 @@ import {
 	stripTerminalEscapes,
 	tailText,
 	type ExecResult,
-} from "@asdl/pi-extension-runtime/command-runtime";
+} from "@asdl/core/exec";
 import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
 import { errorMessage } from "./errors.ts";
 import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";

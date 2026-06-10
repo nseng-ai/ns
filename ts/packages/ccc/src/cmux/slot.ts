@@ -1,4 +1,4 @@
-import { formatCommand, formatOutputSection } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand, formatOutputSection } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { isRecord } from "./primitives.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";

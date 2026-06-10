@@ -3,12 +3,13 @@ import { dirname, join, resolve } from "node:path";
 
 import {
 	formatCommand,
-	formatOutputSection,
+	formatCommandFailure,
+	formatExecStartupFailure,
 	normalizeExecResult,
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
-} from "./command-runtime.ts";
+} from "./exec.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -107,9 +108,7 @@ export async function runBrmemCandidate(options: RunBrmemCandidateOptions): Prom
 	const displayCommand = formatCommand(candidate.command, args);
 
 	try {
-		const result = normalizeExecResult(
-			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)),
-		);
+		const result = normalizeExecResult(await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)));
 		if (isLikelyCommandNotFound(result)) {
 			return {
 				type: "unavailable",
@@ -191,22 +190,8 @@ function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefin
 	return { cwd, timeout, signal };
 }
 
-function formatCommandFailure(title: string, displayCommand: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-	return tailText(
-		[
-			`${title} (${status}).`,
-			`Command: ${displayCommand}`,
-			formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-			formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-		].join("\n\n"),
-		{ maxChars: MAX_ERROR_CHARS, maxLines: 120 },
-	);
-}
-
 function formatStartupFailure(displayCommand: string, error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return tailText(`brmem command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`, {
+	return tailText(formatExecStartupFailure(displayCommand, error, { subject: "brmem command" }).replace("$ ", "Command: "), {
 		maxChars: MAX_ERROR_CHARS,
 		maxLines: 80,
 	});

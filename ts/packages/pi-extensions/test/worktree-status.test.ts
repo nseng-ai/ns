@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "../src/command-runtime.ts";
+import { stripTerminalEscapes } from "@asdl/core/exec";
 import { makeGraphiteRepo, withTempRoot } from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
 	type ExtensionAPI,

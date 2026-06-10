@@ -2,12 +2,12 @@ import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-imp
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
-import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "@asdl/core/exec";
 import { expandSkillBlock } from "./skill-expansion.ts";
 import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
-export type { ExecResult } from "./command-runtime.ts";
+export type { ExecResult } from "@asdl/core/exec";
 export type ExtensionAPI = Pick<CmuxExtensionAPI, "on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;

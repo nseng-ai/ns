@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@asdl/plans";
+import type { ExecResult } from "@asdl/core/exec";
 import { RealPlannedBranchGraphiteGateway } from "../../src/graphite-gateway.ts";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import { InMemoryPlannedBranchGraphiteGateway } from "../support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";
@@ -27,7 +27,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class ScriptedCommands implements PlanCommandExecApi {
+class ScriptedCommands implements CommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];

@@ -1,6 +1,8 @@
 import { expect } from "vitest";
 
-import type { CommandResult, CommandRunner } from "asdl-dev/src/command-runner.ts";
+import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+
+type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
 
 export interface RunnerCall {
 	command: string;
@@ -73,19 +75,11 @@ function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function result(command: string, args: readonly string[], fields: ResultFields): CommandResult {
-	const commandResult: CommandResult = {
-		command,
-		args: [...args],
-		exitCode: fields.exitCode ?? 0,
+function result(_command: string, _args: readonly string[], fields: ResultFields): ExecResult {
+	return {
+		code: fields.exitCode ?? 0,
 		stdout: fields.stdout ?? "",
-		stderr: fields.stderr ?? "",
+		stderr: fields.startupError ?? fields.stderr ?? "",
+		killed: fields.killed === true,
 	};
-	if (fields.startupError !== undefined) {
-		commandResult.startupError = fields.startupError;
-	}
-	if (fields.killed === true) {
-		commandResult.killed = true;
-	}
-	return commandResult;
 }

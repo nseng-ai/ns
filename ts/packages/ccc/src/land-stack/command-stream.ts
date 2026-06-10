@@ -1,4 +1,4 @@
-import { formatCommand, normalizeExecResult, type ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand, normalizeExecResult, type ExecResult } from "@asdl/core/exec";
 import {
 	customMessageText,
 	linkifyPrReferences,

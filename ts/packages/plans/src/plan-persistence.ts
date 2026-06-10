@@ -2,7 +2,7 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import type { PlanCommandExecApi } from "./command-runtime.ts";
+import type { CommandExecApi } from "@asdl/core/exec";
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 
 const GENERIC_SLUG_WORDS = new Set([
@@ -85,7 +85,7 @@ export interface ResolveGitRepoRootOptions {
 	git?: PlansGitGateway | undefined;
 }
 
-export async function resolvePlanSourceFile(pi: PlanCommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
+export async function resolvePlanSourceFile(pi: CommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
 	const git = options.git ?? new RealPlansGitGateway(pi);
 	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
@@ -114,7 +114,7 @@ export async function resolvePlanSourceFile(pi: PlanCommandExecApi, options: Res
 	return realFilePath;
 }
 
-export async function resolveGitRepoRoot(pi: PlanCommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
+export async function resolveGitRepoRoot(pi: CommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
 	const git = options.git ?? new RealPlansGitGateway(pi);
 	const root = await git.optionalRepoRoot({ cwd: options.cwd, signal: options.signal });
 	return root.type === "found" ? resolve(root.value) : undefined;

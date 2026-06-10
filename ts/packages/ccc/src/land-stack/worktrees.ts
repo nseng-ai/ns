@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand } from "@asdl/core/exec";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";

@@ -1,4 +1,4 @@
-import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand } from "@asdl/core/exec";
 import {
 	LandStackCommandStream,
 	commandStreamDetailsForLanded,

@@ -1,14 +1,11 @@
-import {
-	defaultCommandResolver,
-	resolveVercelCommandPrefix,
-	runCommand,
-	type CommandResolver,
-	type CommandResult,
-	type CommandRunner,
-} from "../command-runner.ts";
+import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+
 import { err, ok, type ErrorInfo, type GatewayResult } from "../result.ts";
+import { defaultCommandResolver, resolveVercelCommandPrefix, type CommandResolver } from "./vercel-command.ts";
 
 const STDERR_DETAIL_LIMIT_CHARS = 1_200;
+
+type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
 
 export interface DeploymentCandidate {
 	url: string;
@@ -78,7 +75,27 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 			],
 			{ cwd: params.cwd },
 		);
-		const commandError = commandFailure(result, "vercel_list_failed", `Vercel deployment list command failed for githubCommitRef=${params.branch}.`);
+		const commandError = commandFailure(
+			prefix.command,
+			[
+				...prefix.args,
+				"ls",
+				params.project,
+				"--scope",
+				params.scope,
+				"--format=json",
+				"--status",
+				"READY",
+				"--environment",
+				"preview",
+				"-m",
+				`githubCommitRef=${params.branch}`,
+				"--non-interactive",
+			],
+			result,
+			"vercel_list_failed",
+			`Vercel deployment list command failed for githubCommitRef=${params.branch}.`,
+		);
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
@@ -98,7 +115,13 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 			[...prefix.args, "inspect", inspectedUrl, "--scope", params.scope, "--format=json", "--non-interactive"],
 			{ cwd: params.cwd },
 		);
-		const commandError = commandFailure(result, "vercel_inspect_failed", `Vercel inspect command failed for deployment ${params.url}.`);
+		const commandError = commandFailure(
+			prefix.command,
+			[...prefix.args, "inspect", inspectedUrl, "--scope", params.scope, "--format=json", "--non-interactive"],
+			result,
+			"vercel_inspect_failed",
+			`Vercel inspect command failed for deployment ${params.url}.`,
+		);
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
@@ -232,18 +255,18 @@ function stringArrayField(record: Record<string, unknown>, key: string): string[
 	return value.filter((item): item is string => typeof item === "string");
 }
 
-function commandFailure(result: CommandResult, code: string, message: string): ErrorInfo | undefined {
-	if (result.exitCode === 0 && result.startupError === undefined) {
+function commandFailure(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
+	if (result.code === 0 && !result.killed) {
 		return undefined;
 	}
 
 	const details: Record<string, unknown> = {
-		command: result.command,
-		args: result.args,
-		exit_code: result.exitCode,
+		command,
+		args: [...args],
+		exit_code: result.code,
 	};
-	if (result.startupError !== undefined) {
-		details.startup_error = result.startupError;
+	if (isStartupFailure(result)) {
+		details.startup_error = result.stderr;
 	}
 	const stderr = tailText(result.stderr, STDERR_DETAIL_LIMIT_CHARS);
 	if (stderr !== "") {
@@ -251,6 +274,10 @@ function commandFailure(result: CommandResult, code: string, message: string): E
 	}
 
 	return { code, message, details };
+}
+
+function isStartupFailure(result: ExecResult): boolean {
+	return result.code === 127 && !result.killed && result.stderr.trim().length > 0;
 }
 
 function tailText(text: string, maxChars: number): string {

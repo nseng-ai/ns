@@ -1,4 +1,4 @@
-import { formatCommand } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatCommand } from "@asdl/core/exec";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";

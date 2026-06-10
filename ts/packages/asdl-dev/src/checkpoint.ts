@@ -1,4 +1,4 @@
-import { runCommand, type CommandResult as RunnerCommandResult, type CommandRunner } from "./command-runner.ts";
+import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
 import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "./checkpoint-flow.ts";
 import {
 	formatPendingWorktreeCommandDetails,
@@ -48,6 +48,8 @@ export type CheckpointIfPendingResult =
 			output: CheckpointCommandResult;
 	  };
 
+type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
+
 export class RealCheckpointGateway implements CheckpointGateway {
 	private readonly runner: CommandRunner;
 
@@ -80,7 +82,7 @@ export class RealCheckpointGateway implements CheckpointGateway {
 	}
 
 	private async exec(command: string, args: string[], cwd: string, timeout: number): Promise<CommandResult> {
-		const result = await this.runner(command, args, { cwd, timeoutMs: timeout });
+		const result = await this.runner(command, args, { cwd, timeout });
 		return toCheckpointCommandResult(result);
 	}
 }
@@ -171,23 +173,16 @@ function formatCheckpointSnapshotError(error: PendingWorktreeError): string {
 	return `Could not capture git diff.\n${details}`;
 }
 
-function toCheckpointCommandResult(result: RunnerCommandResult): CommandResult {
+function toCheckpointCommandResult(result: ExecResult): CommandResult {
 	const converted: CommandResult = {
-		code: result.exitCode,
+		code: result.code,
 		stdout: result.stdout,
-		stderr: appendStartupError(result.stderr, result.startupError),
+		stderr: result.stderr,
 	};
-	if (result.killed === true) {
+	if (result.killed) {
 		converted.killed = true;
 	}
 	return converted;
-}
-
-function appendStartupError(stderr: string, startupError: string | undefined): string {
-	if (startupError === undefined) {
-		return stderr;
-	}
-	return [stderr.trimEnd(), startupError].filter(Boolean).join("\n");
 }
 
 function failure(exitCode: number, error: string): CheckpointCommandResult {

@@ -1,5 +1,4 @@
-import { execFile } from "node:child_process";
-import process from "node:process";
+import { runCommand } from "@asdl/core/exec";
 
 import { z } from "zod";
 
@@ -112,6 +111,7 @@ export interface ProcessRequest {
 	args: readonly string[];
 	cwd: string;
 	env?: NodeJS.ProcessEnv | undefined;
+	timeout?: number | undefined;
 }
 
 export interface ProcessResult {
@@ -121,6 +121,9 @@ export interface ProcessResult {
 }
 
 export type ProcessRunner = (request: ProcessRequest) => Promise<ProcessResult>;
+
+const GIT_TIMEOUT_MS = 10_000;
+const GH_TIMEOUT_MS = 30_000;
 
 const prSummarySchema = z.object({
 	number: z.number().int(),
@@ -332,7 +335,7 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	private async runGh(args: readonly string[], options: GatewayOptions): Promise<ProcessResult> {
-		return await this.runProcess({ command: "gh", args, cwd: options.cwd, env: options.env });
+		return await this.runProcess({ command: "gh", args, cwd: options.cwd, env: options.env, timeout: GH_TIMEOUT_MS });
 	}
 }
 
@@ -344,7 +347,7 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 	}
 
 	async getCurrentBranch(options: GatewayOptions): Promise<CurrentBranchResult> {
-		const result = await this.runProcess({ command: "git", args: ["branch", "--show-current"], cwd: options.cwd, env: options.env });
+		const result = await this.runProcess({ command: "git", args: ["branch", "--show-current"], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
 		const branch = result.stdout.trim();
 		if (branch === "") return { type: "detached" };
@@ -352,30 +355,26 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 	}
 
 	async getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult> {
-		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--verify", `${branch}^{commit}`], cwd: options.cwd, env: options.env });
+		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--verify", `${branch}^{commit}`], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode === 0) return { type: "found", oid: result.stdout.trim() };
 		if (result.exitCode === 128) return { type: "missing", stderr: result.stderr ?? result.stdout ?? "branch not found", returncode: result.exitCode };
 		return { type: "failure", failure: failureFromProcess(result) };
 	}
 
 	async getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
-		const result = await this.runProcess({ command: "git", args: ["diff", "--name-status", "-M", "-C", `origin/${baseRefName}...HEAD`], cwd: options.cwd, env: options.env });
+		const result = await this.runProcess({ command: "git", args: ["diff", "--name-status", "-M", "-C", `origin/${baseRefName}...HEAD`], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
 		return { type: "ok", value: parseRestructuredFiles(result.stdout) };
 	}
 }
 
 export async function runProcess(request: ProcessRequest): Promise<ProcessResult> {
-	return await new Promise<ProcessResult>((resolve) => {
-		const child = execFile(request.command, [...request.args], { cwd: request.cwd, env: request.env ?? process.env }, (error, stdout, stderr) => {
-			if (error !== null && typeof error === "object" && "code" in error && typeof error.code === "number") {
-				resolve({ stdout, stderr, exitCode: error.code });
-				return;
-			}
-			resolve({ stdout, stderr, exitCode: error === null ? 0 : 1 });
-		});
-		child.stdin?.end();
+	const result = await runCommand(request.command, request.args, {
+		cwd: request.cwd,
+		...(request.env === undefined ? {} : { env: request.env }),
+		...(request.timeout === undefined ? {} : { timeout: request.timeout }),
 	});
+	return { stdout: result.stdout, stderr: result.stderr, exitCode: result.code };
 }
 
 function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): PRSummary {

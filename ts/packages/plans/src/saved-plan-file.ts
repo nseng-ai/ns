@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
-import type { PlanCommandExecApi } from "./command-runtime.ts";
+import type { CommandExecApi } from "@asdl/core/exec";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@asdl/core/primitives";
 
@@ -161,7 +161,7 @@ export function formatSavedPlanFileEvidence(evidence: SavedPlanFileEvidence): st
 }
 
 export async function resolvePlanStoreRepoDirectory(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<PlanStoreRepoEvidence> {
 	const git = options.git ?? new RealPlansGitGateway(pi);
@@ -179,7 +179,7 @@ export async function resolvePlanStoreRepoDirectory(
 }
 
 export async function resolvePlanStoreDirectory(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
 	const git = options.git ?? new RealPlansGitGateway(pi);
@@ -201,7 +201,7 @@ export async function resolvePlanStoreDirectory(
 	};
 }
 
-export async function listSavedPlans(pi: PlanCommandExecApi, options: PlanStoreOptions): Promise<SavedPlanListItem[]> {
+export async function listSavedPlans(pi: CommandExecApi, options: PlanStoreOptions): Promise<SavedPlanListItem[]> {
 	const repoDirectory = await resolvePlanStoreRepoDirectory(pi, options);
 	const branchEntries = await readDirectoryIfExists(repoDirectory.repoDirectoryPath);
 	const plans: SavedPlanListItem[] = [];
@@ -240,7 +240,7 @@ export async function listSavedPlans(pi: PlanCommandExecApi, options: PlanStoreO
 }
 
 export async function findLatestSavedPlanFile(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<LatestSavedPlanFileEvidence> {
 	const directory = await resolvePlanStoreDirectory(pi, options);
@@ -285,7 +285,7 @@ export async function findLatestSavedPlanFile(
 }
 
 export async function writeSavedPlanFile(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	rawParams: unknown,
 	options: PlanStoreOptions,
 ): Promise<SavedPlanFileEvidence> {

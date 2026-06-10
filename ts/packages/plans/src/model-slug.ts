@@ -1,4 +1,4 @@
-import { formatCommand, formatOutputSection } from "./command-runtime.ts";
+import { formatCommand, formatOutputSection } from "@asdl/core/exec";
 import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef, type ParsedModelRef } from "./model-defaults.ts";
 
 export const SLUG_MODEL_ENV = "ASDL_SLUG_MODEL";

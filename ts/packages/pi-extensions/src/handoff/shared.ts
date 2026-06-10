@@ -1,4 +1,4 @@
-import { formatCommand, tailText, type ExecResult } from "../command-runtime.ts";
+import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
 import { expandSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "./identity.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";

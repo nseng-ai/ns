@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
@@ -10,11 +11,9 @@ import {
 	normalizeRepoOriginUrl,
 	runCli,
 	sanitizePlanPathSegment,
-	type ExecOptions,
 	type GitCwdParams,
 	type GitOptionalResult,
 	type GitResult,
-	type PlanCommandExecApi,
 	type PlansGitGateway,
 } from "../src/index.ts";
 
@@ -352,7 +351,7 @@ function createOutputCapture(): { stdout: (text: string) => void; stderr: (text:
 	};
 }
 
-const unusedCommands: PlanCommandExecApi = {
+const unusedCommands: CommandExecApi = {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<never> {
 		void command;
 		void args;

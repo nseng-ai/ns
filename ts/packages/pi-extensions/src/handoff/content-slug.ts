@@ -1,5 +1,5 @@
 import { deriveSlugWithModel, type SlugModelEvidence } from "@asdl/plans";
-import { formatOutputSection } from "../command-runtime.ts";
+import { formatOutputSection } from "@asdl/core/exec";
 import { parseFlatHandoffSlug } from "./identity.ts";
 import type { ExtensionAPI } from "./runtime-types.ts";
 

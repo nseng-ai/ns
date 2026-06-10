@@ -10,8 +10,8 @@ import {
 	validateTargetBranchName,
 	type CreatePlannedBranchFromFileParams,
 } from "@asdl/planned-branch";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
-import type { ExecResult } from "../src/command-runtime.ts";
+import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
+import type { ExecResult } from "@asdl/core/exec";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -37,7 +37,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class FakePi implements PlanCommandExecApi {
+class FakePi implements CommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];

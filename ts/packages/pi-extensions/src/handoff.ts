@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, type ExecResult } from "@asdl/core/exec";
 import { isRecord } from "./cmux/primitives.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";

@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { formatShellArg } from "@asdl/pi-extension-runtime/command-runtime";
+import { formatShellArg } from "@asdl/core/exec";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
 import { formatErrorMessage, isRecord, stringField } from "./primitives.ts";
 import {

@@ -6,9 +6,9 @@ import {
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
-import { buildPlanFileName, formatCommand, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
-
+import { formatCommand, type CommandExecApi } from "@asdl/core/exec";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+import { buildPlanFileName, normalizeSummary, resolvePlanSourceFile, validatePlanSlug } from "@asdl/plans";
 
 import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
@@ -64,7 +64,7 @@ export interface PlannedBranchCreatePreviewContext {
 }
 
 export async function createPlannedBranchFromFile(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	rawParams: unknown,
 	options: CreatePlannedBranchFromFileOptions,
 ): Promise<PlannedBranchEvidence> {
@@ -153,7 +153,7 @@ export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBr
 }
 
 export async function resolvePlannedBranchCreatePreviewContext(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	options: { cwd: string; signal?: AbortSignal | undefined; git?: PlannedBranchGitGateway | undefined },
 ): Promise<PlannedBranchCreatePreviewContext> {
 	const git = options.git ?? new RealPlannedBranchGitGateway(pi);

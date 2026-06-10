@@ -6,8 +6,7 @@ import { dirname, join } from "node:path";
 import { runCli } from "../../src/cli.ts";
 import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
 import { encodeBranchForPlanPath } from "@asdl/plans";
-import type { ExecResult } from "@asdl/plans";
-import type { ExecOptions, PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryPlannedBranchBrmemGateway, type InMemoryBrmemGatewayState } from "../support/in-memory-brmem-gateway.ts";
 import { InMemoryPlannedBranchGitGateway, type InMemoryGitGatewayState } from "../support/in-memory-git-gateway.ts";
 import { InMemoryPlannedBranchGraphiteGateway, type InMemoryGraphiteGatewayState } from "../support/in-memory-graphite-gateway.ts";
@@ -34,7 +33,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class FakeCommands implements PlanCommandExecApi {
+class FakeCommands implements CommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];

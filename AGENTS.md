@@ -99,7 +99,7 @@ When writing, reviewing, or refactoring TypeScript, strictly follow the `typescr
 
 ### TypeScript Test Execution
 
-Current `ts/` package tests are Vitest-backed. Use pnpm/Vitest commands such as `pnpm --dir ts run test`, targeted package scripts (for example `pnpm --dir ts/packages/<package> run test`), or `just ts-test`. Do not add new package tests that depend on Bun's test runner.
+Current `ts/` package tests are Vitest-backed. The TS test suite is expected to be fast: for TS implementation plans, grill sessions, and completion criteria, default to running the full TS validation commands instead of asking whether to narrow validation scope. Use pnpm/Vitest commands such as `pnpm --dir ts run test`, `pnpm --dir ts run check`, package scripts when debugging a specific failure, or `just ts-test`. Do not add new package tests that depend on Bun's test runner.
 
 If you are working in an out-of-scope template or standalone Bun project that intentionally still uses Bun's test runner, run direct Bun tests sequentially: `bun test --sequential`.
 

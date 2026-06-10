@@ -1,14 +1,5 @@
-import {
-	formatCommand,
-	formatCommandFailure,
-	type ExecOptions,
-	type ExecResult,
-	type GitCwdParams,
-	type GitErrorInfo,
-	type GitOptionalResult,
-	type GitResult,
-	type PlanCommandExecApi,
-} from "@asdl/plans";
+import { formatCommand, formatCommandFailure, type CommandExecApi, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import type { GitCwdParams, GitErrorInfo, GitOptionalResult, GitResult } from "@asdl/plans";
 
 export type { GitCwdParams, GitErrorInfo, GitOptionalResult, GitResult } from "@asdl/plans";
 
@@ -45,9 +36,9 @@ interface CommandRun {
 type CommandRunResult = { ok: true; value: CommandRun } | { ok: false; error: GitErrorInfo };
 
 export class RealPlannedBranchGitGateway implements PlannedBranchGitGateway {
-	private readonly pi: PlanCommandExecApi;
+	private readonly pi: CommandExecApi;
 
-	constructor(pi: PlanCommandExecApi) {
+	constructor(pi: CommandExecApi) {
 		this.pi = pi;
 	}
 

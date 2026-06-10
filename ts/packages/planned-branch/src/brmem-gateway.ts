@@ -1,8 +1,9 @@
-import { formatBrmemUnavailableMessage, runFirstAvailableBrmemCommand } from "./brmem-cli.ts";
+import { formatBrmemUnavailableMessage, runFirstAvailableBrmemCommand } from "@asdl/core/brmem-cli";
+import { formatCommandFailure, tailText, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
+import { isRecord } from "@asdl/core/primitives";
+
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
-import { isRecord } from "@asdl/core/primitives";
-import { formatCommandFailure, tailText, type ExecResult, type PlanCommandExecApi } from "@asdl/plans";
 
 const BRMEM_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -70,9 +71,9 @@ interface CommandRun {
 type CommandRunResult = { ok: true; value: CommandRun } | { ok: false; error: BrmemErrorInfo };
 
 export class RealPlannedBranchBrmemGateway implements PlannedBranchBrmemGateway {
-	private readonly pi: PlanCommandExecApi;
+	private readonly pi: CommandExecApi;
 
-	constructor(pi: PlanCommandExecApi) {
+	constructor(pi: CommandExecApi) {
 		this.pi = pi;
 	}
 

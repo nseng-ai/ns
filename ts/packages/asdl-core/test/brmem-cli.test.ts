@@ -10,8 +10,8 @@ import {
 	runFirstAvailableBrmemCommand,
 	type BrmemCommandCandidate,
 	type BrmemExecGateway,
-} from "../src/brmem-cli.ts";
-import type { PiExecResultLike } from "../src/command-runtime.ts";
+} from "@asdl/core/brmem-cli";
+import type { PiExecResultLike } from "@asdl/core/exec";
 
 const ROOT = "/repo";
 
@@ -97,16 +97,14 @@ function errorStep(command: string, args: string[], error: Error): ScriptedExec 
 
 function makeProjectRoot(): string {
 	const root = mkdtempSync(join(tmpdir(), "brmem-cli-"));
-	writeFileSync(join(root, "pyproject.toml"), "[project]\nname = \"example\"\n", "utf8");
+	writeFileSync(join(root, "pyproject.toml"), '[project]\nname = "example"\n', "utf8");
 	tempDirs.push(root);
 	return root;
 }
 
 describe("resolveBrmemCommandCandidates", () => {
 	test("returns PATH brmem when no local candidates exist", () => {
-		expect(resolveBrmemCommandCandidates("/repo/pkg", { exists: fakeExists([]) })).toEqual([
-			{ command: "brmem", prefixArgs: [] },
-		]);
+		expect(resolveBrmemCommandCandidates("/repo/pkg", { exists: fakeExists([]) })).toEqual([{ command: "brmem", prefixArgs: [] }]);
 	});
 
 	test("prefers ancestor venv brmem before PATH", () => {
@@ -188,9 +186,7 @@ describe("runBrmemCandidate", () => {
 			"--file",
 			"/tmp/plan with space.md",
 		]);
-		expect(run.displayCommand).toBe(
-			"uv run --directory '/repo with space' brmem put plans/key.md --file '/tmp/plan with space.md'",
-		);
+		expect(run.displayCommand).toBe("uv run --directory '/repo with space' brmem put plans/key.md --file '/tmp/plan with space.md'");
 		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: 1234, signal });
 		if (run.type === "completed") {
 			expect(run.result).toEqual({ code: 0, stdout: "ok", stderr: "", killed: false });
@@ -212,11 +208,7 @@ describe("runBrmemCandidate", () => {
 	});
 
 	test("preserves semantic nonzero and killed results as completed runs", async () => {
-		for (const result of [
-			{ code: 1, stderr: "absent" },
-			{ code: 2, stderr: "invalid" },
-			{ code: 127, killed: true, stderr: "command not found" },
-		]) {
+		for (const result of [{ code: 1, stderr: "absent" }, { code: 2, stderr: "invalid" }, { code: 127, killed: true, stderr: "command not found" }]) {
 			const candidate = { command: "brmem", prefixArgs: [] };
 			const gateway = new FakeGateway([step("brmem", ["check", "plan.md"], result)]);
 
@@ -241,9 +233,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
-		if (run.type !== "completed") {
-			throw new Error(`expected completed run, got ${run.type}`);
-		}
+		if (run.type !== "completed") throw new Error(`expected completed run, got ${run.type}`);
 		expect(run.command).toBe("uv");
 		expect(run.result.code).toBe(0);
 	});
@@ -259,9 +249,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
-		if (run.type !== "completed") {
-			throw new Error(`expected completed run, got ${run.type}`);
-		}
+		if (run.type !== "completed") throw new Error(`expected completed run, got ${run.type}`);
 		expect(run.command).toBe("uv");
 		expect(run.displayCommand).toBe(`uv run --directory ${root} brmem list --format json`);
 	});
@@ -280,9 +268,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 
 		gateway.assertDone();
 		expect(run.type).toBe("unavailable");
-		if (run.type !== "unavailable") {
-			throw new Error(`expected unavailable run, got ${run.type}`);
-		}
+		if (run.type !== "unavailable") throw new Error(`expected unavailable run, got ${run.type}`);
 		expect(run.failures).toHaveLength(2);
 		const message = formatBrmemUnavailableMessage(run.failures);
 		expect(message).toContain("No brmem command available");

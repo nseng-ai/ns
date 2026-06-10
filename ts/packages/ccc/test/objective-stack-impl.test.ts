@@ -15,7 +15,7 @@ import {
 	type Selection,
 	writeSelfContainedSkillMarkdown,
 } from "./ccc-test-harness.ts";
-import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import type { ExecResult } from "@asdl/core/exec";
 
 const TRUNK = "master";
 

@@ -9,7 +9,7 @@ import {
 	type PlanContentSlugEvidence,
 } from "../src/index.ts";
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
-import type { ExecOptions, ExecResult, PlanCommandExecApi } from "@asdl/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
@@ -20,7 +20,7 @@ interface ExecCall {
 	options: ExecOptions | undefined;
 }
 
-class FakeSlugPi implements PlanCommandExecApi {
+class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
 	private readonly behavior: { result?: Partial<ExecResult>; error?: Error };
 

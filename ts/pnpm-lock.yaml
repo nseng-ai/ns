@@ -33,6 +33,9 @@ importers:
 
   packages/asdl-dev:
     dependencies:
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
       '@asdl/plans':
         specifier: workspace:*
         version: link:../plans
@@ -45,6 +48,9 @@ importers:
 
   packages/ccc:
     dependencies:
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
       '@asdl/pi-extension-runtime':
         specifier: workspace:*
         version: link:../pi-extension-runtime
@@ -67,13 +73,20 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
-  packages/pi-extension-runtime: {}
+  packages/pi-extension-runtime:
+    dependencies:
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
 
   packages/pi-extensions:
     dependencies:
       '@asdl/ccc':
         specifier: workspace:*
         version: link:../ccc
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
       '@asdl/pi-extension-runtime':
         specifier: workspace:*
         version: link:../pi-extension-runtime
@@ -123,6 +136,9 @@ importers:
 
   packages/pr-address:
     dependencies:
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
       zod:
         specifier: ^4.4.3
         version: 4.4.3

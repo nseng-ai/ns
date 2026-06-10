@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+import type { CommandExecApi } from "@asdl/core/exec";
 import {
 	MAX_PLAN_CONTENT_CHARS,
 	buildContentSlugPrompt,
@@ -8,7 +9,6 @@ import {
 	truncatePlanContentForSlug,
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
-	type PlanCommandExecApi,
 } from "@asdl/plans";
 
 export { MAX_PLAN_CONTENT_CHARS, normalizePlanContentSlugOutput, truncatePlanContentForSlug };
@@ -32,7 +32,7 @@ const PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 	noFallbackLine: "No filename or deterministic fallback was attempted.",
 };
 
-export async function derivePlanContentSlug(pi: PlanCommandExecApi, input: DerivePlanContentSlugInput): Promise<PlanContentSlugEvidence> {
+export async function derivePlanContentSlug(pi: CommandExecApi, input: DerivePlanContentSlugInput): Promise<PlanContentSlugEvidence> {
 	const readTextFile = input.readTextFile ?? defaultReadTextFile;
 	const content = await readTextFile(input.filePath);
 	return deriveContentSlug(pi, { content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) }, PLAN_CONTENT_SLUG_VARIANT);

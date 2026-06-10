@@ -1,10 +1,5 @@
-import {
-	buildContentSlugPrompt,
-	deriveContentSlug,
-	type ContentSlugDerivationVariant,
-	type ContentSlugEvidence,
-	type PlanCommandExecApi,
-} from "@asdl/plans";
+import type { CommandExecApi } from "@asdl/core/exec";
+import { buildContentSlugPrompt, deriveContentSlug, type ContentSlugDerivationVariant, type ContentSlugEvidence } from "@asdl/plans";
 
 export type SavedPlanContentSlugEvidence = ContentSlugEvidence;
 
@@ -20,7 +15,7 @@ const SAVED_PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 };
 
 export async function deriveSavedPlanContentSlug(
-	pi: PlanCommandExecApi,
+	pi: CommandExecApi,
 	input: { content: string; cwd: string; signal?: AbortSignal | undefined },
 ): Promise<SavedPlanContentSlugEvidence> {
 	return deriveContentSlug(pi, input, SAVED_PLAN_CONTENT_SLUG_VARIANT);

@@ -4,7 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./primitives": "./src/primitives.ts"
+    "./primitives": "./src/primitives.ts",
+    "./exec": "./src/exec.ts",
+    "./brmem-cli": "./src/brmem-cli.ts"
   },
   "files": ["src"],
   "scripts": {

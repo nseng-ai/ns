@@ -32,7 +32,7 @@ import { buildPlanContentSlugPrompt } from "@asdl/planned-branch";
 import { formatPlanBranchEvidence } from "../src/planned-branch-output.ts";
 import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
-import type { ExecOptions } from "@asdl/plans";
+import type { ExecOptions } from "@asdl/core/exec";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, "../../../..");

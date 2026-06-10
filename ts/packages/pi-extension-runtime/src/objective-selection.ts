@@ -1,4 +1,4 @@
-import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "./command-runtime.ts";
+import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "@asdl/core/exec";
 import type { CommandContext } from "./cmux/types.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
 import {

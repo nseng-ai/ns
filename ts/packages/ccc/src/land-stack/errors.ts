@@ -1,4 +1,4 @@
-import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
+import type { ExecResult } from "@asdl/core/exec";
 import type { NotifyLevel } from "./types.ts";
 
 export interface LandStackFailureOptions {

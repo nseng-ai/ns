@@ -1,4 +1,4 @@
-import { runCommand, type CommandResult as RunnerCommandResult, type CommandRunner } from "./command-runner.ts";
+import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
 
 const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
 const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
@@ -109,6 +109,8 @@ export type CurrentPrVerificationResult =
 			output: SubmitCommandOutput;
 			cause: CurrentPrVerificationFailureCause;
 	  };
+
+type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
 
 export interface SubmitGateway {
 	checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult>;
@@ -231,7 +233,7 @@ export class RealSubmitGateway implements SubmitGateway {
 		return toSubmitCommandOutput(
 			await this.runner("gt", args, {
 				cwd,
-				timeoutMs,
+				timeout: timeoutMs,
 				...(onOutput === undefined
 					? {}
 					: {
@@ -243,7 +245,7 @@ export class RealSubmitGateway implements SubmitGateway {
 	}
 
 	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<SubmitCommandOutput> {
-		return toSubmitCommandOutput(await this.runner("git", args, { cwd, timeoutMs }));
+		return toSubmitCommandOutput(await this.runner("git", args, { cwd, timeout: timeoutMs }));
 	}
 }
 
@@ -320,14 +322,18 @@ function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onO
 	};
 }
 
-function toSubmitCommandOutput(result: RunnerCommandResult): SubmitCommandOutput {
+function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
 	return {
 		stdout: result.stdout,
 		stderr: result.stderr,
-		exitCode: result.exitCode,
-		...(result.startupError !== undefined ? { startupError: result.startupError } : {}),
-		...(result.killed === true ? { killed: true } : {}),
+		exitCode: result.code,
+		...(isStartupFailure(result) ? { startupError: result.stderr } : {}),
+		...(result.killed ? { killed: true } : {}),
 	};
+}
+
+function isStartupFailure(result: ExecResult): boolean {
+	return result.code === 127 && !result.killed && result.stderr.trim().length > 0;
 }
 
 function isSuccessfulOutput(output: SubmitCommandOutput): boolean {
