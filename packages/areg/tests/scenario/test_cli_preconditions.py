@@ -51,6 +51,13 @@ def _write_lockfile(project_dir: Path) -> None:
     )
 
 
+def test_runtime_option_does_not_require_context() -> None:
+    result = CliRunner().invoke(main, ["--runtime"])
+
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: areg.cli:main\n"
+
+
 def test_init_requires_npx(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         main,

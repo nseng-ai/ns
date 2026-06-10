@@ -6,8 +6,8 @@ from asdl_slots.cli.plugin import build_slot_plugin
 
 
 def build_cli() -> ClinkrGroup:
-    return build_standalone_cli(build_slot_plugin(), package_name="asdl-slots")
+    return build_standalone_cli(build_slot_plugin(), package_name="asdl-slots", entry_point="asdl_slots.cli.main:main")
 
 
 def main() -> None:
-    invoke_standalone_cli(build_slot_plugin(), package_name="asdl-slots")
+    invoke_standalone_cli(build_slot_plugin(), package_name="asdl-slots", entry_point="asdl_slots.cli.main:main")

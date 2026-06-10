@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import click
 
+from asdl_core.cli_runtime import add_runtime_option
 from asdl_tools.cli.plugins import (
     InstalledPluginEntryPointSource,
     PluginEntryPointSource,
@@ -21,6 +22,7 @@ def build_cli(
         """asdl CLI."""
         del ctx
 
+    add_runtime_option(cli, runtime="python", entry_point="asdl_tools.cli.cli:main")
     cli.add_command(build_exec_group())
     discover_plugins(cli, source=source)
     return cli

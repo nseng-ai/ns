@@ -9,9 +9,9 @@ from asdl_objectives.plugin import build_objective_plugin
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``objective`` CLI group."""
-    return build_standalone_cli(build_objective_plugin(), package_name="asdl-objectives")
+    return build_standalone_cli(build_objective_plugin(), package_name="asdl-objectives", entry_point="asdl_objectives.main:main")
 
 
 def main() -> None:
     """Entry point for the standalone ``objective`` CLI."""
-    invoke_standalone_cli(build_objective_plugin(), package_name="asdl-objectives")
+    invoke_standalone_cli(build_objective_plugin(), package_name="asdl-objectives", entry_point="asdl_objectives.main:main")

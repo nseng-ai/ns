@@ -37,6 +37,13 @@ def test_vibechk_version() -> None:
     assert "version" in result.output.lower()
 
 
+def test_vibechk_runtime() -> None:
+    result = CliRunner().invoke(build_cli(), ["--runtime"])
+
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: vibechk.cli:main\n"
+
+
 def test_run_show_diff_walking_skeleton(tmp_path: Path) -> None:
     baseline_repo = _init_repo(tmp_path / "baseline")
     treatment_repo = _init_repo(tmp_path / "treatment")

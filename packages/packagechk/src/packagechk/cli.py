@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from asdl_core.cli_runtime import add_runtime_option
 from packagechk.check import check_package_name, registry_selection
 from packagechk.claim import (
     ClaimProjectSpec,
@@ -29,7 +30,7 @@ from packagechk.pypi import normalize_pypi_name, pypi_validation_error
 
 REGISTRY_CHOICES = ("pypi", "npm", "brew")
 LEGACY_CHECK_COMMAND_NAME = "check"
-HELP_AND_VERSION_OPTIONS = {"-h", "--help", "--version"}
+HELP_AND_VERSION_OPTIONS = {"-h", "--help", "--version", "--runtime"}
 DEFAULT_CLAIM_VERSION = "0.0.1"
 DEFAULT_CLAIM_DESCRIPTION = "Claimed package name"
 DEFAULT_NPM_CLAIM_LICENSE = "MIT"
@@ -194,6 +195,7 @@ def build_cli(
             publish_gateway=npm_publisher,
         )
 
+    add_runtime_option(cli, runtime="python", entry_point="packagechk.cli:main")
     cli.add_command(check_command)
     cli.add_command(claim_pypi_command)
     cli.add_command(claim_npm_command)

@@ -29,6 +29,17 @@ def test_packagechk_version() -> None:
     assert "version" in result.output.lower()
 
 
+def test_packagechk_runtime_is_handled_as_root_option() -> None:
+    gateway = FakePackageRegistryGateway()
+
+    result = CliRunner().invoke(build_cli(gateway), ["--runtime"])
+
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: packagechk.cli:main\n"
+    assert gateway.pypi_checked_names == []
+    assert gateway.npm_checked_names == []
+
+
 def test_packagechk_rejects_brew_registry_as_not_implemented() -> None:
     result = CliRunner().invoke(build_cli(), ["sample-name", "--registry", "brew"])
 

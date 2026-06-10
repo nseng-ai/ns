@@ -47,6 +47,13 @@ def test_cli_version():
     assert "version" in result.output.lower()
 
 
+def test_cli_runtime():
+    runner = CliRunner()
+    result = runner.invoke(build_cli(source=_entry_point_source()), ["--runtime"])
+    assert result.exit_code == 0
+    assert result.output == "runtime: python\nentry_point: asdl_tools.cli.cli:main\n"
+
+
 def test_root_exec_group_is_hidden_but_invocable() -> None:
     runner = CliRunner()
     cli = build_cli(source=_entry_point_source())

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import click
 
+from asdl_core.cli_runtime import add_runtime_option
 from areg.check.runner import check_cmd
 from areg.context import AregContext
 from areg.gateways.environment.real import RealAregEnvironment
@@ -27,6 +28,7 @@ def main(ctx: click.Context) -> None:
         )
 
 
+add_runtime_option(main, runtime="python", entry_point="areg.cli:main")
 main.add_command(init_project_cmd)
 main.add_command(check_cmd)
 main.add_command(exec_group)
