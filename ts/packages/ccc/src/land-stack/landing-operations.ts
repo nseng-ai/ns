@@ -59,6 +59,14 @@ interface GraphiteMaintenanceOptions {
 	unstreamedPi?: LandStackExtensionAPI;
 }
 
+interface GraphiteMaintenanceStep {
+	index: number;
+	branch: string;
+	prNumber: number;
+	state: MergeLoopState;
+	options: GraphiteMaintenanceOptions;
+}
+
 export async function confirmAndSubmitRequiredPrUpdates(
 	pi: LandStackExtensionAPI,
 	ctx: LandStackCommandContext,
@@ -384,14 +392,13 @@ export async function runMergeLoop(
 		const prUrl = verified.value.url ?? currentPr.url;
 		landed.push({ branch, number: currentPr.number, title: currentPr.title, ...(prUrl ? { url: prUrl } : {}) });
 
-		const maintenance = await performGraphiteMaintenance(
-			pi,
-			ctx,
-			plan,
-			{ index, branch, prNumber: currentPr.number },
+		const maintenance = await performGraphiteMaintenance(pi, ctx, plan, {
+			index,
+			branch,
+			prNumber: currentPr.number,
 			state,
 			options,
-		);
+		});
 		if (maintenance.kind === "halt") return failure(maintenance.failure);
 	}
 	return completed();
@@ -438,12 +445,10 @@ async function performGraphiteMaintenance(
 	pi: LandStackExtensionAPI,
 	ctx: LandStackCommandContext,
 	plan: LandingPlan,
-	landedStep: { index: number; branch: string; prNumber: number },
-	state: MergeLoopState,
-	options: GraphiteMaintenanceOptions,
+	step: GraphiteMaintenanceStep,
 ): Promise<GraphiteMaintenanceOutcome> {
 	const { repoRoot, stack } = plan;
-	const { index, branch, prNumber } = landedStep;
+	const { index, branch, prNumber, state, options } = step;
 	const maintenance = nextGraphiteMaintenance(plan, index);
 	const severity: MaintenanceSeverity = maintenance.kind === "required-next-landing" ? "fail" : "warn";
 
