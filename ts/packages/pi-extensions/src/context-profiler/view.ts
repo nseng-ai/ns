@@ -40,8 +40,8 @@ import {
 const FALLBACK_TERMINAL_ROWS = 24;
 // Frame chrome around scrollable areas: 2 border rows + claim line + blank + hint line.
 const LIST_CHROME_ROWS = 5;
-const LIST_HINT = "↑↓ select · ⏎ open · PgUp/PgDn page · esc back · q close";
-const CONTENT_HINT = "↑↓/PgUp/PgDn scroll · esc back · q close";
+const LIST_HINT = "↑↓/jk select · ⏎ open · PgUp/PgDn page · esc back · q close";
+const CONTENT_HINT = "↑↓/jk/PgUp/PgDn scroll · esc back · q close";
 
 interface OverviewFrame {
 	type: "overview";
@@ -352,7 +352,7 @@ export class ProfilerView implements Component {
 		const note = lines.length > areaHeight
 			? `${scrollNote(frame.scroll + 1, Math.min(lines.length, frame.scroll + areaHeight), lines.length, "lines")} · `
 			: "";
-		const hint = this.theme.fg("dim", `${note}↑↓ select · ⏎ zoom · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
+		const hint = this.theme.fg("dim", `${note}↑↓/jk select · ⏎ zoom · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
 		return pinFooter(visible, hint, bodyHeight);
 	}
 
@@ -458,12 +458,12 @@ export class ProfilerView implements Component {
 
 	private handleOverviewInput(data: string, frame: OverviewFrame): void {
 		const rows = this.overviewRows();
-		if (matchesKey(data, Key.up)) {
+		if (matchesKey(data, Key.up) || data === "k") {
 			frame.selection = clamp(frame.selection - 1, 0, Math.max(0, rows.length - 1));
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.down)) {
+		if (matchesKey(data, Key.down) || data === "j") {
 			frame.selection = clamp(frame.selection + 1, 0, Math.max(0, rows.length - 1));
 			this.requestRender();
 			return;
@@ -481,8 +481,8 @@ export class ProfilerView implements Component {
 		const { data, state, count, onEnter } = options;
 		const page = this.listAreaHeight();
 		const maxSelection = Math.max(0, count - 1);
-		if (matchesKey(data, Key.up)) state.selection = clamp(state.selection - 1, 0, maxSelection);
-		else if (matchesKey(data, Key.down)) state.selection = clamp(state.selection + 1, 0, maxSelection);
+		if (matchesKey(data, Key.up) || data === "k") state.selection = clamp(state.selection - 1, 0, maxSelection);
+		else if (matchesKey(data, Key.down) || data === "j") state.selection = clamp(state.selection + 1, 0, maxSelection);
 		else if (matchesKey(data, Key.pageUp)) state.selection = clamp(state.selection - page, 0, maxSelection);
 		else if (matchesKey(data, Key.pageDown)) state.selection = clamp(state.selection + page, 0, maxSelection);
 		else if (matchesKey(data, Key.enter)) onEnter();
@@ -492,8 +492,8 @@ export class ProfilerView implements Component {
 
 	private handleContentInput(data: string, frame: ContentFrame): void {
 		const page = this.listAreaHeight();
-		if (matchesKey(data, Key.up)) frame.scroll = Math.max(0, frame.scroll - 1);
-		else if (matchesKey(data, Key.down)) frame.scroll++;
+		if (matchesKey(data, Key.up) || data === "k") frame.scroll = Math.max(0, frame.scroll - 1);
+		else if (matchesKey(data, Key.down) || data === "j") frame.scroll++;
 		else if (matchesKey(data, Key.pageUp)) frame.scroll = Math.max(0, frame.scroll - page);
 		else if (matchesKey(data, Key.pageDown)) frame.scroll += page;
 		else return;
