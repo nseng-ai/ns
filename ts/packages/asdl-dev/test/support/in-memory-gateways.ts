@@ -1,11 +1,10 @@
 import type { CheckpointGateway } from "asdl-dev/src/checkpoint.ts";
 import type { AsdlDevContext } from "asdl-dev/src/context.ts";
 import type { GitGateway } from "asdl-dev/src/gateways/git.ts";
-import type { GithubPrDetails, GithubPrGateway } from "asdl-dev/src/gateways/github-pr.ts";
+import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "asdl-dev/src/gateways/github-pr.ts";
 import type { ProjectConfigReadResult, VercelProjectConfigStore } from "asdl-dev/src/gateways/project-config.ts";
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
 import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/src/pending-worktree.ts";
-import type { PrDescriptionCommitMessage } from "asdl-dev/src/pr-description.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "asdl-dev/src/result.ts";
 import type {
 	CurrentPrVerificationResult,
@@ -241,11 +240,10 @@ export class InMemorySubmitGateway implements SubmitGateway {
 }
 
 export interface InMemoryGithubPrGatewayState {
-	openPrNumbers?: readonly number[] | { error: ErrorInfo };
 	currentPr?: GithubPrDetails | { error: ErrorInfo };
 	prs?: Readonly<Record<number, GithubPrDetails>>;
 	diffs?: Readonly<Record<number, string | { error: ErrorInfo }>>;
-	commitMessages?: Readonly<Record<number, readonly PrDescriptionCommitMessage[] | { error: ErrorInfo }>>;
+	commitMessages?: Readonly<Record<number, readonly PrCommitMessage[] | { error: ErrorInfo }>>;
 	editResults?: Readonly<Record<number, { error: ErrorInfo }>>;
 }
 
@@ -262,13 +260,11 @@ export interface GithubPrEditCall {
 }
 
 export class InMemoryGithubPrGateway implements GithubPrGateway {
-	private readonly openPrNumbersState: readonly number[] | { error: ErrorInfo };
 	private readonly currentPrState: GithubPrDetails | { error: ErrorInfo };
 	private readonly prs: Readonly<Record<number, GithubPrDetails>>;
 	private readonly diffs: Readonly<Record<number, string | { error: ErrorInfo }>>;
-	private readonly commitMessages: Readonly<Record<number, readonly PrDescriptionCommitMessage[] | { error: ErrorInfo }>>;
+	private readonly commitMessages: Readonly<Record<number, readonly PrCommitMessage[] | { error: ErrorInfo }>>;
 	private readonly editResults: Readonly<Record<number, { error: ErrorInfo }>>;
-	private readonly listOpenPrNumbersLog: GithubPrCall[] = [];
 	private readonly viewCurrentBranchPrLog: GithubPrCall[] = [];
 	private readonly viewPrLog: GithubPrCall[] = [];
 	private readonly getPrCommitMessagesLog: GithubPrCall[] = [];
@@ -276,16 +272,11 @@ export class InMemoryGithubPrGateway implements GithubPrGateway {
 	private readonly editPrLog: GithubPrEditCall[] = [];
 
 	constructor(state: InMemoryGithubPrGatewayState = {}) {
-		this.openPrNumbersState = copyOpenPrNumbersState(state.openPrNumbers ?? defaultOpenPrNumbers());
 		this.currentPrState = copyPrDetailsOrError(state.currentPr ?? defaultPrDetails(123));
 		this.prs = copyPrRecord(state.prs ?? { 123: defaultPrDetails(123) });
 		this.diffs = copyDiffRecord(state.diffs ?? { 123: defaultPrDiff() });
 		this.commitMessages = copyCommitMessagesRecord(state.commitMessages ?? { 123: [{ headline: "Add PR description generation" }] });
 		this.editResults = { ...(state.editResults ?? {}) };
-	}
-
-	get listOpenPrNumbersCalls(): readonly GithubPrCall[] {
-		return this.listOpenPrNumbersLog.map((call) => ({ ...call }));
 	}
 
 	get viewCurrentBranchPrCalls(): readonly GithubPrCall[] {
@@ -308,14 +299,6 @@ export class InMemoryGithubPrGateway implements GithubPrGateway {
 		return this.editPrLog.map((call) => ({ ...call }));
 	}
 
-	async listOpenPrNumbers(params: { cwd: string }): Promise<GatewayResult<number[]>> {
-		this.listOpenPrNumbersLog.push({ cwd: params.cwd });
-		if ("error" in this.openPrNumbersState) {
-			return err(this.openPrNumbersState.error);
-		}
-		return ok([...this.openPrNumbersState]);
-	}
-
 	async viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>> {
 		this.viewCurrentBranchPrLog.push({ cwd: params.cwd });
 		if ("error" in this.currentPrState) {
@@ -326,14 +309,14 @@ export class InMemoryGithubPrGateway implements GithubPrGateway {
 
 	async viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>> {
 		this.viewPrLog.push({ cwd: params.cwd, number: params.number });
-		const pr = this.prs[params.number] ?? ("error" in this.currentPrState ? undefined : this.currentPrState.number === params.number ? this.currentPrState : undefined);
+		const pr = this.prs[params.number] ?? ("error" in this.currentPrState ? undefined : this.currentPrState.number === params.number ? this.currentPrState : defaultPrDetails(params.number));
 		if (pr === undefined) {
 			return err({ code: "github_pr_missing", message: `No fake GitHub PR configured for #${params.number}.` });
 		}
 		return ok(copyPrDetails(pr));
 	}
 
-	async getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrDescriptionCommitMessage[]>> {
+	async getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>> {
 		this.getPrCommitMessagesLog.push({ cwd: params.cwd, number: params.number });
 		const messages = this.commitMessages[params.number] ?? [];
 		if ("error" in messages) {
@@ -542,16 +525,12 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	};
 }
 
-function defaultOpenPrNumbers(): number[] {
-	return Array.from({ length: 1000 }, (_, index) => index + 1);
-}
-
 function defaultPrDetails(number: number): GithubPrDetails {
 	return {
 		number,
 		url: `https://github.com/acme/project/pull/${number}`,
 		title: "Draft PR title",
-		body: "",
+		body: "Manual body",
 		headRefName: "feature/demo",
 		baseRefName: "main",
 	};
@@ -559,13 +538,6 @@ function defaultPrDetails(number: number): GithubPrDetails {
 
 function defaultPrDiff(): string {
 	return "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n";
-}
-
-function copyOpenPrNumbersState(state: readonly number[] | { error: ErrorInfo }): readonly number[] | { error: ErrorInfo } {
-	if ("error" in state) {
-		return { error: { ...state.error } };
-	}
-	return [...state];
 }
 
 function copyPrDetailsOrError(value: GithubPrDetails | { error: ErrorInfo }): GithubPrDetails | { error: ErrorInfo } {
@@ -584,8 +556,8 @@ function copyDiffRecord(record: Readonly<Record<number, string | { error: ErrorI
 }
 
 function copyCommitMessagesRecord(
-	record: Readonly<Record<number, readonly PrDescriptionCommitMessage[] | { error: ErrorInfo }>>,
-): Readonly<Record<number, readonly PrDescriptionCommitMessage[] | { error: ErrorInfo }>> {
+	record: Readonly<Record<number, readonly PrCommitMessage[] | { error: ErrorInfo }>>,
+): Readonly<Record<number, readonly PrCommitMessage[] | { error: ErrorInfo }>> {
 	return Object.fromEntries(
 		Object.entries(record).map(([number, messages]) => [number, "error" in messages ? { error: { ...messages.error } } : messages.map(copyCommitMessage)]),
 	);
@@ -595,7 +567,7 @@ function copyPrDetails(pr: GithubPrDetails): GithubPrDetails {
 	return { ...pr };
 }
 
-function copyCommitMessage(message: PrDescriptionCommitMessage): PrDescriptionCommitMessage {
+function copyCommitMessage(message: PrCommitMessage): PrCommitMessage {
 	return {
 		headline: message.headline,
 		...(message.body === undefined ? {} : { body: message.body }),

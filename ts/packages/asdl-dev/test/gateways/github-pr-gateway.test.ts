@@ -7,14 +7,6 @@ import { RealGithubPrGateway } from "asdl-dev/src/gateways/github-pr.ts";
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
 describe("RealGithubPrGateway", () => {
-	test("lists open PR numbers with an explicit limit", async () => {
-		const runner = new ScriptedCommandRunner([step("gh", ["pr", "list", "--state", "open", "--json", "number", "--limit", "1000"], '[{"number":12}]\n')]);
-		const gateway = new RealGithubPrGateway(runner.runner);
-
-		expect(await gateway.listOpenPrNumbers({ cwd: "/repo" })).toEqual({ ok: true, value: [12] });
-		runner.assertDone();
-	});
-
 	test("views current branch PR details as JSON", async () => {
 		const runner = new ScriptedCommandRunner([
 			step(

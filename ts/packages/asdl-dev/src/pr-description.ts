@@ -2,7 +2,9 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
+import type { PrCommitMessage } from "./gateways/github-pr.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
+import { prepareRepairedText } from "./text-repair.ts";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".asdl/prompts/pr-description.md";
@@ -88,18 +90,13 @@ export type PromptResolutionResult =
 	| { ok: true; text: string; source: PromptSource }
 	| { ok: false; error: string; source: PromptSource };
 
-export interface PrDescriptionCommitMessage {
-	headline: string;
-	body?: string;
-}
-
 export interface PrDescriptionPromptContext {
 	number: number;
 	url: string;
 	title: string;
 	headRefName: string;
 	baseRefName: string;
-	commitMessages?: readonly PrDescriptionCommitMessage[];
+	commitMessages?: readonly PrCommitMessage[];
 	diff: string;
 }
 
@@ -215,43 +212,28 @@ export async function preparePrDescription(input: {
 	modelRef: string;
 	promptText: string;
 	context: PrDescriptionPromptContext;
-	maxAttempts?: number;
 }): Promise<PreparedPrDescription> {
-	const maxAttempts = Math.max(1, input.maxAttempts ?? 2);
 	const firstPrompt = buildPrDescriptionUserPrompt(input.context);
-	const first = await generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, firstPrompt);
-	if (!first.ok) {
-		return { ok: false, error: first.error };
-	}
-
-	const firstValidation = parsePrDescriptionOutput(first.text);
-	if (firstValidation.ok) {
-		return { ok: true, title: firstValidation.description.title, body: firstValidation.description.body, source: "model" };
-	}
-
-	const firstFeedback = formatPrDescriptionValidationFeedback(firstValidation.issues);
-	if (maxAttempts <= 1) {
-		return invalidAfterAttempts(maxAttempts, firstFeedback);
-	}
-
-	const repairPrompt = `${firstPrompt}\n## previous invalid draft\n\n${first.text.trim()}\n\n## validation feedback\n\n${firstFeedback}\n\nRewrite the PR title and body so it satisfies every validation rule. Return only the corrected PR title and body.\n`;
-	const second = await generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, repairPrompt);
-	if (!second.ok) {
-		return { ok: false, error: second.error };
-	}
-
-	const secondValidation = parsePrDescriptionOutput(second.text);
-	if (secondValidation.ok) {
-		return {
-			ok: true,
-			title: secondValidation.description.title,
-			body: secondValidation.description.body,
-			source: "repaired_model",
-			feedback: firstFeedback,
-		};
-	}
-
-	return invalidAfterAttempts(2, formatPrDescriptionValidationFeedback(secondValidation.issues));
+	const prepared = await prepareRepairedText({
+		noun: "PR description",
+		initialPrompt: firstPrompt,
+		generate: (prompt) => generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, prompt),
+		validate: (text) => {
+			const validation = parsePrDescriptionOutput(text);
+			if (validation.ok) return { ok: true, value: validation.description };
+			return { ok: false, feedback: formatPrDescriptionValidationFeedback(validation.issues) };
+		},
+		buildRepairPrompt: ({ initialPrompt, previousDraft, feedback }) =>
+			`${initialPrompt}\n## previous invalid draft\n\n${previousDraft.trim()}\n\n## validation feedback\n\n${feedback}\n\nRewrite the PR title and body so it satisfies every validation rule. Return only the corrected PR title and body.\n`,
+	});
+	if (!prepared.ok) return prepared;
+	return {
+		ok: true,
+		title: prepared.value.title,
+		body: prepared.value.body,
+		source: prepared.source,
+		...(prepared.feedback === undefined ? {} : { feedback: prepared.feedback }),
+	};
 }
 
 export function filterLockfileSections(diff: string): string {
@@ -268,7 +250,7 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 	return `${diff.slice(0, headChars)}${marker}${diff.slice(diff.length - tailChars)}`;
 }
 
-function formatCommitMessages(messages: readonly PrDescriptionCommitMessage[]): string {
+function formatCommitMessages(messages: readonly PrCommitMessage[]): string {
 	return messages
 		.map((message) => [message.headline.trim(), message.body?.trim()].filter((part): part is string => part !== undefined && part !== "").join("\n\n"))
 		.filter((message) => message !== "")
@@ -335,13 +317,6 @@ async function generatePrDescriptionText(
 		reasoning: "low",
 		operation: "pr-description",
 	});
-}
-
-function invalidAfterAttempts(attempts: number, feedback: string): PreparedPrDescription {
-	return {
-		ok: false,
-		error: `Model produced an invalid PR description after ${attempts} attempt${attempts === 1 ? "" : "s"}.\n${feedback}`,
-	};
 }
 
 function formatPrDescriptionValidationIssue(issue: PrDescriptionValidationIssue): string {

@@ -4,11 +4,10 @@ import { join } from "node:path";
 
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 
-import type { PrDescriptionCommitMessage } from "../pr-description.ts";
 import { err, ok, type GatewayResult } from "../result.ts";
 import { commandFailure } from "./command-failure.ts";
 
-const LIST_TIMEOUT_MS = 30_000;
+const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = 30_000;
 const DIFF_TIMEOUT_MS = 60_000;
 const EDIT_TIMEOUT_MS = 60_000;
@@ -22,11 +21,15 @@ export interface GithubPrDetails {
 	baseRefName: string;
 }
 
+export interface PrCommitMessage {
+	headline: string;
+	body?: string;
+}
+
 export interface GithubPrGateway {
-	listOpenPrNumbers(params: { cwd: string }): Promise<GatewayResult<number[]>>;
 	viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>>;
 	viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>>;
-	getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrDescriptionCommitMessage[]>>;
+	getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>>;
 	getPrDiff(params: { cwd: string; number: number }): Promise<GatewayResult<string>>;
 	editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>>;
 }
@@ -38,35 +41,15 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		this.runner = runner;
 	}
 
-	async listOpenPrNumbers(params: { cwd: string }): Promise<GatewayResult<number[]>> {
-		const args = ["pr", "list", "--state", "open", "--json", "number", "--limit", "1000"];
-		const result = await this.runGh(args, params.cwd, LIST_TIMEOUT_MS);
-		const failure = commandFailure("gh", args, result, "github_pr_list_failed", "Could not list open GitHub PRs.");
-		if (failure !== undefined) return err(failure);
-
-		const parsed = parseJson(result.stdout);
-		if (!Array.isArray(parsed)) {
-			return err({ code: "github_pr_list_parse_failed", message: "GitHub PR list output was not a JSON array." });
-		}
-
-		const numbers: number[] = [];
-		for (const item of parsed) {
-			if (isRecord(item) && typeof item.number === "number") {
-				numbers.push(item.number);
-			}
-		}
-		return ok(numbers);
-	}
-
 	async viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>> {
-		return this.viewPrWithArgs({ cwd: params.cwd, args: ["pr", "view", "--json", prViewFields()] });
+		return this.viewPrWithArgs({ cwd: params.cwd, args: ["pr", "view", "--json", PR_VIEW_FIELDS] });
 	}
 
 	async viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>> {
-		return this.viewPrWithArgs({ cwd: params.cwd, args: ["pr", "view", String(params.number), "--json", prViewFields()] });
+		return this.viewPrWithArgs({ cwd: params.cwd, args: ["pr", "view", String(params.number), "--json", PR_VIEW_FIELDS] });
 	}
 
-	async getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrDescriptionCommitMessage[]>> {
+	async getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>> {
 		const args = ["pr", "view", String(params.number), "--json", "commits"];
 		const result = await this.runGh(args, params.cwd, VIEW_TIMEOUT_MS);
 		const failure = commandFailure("gh", args, result, "github_pr_commits_failed", `Could not read commit messages for PR #${params.number}.`);
@@ -77,10 +60,10 @@ export class RealGithubPrGateway implements GithubPrGateway {
 			return err({ code: "github_pr_commits_parse_failed", message: `GitHub commits output for PR #${params.number} had an unexpected shape.` });
 		}
 
-		const messages: PrDescriptionCommitMessage[] = [];
+		const messages: PrCommitMessage[] = [];
 		for (const commit of parsed.commits) {
 			if (!isRecord(commit) || typeof commit.messageHeadline !== "string") continue;
-			const message: PrDescriptionCommitMessage = { headline: commit.messageHeadline };
+			const message: PrCommitMessage = { headline: commit.messageHeadline };
 			if (typeof commit.messageBody === "string" && commit.messageBody.trim() !== "") {
 				message.body = commit.messageBody;
 			}
@@ -125,10 +108,6 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	private async runGh(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
 		return this.runner("gh", args, { cwd, timeout: timeoutMs });
 	}
-}
-
-function prViewFields(): string {
-	return "number,url,title,body,headRefName,baseRefName";
 }
 
 function parseGithubPrDetails(stdout: string): GatewayResult<GithubPrDetails> {

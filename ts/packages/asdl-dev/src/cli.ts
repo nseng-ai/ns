@@ -506,7 +506,7 @@ Options:
 function submitHelp(): string {
 	return `Usage: asdl-dev submit [options]
 
-Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current Graphite stack with \`gt submit -nps --no-ai\`, then generate PR titles/descriptions for PRs newly created by that submit.
+Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current Graphite stack with \`gt submit -nps --no-ai\`, then generate PR titles/descriptions for submitted PRs whose bodies are empty or carry the asdl generated-body marker. Manually edited bodies are never overwritten; use \`asdl-dev pr-regen --force\` when you intend to replace one.
 
 Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
 

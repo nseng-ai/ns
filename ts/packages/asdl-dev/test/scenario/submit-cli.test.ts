@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "asdl-dev/src/cli.ts";
+import { GENERATED_BODY_MARKER } from "asdl-dev/src/pr-description.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 import type { SubmitCommandOutput, SubmitOutputStream, SubmitPrLink } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
@@ -172,7 +173,6 @@ describe("asdl-dev submit CLI behavior", () => {
 				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
 			},
 			githubPr: {
-				openPrNumbers: [],
 				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "", headRefName: "feature/demo", baseRefName: "main" } },
 				diffs: { 456: "diff --git a/src/app.ts b/src/app.ts\n+code\n" },
 				commitMessages: { 456: [{ headline: "Add generated PR descriptions" }] },
@@ -189,28 +189,62 @@ describe("asdl-dev submit CLI behavior", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
-		expect(run.githubPr.listOpenPrNumbersCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.githubPr.viewPrCalls).toEqual([{ cwd: "/work", number: 456 }]);
 		expect(run.githubPr.editPrCalls).toEqual([
 			expect.objectContaining({ number: 456, title: "Generate PR descriptions" }),
 		]);
-		expect(run.githubPr.editPrCalls[0]?.body).toContain("<!-- generated-by: asdl-dev pr-description v1 -->");
+		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
 		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Context");
 		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Diff");
 	});
 
-	test("does not regenerate descriptions for PRs present before submit", async () => {
+	test("does not overwrite a manually edited PR body", async () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
 			submit: {
 				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
 				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
 			},
-			githubPr: { openPrNumbers: [456] },
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "Manual body", headRefName: "feature/demo", baseRefName: "main" } },
+			},
 		});
 
 		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).not.toContain("Generated PR descriptions:");
+		expect(run.githubPr.viewPrCalls).toEqual([{ cwd: "/work", number: 456 }]);
 		expect(run.githubPr.editPrCalls).toEqual([]);
 		expect(run.textGeneration.generateTextCalls).toEqual([]);
+	});
+
+	test("regenerates marker-bearing PR bodies on submit", async () => {
+		const link = prLink(456);
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Old title", body: `Previous generated body\n\n${GENERATED_BODY_MARKER}`, headRefName: "feature/demo", baseRefName: "main" } },
+				diffs: { 456: "diff --git a/src/app.ts b/src/app.ts\n+code\n" },
+				commitMessages: { 456: [{ headline: "Refresh generated PR descriptions" }] },
+			},
+			textGeneration: {
+				results: [
+					{
+						ok: true,
+						text: "Refresh PR descriptions\n\nThis refreshes the asdl-owned PR description.\n\n## Key Changes\n\n- Updates generated body",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
+		expect(run.githubPr.editPrCalls).toEqual([
+			expect.objectContaining({ number: 456, title: "Refresh PR descriptions" }),
+		]);
+		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
 	});
 
 	test("description failure after successful submit reports submitted PRs and pr-regen guidance", async () => {
@@ -221,7 +255,6 @@ describe("asdl-dev submit CLI behavior", () => {
 				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
 			},
 			githubPr: {
-				openPrNumbers: [],
 				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "", headRefName: "feature/demo", baseRefName: "main" } },
 				diffs: { 456: { error: { code: "diff_failed", message: "diff unavailable" } } },
 			},

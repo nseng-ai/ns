@@ -1,8 +1,7 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 import type { GithubPrGateway } from "./gateways/github-pr.ts";
-import { appendGeneratedMarker } from "./pr-description.ts";
-import { generatePrDescriptionForPr } from "./pr-regen.ts";
 import type { GitGateway } from "./gateways/git.ts";
+import { formatPrDescriptionFailureText, generateSubmitPrDescriptions } from "./submit-pr-descriptions.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 const SUBMIT_ARGS = ["submit", "-nps", "--no-ai"] as const;
@@ -141,7 +140,7 @@ export interface RunSubmitCommandOptions {
 	restack: boolean;
 	onOutput?: SubmitOutputListener;
 	confirmRestack?: SubmitRestackConfirmation;
-	prDescription?: SubmitPrDescriptionOptions;
+	prDescription: SubmitPrDescriptionOptions;
 }
 
 export class RealSubmitGateway implements SubmitGateway {
@@ -281,7 +280,6 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		}
 	}
 
-	const preSubmitOpenPrNumbers = await snapshotOpenPrNumbers(options);
 	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
 		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output));
@@ -299,10 +297,9 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	}
 
 	const prLinks = mergePrLinks(submitted.prLinks, currentPr.prLinks);
-	const descriptionResult = await generateNewPrDescriptions({
+	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
-		preSubmitOpenPrNumbers,
 		prLinks,
 	});
 	if (!descriptionResult.ok) {
@@ -337,104 +334,6 @@ async function runRestackBeforeSubmit(gateway: SubmitGateway, commandParams: Sub
 		return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output));
 	}
 	return undefined;
-}
-
-type OpenPrSnapshot = { ok: true; numbers: Set<number> } | { ok: false; error: string } | { ok: true; skipped: true };
-
-type PrDescriptionGenerationResult =
-	| { ok: true; generated: SubmitPrLink[] }
-	| { ok: false; failures: PrDescriptionFailure[] };
-
-interface PrDescriptionFailure {
-	link?: SubmitPrLink;
-	number?: number;
-	reason: string;
-}
-
-async function snapshotOpenPrNumbers(options: RunSubmitCommandOptions): Promise<OpenPrSnapshot> {
-	if (options.prDescription === undefined) {
-		return { ok: true, skipped: true };
-	}
-	const snapshot = await options.prDescription.githubPr.listOpenPrNumbers({ cwd: options.cwd });
-	if (!snapshot.ok) {
-		return { ok: false, error: snapshot.error.message };
-	}
-	return { ok: true, numbers: new Set(snapshot.value) };
-}
-
-async function generateNewPrDescriptions(input: {
-	cwd: string;
-	prDescription: SubmitPrDescriptionOptions | undefined;
-	preSubmitOpenPrNumbers: OpenPrSnapshot;
-	prLinks: readonly SubmitPrLink[];
-}): Promise<PrDescriptionGenerationResult> {
-	if (input.prDescription === undefined) {
-		return { ok: true, generated: [] };
-	}
-	if (input.preSubmitOpenPrNumbers.ok === false) {
-		return { ok: false, failures: [{ reason: `Could not snapshot open PRs before submit: ${input.preSubmitOpenPrNumbers.error}` }] };
-	}
-	if ("skipped" in input.preSubmitOpenPrNumbers) {
-		return { ok: true, generated: [] };
-	}
-
-	const preSubmitNumbers = input.preSubmitOpenPrNumbers.numbers;
-	const newPrLinks = input.prLinks.filter((link) => {
-		const number = prNumberFromLink(link);
-		return number !== undefined && !preSubmitNumbers.has(number);
-	});
-	if (newPrLinks.length === 0) {
-		return { ok: true, generated: [] };
-	}
-
-	const generated: SubmitPrLink[] = [];
-	const failures: PrDescriptionFailure[] = [];
-	for (const link of newPrLinks) {
-		const number = prNumberFromLink(link);
-		if (number === undefined) continue;
-		const result = await generateDescriptionForNewPr({ cwd: input.cwd, number, link, prDescription: input.prDescription });
-		if (result.ok) {
-			generated.push(link);
-		} else {
-			failures.push({ link, number, reason: result.error });
-		}
-	}
-	if (failures.length > 0) {
-		return { ok: false, failures };
-	}
-	return { ok: true, generated };
-}
-
-async function generateDescriptionForNewPr(input: {
-	cwd: string;
-	number: number;
-	link: SubmitPrLink;
-	prDescription: SubmitPrDescriptionOptions;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-	const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number: input.number });
-	if (!viewed.ok) {
-		return { ok: false, error: viewed.error.message };
-	}
-	const prepared = await generatePrDescriptionForPr(viewed.value, {
-		cwd: input.cwd,
-		env: input.prDescription.env,
-		githubPr: input.prDescription.githubPr,
-		textGeneration: input.prDescription.textGeneration,
-		git: input.prDescription.git,
-	});
-	if (!prepared.ok) {
-		return { ok: false, error: prepared.error };
-	}
-	const edited = await input.prDescription.githubPr.editPr({
-		cwd: input.cwd,
-		number: input.number,
-		title: prepared.title,
-		body: appendGeneratedMarker(prepared.body),
-	});
-	if (!edited.ok) {
-		return { ok: false, error: edited.error.message };
-	}
-	return { ok: true };
 }
 
 function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">): SubmitCommandParams {
@@ -504,26 +403,6 @@ function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string
 		lines.push("", "Recent output:", outputTail);
 	}
 	return lines.join("\n");
-}
-
-function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {
-	const lines = [
-		"PRs were submitted; description generation failed.",
-		"",
-		"Submitted PRs:",
-		...(prLinks.length > 0 ? prLinks.map(formatPrLinkTextRow) : ["• (no PR URLs detected in submit output)"]),
-		"",
-		"Description failures:",
-		...failures.map(formatPrDescriptionFailureRow),
-		"",
-		"Checkout the branch and run `asdl-dev pr-regen` to regenerate its PR description.",
-	];
-	return lines.join("\n");
-}
-
-function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
-	const target = failure.link !== undefined ? formatPrLinkTextRow(failure.link).replace(/^• /, "") : failure.number === undefined ? "PR" : `#${failure.number}`;
-	return `• ${target}: ${failure.reason}`;
 }
 
 function formatSubmitOutputTail(stdout: string, stderr: string): string {
@@ -788,14 +667,6 @@ function toPrLink(url: string): SubmitPrLink | undefined {
 	if (prNumber) return { label: `#${prNumber}`, url };
 	if (isPotentialPrUrl(url)) return { label: url, url };
 	return undefined;
-}
-
-function prNumberFromLink(link: SubmitPrLink): number | undefined {
-	const fromUrl = prNumberFromUrl(link.url);
-	const value = fromUrl ?? link.label.match(/^#(\d+)$/)?.[1];
-	if (value === undefined) return undefined;
-	const number = Number.parseInt(value, 10);
-	return Number.isSafeInteger(number) ? number : undefined;
 }
 
 function prNumberFromUrl(url: string): string | undefined {
