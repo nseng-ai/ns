@@ -3,6 +3,17 @@ import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValida
 import type { ClinkrExit } from "./clinkr-envelope.ts";
 import { runGetDiscussionCommentsOperation, runGetFeedbackOperation, runGetPrForBranchOperation, runGetReviewCommentsOperation, runGetReviewsOperation } from "./feedback-collection.ts";
 import { runFinalizeRunOperation } from "./finalization.ts";
+import {
+	runAddIssueCommentOperation,
+	runAddReactionOperation,
+	runAddReviewThreadReplyOperation,
+	runReplyToDiscussionOperation,
+	runReplyToReviewOperation,
+	runResolveThreadBatchOperation,
+	runResolveThreadOperation,
+	runResolveThreadWithReplyOperation,
+	runUnresolveThreadOperation,
+} from "./mutation-operations.ts";
 import { runReadFeedbackDetailOperation } from "./read-feedback-detail.ts";
 import { runBuildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 import { runStackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
@@ -72,6 +83,42 @@ export const LEGACY_EXEC_OPERATIONS: readonly string[] = [
 
 export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 	return createExecOperationRegistry([
+		{
+			name: "add-issue-comment",
+			handler: runAddIssueCommentOperation,
+		},
+		{
+			name: "add-reaction",
+			handler: runAddReactionOperation,
+		},
+		{
+			name: "add-review-thread-reply",
+			handler: runAddReviewThreadReplyOperation,
+		},
+		{
+			name: "reply-to-discussion",
+			handler: runReplyToDiscussionOperation,
+		},
+		{
+			name: "reply-to-review",
+			handler: runReplyToReviewOperation,
+		},
+		{
+			name: "resolve-thread",
+			handler: runResolveThreadOperation,
+		},
+		{
+			name: "resolve-thread-batch",
+			handler: runResolveThreadBatchOperation,
+		},
+		{
+			name: "resolve-thread-with-reply",
+			handler: runResolveThreadWithReplyOperation,
+		},
+		{
+			name: "unresolve-thread",
+			handler: runUnresolveThreadOperation,
+		},
 		{
 			name: "classification-template",
 			handler: runClassificationTemplateOperation,

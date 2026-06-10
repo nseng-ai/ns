@@ -1,36 +1,106 @@
 import type {
+	BranchHeadOidResult,
+	CurrentBranchResult,
 	GatewayOptions,
 	GatewayResult,
 	PRDiscussionComment,
 	PRLookupMiss,
 	PRLookupResult,
 	PRReview,
+	PRReviewComment,
 	PRReviewThread,
+	PRReviewThreadState,
 	PRSummary,
+	PrAddressGitGateway,
 	PrAddressGitHubGateway,
+	Reaction,
+	RestructuredFile,
 } from "../../src/gateways.ts";
 
 export interface InMemoryGitHubState {
+	prs?: readonly PRSummary[] | undefined;
 	prsByBranch?: ReadonlyMap<string, PRSummary> | Record<string, PRSummary> | undefined;
 	reviews?: ReadonlyMap<number, readonly PRReview[]> | Record<number, readonly PRReview[]> | undefined;
 	reviewThreads?: ReadonlyMap<number, readonly PRReviewThread[]> | Record<number, readonly PRReviewThread[]> | undefined;
 	discussionComments?: ReadonlyMap<number, readonly PRDiscussionComment[]> | Record<number, readonly PRDiscussionComment[]> | undefined;
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
+	missingPrNumbers?: ReadonlySet<number> | undefined;
+	threadReplyFailureIds?: ReadonlySet<string> | undefined;
+	resolveFailureIds?: ReadonlySet<string> | undefined;
+	reactionFailureCommentIds?: ReadonlySet<number> | undefined;
+}
+
+export interface InMemoryGitState {
+	currentBranch?: string | null | undefined;
+	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
+	restructuredFiles?: readonly RestructuredFile[] | undefined;
 }
 
 export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
+	private readonly prsByNumber: ReadonlyMap<number, PRSummary>;
 	private readonly prsByBranch: ReadonlyMap<string, PRSummary>;
 	private readonly reviews: ReadonlyMap<number, readonly PRReview[]>;
 	private readonly reviewThreads: ReadonlyMap<number, readonly PRReviewThread[]>;
 	private readonly discussionComments: ReadonlyMap<number, readonly PRDiscussionComment[]>;
 	private readonly lookupFailureBranches: ReadonlySet<string>;
+	private readonly missingPrNumbers: ReadonlySet<number>;
+	private readonly threadReplyFailureIds: ReadonlySet<string>;
+	private readonly resolveFailureIds: ReadonlySet<string>;
+	private readonly reactionFailureCommentIds: ReadonlySet<number>;
+	private readonly commentCalls: Array<{ prNumber: number; body: string }> = [];
+	private readonly threadReplyCalls: Array<{ threadId: string; body: string }> = [];
+	private readonly reactionCalls: Array<{ commentId: number; reaction: string }> = [];
+	private readonly resolvedIds: string[] = [];
+	private readonly unresolvedIds: string[] = [];
+	private nextDiscussionCommentId = 1;
+	private nextReviewCommentId = 1;
+	private nextReactionId = 1;
 
 	constructor(state: InMemoryGitHubState = {}) {
-		this.prsByBranch = stringMap(state.prsByBranch);
+		const byBranch = new Map(stringMap(state.prsByBranch));
+		const byNumber = new Map<number, PRSummary>();
+		for (const pr of state.prs ?? []) {
+			byNumber.set(pr.number, pr);
+			byBranch.set(pr.head_ref_name, pr);
+		}
+		for (const pr of byBranch.values()) byNumber.set(pr.number, pr);
+		this.prsByNumber = byNumber;
+		this.prsByBranch = byBranch;
 		this.reviews = numberMap(state.reviews);
 		this.reviewThreads = numberMap(state.reviewThreads);
 		this.discussionComments = numberMap(state.discussionComments);
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
+		this.missingPrNumbers = state.missingPrNumbers ?? new Set();
+		this.threadReplyFailureIds = state.threadReplyFailureIds ?? new Set();
+		this.resolveFailureIds = state.resolveFailureIds ?? new Set();
+		this.reactionFailureCommentIds = state.reactionFailureCommentIds ?? new Set();
+	}
+
+	get comments(): readonly { prNumber: number; body: string }[] {
+		return clone(this.commentCalls);
+	}
+
+	get threadReplies(): readonly { threadId: string; body: string }[] {
+		return clone(this.threadReplyCalls);
+	}
+
+	get reactions(): readonly { commentId: number; reaction: string }[] {
+		return clone(this.reactionCalls);
+	}
+
+	get resolvedThreadIds(): readonly string[] {
+		return [...this.resolvedIds];
+	}
+
+	get unresolvedThreadIds(): readonly string[] {
+		return [...this.unresolvedIds];
+	}
+
+	async getPr(prNumber: number, _options: GatewayOptions): Promise<PRLookupResult> {
+		if (this.missingPrNumbers.has(prNumber)) return lookupMiss();
+		const pr = this.prsByNumber.get(prNumber);
+		if (pr === undefined) return lookupMiss();
+		return { type: "found", pr: clone(pr) };
 	}
 
 	async getPrForBranch(branch: string, _options: GatewayOptions): Promise<PRLookupResult> {
@@ -52,6 +122,67 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	async getDiscussionComments(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
 		return { type: "ok", value: clone(this.discussionComments.get(prNumber) ?? []) };
 	}
+
+	async addPrDiscussionComment(prNumber: number, body: string, _options: GatewayOptions): Promise<GatewayResult<PRDiscussionComment>> {
+		this.commentCalls.push({ prNumber, body });
+		const id = this.nextDiscussionCommentId;
+		this.nextDiscussionCommentId += 1;
+		return { type: "ok", value: { id, body, author: "github-actions[bot]", url: `https://example.com/comment/${id}` } };
+	}
+
+	async addPrDiscussionCommentReaction(commentId: number, reaction: string, _options: GatewayOptions): Promise<GatewayResult<Reaction>> {
+		if (this.reactionFailureCommentIds.has(commentId)) return { type: "failure", failure: { stderr: "reaction failed", stdout: "", returncode: 1 } };
+		this.reactionCalls.push({ commentId, reaction });
+		const id = this.nextReactionId;
+		this.nextReactionId += 1;
+		return { type: "ok", value: { id, comment_id: commentId, content: reaction } };
+	}
+
+	async addReviewThreadReply(threadId: string, body: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewComment>> {
+		if (this.threadReplyFailureIds.has(threadId)) return { type: "failure", failure: { stderr: "GitHub rejected the thread reply", stdout: "", returncode: 1 } };
+		this.threadReplyCalls.push({ threadId, body });
+		const id = this.nextReviewCommentId;
+		this.nextReviewCommentId += 1;
+		return { type: "ok", value: reviewComment({ id, body, author: "github-actions[bot]" }) };
+	}
+
+	async resolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
+		if (this.resolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: "GitHub rejected the thread resolve", stdout: "", returncode: 1 } };
+		this.resolvedIds.push(threadId);
+		return { type: "ok", value: { thread_id: threadId, is_resolved: true } };
+	}
+
+	async unresolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
+		this.unresolvedIds.push(threadId);
+		return { type: "ok", value: { thread_id: threadId, is_resolved: false } };
+	}
+}
+
+export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
+	private readonly currentBranch: string | null;
+	private readonly branchHeadOids: ReadonlyMap<string, string>;
+	private readonly restructuredFiles: readonly RestructuredFile[];
+
+	constructor(state: InMemoryGitState = {}) {
+		this.currentBranch = state.currentBranch === undefined ? "main" : state.currentBranch;
+		this.branchHeadOids = stringMap(state.branchHeadOids);
+		this.restructuredFiles = clone(state.restructuredFiles ?? []);
+	}
+
+	async getCurrentBranch(_options: GatewayOptions): Promise<CurrentBranchResult> {
+		if (this.currentBranch === null) return { type: "detached" };
+		return { type: "branch", branch: this.currentBranch };
+	}
+
+	async getBranchHeadOid(branch: string, _options: GatewayOptions): Promise<BranchHeadOidResult> {
+		const oid = this.branchHeadOids.get(branch);
+		if (oid === undefined) return { type: "missing", stderr: `unknown revision or path not in the working tree: ${branch}`, returncode: 128 };
+		return { type: "found", oid };
+	}
+
+	async getRestructuredFiles(_baseRefName: string, _options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
+		return { type: "ok", value: clone(this.restructuredFiles) };
+	}
 }
 
 export function review(overrides: Partial<PRReview> = {}): PRReview {
@@ -68,6 +199,10 @@ export function reviewThread(overrides: Partial<PRReviewThread> = {}): PRReviewT
 
 export function discussionComment(overrides: Partial<PRDiscussionComment> = {}): PRDiscussionComment {
 	return { id: 11, body: "Top-level comment", author: "reviewer", url: "https://example.com/comment/11", ...overrides };
+}
+
+export function prSummary(overrides: Partial<PRSummary> = {}): PRSummary {
+	return { number: 42, title: "Add feature", url: "https://github.example/pr/42", head_ref_name: "feature", base_ref_name: "main", state: "OPEN", ...overrides };
 }
 
 type PRReviewCommentForFactory = PRReviewThread["comments"][number];

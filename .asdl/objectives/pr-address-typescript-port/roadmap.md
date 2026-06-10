@@ -40,11 +40,11 @@
   - Policy: directly executable after preview for fake-driven behavior and safe read-only smoke probes. Ask before adding Graphite-specific runtime dependencies outside explicitly Graphite-named stack inputs.
   - Evidence should include fake-driven unit/scenario tests, compact payload parity, and limited safe real-adapter smoke evidence when useful.
   - Progress evidence: `updates/2026-06-09T153238Z-readonly-gateway-stack-diff.md` records adapter-neutral GitHub/git gateways, TypeScript-managed read-only fetch operations, inline `get-feedback`, and `stack-feedback-diff-current` transformation coverage; artifact-writing `get-feedback`, `prepare-run`, `stack-feedback-prep`, and `stack-feedback-plan` remain fallback-backed.
-- [ ] Port mutation/reply helpers without weakening safety gates.
+- [x] Port mutation/reply helpers without weakening safety gates.
   - Cover reply builders, thread resolution/unresolution helpers, issue comments, reactions, review-thread replies, batch resolution, and stack resolution payload generation.
   - Preserve validation-before-action semantics, explicit decision requirements, durable resolution modes, planned provenance validation, and no-push behavior.
   - Policy: builder and fake mutation paths are directly executable after preview. Live GitHub writes require explicit user confirmation for the exact operation and target.
-  - Evidence should include fake-driven mutation-gateway tests, payload/golden parity, and scenario tests that fail closed for missing or invalid decisions.
+  - Evidence: `updates/2026-06-09T154839Z-mutation-safety-fake-gateways.md` records reply formatting parity, fake-backed mutation gateway operations, validation-before-action tests, planned provenance validation, and the explicit absence of live GitHub write probes.
 - [ ] Cut over public skill, wrapper, plugin, and distribution paths to TypeScript default.
   - Update wrappers and docs to TypeScript/npm paths while preserving installed-skill and local-checkout behavior.
   - Decide and implement the `asdl pr-address ...` compatibility path only after standalone TypeScript behavior is proven.
