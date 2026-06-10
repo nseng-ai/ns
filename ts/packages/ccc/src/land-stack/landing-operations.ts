@@ -548,9 +548,8 @@ export async function runMergeLoop(
 			// gt restack --upstack legitimately rewrites upstack branches, so refresh the
 			// expectation for the next iteration's forced refresh target; comparing against
 			// the pre-restack SHA would false-positive on every 3+ branch stack.
-			const nextGetTarget =
-				stack.landingBranches[index + 2] ??
-				(plan.descendantMaintenance.kind === "auto" ? plan.descendantMaintenance.targetBranch : undefined);
+			const next = nextGraphiteMaintenance(plan, index + 1);
+			const nextGetTarget = next.kind === "required-next-landing" || next.kind === "optional-descendant" ? next.branch : undefined;
 			if (nextGetTarget !== undefined) {
 				const refreshedSha = await loadLocalSha(pi, repoRoot, nextGetTarget);
 				if (refreshedSha.type === "failure") {

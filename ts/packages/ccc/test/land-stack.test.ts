@@ -497,7 +497,6 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 		childrenRecheckStep("feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
-		guardShaStep(DESCENDANT, SHA_C),
 		step("gt", ["submit", "--branch", DESCENDANT, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]),
 	];
 }
@@ -1185,6 +1184,15 @@ describe("land-stack command scenarios", () => {
 		expect(
 			pi.execCalls.filter((call) => call.command === "gt" && call.args[0] === "restack").map((call) => call.args[2]),
 		).toEqual(["feature-b", DESCENDANT]);
+		const descendantRestackCallIndex = pi.execCalls.findIndex(
+			(call) => call.command === "gt" && sameArgs(call.args, ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
+		);
+		expect(descendantRestackCallIndex).toBeGreaterThanOrEqual(0);
+		expect(
+			pi.execCalls
+				.slice(descendantRestackCallIndex + 1)
+				.some((call) => call.command === "git" && sameArgs(call.args, ["rev-parse", "--verify", `refs/heads/${DESCENDANT}^{commit}`])),
+		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
