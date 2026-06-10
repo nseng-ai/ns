@@ -216,6 +216,78 @@ describe("pr-address CLI", () => {
 	});
 });
 
+describe("pr-address CLI surface pinning", () => {
+	const topLevelHelp = `Usage: pr-address [--help] [--version] <command>\n\nPR review address operations.\n\nCommands:\n  exec  Operations for the pr-address skill. See 'pr-address exec --help' for the operation list.\n\nOptions:\n  -h, --help     Show this help.\n  -V, --version  Show version.\n`;
+
+	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help bytes for %j", async (args) => {
+		const run = runWithFakeLegacy(args);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(topLevelHelp);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.legacy.calls).toEqual([]);
+	});
+
+	test("pins -V output", async () => {
+		const run = runWithFakeLegacy(["-V"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("0.1.0\n");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.legacy.calls).toEqual([]);
+	});
+
+	test("inline --format=json is not recognized by machine-envelope detection", async () => {
+		const registry = createExecOperationRegistry([
+			{
+				name: "envelope",
+				handler: async () => ({ type: "exit", exit: clinkrFailure("invalid_request", "bad input") }),
+			},
+		]);
+		const run = runWithFakeLegacy(["exec", "envelope", "--format=json"], { deps: { registry } });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: bad input\n");
+		expect(run.legacy.calls).toEqual([]);
+		// PINNED QUIRK (clinkr-migration): pr-address does not accept --format=json inline syntax.
+	});
+
+	test("first --format flag wins for machine-envelope detection", async () => {
+		const registry = createExecOperationRegistry([
+			{
+				name: "envelope",
+				handler: async () => ({ type: "exit", exit: clinkrFailure("invalid_request", "bad input") }),
+			},
+		]);
+		const human = runWithFakeLegacy(["exec", "envelope", "--format", "human", "--format", "json"], { deps: { registry } });
+		expect(await human.exit).toBe(2);
+		expect(human.stdout.join("")).toBe("");
+		expect(human.stderr.join("")).toBe("error: bad input\n");
+
+		const json = runWithFakeLegacy(["exec", "envelope", "--format", "json", "--format", "human"], { deps: { registry } });
+		expect(await json.exit).toBe(2);
+		expect(json.stderr.join("")).toBe("");
+		expect(JSON.parse(json.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		// PINNED QUIRK (clinkr-migration): hasFormatJson uses indexOf, so the first --format value wins and --format human is tolerated.
+	});
+
+	test("pins indent-2 ensure_ascii machine envelope bytes", async () => {
+		const registry = createExecOperationRegistry([
+			{
+				name: "envelope",
+				handler: async () => ({ type: "exit", exit: clinkrFailure("invalid_request", "bad snowman ☃") }),
+			},
+		]);
+		const run = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { registry } });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe('{\n  "exit_code": 2,\n  "error_type": "invalid_request",\n  "message": "bad snowman \\u2603"\n}\n');
+		expect(run.stderr.join("")).toBe("");
+		expect(run.legacy.calls).toEqual([]);
+	});
+});
+
 describe("JSON input source helpers", () => {
 	test("loads stdin, inline JSON, and file JSON", async () => {
 		const schema = z.object({ value: z.string() });

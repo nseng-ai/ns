@@ -39,6 +39,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+const TOP_LEVEL_HELP = `Usage: asdl-dev <command> [options]
+
+Developer tools for asdl-tools.
+
+*-dev CLIs use a flat list of task commands; avoid nested command groups.
+
+Commands:
+  preview-url   Print the Vercel preview URL for a branch.
+  cp            Create a checkpoint commit for the current diff.
+  submit        Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.
+
+Options:
+  -h, --help    Show this help message.
+`;
+
 describe("asdl-dev preview-url CLI help and parsing", () => {
 	test("command metadata comes from the flat command table", () => {
 		expect(listAsdlDevCommands()).toEqual([
@@ -482,5 +497,87 @@ describe("asdl-dev preview-url project and scope precedence", () => {
 			project: DEFAULT_PROJECT,
 			warnings: ["/repo/.vercel/project.json did not contain a projectName; using asdl-tools."],
 		});
+	});
+});
+
+describe("asdl-dev CLI surface pinning", () => {
+	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help bytes for %j", async (args) => {
+		const run = runWithFakes(args);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(TOP_LEVEL_HELP);
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test.each([["--version"], ["-V"]])("pins absence of version flag %s", async (flag) => {
+		const run = runWithFakes([flag]);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe(`Unknown command: ${flag}\n\n${TOP_LEVEL_HELP}`);
+		// PINNED ABSENCE (clinkr-migration): asdl-dev has no top-level --version/-V behavior.
+	});
+
+	test("supports inline --branch=value syntax", async () => {
+		const run = runWithFakes(["preview-url", "--branch=feature/inline", "--json"], {
+			git: { currentBranch: { kind: "detached" } },
+			vercel: {
+				deployments: [
+					deploymentRecord({
+						meta: { githubCommitRef: "feature/inline", branchAlias: "inline-alias.vercel.app" },
+						inspection: { id: "dpl_inline", url: "inline.vercel.app", aliases: ["inline-alias.vercel.app"] },
+						url: "inline.vercel.app",
+					}),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run).branch).toBe("feature/inline");
+		expect(run.git.currentBranchCalls).toEqual([]);
+		// PINNED QUIRK (clinkr-migration): asdl-dev accepts --flag=value while plans, planned-branch, and pr-address do not.
+	});
+
+	test("pins compact preview-url JSON failure bytes", async () => {
+		const run = runWithFakes(["preview-url", "--json"], { git: { currentBranch: { kind: "detached" } } });
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe(
+			`${JSON.stringify({
+				success: false,
+				error: {
+					code: "detached_head",
+					message: "Could not determine current branch; HEAD may be detached. Pass --branch to select a branch explicitly.",
+				},
+			})}\n`,
+		);
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("pins compact preview-url JSON success bytes", async () => {
+		const run = runWithFakes(["preview-url", "--json"], { vercel: { deployments: [deploymentRecord()] } });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
+			`${JSON.stringify({
+				success: true,
+				branch: "feature/demo",
+				preview_url: "https://branch-alias.vercel.app",
+				deployment_url: "https://immutable.vercel.app",
+				dashboard_url: "https://vercel.com/schrockns-projects/asdl-tools/abc123",
+				project: DEFAULT_PROJECT,
+				scope: DEFAULT_SCOPE,
+				deployment: {
+					id: "dpl_abc123",
+					created_at_ms: 1780264074281,
+					ready_at_ms: 1780264085134,
+					commit_sha: "abc123",
+					pr_number: 767,
+				},
+				evidence: { source: "vercel_github_commit_ref", metadata_keys: ["githubCommitRef"] },
+				warnings: [],
+			})}\n`,
+		);
+		expect(run.stderr.join("")).toBe("");
 	});
 });
