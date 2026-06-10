@@ -8,7 +8,7 @@ import {
 	type FeedbackPlanConsumer as FeedbackPlan,
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { hasFlag, parseManagedOptions } from "./managed-options.ts";
+import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
@@ -90,7 +90,6 @@ export interface BuiltThreadResolutionDecision {
 }
 
 export async function runBuildResolveThreadBatchPayloadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 
 	const options = parseManagedOptions(invocation.args, ["--payload-json"]);
 	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };

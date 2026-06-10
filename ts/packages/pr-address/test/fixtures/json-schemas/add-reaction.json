@@ -1,0 +1,45 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "comment_id": {
+        "title": "Comment Id",
+        "type": "integer"
+      },
+      "reaction": {
+        "title": "Reaction",
+        "type": "string"
+      }
+    },
+    "required": [
+      "comment_id",
+      "reaction"
+    ],
+    "title": "AddReactionRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "title": "Id",
+        "type": "integer"
+      },
+      "comment_id": {
+        "title": "Comment Id",
+        "type": "integer"
+      },
+      "content": {
+        "title": "Content",
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "comment_id",
+      "content"
+    ],
+    "title": "AddReactionResult",
+    "type": "object"
+  }
+}

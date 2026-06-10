@@ -25,7 +25,3 @@ export function parseManagedOptions(args: readonly string[], valueOptions: reado
 	}
 	return { type: "ok", options: { values } };
 }
-
-export function hasFlag(args: readonly string[], flag: string): boolean {
-	return args.includes(flag);
-}

@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import { clinkrFailure, clinkrOk, toMachineEnvelope } from "./clinkr-envelope.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { hasFlag } from "./managed-options.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -79,7 +78,6 @@ export async function runGetDiscussionCommentsOperation(invocation: ExecOperatio
 }
 
 export async function runGetFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	if (hasFlag(invocation.args, "--json-schema")) return { type: "fallback" };
 	const parsed = parsePrNumberOperation({
 		args: invocation.args,
 		commandName: "get-feedback",

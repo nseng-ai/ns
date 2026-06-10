@@ -1,0 +1,64 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "pr_number": {
+        "title": "Pr Number",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "pr_number"
+    ],
+    "title": "GetDiscussionCommentsRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "PRDiscussionComment": {
+        "description": "A top-level PR discussion comment.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "author",
+          "url"
+        ],
+        "title": "PRDiscussionComment",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "comments": {
+        "items": {
+          "$ref": "#/$defs/PRDiscussionComment"
+        },
+        "title": "Comments",
+        "type": "array"
+      }
+    },
+    "required": [
+      "comments"
+    ],
+    "title": "GetDiscussionCommentsResult",
+    "type": "object"
+  }
+}

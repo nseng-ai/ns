@@ -1,0 +1,438 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "pr_number": {
+        "title": "Pr Number",
+        "type": "integer"
+      },
+      "include_resolved": {
+        "default": false,
+        "title": "Include Resolved",
+        "type": "boolean"
+      },
+      "include_empty_reviews": {
+        "default": false,
+        "title": "Include Empty Reviews",
+        "type": "boolean"
+      },
+      "body_chars": {
+        "default": 320,
+        "title": "Body Chars",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "pr_number"
+    ],
+    "title": "SummarizeFeedbackRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "CompactDiscussionCommentSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "comment_id": {
+            "title": "Comment Id",
+            "type": "integer"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "automation_like",
+              "human_like"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Evidence",
+            "type": "array"
+          },
+          "body_first_line_excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body First Line Excerpt"
+          },
+          "body_excerpt": {
+            "title": "Body Excerpt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "comment_id",
+          "author",
+          "url",
+          "source_kind",
+          "source_evidence",
+          "body_first_line_excerpt",
+          "body_excerpt"
+        ],
+        "title": "CompactDiscussionCommentSummary",
+        "type": "object"
+      },
+      "CompactPullRequestSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "head_ref_name": {
+            "title": "Head Ref Name",
+            "type": "string"
+          },
+          "base_ref_name": {
+            "title": "Base Ref Name",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "OPEN",
+              "CLOSED",
+              "MERGED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "url",
+          "head_ref_name",
+          "base_ref_name",
+          "state"
+        ],
+        "title": "CompactPullRequestSummary",
+        "type": "object"
+      },
+      "CompactReviewSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_at": {
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "body_first_line_excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body First Line Excerpt"
+          },
+          "body_excerpt": {
+            "title": "Body Excerpt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "state",
+          "submitted_at",
+          "body_first_line_excerpt",
+          "body_excerpt"
+        ],
+        "title": "CompactReviewSummary",
+        "type": "object"
+      },
+      "CompactThreadCommentSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Line"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "body_first_line_excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body First Line Excerpt"
+          },
+          "body_excerpt": {
+            "title": "Body Excerpt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "line",
+          "start_line",
+          "created_at",
+          "body_first_line_excerpt",
+          "body_excerpt"
+        ],
+        "title": "CompactThreadCommentSummary",
+        "type": "object"
+      },
+      "CompactThreadSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Line"
+          },
+          "is_outdated": {
+            "title": "Is Outdated",
+            "type": "boolean"
+          },
+          "is_resolved": {
+            "title": "Is Resolved",
+            "type": "boolean"
+          },
+          "comment_count": {
+            "title": "Comment Count",
+            "type": "integer"
+          },
+          "first_comment": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CompactThreadCommentSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "thread_id",
+          "path",
+          "line",
+          "start_line",
+          "is_outdated",
+          "is_resolved",
+          "comment_count",
+          "first_comment"
+        ],
+        "title": "CompactThreadSummary",
+        "type": "object"
+      },
+      "FeedbackSummaryCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "reviews": {
+            "title": "Reviews",
+            "type": "integer"
+          },
+          "review_threads": {
+            "title": "Review Threads",
+            "type": "integer"
+          },
+          "unresolved_review_threads": {
+            "title": "Unresolved Review Threads",
+            "type": "integer"
+          },
+          "resolved_review_threads": {
+            "title": "Resolved Review Threads",
+            "type": "integer"
+          },
+          "discussion_comments": {
+            "title": "Discussion Comments",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviews",
+          "review_threads",
+          "unresolved_review_threads",
+          "resolved_review_threads",
+          "discussion_comments"
+        ],
+        "title": "FeedbackSummaryCounts",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "found": {
+        "title": "Found",
+        "type": "boolean"
+      },
+      "pr_number": {
+        "title": "Pr Number",
+        "type": "integer"
+      },
+      "pr": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CompactPullRequestSummary"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "counts": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FeedbackSummaryCounts"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "reviews": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/CompactReviewSummary"
+        },
+        "title": "Reviews",
+        "type": "array"
+      },
+      "review_threads": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/CompactThreadSummary"
+        },
+        "title": "Review Threads",
+        "type": "array"
+      },
+      "discussion_comments": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/CompactDiscussionCommentSummary"
+        },
+        "title": "Discussion Comments",
+        "type": "array"
+      },
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error"
+      },
+      "returncode": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Returncode"
+      }
+    },
+    "required": [
+      "found",
+      "pr_number"
+    ],
+    "title": "SummarizeFeedbackResult",
+    "type": "object"
+  }
+}

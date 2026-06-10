@@ -1,0 +1,76 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "pr_number": {
+        "title": "Pr Number",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "pr_number"
+    ],
+    "title": "GetReviewsRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "PRReview": {
+        "description": "A PR-level review submission (not an inline thread comment).\n\nRepresents a review submitted via GitHub's \"Review changes\" flow.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "PENDING",
+              "COMMENTED",
+              "APPROVED",
+              "CHANGES_REQUESTED",
+              "DISMISSED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_at": {
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "body",
+          "state",
+          "submitted_at"
+        ],
+        "title": "PRReview",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "reviews": {
+        "items": {
+          "$ref": "#/$defs/PRReview"
+        },
+        "title": "Reviews",
+        "type": "array"
+      }
+    },
+    "required": [
+      "reviews"
+    ],
+    "title": "GetReviewsResult",
+    "type": "object"
+  }
+}

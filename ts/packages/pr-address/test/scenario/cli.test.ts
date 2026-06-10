@@ -94,34 +94,34 @@ describe("pr-address CLI scaffold", () => {
 		expect(run.legacy.calls).toEqual([]);
 	});
 
-	// Every exec operation now executes in TypeScript; only unported --json-schema
-	// routes (and click usage-error shapes) still reach the legacy fallback.
-	test("delegates exact exec args to the legacy gateway for --json-schema fallback routes", async () => {
-		const run = runWithFakeLegacy(["exec", "stack-feedback-prep", "--json-schema", "--format", "json"], { exitCodes: [7] });
+	// Every exec operation (including --json-schema routes) now executes in
+	// TypeScript; only click usage-error shapes still reach the legacy fallback.
+	test("delegates exact exec args to the legacy gateway for usage-error fallback routes", async () => {
+		const run = runWithFakeLegacy(["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"], { exitCodes: [7] });
 
 		expect(await run.exit).toBe(7);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.legacy.calls).toEqual([
 			{
-				args: ["exec", "stack-feedback-prep", "--json-schema", "--format", "json"],
+				args: ["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"],
 				options: { cwd: "/repo", env: { PATH: "/fake/bin" } },
 			},
 		]);
 	});
 
 	test("preserves arbitrary operation argv shape for fallback-backed routes", async () => {
-		const run = runWithFakeLegacy(["exec", "stack-feedback-plan", "--json-schema", "--format", "json"], { exitCodes: [0] });
+		const run = runWithFakeLegacy(["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"], { exitCodes: [0] });
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "stack-feedback-plan", "--json-schema", "--format", "json"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"]]);
 	});
 
 	test("preserves nonzero legacy exit codes", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--json-schema"], { exitCodes: [2] });
+		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-mode", "bogus"], { exitCodes: [2] });
 
 		expect(await run.exit).toBe(2);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--json-schema"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--payload-mode", "bogus"]]);
 	});
 
 	test("serves managed classification-template schema locally without invoking legacy", async () => {

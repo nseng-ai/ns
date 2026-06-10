@@ -1,0 +1,268 @@
+{
+  "input_json_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "payload_json": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload Json"
+      },
+      "payload_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload File"
+      },
+      "manifest_json": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Manifest Json"
+      },
+      "manifest_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Manifest File"
+      },
+      "classification_json": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Classification Json"
+      },
+      "classification_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Classification File"
+      }
+    },
+    "title": "ValidateFeedbackClassificationRequest",
+    "type": "object"
+  },
+  "output_json_schema": {
+    "$defs": {
+      "FeedbackClassificationValidationCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "reviews_expected": {
+            "title": "Reviews Expected",
+            "type": "integer"
+          },
+          "reviews_classified": {
+            "title": "Reviews Classified",
+            "type": "integer"
+          },
+          "review_threads_expected": {
+            "title": "Review Threads Expected",
+            "type": "integer"
+          },
+          "review_threads_classified": {
+            "title": "Review Threads Classified",
+            "type": "integer"
+          },
+          "thread_comments_expected": {
+            "title": "Thread Comments Expected",
+            "type": "integer"
+          },
+          "thread_comments_covered": {
+            "title": "Thread Comments Covered",
+            "type": "integer"
+          },
+          "discussion_comments_expected": {
+            "title": "Discussion Comments Expected",
+            "type": "integer"
+          },
+          "discussion_comments_classified": {
+            "title": "Discussion Comments Classified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviews_expected",
+          "reviews_classified",
+          "review_threads_expected",
+          "review_threads_classified",
+          "thread_comments_expected",
+          "thread_comments_covered",
+          "discussion_comments_expected",
+          "discussion_comments_classified"
+        ],
+        "title": "FeedbackClassificationValidationCounts",
+        "type": "object"
+      },
+      "FeedbackClassificationValidationError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "invalid_schema",
+              "missing_review",
+              "duplicate_review",
+              "unknown_review",
+              "missing_thread",
+              "duplicate_thread",
+              "unknown_thread",
+              "resolved_thread_classified",
+              "missing_thread_comment",
+              "duplicate_thread_comment",
+              "unknown_thread_comment",
+              "missing_discussion_comment",
+              "duplicate_discussion_comment",
+              "unknown_discussion_comment",
+              "invalid_locator",
+              "invalid_action_fields",
+              "invalid_informational_fields"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "review",
+              "review_thread",
+              "thread_comment",
+              "discussion_comment",
+              "packet"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Identifier"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "kind"
+        ],
+        "title": "FeedbackClassificationValidationError",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "valid": {
+        "title": "Valid",
+        "type": "boolean"
+      },
+      "manifest_kind": {
+        "enum": [
+          "get_feedback",
+          "prepare_run"
+        ],
+        "title": "Manifest Kind",
+        "type": "string"
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Pr Number"
+      },
+      "payload_path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Payload Path"
+      },
+      "counts": {
+        "$ref": "#/$defs/FeedbackClassificationValidationCounts"
+      },
+      "errors": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/FeedbackClassificationValidationError"
+        },
+        "title": "Errors",
+        "type": "array"
+      }
+    },
+    "required": [
+      "valid",
+      "manifest_kind",
+      "counts"
+    ],
+    "title": "FeedbackClassificationValidationResult",
+    "type": "object"
+  }
+}

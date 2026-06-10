@@ -78,7 +78,7 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		expect(envelope.message).toContain("--bogus");
 	});
 
-	test("delegates --json-schema to the legacy CLI", async () => {
+	test("serves --json-schema from TypeScript without invoking the legacy CLI", async () => {
 		const stdout: string[] = [];
 		const legacy = new InMemoryLegacyPrAddressGateway([0]);
 		const exit = await runCli(["exec", "build-stack-resolve-thread-payloads", "--json-schema"], {
@@ -91,6 +91,8 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		});
 
 		expect(exit).toBe(0);
-		expect(legacy.calls.map((call) => call.args)).toEqual([["exec", "build-stack-resolve-thread-payloads", "--json-schema"]]);
+		expect(legacy.calls).toEqual([]);
+		const document = JSON.parse(stdout.join("")) as Record<string, unknown>;
+		expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
 	});
 });
