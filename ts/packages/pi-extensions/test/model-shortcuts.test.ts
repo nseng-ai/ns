@@ -33,10 +33,10 @@ const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly setModels: ModelInfo[] = [];
-	private readonly setModelResult: boolean;
+	private readonly shouldSetModelSucceed: boolean;
 
-	constructor(setModelResult = true) {
-		this.setModelResult = setModelResult;
+	constructor(shouldSetModelSucceed = true) {
+		this.shouldSetModelSucceed = shouldSetModelSucceed;
 	}
 
 	registerCommand(name: string, command: RegisteredCommand): void {
@@ -45,7 +45,7 @@ class FakePi implements ExtensionAPI {
 
 	async setModel(model: ModelInfo): Promise<boolean> {
 		this.setModels.push(model);
-		return this.setModelResult;
+		return this.shouldSetModelSucceed;
 	}
 }
 
