@@ -9,7 +9,7 @@
  * failure never blocks the deterministic view.
  */
 
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { BeforeAgentStartEvent, ContextEvent, ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
 import {
 	buildProfile,
@@ -36,40 +36,100 @@ interface OverlaySession {
 }
 
 export function registerContextProfilerExtension(pi: ExtensionAPI): void {
-	const state = createProfilerState();
-	const holder: { current: OverlaySession | null } = { current: null };
+	const runtime = new ProfilerRuntimeStore();
+	const sessions = new OverlaySessionController();
 
 	pi.registerCommand(CONTEXT_PROFILER_COMMAND_NAME, {
 		description: "Open the context profiler: a diagnostic, non-mutating overlay over this session's context",
-		handler: async (_args, ctx) => openProfiler(ctx, state, holder),
+		handler: async (_args, ctx) => openProfiler({ ctx, runtime, sessions }),
 	});
 
-	pi.on("before_agent_start", (event, _ctx) => handleBeforeAgentStart(event, state));
-	pi.on("context", (event, _ctx) => handleContext(event, state));
-	pi.on("session_shutdown", (_event, ctx) => closeProfiler(ctx, holder));
+	pi.on("before_agent_start", (event, _ctx) => runtime.handleBeforeAgentStart(event));
+	pi.on("context", (event, _ctx) => runtime.handleContext(event));
+	pi.on("session_shutdown", (_event, ctx) => closeProfiler(ctx, sessions));
 }
 
 export default registerContextProfilerExtension;
 
-function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder: { current: OverlaySession | null }): void {
+interface OpenProfilerOptions {
+	ctx: ExtensionCommandContext;
+	runtime: ProfilerRuntimeStore;
+	sessions: OverlaySessionController;
+}
+
+class ProfilerRuntimeStore {
+	private state: ProfilerState;
+
+	constructor() {
+		this.state = createProfilerState();
+	}
+
+	current(): ProfilerState {
+		return this.state;
+	}
+
+	handleBeforeAgentStart(event: BeforeAgentStartEvent): void {
+		this.state = handleBeforeAgentStart(event, this.state);
+	}
+
+	handleContext(event: ContextEvent): void {
+		this.state = handleContext(event, this.state);
+	}
+
+	capturePromptState(ctx: ExtensionContext): ProfilerState {
+		this.state = capturePromptState(ctx, this.state);
+		return this.state;
+	}
+}
+
+class OverlaySessionController {
+	private currentSession: OverlaySession | null;
+
+	constructor() {
+		this.currentSession = null;
+	}
+
+	set(session: OverlaySession): void {
+		this.currentSession = session;
+	}
+
+	isCurrent(session: OverlaySession): boolean {
+		return this.currentSession === session;
+	}
+
+	clearIfCurrent(session: OverlaySession): void {
+		if (this.currentSession === session) this.currentSession = null;
+	}
+
+	close(ctx: ExtensionContext): void {
+		this.currentSession?.close();
+		this.currentSession?.handle?.hide();
+		this.currentSession = null;
+		ctx.ui.setStatus(STATUS_KEY, undefined);
+	}
+}
+
+function openProfiler(options: OpenProfilerOptions): void {
+	const { ctx, runtime, sessions } = options;
 	if (!ctx.hasUI) {
 		ctx.ui.notify("context profiler only renders in interactive TUI mode", "warning");
 		return;
 	}
-	closeProfiler(ctx, holder);
+	closeProfiler(ctx, sessions);
 	// before_agent_start only fires on the next turn; pull the current prompt
 	// state directly so BASE is populated even right after an extension reload.
+	let state = runtime.current();
 	if (state.lastPromptOptions === null) {
-		capturePromptState(ctx, state);
+		state = runtime.capturePromptState(ctx);
 	}
 	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
 	const session: OverlaySession = { close: () => {}, handle: null, view: null, abortSegmentation: null };
-	holder.current = session;
+	sessions.set(session);
 	// Open and `r` refresh are the only LM call sites — the model is never
 	// consulted while the overlay is closed.
 	const onSegmentationUpdate = (segmentation: SegmentationState): void => {
-		if (holder.current === session) session.view?.setSegmentation(segmentation);
+		if (sessions.isCurrent(session)) session.view?.setSegmentation(segmentation);
 	};
 	void ctx.ui
 		.custom<void>(
@@ -90,9 +150,9 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 						// The open snapshot is frozen; r re-captures, rebuilds, and
 						// always recomputes segmentation (force bypasses the cache).
 						session.abortSegmentation?.();
-						capturePromptState(ctx, state);
-						const refreshedProfile = buildProfile(ctx, state);
-						const refreshed = startSegmentation({ gateway, profile: refreshedProfile, state, force: true, onUpdate: onSegmentationUpdate });
+						const refreshedState = runtime.capturePromptState(ctx);
+						const refreshedProfile = buildProfile(ctx, refreshedState);
+						const refreshed = startSegmentation({ gateway, profile: refreshedProfile, state: refreshedState, force: true, onUpdate: onSegmentationUpdate });
 						session.abortSegmentation = refreshed.abort;
 						return { profile: refreshedProfile, segmentation: refreshed.initial };
 					},
@@ -123,20 +183,17 @@ function openProfiler(ctx: ExtensionCommandContext, state: ProfilerState, holder
 			// this chain, so aborting here guarantees no in-flight LM call from a
 			// closed session can write the cache or reach the view.
 			session.abortSegmentation?.();
-			if (holder.current === session) {
-				holder.current = null;
+			if (sessions.isCurrent(session)) {
+				sessions.clearIfCurrent(session);
 				ctx.ui.setStatus(STATUS_KEY, undefined);
 			}
 		});
 	ctx.ui.setStatus(STATUS_KEY, "ctx profile");
 }
 
-function closeProfiler(ctx: ExtensionContext, holder: { current: OverlaySession | null }): void {
+function closeProfiler(ctx: ExtensionContext, sessions: OverlaySessionController): void {
 	// Teardown converges in the ui.custom(...).finally() in openProfiler:
 	// close() settles that chain, which aborts any in-flight segmentation
 	// (session_shutdown routes here too).
-	holder.current?.close();
-	holder.current?.handle?.hide();
-	holder.current = null;
-	ctx.ui.setStatus(STATUS_KEY, undefined);
+	sessions.close(ctx);
 }
