@@ -187,26 +187,13 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackR
 // worktree-conflict detection and the confirmation prompt must cover all of it,
 // not just the first-child chain.
 export function deriveDescendantSubtree(topology: GraphiteTopology, current: string): LandStackResult<string[]> {
-	const subtree: string[] = [];
-	const visited = new Set<string>([current]);
-	const pending = [...(topology.get(current)?.children ?? [])].reverse();
-	while (pending.length > 0) {
-		const branch = pending.pop();
-		if (branch === undefined) break;
-		if (visited.has(branch)) {
-			return failure(
-				landStackFailure(`Graphite metadata descendants of ${current} contain a cycle at ${branch}; refusing to land.`),
-			);
-		}
-		visited.add(branch);
-		subtree.push(branch);
-		const children = topology.get(branch)?.children ?? [];
-		for (let index = children.length - 1; index >= 0; index -= 1) {
-			const child = children[index];
-			if (child !== undefined) pending.push(child);
-		}
+	const walked = walkSubtree(topology, current);
+	if (walked.cycleAt) {
+		return failure(
+			landStackFailure(`Graphite metadata descendants of ${current} contain a cycle at ${walked.cycleAt}; refusing to land.`),
+		);
 	}
-	return success(subtree);
+	return success(walked.subtree.slice(1));
 }
 
 export function detectForkViolations(topology: GraphiteTopology, landingPath: string[]): ForkViolation[] {
@@ -233,12 +220,17 @@ export function detectForkViolations(topology: GraphiteTopology, landingPath: st
 }
 
 function siblingSubtree(topology: GraphiteTopology, sibling: string): { branch: string; subtree: string[] } {
-	const subtree = [sibling];
-	const visited = new Set<string>([sibling]);
-	const pending = [...(topology.get(sibling)?.children ?? [])].reverse();
+	return { branch: sibling, subtree: walkSubtree(topology, sibling).subtree };
+}
+
+function walkSubtree(topology: GraphiteTopology, root: string): { subtree: string[]; cycleAt?: string } {
+	const subtree = [root];
+	const visited = new Set<string>([root]);
+	const pending = [...(topology.get(root)?.children ?? [])].reverse();
 	while (pending.length > 0) {
 		const branch = pending.pop();
-		if (branch === undefined || visited.has(branch)) continue;
+		if (branch === undefined) break;
+		if (visited.has(branch)) return { subtree, cycleAt: branch };
 		visited.add(branch);
 		subtree.push(branch);
 		const children = topology.get(branch)?.children ?? [];
@@ -247,7 +239,7 @@ function siblingSubtree(topology: GraphiteTopology, sibling: string): { branch: 
 			if (child !== undefined) pending.push(child);
 		}
 	}
-	return { branch: sibling, subtree };
+	return { subtree };
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {
@@ -264,46 +256,4 @@ export function formatForkViolations(violations: ForkViolation[], trunk: string)
 	return landStackFailure(lines.join("\n"), {
 		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /code:land.`,
 	});
-}
-
-export interface LoadBranchChildrenFreshOptions {
-	pi: LandStackExtensionAPI;
-	repoRoot: string;
-	dbPath: string;
-	branch: string;
-}
-
-export async function loadBranchChildrenFresh(options: LoadBranchChildrenFreshOptions): Promise<LandStackResult<string[]>> {
-	const { pi, repoRoot, dbPath, branch } = options;
-	const query = `SELECT children FROM branch_metadata WHERE branch_name = ${sqliteTextLiteral(branch)} LIMIT 1`;
-	const args = ["-readonly", "-json", dbPath, query];
-	const result = await exec(pi, "sqlite3", args, repoRoot, SQLITE_TIMEOUT_MS);
-	if (result.code !== 0) {
-		return failure(
-			landStackFailure(`Could not re-read Graphite children for ${branch} from ${dbPath}.`, {
-				commandDisplay: formatCommand("sqlite3", args),
-				result,
-			}),
-		);
-	}
-
-	let raw: unknown;
-	try {
-		raw = JSON.parse(result.stdout.trim() || "[]");
-	} catch {
-		return failure(landStackFailure(`sqlite3 returned unparsable JSON while re-reading Graphite children for ${branch}.`));
-	}
-	if (!Array.isArray(raw)) {
-		return failure(landStackFailure(`sqlite3 returned non-array JSON while re-reading Graphite children for ${branch}.`));
-	}
-	const row = raw[0];
-	if (row === undefined) return success([]);
-	if (!isRecord(row)) {
-		return failure(landStackFailure(`sqlite3 returned a malformed row while re-reading Graphite children for ${branch}.`));
-	}
-	return parseChildrenColumn(row.children, branch, dbPath);
-}
-
-function sqliteTextLiteral(value: string): string {
-	return `'${value.replaceAll("'", "''")}'`;
 }

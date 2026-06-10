@@ -8,6 +8,7 @@ import {
 	type LandExtensionAPI,
 	type NotifyLevel,
 } from "@asdl/ccc/land";
+import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
 
 const ROOT = "/repo";
 const CURRENT = "feature-branch";
@@ -23,23 +24,7 @@ const GIT_CURRENT_ARGS = ["symbolic-ref", "--short", "HEAD"];
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"];
 const GIT_COMMON_DIR_ARGS = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
-const TOPOLOGY_ARGS = [
-	"-readonly",
-	"-json",
-	DB_PATH,
-	"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata",
-];
-
-function metadataDbJson(rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>): string {
-	return JSON.stringify(
-		rows.map((row) => ({
-			branch_name: row.branch,
-			parent_branch_name: row.parent ?? null,
-			children: row.children ? JSON.stringify(row.children) : null,
-			validation_result: row.trunk ? "TRUNK" : "VALID",
-		})),
-	);
-}
+const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 const DB_SINGLE_BRANCH = metadataDbJson([
 	{ branch: TRUNK, children: [CURRENT], trunk: true },

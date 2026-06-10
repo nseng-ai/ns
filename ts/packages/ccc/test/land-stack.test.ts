@@ -32,6 +32,7 @@ import type {
 	PullRequestSnapshot,
 } from "../src/land-stack/types.ts";
 import { detectWorktreeConflicts, isManagedSlotPath, parseWorktreeList, slotNameFromPath } from "../src/land-stack/worktrees.ts";
+import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
 
 const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const ROOT = "/repo";
@@ -44,19 +45,7 @@ const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
 
 const GIT_COMMON_DIR = `${ROOT}/.git`;
 const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
-const TOPOLOGY_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
-const TOPOLOGY_ARGS = ["-readonly", "-json", DB_PATH, TOPOLOGY_QUERY];
-
-function metadataDbJson(rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>): string {
-	return JSON.stringify(
-		rows.map((row) => ({
-			branch_name: row.branch,
-			parent_branch_name: row.parent ?? null,
-			children: row.children ? JSON.stringify(row.children) : null,
-			validation_result: row.trunk ? "TRUNK" : "VALID",
-		})),
-	);
-}
+const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
@@ -333,26 +322,27 @@ function repoIntro(options: { current?: string | undefined; trunk?: string | und
 	];
 }
 
-function backupRefSteps(branches: string[], shas: Record<string, string> = BRANCH_SHAS): ScriptedExec[] {
-	return branches.flatMap((branch) => {
-		const sha = shas[branch] ?? SHA_A;
-		return [
-			step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` }),
-			step("git", ["update-ref", `refs/ccc/land-backup/${branch}`, sha]),
-		];
-	});
+function backupRefSteps(branches: string[], options: { shas?: Record<string, string>; staleRefs?: string[] } = {}): ScriptedExec[] {
+	const { shas = BRANCH_SHAS, staleRefs = [] } = options;
+	return [
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { stdout: staleRefs.join("\n") }),
+		...staleRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
+		...branches.flatMap((branch) => {
+			const sha = shas[branch] ?? SHA_A;
+			return [
+				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` }),
+				step("git", ["update-ref", `refs/ccc/land-backup/${branch}`, sha]),
+			];
+		}),
+	];
 }
 
 function guardShaStep(branch: string, sha: string): ScriptedExec {
 	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` });
 }
 
-function childrenQueryArgs(branch: string): string[] {
-	return ["-readonly", "-json", DB_PATH, `SELECT children FROM branch_metadata WHERE branch_name = '${branch}' LIMIT 1`];
-}
-
 function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
-	return step("sqlite3", childrenQueryArgs(branch), { stdout: `${JSON.stringify([{ children: JSON.stringify(children) }])}\n` });
+	return step("sqlite3", TOPOLOGY_ARGS, { stdout: `${metadataDbJson([{ branch, children }])}\n` });
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
@@ -497,7 +487,6 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 		childrenRecheckStep("feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
-		guardShaStep(DESCENDANT, SHA_C),
 		step("gt", ["submit", "--branch", DESCENDANT, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]),
 	];
 }
@@ -705,6 +694,26 @@ describe("land-stack pure helpers", () => {
 		]);
 
 		expect(detectForkViolations(topology, [])).toEqual([]);
+	});
+
+	test("detects fork violations with cyclic sibling subtrees using a truncated walk", () => {
+		const violations = detectForkViolations(
+			topologyOf({
+				"feature-a": { children: ["feature-b", "side"] },
+				"feature-b": { parent: "feature-a", children: [] },
+				side: { parent: "feature-a", children: ["side-2"] },
+				"side-2": { parent: "side", children: ["side"] },
+			}),
+			["feature-a", "feature-b"],
+		);
+
+		expect(violations).toEqual([
+			{
+				forkPoint: "feature-a",
+				expectedChild: "feature-b",
+				siblings: [{ branch: "side", subtree: ["side", "side-2"] }],
+			},
+		]);
 	});
 
 	test("parses git worktree porcelain output", () => {
@@ -1185,9 +1194,48 @@ describe("land-stack command scenarios", () => {
 		expect(
 			pi.execCalls.filter((call) => call.command === "gt" && call.args[0] === "restack").map((call) => call.args[2]),
 		).toEqual(["feature-b", DESCENDANT]);
+		const descendantRestackCallIndex = pi.execCalls.findIndex(
+			(call) => call.command === "gt" && sameArgs(call.args, ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
+		);
+		expect(descendantRestackCallIndex).toBeGreaterThanOrEqual(0);
+		expect(
+			pi.execCalls
+				.slice(descendantRestackCallIndex + 1)
+				.some((call) => call.command === "git" && sameArgs(call.args, ["rev-parse", "--verify", `refs/heads/${DESCENDANT}^{commit}`])),
+		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
+	});
+
+	test("prunes stale backup refs before writing new snapshots", async () => {
+		const staleRef = "refs/ccc/land-backup/old-branch";
+		const script = [...singleBranchPreflight(""), ...backupRefSteps(["feature-a"], { staleRefs: [staleRef] }), ...mergeSingleFeatureA()];
+		const { pi, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		const listIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"]));
+		const deleteIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, ["update-ref", "-d", staleRef]));
+		const snapshotIndex = pi.execCalls.findIndex(
+			(call, index) => index > deleteIndex && call.command === "git" && sameArgs(call.args, ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"]),
+		);
+		expect(listIndex).toBeGreaterThanOrEqual(0);
+		expect(deleteIndex).toBeGreaterThan(listIndex);
+		expect(snapshotIndex).toBeGreaterThan(deleteIndex);
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("backup ref prune failure stops before landing any PRs", async () => {
+		const script = [
+			...singleBranchPreflight(""),
+			step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { code: 1, stderr: "cannot list refs" }),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		expect(commandMessagesText(messages)).toContain("no PRs were landed");
+		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")).toBe(false);
 	});
 
 	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
@@ -1638,7 +1686,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
-			...backupRefSteps(["feature-a"], { "feature-a": SHA_B }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
@@ -1685,7 +1733,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
-			...backupRefSteps(["feature-a"], { "feature-a": SHA_B }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
@@ -1718,7 +1766,7 @@ describe("land-stack command scenarios", () => {
 		expect(submitIndex).toBeGreaterThanOrEqual(0);
 		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
 		expect(recheckStackIndex).toBeLessThan(mergeIndex);
-		expect(pi.execCalls.filter((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS))).toHaveLength(1);
+		expect(pi.execCalls.slice(0, mergeIndex).filter((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS))).toHaveLength(1);
 		expect(context.notifications.at(-1)?.level).toBe("success");
 	});
 
@@ -1731,7 +1779,7 @@ describe("land-stack command scenarios", () => {
 			step("gt", restackArgs),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_C, prSha: SHA_C }),
-			...backupRefSteps(["feature-a"], { "feature-a": SHA_C }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_C } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_C}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_C })),
