@@ -76,6 +76,7 @@ export async function buildLandingPlan(
 
 	return success({
 		repoRoot,
+		metadataDbPath: shape.value.metadataDbPath,
 		stack,
 		branchPlans,
 		prSubmitRequirements,

@@ -12,9 +12,15 @@ import {
 import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
 import { LandStackCommandStream, withCommandStreaming } from "../src/land-stack/command-stream.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
+import {
+	derivePathToTrunk,
+	deriveDescendantSubtree,
+	detectForkViolations,
+	type GraphiteTopology,
+} from "../src/land-stack/graphite-topology.ts";
 import { loadPr, validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
 import { formatFailure, formatPlan, formatSuccessNotification } from "../src/land-stack/presentation.ts";
-import { detectInProgressOperation, parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
+import { detectInProgressOperation } from "../src/land-stack/stack-facts.ts";
 import type {
 	BranchPlan,
 	LandStackExtensionAPI,
@@ -36,9 +42,39 @@ const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
 
-const STACK_WITH_DESCENDANT = ["◯ main", "◯ feature-a", "◉ feature-b", "◯ feature-c", ""].join("\n");
-const STACK_TO_CURRENT = ["◯ main", "◯ feature-a", "◉ feature-b", ""].join("\n");
-const STACK_SINGLE_BRANCH = ["◯ main", "◉ feature-a", ""].join("\n");
+const GIT_COMMON_DIR = `${ROOT}/.git`;
+const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
+const TOPOLOGY_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
+const TOPOLOGY_ARGS = ["-readonly", "-json", DB_PATH, TOPOLOGY_QUERY];
+
+function metadataDbJson(rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>): string {
+	return JSON.stringify(
+		rows.map((row) => ({
+			branch_name: row.branch,
+			parent_branch_name: row.parent ?? null,
+			children: row.children ? JSON.stringify(row.children) : null,
+			validation_result: row.trunk ? "TRUNK" : "VALID",
+		})),
+	);
+}
+
+const DB_WITH_DESCENDANT = metadataDbJson([
+	{ branch: TRUNK, children: ["feature-a"], trunk: true },
+	{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+	{ branch: "feature-b", parent: "feature-a", children: [DESCENDANT] },
+	{ branch: DESCENDANT, parent: "feature-b", children: [] },
+]);
+const DB_TO_CURRENT = metadataDbJson([
+	{ branch: TRUNK, children: ["feature-a"], trunk: true },
+	{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+	{ branch: "feature-b", parent: "feature-a", children: [] },
+]);
+const DB_SINGLE_BRANCH = metadataDbJson([
+	{ branch: TRUNK, children: ["feature-a"], trunk: true },
+	{ branch: "feature-a", parent: TRUNK, children: [] },
+]);
+
+const BRANCH_SHAS: Record<string, string> = { "feature-a": SHA_A, "feature-b": SHA_B, [DESCENDANT]: SHA_C };
 
 type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
 type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
@@ -287,15 +323,36 @@ function worktreeOutput(entries: Array<{ path: string; branch?: string }>): stri
 		.join("\n\n");
 }
 
-function repoIntro(options: { current?: string | undefined; trunk?: string | undefined; stackOutput?: string | undefined } = {}): ScriptedExec[] {
+function repoIntro(options: { current?: string | undefined; trunk?: string | undefined; dbRows?: string | undefined } = {}): ScriptedExec[] {
 	return [
 		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${ROOT}\n` }),
 		step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${options.current ?? CURRENT}\n` }),
 		step("gt", ["trunk", "--no-interactive"], { stdout: `${options.trunk ?? TRUNK}\n` }),
-		step("gt", ["log", "short", "--stack", "-r", "--no-interactive"], {
-			stdout: options.stackOutput ?? STACK_WITH_DESCENDANT,
-		}),
+		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { stdout: `${GIT_COMMON_DIR}\n` }),
+		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${options.dbRows ?? DB_WITH_DESCENDANT}\n` }),
 	];
+}
+
+function backupRefSteps(branches: string[], shas: Record<string, string> = BRANCH_SHAS): ScriptedExec[] {
+	return branches.flatMap((branch) => {
+		const sha = shas[branch] ?? SHA_A;
+		return [
+			step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` }),
+			step("git", ["update-ref", `refs/ccc/land-backup/${branch}`, sha]),
+		];
+	});
+}
+
+function guardShaStep(branch: string, sha: string): ScriptedExec {
+	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` });
+}
+
+function childrenQueryArgs(branch: string): string[] {
+	return ["-readonly", "-json", DB_PATH, `SELECT children FROM branch_metadata WHERE branch_name = '${branch}' LIMIT 1`];
+}
+
+function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
+	return step("sqlite3", childrenQueryArgs(branch), { stdout: `${JSON.stringify([{ children: JSON.stringify(children) }])}\n` });
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
@@ -328,12 +385,12 @@ function initialBranchPlans(options: { featureBBase?: string | undefined } = {})
 	];
 }
 
-function featureStackPreflight(options: { stackOutput?: string | undefined; worktrees?: string | undefined; featureBBase?: string | undefined } = {}): ScriptedExec[] {
-	const stackOutput = options.stackOutput ?? STACK_WITH_DESCENDANT;
-	const hasDescendants = stackOutput.includes(DESCENDANT);
+function featureStackPreflight(options: { dbRows?: string | undefined; worktrees?: string | undefined; featureBBase?: string | undefined } = {}): ScriptedExec[] {
+	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
+	const hasDescendants = dbRows.includes(DESCENDANT);
 	const worktrees = options.worktrees ?? worktreeOutput([{ path: ROOT, branch: CURRENT }]);
 	return [
-		...repoIntro({ stackOutput: options.stackOutput }),
+		...repoIntro({ dbRows: options.dbRows }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a", "feature-b"]),
 		...initialBranchPlans({ featureBBase: options.featureBBase }),
@@ -348,6 +405,7 @@ function mergeFeatureA(
 		verifyState?: string;
 		includeCleanup?: boolean;
 		refreshTarget?: string | null;
+		postRestackRefresh?: string | null;
 		title?: string;
 		body?: string | null;
 	} = {},
@@ -385,11 +443,24 @@ function mergeFeatureA(
 	if (includeCleanup) {
 		const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 		if (refreshTarget) {
-			steps.push(step("gt", ["get", refreshTarget, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]));
+			steps.push(
+				guardShaStep(refreshTarget, SHA_B),
+				step("gt", ["get", refreshTarget, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+			);
 		}
 		steps.push(
+			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+		);
+		// post-restack refresh of the next forced-refresh target (the auto-maintained
+		// descendant); skipped-maintenance scenarios pass null because there is no
+		// later gt get to guard.
+		const postRestackRefresh = options.postRestackRefresh === undefined ? DESCENDANT : options.postRestackRefresh;
+		if (postRestackRefresh) {
+			steps.push(guardShaStep(postRestackRefresh, BRANCH_SHAS[postRestackRefresh] ?? SHA_C));
+		}
+		steps.push(
 			step("gt", ["submit", "--branch", "feature-b", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]),
 		);
 	}
@@ -421,9 +492,12 @@ function mergeFeatureBThroughVerification(): ScriptedExec[] {
 function mergeFeatureBWithDescendant(): ScriptedExec[] {
 	return [
 		...mergeFeatureBThroughVerification(),
+		guardShaStep(DESCENDANT, SHA_C),
 		step("gt", ["get", DESCENDANT, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+		childrenRecheckStep("feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
+		guardShaStep(DESCENDANT, SHA_C),
 		step("gt", ["submit", "--branch", DESCENDANT, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]),
 	];
 }
@@ -431,7 +505,9 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 function mergeFeatureBWithDescendantRestackFailure(): ScriptedExec[] {
 	return [
 		...mergeFeatureBThroughVerification(),
+		guardShaStep(DESCENDANT, SHA_C),
 		step("gt", ["get", DESCENDANT, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+		childrenRecheckStep("feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"], {
 			code: 1,
@@ -445,6 +521,7 @@ function singleBranchShape(): LandingShape {
 		repoRoot: ROOT,
 		current: "feature-a",
 		trunk: TRUNK,
+		metadataDbPath: DB_PATH,
 		stack: {
 			trunk: TRUNK,
 			current: "feature-a",
@@ -463,10 +540,10 @@ function singleBranchPreflightWithRefs(options: {
 	localSha: string;
 	prSha: string;
 	worktrees?: string | undefined;
-	stackOutput?: string | undefined;
+	dbRows?: string | undefined;
 }): ScriptedExec[] {
 	return [
-		...repoIntro({ current: "feature-a", stackOutput: options.stackOutput ?? STACK_SINGLE_BRANCH }),
+		...repoIntro({ current: "feature-a", dbRows: options.dbRows ?? DB_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a"]),
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${options.localSha}\n` }),
@@ -503,9 +580,12 @@ function mergeFeatureAThroughDelete(options: { refreshTarget?: string | null; ti
 	];
 	const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 	if (refreshTarget) {
-		steps.push(step("gt", ["get", refreshTarget, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]));
+		steps.push(
+			guardShaStep(refreshTarget, SHA_B),
+			step("gt", ["get", refreshTarget, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+		);
 	}
-	steps.push(step("gt", ["delete", "feature-a", "-f", "-q"]));
+	steps.push(childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []), step("gt", ["delete", "feature-a", "-f", "-q"]));
 	return steps;
 }
 
@@ -515,12 +595,21 @@ function mergeSingleFeatureA(): ScriptedExec[] {
 
 function badInitialPrPreflight(pr: PullRequestSnapshot): ScriptedExec[] {
 	return [
-		...repoIntro({ current: "feature-a", stackOutput: STACK_SINGLE_BRANCH }),
+		...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a"]),
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_A}\n` }),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], { stdout: prStdout(pr) }),
 	];
+}
+
+function topologyOf(entries: Record<string, { parent?: string; children?: string[]; trunk?: boolean }>): GraphiteTopology {
+	return new Map(
+		Object.entries(entries).map(([branch, entry]) => [
+			branch,
+			{ parent: entry.parent, children: entry.children ?? [], isTrunkMarked: entry.trunk ?? false },
+		]),
+	);
 }
 
 async function captureConsole<T>(run: () => Promise<T>): Promise<T> {
@@ -543,20 +632,79 @@ describe("land-stack pure helpers", () => {
 		expect(expectFailure(parseArgs("--wat")).message).toContain("Unknown /code:land argument: --wat");
 	});
 
-	test("parses the current Graphite column and warns about off-column branches", () => {
-		const parsed = parseGtStackOutput(["◯ main", "  ◯ sibling", "◯ feature-a (ready)", "◉ feature-b", "◯ feature-c"].join("\n"));
-
-		expect(parsed).toEqual({
-			trunk: "main",
-			current: "feature-b",
-			ancestors: ["main", "feature-a"],
-			descendants: ["feature-c"],
-			warnings: ["1 branch(es) in gt log output sit outside the current branch's column and were not included in the stack walk"],
+	test("derives the landing path from Graphite metadata", () => {
+		const topology = topologyOf({
+			main: { children: ["feature-a"], trunk: true },
+			"feature-a": { parent: "main", children: ["feature-b"] },
+			"feature-b": { parent: "feature-a", children: [] },
 		});
+
+		expect(expectSuccess(derivePathToTrunk(topology, "feature-b", "main", DB_PATH))).toEqual(["feature-a", "feature-b"]);
+		expect(expectSuccess(derivePathToTrunk(topology, "main", "main", DB_PATH))).toEqual([]);
 	});
 
-	test("returns undefined when Graphite output has no current marker", () => {
-		expect(parseGtStackOutput("◯ main\n◯ feature-a\n")).toBeUndefined();
+	test("fails closed when the current branch is untracked or the parent chain is broken", () => {
+		const topology = topologyOf({
+			main: { trunk: true },
+			orphan: { children: [] },
+		});
+
+		expect(expectFailure(derivePathToTrunk(topology, "ghost", "main", DB_PATH)).message).toContain(
+			`Current branch ghost is not tracked in Graphite metadata (${DB_PATH})`,
+		);
+		expect(expectFailure(derivePathToTrunk(topology, "orphan", "main", DB_PATH)).message).toContain(
+			"ends at orphan without reaching trunk main",
+		);
+
+		const cyclic = topologyOf({
+			"feature-a": { parent: "feature-b", children: [] },
+			"feature-b": { parent: "feature-a", children: [] },
+		});
+		expect(expectFailure(derivePathToTrunk(cyclic, "feature-a", "main", DB_PATH)).message).toContain("cycle");
+	});
+
+	test("derives the full descendant subtree in pre-order, not just the first-child chain", () => {
+		const topology = topologyOf({
+			"feature-b": { children: ["feature-c"] },
+			"feature-c": { parent: "feature-b", children: ["feature-d", "feature-e"] },
+			"feature-d": { parent: "feature-c", children: [] },
+			"feature-e": { parent: "feature-c", children: [] },
+		});
+
+		expect(expectSuccess(deriveDescendantSubtree(topology, "feature-b"))).toEqual(["feature-c", "feature-d", "feature-e"]);
+		expect(expectSuccess(deriveDescendantSubtree(topology, "feature-d"))).toEqual([]);
+	});
+
+	test("detects forks on the landing path and at the current branch but exempts trunk", () => {
+		const topology = topologyOf({
+			main: { children: ["feature-a", "other"], trunk: true },
+			"feature-a": { parent: "main", children: ["feature-b", "side"] },
+			"feature-b": { parent: "feature-a", children: [] },
+			side: { parent: "feature-a", children: ["side-2"] },
+			"side-2": { parent: "side", children: [] },
+		});
+
+		// trunk is excluded from the landing path, so its many children do not violate
+		expect(detectForkViolations(topology, ["feature-a", "feature-b"])).toEqual([
+			{ forkPoint: "feature-a", expectedChild: "feature-b", siblings: [{ branch: "side", subtree: ["side", "side-2"] }] },
+		]);
+
+		const atCurrent = detectForkViolations(
+			topologyOf({ "feature-b": { children: ["feature-c", "feature-d"] } }),
+			["feature-b"],
+		);
+		expect(atCurrent).toEqual([
+			{
+				forkPoint: "feature-b",
+				expectedChild: undefined,
+				siblings: [
+					{ branch: "feature-c", subtree: ["feature-c"] },
+					{ branch: "feature-d", subtree: ["feature-d"] },
+				],
+			},
+		]);
+
+		expect(detectForkViolations(topology, [])).toEqual([]);
 	});
 
 	test("parses git worktree porcelain output", () => {
@@ -677,6 +825,7 @@ describe("land-stack pure helpers", () => {
 	test("formats plans and failures", () => {
 		const plan: LandingPlan = {
 			repoRoot: ROOT,
+			metadataDbPath: DB_PATH,
 			stack: {
 				trunk: TRUNK,
 				current: CURRENT,
@@ -918,7 +1067,7 @@ describe("loadPr boundary parsing", () => {
 
 describe("land-stack command scenarios", () => {
 	test("--dry-run builds and presents the plan without mutating", async () => {
-		const { pi, notifications, confirmations } = await runLandStack("--dry-run", featureStackPreflight({ stackOutput: STACK_TO_CURRENT }));
+		const { pi, notifications, confirmations } = await runLandStack("--dry-run", featureStackPreflight({ dbRows: DB_TO_CURRENT }));
 
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
@@ -953,7 +1102,7 @@ describe("land-stack command scenarios", () => {
 
 	test("non-interactive mode without --yes refuses before mutation", async () => {
 		const { pi } = await captureConsole(() =>
-			runLandStack("", featureStackPreflight({ stackOutput: STACK_TO_CURRENT }), { hasUI: false }),
+			runLandStack("", featureStackPreflight({ dbRows: DB_TO_CURRENT }), { hasUI: false }),
 		);
 
 		pi.assertDone();
@@ -962,7 +1111,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("dirty repo refuses before mutation", async () => {
-		const script = [...repoIntro({ stackOutput: STACK_TO_CURRENT }), step("git", ["status", "--porcelain=v1"], { stdout: " M file.ts\n" })];
+		const script = [...repoIntro({ dbRows: DB_TO_CURRENT }), step("git", ["status", "--porcelain=v1"], { stdout: " M file.ts\n" })];
 		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
@@ -972,7 +1121,7 @@ describe("land-stack command scenarios", () => {
 
 	test("in-progress merge refuses before mutation", async () => {
 		const script = [
-			...repoIntro({ stackOutput: STACK_TO_CURRENT }),
+			...repoIntro({ dbRows: DB_TO_CURRENT }),
 			step("git", ["status", "--porcelain=v1"]),
 			step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { stdout: SHA_A, code: 0 }),
 		];
@@ -985,7 +1134,7 @@ describe("land-stack command scenarios", () => {
 
 	test("missing local branch refuses before mutation", async () => {
 		const script = [
-			...repoIntro({ stackOutput: STACK_TO_CURRENT }),
+			...repoIntro({ dbRows: DB_TO_CURRENT }),
 			...cleanRepoChecks(),
 			step("git", ["show-ref", "--verify", "refs/heads/feature-a"], { code: 1, stderr: "missing" }),
 		];
@@ -998,7 +1147,7 @@ describe("land-stack command scenarios", () => {
 
 	test("manual worktree conflict refuses before mutation", async () => {
 		const script = featureStackPreflight({
-			stackOutput: STACK_TO_CURRENT,
+			dbRows: DB_TO_CURRENT,
 			worktrees: worktreeOutput([
 				{ path: ROOT, branch: CURRENT },
 				{ path: "/tmp/manual", branch: "feature-a" },
@@ -1013,11 +1162,21 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("happy path merges bottom-to-current and restacks but does not merge descendants", async () => {
-		const script = [...featureStackPreflight(), ...mergeFeatureA(), ...mergeFeatureBWithDescendant()];
+		const script = [
+			...featureStackPreflight(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA(),
+			...mergeFeatureBWithDescendant(),
+		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "git" && call.args[0] === "update-ref")
+				.map((call) => call.args[1]),
+		).toEqual(["refs/ccc/land-backup/feature-a", "refs/ccc/land-backup/feature-b", `refs/ccc/land-backup/${DESCENDANT}`]);
 		expect(
 			pi.execCalls
 				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
@@ -1040,7 +1199,8 @@ describe("land-stack command scenarios", () => {
 					{ path: descendantSlotPath, branch: DESCENDANT },
 				]),
 			}),
-			...mergeFeatureA(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA({ postRestackRefresh: null }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
@@ -1075,7 +1235,8 @@ describe("land-stack command scenarios", () => {
 					{ path: "/tmp/manual-descendant", branch: DESCENDANT },
 				]),
 			}),
-			...mergeFeatureA(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA({ postRestackRefresh: null }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
@@ -1116,7 +1277,8 @@ describe("land-stack command scenarios", () => {
 					{ path: descendantSlotPath, branch: DESCENDANT },
 				]),
 			}),
-			...mergeFeatureA(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA({ postRestackRefresh: null }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, { confirms: [true] });
@@ -1143,7 +1305,8 @@ describe("land-stack command scenarios", () => {
 					{ path: descendantSlotPath, branch: DESCENDANT },
 				]),
 			}),
-			...mergeFeatureA(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA({ postRestackRefresh: null }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi } = await captureConsole(() => runLandStack("--yes", script, { hasUI: false }));
@@ -1161,8 +1324,10 @@ describe("land-stack command scenarios", () => {
 		const getArgs = ["get", DESCENDANT, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
 		const script = [
 			...featureStackPreflight(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
 			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
+			guardShaStep(DESCENDANT, SHA_C),
 			step("gt", getArgs, { code: 1, stderr: "fatal: 'main' is already checked out at '/repo-main'\n" }),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1189,8 +1354,10 @@ describe("land-stack command scenarios", () => {
 	test("required next-landing gt get checkout conflict stops before merging the next target PR", async () => {
 		const getArgs = ["get", "feature-b", "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
 		const script = [
-			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureA({ includeCleanup: false }),
+			guardShaStep("feature-b", SHA_B),
 			step("gt", getArgs, { code: 1, stderr: "fatal: 'main' is already checked out at '/repo-main'\n" }),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1212,7 +1379,12 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("optional descendant maintenance failure completes with a warning", async () => {
-		const script = [...featureStackPreflight(), ...mergeFeatureA(), ...mergeFeatureBWithDescendantRestackFailure()];
+		const script = [
+			...featureStackPreflight(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA(),
+			...mergeFeatureBWithDescendantRestackFailure(),
+		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
@@ -1230,6 +1402,7 @@ describe("land-stack command scenarios", () => {
 	test("streams command execution as normal scrollback messages", async () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeSingleFeatureA(),
 		];
 		const { pi, messages, notifications, widgets } = await runLandStack("--yes", script);
@@ -1253,6 +1426,7 @@ describe("land-stack command scenarios", () => {
 		const body = "Line 1\n\nLine 2";
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeFeatureAThroughDelete({ refreshTarget: null, title: "Custom squash subject", body }),
 		];
 		const { pi, messages } = await runLandStack("--yes", script);
@@ -1275,6 +1449,7 @@ describe("land-stack command scenarios", () => {
 	test("passes an empty squash body when the merge-loop PR body is null", async () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeFeatureAThroughDelete({ refreshTarget: null, body: null }),
 		];
 		const { pi } = await runLandStack("--yes", script);
@@ -1288,6 +1463,7 @@ describe("land-stack command scenarios", () => {
 	test("renders final landed PR numbers as terminal hyperlinks", async () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeSingleFeatureA(),
 		];
 		const { pi, messages, notifications } = await runLandStack("--yes", script);
@@ -1333,6 +1509,7 @@ describe("land-stack command scenarios", () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeSteps.slice(0, -1),
 			step("gt", ["delete", "feature-a", "-f", "-q"], { code: 1, stderr: "ERROR: Could not find branch feature-a.\n" }),
 		];
@@ -1348,6 +1525,7 @@ describe("land-stack command scenarios", () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeSteps.slice(0, -1),
 			step("gt", ["delete", "feature-a", "-f", "-q"], {
 				code: 1,
@@ -1374,6 +1552,7 @@ describe("land-stack command scenarios", () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
 			...mergeSteps.slice(0, -1),
 			step("gt", ["delete", "feature-a", "-f", "-q"], {
 				code: 1,
@@ -1398,7 +1577,8 @@ describe("land-stack command scenarios", () => {
 
 	test("targets the next open branch for Graphite refresh after merging a downstack PR", async () => {
 		const script = [
-			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_A}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
@@ -1416,7 +1596,9 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			guardShaStep("feature-b", SHA_B),
 			step("gt", ["get", "feature-b", "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
 			step("gt", ["submit", "--branch", "feature-b", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]),
@@ -1437,6 +1619,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];
 		const { pi, notifications } = await runLandStack("--yes", script);
@@ -1455,6 +1638,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...backupRefSteps(["feature-a"], { "feature-a": SHA_B }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
@@ -1472,6 +1656,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, { confirms: [true] });
@@ -1489,7 +1674,6 @@ describe("land-stack command scenarios", () => {
 
 	test("reloads stack facts for the submit/update recheck after using an initial shape", async () => {
 		const submitArgs = ["submit", "--branch", "feature-a", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
-		const stackArgs = ["log", "short", "--stack", "-r", "--no-interactive"];
 		const script = [
 			...cleanRepoChecks(),
 			...localBranchChecks(["feature-a"]),
@@ -1501,6 +1685,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...backupRefSteps(["feature-a"], { "feature-a": SHA_B }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
@@ -1518,6 +1703,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const pi = new FakePi(script);
@@ -1527,12 +1713,12 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		const submitIndex = pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs));
-		const recheckStackIndex = pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, stackArgs));
+		const recheckStackIndex = pi.execCalls.findIndex((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS));
 		const mergeIndex = pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge");
 		expect(submitIndex).toBeGreaterThanOrEqual(0);
 		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
 		expect(recheckStackIndex).toBeLessThan(mergeIndex);
-		expect(pi.execCalls.filter((call) => call.command === "gt" && sameArgs(call.args, stackArgs))).toHaveLength(1);
+		expect(pi.execCalls.filter((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS))).toHaveLength(1);
 		expect(context.notifications.at(-1)?.level).toBe("success");
 	});
 
@@ -1545,6 +1731,7 @@ describe("land-stack command scenarios", () => {
 			step("gt", restackArgs),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_C, prSha: SHA_C }),
+			...backupRefSteps(["feature-a"], { "feature-a": SHA_C }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_C}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_C })),
@@ -1562,6 +1749,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script, { confirms: [true] });
@@ -1586,7 +1774,11 @@ describe("land-stack command scenarios", () => {
 
 	test("merge failure stops immediately with no local cleanup", async () => {
 		const body = "Line 1\n\nLine 2";
-		const script = [...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }), ...mergeFeatureA({ mergeCode: 1, body })];
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureA({ mergeCode: 1, body }),
+		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
@@ -1605,7 +1797,8 @@ describe("land-stack command scenarios", () => {
 
 	test("verification failure after gh pr merge skips local Graphite cleanup", async () => {
 		const script = [
-			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureA({ verifyState: "OPEN", includeCleanup: false }),
 		];
 		const { pi, notifications } = await runLandStack("--yes", script);
@@ -1628,6 +1821,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
 			}),
+			...backupRefSteps(["feature-a"]),
 			...mergeSingleFeatureA(),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, { confirms: [true] });
@@ -1660,7 +1854,8 @@ describe("land-stack command scenarios", () => {
 
 	test("restack failure after a successful merge reports already-landed PRs", async () => {
 		const script = [
-			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"], {
 				code: 1,
@@ -1680,7 +1875,8 @@ describe("land-stack command scenarios", () => {
 
 	test("submit/update failure after a successful merge reports already-landed PRs", async () => {
 		const script = [
-			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
 			step("gt", ["submit", "--branch", "feature-b", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"], {
@@ -1708,5 +1904,165 @@ describe("land-stack command scenarios", () => {
 		expect(notifications[0]?.message).toContain("is a draft");
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "worktree")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(false);
+	});
+});
+
+describe("fork-safe topology and destructive-phase guards", () => {
+	const DB_FORKED_ANCESTOR = metadataDbJson([
+		{ branch: TRUNK, children: ["feature-a"], trunk: true },
+		{ branch: "feature-a", parent: TRUNK, children: ["feature-b", "side"] },
+		{ branch: "feature-b", parent: "feature-a", children: [] },
+		{ branch: "side", parent: "feature-a", children: ["side-2"] },
+		{ branch: "side-2", parent: "side", children: [] },
+	]);
+	const DB_FORKED_CURRENT = metadataDbJson([
+		{ branch: TRUNK, children: ["feature-a"], trunk: true },
+		{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+		{ branch: "feature-b", parent: "feature-a", children: [DESCENDANT, "feature-d"] },
+		{ branch: DESCENDANT, parent: "feature-b", children: [] },
+		{ branch: "feature-d", parent: "feature-b", children: [] },
+	]);
+
+	test("refuses to land through a fork at an ancestor landing branch", async () => {
+		const { pi, notifications, messages } = await runLandStack("--yes", repoIntro({ dbRows: DB_FORKED_ANCESTOR }));
+
+		pi.assertDone();
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("Refusing to land: the stack forks at feature-a.");
+		expect(notifications[0]?.message).toContain("Landing path expects feature-a -> feature-b");
+		expect(notifications[0]?.message).toContain("side (subtree: side -> side-2)");
+		expect(commandMessagesText(messages)).toContain("Land or move the sibling stack first (e.g. gt move --onto main), then rerun /code:land.");
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] !== "trunk")).toBe(false);
+	});
+
+	test("--dry-run on a forked stack also refuses", async () => {
+		const { pi, notifications } = await runLandStack("--dry-run", repoIntro({ dbRows: DB_FORKED_ANCESTOR }));
+
+		pi.assertDone();
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("Refusing to land: the stack forks at feature-a.");
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+	});
+
+	test("refuses to land when the current branch has multiple children", async () => {
+		const { pi, notifications } = await runLandStack("--yes", repoIntro({ dbRows: DB_FORKED_CURRENT }));
+
+		pi.assertDone();
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain(
+			"current branch feature-b has 2 children (feature-c, feature-d); /code:land supports at most one descendant chain target.",
+		);
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+	});
+
+	test("refuses when the current branch is not tracked in Graphite metadata", async () => {
+		const untrackedDb = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: [] },
+		]);
+		const { pi, notifications } = await runLandStack("--yes", repoIntro({ dbRows: untrackedDb }));
+
+		pi.assertDone();
+		expect(notifications[0]?.message).toContain(
+			`Current branch ${CURRENT} is not tracked in Graphite metadata (${DB_PATH}); run gt track or gt get before landing.`,
+		);
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+	});
+
+	test("fails closed when the Graphite metadata DB is missing or unreadable", async () => {
+		const script = [
+			...repoIntro().slice(0, 4),
+			step("sqlite3", TOPOLOGY_ARGS, { code: 1, stderr: "Error: unable to open database file\n" }),
+		];
+		const { pi, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications[0]?.message).toContain(`Graphite metadata DB at ${DB_PATH} is missing or unreadable; refusing to land.`);
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+	});
+
+	test("fails closed when sqlite3 cannot run", async () => {
+		const script = [
+			...repoIntro().slice(0, 4),
+			step("sqlite3", TOPOLOGY_ARGS, { code: 1, stderr: "spawn sqlite3 ENOENT" }),
+		];
+		const { pi, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications[0]?.message).toContain("sqlite3 could not read the Graphite metadata DB");
+		expect(notifications[0]?.message).toContain("Ensure sqlite3 is installed and on PATH");
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+	});
+
+	test("stops hard when a required gt get target moved since landing started", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureA({ includeCleanup: false }),
+			guardShaStep("feature-b", SHA_C),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain(
+			`local branch feature-b moved from ${shortSha(SHA_B)} to ${shortSha(SHA_C)} since landing started; refusing gt get --force to avoid clobbering local commits`,
+		);
+		expect(streamText).toContain("refs/ccc/land-backup");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
+				.map((call) => call.args[2]),
+		).toEqual(["101"]);
+	});
+
+	test("stops hard when a mid-stack branch grows unexpected children before delete", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureA({ includeCleanup: false }),
+			guardShaStep("feature-b", SHA_B),
+			step("gt", ["get", "feature-b", "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+			childrenRecheckStep("feature-a", ["feature-b", "rogue-branch"]),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("feature-a now has unexpected Graphite children (rogue-branch); refusing gt delete");
+		expect(streamText).toContain("refs/ccc/land-backup");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack")).toBe(false);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
+				.map((call) => call.args[2]),
+		).toEqual(["101"]);
+	});
+
+	test("skips the final delete with a warning when unexpected children appear", async () => {
+		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
+			...mergeSteps.slice(0, -2),
+			childrenRecheckStep("feature-a", ["rogue-branch"]),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("feature-a now has unexpected Graphite children (rogue-branch)");
+		expect(streamText).toContain("local branch feature-a cleanup was skipped");
+		expect(streamText).toContain("refs/ccc/land-backup");
+		expect(streamText).toContain("Landed 1 PR: #101 feature-a.");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack")).toBe(false);
 	});
 });
