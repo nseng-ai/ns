@@ -1,17 +1,15 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { formatShellArg } from "@asdl/pi-extension-runtime/command-runtime";
-import {
-	createCmuxSurface,
-	identifyCmuxCaller,
-	renameCmuxTab,
-	sendCmuxText,
-	type CmuxSendOptions,
-	type CmuxTabOptions,
-} from "./focused-terminal-tab.ts";
+import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
 import { formatErrorMessage, isRecord, stringField } from "./primitives.ts";
+import {
+	resolvePromptFileOptions,
+	writeTimestampedPromptFile,
+	type PromptFileOptions,
+	type ResolvedPromptFileOptions,
+} from "./prompt-file.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:claude-plan-tab";
@@ -19,123 +17,53 @@ const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts"
 const TITLE_PREFIX = "claude-plan: ";
 const MAX_TITLE_SEED_CHARS = 40;
 
-export interface CccClaudePlanTabOptions {
-	promptDir?: string;
-	now?: () => number;
-}
-
-interface ResolvedCccClaudePlanTabOptions {
-	promptDir: string;
-	now: () => number;
-}
-
-export type ClaudePlanTabLaunchResult =
-	| { type: "launched"; tabTitle: string; surfaceId: string; workspaceId: string; command: string; promptFile: string }
-	| { type: "failed"; message: string; surfaceId?: string; workspaceId?: string };
-
-export function registerCccClaudePlanTabCommand(pi: ExtensionAPI, options: CccClaudePlanTabOptions = {}): void {
-	const resolvedOptions = resolveCccClaudePlanTabOptions(options);
+export function registerCccClaudePlanTabCommand(pi: ExtensionAPI, options: PromptFileOptions = {}): void {
+	const promptOptions = resolvePromptFileOptions(options, PROMPT_DIR);
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
 		argumentHint: "[seed prompt]",
 		handler: async (args, ctx) => {
-			await handleCccClaudePlanTab({ pi, ctx, args, options: resolvedOptions });
+			await handleCccClaudePlanTab({ pi, ctx, args, promptOptions });
 		},
 	});
 }
 
-export async function handleCccClaudePlanTab(options: {
+async function handleCccClaudePlanTab(options: {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
 	args: string;
-	options: ResolvedCccClaudePlanTabOptions;
+	promptOptions: ResolvedPromptFileOptions;
 }): Promise<void> {
-	const result = await launchCccClaudePlanTab(options);
-	if (result.type === "failed") {
-		options.ctx.ui.notify(result.message, "error");
-		return;
-	}
-
-	options.ctx.ui.notify(formatClaudePlanTabLaunchSuccess(result), "info");
-}
-
-export async function launchCccClaudePlanTab(options: {
-	pi: ExtensionAPI;
-	ctx: CommandContext;
-	args: string;
-	options: ResolvedCccClaudePlanTabOptions;
-}): Promise<ClaudePlanTabLaunchResult> {
-	const { pi, ctx } = options;
+	const { pi, ctx, promptOptions } = options;
 	await ctx.waitForIdle();
 
 	const seed = resolveClaudePlanSeed(ctx, options.args);
 	if (seed === undefined) {
-		return { type: "failed", message: "No assistant message found in this session to use as a seed plan." };
+		ctx.ui.notify("No assistant message found in this session to use as a seed plan.", "error");
+		return;
 	}
 
 	let promptFile: string;
 	try {
-		promptFile = await writeClaudePlanPromptFile(options.options, seed);
+		promptFile = await writeTimestampedPromptFile({ ...promptOptions, stem: "claude-plan", content: seed });
 	} catch (error) {
-		return { type: "failed", message: `Failed to write Claude plan prompt file: ${formatErrorMessage(error)}` };
+		ctx.ui.notify(`Failed to write Claude plan prompt file: ${formatErrorMessage(error)}`, "error");
+		return;
 	}
 
-	const command = buildClaudePlanLaunchCommand(promptFile);
-	const identified = await identifyCmuxCaller(pi, ctx.cwd);
-	if (identified.type === "failed") {
-		return { type: "failed", message: identified.message };
-	}
-
-	const created = await createCmuxSurface({ host: pi, cwd: ctx.cwd, caller: identified.caller, signal: undefined });
-	if (created.type === "failed") {
-		return { type: "failed", message: created.message };
-	}
-
-	const tabTitle = buildClaudePlanTabTitle(seed);
-	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
-	const windowIdEntry = identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
-	const renameOptions: CmuxTabOptions = {
-		workspaceId,
-		surfaceId: created.surface.surfaceId,
-		tabTitle,
+	const launched = await launchFocusedCmuxTab({
+		host: pi,
+		cwd: ctx.cwd,
+		tabTitle: buildClaudePlanTabTitle(seed),
+		command: buildClaudePlanLaunchCommand(promptFile),
 		signal: undefined,
-		...windowIdEntry,
-	};
-	const renamed = await renameCmuxTab(pi, ctx.cwd, renameOptions);
-	if (renamed.type === "failed") {
-		return {
-			type: "failed",
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			message: `${renamed.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: run ${command}`,
-		};
+	});
+	if (launched.type === "failed") {
+		ctx.ui.notify(launched.message, "error");
+		return;
 	}
 
-	const sendOptions: CmuxSendOptions = {
-		workspaceId,
-		surfaceId: created.surface.surfaceId,
-		text: `${command}\n`,
-		signal: undefined,
-		...windowIdEntry,
-	};
-	const sent = await sendCmuxText(pi, ctx.cwd, sendOptions);
-	if (sent.type === "failed") {
-		return {
-			type: "failed",
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			message: `${sent.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: run ${command}`,
-		};
-	}
-
-	return {
-		type: "launched",
-		tabTitle,
-		surfaceId: created.surface.surfaceId,
-		workspaceId,
-		command,
-		promptFile,
-	};
+	ctx.ui.notify(formatClaudePlanTabLaunchSuccess(launched, promptFile), "info");
 }
 
 export function extractLastAssistantText(entries: unknown[]): string | undefined {
@@ -170,31 +98,31 @@ export function buildClaudePlanTabTitle(seed: string): string {
 	return `${TITLE_PREFIX}${titleSeed}`;
 }
 
-export function formatClaudePlanTabLaunchSuccess(result: Extract<ClaudePlanTabLaunchResult, { type: "launched" }>): string {
+function formatClaudePlanTabLaunchSuccess(
+	result: Extract<FocusedCmuxTabLaunchResult, { type: "launched" }>,
+	promptFile: string,
+): string {
 	return [
 		"Opened Claude plan tab.",
 		`Tab title: ${result.tabTitle}`,
 		`Surface: ${result.surfaceId}`,
 		`Workspace: ${result.workspaceId}`,
-		`Prompt file: ${result.promptFile}`,
+		`Prompt file: ${promptFile}`,
 		`Command: ${result.command}`,
 	].join("\n");
 }
 
-async function writeClaudePlanPromptFile(
-	options: ResolvedCccClaudePlanTabOptions,
-	seed: string,
-): Promise<string> {
-	await mkdir(options.promptDir, { recursive: true });
-	const path = join(options.promptDir, `${options.now()}-claude-plan.md`);
-	await writeFile(path, seed, "utf8");
-	return path;
+function textFromAssistantMessage(message: Record<string, unknown>): string | undefined {
+	const text = textFromAssistantContent(message.content);
+	if (text === undefined) return undefined;
+	if (text.trim().length === 0) return undefined;
+	return text;
 }
 
-function textFromAssistantMessage(message: Record<string, unknown>): string | undefined {
-	const content = message.content;
-	const text = Array.isArray(content) ? content.map(textFromContentBlock).join("") : typeof content === "string" ? content : undefined;
-	return text === undefined || text.trim().length === 0 ? undefined : text;
+function textFromAssistantContent(content: unknown): string | undefined {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return undefined;
+	return content.map(textFromContentBlock).join("");
 }
 
 function textFromContentBlock(block: unknown): string {
@@ -206,11 +134,4 @@ function truncateTitleSeed(seed: string): string {
 	const chars = Array.from(seed);
 	if (chars.length <= MAX_TITLE_SEED_CHARS) return seed;
 	return `${chars.slice(0, MAX_TITLE_SEED_CHARS - 1).join("")}…`;
-}
-
-function resolveCccClaudePlanTabOptions(options: CccClaudePlanTabOptions): ResolvedCccClaudePlanTabOptions {
-	return {
-		promptDir: options.promptDir ?? PROMPT_DIR,
-		now: options.now ?? Date.now,
-	};
 }

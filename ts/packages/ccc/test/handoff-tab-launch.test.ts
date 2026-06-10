@@ -206,6 +206,7 @@ describe("handoff-tab launch orchestration", () => {
 	});
 
 	test("reports manual recovery when rename fails after surface creation", async () => {
+		const command = "pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi({
 			script: [
 				cmuxIdentifyStep(),
@@ -238,7 +239,7 @@ describe("handoff-tab launch orchestration", () => {
 		}
 		expect(result.message).toContain("rename failed");
 		expect(result.message).toContain("Created cmux surface: surface-1");
-		expect(result.message).toContain(`Manual recovery: ${PICKUP_COMMAND}`);
+		expect(result.message).toContain(`Manual recovery: run ${command}`);
 	});
 
 	test("reports manual recovery when sending the launch command fails", async () => {

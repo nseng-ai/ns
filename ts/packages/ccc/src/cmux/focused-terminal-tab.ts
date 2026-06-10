@@ -173,6 +173,57 @@ export async function sendCmuxText(
 	return runCmuxMutation({ host, cwd, commandArgs, signal: options.signal, successType: "sent" });
 }
 
+export type CmuxTabLaunchStage = "identify" | "create-surface" | "rename" | "send";
+
+export interface LaunchFocusedCmuxTabOptions {
+	host: CmuxExecHost;
+	cwd: string;
+	tabTitle: string;
+	command: string;
+	signal: AbortSignal | undefined;
+	onStage?: (stage: CmuxTabLaunchStage) => void;
+}
+
+export type FocusedCmuxTabLaunchResult =
+	| { type: "launched"; tabTitle: string; surfaceId: string; workspaceId: string; command: string }
+	| { type: "failed"; message: string; surfaceId?: string; workspaceId?: string };
+
+export async function launchFocusedCmuxTab(options: LaunchFocusedCmuxTabOptions): Promise<FocusedCmuxTabLaunchResult> {
+	const { host, cwd, tabTitle, command, signal } = options;
+
+	options.onStage?.("identify");
+	const identified = await identifyCmuxCaller(host, cwd);
+	if (identified.type === "failed") {
+		return { type: "failed", message: identified.message };
+	}
+
+	options.onStage?.("create-surface");
+	const created = await createCmuxSurface({ host, cwd, caller: identified.caller, signal });
+	if (created.type === "failed") {
+		return { type: "failed", message: created.message };
+	}
+
+	const surfaceId = created.surface.surfaceId;
+	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
+	const windowIdEntry = identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
+	const recoveryMessage = (failureMessage: string): string =>
+		`${failureMessage}\n\nCreated cmux surface: ${surfaceId}\nManual recovery: run ${command}`;
+
+	options.onStage?.("rename");
+	const renamed = await renameCmuxTab(host, cwd, { workspaceId, surfaceId, tabTitle, signal, ...windowIdEntry });
+	if (renamed.type === "failed") {
+		return { type: "failed", surfaceId, workspaceId, message: recoveryMessage(renamed.message) };
+	}
+
+	options.onStage?.("send");
+	const sent = await sendCmuxText(host, cwd, { workspaceId, surfaceId, text: `${command}\n`, signal, ...windowIdEntry });
+	if (sent.type === "failed") {
+		return { type: "failed", surfaceId, workspaceId, message: recoveryMessage(sent.message) };
+	}
+
+	return { type: "launched", tabTitle, surfaceId, workspaceId, command };
+}
+
 interface RunCmuxMutationOptions<TType extends "renamed" | "sent"> {
 	host: CmuxExecHost;
 	cwd: string;

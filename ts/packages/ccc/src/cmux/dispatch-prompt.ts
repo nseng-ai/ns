@@ -1,4 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +9,12 @@ import {
 } from "./branch-slug.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import { formatErrorMessage, type TextResult } from "./primitives.ts";
+import {
+	resolvePromptFileOptions,
+	writeTimestampedPromptFile,
+	type PromptFileOptions,
+	type ResolvedPromptFileOptions,
+} from "./prompt-file.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
@@ -22,28 +27,18 @@ interface BranchCreateResult {
 	startPoint: string;
 }
 
-export interface CccSlotDispatchPromptOptions {
-	promptDir?: string;
-	now?: () => number;
-}
-
-export interface ResolvedCccSlotDispatchPromptOptions {
-	promptDir: string;
-	now: () => number;
-}
-
 export interface HandleCccSlotDispatchPromptOptions {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
-	dispatchOptions: ResolvedCccSlotDispatchPromptOptions;
+	dispatchOptions: ResolvedPromptFileOptions;
 	args: string;
 	ctx: CommandContext;
 }
 
 export function registerCccSlotDispatchPromptCommand(
 	pi: ExtensionAPI,
-	options: CccSlotDispatchPromptOptions = {},
+	options: PromptFileOptions = {},
 ): void {
-	const resolvedOptions = resolveCccSlotDispatchPromptOptions(options);
+	const resolvedOptions = resolvePromptFileOptions(options, PROMPT_DIR);
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
 		argumentHint: "<prompt>",
@@ -169,16 +164,13 @@ function appendBranchSuffix(branchName: string, suffix: number): string {
 	return `${stem}${suffixText}`;
 }
 
-export async function writePromptFile(
-	options: ResolvedCccSlotDispatchPromptOptions,
+async function writePromptFile(
+	options: ResolvedPromptFileOptions,
 	branchName: string,
 	prompt: string,
 ): Promise<string> {
-	await mkdir(options.promptDir, { recursive: true });
-	const safeName = sanitizeBranchName(branchName)?.replace(/\//g, "-") ?? "prompt";
-	const path = join(options.promptDir, `${options.now()}-${safeName}.md`);
-	await writeFile(path, buildLaunchPrompt(prompt), "utf8");
-	return path;
+	const stem = sanitizeBranchName(branchName)?.replace(/\//g, "-") ?? "prompt";
+	return writeTimestampedPromptFile({ ...options, stem, content: buildLaunchPrompt(prompt) });
 }
 
 export function buildLaunchPrompt(prompt: string): string {
@@ -191,16 +183,6 @@ export function buildLaunchPrompt(prompt: string): string {
 		"2. Then run `!gt submit -nps --ai`.",
 	].join("\n");
 }
-
-function resolveCccSlotDispatchPromptOptions(
-	options: CccSlotDispatchPromptOptions,
-): ResolvedCccSlotDispatchPromptOptions {
-	return {
-		promptDir: options.promptDir ?? PROMPT_DIR,
-		now: options.now ?? Date.now,
-	};
-}
-
 
 async function runText(
 	pi: Pick<ExtensionAPI, "exec">,
