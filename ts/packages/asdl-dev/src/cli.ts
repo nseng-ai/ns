@@ -8,9 +8,18 @@ import { fileURLToPath } from "node:url";
 
 import { runCheckpointCommand, runCheckpointIfPending } from "./checkpoint.ts";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
-import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, DEFAULT_TEXT_BACKEND, TEXT_BACKEND_ENV } from "./text-generation.ts";
+import {
+	CHECKPOINT_MODEL_ENV,
+	DEFAULT_CHECKPOINT_MODEL_REF,
+	DEFAULT_PR_DESCRIPTION_MODEL_REF,
+	DEFAULT_TEXT_BACKEND,
+	PR_DESCRIPTION_MODEL_ENV,
+	TEXT_BACKEND_ENV,
+} from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
+import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "./pr-description.ts";
+import { runPrRegenCommand } from "./pr-regen.ts";
 import { runSubmitCommand, type SubmitOutputListener, type SubmitRestackConfirmationPrompt } from "./submit.ts";
 
 export type ConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
@@ -66,10 +75,27 @@ interface ParsedSubmitArgs {
 	restack: boolean;
 }
 
+interface ParsedPrRegenArgs {
+	shouldForce: boolean;
+}
+
 type SubmitParseResult =
 	| {
 			kind: "ok";
 			options: ParsedSubmitArgs;
+	  }
+	| {
+			kind: "help";
+	  }
+	| {
+			kind: "error";
+			message: string;
+	  };
+
+type PrRegenParseResult =
+	| {
+			kind: "ok";
+			options: ParsedPrRegenArgs;
 	  }
 	| {
 			kind: "help";
@@ -111,9 +137,15 @@ const COMMANDS: CommandSpec[] = [
 	},
 	{
 		name: "submit",
-		description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
+		description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
 		help: submitHelp,
 		run: runSubmitCliCommand,
+	},
+	{
+		name: "pr-regen",
+		description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+		help: prRegenHelp,
+		run: runPrRegenCliCommand,
 	},
 ];
 
@@ -217,12 +249,41 @@ async function runSubmitCliCommand(args: readonly string[], deps: RequiredCliDep
 		cwd: deps.cwd,
 		gateway: deps.context.submit,
 		restack: parsed.options.restack,
+		prDescription: {
+			githubPr: deps.context.githubPr,
+			textGeneration: deps.context.textGeneration,
+			git: deps.context.git,
+			env: deps.env,
+		},
 		...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
 		...(confirm === undefined
 			? {}
 			: {
 					confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => confirm(prompt.title, prompt.message),
 				}),
+	});
+	writeCommandResultOutput(result, deps);
+	return result.exitCode;
+}
+
+async function runPrRegenCliCommand(args: readonly string[], deps: RequiredCliDeps): Promise<number> {
+	const parsed = parsePrRegenArgs(args);
+	if (parsed.kind === "help") {
+		deps.stdout(prRegenHelp());
+		return 0;
+	}
+	if (parsed.kind === "error") {
+		deps.stderr(`Error: ${parsed.message}\n\n${prRegenHelp()}`);
+		return 2;
+	}
+
+	const result = await runPrRegenCommand({
+		cwd: deps.cwd,
+		env: deps.env,
+		githubPr: deps.context.githubPr,
+		textGeneration: deps.context.textGeneration,
+		git: deps.context.git,
+		shouldForce: parsed.options.shouldForce,
 	});
 	writeCommandResultOutput(result, deps);
 	return result.exitCode;
@@ -359,6 +420,21 @@ function parseSubmitArgs(args: readonly string[]): SubmitParseResult {
 	return { kind: "ok", options };
 }
 
+function parsePrRegenArgs(args: readonly string[]): PrRegenParseResult {
+	const options: ParsedPrRegenArgs = { shouldForce: false };
+	for (const arg of args) {
+		if (arg === "--help" || arg === "-h") {
+			return { kind: "help" };
+		}
+		if (arg === "--force") {
+			options.shouldForce = true;
+			continue;
+		}
+		return { kind: "error", message: arg.startsWith("-") ? `Unknown option: ${arg}` : `Unexpected argument: ${arg}` };
+	}
+	return { kind: "ok", options };
+}
+
 function parseCheckpointArgs(args: readonly string[]): CheckpointParseResult {
 	for (const arg of args) {
 		if (arg === "--help" || arg === "-h") {
@@ -430,14 +506,34 @@ Options:
 function submitHelp(): string {
 	return `Usage: asdl-dev submit [options]
 
-Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current Graphite stack with \`gt submit -nps --ai\`, then verify that the current branch has a PR.
+Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current Graphite stack with \`gt submit -nps --no-ai\`, then generate PR titles/descriptions for PRs newly created by that submit.
 
 Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
+
+PR description generation uses ${PR_DESCRIPTION_MODEL_ENV} (defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}) and resolves the system prompt from ${PR_DESCRIPTION_PROMPT_ENV}, then ${REPO_PR_DESCRIPTION_PROMPT_PATH}, then the built-in prompt.
 
 If the dry-run says restack is required, interactive invocations ask before running \`gt restack --no-interactive\`; non-interactive invocations exit with guidance unless \`--restack\` is supplied.
 
 Options:
   --restack   If restack is required, run \`gt restack --no-interactive\` without prompting before submitting.
+  -h, --help  Show this help message.
+`;
+}
+
+function prRegenHelp(): string {
+	return `Usage: asdl-dev pr-regen [options]
+
+Regenerate the current branch PR's title and description with the asdl PR-description prompt.
+
+By default this refuses to overwrite a non-empty PR body unless it contains the asdl generated-body marker. Empty generated bodies and marker-bearing bodies are safe to overwrite; pass --force to overwrite a manually edited body.
+
+Environment:
+  ${TEXT_BACKEND_ENV}                 Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
+  ${PR_DESCRIPTION_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
+  ${PR_DESCRIPTION_PROMPT_ENV}  Prompt file path. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.
+
+Options:
+  --force     Overwrite the PR body even when the asdl generated-body marker is absent.
   -h, --help  Show this help message.
 `;
 }

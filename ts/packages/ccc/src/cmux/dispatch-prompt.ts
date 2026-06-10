@@ -180,7 +180,7 @@ export function buildLaunchPrompt(prompt: string): string {
 		"## Completion instructions",
 		"After you finish the implementation:",
 		"1. Create or update the branch commit using the repo's normal workflow.",
-		"2. Then run `!gt submit -nps --ai`.",
+		"2. Then run `!asdl-dev submit`.",
 	].join("\n");
 }
 
