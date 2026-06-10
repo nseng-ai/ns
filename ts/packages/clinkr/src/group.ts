@@ -76,6 +76,13 @@ interface BuildLeafCommandOptions<TContext> {
 	state: RunState;
 }
 
+interface BuildCommandOptions<TContext> {
+	context: TContext;
+	io: ClinkrIo;
+	state: RunState;
+	isRoot: boolean;
+}
+
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
@@ -129,7 +136,7 @@ export class ClinkrGroup<TContext> {
 		const state: RunState = { exitCode: 0 };
 		// A fresh commander tree per invocation: Command objects hold parse
 		// state, so rebuilding keeps run() re-entrant.
-		const program = this.buildCommand(options.context, io, state, true);
+		const program = this.buildCommand({ context: options.context, io, state, isRoot: true });
 		if (this.runtimeInfo !== undefined && argv[0] === "--runtime") {
 			io.stdout(this.runtimeInfo());
 			return 0;
@@ -150,7 +157,8 @@ export class ClinkrGroup<TContext> {
 		}
 	}
 
-	private buildCommand(context: TContext, io: ClinkrIo, state: RunState, isRoot: boolean): Command {
+	private buildCommand(options: BuildCommandOptions<TContext>): Command {
+		const { context, io, state, isRoot } = options;
 		const command = createContainedCommand(this.name, io);
 		if (this.description !== undefined) command.description(this.description);
 		if (isRoot && this.version !== undefined) {
@@ -163,7 +171,7 @@ export class ClinkrGroup<TContext> {
 			command.addCommand(buildLeafCommand({ registered, context, io, state }));
 		}
 		for (const child of this.subgroups) {
-			command.addCommand(child.buildCommand(context, io, state, false), { hidden: child.isHidden });
+			command.addCommand(child.buildCommand({ context, io, state, isRoot: false }), { hidden: child.isHidden });
 		}
 		return command;
 	}
