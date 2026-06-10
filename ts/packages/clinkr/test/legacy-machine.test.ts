@@ -31,6 +31,20 @@ describe("legacyMachine under --format json", () => {
 		const run = await runForTest(buildGroup("ok"), ["act", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toEqual({ success: true, value: 7 });
+		expect(run.stdout).toBe('{\n  "success": true,\n  "value": 7\n}\n');
+	});
+
+	test("compact serialization writes JSON.stringify bytes", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ value: "☃" }),
+			legacyMachine: (exit) => ({ body: { success: true, data: exit }, exitCode: 0, serialization: "compact" }),
+		});
+		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe(`${JSON.stringify({ success: true, data: { type: "ok", data: { value: "☃" } } })}\n`);
 	});
 
 	test("negative keeps the legacy shape and legacy exit code", async () => {

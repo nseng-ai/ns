@@ -501,7 +501,7 @@ describe("planned-branch exec", () => {
 
 describe("planned-branch CLI surface pinning", () => {
 	const topLevelHelp = [
-		"Usage: planned-branch [--version] <command>",
+		"Usage: planned-branch [--version] [--runtime] <command>",
 		"",
 		"Commands:",
 		"  exec    Run hidden deterministic planned-branch operations for agents.",
@@ -509,6 +509,7 @@ describe("planned-branch CLI surface pinning", () => {
 		"Options:",
 		"  -h, --help       Show this help.",
 		"  -V, --version    Show the package version.",
+		"  --runtime        Show CLI runtime diagnostics and exit.",
 		"",
 	].join("\n");
 

@@ -13,7 +13,7 @@ export {
 	type PlanCommandExecApi,
 	type TailTextOptions,
 } from "./command-runtime.ts";
-export { runCli, type CliDeps } from "./cli.ts";
+export { buildCli, runCli, type CliDeps, type PlansCliContext } from "./cli.ts";
 export {
 	buildContentSlugPrompt,
 	deriveContentSlug,

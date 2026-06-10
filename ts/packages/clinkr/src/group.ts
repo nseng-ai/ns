@@ -43,6 +43,10 @@ export interface ClinkrGroupOptions {
 	description?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
 	isHidden?: boolean;
+	/** Root-only package version exposed as `-V, --version`. */
+	version?: string;
+	/** Root-only runtime diagnostic text exposed as `--runtime`. */
+	runtimeInfo?: () => string;
 }
 
 export interface ClinkrRunOptions<TContext> {
@@ -72,10 +76,19 @@ interface BuildLeafCommandOptions<TContext> {
 	state: RunState;
 }
 
+interface BuildCommandOptions<TContext> {
+	context: TContext;
+	io: ClinkrIo;
+	state: RunState;
+	isRoot: boolean;
+}
+
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
 	readonly isHidden: boolean;
+	private readonly version: string | undefined;
+	private readonly runtimeInfo: (() => string) | undefined;
 	private registeredCommands: RegisteredCommand<TContext>[];
 	private subgroups: ClinkrGroup<TContext>[];
 
@@ -83,6 +96,8 @@ export class ClinkrGroup<TContext> {
 		this.name = options.name;
 		this.description = options.description;
 		this.isHidden = options.isHidden ?? false;
+		this.version = options.version;
+		this.runtimeInfo = options.runtimeInfo;
 		this.registeredCommands = [];
 		this.subgroups = [];
 	}
@@ -121,7 +136,16 @@ export class ClinkrGroup<TContext> {
 		const state: RunState = { exitCode: 0 };
 		// A fresh commander tree per invocation: Command objects hold parse
 		// state, so rebuilding keeps run() re-entrant.
-		const program = this.buildCommand(options.context, io, state);
+		const program = this.buildCommand({ context: options.context, io, state, isRoot: true });
+		if (this.runtimeInfo !== undefined && argv[0] === "--runtime") {
+			io.stdout(this.runtimeInfo());
+			return 0;
+		}
+		const bareGroupPath = this.findBareGroupPath(argv);
+		if (bareGroupPath !== undefined) {
+			io.stdout(commandAtPath(program, bareGroupPath).helpInformation());
+			return 0;
+		}
 		try {
 			await program.parseAsync([...argv], { from: "user" });
 			return state.exitCode;
@@ -133,28 +157,51 @@ export class ClinkrGroup<TContext> {
 		}
 	}
 
-	private buildCommand(context: TContext, io: ClinkrIo, state: RunState): Command {
+	private buildCommand(options: BuildCommandOptions<TContext>): Command {
+		const { context, io, state, isRoot } = options;
 		const command = createContainedCommand(this.name, io);
 		if (this.description !== undefined) command.description(this.description);
-		// Python clinkr (click) parity: a group invoked bare prints help to
-		// stdout and exits 0, where commander would error on stderr.
-		command.action(() => {
-			io.stdout(command.helpInformation());
-			state.exitCode = 0;
-		});
+		if (isRoot && this.version !== undefined) {
+			command.version(this.version, "-V, --version", "Show the package version.");
+		}
+		if (isRoot && this.runtimeInfo !== undefined) {
+			command.addOption(new Option("--runtime", "Show CLI runtime diagnostics and exit."));
+		}
 		for (const registered of this.registeredCommands) {
 			command.addCommand(buildLeafCommand({ registered, context, io, state }));
 		}
 		for (const child of this.subgroups) {
-			command.addCommand(child.buildCommand(context, io, state), { hidden: child.isHidden });
+			command.addCommand(child.buildCommand({ context, io, state, isRoot: false }), { hidden: child.isHidden });
 		}
 		return command;
 	}
+
+	private findBareGroupPath(argv: readonly string[]): string[] | undefined {
+		if (argv.length === 0) return [];
+		const [head, ...tail] = argv;
+		if (head === undefined) return [];
+		const child = this.subgroups.find((candidate) => candidate.name === head);
+		if (child === undefined) return undefined;
+		const childPath = child.findBareGroupPath(tail);
+		if (childPath === undefined) return undefined;
+		return [head, ...childPath];
+	}
+}
+
+function commandAtPath(program: Command, path: readonly string[]): Command {
+	let current = program;
+	for (const name of path) {
+		const child = current.commands.find((candidate) => candidate.name() === name);
+		if (child === undefined) throw new Error(`clinkr: built command tree is missing group '${name}'`);
+		current = child;
+	}
+	return current;
 }
 
 function createContainedCommand(name: string, io: ClinkrIo): Command {
 	const command = new Command(name);
 	command.exitOverride();
+	command.addHelpCommand(false);
 	command.configureOutput({
 		writeOut: (text) => {
 			io.stdout(text);

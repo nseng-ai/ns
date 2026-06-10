@@ -101,7 +101,14 @@ importers:
         specifier: workspace:*
         version: link:../plans
 
-  packages/plans: {}
+  packages/plans:
+    dependencies:
+      '@asdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/pr-address:
     dependencies:
