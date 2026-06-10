@@ -187,26 +187,13 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackR
 // worktree-conflict detection and the confirmation prompt must cover all of it,
 // not just the first-child chain.
 export function deriveDescendantSubtree(topology: GraphiteTopology, current: string): LandStackResult<string[]> {
-	const subtree: string[] = [];
-	const visited = new Set<string>([current]);
-	const pending = [...(topology.get(current)?.children ?? [])].reverse();
-	while (pending.length > 0) {
-		const branch = pending.pop();
-		if (branch === undefined) break;
-		if (visited.has(branch)) {
-			return failure(
-				landStackFailure(`Graphite metadata descendants of ${current} contain a cycle at ${branch}; refusing to land.`),
-			);
-		}
-		visited.add(branch);
-		subtree.push(branch);
-		const children = topology.get(branch)?.children ?? [];
-		for (let index = children.length - 1; index >= 0; index -= 1) {
-			const child = children[index];
-			if (child !== undefined) pending.push(child);
-		}
+	const walked = walkSubtree(topology, current);
+	if (walked.cycleAt) {
+		return failure(
+			landStackFailure(`Graphite metadata descendants of ${current} contain a cycle at ${walked.cycleAt}; refusing to land.`),
+		);
 	}
-	return success(subtree);
+	return success(walked.subtree.slice(1));
 }
 
 export function detectForkViolations(topology: GraphiteTopology, landingPath: string[]): ForkViolation[] {
@@ -233,12 +220,17 @@ export function detectForkViolations(topology: GraphiteTopology, landingPath: st
 }
 
 function siblingSubtree(topology: GraphiteTopology, sibling: string): { branch: string; subtree: string[] } {
-	const subtree = [sibling];
-	const visited = new Set<string>([sibling]);
-	const pending = [...(topology.get(sibling)?.children ?? [])].reverse();
+	return { branch: sibling, subtree: walkSubtree(topology, sibling).subtree };
+}
+
+function walkSubtree(topology: GraphiteTopology, root: string): { subtree: string[]; cycleAt?: string } {
+	const subtree = [root];
+	const visited = new Set<string>([root]);
+	const pending = [...(topology.get(root)?.children ?? [])].reverse();
 	while (pending.length > 0) {
 		const branch = pending.pop();
-		if (branch === undefined || visited.has(branch)) continue;
+		if (branch === undefined) break;
+		if (visited.has(branch)) return { subtree, cycleAt: branch };
 		visited.add(branch);
 		subtree.push(branch);
 		const children = topology.get(branch)?.children ?? [];
@@ -247,7 +239,7 @@ function siblingSubtree(topology: GraphiteTopology, sibling: string): { branch: 
 			if (child !== undefined) pending.push(child);
 		}
 	}
-	return { branch: sibling, subtree };
+	return { subtree };
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {

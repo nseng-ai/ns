@@ -702,6 +702,26 @@ describe("land-stack pure helpers", () => {
 		expect(detectForkViolations(topology, [])).toEqual([]);
 	});
 
+	test("detects fork violations with cyclic sibling subtrees using a truncated walk", () => {
+		const violations = detectForkViolations(
+			topologyOf({
+				"feature-a": { children: ["feature-b", "side"] },
+				"feature-b": { parent: "feature-a", children: [] },
+				side: { parent: "feature-a", children: ["side-2"] },
+				"side-2": { parent: "side", children: ["side"] },
+			}),
+			["feature-a", "feature-b"],
+		);
+
+		expect(violations).toEqual([
+			{
+				forkPoint: "feature-a",
+				expectedChild: "feature-b",
+				siblings: [{ branch: "side", subtree: ["side", "side-2"] }],
+			},
+		]);
+	});
+
 	test("parses git worktree porcelain output", () => {
 		expect(
 			parseWorktreeList(
