@@ -1,9 +1,9 @@
 import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@asdl/plans";
-import type * as PiAi from "@earendil-works/pi-ai";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import { callPiModelText, type PiModelRegistryLike } from "./pi-model-call.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
@@ -14,8 +14,6 @@ export const CLAUDE_CLI_MODEL = "claude-haiku-4-5";
 const CLAUDE_CLI_LABEL = "Claude CLI";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const DEFAULT_MAX_TOKENS = 512;
-
-type CompleteSimpleFunction = typeof PiAi.completeSimple;
 
 export type DraftHarness = "codex-pi" | "claude-cli";
 export type NotifyLevel = "info" | "warning" | "error";
@@ -33,18 +31,9 @@ interface Component {
 
 type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
 
-type ModelAuth =
-	| { ok: true; apiKey?: string; headers?: Record<string, string> }
-	| { ok: false; error: string };
-
-interface ModelRegistryLike {
-	find(provider: string, modelId: string): unknown | undefined;
-	getApiKeyAndHeaders(model: unknown): Promise<ModelAuth>;
-}
-
 export interface ExtensionCommandContext {
 	cwd: string;
-	modelRegistry: ModelRegistryLike;
+	modelRegistry: PiModelRegistryLike;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
@@ -153,67 +142,40 @@ async function draftWithPiModel(
 	config: PiModelConfig,
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
-	const model = ctx.modelRegistry.find(config.provider, config.modelId);
-	if (!model) {
-		return { error: `Could not find Pi model ${config.provider}/${config.modelId}.` };
-	}
-
-	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-	if (!auth.ok) {
-		return { error: `${config.authLabel} auth failed: ${auth.error}` };
-	}
-	if (!auth.apiKey) {
-		return { error: `No ${config.authLabel} auth found for ${config.provider}. Run /login or configure Pi auth.` };
-	}
-
-	try {
-		const completionOptions = {
-			...(auth.headers ? { headers: auth.headers } : {}),
-			apiKey: auth.apiKey,
+	const result = await withSpinner(ctx, input.spinnerKey, input.progressMessage(config.label), () =>
+		callPiModelText({
+			registry: ctx.modelRegistry,
+			provider: config.provider,
+			modelId: config.modelId,
+			systemPrompt: input.systemPrompt,
+			userText: input.userPrompt,
 			maxTokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
 			reasoning: config.reasoning,
 			timeoutMs: 120_000,
-		};
-		const completeSimple = await loadCompleteSimple();
-		const response = await withSpinner(ctx, input.spinnerKey, input.progressMessage(config.label), () =>
-			completeSimple(
-				model as PiAi.Model<PiAi.Api>,
-				{
-					systemPrompt: input.systemPrompt,
-					messages: [
-						{
-							role: "user",
-							content: [{ type: "text", text: input.userPrompt }],
-							timestamp: Date.now(),
-						},
-					],
-				},
-				completionOptions,
-			),
-		);
-
-		if (response.stopReason === "error" || response.stopReason === "aborted") {
-			return { error: `${config.label} failed to draft a ${input.taskNoun}: ${response.errorMessage ?? response.stopReason}` };
-		}
-
-		const output = response.content
-			.filter((content): content is { type: "text"; text: string } => content.type === "text" && typeof content.text === "string")
-			.map((content) => content.text)
-			.join("\n");
-		if (output.trim().length === 0) {
-			return { error: `${config.label} returned an empty ${input.taskNoun}.` };
-		}
-
-		return { output };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		return { error: `${config.label} failed to draft a ${input.taskNoun}: ${message}` };
+		})
+	);
+	if (!result.ok) {
+		return { error: piModelDraftError(result, config, input.taskNoun) };
 	}
+	if (result.text.trim().length === 0) {
+		return { error: `${config.label} returned an empty ${input.taskNoun}.` };
+	}
+	return { output: result.text };
 }
 
-async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
-	const piAi = await import("@earendil-works/pi-ai");
-	return piAi.completeSimple;
+function piModelDraftError(result: Exclude<Awaited<ReturnType<typeof callPiModelText>>, { ok: true }>, config: PiModelConfig, taskNoun: string): string {
+	switch (result.reason) {
+		case "model-unavailable":
+			return `Could not find Pi model ${config.provider}/${config.modelId}.`;
+		case "auth":
+			return `${config.authLabel} auth failed: ${result.message ?? "unknown auth error"}`;
+		case "empty-auth":
+			return `No ${config.authLabel} auth found for ${config.provider}. Run /login or configure Pi auth.`;
+		case "aborted":
+			return `${config.label} failed to draft a ${taskNoun}: ${result.message ?? "aborted"}`;
+		case "request-failed":
+			return `${config.label} failed to draft a ${taskNoun}: ${result.message ?? "error"}`;
+	}
 }
 
 async function draftWithClaudeCli(
