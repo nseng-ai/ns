@@ -31,7 +31,7 @@ function buildTree(): ClinkrGroup<ProbeContext> {
 	const exec = new ClinkrGroup<ProbeContext>({
 		name: "exec",
 		description: "Skill-invoked operations.",
-		hidden: true,
+		isHidden: true,
 	});
 	exec.command({
 		name: "resolve",

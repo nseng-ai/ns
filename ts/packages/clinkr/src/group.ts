@@ -42,7 +42,7 @@ export interface ClinkrGroupOptions {
 	name: string;
 	description?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
-	hidden?: boolean;
+	isHidden?: boolean;
 }
 
 export interface ClinkrRunOptions<TContext> {
@@ -65,17 +65,24 @@ interface RunState {
 	exitCode: number;
 }
 
+interface BuildLeafCommandOptions<TContext> {
+	registered: RegisteredCommand<TContext>;
+	context: TContext;
+	io: ClinkrIo;
+	state: RunState;
+}
+
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
-	readonly hidden: boolean;
+	readonly isHidden: boolean;
 	private registeredCommands: RegisteredCommand<TContext>[];
 	private subgroups: ClinkrGroup<TContext>[];
 
 	constructor(options: ClinkrGroupOptions) {
 		this.name = options.name;
 		this.description = options.description;
-		this.hidden = options.hidden ?? false;
+		this.isHidden = options.isHidden ?? false;
 		this.registeredCommands = [];
 		this.subgroups = [];
 	}
@@ -136,10 +143,10 @@ export class ClinkrGroup<TContext> {
 			state.exitCode = 0;
 		});
 		for (const registered of this.registeredCommands) {
-			command.addCommand(buildLeafCommand(registered, context, io, state));
+			command.addCommand(buildLeafCommand({ registered, context, io, state }));
 		}
 		for (const child of this.subgroups) {
-			command.addCommand(child.buildCommand(context, io, state), { hidden: child.hidden });
+			command.addCommand(child.buildCommand(context, io, state), { hidden: child.isHidden });
 		}
 		return command;
 	}
@@ -167,12 +174,8 @@ function exitCodeForCommanderError(error: CommanderError): number {
 	return 2;
 }
 
-function buildLeafCommand<TContext>(
-	registered: RegisteredCommand<TContext>,
-	context: TContext,
-	io: ClinkrIo,
-	state: RunState,
-): Command {
+function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
+	const { registered, context, io, state } = options;
 	const command = createContainedCommand(registered.name, io);
 	if (registered.description !== undefined) command.description(registered.description);
 	for (const positional of registered.plan.positionals) {
