@@ -141,7 +141,12 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 	const cached = state.segmentationCache;
 	const controller = new AbortController();
 	if (!force && cached !== null && cached.fingerprint === fingerprint) {
-		const initial = readyState(cached.episodes, cached.summary, cached.delegations, initialAnalysisStatuses(cached.episodes));
+		const initial = readyState({
+			episodes: cached.episodes,
+			summary: cached.summary,
+			delegations: cached.delegations,
+			analysis: initialAnalysisStatuses(cached.episodes),
+		});
 		startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate });
 		return { initial, abort: () => controller.abort() };
 	}
@@ -166,7 +171,7 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 			const delegations = repairDelegations(result.value.delegations, profile.liveTurns);
 			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary, delegations };
 			const analysis = initialAnalysisStatuses(episodes);
-			onUpdate(readyState(episodes, result.value.summary, delegations, analysis));
+			onUpdate(readyState({ episodes, summary: result.value.summary, delegations, analysis }));
 			startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate, statuses: analysis });
 		},
 		(error: unknown) => {
@@ -209,33 +214,62 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 				if (!result.ok) {
 					if (result.error.code === "aborted") return;
 					statuses[episodeIndex] = { type: "error", message: result.error.message };
-					options.onUpdate(readyState(currentCache.episodes, currentCache.summary, currentCache.delegations, statuses));
+					options.onUpdate(
+						readyState({
+							episodes: currentCache.episodes,
+							summary: currentCache.summary,
+							delegations: currentCache.delegations,
+							analysis: statuses,
+						}),
+					);
 					return;
 				}
 				currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
 					? { ...candidate, efficiency: result.value.efficiency, relevance: result.value.relevance }
 					: candidate);
 				statuses[episodeIndex] = "ready";
-				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, currentCache.delegations, statuses));
+				options.onUpdate(
+					readyState({
+						episodes: currentCache.episodes,
+						summary: currentCache.summary,
+						delegations: currentCache.delegations,
+						analysis: statuses,
+					}),
+				);
 			},
 			(error: unknown) => {
 				if (options.controller.signal.aborted) return;
 				const currentCache = options.state.segmentationCache;
 				if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
 				statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
-				options.onUpdate(readyState(currentCache.episodes, currentCache.summary, currentCache.delegations, statuses));
+				options.onUpdate(
+					readyState({
+						episodes: currentCache.episodes,
+						summary: currentCache.summary,
+						delegations: currentCache.delegations,
+						analysis: statuses,
+					}),
+				);
 			},
 		);
 	});
 }
 
-function readyState(
-	episodes: readonly EpisodeAnnotation[],
-	summary: string | null,
-	delegations: readonly DelegationClaim[],
-	analysis: readonly EpisodeAnalysisStatus[],
-): SegmentationState {
-	return { type: "ready", episodes: [...episodes], summary, delegations: [...delegations], analysis: [...analysis] };
+interface ReadyStateOptions {
+	episodes: readonly EpisodeAnnotation[];
+	summary: string | null;
+	delegations: readonly DelegationClaim[];
+	analysis: readonly EpisodeAnalysisStatus[];
+}
+
+function readyState(options: ReadyStateOptions): SegmentationState {
+	return {
+		type: "ready",
+		episodes: [...options.episodes],
+		summary: options.summary,
+		delegations: [...options.delegations],
+		analysis: [...options.analysis],
+	};
 }
 
 function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {
