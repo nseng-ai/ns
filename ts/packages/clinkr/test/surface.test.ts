@@ -36,9 +36,9 @@ describe("buildSurfacePlan kinds", () => {
 			}),
 		);
 		const byKey = Object.fromEntries(plan.options.map((option) => [option.key, option]));
-		expect(byKey["slug"]).toMatchObject({ required: false, hasDefault: false });
+		expect(byKey["slug"]).toMatchObject({ isRequired: false, hasDefault: false });
 		expect(byKey["limit"]).toMatchObject({
-			required: false,
+			isRequired: false,
 			hasDefault: true,
 			defaultValue: 10,
 			kind: { type: "number" },
@@ -66,7 +66,7 @@ describe("buildSurfacePlan flags", () => {
 			}),
 		);
 		const requiredByKey = Object.fromEntries(
-			plan.options.map((option) => [option.key, option.required]),
+			plan.options.map((option) => [option.key, option.isRequired]),
 		);
 		expect(requiredByKey).toEqual({ needed: true, maybe: false, defaulted: false });
 	});

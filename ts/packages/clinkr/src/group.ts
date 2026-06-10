@@ -127,8 +127,7 @@ export class ClinkrGroup<TContext> {
 	}
 
 	private buildCommand(context: TContext, io: ClinkrIo, state: RunState): Command {
-		const command = new Command(this.name);
-		containCommander(command, io);
+		const command = createContainedCommand(this.name, io);
 		if (this.description !== undefined) command.description(this.description);
 		// Python clinkr (click) parity: a group invoked bare prints help to
 		// stdout and exits 0, where commander would error on stderr.
@@ -146,7 +145,8 @@ export class ClinkrGroup<TContext> {
 	}
 }
 
-function containCommander(command: Command, io: ClinkrIo): void {
+function createContainedCommand(name: string, io: ClinkrIo): Command {
+	const command = new Command(name);
 	command.exitOverride();
 	command.configureOutput({
 		writeOut: (text) => {
@@ -156,6 +156,7 @@ function containCommander(command: Command, io: ClinkrIo): void {
 			io.stderr(text);
 		},
 	});
+	return command;
 }
 
 function exitCodeForCommanderError(error: CommanderError): number {
@@ -172,8 +173,7 @@ function buildLeafCommand<TContext>(
 	io: ClinkrIo,
 	state: RunState,
 ): Command {
-	const command = new Command(registered.name);
-	containCommander(command, io);
+	const command = createContainedCommand(registered.name, io);
 	if (registered.description !== undefined) command.description(registered.description);
 	for (const positional of registered.plan.positionals) {
 		command.addArgument(buildCommanderArgument(positional));

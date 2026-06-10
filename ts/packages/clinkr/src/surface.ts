@@ -13,7 +13,7 @@ export interface OptionPlan {
 	flag: string;
 	attributeName: string;
 	kind: FieldKind;
-	required: boolean;
+	isRequired: boolean;
 	hasDefault: boolean;
 	defaultValue: unknown;
 	description: string;
@@ -140,7 +140,7 @@ export function buildSurfacePlan(
 		}
 		const unwrapped = unwrapField(field as z.ZodType);
 		const kind = fieldKindFor(commandName, key, unwrapped.inner);
-		const required = !unwrapped.isOptional && !unwrapped.hasDefault;
+		const isRequired = !unwrapped.isOptional && !unwrapped.hasDefault;
 		const description = describeField(unwrapped);
 		const positionalSpec = positionals[key];
 		if (positionalSpec !== undefined) {
@@ -151,7 +151,7 @@ export function buildSurfacePlan(
 			}
 			positionalEntries.push({
 				position: positionalSpec.position,
-				plan: { key, name: kebabCase(key), kind, required, description },
+				plan: { key, name: kebabCase(key), kind, required: isRequired, description },
 			});
 			continue;
 		}
@@ -161,7 +161,7 @@ export function buildSurfacePlan(
 			flag,
 			attributeName: new Option(flag).attributeName(),
 			kind,
-			required,
+			isRequired,
 			hasDefault: unwrapped.hasDefault,
 			defaultValue: unwrapped.defaultValue,
 			description,
