@@ -63,7 +63,7 @@ export async function runCommand(command: string, args: readonly string[], optio
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
-		let settled = false;
+		let hasSettled = false;
 		let hasTimedOut = false;
 		let startupError: string | undefined;
 		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
@@ -89,8 +89,8 @@ export async function runCommand(command: string, args: readonly string[], optio
 		};
 
 		const finish = (exitCode: number, killed: boolean): void => {
-			if (settled) return;
-			settled = true;
+			if (hasSettled) return;
+			hasSettled = true;
 			clearTimers();
 			resolve({
 				stdout,
@@ -114,7 +114,7 @@ export async function runCommand(command: string, args: readonly string[], optio
 				}
 
 				killTimer = setTimeout(() => {
-					if (!settled) child.kill("SIGKILL");
+					if (!hasSettled) child.kill("SIGKILL");
 				}, graceMs);
 			}, options.timeout);
 		}

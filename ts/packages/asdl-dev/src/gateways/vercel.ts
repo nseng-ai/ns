@@ -69,13 +69,13 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 			"--non-interactive",
 		];
 		const result = await this.runner(prefix.command, args, { cwd: params.cwd });
-		const commandError = commandFailure(
-			prefix.command,
+		const commandError = commandFailure({
+			command: prefix.command,
 			args,
 			result,
-			"vercel_list_failed",
-			`Vercel deployment list command failed for githubCommitRef=${params.branch}.`,
-		);
+			code: "vercel_list_failed",
+			message: `Vercel deployment list command failed for githubCommitRef=${params.branch}.`,
+		});
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
@@ -92,13 +92,13 @@ export class RealVercelDeploymentGateway implements VercelDeploymentGateway {
 		const inspectedUrl = toHttpsUrl(params.url);
 		const args = [...prefix.args, "inspect", inspectedUrl, "--scope", params.scope, "--format=json", "--non-interactive"];
 		const result = await this.runner(prefix.command, args, { cwd: params.cwd });
-		const commandError = commandFailure(
-			prefix.command,
+		const commandError = commandFailure({
+			command: prefix.command,
 			args,
 			result,
-			"vercel_inspect_failed",
-			`Vercel inspect command failed for deployment ${params.url}.`,
-		);
+			code: "vercel_inspect_failed",
+			message: `Vercel inspect command failed for deployment ${params.url}.`,
+		});
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
