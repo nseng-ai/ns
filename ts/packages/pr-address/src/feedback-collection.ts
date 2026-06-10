@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrOk, toMachineEnvelope } from "./clinkr-envelope.ts";
+import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { gatewayFailureResult, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
@@ -38,7 +38,7 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 			env: invocation.deps.env,
 			clock: invocation.deps.context.payloadClock,
 		});
-		if (storeResult.type === "error") return { type: "exit", exit: clinkrFailure(storeResult.errorType, storeResult.message) };
+		if (storeResult.type === "error") return { type: "exit", exit: failure(storeResult.errorType, storeResult.message) };
 		store = storeResult.value;
 	}
 
@@ -61,15 +61,15 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 		review_threads: snapshot.review_threads,
 		discussion_comments: snapshot.discussion_comments,
 	};
-	if (store === undefined) return { type: "exit", exit: clinkrOk(inlineResult) };
+	if (store === undefined) return { type: "exit", exit: ok(inlineResult) };
 
 	const rawReference = await store.writeJsonArtifact({
 		descriptor: `pr-address-get-feedback-pr-${snapshot.pr_number}`,
 		role: "raw",
-		payload: toMachineEnvelope(clinkrOk(inlineResult)),
+		payload: toMachineEnvelope(ok(inlineResult)),
 	});
-	if (rawReference.type === "error") return { type: "exit", exit: clinkrFailure(rawReference.errorType, rawReference.message) };
-	return { type: "exit", exit: clinkrOk(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value)) };
+	if (rawReference.type === "error") return { type: "exit", exit: failure(rawReference.errorType, rawReference.message) };
+	return { type: "exit", exit: ok(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value)) };
 }
 
 export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: unknown): unknown {

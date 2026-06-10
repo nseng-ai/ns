@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
@@ -103,7 +103,7 @@ interface DiffCurrentResult {
 
 export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file", "--stack-plan-reference", "--current-prep-reference"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const stackPlanReferencePath = options.options.values.get("--stack-plan-reference");
 	const currentPrepReferencePath = options.options.values.get("--current-prep-reference");
 	const hasExplicitPayload = options.options.values.has("--payload-json") || options.options.values.has("--payload-file");
@@ -121,7 +121,7 @@ export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOpera
 			schema: stackFeedbackDiffCurrentInputSchema,
 			stdin: invocation.deps.stdin,
 		});
-		if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+		if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 		payload = payloadResult.value;
 	}
 
@@ -133,7 +133,7 @@ export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOpera
 		artifactDescription: "a stack-feedback-plan data artifact",
 		shapeSchema: stackPlanReferenceShapeSchema,
 	});
-	if (stackPlanResult.type === "error") return { type: "exit", exit: clinkrFailure(stackPlanResult.error.errorType, stackPlanResult.error.message) };
+	if (stackPlanResult.type === "error") return { type: "exit", exit: failure(stackPlanResult.error.errorType, stackPlanResult.error.message) };
 	const currentPrepResult = await resolveDiffInput({
 		embeddedValue: payload.current_prep,
 		embeddedKey: "current_prep",
@@ -142,13 +142,13 @@ export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOpera
 		artifactDescription: "a stack-feedback-prep data artifact",
 		shapeSchema: currentPrepReferenceShapeSchema,
 	});
-	if (currentPrepResult.type === "error") return { type: "exit", exit: clinkrFailure(currentPrepResult.error.errorType, currentPrepResult.error.message) };
+	if (currentPrepResult.type === "error") return { type: "exit", exit: failure(currentPrepResult.error.errorType, currentPrepResult.error.message) };
 
 	const result = diffStackFeedbackCurrent({ stack_plan: stackPlanResult.value, current_prep: currentPrepResult.value });
-	if (result.valid && result.safe_to_resolve_planned) return { type: "exit", exit: clinkrOk(result) };
+	if (result.valid && result.safe_to_resolve_planned) return { type: "exit", exit: ok(result) };
 	return {
 		type: "exit",
-		exit: clinkrNegative(result, "Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift."),
+		exit: negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", result),
 	};
 }
 

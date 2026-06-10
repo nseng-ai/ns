@@ -1,4 +1,4 @@
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
 import { gatewayFailureMessage, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
@@ -107,14 +107,14 @@ export async function runSummarizeFeedbackOperation(invocation: ExecOperationInv
 		bodyChars = numericBodyChars;
 	}
 	if (bodyChars < 1 || bodyChars > MAX_BODY_CHARS) {
-		return { type: "exit", exit: clinkrFailure("invalid_request", `body_chars must be between 1 and ${MAX_BODY_CHARS}`) };
+		return { type: "exit", exit: failure("invalid_request", `body_chars must be between 1 and ${MAX_BODY_CHARS}`) };
 	}
 
 	const github = githubGateway(invocation);
 	if (github.type === "error") return github.result;
 	const lookupResult = await github.gateway.getPr(parsed.prNumber, gatewayOptions(invocation));
 	if (lookupResult.type === "failure") {
-		return { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR ${parsed.prNumber}`, lookupResult.failure)) };
+		return { type: "exit", exit: failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR ${parsed.prNumber}`, lookupResult.failure)) };
 	}
 	if (lookupResult.type === "miss") {
 		const data = {
@@ -123,7 +123,7 @@ export async function runSummarizeFeedbackOperation(invocation: ExecOperationInv
 			error: lookupResult.stderr,
 			returncode: lookupResult.returncode,
 		};
-		return { type: "exit", exit: clinkrNegative(data, `No PR found for PR ${parsed.prNumber}: ${lookupResult.stderr}`) };
+		return { type: "exit", exit: negative(`No PR found for PR ${parsed.prNumber}: ${lookupResult.stderr}`, data) };
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
@@ -136,7 +136,7 @@ export async function runSummarizeFeedbackOperation(invocation: ExecOperationInv
 	});
 	if (snapshotResult.type === "error") return snapshotResult.result;
 
-	return { type: "exit", exit: clinkrOk(buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars)) };
+	return { type: "exit", exit: ok(buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars)) };
 }
 
 function buildSummarizeFeedbackResult(pr: PRSummary, snapshot: FeedbackSnapshot, bodyChars: number): SummarizeFeedbackFoundResult {

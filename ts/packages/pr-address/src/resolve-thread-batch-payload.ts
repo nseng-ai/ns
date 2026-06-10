@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import {
 	feedbackPlanConsumerSchema,
 	type FeedbackPlanActionItem,
@@ -92,7 +92,7 @@ export interface BuiltThreadResolutionDecision {
 export async function runBuildResolveThreadBatchPayloadOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({
 		optionValue: options.options.values.get("--payload-json"),
 		filePath: options.options.values.get("--payload-file"),
@@ -103,11 +103,11 @@ export async function runBuildResolveThreadBatchPayloadOperation(invocation: Exe
 		schema: buildResolveThreadBatchPayloadInputSchema,
 		stdin: invocation.deps.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 	const result = buildResolveThreadBatchPayload(payloadResult.value);
-	if (result.valid) return { type: "exit", exit: clinkrOk(result) };
-	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return { type: "exit", exit: clinkrNegative(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE) };
-	return { type: "exit", exit: clinkrNegative(result, "Resolve-thread batch payload decisions failed validation; no payload produced.") };
+	if (result.valid) return { type: "exit", exit: ok(result) };
+	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return { type: "exit", exit: negative(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, result) };
+	return { type: "exit", exit: negative("Resolve-thread batch payload decisions failed validation; no payload produced.", result) };
 }
 
 export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThreadBatchPayloadResult {

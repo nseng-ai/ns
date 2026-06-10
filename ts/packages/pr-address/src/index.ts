@@ -1,7 +1,5 @@
 export { runCli } from "./cli.ts";
 export type { CliDeps } from "./cli.ts";
-export { clinkrFailure, clinkrNegative, clinkrOk, emitClinkrExit, exitCodeForClinkrExit, toMachineEnvelope } from "./clinkr-envelope.ts";
-export type { ClinkrExit, ClinkrFailure, ClinkrNegative, ClinkrOk, EmitClinkrExitOptions, MachineEnvelope } from "./clinkr-envelope.ts";
 export { buildClassificationTemplateSchemaDocument } from "./classification-schemas.ts";
 export { buildOperationSchemaDocument } from "./operation-schemas.ts";
 export { createRealPrAddressContext } from "./context.ts";

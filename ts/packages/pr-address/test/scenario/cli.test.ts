@@ -7,7 +7,7 @@ import { z } from "zod";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
-import { clinkrFailure, clinkrNegative, clinkrOk, exitCodeForClinkrExit, toMachineEnvelope } from "../../src/clinkr-envelope.ts";
+import { failure, negative, ok, exitCodeForExit, toMachineEnvelope } from "@asdl/clinkr";
 import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
 import { createExecOperationRegistry } from "../../src/operation-registry.ts";
 import { RealLegacyPrAddressGateway, type ProcessRunRequest } from "../../src/legacy-python.ts";
@@ -173,8 +173,8 @@ describe("pr-address CLI", () => {
 						schema: z.object({ ok: z.boolean() }),
 						stdin: deps.stdin,
 					});
-					if (input.type === "error") return { type: "exit", exit: clinkrFailure(input.error.errorType, input.error.message) };
-					return { type: "exit", exit: clinkrOk(input.value) };
+					if (input.type === "error") return { type: "exit", exit: failure(input.error.errorType, input.error.message) };
+					return { type: "exit", exit: ok(input.value) };
 				},
 			},
 		]);
@@ -197,22 +197,22 @@ describe("pr-address CLI", () => {
 			{
 				name: "envelope",
 				handler: async ({ args }) => {
-					if (args[0] === "negative") return { type: "exit", exit: clinkrNegative({ valid: false }, "not valid") };
-					return { type: "exit", exit: clinkrFailure("invalid_request", "bad input") };
+					if (args[0] === "negative") return { type: "exit", exit: negative("not valid", { valid: false }) };
+					return { type: "exit", exit: failure("invalid_request", "bad input") };
 				},
 			},
 		]);
 
-		const negative = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], { exitCodes: [0], deps: { registry } });
-		expect(await negative.exit).toBe(1);
-		expect(JSON.parse(negative.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
+		const negativeRun = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], { exitCodes: [0], deps: { registry } });
+		expect(await negativeRun.exit).toBe(1);
+		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
 
-		const failure = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], { exitCodes: [0], deps: { registry } });
-		expect(await failure.exit).toBe(2);
-		expect(JSON.parse(failure.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		const failureRun = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], { exitCodes: [0], deps: { registry } });
+		expect(await failureRun.exit).toBe(2);
+		expect(JSON.parse(failureRun.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 
-		expect(exitCodeForClinkrExit(clinkrOk({}))).toBe(0);
-		expect(toMachineEnvelope(clinkrFailure("invalid_request", "bad input"))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		expect(exitCodeForExit(ok({}))).toBe(0);
+		expect(toMachineEnvelope(failure("invalid_request", "bad input"))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 	});
 });
 
@@ -241,7 +241,7 @@ describe("pr-address CLI surface pinning", () => {
 		const registry = createExecOperationRegistry([
 			{
 				name: "envelope",
-				handler: async () => ({ type: "exit", exit: clinkrFailure("invalid_request", "bad input") }),
+				handler: async () => ({ type: "exit", exit: failure("invalid_request", "bad input") }),
 			},
 		]);
 		const run = runWithFakeLegacy(["exec", "envelope", "--format=json"], { deps: { registry } });
@@ -257,7 +257,7 @@ describe("pr-address CLI surface pinning", () => {
 		const registry = createExecOperationRegistry([
 			{
 				name: "envelope",
-				handler: async () => ({ type: "exit", exit: clinkrFailure("invalid_request", "bad input") }),
+				handler: async () => ({ type: "exit", exit: failure("invalid_request", "bad input") }),
 			},
 		]);
 		const human = runWithFakeLegacy(["exec", "envelope", "--format", "human", "--format", "json"], { deps: { registry } });
@@ -276,7 +276,7 @@ describe("pr-address CLI surface pinning", () => {
 		const registry = createExecOperationRegistry([
 			{
 				name: "envelope",
-				handler: async () => ({ type: "exit", exit: clinkrFailure("invalid_request", "bad snowman ☃") }),
+				handler: async () => ({ type: "exit", exit: failure("invalid_request", "bad snowman ☃") }),
 			},
 		]);
 		const run = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { registry } });

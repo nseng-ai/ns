@@ -8,7 +8,7 @@ import {
 	type FeedbackClassificationValidationResult,
 	type FeedbackPlanningResult,
 } from "./classification-core.ts";
-import { clinkrFailure, clinkrNegative, clinkrOk, toMachineEnvelope, type ClinkrExit } from "./clinkr-envelope.ts";
+import { failure, negative, ok, toMachineEnvelope, type ClinkrExit } from "@asdl/clinkr";
 import { reviewsForRequest } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
@@ -342,8 +342,8 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 	const stackSummaryReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-prep", role: "summary", payload: resultWithoutReference });
 	if (stackSummaryReference.type === "error") return exitFailure(stackSummaryReference.errorType, stackSummaryReference.message);
 	const result: StackFeedbackPrepResult = { ...resultWithoutReference, stack_summary_reference: stackSummaryReference.value };
-	if (stdoutMode === "compact") return { type: "exit", exit: clinkrOk(compactPrepResult(result, stackSummaryReference.value)) };
-	return { type: "exit", exit: clinkrOk(result) };
+	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPrepResult(result, stackSummaryReference.value)) };
+	return { type: "exit", exit: ok(result) };
 }
 
 export async function runStackFeedbackPlanOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
@@ -399,9 +399,9 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	};
 	if (!validationSummary.all_valid) {
 		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary });
-		const negativeExit: ClinkrExit = clinkrNegative(
-			stdoutMode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
+		const negativeExit: ClinkrExit<unknown> = negative(
 			"Stack feedback classification failed validation; no stack plan produced.",
+			stdoutMode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
 		);
 		return { type: "exit", exit: negativeExit };
 	}
@@ -417,8 +417,8 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	const stackPlanReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-plan", role: "summary", payload: resultWithoutReference });
 	if (stackPlanReference.type === "error") return exitFailure(stackPlanReference.errorType, stackPlanReference.message);
 	const result: StackFeedbackPlanResult = { ...resultWithoutReference, stack_plan_reference: stackPlanReference.value };
-	if (stdoutMode === "compact") return { type: "exit", exit: clinkrOk(compactPlanResult(result)) };
-	return { type: "exit", exit: clinkrOk(result) };
+	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPlanResult(result)) };
+	return { type: "exit", exit: ok(result) };
 }
 
 /** Resolve the plan's prep input from exactly one source: the embedded payload key or `--prep-reference`. */
@@ -469,7 +469,7 @@ async function prepareStackPr(options: {
 	const rawReference = await options.store.writeJsonArtifact({
 		descriptor: `pr-address-stack-feedback-pr-${prNumber}`,
 		role: "raw",
-		payload: toMachineEnvelope(clinkrOk(inlineResult)),
+		payload: toMachineEnvelope(ok(inlineResult)),
 	});
 	if (rawReference.type === "error") return { type: "error", result: exitFailure(rawReference.errorType, rawReference.message) };
 
@@ -931,5 +931,5 @@ function gatewayError(prefix: string, failure: GatewayFailure): { type: "error";
 }
 
 function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: clinkrFailure(errorType, message) };
+	return { type: "exit", exit: failure(errorType, message) };
 }

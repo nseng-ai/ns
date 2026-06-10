@@ -1,7 +1,8 @@
+import type { ClinkrExit } from "@asdl/clinkr";
+
 import type { PrAddressContext } from "./context.ts";
 import { runRecordBatchCheckpointOperation } from "./batch-checkpoint.ts";
 import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
-import type { ClinkrExit } from "./clinkr-envelope.ts";
 import { runGetFeedbackOperation } from "./feedback-collection.ts";
 import { runMapBranchPrsOperation } from "./map-branch-prs.ts";
 import { runFinalizeRunOperation } from "./finalization.ts";
@@ -36,7 +37,7 @@ export interface ExecOperationInvocation {
 
 export type ExecOperationDispatchResult =
 	| { type: "fallback" }
-	| { type: "exit"; exit: ClinkrExit }
+	| { type: "exit"; exit: ClinkrExit<unknown> }
 	| { type: "raw-exit"; exitCode: number };
 
 export type ExecOperationHandler = (invocation: ExecOperationInvocation) => Promise<ExecOperationDispatchResult>;
