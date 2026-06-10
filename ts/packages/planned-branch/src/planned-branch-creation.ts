@@ -8,8 +8,9 @@ import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
 import { buildPlanFileName, formatCommand, normalizeSummary, resolvePlanSourceFile, validatePlanSlug, type PlanCommandExecApi } from "@asdl/plans";
 
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+
 import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
-import { formatErrorMessage, isRecord } from "./primitives.ts";
 
 export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 

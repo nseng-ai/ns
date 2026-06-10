@@ -4,7 +4,7 @@ import {
 	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
-import { isRecord } from "./primitives.ts";
+import { isRecord } from "@asdl/core/primitives";
 
 export { formatPlanBranchEvidence };
 

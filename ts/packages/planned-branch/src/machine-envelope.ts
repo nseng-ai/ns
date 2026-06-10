@@ -1,5 +1,5 @@
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { tailText, type TailTextOptions } from "@asdl/plans";
-import { formatErrorMessage, isRecord } from "./primitives.ts";
 
 export interface MachineEnvelopeParseOptions {
 	label: string;

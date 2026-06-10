@@ -1,0 +1,16 @@
+{
+  "name": "@asdl/core",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./primitives": "./src/primitives.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/asdl-core/test"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
