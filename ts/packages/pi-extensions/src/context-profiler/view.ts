@@ -27,14 +27,20 @@ import {
 	fitToWidth,
 	formatTokenCountLong,
 	formatUsage,
+	listRowSegments,
 	liveSectionHeader,
+	overviewRowSegments,
+	reconcileScroll,
 	scrollNote,
 	segmentationStatusText,
 	turnListClaim,
 	turnListRowText,
 	type ContentSource,
 	type Health,
+	type OverviewRowCells,
 	type OverviewRowSource,
+	type RowSegment,
+	type RowSegmentRole,
 } from "./render.ts";
 
 const FALLBACK_TERMINAL_ROWS = 24;
@@ -42,6 +48,8 @@ const FALLBACK_TERMINAL_ROWS = 24;
 const LIST_CHROME_ROWS = 5;
 const LIST_HINT = "↑↓/jk select · ⏎ open · PgUp/PgDn page · esc back · q close";
 const CONTENT_HINT = "↑↓/jk/PgUp/PgDn scroll · esc back · q close";
+
+type ProfilerThemeColor = "text" | "muted" | "accent" | "warning" | "dim";
 
 interface OverviewFrame {
 	type: "overview";
@@ -55,14 +63,15 @@ interface BaseDetailFrame {
 	members: BaseMember[];
 	selection: number;
 	scroll: number;
+	lastAreaHeight: number | null;
 }
 
 interface TurnListFrame {
 	type: "turn-list";
-	region: LiveRegion;
-	turns: LiveTurn[];
+	pushedRegion: LiveRegion;
 	selection: number;
 	scroll: number;
+	lastAreaHeight: number | null;
 }
 
 interface ContentFrame {
@@ -167,7 +176,7 @@ export class ProfilerView implements Component {
 				this.handleListInput({ data, state: frame, count: frame.members.length, onEnter: () => this.openMemberContent(frame) });
 				return;
 			case "turn-list":
-				this.handleListInput({ data, state: frame, count: frame.turns.length, onEnter: () => this.openTurnContent(frame) });
+				this.handleListInput({ data, state: frame, count: this.resolveTurnList(frame).turns.length, onEnter: () => this.openTurnContent(frame) });
 				return;
 			case "content":
 				this.handleContentInput(data, frame);
@@ -217,8 +226,9 @@ export class ProfilerView implements Component {
 		return this.segmentation.type === "ready" ? [...this.segmentation.delegations] : inferredDelegations(this.profile.liveTurns);
 	}
 
-	private currentTurnListRegion(region: LiveRegion): LiveRegion {
-		return this.liveRegions().find((candidate) => candidate.id === region.id) ?? region;
+	private resolveTurnList(frame: TurnListFrame): { region: LiveRegion; turns: LiveTurn[] } {
+		const region = this.liveRegions().find((candidate) => candidate.id === frame.pushedRegion.id) ?? frame.pushedRegion;
+		return { region, turns: turnsInRange(this.profile.liveTurns, region.turnRange) };
 	}
 
 	private analysisStatusTextForRegion(region: LiveRegion): string | null {
@@ -242,7 +252,7 @@ export class ProfilerView implements Component {
 				case "base-detail":
 					return [frame.region.label];
 				case "turn-list":
-					return [frame.region.label];
+					return [this.resolveTurnList(frame).region.label];
 				case "content":
 					return [frame.source.title];
 			}
@@ -257,7 +267,7 @@ export class ProfilerView implements Component {
 			case "base-detail":
 				return formatTokenCountLong(frame.region.tokens);
 			case "turn-list":
-				return formatTokenCountLong(this.currentTurnListRegion(frame.region).tokens);
+				return formatTokenCountLong(this.resolveTurnList(frame).region.tokens);
 			case "content":
 				return frame.source.meta;
 		}
@@ -279,7 +289,7 @@ export class ProfilerView implements Component {
 					bodyHeight,
 				});
 			case "turn-list": {
-				const region = this.currentTurnListRegion(frame.region);
+				const { region, turns } = this.resolveTurnList(frame);
 				const delegations = delegationsInSpan(this.currentDelegations(), region.turnRange);
 				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
 				return this.composeListBody({
@@ -288,7 +298,7 @@ export class ProfilerView implements Component {
 					// renderer truncation); the turn rows scroll beneath it.
 					summaryLines: region.analysisSummary === undefined ? [] : wrapTextWithAnsi(region.analysisSummary, innerWidth),
 					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
-					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
+					rows: turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
 					state: frame,
 					emptyText: "no turns in this span",
 					innerWidth,
@@ -346,8 +356,7 @@ export class ProfilerView implements Component {
 		// whole heterogeneous body scrolls as one window; anchoring the first
 		// row to line 0 keeps the usage bar and headers visible at the top.
 		const anchorLine = frame.selection === 0 ? 0 : selectedLine;
-		frame.scroll = clamp(frame.scroll, anchorLine - areaHeight + 1, anchorLine);
-		frame.scroll = clamp(frame.scroll, 0, Math.max(0, lines.length - areaHeight));
+		frame.scroll = reconcileScroll({ scroll: frame.scroll, anchor: anchorLine, areaHeight, totalLines: lines.length });
 		const visible = lines.slice(frame.scroll, frame.scroll + areaHeight);
 		const note = lines.length > areaHeight
 			? `${scrollNote(frame.scroll + 1, Math.min(lines.length, frame.scroll + areaHeight), lines.length, "lines")} · `
@@ -380,10 +389,7 @@ export class ProfilerView implements Component {
 		if (isSelected) {
 			return this.theme.bg("selectedBg", fitToWidth(composeOverviewRowText(cells), innerWidth));
 		}
-		const color = themeColorForHealth(cells.health);
-		return `  ${this.theme.fg(color, cells.label)} ${this.theme.fg(color, cells.barFilled)}${this.theme.fg("dim", cells.barEmpty)}${
-			this.theme.fg("muted", cells.tokens)
-		}${this.theme.fg("muted", cells.percent)}  ${this.theme.fg(color, cells.status)}`;
+		return this.renderRowSegments("  ", overviewRowSegments(cells), (role) => overviewColorForRole(role, cells));
 	}
 
 	private composeListBody(options: {
@@ -392,7 +398,7 @@ export class ProfilerView implements Component {
 		summaryLines?: readonly string[];
 		headerLines?: readonly string[];
 		rows: readonly ListRow[];
-		state: { selection: number; scroll: number };
+		state: { selection: number; scroll: number; lastAreaHeight: number | null };
 		emptyText: string;
 		innerWidth: number;
 		bodyHeight: number;
@@ -402,9 +408,10 @@ export class ProfilerView implements Component {
 		const areaHeight = Math.max(1, options.bodyHeight - 3 - summaryLines.length - headerLines.length);
 		const count = options.rows.length;
 		const state = options.state;
-		// Selection is clamped at input time; scroll is reconciled at render time because it depends on layout.
-		state.scroll = clamp(state.scroll, state.selection - areaHeight + 1, state.selection);
-		state.scroll = clamp(state.scroll, 0, Math.max(0, count - areaHeight));
+		state.lastAreaHeight = areaHeight;
+		// Derived row counts can shrink between input and render, so mirror the overview's render-time reclamp.
+		state.selection = clamp(state.selection, 0, Math.max(0, count - 1));
+		state.scroll = reconcileScroll({ scroll: state.scroll, anchor: state.selection, areaHeight, totalLines: count });
 		const maxTokens = Math.max(1, ...options.rows.map((row) => row.tokens.value));
 		const visible = options.rows
 			.slice(state.scroll, state.scroll + areaHeight)
@@ -424,9 +431,16 @@ export class ProfilerView implements Component {
 		if (isSelected) {
 			return this.theme.bg("selectedBg", fitToWidth(composeListRowText(cells), innerWidth));
 		}
-		return ` ${this.theme.fg("accent", cells.barFilled)}${this.theme.fg("dim", cells.barEmpty)}${this.theme.fg("muted", cells.tokens)}  ${
-			this.theme.fg("text", cells.text)
-		}`;
+		return this.renderRowSegments(" ", listRowSegments(cells), listColorForRole);
+	}
+
+	private renderRowSegments(marker: string, segments: readonly RowSegment[], colorFor: (role: RowSegmentRole) => ProfilerThemeColor | null): string {
+		return marker + segments
+			.map((segment) => {
+				const color = colorFor(segment.role);
+				return color === null ? segment.text : this.theme.fg(color, segment.text);
+			})
+			.join("");
 	}
 
 	private composeContentBody(frame: ContentFrame, innerWidth: number, bodyHeight: number): string[] {
@@ -477,9 +491,9 @@ export class ProfilerView implements Component {
 		}
 	}
 
-	private handleListInput(options: { data: string; state: { selection: number; scroll: number }; count: number; onEnter: () => void }): void {
+	private handleListInput(options: { data: string; state: { selection: number; scroll: number; lastAreaHeight: number | null }; count: number; onEnter: () => void }): void {
 		const { data, state, count, onEnter } = options;
-		const page = this.listAreaHeight();
+		const page = state.lastAreaHeight ?? this.listAreaHeight();
 		const maxSelection = Math.max(0, count - 1);
 		if (matchesKey(data, Key.up) || data === "k") state.selection = clamp(state.selection - 1, 0, maxSelection);
 		else if (matchesKey(data, Key.down) || data === "j") state.selection = clamp(state.selection + 1, 0, maxSelection);
@@ -503,15 +517,15 @@ export class ProfilerView implements Component {
 	private pushRowFrame(row: OverviewRowSource): void {
 		if (row.type === "base") {
 			const members = [...row.region.members].sort((left, right) => right.tokens.value - left.tokens.value);
-			this.frames.push({ type: "base-detail", region: row.region, members, selection: 0, scroll: 0 });
+			this.frames.push({ type: "base-detail", region: row.region, members, selection: 0, scroll: 0, lastAreaHeight: null });
 			return;
 		}
 		this.frames.push({
 			type: "turn-list",
-			region: row.region,
-			turns: turnsInRange(this.profile.liveTurns, row.region.turnRange),
+			pushedRegion: row.region,
 			selection: 0,
 			scroll: 0,
+			lastAreaHeight: null,
 		});
 	}
 
@@ -522,7 +536,7 @@ export class ProfilerView implements Component {
 	}
 
 	private openTurnContent(frame: TurnListFrame): void {
-		const turn = frame.turns[frame.selection];
+		const turn = this.resolveTurnList(frame).turns[frame.selection];
 		if (turn === undefined) return;
 		this.frames.push({ type: "content", source: contentSourceForTurn(turn), scroll: 0 });
 	}
@@ -543,7 +557,22 @@ function pinFooter(lines: readonly string[], footer: string, bodyHeight: number)
 	return [...clipped, ...padding, footer];
 }
 
-function themeColorForHealth(health: Health): "text" | "muted" | "accent" | "warning" | "dim" {
+function overviewColorForRole(role: RowSegmentRole, cells: OverviewRowCells): ProfilerThemeColor | null {
+	if (role === "gap") return null;
+	if (role === "barEmpty") return "dim";
+	if (role === "tokens" || role === "percent") return "muted";
+	return themeColorForHealth(cells.health);
+}
+
+function listColorForRole(role: RowSegmentRole): ProfilerThemeColor | null {
+	if (role === "gap") return null;
+	if (role === "barFilled") return "accent";
+	if (role === "barEmpty") return "dim";
+	if (role === "tokens") return "muted";
+	return "text";
+}
+
+function themeColorForHealth(health: Health): ProfilerThemeColor {
 	if (health === "warning") return "warning";
 	if (health === "accent") return "accent";
 	if (health === "muted") return "muted";

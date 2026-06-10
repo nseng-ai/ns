@@ -9,7 +9,9 @@ import {
 	buildListRowCells,
 	buildOverviewRowCells,
 	buildUsageBarSegments,
+	composeListRowText,
 	composeOverviewRowText,
+	composeRowText,
 	contentSourceForMember,
 	contentSourceForTurn,
 	delegationClaimText,
@@ -18,10 +20,13 @@ import {
 	formatCompactNumber,
 	formatTokenCount,
 	formatUsage,
+	listRowSegments,
 	liveSectionHeader,
 	MIN_LABEL_WIDTH,
 	overviewLabelWidth,
+	overviewRowSegments,
 	PERCENT_COLUMN_WIDTH,
+	reconcileScroll,
 	sanitizeContentText,
 	scrollNote,
 	segmentationStatusText,
@@ -111,6 +116,21 @@ describe("buildOverviewRowCells", () => {
 		expect(visibleWidth(cells.percent)).toBe(PERCENT_COLUMN_WIDTH);
 		expect(visibleWidth(cells.status)).toBe(STATUS_COLUMN_WIDTH);
 		expect(visibleWidth(composeOverviewRowText(cells))).toBe(INNER_WIDTH);
+	});
+
+	test("lists overview row segments in display order and preserves selected text", () => {
+		const cells = buildOverviewRowCells({ type: "base", region: makeBaseRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		expect(overviewRowSegments(cells).map((segment) => segment.role)).toEqual([
+			"label",
+			"gap",
+			"barFilled",
+			"barEmpty",
+			"tokens",
+			"percent",
+			"gap",
+			"status",
+		]);
+		expect(composeRowText("▌ ", overviewRowSegments(cells))).toBe(composeOverviewRowText(cells));
 	});
 
 	test("renders identical widths across renders for differing values (no jitter)", () => {
@@ -293,6 +313,12 @@ describe("list rows", () => {
 		expect(cells.barFilled).toBe("█".repeat(BAR_WIDTH / 2));
 	});
 
+	test("lists row segments in display order and composes selected text", () => {
+		const cells = buildListRowCells(estimated(500), "member name", 1_000);
+		expect(listRowSegments(cells).map((segment) => segment.role)).toEqual(["barFilled", "barEmpty", "tokens", "gap", "text"]);
+		expect(composeListRowText(cells)).toBe(`▌${cells.barFilled}${cells.barEmpty}${cells.tokens}  member name`);
+	});
+
 	test("turnListRowText includes index, role, tools, excerpt, and delegation prefix", () => {
 		expect(turnListRowText(makeTurn({ toolNames: ["read", "bash"] }))).toBe("t3 assistant [read,bash] · doing things");
 		expect(turnListRowText(makeTurn())).toBe("t3 assistant · doing things");
@@ -326,5 +352,20 @@ describe("fitToWidth", () => {
 		expect(visibleWidth(fitToWidth("abcdef", 4))).toBe(4);
 		expect(fitToWidth("abcdef", 4)).toContain("…");
 		expect(fitToWidth("ab", 5)).toBe("ab   ");
+	});
+});
+
+describe("reconcileScroll", () => {
+	test("keeps the anchor visible at the top and bottom of the viewport", () => {
+		expect(reconcileScroll({ scroll: 0, anchor: 9, areaHeight: 5, totalLines: 20 })).toBe(5);
+		expect(reconcileScroll({ scroll: 12, anchor: 9, areaHeight: 5, totalLines: 20 })).toBe(9);
+	});
+
+	test("handles area taller than content", () => {
+		expect(reconcileScroll({ scroll: 10, anchor: 2, areaHeight: 20, totalLines: 3 })).toBe(0);
+	});
+
+	test("clamps scroll past the end", () => {
+		expect(reconcileScroll({ scroll: 99, anchor: 99, areaHeight: 5, totalLines: 12 })).toBe(7);
 	});
 });

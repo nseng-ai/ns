@@ -76,6 +76,13 @@ export interface OverviewRowCells {
 	health: Health;
 }
 
+export type RowSegmentRole = "label" | "barFilled" | "barEmpty" | "tokens" | "percent" | "status" | "text" | "gap";
+
+export interface RowSegment {
+	role: RowSegmentRole;
+	text: string;
+}
+
 export function overviewLabelWidth(innerWidth: number): number {
 	return Math.max(
 		MIN_LABEL_WIDTH,
@@ -106,9 +113,26 @@ export function buildOverviewRowCells(source: OverviewRowSource, options: Overvi
 	};
 }
 
+export function overviewRowSegments(cells: OverviewRowCells): RowSegment[] {
+	return [
+		{ role: "label", text: cells.label },
+		{ role: "gap", text: " " },
+		{ role: "barFilled", text: cells.barFilled },
+		{ role: "barEmpty", text: cells.barEmpty },
+		{ role: "tokens", text: cells.tokens },
+		{ role: "percent", text: cells.percent },
+		{ role: "gap", text: "  " },
+		{ role: "status", text: cells.status },
+	];
+}
+
+export function composeRowText(marker: string, segments: readonly RowSegment[]): string {
+	return `${marker}${segments.map((segment) => segment.text).join("")}`;
+}
+
 /** Composed plain-text row, used for the inverted selected-row rendering. */
 export function composeOverviewRowText(cells: OverviewRowCells): string {
-	return `▌ ${cells.label} ${cells.barFilled}${cells.barEmpty}${cells.tokens}${cells.percent}  ${cells.status}`;
+	return composeRowText("▌ ", overviewRowSegments(cells));
 }
 
 function regionRowLabel(source: OverviewRowSource): string {
@@ -252,8 +276,18 @@ export function buildListRowCells(tokens: TokenCount, text: string, maxTokens: n
 	};
 }
 
+export function listRowSegments(cells: ListRowCells): RowSegment[] {
+	return [
+		{ role: "barFilled", text: cells.barFilled },
+		{ role: "barEmpty", text: cells.barEmpty },
+		{ role: "tokens", text: cells.tokens },
+		{ role: "gap", text: "  " },
+		{ role: "text", text: cells.text },
+	];
+}
+
 export function composeListRowText(cells: ListRowCells): string {
-	return `▌${cells.barFilled}${cells.barEmpty}${cells.tokens}  ${cells.text}`;
+	return composeRowText("▌", listRowSegments(cells));
 }
 
 export function delegationSummaryLine(claims: readonly DelegationClaim[]): string {
@@ -350,6 +384,11 @@ export function fitToWidth(text: string, width: number): string {
 export function padRight(text: string, width: number): string {
 	const missing = Math.max(0, width - visibleWidth(text));
 	return text + " ".repeat(missing);
+}
+
+export function reconcileScroll(options: { scroll: number; anchor: number; areaHeight: number; totalLines: number }): number {
+	const anchored = clamp(options.scroll, options.anchor - options.areaHeight + 1, options.anchor);
+	return clamp(anchored, 0, Math.max(0, options.totalLines - options.areaHeight));
 }
 
 export function clamp(value: number, min: number, max: number): number {
