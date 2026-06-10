@@ -49,7 +49,7 @@ export interface ExecOperationDefinition {
 	 * cwd's git remotes. The CLI fails fast with `repo_context_required` when
 	 * such an operation runs outside a git work tree.
 	 */
-	requiresRepoContext?: boolean | undefined;
+	isRepoContextRequired?: boolean | undefined;
 }
 
 export interface ExecOperationRegistry {
@@ -84,22 +84,22 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "reply-to-discussion",
 			handler: runReplyToDiscussionOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "reply-to-review",
 			handler: runReplyToReviewOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "resolve-thread-batch",
 			handler: runResolveThreadBatchOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "resolve-thread-with-reply",
 			handler: runResolveThreadWithReplyOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "classification-template",
@@ -120,22 +120,22 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "get-feedback",
 			handler: runGetFeedbackOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "map-branch-prs",
 			handler: runMapBranchPrsOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "prepare-run",
 			handler: runPrepareRunOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "summarize-feedback",
 			handler: runSummarizeFeedbackOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "read-feedback-detail",
@@ -156,7 +156,7 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "stack-feedback-prep",
 			handler: runStackFeedbackPrepOperation,
-			requiresRepoContext: true,
+			isRepoContextRequired: true,
 		},
 		{
 			name: "stack-feedback-plan",

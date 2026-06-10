@@ -63,7 +63,7 @@ function feedbackGithub(): InMemoryPrAddressGitHubGateway {
 }
 
 function outsideGit(): InMemoryPrAddressGitGateway {
-	return new InMemoryPrAddressGitGateway({ insideWorkTree: false });
+	return new InMemoryPrAddressGitGateway({ isInsideWorkTree: false });
 }
 
 describe("repo-context precondition for GitHub-hitting operations", () => {
@@ -87,7 +87,7 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 	test("a flagged operation inside a work tree proceeds normally", async () => {
 		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json"], {
 			github: feedbackGithub(),
-			git: new InMemoryPrAddressGitGateway({ insideWorkTree: true }),
+			git: new InMemoryPrAddressGitGateway({ isInsideWorkTree: true }),
 		});
 		expect(await repoRun.exit).toBe(0);
 		const envelope = JSON.parse(repoRun.stdout.join("")) as MachineEnvelope & { data: { pr_number: number } };
