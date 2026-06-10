@@ -1,0 +1,135 @@
+{
+  "raw_clock_iso": "2026-06-03T12:34:56+00:00",
+  "summary_clock_iso": "2026-06-03T12:35:00+00:00",
+  "artifacts": [
+    {
+      "session_id": "sess-details",
+      "descriptor": "pr-address-get-feedback-pr-42",
+      "payload": {
+        "exit_code": 0,
+        "data": {
+          "payload_mode": "inline",
+          "pr_number": 42,
+          "reviews": [
+            {
+              "id": "PRR_1",
+              "author": "reviewer",
+              "body": "Please fix the helper",
+              "state": "CHANGES_REQUESTED",
+              "submitted_at": "2025-01-02T00:00:00Z"
+            },
+            {
+              "id": "PRR_2",
+              "author": "bot",
+              "body": 123,
+              "state": "COMMENTED",
+              "submitted_at": "2025-01-03T00:00:00Z"
+            }
+          ],
+          "review_threads": [
+            {
+              "id": "PRRT_1",
+              "path": "src/file.ts",
+              "line": 12,
+              "start_line": null,
+              "is_resolved": false,
+              "is_outdated": false,
+              "comments": [
+                {
+                  "id": 101,
+                  "body": "Rename this",
+                  "author": "reviewer",
+                  "path": "src/file.ts",
+                  "line": 12,
+                  "start_line": null,
+                  "created_at": "2025-01-02T01:00:00Z"
+                }
+              ]
+            }
+          ],
+          "discussion_comments": [
+            {
+              "id": 11,
+              "body": "Top-level note",
+              "author": "reviewer",
+              "url": "https://example.com/c/11"
+            },
+            "not-an-object"
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "sess-details-bad",
+      "descriptor": "pr-address-get-feedback-pr-42",
+      "payload": {
+        "exit_code": 2,
+        "error_type": "pr_gateway_failure",
+        "message": "boom"
+      }
+    }
+  ],
+  "success": {
+    "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/reviews/0/body\", \"/data/review_threads/0\", \"/data/review_threads/0/comments/0/body\", \"/data/discussion_comments/0\"]}",
+    "expected_envelope_text": "{\n  \"exit_code\": 0,\n  \"data\": {\n    \"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\",\n    \"selected_payload_reference\": {\n      \"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123500z-0002-pr-address-selected-feedback-details.summary.json\",\n      \"session_id\": \"sess-details\",\n      \"descriptor\": \"pr-address-selected-feedback-details\",\n      \"role\": \"summary\",\n      \"created_at_utc\": \"2026-06-03T12:35:00Z\",\n      \"sequence\": 2,\n      \"payload_bytes\": 1333,\n      \"content_type\": \"application/json\",\n      \"extension\": \"json\"\n    },\n    \"details\": [\n      {\n        \"json_pointer\": \"/data/reviews/0/body\",\n        \"detail_kind\": \"review_body\",\n        \"artifact_json_pointer\": \"/details/0/value\",\n        \"value_kind\": \"string\",\n        \"value_chars\": 21,\n        \"body_chars\": 21,\n        \"object_keys\": null\n      },\n      {\n        \"json_pointer\": \"/data/review_threads/0\",\n        \"detail_kind\": \"review_thread\",\n        \"artifact_json_pointer\": \"/details/1/value\",\n        \"value_kind\": \"object\",\n        \"value_chars\": null,\n        \"body_chars\": null,\n        \"object_keys\": [\n          \"comments\",\n          \"id\",\n          \"is_outdated\",\n          \"is_resolved\",\n          \"line\",\n          \"path\",\n          \"start_line\"\n        ]\n      },\n      {\n        \"json_pointer\": \"/data/review_threads/0/comments/0/body\",\n        \"detail_kind\": \"thread_comment_body\",\n        \"artifact_json_pointer\": \"/details/2/value\",\n        \"value_kind\": \"string\",\n        \"value_chars\": 11,\n        \"body_chars\": 11,\n        \"object_keys\": null\n      },\n      {\n        \"json_pointer\": \"/data/discussion_comments/0\",\n        \"detail_kind\": \"discussion_comment\",\n        \"artifact_json_pointer\": \"/details/3/value\",\n        \"value_kind\": \"object\",\n        \"value_chars\": null,\n        \"body_chars\": 14,\n        \"object_keys\": [\n          \"author\",\n          \"body\",\n          \"id\",\n          \"url\"\n        ]\n      }\n    ],\n    \"counts\": {\n      \"requested\": 4,\n      \"selected\": 4,\n      \"body_values\": 2,\n      \"item_values\": 2\n    }\n  }\n}\n",
+    "expected_summary_relative_path": "sessions/sess-details/payloads/20260603t123500z-0002-pr-address-selected-feedback-details.summary.json",
+    "expected_summary_text": "{\n  \"source_payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\",\n  \"details\": [\n    {\n      \"json_pointer\": \"/data/reviews/0/body\",\n      \"detail_kind\": \"review_body\",\n      \"value\": \"Please fix the helper\"\n    },\n    {\n      \"json_pointer\": \"/data/review_threads/0\",\n      \"detail_kind\": \"review_thread\",\n      \"value\": {\n        \"id\": \"PRRT_1\",\n        \"path\": \"src/file.ts\",\n        \"line\": 12,\n        \"start_line\": null,\n        \"is_resolved\": false,\n        \"is_outdated\": false,\n        \"comments\": [\n          {\n            \"id\": 101,\n            \"body\": \"Rename this\",\n            \"author\": \"reviewer\",\n            \"path\": \"src/file.ts\",\n            \"line\": 12,\n            \"start_line\": null,\n            \"created_at\": \"2025-01-02T01:00:00Z\"\n          }\n        ]\n      }\n    },\n    {\n      \"json_pointer\": \"/data/review_threads/0/comments/0/body\",\n      \"detail_kind\": \"thread_comment_body\",\n      \"value\": \"Rename this\"\n    },\n    {\n      \"json_pointer\": \"/data/discussion_comments/0\",\n      \"detail_kind\": \"discussion_comment\",\n      \"value\": {\n        \"id\": 11,\n        \"body\": \"Top-level note\",\n        \"author\": \"reviewer\",\n        \"url\": \"https://example.com/c/11\"\n      }\n    }\n  ]\n}\n"
+  },
+  "error_cases": [
+    {
+      "name": "empty-pointers",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": []}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"invalid_request\",\n  \"message\": \"read-feedback-details selection must include at least one JSON Pointer\"\n}\n"
+    },
+    {
+      "name": "duplicate-pointer",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/reviews/0/body\", \"/data/reviews/0/body\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"invalid_request\",\n  \"message\": \"Duplicate JSON Pointer in read-feedback-details selection: /data/reviews/0/body\"\n}\n"
+    },
+    {
+      "name": "disallowed-pointer",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/reviews\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"invalid_request\",\n  \"message\": \"JSON Pointer is not an allowed PR feedback detail locator: '/data/reviews'\"\n}\n"
+    },
+    {
+      "name": "pointer-out-of-range",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/reviews/5\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_lookup_failed\",\n  \"message\": \"JSON Pointer array index 5 is out of range for array of length 2: '/data/reviews/5'\"\n}\n"
+    },
+    {
+      "name": "non-string-body",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/reviews/1/body\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_lookup_failed\",\n  \"message\": \"Feedback body locator resolved to non-string value in {ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json: /data/reviews/1/body\"\n}\n"
+    },
+    {
+      "name": "non-object-item",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/discussion_comments/1\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_lookup_failed\",\n  \"message\": \"Feedback item locator resolved to non-object value in {ROOT}/sessions/sess-details/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json: /data/discussion_comments/1\"\n}\n"
+    },
+    {
+      "name": "not-successful-envelope",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details-bad/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\", \"json_pointers\": [\"/data/reviews/0/body\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_lookup_failed\",\n  \"message\": \"Raw payload artifact must be a successful Clinkr envelope: {ROOT}/sessions/sess-details-bad/payloads/20260603t123456z-0001-pr-address-get-feedback-pr-42.raw.json\"\n}\n"
+    },
+    {
+      "name": "not-raw-role",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123500z-0002-pr-address-selected-feedback-details.summary.json\", \"json_pointers\": [\"/data/reviews/0/body\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_lookup_failed\",\n  \"message\": \"Payload artifact role 'summary' is not allowed for this lookup: {ROOT}/sessions/sess-details/payloads/20260603t123500z-0002-pr-address-selected-feedback-details.summary.json\"\n}\n"
+    },
+    {
+      "name": "missing-artifact",
+      "selection_json_template": "{\"payload_path\": \"{ROOT}/sessions/sess-details/payloads/20260603t123456z-0009-missing.raw.json\", \"json_pointers\": [\"/data/reviews/0/body\"]}",
+      "expected_exit_code": 2,
+      "expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_lookup_failed\",\n  \"message\": \"Payload artifact path does not exist: {ROOT}/sessions/sess-details/payloads/20260603t123456z-0009-missing.raw.json\"\n}\n"
+    }
+  ],
+  "fixed_summary_path": "{ROOT}/sessions/sess-details/payloads/20260603t123500z-0002-pr-address-selected-feedback-details.summary.json"
+}

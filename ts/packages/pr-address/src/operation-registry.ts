@@ -1,4 +1,5 @@
 import type { PrAddressContext } from "./context.ts";
+import { runRecordBatchCheckpointOperation } from "./batch-checkpoint.ts";
 import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
 import type { ClinkrExit } from "./clinkr-envelope.ts";
 import { runGetDiscussionCommentsOperation, runGetFeedbackOperation, runGetPrForBranchOperation, runGetReviewCommentsOperation, runGetReviewsOperation } from "./feedback-collection.ts";
@@ -14,7 +15,7 @@ import {
 	runResolveThreadWithReplyOperation,
 	runUnresolveThreadOperation,
 } from "./mutation-operations.ts";
-import { runReadFeedbackDetailOperation } from "./read-feedback-detail.ts";
+import { runReadFeedbackDetailOperation, runReadFeedbackDetailsOperation } from "./read-feedback-detail.ts";
 import { runBuildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 import { runStackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
 
@@ -158,6 +159,14 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "read-feedback-detail",
 			handler: runReadFeedbackDetailOperation,
+		},
+		{
+			name: "read-feedback-details",
+			handler: runReadFeedbackDetailsOperation,
+		},
+		{
+			name: "record-batch-checkpoint",
+			handler: runRecordBatchCheckpointOperation,
 		},
 		{
 			name: "stack-feedback-diff-current",
