@@ -67,6 +67,7 @@ export interface LandingShape {
 	repoRoot: string;
 	current: string;
 	trunk: string;
+	metadataDbPath: string;
 	stack: StackSnapshot;
 }
 
@@ -127,16 +128,9 @@ export interface WorktreeEntry {
 	branch?: string;
 }
 
-export interface ParsedStackOutput {
-	trunk: string;
-	current: string;
-	ancestors: string[];
-	descendants: string[];
-	warnings: string[];
-}
-
 export interface LandingPlan {
 	repoRoot: string;
+	metadataDbPath: string;
 	stack: StackSnapshot;
 	branchPlans: BranchPlan[];
 	prSubmitRequirements: PrSubmitRequirement[];

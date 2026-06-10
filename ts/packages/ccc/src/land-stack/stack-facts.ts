@@ -2,10 +2,19 @@ import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
 import { formatCommand } from "@asdl/core/exec";
-import { CURRENT_MARKER, GIT_TIMEOUT_MS, GT_TIMEOUT_MS, OTHER_MARKER } from "./constants.ts";
+import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
-import type { LandStackExtensionAPI, LandingShape, ParsedStackOutput, StackSnapshot } from "./types.ts";
+import {
+	derivePathToTrunk,
+	deriveDescendantSubtree,
+	detectForkViolations,
+	formatForkViolations,
+	loadGraphiteTopology,
+	resolveMetadataDbPath,
+	type GraphiteTopology,
+} from "./graphite-topology.ts";
+import type { LandStackExtensionAPI, LandingShape, StackSnapshot } from "./types.ts";
 
 export async function loadRepoRoot(pi: LandStackExtensionAPI, cwd: string): Promise<LandStackResult<string>> {
 	const result = await exec(pi, "git", ["rev-parse", "--show-toplevel"], cwd, GIT_TIMEOUT_MS);
@@ -57,109 +66,70 @@ export async function loadLandingShape(pi: LandStackExtensionAPI, cwd: string): 
 	const trunk = await loadTrunk(pi, repoRoot.value);
 	if (trunk.type === "failure") return trunk;
 
-	const stack = await loadStackSnapshot(pi, repoRoot.value, current.value, trunk.value);
+	const metadataDbPath = await resolveMetadataDbPath(pi, repoRoot.value);
+	if (metadataDbPath.type === "failure") return metadataDbPath;
+
+	const stack = await loadStackSnapshot({
+		pi,
+		repoRoot: repoRoot.value,
+		metadataDbPath: metadataDbPath.value,
+		current: current.value,
+		trunk: trunk.value,
+	});
 	if (stack.type === "failure") return stack;
 
-	return success({ repoRoot: repoRoot.value, current: current.value, trunk: trunk.value, stack: stack.value });
+	return success({
+		repoRoot: repoRoot.value,
+		current: current.value,
+		trunk: trunk.value,
+		metadataDbPath: metadataDbPath.value,
+		stack: stack.value,
+	});
 }
 
-export async function loadStackSnapshot(
-	pi: LandStackExtensionAPI,
-	repoRoot: string,
-	current: string,
-	trunk: string,
-): Promise<LandStackResult<StackSnapshot>> {
-	const args = ["log", "short", "--stack", "-r", "--no-interactive"];
-	const result = await exec(pi, "gt", args, repoRoot, GT_TIMEOUT_MS);
-	if (result.code !== 0) {
-		return failure(landStackFailure(`Could not load Graphite stack.\n${formatCommandDetails(result, formatCommand("gt", args))}`));
+export interface LoadStackSnapshotOptions {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	metadataDbPath: string;
+	current: string;
+	trunk: string;
+}
+
+export async function loadStackSnapshot(options: LoadStackSnapshotOptions): Promise<LandStackResult<StackSnapshot>> {
+	const { pi, repoRoot, metadataDbPath, current, trunk } = options;
+	const topology = await loadGraphiteTopology(pi, repoRoot, metadataDbPath);
+	if (topology.type === "failure") return topology;
+
+	const landingBranches = derivePathToTrunk({ topology: topology.value, current, trunk, dbPath: metadataDbPath });
+	if (landingBranches.type === "failure") return landingBranches;
+
+	const violations = detectForkViolations(topology.value, landingBranches.value);
+	if (violations.length > 0) {
+		return failure(formatForkViolations(violations, trunk));
 	}
 
-	const parsed = parseGtStackOutput(result.stdout);
-	if (!parsed) {
-		return failure(landStackFailure("gt log short --stack returned no current-branch marker; refusing to infer the stack from git history."));
-	}
-	if (parsed.current !== current) {
-		return failure(landStackFailure(`Graphite stack current marker is ${parsed.current}, but git current branch is ${current}; refusing to continue.`));
-	}
-
-	const warnings = [...parsed.warnings];
-	if (parsed.trunk !== trunk) {
-		warnings.push(`gt log stack root is ${parsed.trunk}, but gt trunk is ${trunk}; ${trunk} remains the required merge target`);
-	}
-
-	const landingBranches = unique([...parsed.ancestors.filter((branch) => branch !== trunk), current].filter((branch) => branch !== trunk));
-	const descendantBranches = unique(parsed.descendants.filter((branch) => branch !== current && branch !== trunk));
+	const descendantBranches = deriveDescendantSubtree(topology.value, current);
+	if (descendantBranches.type === "failure") return descendantBranches;
 
 	return success({
 		trunk,
 		current,
-		landingBranches,
-		descendantBranches,
-		warnings,
+		landingBranches: landingBranches.value,
+		descendantBranches: descendantBranches.value,
+		warnings: trunkMarkerWarnings(topology.value, trunk),
 	});
 }
 
-export function parseGtStackOutput(stdout: string): ParsedStackOutput | undefined {
-	const rawLines = stdout.split("\n").filter((line) => line.trim().length > 0);
-	const entries: Array<{ lineIndex: number; col: number; marker: string; branch: string }> = [];
-
-	for (let lineIndex = 0; lineIndex < rawLines.length; lineIndex += 1) {
-		const line = rawLines[lineIndex] ?? "";
-		const position = markerPosition(line);
-		if (!position) continue;
-		const branch = branchNameFromLine(line, position.col);
-		if (!branch) continue;
-		entries.push({ lineIndex, col: position.col, marker: position.marker, branch });
-	}
-
-	const currentEntries = entries.filter((entry) => entry.marker === CURRENT_MARKER);
-	if (currentEntries.length === 0) {
-		return undefined;
-	}
-
-	const current = currentEntries[0];
-	if (!current) return undefined;
+function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): string[] {
+	const marked = [...topology.entries()].filter(([, entry]) => entry.isTrunkMarked).map(([branch]) => branch);
 	const warnings: string[] = [];
-	if (currentEntries.length > 1) {
-		warnings.push("multiple current markers found in gt log output");
+	if (marked.length > 1) {
+		warnings.push(`multiple branches are marked as trunk in Graphite metadata: ${marked.join(", ")}`);
 	}
-
-	const offColumn = entries.filter((entry) => entry.col !== current.col).length;
-	if (offColumn > 0) {
-		warnings.push(
-			`${offColumn} branch(es) in gt log output sit outside the current branch's column and were not included in the stack walk`,
-		);
+	if (marked.length > 0 && !marked.includes(trunk)) {
+		warnings.push(`Graphite metadata marks ${marked.join(", ")} as trunk, but gt trunk is ${trunk}; ${trunk} remains the required merge target`);
 	}
-
-	const aligned = entries.filter((entry) => entry.col === current.col);
-	const ancestors = aligned.filter((entry) => entry.lineIndex < current.lineIndex).map((entry) => entry.branch);
-	const descendants = aligned.filter((entry) => entry.lineIndex > current.lineIndex).map((entry) => entry.branch);
-	const trunk = ancestors[0] ?? current.branch;
-
-	return {
-		trunk,
-		current: current.branch,
-		ancestors,
-		descendants,
-		warnings,
-	};
-}
-
-export function markerPosition(line: string): { col: number; marker: string } | undefined {
-	for (let index = 0; index < line.length; index += 1) {
-		const char = line[index];
-		if (char === CURRENT_MARKER || char === OTHER_MARKER) {
-			return { col: index, marker: char };
-		}
-	}
-	return undefined;
-}
-
-export function branchNameFromLine(line: string, markerIndex: number): string {
-	const tail = line.slice(markerIndex + 1).trimStart();
-	const annotationIndex = tail.indexOf(" (");
-	return (annotationIndex === -1 ? tail : tail.slice(0, annotationIndex)).trim();
+	return warnings;
 }
 
 export async function assertCleanRepo(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackOutcome> {
@@ -247,15 +217,4 @@ export async function loadLocalSha(pi: LandStackExtensionAPI, repoRoot: string, 
 
 export function firstNonEmptyLine(output: string): string | undefined {
 	return output.split("\n").map((line) => line.trim()).find(Boolean);
-}
-
-export function unique(values: string[]): string[] {
-	const seen = new Set<string>();
-	const out: string[] = [];
-	for (const value of values) {
-		if (!value || seen.has(value)) continue;
-		seen.add(value);
-		out.push(value);
-	}
-	return out;
 }

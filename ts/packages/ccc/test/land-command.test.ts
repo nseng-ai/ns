@@ -17,12 +17,39 @@ const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 const GIT_TIMEOUT_MS = 30_000;
 const GT_TIMEOUT_MS = 120_000;
+const SQLITE_TIMEOUT_MS = 30_000;
 const GIT_ROOT_ARGS = ["rev-parse", "--show-toplevel"];
 const GIT_CURRENT_ARGS = ["symbolic-ref", "--short", "HEAD"];
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"];
-const GT_STACK_ARGS = ["log", "short", "--stack", "-r", "--no-interactive"];
-const STACK_SINGLE_BRANCH = [`◯ ${TRUNK}`, `◉ ${CURRENT}`, ""].join("\n");
-const STACK_WITH_DESCENDANT = [`◯ ${TRUNK}`, `◉ ${CURRENT}`, "◯ child-branch", ""].join("\n");
+const GIT_COMMON_DIR_ARGS = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
+const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
+const TOPOLOGY_ARGS = [
+	"-readonly",
+	"-json",
+	DB_PATH,
+	"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata",
+];
+
+function metadataDbJson(rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>): string {
+	return JSON.stringify(
+		rows.map((row) => ({
+			branch_name: row.branch,
+			parent_branch_name: row.parent ?? null,
+			children: row.children ? JSON.stringify(row.children) : null,
+			validation_result: row.trunk ? "TRUNK" : "VALID",
+		})),
+	);
+}
+
+const DB_SINGLE_BRANCH = metadataDbJson([
+	{ branch: TRUNK, children: [CURRENT], trunk: true },
+	{ branch: CURRENT, parent: TRUNK, children: [] },
+]);
+const DB_WITH_DESCENDANT = metadataDbJson([
+	{ branch: TRUNK, children: [CURRENT], trunk: true },
+	{ branch: CURRENT, parent: TRUNK, children: ["child-branch"] },
+	{ branch: "child-branch", parent: CURRENT, children: [] },
+]);
 
 type RegisteredCommand = Parameters<LandExtensionAPI["registerCommand"]>[1];
 
@@ -150,7 +177,7 @@ async function runLand(script: ScriptedExec[], options: { mode?: LandCommandCont
 	printed: string[];
 	waitForIdleCalls: () => number;
 }> {
-	const fullScript = options.stack === false ? script : [...graphiteShapeSteps(options.stack ?? STACK_SINGLE_BRANCH), ...script];
+	const fullScript = options.stack === false ? script : [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
 	registerLandCommand(pi);
 	const command = pi.commands.get("code:land");
@@ -160,12 +187,13 @@ async function runLand(script: ScriptedExec[], options: { mode?: LandCommandCont
 	return { pi, ...context };
 }
 
-function graphiteShapeSteps(stack: string): ScriptedExec[] {
+function graphiteShapeSteps(dbRows: string): ScriptedExec[] {
 	return [
 		step("git", GIT_ROOT_ARGS, { stdout: `${ROOT}\n` }),
 		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
-		step("gt", GT_STACK_ARGS, { stdout: stack }),
+		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
+		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }
 
@@ -174,7 +202,8 @@ function expectedShapeCalls(): ExecCall[] {
 		{ command: "git", args: GIT_ROOT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "git", args: GIT_CURRENT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "gt", args: GT_TRUNK_ARGS, options: { cwd: ROOT, timeout: GT_TIMEOUT_MS } },
-		{ command: "gt", args: GT_STACK_ARGS, options: { cwd: ROOT, timeout: GT_TIMEOUT_MS } },
+		{ command: "git", args: GIT_COMMON_DIR_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
+		{ command: "sqlite3", args: TOPOLOGY_ARGS, options: { cwd: ROOT, timeout: SQLITE_TIMEOUT_MS } },
 	];
 }
 
@@ -353,7 +382,7 @@ describe("code land command", () => {
 			step("gh", expectedMergeArgs(), { code: 1, stdout: "merge stdout", stderr: "merge stderr" }),
 		]);
 
-		expect(pi.execCalls).toHaveLength(6);
+		expect(pi.execCalls).toHaveLength(7);
 		expect(notifications).toEqual([
 			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
 			{
@@ -370,18 +399,19 @@ describe("code land command", () => {
 				step("git", GIT_ROOT_ARGS, { stdout: `${ROOT}\n` }),
 				step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 				step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
-				step("gt", GT_STACK_ARGS, { code: 1, stderr: "gt stack unavailable" }),
+				step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
+				step("sqlite3", TOPOLOGY_ARGS, { code: 1, stderr: "Error: unable to open database file\n" }),
 			],
 			{ stack: false },
 		);
 
 		expect(pi.execCalls).toEqual(expectedShapeCalls());
-		expect(notifications[0]?.message).toContain("Could not load Graphite stack.");
+		expect(notifications[0]?.message).toContain(`Graphite metadata DB at ${DB_PATH} is missing or unreadable; refusing to land.`);
 		pi.assertDone();
 	});
 
 	test("uses stack mode instead of fast path when current has descendants", async () => {
-		const { pi, notifications, confirmations } = await runLand([], { stack: STACK_WITH_DESCENDANT });
+		const { pi, notifications, confirmations } = await runLand([], { stack: DB_WITH_DESCENDANT });
 
 		expect(pi.execCalls).toEqual(expectedShapeCalls());
 		expect(confirmations).toEqual([

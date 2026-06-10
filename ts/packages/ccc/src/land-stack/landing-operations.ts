@@ -5,10 +5,12 @@ import {
 	isGtDeleteCheckedOutElsewhere,
 	normalizeCommandFinish,
 	parseGitCheckedOutElsewhere,
+	shortSha,
 	type CheckedOutElsewhere,
 } from "./command-exec.ts";
-import { GH_MERGE_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
-import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
+import { BACKUP_REF_NAMESPACE, GH_MERGE_TIMEOUT_MS, GIT_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
+import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
+import { loadBranchChildrenFresh } from "./graphite-topology.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
 import { formatPrSubmitRequirement, loadPr, validateStrictMergeGate } from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
@@ -244,6 +246,37 @@ function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 	];
 }
 
+const LAND_BACKUP_RECOVERY_HINT = `Pre-land branch SHAs are saved under ${BACKUP_REF_NAMESPACE}/<branch> (restore with git update-ref refs/heads/<branch> ${BACKUP_REF_NAMESPACE}/<branch>).`;
+
+export async function writeLandBackupRefs(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+	branches: string[],
+): Promise<LandStackResult<Map<string, string>>> {
+	const shas = new Map<string, string>();
+	for (const branch of branches) {
+		const sha = await loadLocalSha(pi, repoRoot, branch);
+		if (sha.type === "failure") {
+			return failure(
+				landStackFailure(`Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${sha.failure.message}`),
+			);
+		}
+		const ref = `${BACKUP_REF_NAMESPACE}/${branch}`;
+		const args = ["update-ref", ref, sha.value];
+		const updated = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
+		if (updated.code !== 0) {
+			return failure(
+				landStackFailure(`Could not write pre-land backup ref ${ref}; no PRs were landed.`, {
+					commandDisplay: formatCommand("git", args),
+					result: updated,
+				}),
+			);
+		}
+		shas.set(branch, sha.value);
+	}
+	return success(shas);
+}
+
 export async function runMergeLoop(
 	pi: LandStackExtensionAPI,
 	ctx: LandStackCommandContext,
@@ -253,6 +286,11 @@ export async function runMergeLoop(
 	options: { commandStream?: LandStackCommandStream; unstreamedPi?: LandStackExtensionAPI } = {},
 ): Promise<LandStackOutcome> {
 	const { repoRoot, stack } = plan;
+
+	const backupRefs = await writeLandBackupRefs(pi, repoRoot, [...stack.landingBranches, ...stack.descendantBranches]);
+	if (backupRefs.type === "failure") return backupRefs;
+	const expectedShas = backupRefs.value;
+	const deletedBranches = new Set<string>();
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
@@ -314,6 +352,46 @@ export async function runMergeLoop(
 		landed.push({ branch, number: currentPr.number, title: currentPr.title, ...(prUrl ? { url: prUrl } : {}) });
 
 		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
+			// Guard every forced refresh: gt get --force resets the local branch to remote
+			// state, so refuse if the branch moved since this run snapshotted it.
+			const guardSha = await loadLocalSha(pi, repoRoot, maintenance.branch);
+			if (guardSha.type === "failure") {
+				if (maintenance.kind === "required-next-landing") {
+					return failure(
+						landStackFailure(
+							`PR #${currentPr.number} merged, but could not verify local branch ${maintenance.branch} before refreshing it.\n${guardSha.failure.message}`,
+							{
+								failedBranch: maintenance.branch,
+								suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /code:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+							},
+						),
+					);
+				}
+				warnings.push({
+					message: `All target PRs were merged, but local branch ${maintenance.branch} could not be verified before optional descendant maintenance; local branch ${branch} cleanup and descendant restack/update were skipped.`,
+					suggestedAction: `Inspect local branch ${maintenance.branch}, then restack/update it and delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+				});
+				continue;
+			}
+			const expectedSha = expectedShas.get(maintenance.branch);
+			if (expectedSha !== guardSha.value) {
+				const expectedDisplay = expectedSha === undefined ? "(unrecorded)" : shortSha(expectedSha);
+				const movedMessage = `local branch ${maintenance.branch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing gt get --force to avoid clobbering local commits`;
+				if (maintenance.kind === "required-next-landing") {
+					return failure(
+						landStackFailure(`PR #${currentPr.number} merged, but ${movedMessage}.`, {
+							failedBranch: maintenance.branch,
+							suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /code:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+						}),
+					);
+				}
+				warnings.push({
+					message: `All target PRs were merged, but ${movedMessage}; local branch ${branch} cleanup and descendant restack/update were skipped.`,
+					suggestedAction: `Inspect local branch ${maintenance.branch}, then restack/update it and delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+				});
+				continue;
+			}
+
 			setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
 			const getArgs = ["get", maintenance.branch, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
 			const getCommandDisplay = formatCommand("gt", getArgs);
@@ -374,6 +452,42 @@ export async function runMergeLoop(
 			continue;
 		}
 
+		// Re-check the branch's Graphite children right before the forced delete: a
+		// child that appeared since planning means another stack now depends on it.
+		const skippedScope = maintenance.kind === "optional-descendant" ? `local branch ${branch} cleanup and descendant restack/update were` : `local branch ${branch} cleanup was`;
+		const childrenNow = await loadBranchChildrenFresh({ pi, repoRoot, dbPath: plan.metadataDbPath, branch });
+		if (childrenNow.type === "failure") {
+			warnings.push({
+				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${childrenNow.failure.message}`,
+				suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+			});
+			continue;
+		}
+		const allowedChildren = new Set(deletedBranches);
+		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
+			allowedChildren.add(maintenance.branch);
+		}
+		const unexpectedChildren = childrenNow.value.filter((child) => !allowedChildren.has(child));
+		if (unexpectedChildren.length > 0) {
+			if (maintenance.kind === "required-next-landing") {
+				return failure(
+					landStackFailure(
+						`PR #${currentPr.number} merged, but ${branch} now has unexpected Graphite children (${unexpectedChildren.join(", ")}); refusing gt delete to avoid destroying another stack.`,
+						{
+							failedBranch: branch,
+							failedPr: currentPr.number,
+							suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /code:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+						},
+					),
+				);
+			}
+			warnings.push({
+				message: `All target PRs were merged, but ${branch} now has unexpected Graphite children (${unexpectedChildren.join(", ")}); ${skippedScope} skipped.`,
+				suggestedAction: `Inspect the unexpected children, then delete local branch ${branch} and restack descendants manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+			});
+			continue;
+		}
+
 		setStatus(ctx, `deleting local Graphite branch ${branch}...`);
 		const deleteArgs = ["delete", branch, "-f", "-q"];
 		const deleted =
@@ -404,6 +518,7 @@ export async function runMergeLoop(
 			});
 			continue;
 		}
+		deletedBranches.add(branch);
 
 		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
 			setStatus(ctx, `restacking ${maintenance.branch}...`);
@@ -428,6 +543,28 @@ export async function runMergeLoop(
 					suggestedAction: `Resolve restack failures for ${maintenance.branch}, then update that PR manually.`,
 				});
 				continue;
+			}
+
+			// gt restack --upstack legitimately rewrites upstack branches, so refresh the
+			// expectation for the next iteration's forced refresh target; comparing against
+			// the pre-restack SHA would false-positive on every 3+ branch stack.
+			const nextGetTarget =
+				stack.landingBranches[index + 2] ??
+				(plan.descendantMaintenance.kind === "auto" ? plan.descendantMaintenance.targetBranch : undefined);
+			if (nextGetTarget !== undefined) {
+				const refreshedSha = await loadLocalSha(pi, repoRoot, nextGetTarget);
+				if (refreshedSha.type === "failure") {
+					return failure(
+						landStackFailure(
+							`PR #${currentPr.number} merged, but could not re-read local branch ${nextGetTarget} after restack.\n${refreshedSha.failure.message}`,
+							{
+								failedBranch: nextGetTarget,
+								suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /code:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+							},
+						),
+					);
+				}
+				expectedShas.set(nextGetTarget, refreshedSha.value);
 			}
 
 			setStatus(ctx, `submitting ${maintenance.branch}...`);
