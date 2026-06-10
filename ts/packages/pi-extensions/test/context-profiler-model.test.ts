@@ -9,8 +9,12 @@ import {
 	CAP_FIRST_TURNS,
 	CAP_LAST_TURNS,
 	capTurns,
+	delegationsInSpan,
 	deriveLiveTurns,
+	displayDelegations,
 	estimateTokensFromChars,
+	inferredDelegations,
+	MAX_DELEGATIONS,
 	normalizeMessage,
 	type LiveTurn,
 } from "../src/context-profiler/model.ts";
@@ -67,6 +71,17 @@ function makeTurns(count: number, tokensEach = 4): LiveTurn[] {
 		excerpt: `turn ${position + 1}`,
 		message: normalizeMessage({ role: "user", content: `turn ${position + 1}` }),
 	}));
+}
+
+function makeTurnWithTools(index: number, toolNames: readonly string[]): LiveTurn {
+	return {
+		index,
+		role: "assistant",
+		tokens: { value: 4, provenance: "estimated" },
+		toolNames: [...toolNames],
+		excerpt: `turn ${index}`,
+		message: normalizeMessage({ role: "assistant", content: `turn ${index}` }),
+	};
 }
 
 describe("estimateTokensFromChars", () => {
@@ -281,6 +296,48 @@ describe("capTurns", () => {
 		expect(capped.turns[CAP_FIRST_TURNS - 1]?.index).toBe(16);
 		expect(capped.turns[CAP_FIRST_TURNS]?.index).toBe(18);
 		expect(capped.turns[capped.turns.length - 1]?.index).toBe(81);
+	});
+});
+
+describe("delegation helpers", () => {
+	test("infers delegations from the validated tool-name pattern and caps results", () => {
+		const turns = [
+			makeTurnWithTools(1, ["read"]),
+			makeTurnWithTools(2, ["dispatch_runner_subagent"]),
+			makeTurnWithTools(3, ["task"]),
+			makeTurnWithTools(4, ["spawn_agent"]),
+			makeTurnWithTools(5, ["bash"]),
+			makeTurnWithTools(6, ["taskmaster"]),
+			...Array.from({ length: MAX_DELEGATIONS }, (_unused, position) => makeTurnWithTools(position + 7, [`dispatch_${position}`])),
+		];
+		expect(inferredDelegations(turns)).toEqual([
+			{ turn: 2, label: "dispatch_runner_subagent", confidence: "inferred" },
+			{ turn: 3, label: "task", confidence: "inferred" },
+			{ turn: 4, label: "spawn_agent", confidence: "inferred" },
+			{ turn: 6, label: "taskmaster", confidence: "inferred" },
+			...Array.from({ length: MAX_DELEGATIONS - 4 }, (_unused, position) => ({ turn: position + 7, label: `dispatch_${position}`, confidence: "inferred" as const })),
+		]);
+	});
+
+	test("filters delegations inclusively by span", () => {
+		expect(delegationsInSpan([
+			{ turn: 2, label: "before", confidence: "high" },
+			{ turn: 3, label: "start", confidence: "low" },
+			{ turn: 5, label: "end", confidence: "inferred" },
+			{ turn: 6, label: "after", confidence: "high" },
+		], { start: 3, end: 5 })).toEqual([
+			{ turn: 3, label: "start", confidence: "low" },
+			{ turn: 5, label: "end", confidence: "inferred" },
+		]);
+	});
+
+	test("uses inferred delegations until ready segmentation replaces them", () => {
+		const profile = { liveTurns: [makeTurnWithTools(1, ["dispatch_runner_subagent"])] };
+		expect(displayDelegations(profile, { type: "loading" })).toEqual([{ turn: 1, label: "dispatch_runner_subagent", confidence: "inferred" }]);
+		expect(displayDelegations(profile, { type: "error" })).toEqual([{ turn: 1, label: "dispatch_runner_subagent", confidence: "inferred" }]);
+		expect(displayDelegations(profile, { type: "ready", delegations: [{ turn: 1, label: "LM task", confidence: "high" }] })).toEqual([
+			{ turn: 1, label: "LM task", confidence: "high" },
+		]);
 	});
 });
 

@@ -20,7 +20,7 @@ import {
 export const ANALYSIS_MODEL_PROVIDER = SEGMENTATION_PROVIDER;
 export const ANALYSIS_MODEL_ID = SEGMENTATION_MODEL;
 
-/** Bounded output: ≤12 episode starts plus one sentence fits comfortably. */
+/** Bounded output: ≤12 episode starts, ≤24 delegations, plus one sentence fits comfortably. */
 const SEGMENTATION_MAX_TOKENS = 2_048;
 /** Bounded output: one verdict pair only. */
 const EPISODE_ANALYSIS_MAX_TOKENS = 256;

@@ -11,6 +11,7 @@ import { renderNormalizedMessageText } from "./model.ts";
 import type {
 	BaseMember,
 	BaseRegion,
+	DelegationClaim,
 	EpisodeKind,
 	EpisodeOutcome,
 	LiveRegion,
@@ -87,6 +88,7 @@ export interface OverviewRowCellsOptions {
 	maxTokens: number;
 	totalTokens: number;
 	innerWidth: number;
+	hasDelegation?: boolean;
 }
 
 export function buildOverviewRowCells(source: OverviewRowSource, options: OverviewRowCellsOptions): OverviewRowCells {
@@ -100,7 +102,7 @@ export function buildOverviewRowCells(source: OverviewRowSource, options: Overvi
 		barEmpty: empty,
 		tokens: formatTokenCount(region.tokens).padStart(TOKENS_COLUMN_WIDTH),
 		percent: `${percentValue}%`.padStart(PERCENT_COLUMN_WIDTH),
-		status: fitToWidth(rowStatus(source), STATUS_COLUMN_WIDTH),
+		status: fitToWidth(rowStatus(source, options.hasDelegation ?? false), STATUS_COLUMN_WIDTH),
 		health: rowHealth(source),
 	};
 }
@@ -115,13 +117,14 @@ function regionRowLabel(source: OverviewRowSource): string {
 	return `${source.region.label} · ${source.region.turnRange.start}–${source.region.turnRange.end}`;
 }
 
-function rowStatus(source: OverviewRowSource): string {
+function rowStatus(source: OverviewRowSource, hasDelegation: boolean): string {
 	if (source.type === "base") return "";
 	const region = source.region;
 	const base = region.outcome === null
 		? `${region.isCurrent ? "●" : "·"} ${EPISODE_KIND_ABBREV[region.kind]}`
 		: `${EPISODE_OUTCOME_GLYPH[region.outcome]} ${EPISODE_KIND_ABBREV[region.kind]}`;
-	return region.relevance === undefined ? base : `${base} ${RELEVANCE_ABBREV[region.relevance]}`;
+	const withRelevance = region.relevance === undefined ? base : `${base} ${RELEVANCE_ABBREV[region.relevance]}`;
+	return hasDelegation ? `${withRelevance} ⇄` : withRelevance;
 }
 
 function rowHealth(source: OverviewRowSource): Health {
@@ -210,12 +213,13 @@ export function segmentationStatusText(state: SegmentationState): string | null 
 
 export const BASE_DETAIL_CLAIM = "members sorted by estimated size, descending · ⏎ views content";
 
-export function turnListClaim(region: LiveRegion, analysisStatus?: string | null): string {
+export function turnListClaim(region: LiveRegion, analysisStatus?: string | null, delegationCount = 0): string {
 	if (region.source === "annotation") {
 		const efficiency = region.efficiency ?? "unanalyzed";
 		const relevance = region.relevance ?? "unanalyzed";
 		const status = analysisStatus === undefined || analysisStatus === null ? "" : ` · ${analysisStatus}`;
-		return `LM claim: kind=${region.kind} · outcome=${region.outcome ?? "unknown"} · efficiency=${efficiency} · relevance=${relevance}${status} · turns ${region.turnRange.start}–${region.turnRange.end} · ⏎ views turn content`;
+		const delegations = delegationCount === 0 ? "" : ` · delegations=${delegationCount.toLocaleString()}`;
+		return `LM claim: kind=${region.kind} · outcome=${region.outcome ?? "unknown"} · efficiency=${efficiency} · relevance=${relevance}${status}${delegations} · turns ${region.turnRange.start}–${region.turnRange.end} · ⏎ views turn content`;
 	}
 	return `turns ${region.turnRange.start}–${region.turnRange.end} of this span, in order · ⏎ views turn content`;
 }
@@ -246,9 +250,19 @@ export function composeListRowText(cells: ListRowCells): string {
 	return `▌${cells.barFilled}${cells.barEmpty}${cells.tokens}  ${cells.text}`;
 }
 
-export function turnListRowText(turn: LiveTurn): string {
+export function delegationSummaryLine(claims: readonly DelegationClaim[]): string {
+	return `delegations: ${claims.map(delegationClaimText).join(" · ")}`;
+}
+
+export function delegationClaimText(claim: DelegationClaim): string {
+	const inferred = claim.confidence === "inferred" ? " (inferred)" : "";
+	return `t${claim.turn} ${claim.label}${inferred}`;
+}
+
+export function turnListRowText(turn: LiveTurn, hasDelegation = false): string {
 	const tools = turn.toolNames.length === 0 ? "" : ` [${turn.toolNames.join(",")}]`;
-	return `t${turn.index} ${turn.role}${tools} · ${turn.excerpt}`;
+	const prefix = hasDelegation ? "⇄ " : "";
+	return `${prefix}t${turn.index} ${turn.role}${tools} · ${turn.excerpt}`;
 }
 
 export interface ContentSource {

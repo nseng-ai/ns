@@ -136,7 +136,7 @@ describe("createCodexAnalysisModelGateway", () => {
 		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
 		expect(result).toEqual({
 			ok: true,
-			value: { episodes: [{ startTurn: 1, label: "a", kind: "chat", outcome: "active" }], summary: "One sentence." },
+			value: { episodes: [{ startTurn: 1, label: "a", kind: "chat", outcome: "active" }], summary: "One sentence.", delegations: [] },
 		});
 		expect(seen.context?.systemPrompt).toBe(SEGMENTATION_SYSTEM_PROMPT);
 		const userMessage = seen.context?.messages[0];
