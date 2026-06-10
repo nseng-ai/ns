@@ -284,7 +284,7 @@ describe("buildSegmentationPayload", () => {
 		const profile = makeProfile(turns, { cap: { originalCount: 120, includedCount: 3, elidedMiddleTurns: 117 } });
 		const payload = buildSegmentationPayload(profile);
 		expect(payload.includedTurnCount).toBe(3);
-		expect(payload.truncatedForPayload).toBe(false);
+		expect(payload.wasTruncatedForPayload).toBe(false);
 		const request = JSON.parse(payload.json) as Record<string, unknown>;
 		expect(request.cwd).toBe("/repo");
 		expect(request.model).toBe("anthropic/claude-fable-5");
@@ -301,7 +301,7 @@ describe("buildSegmentationPayload", () => {
 		const profile = makeProfile(oversized);
 		const payload = buildSegmentationPayload(profile);
 		expect(payload.json.length).toBeLessThanOrEqual(SEGMENTATION_PAYLOAD_MAX_CHARS);
-		expect(payload.truncatedForPayload).toBe(true);
+		expect(payload.wasTruncatedForPayload).toBe(true);
 		expect(payload.includedTurnCount).toBeLessThan(oversized.length);
 		const request = JSON.parse(payload.json) as { capped: { includedTurnCount: number; elidedMiddleTurns: number }; turns: { turn: number }[] };
 		expect(request.capped.includedTurnCount).toBe(payload.includedTurnCount);
@@ -311,6 +311,6 @@ describe("buildSegmentationPayload", () => {
 		expect(request.turns[request.turns.length - 1]?.turn).toBe(500);
 
 		const smallPayload = buildSegmentationPayload(makeProfile(oversized.slice(0, 3)));
-		expect(smallPayload.truncatedForPayload).toBe(false);
+		expect(smallPayload.wasTruncatedForPayload).toBe(false);
 	});
 });

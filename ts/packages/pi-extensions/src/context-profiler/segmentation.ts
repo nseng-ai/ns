@@ -302,7 +302,7 @@ export interface SegmentationPayload {
 	/** Turns actually included after the payload-size cap. */
 	includedTurnCount: number;
 	/** True when the 60k-char cap forced dropping turns beyond the deterministic cap. */
-	truncatedForPayload: boolean;
+	wasTruncatedForPayload: boolean;
 }
 
 export function buildSegmentationPayload(profile: ProfileSnapshot): SegmentationPayload {
@@ -315,7 +315,7 @@ export function buildSegmentationPayload(profile: ProfileSnapshot): Segmentation
 		dropped += 1;
 		json = serializeSegmentationRequest(profile, turns);
 	}
-	return { json, includedTurnCount: turns.length, truncatedForPayload: dropped > 0 };
+	return { json, includedTurnCount: turns.length, wasTruncatedForPayload: dropped > 0 };
 }
 
 function serializeSegmentationRequest(profile: ProfileSnapshot, turns: readonly LiveTurn[]): string {

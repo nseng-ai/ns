@@ -283,7 +283,7 @@ export class ProfilerView implements Component {
 				const delegations = delegationsInSpan(this.currentDelegations(), region.turnRange);
 				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
 				return this.composeListBody({
-					claim: turnListClaim(region, this.analysisStatusTextForRegion(region), delegations.length),
+					claim: turnListClaim(region, { analysisStatus: this.analysisStatusTextForRegion(region), delegationCount: delegations.length }),
 					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
 					rows: frame.turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
 					state: frame,
