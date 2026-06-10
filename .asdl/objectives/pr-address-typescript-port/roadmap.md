@@ -30,18 +30,20 @@
   - Policy: directly executable after preview when it reuses the local seams; ask before changing classification schema semantics.
   - Evidence: `updates/2026-06-09T150509Z-classification-core-parity.md` records TypeScript-managed `validate-feedback-classification` and `plan-feedback`, golden parity over the existing fixture suites, and targeted package validation.
   - Contract hardening evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` records canonical Zod manifest/plan contract modules, typed plan item variants, schema-document ownership for `plan-feedback`, and preservation of existing runtime JSON shapes.
-- [~] Port payload/detail/finalization helpers that do not require live GitHub mutation.
+- [x] Port payload/detail/finalization helpers that do not require live GitHub mutation.
   - Cover payload manifest readers/builders, selected feedback detail lookup, resolve-batch payload builders, checkpoint recording, finalization summaries, and stack plan/diff builders where they can be driven by fixtures or fakes.
   - Policy: directly executable after preview with fake filesystem/process gateways. Ask before changing artifact layout or payload defaults.
   - Evidence should include fake-driven tests plus golden/contract parity for payload manifests, batch payloads, checkpoints, finalization, and stack planning/diff outputs.
   - Progress evidence: `updates/2026-06-09T152041Z-payload-finalize-helper-parity.md` records TypeScript parity for payload manifest builders, selected feedback detail lookup, resolve-thread batch payloads, checkpoint calculation helpers, and finalization summaries; artifact-writing and stack-wide helpers remain fallback-backed until their filesystem/stack contracts are ported safely.
   - Contract hardening evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` records that downstream consumers now compose canonical plan/manifest schemas where compatible, with legacy-broader parsing kept explicit for consumer paths.
-- [~] Port GitHub/git-backed read-only feedback collection behind adapter-neutral gateways.
+  - Completion evidence: `updates/2026-06-09T195714Z-payload-store-and-full-operation-port.md` records the ported payload artifact store, TS-managed `read-feedback-details`, `record-batch-checkpoint` artifact writing, and stack plan/payload builders with byte-for-byte Python parity fixtures.
+- [x] Port GitHub/git-backed read-only feedback collection behind adapter-neutral gateways.
   - Cover current-branch PR lookup, reviews, review comments, discussion comments, `get-feedback`, `prepare-run`, and compact payload artifacts.
   - Use capability-shaped gateways and in-memory fakes for git, GitHub, filesystem, process, and payload behavior.
   - Policy: directly executable after preview for fake-driven behavior and safe read-only smoke probes. Ask before adding Graphite-specific runtime dependencies outside explicitly Graphite-named stack inputs.
   - Evidence should include fake-driven unit/scenario tests, compact payload parity, and limited safe real-adapter smoke evidence when useful.
   - Progress evidence: `updates/2026-06-09T153238Z-readonly-gateway-stack-diff.md` records adapter-neutral GitHub/git gateways, TypeScript-managed read-only fetch operations, inline `get-feedback`, and `stack-feedback-diff-current` transformation coverage; artifact-writing `get-feedback`, `prepare-run`, `stack-feedback-prep`, and `stack-feedback-plan` remain fallback-backed.
+  - Completion evidence: `updates/2026-06-09T195714Z-payload-store-and-full-operation-port.md` records TS-managed payload-mode `get-feedback`, `prepare-run` (contested-thread reopen via the TS mutation gateway, restructured-files via the git gateway), `summarize-feedback`, and the stack orchestration trio; no exec operation executes via Python fallback.
 - [x] Port mutation/reply helpers without weakening safety gates.
   - Cover reply builders, thread resolution/unresolution helpers, issue comments, reactions, review-thread replies, batch resolution, and stack resolution payload generation.
   - Preserve validation-before-action semantics, explicit decision requirements, durable resolution modes, planned provenance validation, and no-push behavior.
@@ -69,13 +71,14 @@ The first stack (runtime-schema through cutover-retirement-playbook) landed; its
 
 Default branch sequence:
 
-1. `payload-store`
+1. `payload-store` — landed as `pr-address-ts/payload-store`.
    - Thesis: port the payload artifact store (Python `asdl_core.payloads`) to TypeScript behind the filesystem gateway: `ASDL_PAYLOAD_ROOT`/`ASDL_PAYLOAD_SESSION_ID` session resolution, `{root}/{session}/artifacts/` layout, `{descriptor}--{role}.json` naming, and session metadata. Fake-driven tests plus parity probes against Python-written artifacts. Keystone for every later branch.
-2. `payload-operations`
+   - Landed note: the actual Python store contract is `{root}/sessions/{session-id}/payloads/` with timestamped `{stamp}-{seq}-{descriptor}.{role}.{ext}` names and no session-metadata files; the port follows the real source, not this row's earlier description.
+2. `payload-operations` — landed as `pr-address-ts/payload-operations`.
    - Thesis: make default payload-mode `get-feedback`, `read-feedback-details` (plural), and `record-batch-checkpoint` artifact writing TypeScript-managed using the store; golden/contract parity against Python artifact output.
-3. `prepare-run-summarize`
+3. `prepare-run-summarize` — landed as `pr-address-ts/prepare-run-summarize`.
    - Thesis: port `prepare-run` (contested-thread reopen via the existing TypeScript mutation gateway, restructured-files via the git gateway, payload/inline modes) and `summarize-feedback` (deterministic excerpt/automation-marker heuristics). Fake-validated only; no live writes.
-4. `stack-orchestration`
+4. `stack-orchestration` — landed as `pr-address-ts/stack-orchestration` (kept as one branch; the optional prep/plan vs payload-building split was not needed for thesis clarity).
    - Thesis: port `stack-feedback-prep`, `stack-feedback-plan`, and `build-stack-resolve-thread-payloads` on the store plus the already-ported planning/classification core. No Graphite dependency. The parent may split this into two adjacent branches (prep/plan vs payload building) for review size.
 5. `schema-routes`
    - Thesis: make every remaining `pr-address exec ... --json-schema` route TypeScript-owned (structured semantic parity), removing the schema fallback dependency.

@@ -145,7 +145,7 @@ interface FeedbackManifestView {
 	discussionComments: DiscussionCommentManifestItem[];
 }
 
-interface FeedbackClassificationValidationError {
+export interface FeedbackClassificationValidationError {
 	code: string;
 	message: string;
 	kind: ValidationItemKind;
@@ -153,7 +153,7 @@ interface FeedbackClassificationValidationError {
 	path: string | null;
 }
 
-interface FeedbackClassificationValidationResult {
+export interface FeedbackClassificationValidationResult {
 	valid: boolean;
 	manifest_kind: ManifestKind;
 	pr_number: number | null;
@@ -177,7 +177,7 @@ interface FeedbackClassificationValidationArtifacts {
 	classificationPacket: FeedbackClassificationPacket | null;
 }
 
-interface FeedbackPlanningResult {
+export interface FeedbackPlanningResult {
 	valid: boolean;
 	manifest_kind: ManifestKind;
 	pr_number: number | null;

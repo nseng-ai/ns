@@ -181,7 +181,7 @@ export async function fetchFeedbackSnapshot(options: {
 	};
 }
 
-function reviewsForRequest(reviews: readonly PRReview[], shouldIncludeEmptyReviews: boolean): readonly PRReview[] {
+export function reviewsForRequest(reviews: readonly PRReview[], shouldIncludeEmptyReviews: boolean): readonly PRReview[] {
 	if (shouldIncludeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
 }
