@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
+import { isRecord } from "@asdl/core/primitives";
 
 import { err, ok, type GatewayResult } from "../result.ts";
 import { commandFailure } from "./command-failure.ts";
@@ -165,8 +166,4 @@ function parseJson(text: string): unknown {
 		// Malformed gh JSON is converted to a gateway parse failure by the caller.
 		return undefined;
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }

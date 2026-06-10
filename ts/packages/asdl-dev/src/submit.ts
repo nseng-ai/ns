@@ -1,7 +1,7 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 import type { GithubPrGateway } from "./gateways/github-pr.ts";
 import type { GitGateway } from "./gateways/git.ts";
-import { formatPrDescriptionFailureText, generateSubmitPrDescriptions } from "./submit-pr-descriptions.ts";
+import { formatPrDescriptionFailureText, formatPrLinkTextRow, generateSubmitPrDescriptions, prNumberFromUrl } from "./submit-pr-descriptions.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 const SUBMIT_ARGS = ["submit", "-nps", "--no-ai"] as const;
@@ -391,11 +391,6 @@ function formatSubmitSuccessText(prLinks: SubmitPrLink[], generatedDescriptions:
 	return lines.join("\n");
 }
 
-function formatPrLinkTextRow(link: SubmitPrLink): string {
-	if (link.label === link.url) return `• ${link.url}`;
-	return `• ${link.label} ${link.url}`;
-}
-
 function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
 	const lines = ["gt submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `asdl-dev pr-regen` if needed."];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
@@ -667,14 +662,6 @@ function toPrLink(url: string): SubmitPrLink | undefined {
 	if (prNumber) return { label: `#${prNumber}`, url };
 	if (isPotentialPrUrl(url)) return { label: url, url };
 	return undefined;
-}
-
-function prNumberFromUrl(url: string): string | undefined {
-	const graphiteMatch = url.match(/^https:\/\/app\.graphite\.com\/github\/pr\/[^\/\s?#]+\/[^\/\s?#]+\/(\d+)(?:[\/?#].*)?$/);
-	if (graphiteMatch?.[1]) return graphiteMatch[1];
-
-	const githubMatch = url.match(/^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\/(\d+)(?:[\/?#].*)?$/);
-	return githubMatch?.[1];
 }
 
 function isPotentialPrUrl(url: string): boolean {

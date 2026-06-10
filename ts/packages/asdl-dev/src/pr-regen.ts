@@ -1,6 +1,7 @@
 import type { GitGateway } from "./gateways/git.ts";
 import type { GithubPrGateway } from "./gateways/github-pr.ts";
 import { applyGeneratedDescription, canOverwriteBody } from "./pr-description-apply.ts";
+import type { PromptSource } from "./pr-description.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 export interface RunPrRegenCommandOptions {
@@ -39,7 +40,18 @@ export async function runPrRegenCommand(options: RunPrRegenCommandOptions): Prom
 		return failure(applied.exitCode ?? 1, applied.error);
 	}
 
-	return success(["Regenerated PR description.", `PR: #${pr.value.number} ${pr.value.url}`, `Title: ${applied.title}`].join("\n"));
+	return success(
+		[
+			"Regenerated PR description.",
+			`PR: #${pr.value.number} ${pr.value.url}`,
+			`Title: ${applied.title}`,
+			`Prompt: ${formatPromptSourceLabel(applied.promptSource)}`,
+		].join("\n"),
+	);
+}
+
+function formatPromptSourceLabel(source: PromptSource): string {
+	return source.type === "builtin" ? "built-in" : source.path;
 }
 
 function success(stdout: string): PrRegenCommandResult {

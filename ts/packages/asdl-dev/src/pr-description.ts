@@ -2,6 +2,8 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
+
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
@@ -81,10 +83,7 @@ Analyze the diff following these principles:
 - Maximum 5 key changes
 - Only include Critical Notes if necessary`;
 
-export interface PromptSource {
-	type: "env" | "repo" | "builtin";
-	path?: string;
-}
+export type PromptSource = { type: "env"; path: string } | { type: "repo"; path: string } | { type: "builtin" };
 
 export type PromptResolutionResult =
 	| { ok: true; text: string; source: PromptSource }
@@ -119,8 +118,8 @@ export type PreparedPrDescription =
 	| { ok: true; title: string; body: string; source: "model" | "repaired_model"; feedback?: string }
 	| { ok: false; error: string };
 
-export function hasGeneratedMarker(body: string | undefined): boolean {
-	return body?.includes(GENERATED_BODY_MARKER) ?? false;
+export function hasGeneratedMarker(body: string): boolean {
+	return body.includes(GENERATED_BODY_MARKER);
 }
 
 export function appendGeneratedMarker(body: string): string {
@@ -139,7 +138,7 @@ export async function resolvePrDescriptionPrompt(input: {
 		try {
 			return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
 		} catch (error) {
-			return { ok: false, error: `Could not read ${PR_DESCRIPTION_PROMPT_ENV} prompt file at ${path}: ${formatUnknownError(error)}`, source: { type: "env", path } };
+			return { ok: false, error: `Could not read ${PR_DESCRIPTION_PROMPT_ENV} prompt file at ${path}: ${formatErrorMessage(error)}`, source: { type: "env", path } };
 		}
 	}
 
@@ -330,8 +329,4 @@ function formatPrDescriptionValidationIssue(issue: PrDescriptionValidationIssue)
 		case "attribution_footer":
 			return `- Body contains an attribution footer: ${issue.text}`;
 	}
-}
-
-function formatUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

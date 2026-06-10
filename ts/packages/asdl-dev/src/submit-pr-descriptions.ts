@@ -6,8 +6,8 @@ export type SubmitPrDescriptionGenerationResult =
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
-	link?: SubmitPrLink;
-	number?: number;
+	link: SubmitPrLink;
+	number: number;
 	reason: string;
 }
 
@@ -19,6 +19,7 @@ export async function generateSubmitPrDescriptions(input: {
 	const generated: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
 
+	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
 	for (const link of input.prLinks) {
 		const number = prNumberFromLink(link);
 		if (number === undefined) continue;
@@ -69,11 +70,10 @@ export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[],
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
-	const target = failure.link !== undefined ? formatPrLinkTextRow(failure.link).replace(/^• /, "") : failure.number === undefined ? "PR" : `#${failure.number}`;
-	return `• ${target}: ${failure.reason}`;
+	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
 }
 
-function formatPrLinkTextRow(link: SubmitPrLink): string {
+export function formatPrLinkTextRow(link: SubmitPrLink): string {
 	if (link.label === link.url) return `• ${link.url}`;
 	return `• ${link.label} ${link.url}`;
 }
@@ -86,7 +86,7 @@ function prNumberFromLink(link: SubmitPrLink): number | undefined {
 	return Number.isSafeInteger(number) ? number : undefined;
 }
 
-function prNumberFromUrl(url: string): string | undefined {
+export function prNumberFromUrl(url: string): string | undefined {
 	const graphiteMatch = url.match(/^https:\/\/app\.graphite\.com\/github\/pr\/[^\/\s?#]+\/[^\/\s?#]+\/(\d+)(?:[\/?#].*)?$/);
 	if (graphiteMatch?.[1]) return graphiteMatch[1];
 

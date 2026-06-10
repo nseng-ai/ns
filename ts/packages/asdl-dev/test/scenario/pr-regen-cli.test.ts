@@ -1,3 +1,8 @@
+import { randomUUID } from "node:crypto";
+import { rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "asdl-dev/src/cli.ts";
@@ -46,6 +51,7 @@ describe("asdl-dev pr-regen", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Regenerated PR description.");
+		expect(run.stdout.join("")).toContain("Prompt: built-in");
 		expect(run.githubPr.editPrCalls).toEqual([
 			expect.objectContaining({
 				cwd: "/work",
@@ -116,6 +122,27 @@ describe("asdl-dev pr-regen", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.textGeneration.generateTextCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+	});
+
+	test("reports the env prompt path in success output", async () => {
+		const promptPath = join(tmpdir(), `asdl-dev-pr-regen-prompt-${randomUUID()}.md`);
+		await writeFile(promptPath, "custom system prompt", "utf8");
+		try {
+			const run = runWithFakes(
+				["pr-regen"],
+				{
+					githubPr: { currentPr: { number: 123, url: "https://github.com/acme/project/pull/123", title: "Old", body: "", headRefName: "feature/demo", baseRefName: "main" } },
+					textGeneration: { results: [{ ok: true, text: generatedText }] },
+				},
+				{ env: { ASDL_DEV_PR_DESCRIPTION_PROMPT: promptPath } },
+			);
+
+			expect(await run.exit).toBe(0);
+			expect(run.stdout.join("")).toContain(`Prompt: ${promptPath}`);
+			expect(run.textGeneration.generateTextCalls[0]?.system).toBe("custom system prompt");
+		} finally {
+			await rm(promptPath, { force: true });
+		}
 	});
 
 	test("unreadable prompt env path exits 2", async () => {
