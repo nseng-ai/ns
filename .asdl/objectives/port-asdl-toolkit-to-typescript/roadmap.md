@@ -8,12 +8,14 @@
 - [x] Create the `pr-address` capability subobjective as the first production vertical slice.
   - The umbrella Objective should name `pr-address` only as the proving slice; detailed operation design belongs in the subobjective.
   - Evidence: active subobjective `.asdl/objectives/pr-address-typescript-port/` now tracks the detailed `pr-address` TypeScript port contract inventory, migration boundary, cutover, and Python retirement work.
-- [ ] Define the minimal TS migration scaffold.
+- [~] Define the minimal TS migration scaffold.
   - Capture package/layout conventions, command-runtime conventions, gateway interface conventions, golden-test conventions, and an initial porting checklist.
   - Standardize on the current TS workspace defaults: pnpm, Node ESM, strict TypeScript, and Vitest unless evidence forces a change.
-- [ ] Begin the internal JS/TS clinkr foundation incrementally.
+  - Evidence: realized by the `ts-cli-foundation` subobjective (consolidated 2026-06-10 from `asdl-core-ts` + `ts-clinkr-commander`). `@asdl/core` shipped with `primitives`, the unified `exec` runtime (adopted by 7 packages), and `brmem-cli`; remaining scaffold work (shared git gateway, Zod boundary validation, test-harness consolidation) is tracked there.
+- [~] Begin the internal JS/TS clinkr foundation incrementally.
   - Start with the smallest command runtime needed by the first vertical slice.
   - Grow toward a shared framework only when repeated capability ports prove stable API needs.
+  - Evidence: realized by the `ts-cli-foundation` subobjective (consolidated 2026-06-10 from `asdl-core-ts` + `ts-clinkr-commander`). `@asdl/clinkr` v1 is built and `@asdl/plans` is migrated; the remaining migrations (`planned-branch`, `asdl-dev`, the `pr-address` shell) are tracked there. Package identity resolved: `@asdl/clinkr` + `@asdl/core` (formerly parked here as "Exact public API shape and package identity for JS/TS clinkr").
 - [ ] Complete the `pr-address` TypeScript cutover and Python retirement through its subobjective.
   - Evidence should include golden/contract parity, public CLI/skill scenarios, fake-driven gateway/core tests, limited real-adapter smoke coverage where safe, wrapper/doc updates, and removal or retirement of active Python paths.
 - [ ] Refine a reusable porting playbook from the first full cutover.
@@ -35,7 +37,6 @@
 ## Parked
 
 - Detailed `pr-address` operation inventory, module design, and cutover mechanics.
-- Exact public API shape and package identity for JS/TS clinkr.
 - Direct browser-compatible execution for capabilities whose domains depend on local git, shell, filesystem, or authenticated system state.
 - Porting inactive, vendored, experimental, or unclear-value Python code before evidence justifies it.
 - Broad TypeScript rewrites of Python `asdl-core` concepts that have not yet appeared as repeated seams in vertical slices.

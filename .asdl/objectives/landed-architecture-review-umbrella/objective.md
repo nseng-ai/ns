@@ -90,3 +90,13 @@ Risks:
 ## Open Questions
 
 No setup questions remain open for this umbrella. Future child Objectives may define their own open questions.
+
+## Closure
+
+Outcome: completed (2026-06-10). Every completion criterion is met:
+
+- All five child Objectives were created: `landed-architecture-review-pi-cli-lifecycle`, `landed-architecture-review-source-control-mutation-ux`, `landed-architecture-review-handoff-brmem`, `landed-architecture-review-slot-occupancy-locality`, and `landed-architecture-review-failure-data-gateways`. All five have themselves since closed.
+- The old `landed-architecture-review` parent Objective was closed and archived under `.asdl/objective-archive/landed-architecture-review/` as superseded provenance.
+- Every roadmap checklist row is `[x]`; no unchecked child-creation items remain.
+
+Verified on disk at closure time: each of the five child directories contains `closed.md`, and the archive directory exists. The umbrella never waited on child completion by design; the child records own their own evidence and closure context.

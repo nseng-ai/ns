@@ -57,3 +57,13 @@ Risks:
 - Whether the `stack-feedback-prep` parallel-fetch phase should flip on before or after cutover, given fetch-failure disk-state differs from Python under partial failure (stdout/exit parity is preserved either way).
 - Whether `writeTextArtifact` (no production caller) is needed by upcoming log-artifact operations or should be deleted in the dead-code sweep.
 - Reconciliation with the standalone `payload-reference-generalization` objective (created 2026-06-10 from a review of the `stack-artifact-reference-payload-file-options` branch): its PR 2 row overlaps this record's "Canonical contracts modules" row on stack-plan schema consolidation, and its parked #5b row overlaps the "Single operation table" row. After both lines merge to master, merge or cross-reference these rows and assign one owner. See `updates/2026-06-10T170321Z-payload-reference-generalization-overlap.md`.
+
+## Closure
+
+Outcome: intentionally subsumed into `pr-address-typescript-port` (2026-06-10).
+
+No remediation rows shipped under this record. All live rows moved to the survivor's sequenced roadmap (`payload-reference-generalization` was absorbed there in the same consolidation, so all `ts/packages/pr-address` work now sequences in one record). The argv-parser portion of the operation-support row is noted in the survivor as likely dissolved by the clinkr shell migration owned by `ts-cli-foundation`.
+
+This record's key insight — remediate while the in-repo Python reference can still regenerate fixtures and arbitrate parity — is preserved as a hard sequencing gate in the survivor: the Python-reference-dependent rows are grouped first and the endgame `python-deletion` branch carries an explicit guard on them.
+
+The thesis, scope, and roadmap above are preserved as historical source material; active tracking now belongs to `.asdl/objectives/pr-address-typescript-port/`.

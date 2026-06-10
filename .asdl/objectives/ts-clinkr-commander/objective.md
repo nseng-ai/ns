@@ -65,3 +65,13 @@ Resolved (2026-06-10 design grilling):
 
 - Scenario-test helper location → the `@asdl/clinkr/testing` subpath export; no separate package unless the helpers ever grow deps clinkr should not carry.
 - TS-native envelope redesign timing → governed by the umbrella's `migration-debt.md` (entry 3): revisit at the end-of-migration debt burn-down, after all four CLIs are migrated and Python clinkr is no longer authoritative.
+
+## Closure
+
+Outcome: intentionally subsumed into `ts-cli-foundation` (2026-06-10).
+
+Shipped under this record: `@asdl/clinkr` v1 at `ts/packages/clinkr` (the full schema-first design settled in the 2026-06-10 grilling: `ClinkrExit` union, `ClinkrFailure` throw channel, schema-derived parameter generation, Python-parity machine envelope with the `legacyMachine` escape hatch, eager `--json-schema`, hidden `exec` subgroups, generated help, and the `@asdl/clinkr/testing` subpath export), CLI-surface pinning scenario suites for all four CLIs, and the `plans` migration with feed-forward clinkr corrections.
+
+This record and `asdl-core-ts` both claimed the umbrella's "JS/TS clinkr foundation" row; `ts-cli-foundation` consolidates them into one owner for the shared TS CLI layer. The remaining migrations (`planned-branch`, `asdl-dev`, the `pr-address` shell) and the umbrella-update row moved to the survivor. The open payload/JSON-input question moved to the survivor as a decision row, with a recorded recommendation of clinkr-first-class payload/reference support and pr-address as the proving consumer.
+
+The thesis, scope, and roadmap above are preserved as historical source material; active tracking now belongs to `.asdl/objectives/ts-cli-foundation/`.

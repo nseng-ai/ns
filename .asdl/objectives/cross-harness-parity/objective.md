@@ -60,6 +60,7 @@ Assumptions:
 - Model-text steps can move onto the backend-neutral text-generation abstraction already used by `asdl-dev cp`/`submit`, so slug/summary generation need not stay Pi-locked. Partially validated by the 2026-06-09 sweep: the abstraction exists and `ASDL_DEV_CHECKPOINT_MODEL` overrides the checkpoint default, but slug generation still hardcoded `openai-codex/gpt-5.4-mini` in three duplicated `model-slug.ts` helpers (`pi-extensions`, `ccc`, `planned-branch`). Now validated for slugs by the provider-default consolidation: slug derivation is one canonical `@asdl/plans` helper whose model resolves from `ASDL_SLUG_MODEL` over the shared `DEFAULT_FAST_MODEL_REF` default.
 - Genuinely Pi-native primitives (`dispatch_runner_subagent`, `grill_ask` TUI, worktree status line) are acceptable to keep Pi-only provided dependent workflows document an agent-neutral fallback.
 - The summarized-command work belongs in this umbrella because its core architectural decision is parity: command execution and log summarization must be reachable from every harness through the same CLI/helper instead of appearing first as a Pi-only convenience.
+- New shared CLIs created by this Objective's push-down rows (land-stack, cmux dispatch, autobranch, command-output summaries), when implemented in TypeScript, build on the `ts-cli-foundation` layer — the `@asdl/clinkr` command shell and `@asdl/core` exec/gateway modules — rather than growing bespoke scaffolds. (Added 2026-06-10, when `asdl-core-ts` + `ts-clinkr-commander` consolidated into `ts-cli-foundation`.)
 
 Risks:
 

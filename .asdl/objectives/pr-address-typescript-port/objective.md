@@ -6,6 +6,8 @@
 
 This slice should prove migration patterns that later capability ports can reuse: command runtime shape, boundary schemas, gateway seams, golden and scenario parity, wrapper distribution, installed-skill behavior, and safe Python fallback retirement.
 
+As of 2026-06-10 this record also owns the TS-package quality remediation absorbed from `pr-address-ts-thermo-review-followups` and the payload/reference consolidation absorbed from `payload-reference-generalization`, so all work on `ts/packages/pr-address` sequences in one roadmap. The clinkr shell migration of the `pr-address` CLI is owned by `ts-cli-foundation` and only coordinated here.
+
 ## Scope
 
 - Public `pr-address` skill invocation and wrapper behavior in both local-checkout and installed-skill contexts.
@@ -16,6 +18,12 @@ This slice should prove migration patterns that later capability ports can reuse
 - Fake-driven tests with capability-shaped gateways, plus limited safe real-adapter smoke evidence for read-only or non-mutating paths where useful.
 - Bundled JavaScript distribution shipped inside the installed skill plus wrapper local/prod detection once TypeScript becomes the default implementation path. No npm registry publish is required for cutover.
 - Short, explicit Python fallback retirement after TypeScript default behavior is proven.
+- Behavioral parity corrections from the thermo-nuclear review: `--format=json` acceptance and strict integer argument parsing (`read-feedback-detail` payload containment stays parked pending clinkr payload support).
+- Contract consolidation: one canonical Zod schema per wire shape (plan, manifest, checkpoint, stack-plan, summaries, classification packet), `z.infer` producer types, deletion of hand-written mirror interfaces and `unknown`-washing seams.
+- Structural decomposition of the two >1,300-line files (`operation-schemas.ts`, `classification-core.ts`) along boundaries the import graph already proves.
+- Deduplication: a single operation table (registry + schema docs + help), a shared operation-support layer, a shared thread-decision engine between the single-PR and stack resolve-payload builders, and ports of the Python `thread_index` / `string_values` shared modules.
+- Test-suite hardening and fixture regeneration/provenance machinery on the Python side while the reference is in-repo.
+- Payload/reference consolidation: one shared XOR-source resolver in `json-input.ts`, one reference-validation/diagnostics rule, a declarative `loadOperationPayload` per-operation payload spec, and stdin-edge documentation plus scenario pinning.
 
 ## Non-Goals
 
@@ -25,6 +33,9 @@ This slice should prove migration patterns that later capability ports can reuse
 - No direct browser compatibility requirement for workflows that depend on local git, shell, filesystem, or authenticated GitHub state.
 - No long-term Python fallback after cutover criteria are met.
 - No replacement of semantic LLM judgment with brittle deterministic review-comment classification.
+- No new abstraction beyond what deletes existing duplication — the remediation bar is fewer concepts, not rearranged ones.
+- No breaking of the byte-parity envelope contract while the Python reference is live; restructurings must keep envelope text and artifact write order identical except where a parity correction explicitly updates them.
+- No clinkr framework work itself — `@asdl/clinkr` and the pr-address shell migration onto it are owned by `ts-cli-foundation`.
 
 ## Completion Criteria
 
@@ -36,6 +47,15 @@ This slice should prove migration patterns that later capability ports can reuse
 - The `asdl pr-address ...` plugin is retired rather than ported; the standalone CLI is the only invocation surface after cutover.
 - Python fallback has a short explicit retirement phase ending in full in-repo deletion of `packages/asdl-pr-address`; the published PyPI `asdl-pr-address==0.1.1` artifact remains the external frozen rollback.
 - Lessons from the `pr-address` port feed back into the umbrella porting playbook for later capability slices.
+- Parity corrections hold: `--format=json` produces JSON envelopes wherever `--format json` does; non-integer forms like `1e2`/`0x10` are rejected where click's `int` rejects them.
+- Each wire contract (plan items, manifests, checkpoint, stack plan, compact summaries, classification packet) has exactly one canonical Zod definition; producers type against `z.infer`; the `--json-schema` doc routes import rather than restate; the two contradictory classification-template route schemas are unified.
+- No source file in the package exceeds 1,000 lines; `operation-schemas.ts` and `classification-core.ts` are decomposed.
+- One operation table drives dispatch, schema routing, and help; the dead exports identified by the review (`LEGACY_EXEC_OPERATIONS`, `isTsManaged`, `raw-exit`, and peers) are gone; `PrAddressContext` gateways are required and the `missing_gateway` branch class is deleted.
+- The single-PR and stack resolve-payload builders share a thread-decision engine; the `trimRequired` divergence is eliminated by a shared string-values module.
+- Real GitHub/git gateway adapters and the json-schema-parity comparator have their own tests; captured-Python fixtures have a regeneration path and provenance, established while the Python reference is in-repo.
+- Exactly one implementation of the embedded-key-XOR-reference-option policy exists, in `json-input.ts`; the three prior implementations are deleted and all three reference-backed operations call it.
+- Exactly one rule governs reference artifact validation and diagnostics across `--prep-reference`, `--stack-plan-reference`, and `--current-prep-reference`; the duplicated `stackPlanReferenceShapeSchema` copies are gone.
+- A declarative payload spec drives payload + reference resolution for the reference-backed operations; the stdin-with-fully-reference-backed-inputs behavior is documented and pinned by a scenario test.
 
 ## Definition of Progress
 
@@ -76,6 +96,7 @@ This Objective is execution-friendly for `objective-next` across every non-parke
 - Work may be left as a normal repository diff containing code, tests, docs, and Objective updates. Do not leave generated payload artifacts, live credentials, external-system state, or unstated compatibility changes.
 - Validation before keeping work should be targeted to the slice first, then broaden to package/workspace checks when the slice touches shared wrapper, distribution, or contract surfaces. If full validation is expensive or blocked, record the exact narrower evidence and blocker.
 - Roadmap row-level `Policy:` notes refine these defaults for that row; they do not create hidden state or a task queue.
+- This policy extends unchanged to the remediation and payload-consolidation rows absorbed on 2026-06-10 (same repo-local file and validation boundaries).
 
 ## Assumptions and Risks
 
@@ -111,6 +132,9 @@ Risks:
 - GitHub mutation safety could regress if helper boundaries or validation-before-action semantics are weakened.
 - Stack-feedback behavior may be more complex than current scenario coverage shows. De-risked 2026-06-09: the full trio is TypeScript-managed with byte-for-byte parity fixtures covering plan-merge/batch/docket logic and every cross-reference validation error path in `build-stack-resolve-thread-payloads`.
 - `packages/asdl-pr-address/docs/development.md` currently has a stale operation inventory relative to the skill, CLI reference, source registration, scenario tests, and golden fixtures; using it as the sole port inventory source would miss newer helpers and safety surfaces.
+- Internal sequencing (from the 2026-06-10 absorption of the remediation and payload records): the Python-reference-dependent rows — parity corrections, fixture regeneration/provenance, and contract-consolidation parity arbitration — MUST land before the `python-deletion` endgame branch; once the in-repo reference is gone they become substantially more expensive or impossible to verify. The former cross-objective "multiple records touch the same package" drift risks are resolved by the consolidation itself.
+- Fixture-byte coupling: error-message unification and parity corrections touch envelope bytes; careless fixture refresh could mask real regressions. Every fixture diff must be individually attributable to a deliberate message-template or parity change.
+- clinkr divergence: pr-address migrates to clinkr last (under `ts-cli-foundation`). If the payload-spec design here ignores clinkr conventions, the eventual lift becomes a rewrite instead of a move. Mitigation: keep spec conventions clinkr-compatible — snake_case schema keys and the `--<key>-reference` option derivation.
 
 ## Open Questions
 
@@ -118,6 +142,15 @@ Risks:
 - How should TypeScript output handle Python/Pydantic compatibility details such as explicit `null` fields in otherwise optional manifest/template data?
 - Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
 - What are the exact build inputs, runtime requirements, and refresh story for the bundled installed-skill artifact (Node version floor, single-file vs directory bundle, how installed skills pick up new bundles)?
+- Should the fixture regeneration entry point live as a pytest in `packages/asdl-pr-address/tests/` (drift-detection with `--update`) or as a standalone capture script? The thermo review leaned toward the pytest form so the Python suite guards freshness while both implementations coexist.
+- Should the `stack-feedback-prep` parallel-fetch phase flip on before or after cutover, given fetch-failure disk-state differs from Python under partial failure (stdout/exit parity is preserved either way)?
+- Is `writeTextArtifact` (no production caller) needed by upcoming log-artifact operations, or should it be deleted in the dead-code sweep?
+- Shape layer for reference validation: delete (downstream validators like `invalid_stack_plan_shape` already speak) or keep-but-canonical (earlier "wrong file at this path" diagnostics)? One rule must win for all three reference options.
+
+Decided 2026-06-10 (consolidation):
+
+- Spec-driven option/schema generation from the payload spec (the former payload-reference #5b) dissolves into the clinkr shell migration rather than landing standalone, per the overlap note's own recommendation.
+- Final ownership of `loadOperationPayload` (clinkr first-class vs package-local) is the `ts-cli-foundation` payload-home decision row; this record keeps the spec design clinkr-compatible in the meantime.
 
 Resolved 2026-06-09 (see Decided entries under Assumptions and Risks):
 
