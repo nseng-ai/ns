@@ -69,7 +69,13 @@ export async function loadLandingShape(pi: LandStackExtensionAPI, cwd: string): 
 	const metadataDbPath = await resolveMetadataDbPath(pi, repoRoot.value);
 	if (metadataDbPath.type === "failure") return metadataDbPath;
 
-	const stack = await loadStackSnapshot(pi, repoRoot.value, metadataDbPath.value, current.value, trunk.value);
+	const stack = await loadStackSnapshot({
+		pi,
+		repoRoot: repoRoot.value,
+		metadataDbPath: metadataDbPath.value,
+		current: current.value,
+		trunk: trunk.value,
+	});
 	if (stack.type === "failure") return stack;
 
 	return success({
@@ -81,13 +87,16 @@ export async function loadLandingShape(pi: LandStackExtensionAPI, cwd: string): 
 	});
 }
 
-export async function loadStackSnapshot(
-	pi: LandStackExtensionAPI,
-	repoRoot: string,
-	metadataDbPath: string,
-	current: string,
-	trunk: string,
-): Promise<LandStackResult<StackSnapshot>> {
+export interface LoadStackSnapshotOptions {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	metadataDbPath: string;
+	current: string;
+	trunk: string;
+}
+
+export async function loadStackSnapshot(options: LoadStackSnapshotOptions): Promise<LandStackResult<StackSnapshot>> {
+	const { pi, repoRoot, metadataDbPath, current, trunk } = options;
 	const topology = await loadGraphiteTopology(pi, repoRoot, metadataDbPath);
 	if (topology.type === "failure") return topology;
 
