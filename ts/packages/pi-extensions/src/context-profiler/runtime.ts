@@ -204,12 +204,13 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 	const cache = options.state.segmentationCache;
 	if (cache === null || cache.fingerprint !== options.fingerprint) return;
 	const statuses = initialAnalysisStatuses(cache.episodes);
-	const guardedEmit = (apply: (cache: SegmentationCacheEntry) => void): void => {
+	const guardedEmit = (buildNext: (cache: SegmentationCacheEntry) => SegmentationCacheEntry): void => {
 		if (options.controller.signal.aborted) return;
 		const currentCache = options.state.segmentationCache;
 		if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
-		apply(currentCache);
-		options.onUpdate(readyState({ episodes: currentCache.episodes, summary: currentCache.summary, delegations: currentCache.delegations, analysis: statuses }));
+		const nextCache = buildNext(currentCache);
+		options.state.segmentationCache = nextCache;
+		options.onUpdate(readyState({ episodes: nextCache.episodes, summary: nextCache.summary, delegations: nextCache.delegations, analysis: statuses }));
 	};
 	cache.episodes.forEach((episode, episodeIndex) => {
 		if (hasAnalysisVerdicts(episode)) return;
@@ -225,13 +226,14 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 			(result) => {
 				if (!result.ok) {
 					if (result.error.code === "aborted") return;
-					guardedEmit(() => {
+					guardedEmit((currentCache) => {
 						statuses[episodeIndex] = { type: "error", message: result.error.message };
+						return currentCache;
 					});
 					return;
 				}
 				guardedEmit((currentCache) => {
-					currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
+					const episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
 						? {
 							...candidate,
 							efficiency: result.value.efficiency,
@@ -240,11 +242,13 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 						}
 						: candidate);
 					statuses[episodeIndex] = "ready";
+					return { ...currentCache, episodes };
 				});
 			},
 			(error: unknown) => {
-				guardedEmit(() => {
+				guardedEmit((currentCache) => {
 					statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
+					return currentCache;
 				});
 			},
 		);
