@@ -15,7 +15,7 @@ export interface RunPrRegenCommandOptions {
 	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
 	git: GitGateway;
-	force: boolean;
+	shouldForce: boolean;
 }
 
 export interface PrRegenCommandResult {
@@ -30,7 +30,7 @@ export async function runPrRegenCommand(options: RunPrRegenCommandOptions): Prom
 		return failure(1, `Could not resolve current branch PR.\n${pr.error.message}`);
 	}
 
-	if (!canOverwriteBody(pr.value.body, options.force)) {
+	if (!canOverwriteBody(pr.value.body, options.shouldForce)) {
 		return failure(
 			1,
 			[
@@ -102,8 +102,8 @@ export async function generatePrDescriptionForPr(
 	return { ok: true, title: prepared.title, body: prepared.body };
 }
 
-function canOverwriteBody(body: string, force: boolean): boolean {
-	return force || body.trim() === "" || hasGeneratedMarker(body);
+function canOverwriteBody(body: string, shouldForce: boolean): boolean {
+	return shouldForce || body.trim() === "" || hasGeneratedMarker(body);
 }
 
 function success(stdout: string): PrRegenCommandResult {

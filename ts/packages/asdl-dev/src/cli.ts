@@ -76,7 +76,7 @@ interface ParsedSubmitArgs {
 }
 
 interface ParsedPrRegenArgs {
-	force: boolean;
+	shouldForce: boolean;
 }
 
 type SubmitParseResult =
@@ -283,7 +283,7 @@ async function runPrRegenCliCommand(args: readonly string[], deps: RequiredCliDe
 		githubPr: deps.context.githubPr,
 		textGeneration: deps.context.textGeneration,
 		git: deps.context.git,
-		force: parsed.options.force,
+		shouldForce: parsed.options.shouldForce,
 	});
 	writeCommandResultOutput(result, deps);
 	return result.exitCode;
@@ -421,13 +421,13 @@ function parseSubmitArgs(args: readonly string[]): SubmitParseResult {
 }
 
 function parsePrRegenArgs(args: readonly string[]): PrRegenParseResult {
-	const options: ParsedPrRegenArgs = { force: false };
+	const options: ParsedPrRegenArgs = { shouldForce: false };
 	for (const arg of args) {
 		if (arg === "--help" || arg === "-h") {
 			return { kind: "help" };
 		}
 		if (arg === "--force") {
-			options.force = true;
+			options.shouldForce = true;
 			continue;
 		}
 		return { kind: "error", message: arg.startsWith("-") ? `Unknown option: ${arg}` : `Unexpected argument: ${arg}` };
