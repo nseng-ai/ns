@@ -362,7 +362,7 @@ describe("CCC cmux command suite", () => {
 		pi.assertDone();
 		const promptText = await readFile(join(promptDir, `123-${BRANCH}.md`), "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
-		expect(promptText).toContain("!gt submit -nps --ai");
+		expect(promptText).toContain("!asdl-dev submit");
 		expect(notificationMessages(ctx).some((message) => message.includes(`Opened cmux workspace: ${BRANCH}`))).toBe(true);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);

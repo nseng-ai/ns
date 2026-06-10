@@ -3,7 +3,7 @@ import { listAsdlDevCommands, runCli, type AsdlDevCommandInfo } from "asdl-dev/s
 import { registerCliCommandExtension, type ExtensionAPI } from "./cli-command-extension.ts";
 
 const DEV_COMMAND_NAMES = ["preview-url"] as const;
-const CODE_COMMAND_NAMES = ["cp", "submit"] as const;
+const CODE_COMMAND_NAMES = ["cp", "submit", "pr-regen"] as const;
 
 export default function asdlDevExtension(pi: ExtensionAPI): void {
 	registerCliCommandExtension(pi, {

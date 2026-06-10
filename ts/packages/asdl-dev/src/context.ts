@@ -1,5 +1,6 @@
 import { RealCheckpointGateway, type CheckpointGateway } from "./checkpoint.ts";
 import { RealGitGateway, type GitGateway } from "./gateways/git.ts";
+import { RealGithubPrGateway, type GithubPrGateway } from "./gateways/github-pr.ts";
 import { RealVercelProjectConfigStore, type VercelProjectConfigStore } from "./gateways/project-config.ts";
 import { RealVercelDeploymentGateway, type VercelDeploymentGateway } from "./gateways/vercel.ts";
 import { PiTextGenerationGateway } from "./pi-text-generation.ts";
@@ -12,6 +13,7 @@ export interface AsdlDevContext {
 	projectConfig: VercelProjectConfigStore;
 	checkpoint: CheckpointGateway;
 	submit: SubmitGateway;
+	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
 }
 
@@ -30,6 +32,7 @@ export function createRealAsdlDevContext(): AsdlDevContext {
 		projectConfig: new RealVercelProjectConfigStore(),
 		checkpoint: new RealCheckpointGateway(),
 		submit: new RealSubmitGateway(),
+		githubPr: new RealGithubPrGateway(),
 		textGeneration: createTextGenerationGateway(),
 	};
 }

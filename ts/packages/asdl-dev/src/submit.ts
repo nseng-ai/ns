@@ -1,7 +1,12 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
+import type { GithubPrGateway } from "./gateways/github-pr.ts";
+import { appendGeneratedMarker } from "./pr-description.ts";
+import { generatePrDescriptionForPr } from "./pr-regen.ts";
+import type { GitGateway } from "./gateways/git.ts";
+import type { TextGenerationGateway } from "./text-generation.ts";
 
-const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
-const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
+const SUBMIT_ARGS = ["submit", "-nps", "--no-ai"] as const;
+const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--dry-run"] as const;
 const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["pr"] as const;
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
@@ -123,12 +128,20 @@ export interface SubmitCommandResult {
 	stderr: string;
 }
 
+export interface SubmitPrDescriptionOptions {
+	githubPr: GithubPrGateway;
+	textGeneration: TextGenerationGateway;
+	git: GitGateway;
+	env: Record<string, string | undefined>;
+}
+
 export interface RunSubmitCommandOptions {
 	cwd: string;
 	gateway: SubmitGateway;
 	restack: boolean;
 	onOutput?: SubmitOutputListener;
 	confirmRestack?: SubmitRestackConfirmation;
+	prDescription?: SubmitPrDescriptionOptions;
 }
 
 export class RealSubmitGateway implements SubmitGateway {
@@ -268,6 +281,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		}
 	}
 
+	const preSubmitOpenPrNumbers = await snapshotOpenPrNumbers(options);
 	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
 		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output));
@@ -285,7 +299,19 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	}
 
 	const prLinks = mergePrLinks(submitted.prLinks, currentPr.prLinks);
-	const successText = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
+	const descriptionResult = await generateNewPrDescriptions({
+		cwd: options.cwd,
+		prDescription: options.prDescription,
+		preSubmitOpenPrNumbers,
+		prLinks,
+	});
+	if (!descriptionResult.ok) {
+		return failure(1, formatPrDescriptionFailureText(prLinks, descriptionResult.failures));
+	}
+
+	const successText = prLinks.length > 0
+		? formatSubmitSuccessText(prLinks, descriptionResult.generated)
+		: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
 }
 
@@ -311,6 +337,104 @@ async function runRestackBeforeSubmit(gateway: SubmitGateway, commandParams: Sub
 		return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output));
 	}
 	return undefined;
+}
+
+type OpenPrSnapshot = { ok: true; numbers: Set<number> } | { ok: false; error: string } | { ok: true; skipped: true };
+
+type PrDescriptionGenerationResult =
+	| { ok: true; generated: SubmitPrLink[] }
+	| { ok: false; failures: PrDescriptionFailure[] };
+
+interface PrDescriptionFailure {
+	link?: SubmitPrLink;
+	number?: number;
+	reason: string;
+}
+
+async function snapshotOpenPrNumbers(options: RunSubmitCommandOptions): Promise<OpenPrSnapshot> {
+	if (options.prDescription === undefined) {
+		return { ok: true, skipped: true };
+	}
+	const snapshot = await options.prDescription.githubPr.listOpenPrNumbers({ cwd: options.cwd });
+	if (!snapshot.ok) {
+		return { ok: false, error: snapshot.error.message };
+	}
+	return { ok: true, numbers: new Set(snapshot.value) };
+}
+
+async function generateNewPrDescriptions(input: {
+	cwd: string;
+	prDescription: SubmitPrDescriptionOptions | undefined;
+	preSubmitOpenPrNumbers: OpenPrSnapshot;
+	prLinks: readonly SubmitPrLink[];
+}): Promise<PrDescriptionGenerationResult> {
+	if (input.prDescription === undefined) {
+		return { ok: true, generated: [] };
+	}
+	if (input.preSubmitOpenPrNumbers.ok === false) {
+		return { ok: false, failures: [{ reason: `Could not snapshot open PRs before submit: ${input.preSubmitOpenPrNumbers.error}` }] };
+	}
+	if ("skipped" in input.preSubmitOpenPrNumbers) {
+		return { ok: true, generated: [] };
+	}
+
+	const preSubmitNumbers = input.preSubmitOpenPrNumbers.numbers;
+	const newPrLinks = input.prLinks.filter((link) => {
+		const number = prNumberFromLink(link);
+		return number !== undefined && !preSubmitNumbers.has(number);
+	});
+	if (newPrLinks.length === 0) {
+		return { ok: true, generated: [] };
+	}
+
+	const generated: SubmitPrLink[] = [];
+	const failures: PrDescriptionFailure[] = [];
+	for (const link of newPrLinks) {
+		const number = prNumberFromLink(link);
+		if (number === undefined) continue;
+		const result = await generateDescriptionForNewPr({ cwd: input.cwd, number, link, prDescription: input.prDescription });
+		if (result.ok) {
+			generated.push(link);
+		} else {
+			failures.push({ link, number, reason: result.error });
+		}
+	}
+	if (failures.length > 0) {
+		return { ok: false, failures };
+	}
+	return { ok: true, generated };
+}
+
+async function generateDescriptionForNewPr(input: {
+	cwd: string;
+	number: number;
+	link: SubmitPrLink;
+	prDescription: SubmitPrDescriptionOptions;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+	const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number: input.number });
+	if (!viewed.ok) {
+		return { ok: false, error: viewed.error.message };
+	}
+	const prepared = await generatePrDescriptionForPr(viewed.value, {
+		cwd: input.cwd,
+		env: input.prDescription.env,
+		githubPr: input.prDescription.githubPr,
+		textGeneration: input.prDescription.textGeneration,
+		git: input.prDescription.git,
+	});
+	if (!prepared.ok) {
+		return { ok: false, error: prepared.error };
+	}
+	const edited = await input.prDescription.githubPr.editPr({
+		cwd: input.cwd,
+		number: input.number,
+		title: prepared.title,
+		body: appendGeneratedMarker(prepared.body),
+	});
+	if (!edited.ok) {
+		return { ok: false, error: edited.error.message };
+	}
+	return { ok: true };
 }
 
 function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">): SubmitCommandParams {
@@ -360,8 +484,12 @@ function joinOutput(output: Pick<SubmitCommandOutput, "stdout" | "stderr">): str
 	return `${output.stdout}\n${output.stderr}`;
 }
 
-function formatSubmitSuccessText(prLinks: SubmitPrLink[]): string {
-	return ["gt submit succeeded", "", "PRs:", ...prLinks.map(formatPrLinkTextRow)].join("\n");
+function formatSubmitSuccessText(prLinks: SubmitPrLink[], generatedDescriptions: readonly SubmitPrLink[] = []): string {
+	const lines = ["gt submit succeeded", "", "PRs:", ...prLinks.map(formatPrLinkTextRow)];
+	if (generatedDescriptions.length > 0) {
+		lines.push("", "Generated PR descriptions:", ...generatedDescriptions.map(formatPrLinkTextRow));
+	}
+	return lines.join("\n");
 }
 
 function formatPrLinkTextRow(link: SubmitPrLink): string {
@@ -370,12 +498,32 @@ function formatPrLinkTextRow(link: SubmitPrLink): string {
 }
 
 function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
-	const lines = ["gt submit succeeded, but no PR URLs were detected in output."];
+	const lines = ["gt submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `asdl-dev pr-regen` if needed."];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
 		lines.push("", "Recent output:", outputTail);
 	}
 	return lines.join("\n");
+}
+
+function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {
+	const lines = [
+		"PRs were submitted; description generation failed.",
+		"",
+		"Submitted PRs:",
+		...(prLinks.length > 0 ? prLinks.map(formatPrLinkTextRow) : ["• (no PR URLs detected in submit output)"]),
+		"",
+		"Description failures:",
+		...failures.map(formatPrDescriptionFailureRow),
+		"",
+		"Checkout the branch and run `asdl-dev pr-regen` to regenerate its PR description.",
+	];
+	return lines.join("\n");
+}
+
+function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
+	const target = failure.link !== undefined ? formatPrLinkTextRow(failure.link).replace(/^• /, "") : failure.number === undefined ? "PR" : `#${failure.number}`;
+	return `• ${target}: ${failure.reason}`;
 }
 
 function formatSubmitOutputTail(stdout: string, stderr: string): string {
@@ -399,12 +547,12 @@ function formatPreflightFailureOutput(output: SubmitCommandOutput): string {
 		? `gt submit --dry-run could not start: ${output.startupError}. Submission was not attempted.`
 		: output.killed
 			? `gt submit --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
-			: `gt submit -nps --ai --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
+			: `gt submit -nps --no-ai --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
 
 	return [
 		reason,
 		"",
-		"$ gt submit -nps --ai --dry-run",
+		"$ gt submit -nps --no-ai --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -419,7 +567,7 @@ function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
 		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to let asdl-dev run `gt restack --no-interactive`.",
 		"Submission was not attempted.",
 		"",
-		"$ gt submit -nps --ai --dry-run",
+		"$ gt submit -nps --no-ai --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -437,11 +585,11 @@ function formatRestackConfirmationPrompt(output: SubmitCommandOutput): SubmitRes
 			"",
 			"If confirmed, asdl-dev will run:",
 			"$ gt restack --no-interactive",
-			"$ gt submit -nps --ai",
+			"$ gt submit -nps --no-ai",
 			"",
 			"If restack hits conflicts or fails, submission will stop before `gt submit`.",
 			"",
-			"$ gt submit -nps --ai --dry-run",
+			"$ gt submit -nps --no-ai --dry-run",
 			"",
 			formatOutputSection("stdout", output.stdout),
 			formatOutputSection("stderr", output.stderr),
@@ -456,7 +604,7 @@ function formatRestackDeclinedOutput(output: SubmitCommandOutput): string {
 		"Restack was not run. Submission was not attempted.",
 		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to skip the prompt.",
 		"",
-		"$ gt submit -nps --ai --dry-run",
+		"$ gt submit -nps --no-ai --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -503,11 +651,11 @@ function formatRestackFailureOutput(output: SubmitCommandOutput): string {
 }
 
 function formatSubmitFailureOutput(output: SubmitCommandOutput): string {
-	const reason = output.startupError ?? (output.killed ? "gt submit timed out and was killed." : `gt submit -nps --ai failed with exit code ${output.exitCode}.`);
+	const reason = output.startupError ?? (output.killed ? "gt submit timed out and was killed." : `gt submit -nps --no-ai failed with exit code ${output.exitCode}.`);
 	return [
 		reason,
 		"",
-		"$ gt submit -nps --ai",
+		"$ gt submit -nps --no-ai",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -526,7 +674,7 @@ function formatPostSubmitFailureOutput({
 	return [
 		formatPostSubmitFailureReason(submitted.semanticFailureCause, currentPr),
 		"",
-		"$ gt submit -nps --ai",
+		"$ gt submit -nps --no-ai",
 		"",
 		formatOutputSection("stdout", submitted.output.stdout),
 		formatOutputSection("stderr", submitted.output.stderr),
@@ -640,6 +788,14 @@ function toPrLink(url: string): SubmitPrLink | undefined {
 	if (prNumber) return { label: `#${prNumber}`, url };
 	if (isPotentialPrUrl(url)) return { label: url, url };
 	return undefined;
+}
+
+function prNumberFromLink(link: SubmitPrLink): number | undefined {
+	const fromUrl = prNumberFromUrl(link.url);
+	const value = fromUrl ?? link.label.match(/^#(\d+)$/)?.[1];
+	if (value === undefined) return undefined;
+	const number = Number.parseInt(value, 10);
+	return Number.isSafeInteger(number) ? number : undefined;
 }
 
 function prNumberFromUrl(url: string): string | undefined {

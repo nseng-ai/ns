@@ -48,7 +48,8 @@ Developer tools for asdl-tools.
 Commands:
   preview-url   Print the Vercel preview URL for a branch.
   cp            Create a checkpoint commit for the current diff.
-  submit        Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.
+  submit        Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.
+  pr-regen      Regenerate the current branch PR's title and description with the asdl PR-description prompt.
 
 Options:
   -h, --help    Show this help message.
@@ -62,7 +63,11 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
 			{
 				name: "submit",
-				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --ai.",
+				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
+			},
+			{
+				name: "pr-regen",
+				description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 			},
 		]);
 	});
@@ -121,7 +126,7 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: asdl-dev submit");
 		expect(help).toContain("Checkpoint outstanding worktree changes");
-		expect(help).toContain("gt submit -nps --ai");
+		expect(help).toContain("gt submit -nps --no-ai");
 		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
 		expect(help).toContain("--restack");
 		expect(help).toContain("-h, --help");

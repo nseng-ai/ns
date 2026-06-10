@@ -164,6 +164,89 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
 	});
 
+	test("generates descriptions for PRs newly created by submit", async () => {
+		const link = prLink(456);
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				openPrNumbers: [],
+				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "", headRefName: "feature/demo", baseRefName: "main" } },
+				diffs: { 456: "diff --git a/src/app.ts b/src/app.ts\n+code\n" },
+				commitMessages: { 456: [{ headline: "Add generated PR descriptions" }] },
+			},
+			textGeneration: {
+				results: [
+					{
+						ok: true,
+						text: "Generate PR descriptions\n\nThis adds asdl-owned PR description generation.\n\n## Key Changes\n\n- Adds prompt-based generation",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
+		expect(run.githubPr.listOpenPrNumbersCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.githubPr.editPrCalls).toEqual([
+			expect.objectContaining({ number: 456, title: "Generate PR descriptions" }),
+		]);
+		expect(run.githubPr.editPrCalls[0]?.body).toContain("<!-- generated-by: asdl-dev pr-description v1 -->");
+		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Context");
+		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Diff");
+	});
+
+	test("does not regenerate descriptions for PRs present before submit", async () => {
+		const link = prLink(456);
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: { openPrNumbers: [456] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.githubPr.editPrCalls).toEqual([]);
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+	});
+
+	test("description failure after successful submit reports submitted PRs and pr-regen guidance", async () => {
+		const link = prLink(456);
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				openPrNumbers: [],
+				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "", headRefName: "feature/demo", baseRefName: "main" } },
+				diffs: { 456: { error: { code: "diff_failed", message: "diff unavailable" } } },
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("PRs were submitted; description generation failed");
+		expect(run.stderr.join("")).toContain("#456 https://github.com/acme/project/pull/456");
+		expect(run.stderr.join("")).toContain("asdl-dev pr-regen");
+	});
+
+	test("submit success without detected PR links skips generation with pr-regen notice", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: { kind: "success", output: output("Submitted stack\n"), prLinks: [] },
+				currentPr: { kind: "present", output: output("current PR ok\n"), prLinks: [] },
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("PR descriptions were not generated");
+		expect(run.stdout.join("")).toContain("asdl-dev pr-regen");
+		expect(run.githubPr.editPrCalls).toEqual([]);
+	});
+
 	test("checkpoint failure stops before Graphite submit", async () => {
 		const run = runWithFakes(["submit"], {
 			checkpoint: {
@@ -194,7 +277,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
 		expect(run.stderr.join("")).toContain("--restack");
-		expect(run.stderr.join("")).toContain("$ gt submit -nps --ai --dry-run");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --dry-run");
 		expect(run.confirmations).toEqual([]);
 		expect(run.submit.restackCurrentStackCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
@@ -232,7 +315,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.confirmations).toHaveLength(1);
 		expect(run.confirmations[0]?.title).toBe("Run gt restack before submit?");
 		expect(run.confirmations[0]?.message).toContain("gt restack --no-interactive");
-		expect(run.confirmations[0]?.message).toContain("gt submit -nps --ai");
+		expect(run.confirmations[0]?.message).toContain("gt submit -nps --no-ai");
 		expect(run.submit.operationCalls.map((call) => call.operation)).toEqual([
 			"checkSubmitReadiness",
 			"restackCurrentStack",
@@ -259,7 +342,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Restack was not run.");
 		expect(run.stderr.join("")).toContain("Submission was not attempted.");
-		expect(run.stderr.join("")).toContain("$ gt submit -nps --ai --dry-run");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --dry-run");
 		expect(run.confirmations).toHaveLength(1);
 		expect(run.submit.restackCurrentStackCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
@@ -311,7 +394,7 @@ describe("asdl-dev submit CLI behavior", () => {
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("gt submit -nps --ai failed with exit code 1");
+		expect(run.stderr.join("")).toContain("gt submit -nps --no-ai failed with exit code 1");
 		expect(run.stderr.join("")).toContain("partial output");
 		expect(run.stderr.join("")).toContain("submit failed");
 		expect(run.submit.verifyCurrentPrCalls).toEqual([]);
@@ -356,7 +439,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Graphite skipped submitting part of the stack because a branch is empty");
-		expect(run.stderr.join("")).toContain("$ gt submit -nps --ai");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai");
 	});
 
 	test("unsupported arguments fail before touching Graphite", async () => {

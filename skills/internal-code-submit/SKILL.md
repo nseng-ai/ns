@@ -26,10 +26,11 @@ asdl-dev submit
 The CLI owns the orchestration:
 
 - if the worktree is dirty, first creates a checkpoint with `asdl-dev cp`;
-- checks submit readiness with `gt submit -nps --ai --dry-run`;
-- runs `gt submit -nps --ai` to submit/update the current stack;
+- checks submit readiness with `gt submit -nps --no-ai --dry-run`;
+- runs `gt submit -nps --no-ai` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
-- reports formatter-owned guidance for restack-required and empty-branch cases.
+- generates title/body descriptions for PRs newly created by that submit;
+- reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures.
 
 If the CLI says a restack is required:
 
@@ -45,6 +46,20 @@ Automatic checkpointing uses the same environment as `asdl-dev cp`:
 - `ASDL_DEV_TEXT_BACKEND` defaults to `pi`;
 - `ASDL_DEV_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`.
 
+PR description generation uses:
+
+- `ASDL_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
+- `ASDL_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
+- `.asdl/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
+
+To regenerate the current branch PR explicitly, run:
+
+```bash
+asdl-dev pr-regen
+```
+
+`pr-regen` refuses to overwrite non-empty PR bodies unless they contain the asdl generated-body marker. Use `asdl-dev pr-regen --force` only when the user explicitly wants to overwrite a manually edited PR body.
+
 ## Failure handling
 
 Surface CLI output directly. Do not bypass the checkpoint failure, restack guidance, Graphite submit failure, or post-submit PR verification failure. Do not fall back to raw `gt submit` unless the user explicitly asks for a manual fallback after seeing the CLI failure.
@@ -53,4 +68,4 @@ Surface CLI output directly. Do not bypass the checkpoint failure, restack guida
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It does not edit PR titles or bodies after submit.
+- It only edits PR titles/bodies through `asdl-dev submit` for newly created PRs or through explicit `asdl-dev pr-regen`.
