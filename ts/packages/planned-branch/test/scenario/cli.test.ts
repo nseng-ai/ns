@@ -497,5 +497,163 @@ describe("planned-branch exec", () => {
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
+});
 
+describe("planned-branch CLI surface pinning", () => {
+	const topLevelHelp = [
+		"Usage: planned-branch [--version] <command>",
+		"",
+		"Commands:",
+		"  exec    Run hidden deterministic planned-branch operations for agents.",
+		"",
+		"Options:",
+		"  -h, --help       Show this help.",
+		"  -V, --version    Show the package version.",
+		"",
+	].join("\n");
+
+	function jsonFailure(message: string): string {
+		return `${JSON.stringify({ success: false, error: { code: "planned_branch_error", message } })}\n`;
+	}
+
+	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help for %j", async (args) => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(args, [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(topLevelHelp);
+		expect(run.stderr.join("")).toBe("");
+		expectNoGitOrBrmemCalls(run);
+	});
+
+	test("pins -V output", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["-V"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("0.1.0\n");
+		expect(run.stderr.join("")).toBe("");
+		expectNoGitOrBrmemCalls(run);
+	});
+
+	test("rejects inline equals syntax for create flags", async () => {
+		const repoRoot = await makeTempDir();
+		const run = runWithFakes(["exec", "create", "--slug=branch-scoped-plan"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Error: Unknown option: --slug=branch-scoped-plan\n");
+		// PINNED QUIRK (clinkr-migration): planned-branch does not accept --flag=value syntax.
+	});
+
+	test("last duplicate --slug wins in create JSON output", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const run = runWithFakes(
+			["exec", "create", "--slug", "first-branch-plan", "--slug", PLAN_SLUG, "--plan-file", planFile, "--format", "json"],
+			[],
+			{ cwd: repoRoot, git: { headCommit: START_POINT } },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toEqual({
+			success: true,
+			slug: PLAN_SLUG,
+			branch: PLAN_SLUG,
+			branch_creation: "plain-git",
+			start_point: START_POINT,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			key: PLAN_KEY,
+			ref_name: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
+			commit: "abc123",
+			source_file: planFile,
+		});
+		// PINNED QUIRK (clinkr-migration): duplicate scalar flags are accepted and the last value wins.
+	});
+
+	test("pins invalid branch-creation in human and JSON formats", async () => {
+		const repoRoot = await makeTempDir();
+		const human = runWithFakes(["exec", "create", "--slug", PLAN_SLUG, "--plan-file", "/tmp/plan.md", "--branch-creation", "bogus"], [], { cwd: repoRoot });
+		expect(await human.exit).toBe(2);
+		expect(human.stderr.join("")).toBe("Error: --branch-creation must be one of plain-git or graphite.\n");
+
+		const json = runWithFakes(["exec", "create", "--slug", PLAN_SLUG, "--plan-file", "/tmp/plan.md", "--branch-creation", "bogus", "--format", "json"], [], {
+			cwd: repoRoot,
+		});
+		expect(await json.exit).toBe(2);
+		expect(json.stdout.join("")).toBe(jsonFailure("--branch-creation must be one of plain-git or graphite."));
+	});
+
+	test("create flags are order-independent and success JSON is byte-exact", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const branch = "planned-branches/branch-scoped-plan";
+		const run = runWithFakes(
+			[
+				"exec",
+				"create",
+				"--format",
+				"json",
+				"--branch-creation",
+				"plain-git",
+				"--plan-file",
+				planFile,
+				"--summary",
+				"Create it",
+				"--branch",
+				branch,
+				"--slug",
+				PLAN_SLUG,
+			],
+			[],
+			{ cwd: repoRoot, git: { headCommit: START_POINT } },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
+			`${JSON.stringify({
+				success: true,
+				slug: PLAN_SLUG,
+				branch,
+				branch_creation: "plain-git",
+				start_point: START_POINT,
+				namespace: PLAN_BRANCH_NAMESPACE,
+				key: PLAN_KEY,
+				ref_name: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+				commit: "abc123",
+				source_file: planFile,
+				summary: "Create it",
+			})}\n`,
+		);
+	});
+
+	test("pins load-plan positional placement and duplicate positional error", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "planned-branches/branch-scoped-plan";
+		const content = "# Attached Plan\n";
+		const placedAfterFlag = runWithFakes(["exec", "load-plan", "--format", "json", PLAN_SLUG], [], {
+			cwd: repoRoot,
+			git: { implementationBranch: branch, defaultBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
+		});
+		expect(await placedAfterFlag.exit).toBe(0);
+		expect(parseJson(placedAfterFlag)).toEqual({
+			success: true,
+			branch,
+			namespace: PLAN_BRANCH_NAMESPACE,
+			selected_key: PLAN_KEY,
+			ref_name: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+			byte_count: content.length,
+			available_keys: [PLAN_KEY],
+			source: "attached",
+		});
+
+		const duplicate = runWithFakes(["exec", "load-plan", PLAN_SLUG, "other-plan", "--format", "json"], [], { cwd: repoRoot });
+		expect(await duplicate.exit).toBe(2);
+		expect(duplicate.stdout.join("")).toBe(jsonFailure("load-plan accepts at most one key or slug."));
+	});
 });
