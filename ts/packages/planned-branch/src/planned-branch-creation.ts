@@ -16,7 +16,9 @@ export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
-export type BranchCreationMethod = "plain-git" | "graphite";
+export const BRANCH_CREATION_METHODS = ["plain-git", "graphite"] as const;
+export type BranchCreationMethod = (typeof BRANCH_CREATION_METHODS)[number];
+export const DEFAULT_BRANCH_CREATION_METHOD: BranchCreationMethod = "plain-git";
 
 export interface CreatePlannedBranchFromFileParams {
 	slug: string;
@@ -121,7 +123,7 @@ export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBr
 		throw new Error(`Invalid plan slug: ${slugError}`);
 	}
 
-	const branchCreation = params.branchCreation ?? "plain-git";
+	const branchCreation = params.branchCreation ?? DEFAULT_BRANCH_CREATION_METHOD;
 	const branch = deriveTargetBranch(params.branchName, slug);
 	const branchError = validateTargetBranchName(branch);
 	if (branchError !== undefined) {
@@ -268,15 +270,12 @@ export function parseCreatePlannedBranchFromFileParams(params: unknown): CreateP
 }
 
 export function tryNormalizeBranchCreationMethod(value: unknown): BranchCreationMethod | undefined {
-	if (value === "plain-git" || value === "graphite") {
-		return value;
-	}
-	return undefined;
+	return BRANCH_CREATION_METHODS.find((method) => method === value);
 }
 
 export function normalizeBranchCreationMethod(value: unknown): BranchCreationMethod {
 	if (value === undefined) {
-		return "plain-git";
+		return DEFAULT_BRANCH_CREATION_METHOD;
 	}
 	const normalized = tryNormalizeBranchCreationMethod(value);
 	if (normalized !== undefined) {
