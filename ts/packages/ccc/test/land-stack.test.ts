@@ -322,7 +322,8 @@ function repoIntro(options: { current?: string | undefined; trunk?: string | und
 	];
 }
 
-function backupRefSteps(branches: string[], shas: Record<string, string> = BRANCH_SHAS, staleRefs: string[] = []): ScriptedExec[] {
+function backupRefSteps(branches: string[], options: { shas?: Record<string, string>; staleRefs?: string[] } = {}): ScriptedExec[] {
+	const { shas = BRANCH_SHAS, staleRefs = [] } = options;
 	return [
 		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { stdout: staleRefs.join("\n") }),
 		...staleRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
@@ -1209,7 +1210,7 @@ describe("land-stack command scenarios", () => {
 
 	test("prunes stale backup refs before writing new snapshots", async () => {
 		const staleRef = "refs/ccc/land-backup/old-branch";
-		const script = [...singleBranchPreflight(""), ...backupRefSteps(["feature-a"], BRANCH_SHAS, [staleRef]), ...mergeSingleFeatureA()];
+		const script = [...singleBranchPreflight(""), ...backupRefSteps(["feature-a"], { staleRefs: [staleRef] }), ...mergeSingleFeatureA()];
 		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
@@ -1685,7 +1686,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
-			...backupRefSteps(["feature-a"], { "feature-a": SHA_B }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
@@ -1732,7 +1733,7 @@ describe("land-stack command scenarios", () => {
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
-			...backupRefSteps(["feature-a"], { "feature-a": SHA_B }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
@@ -1778,7 +1779,7 @@ describe("land-stack command scenarios", () => {
 			step("gt", restackArgs),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_C, prSha: SHA_C }),
-			...backupRefSteps(["feature-a"], { "feature-a": SHA_C }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_C } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_C}\n` }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_C })),

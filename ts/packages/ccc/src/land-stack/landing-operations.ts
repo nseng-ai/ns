@@ -54,7 +54,10 @@ interface MergeLoopState {
 	warnings: LandingWarning[];
 }
 
-type GraphiteMaintenanceOptions = { commandStream?: LandStackCommandStream; unstreamedPi?: LandStackExtensionAPI };
+interface GraphiteMaintenanceOptions {
+	commandStream?: LandStackCommandStream;
+	unstreamedPi?: LandStackExtensionAPI;
+}
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	pi: LandStackExtensionAPI,
