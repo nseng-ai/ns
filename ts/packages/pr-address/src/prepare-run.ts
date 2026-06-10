@@ -1,14 +1,7 @@
 import { clinkrFailure, clinkrOk, toMachineEnvelope } from "./clinkr-envelope.ts";
-import {
-	contestedThreadIds,
-	fetchFeedbackSnapshot,
-	gatewayFailureDetail,
-	gatewayFailureMessage,
-	gatewayOptions,
-	githubGateway,
-	parseReadOptions,
-} from "./feedback-collection.ts";
+import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
+import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
 import { buildPrepareRunPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";

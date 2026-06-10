@@ -9,11 +9,12 @@ import {
 	type FeedbackPlanningResult,
 } from "./classification-core.ts";
 import { clinkrFailure, clinkrNegative, clinkrOk, toMachineEnvelope, type ClinkrExit } from "./clinkr-envelope.ts";
-import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions, reviewsForRequest } from "./feedback-collection.ts";
+import { reviewsForRequest } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
+import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
