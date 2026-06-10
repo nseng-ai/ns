@@ -113,7 +113,7 @@ describe("plans list CLI", () => {
 		expect(output.stdoutText()).toContain("Usage: plans list");
 	});
 
-	test("prints JSON failure for unknown JSON option", async () => {
+	test("prints raw usage error for unknown JSON option", async () => {
 		const fixture = await makeFixture();
 		const output = createOutputCapture();
 
@@ -126,11 +126,8 @@ describe("plans list CLI", () => {
 		});
 
 		expect(exitCode).toBe(2);
-		expect(output.stderrText()).toBe("");
-		expect(JSON.parse(output.stdoutText())).toEqual({
-			success: false,
-			error: { code: "plans_error", message: "Unknown option: --bogus" },
-		});
+		expect(output.stdoutText()).toBe("");
+		expect(output.stderrText()).toBe("error: unknown option '--bogus'\n");
 	});
 
 	test("prints an empty success message when no repo store exists", async () => {

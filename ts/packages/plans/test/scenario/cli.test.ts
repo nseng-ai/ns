@@ -20,29 +20,82 @@ const SOURCE_BRANCH = "feature/source-plan";
 const MODIFIED_TIME_MS = 1_700_000_000_000;
 
 const TOP_LEVEL_HELP = [
-	"Usage: plans [--version] <command>",
+	"Usage: plans [options] [command]",
 	"",
-	"Commands:",
-	"  list    List saved plans for the current repository across all branch keys.",
-	"  exec    Run hidden deterministic saved-plan operations for agents.",
+	"Saved planned-branch plan operations.",
 	"",
 	"Options:",
-	"  -h, --help       Show this help.",
-	"  -V, --version    Show the package version.",
+	"  -V, --version   Show the package version.",
+	"  --runtime       Show CLI runtime diagnostics and exit.",
+	"  -h, --help      display help for command",
+	"",
+	"Commands:",
+	"  list [options]  List saved plans for the current repository across all branch",
+	"                  keys.",
 	"",
 ].join("\n");
 
-const LIST_HELP = ["Usage: plans list [--format json] [--plan-store-root <path>]", ""].join("\n");
-const EXEC_HELP = [
-	"Usage: plans exec <operation>",
+const LIST_HELP = [
+	"Usage: plans list [options]",
 	"",
-	"Operations:",
-	"  write      Save a source-branch plan file in the local store.",
-	"  resolve    Resolve an explicit or latest source-branch plan file.",
+	"List saved plans for the current repository across all branch keys.",
+	"",
+	"Options:",
+	"  --plan-store-root <value>  Plan store root directory (relative paths resolve",
+	"                             against cwd).",
+	"  --format <format>          Output format. (choices: \"human\", \"json\", default:",
+	"                             \"human\")",
+	"  --json-schema              Print the JSON Schema for this command's",
+	"                             input/output and exit.",
+	"  -h, --help                 display help for command",
 	"",
 ].join("\n");
-const WRITE_HELP = ["Usage: plans exec write --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]", ""].join("\n");
-const RESOLVE_HELP = ["Usage: plans exec resolve [absolute-or-home-plan-file.md] [--format json]", ""].join("\n");
+const EXEC_HELP = [
+	"Usage: plans exec [options] [command]",
+	"",
+	"Run hidden deterministic saved-plan operations for agents.",
+	"",
+	"Options:",
+	"  -h, --help                display help for command",
+	"",
+	"Commands:",
+	"  write [options]           Save a source-branch plan file in the local store.",
+	"  resolve [options] [path]  Resolve an explicit or latest source-branch plan",
+	"                            file.",
+	"",
+].join("\n");
+const WRITE_HELP = [
+	"Usage: plans exec write [options]",
+	"",
+	"Save a source-branch plan file in the local store.",
+	"",
+	"Options:",
+	"  --slug <value>          Saved plan slug.",
+	"  --summary <value>       Optional saved-plan summary.",
+	"  --stdin                 Read plan content from stdin.",
+	"  --content-file <value>  Read plan content from this file path.",
+	"  --format <format>       Output format. (choices: \"human\", \"json\", default:",
+	"                          \"human\")",
+	"  --json-schema           Print the JSON Schema for this command's input/output",
+	"                          and exit.",
+	"  -h, --help              display help for command",
+	"",
+].join("\n");
+const RESOLVE_HELP = [
+	"Usage: plans exec resolve [options] [path]",
+	"",
+	"Resolve an explicit or latest source-branch plan file.",
+	"",
+	"Arguments:",
+	"  path               Absolute, @-prefixed, or home-relative plan file path.",
+	"",
+	"Options:",
+	"  --format <format>  Output format. (choices: \"human\", \"json\", default: \"human\")",
+	"  --json-schema      Print the JSON Schema for this command's input/output and",
+	"                     exit.",
+	"  -h, --help         display help for command",
+	"",
+].join("\n");
 
 const tempDirs: string[] = [];
 const homeTempDirs: string[] = [];
@@ -198,12 +251,12 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		// PINNED QUIRK (clinkr-migration): top-level --version ignores trailing arguments.
 	});
 
-	test("prints unknown command stderr with top-level help", async () => {
+	test("prints commander unknown command stderr", async () => {
 		const run = await runWithFakes(["bogus"]);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(`Unknown command: bogus\n\n${TOP_LEVEL_HELP}`);
+		expect(run.stderr.join("")).toBe("error: unknown command 'bogus'\n");
 	});
 
 	test.each([
@@ -231,46 +284,46 @@ describe("plans CLI help, version, and dispatch pins", () => {
 
 		const unknown = await runWithFakes(["exec", "bogus"]);
 		expect(await unknown.exit).toBe(2);
-		expect(unknown.stderr.join("")).toBe(`Unknown exec operation: bogus\n\n${EXEC_HELP}`);
+		expect(unknown.stderr.join("")).toBe("error: unknown command 'bogus'\n");
 
 		const unknownJson = await runWithFakes(["exec", "bogus", "--format", "json"]);
 		expect(await unknownJson.exit).toBe(2);
 		expect(unknownJson.stdout.join("")).toBe("");
-		expect(unknownJson.stderr.join("")).toBe(`Unknown exec operation: bogus\n\n${EXEC_HELP}`);
-		// PINNED QUIRK (clinkr-migration): unknown exec operations bypass --format json.
+		expect(unknownJson.stderr.join("")).toBe("error: unknown command 'bogus'\n");
+		// PINNED CLINKR SEMANTICS: unknown exec operations bypass --format json.
 	});
 });
 
 describe("plans list CLI pins", () => {
 	test.each([
-		[["list", "--bogus"], "Unknown option: --bogus"],
-		[["list", "--format"], "--format requires a value."],
-		[["list", "--format", "yaml"], "--format must be json."],
-		[["list", "--plan-store-root"], "--plan-store-root requires a value."],
-	])("prints human parse error for %j", async (args, message) => {
+		[["list", "--bogus"], "error: unknown option '--bogus'\n"],
+		[["list", "--format"], "error: option '--format <format>' argument missing\n"],
+		[["list", "--format", "yaml"], "error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json.\n"],
+		[["list", "--plan-store-root"], "error: option '--plan-store-root <value>' argument missing\n"],
+	])("prints raw usage error for %j", async (args, message) => {
 		const run = await runWithFakes(args);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(`Error: ${message}\n`);
+		expect(run.stderr.join("")).toBe(message);
 	});
 
-	test("rejects inline equals syntax for options", async () => {
+	test("accepts inline equals syntax for options", async () => {
 		const run = await runWithFakes(["list", "--format=json"]);
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Error: Unknown option: --format=json\n");
-		// PINNED QUIRK (clinkr-migration): plans does not accept --flag=value syntax.
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(`${JSON.stringify({ success: true, plans: [] })}\n`);
+		expect(run.stderr.join("")).toBe("");
+		// PINNED CLINKR SEMANTICS: commander accepts --flag=value syntax.
 	});
 
-	test("pair-scan JSON mode survives a later invalid format flag", async () => {
+	test("duplicate --format flags use commander last-wins validation", async () => {
 		const run = await runWithFakes(["list", "--format", "json", "--format", "yaml"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(jsonFailure("--format must be json."));
-		expect(run.stderr.join("")).toBe("");
-		// PINNED QUIRK (clinkr-migration): wantsJsonFormat scans for any adjacent --format json pair.
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json.\n");
+		// PINNED CLINKR SEMANTICS: usage errors are raw stderr, never JSON-enveloped.
 	});
 
 	test("prints one-plan JSON and human list byte-exactly", async () => {
@@ -340,22 +393,28 @@ describe("plans list CLI pins", () => {
 });
 
 describe("plans exec write pins", () => {
-	test("pins missing slug, input exclusivity, and JSON failure bytes", async () => {
+	test("pins missing slug usage errors, input exclusivity, and JSON failure bytes", async () => {
 		const missingHuman = await runWithFakes(["exec", "write", "--stdin"]);
 		expect(await missingHuman.exit).toBe(2);
-		expect(missingHuman.stderr.join("")).toBe("Error: Missing required option: --slug\n");
+		expect(missingHuman.stdout.join("")).toBe("");
+		expect(missingHuman.stderr.join("")).toBe("error: --slug: Invalid input: expected string, received undefined\n");
 
 		const missingJson = await runWithFakes(["exec", "write", "--stdin", "--format", "json"]);
 		expect(await missingJson.exit).toBe(2);
-		expect(missingJson.stdout.join("")).toBe(jsonFailure("Missing required option: --slug"));
+		expect(missingJson.stdout.join("")).toBe("");
+		expect(missingJson.stderr.join("")).toBe("error: --slug: Invalid input: expected string, received undefined\n");
 
 		const both = await runWithFakes(["exec", "write", "--slug", "specific-branch-saved-plan", "--stdin", "--content-file", "plan.md"]);
 		expect(await both.exit).toBe(2);
-		expect(both.stderr.join("")).toBe("Error: Pass exactly one of --stdin or --content-file <path>.\n");
+		expect(both.stderr.join("")).toBe("error: Pass exactly one of --stdin or --content-file <path>.\n");
 
 		const neither = await runWithFakes(["exec", "write", "--slug", "specific-branch-saved-plan"]);
 		expect(await neither.exit).toBe(2);
-		expect(neither.stderr.join("")).toBe("Error: Pass exactly one of --stdin or --content-file <path>.\n");
+		expect(neither.stderr.join("")).toBe("error: Pass exactly one of --stdin or --content-file <path>.\n");
+
+		const neitherJson = await runWithFakes(["exec", "write", "--slug", "specific-branch-saved-plan", "--format", "json"]);
+		expect(await neitherJson.exit).toBe(2);
+		expect(neitherJson.stdout.join("")).toBe(jsonFailure("Pass exactly one of --stdin or --content-file <path>."));
 	});
 
 	test.each([
@@ -479,11 +538,12 @@ describe("plans exec resolve pins", () => {
 		const fixture = await makeFixture();
 		const twoPositionals = await runWithFakes(["exec", "resolve", "/tmp/one.md", "/tmp/two.md", "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
 		expect(await twoPositionals.exit).toBe(2);
-		expect(twoPositionals.stdout.join("")).toBe(jsonFailure("resolve accepts at most one plan file path."));
+		expect(twoPositionals.stdout.join("")).toBe("");
+		expect(twoPositionals.stderr.join("")).toBe("error: too many arguments for 'resolve'. Expected 1 argument but got 2.\n");
 
 		const unknown = await runWithFakes(["exec", "resolve", "--bogus"], { cwd: fixture.repoRoot, git: fixture.git });
 		expect(await unknown.exit).toBe(2);
-		expect(unknown.stderr.join("")).toBe("Error: Unknown option: --bogus\n");
+		expect(unknown.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 
 		const relativePath = await runWithFakes(["exec", "resolve", "relative-plan.md", "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
 		expect(await relativePath.exit).toBe(2);

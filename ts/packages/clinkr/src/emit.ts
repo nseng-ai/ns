@@ -3,9 +3,12 @@ import type { ClinkrIo } from "./io.ts";
 
 export type ClinkrFormat = "human" | "json";
 
+export type LegacyMachineSerialization = "indent2" | "compact";
+
 export interface LegacyMachineOutput {
 	body: unknown;
 	exitCode: number;
+	serialization?: LegacyMachineSerialization;
 }
 
 export interface EmitExitOptions<T> {
@@ -22,7 +25,8 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 	if (options.format === "json") {
 		if (options.legacyMachine !== undefined) {
 			const legacy = options.legacyMachine(exit);
-			options.io.stdout(`${envelopeJsonText(legacy.body)}\n`);
+			const body = legacy.serialization === "compact" ? JSON.stringify(legacy.body) : envelopeJsonText(legacy.body);
+			options.io.stdout(`${body}\n`);
 			return legacy.exitCode;
 		}
 		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);

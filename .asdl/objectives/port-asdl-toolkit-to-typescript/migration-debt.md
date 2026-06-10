@@ -26,3 +26,10 @@ Entry contract: what the compromise is, why it exists, and the kill action. Kill
 - **Why:** one envelope contract on both sides of the migration; skills consuming CLIs do not need to know which language served them.
 - **Kill action:** revisit the parked TS-native envelope redesign (tracked in the `ts-clinkr-commander` objective's Parked section) once all four CLIs are migrated and Python clinkr is no longer authoritative; either deliberately recommit to the parity envelope as permanent or execute the redesign. Includes revisiting unexpected-throw semantics (currently: propagate raw with no envelope, matching Python).
 - **Origin:** ts-clinkr-commander objective scope + design grilling (2026-06-10).
+
+### 4. CLI surface divergences accepted during clinkr migrations
+
+- **Compromise:** CLIs migrated onto `@asdl/clinkr` accept a fixed set of user-facing surface changes instead of emulating every hand-rolled parser/help quirk: clinkr/commander-generated help bytes, commander-format unknown-command errors, raw-stderr never-enveloped usage errors even under `--format json`, accepted `--flag=value` and explicit `--format human`, clinkr's lowercase human failure prefix (`error:`), and hidden `exec` subgroups per repo convention. Per-CLI divergence call-outs start with `@asdl/plans`, whose compact `--format json` success and domain-failure bodies remain byte-identical while help/usage/parse-error surface adopts clinkr semantics.
+- **Why:** these are deliberate framework semantics from the `ts-clinkr-commander` design and 2026-06-10 `plans` migration planning decision. Recreating legacy quirks in each migrated CLI would preserve duplicated parser behavior the framework exists to remove.
+- **Kill action:** documentation-style debt: after all four clinkr migrations land, confirm dependent skills/docs describe the new surface and fold that check into entry 1's consumer-update sweep; then close this entry together with the broader clinkr migration debt burn-down.
+- **Origin:** ts-clinkr-commander `plans` migration planning and implementation (2026-06-10), divergence-policy decision.

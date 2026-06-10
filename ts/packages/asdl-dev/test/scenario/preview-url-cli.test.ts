@@ -39,7 +39,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-const TOP_LEVEL_HELP = `Usage: asdl-dev <command> [options]
+const TOP_LEVEL_HELP = `Usage: asdl-dev [--runtime] <command> [options]
 
 Developer tools for asdl-tools.
 
@@ -52,6 +52,7 @@ Commands:
 
 Options:
   -h, --help    Show this help message.
+  --runtime     Show CLI runtime diagnostics and exit.
 `;
 
 describe("asdl-dev preview-url CLI help and parsing", () => {

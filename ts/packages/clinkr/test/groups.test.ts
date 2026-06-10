@@ -45,6 +45,56 @@ function buildTree(): ClinkrGroup<ProbeContext> {
 	return root;
 }
 
+describe("root group options", () => {
+	function buildRootOptionsTree(): ClinkrGroup<ProbeContext> {
+		const root = new ClinkrGroup<ProbeContext>({
+			name: "root",
+			version: "1.2.3",
+			runtimeInfo: () => "runtime: test\n",
+		});
+		const sub = new ClinkrGroup<ProbeContext>({ name: "sub" });
+		sub.command({
+			name: "inner",
+			schema: z.object({}),
+			handler: async (ctx) => {
+				ctx.calls.push("inner");
+				return ok({});
+			},
+		});
+		root.group(sub);
+		return root;
+	}
+
+	test("root version exits 0 and ignores trailing args", async () => {
+		const group = buildRootOptionsTree();
+		for (const argv of [["-V"], ["--version"], ["--version", "extra"]]) {
+			const run = await runForTest(group, argv, { context: { calls: [] } });
+			expect(run.exitCode).toBe(0);
+			expect(run.stdout).toBe("1.2.3\n");
+			expect(run.stderr).toBe("");
+		}
+	});
+
+	test("root runtime exits 0 without adding a newline", async () => {
+		const run = await runForTest(buildRootOptionsTree(), ["--runtime"], {
+			context: { calls: [] },
+		});
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("runtime: test\n");
+		expect(run.stderr).toBe("");
+	});
+
+	test("root-only options do not appear in subgroup help", async () => {
+		const run = await runForTest(buildRootOptionsTree(), ["sub", "--help"], {
+			context: { calls: [] },
+		});
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).not.toContain("--runtime");
+		expect(run.stdout).not.toContain("--version");
+		expect(run.stdout).not.toContain("-V");
+	});
+});
+
 describe("nested groups", () => {
 	test("nested subgroup commands dispatch with parsed requests", async () => {
 		const context: ProbeContext = { calls: [] };
