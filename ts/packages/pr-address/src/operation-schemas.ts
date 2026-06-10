@@ -386,6 +386,35 @@ const resolveThreadBatchResultSchema = z.object({
 	results: z.array(resolveThreadBatchItemResultSchema),
 });
 
+// --- map-branch-prs ---------------------------------------------------------------
+// TypeScript-only operation: no Python contract exists; the schema document is
+// TypeScript-owned and its fixture is captured from `--json-schema` output.
+
+const mapBranchPrsRequestSchema = z.object({
+	branches: z.array(z.string()),
+});
+
+const mapBranchPrsEntrySchema = z.object({
+	branch: z.string(),
+	pr_number: z.int(),
+	title: z.string(),
+	url: z.string(),
+	head_ref_name: z.string(),
+	base_ref_name: z.string(),
+});
+
+const mapBranchPrsSummarySchema = z.object({
+	requested: z.int(),
+	matched: z.int(),
+	missing: z.int(),
+});
+
+const mapBranchPrsResultSchema = z.object({
+	branch_prs: z.array(mapBranchPrsEntrySchema),
+	missing_branches: z.array(z.string()),
+	summary: mapBranchPrsSummarySchema,
+});
+
 // --- read-only collection operations -------------------------------------------
 
 const getFeedbackRequestSchema = z.object({
@@ -1219,6 +1248,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["classification-template", buildClassificationTemplateSchemaDocument],
 	["finalize-run", () => schemaDocument(payloadJsonOrFileRequestSchema, finalizeRunResultSchema)],
 	["get-feedback", () => schemaDocument(getFeedbackRequestSchema, getFeedbackResultSchema)],
+	["map-branch-prs", () => schemaDocument(mapBranchPrsRequestSchema, mapBranchPrsResultSchema)],
 	["plan-feedback", buildPlanFeedbackSchemaDocument],
 	["prepare-run", () => schemaDocument(prepareRunRequestSchema, prepareRunResultSchema)],
 	["read-feedback-detail", () => schemaDocument(readFeedbackDetailRequestSchema, readFeedbackDetailResultSchema)],

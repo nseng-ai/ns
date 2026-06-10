@@ -3,6 +3,7 @@ import { runRecordBatchCheckpointOperation } from "./batch-checkpoint.ts";
 import { runClassificationTemplateOperation, runPlanFeedbackOperation, runValidateFeedbackClassificationOperation } from "./classification-core.ts";
 import type { ClinkrExit } from "./clinkr-envelope.ts";
 import { runGetFeedbackOperation } from "./feedback-collection.ts";
+import { runMapBranchPrsOperation } from "./map-branch-prs.ts";
 import { runFinalizeRunOperation } from "./finalization.ts";
 import {
 	runReplyToDiscussionOperation,
@@ -43,6 +44,12 @@ export type ExecOperationHandler = (invocation: ExecOperationInvocation) => Prom
 export interface ExecOperationDefinition {
 	name: string;
 	handler: ExecOperationHandler;
+	/**
+	 * Operation calls GitHub through `gh`, which resolves `owner/repo` from the
+	 * cwd's git remotes. The CLI fails fast with `repo_context_required` when
+	 * such an operation runs outside a git work tree.
+	 */
+	requiresRepoContext?: boolean | undefined;
 }
 
 export interface ExecOperationRegistry {
@@ -77,18 +84,22 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "reply-to-discussion",
 			handler: runReplyToDiscussionOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "reply-to-review",
 			handler: runReplyToReviewOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "resolve-thread-batch",
 			handler: runResolveThreadBatchOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "resolve-thread-with-reply",
 			handler: runResolveThreadWithReplyOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "classification-template",
@@ -109,14 +120,22 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "get-feedback",
 			handler: runGetFeedbackOperation,
+			requiresRepoContext: true,
+		},
+		{
+			name: "map-branch-prs",
+			handler: runMapBranchPrsOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "prepare-run",
 			handler: runPrepareRunOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "summarize-feedback",
 			handler: runSummarizeFeedbackOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "read-feedback-detail",
@@ -137,6 +156,7 @@ export function createDefaultExecOperationRegistry(): ExecOperationRegistry {
 		{
 			name: "stack-feedback-prep",
 			handler: runStackFeedbackPrepOperation,
+			requiresRepoContext: true,
 		},
 		{
 			name: "stack-feedback-plan",

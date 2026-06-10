@@ -6,7 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
-import { emitClinkrExit } from "./clinkr-envelope.ts";
+import { clinkrFailure, emitClinkrExit, type ClinkrExit } from "./clinkr-envelope.ts";
 import { createDefaultExecOperationRegistry, type ExecOperationRegistry } from "./operation-registry.ts";
 import { buildOperationSchemaDocument } from "./operation-schemas.ts";
 
@@ -86,6 +86,16 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 
 	const registeredOperation = deps.registry.get(operation);
 	if (registeredOperation !== undefined) {
+		if (registeredOperation.requiresRepoContext === true) {
+			const preconditionExit = await repoContextPreconditionExit(deps);
+			if (preconditionExit !== undefined) {
+				return emitClinkrExit(preconditionExit, {
+					format: hasFormatJson(args) ? "json" : "human",
+					stdout: deps.stdout,
+					stderr: deps.stderr,
+				});
+			}
+		}
 		const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
 		switch (dispatchResult.type) {
 			case "exit":
@@ -109,6 +119,21 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	}
 }
 
+/**
+ * LBYL precondition for operations that call GitHub: `gh` resolves `owner/repo`
+ * from the cwd's git remotes, so running outside a repository fails lazily and
+ * confusingly mid-fetch. Fail fast with a clear error instead. The probe is
+ * fail-open: a missing git gateway or a probe failure must never block a run
+ * that would have succeeded.
+ */
+async function repoContextPreconditionExit(deps: RequiredCliDeps): Promise<ClinkrExit | undefined> {
+	const git = deps.context.git;
+	if (git === undefined) return undefined;
+	const probe = await git.isInsideWorkTree({ cwd: deps.cwd, env: deps.env });
+	if (probe.type !== "outside") return undefined;
+	return clinkrFailure("repo_context_required", "pr-address must run inside the target git repository (gh resolves the repo from the current directory).");
+}
+
 function runtimeInfo(): string {
 	return "runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n";
 }
@@ -118,7 +143,7 @@ function topLevelHelp(): string {
 }
 
 function execHelp(): string {
-	return `Usage: pr-address exec <operation> [args...]\n\nOperations for the pr-address skill.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to TypeScript. The legacy Python pr-address CLI is invoked only for unknown operations and a few invalid-argument shapes (click usage-error rendering), with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations (all TypeScript-managed):\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-feedback\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
+	return `Usage: pr-address exec <operation> [args...]\n\nOperations for the pr-address skill.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to TypeScript. The legacy Python pr-address CLI is invoked only for unknown operations and a few invalid-argument shapes (click usage-error rendering), with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations (all TypeScript-managed):\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-feedback\n  map-branch-prs\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
 }
 
 function hasFormatJson(args: readonly string[]): boolean {

@@ -15,6 +15,7 @@ import type {
 	PrAddressGitGateway,
 	PrAddressGitHubGateway,
 	Reaction,
+	RepoContextResult,
 	RestructuredFile,
 } from "../../src/gateways.ts";
 
@@ -24,6 +25,7 @@ export interface InMemoryGitHubState {
 	reviews?: ReadonlyMap<number, readonly PRReview[]> | Record<number, readonly PRReview[]> | undefined;
 	reviewThreads?: ReadonlyMap<number, readonly PRReviewThread[]> | Record<number, readonly PRReviewThread[]> | undefined;
 	discussionComments?: ReadonlyMap<number, readonly PRDiscussionComment[]> | Record<number, readonly PRDiscussionComment[]> | undefined;
+	listOpenPrsFailure?: GatewayFailure | undefined;
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
 	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
 	missingPrNumbers?: ReadonlySet<number> | undefined;
@@ -36,6 +38,8 @@ export interface InMemoryGitHubState {
 export interface InMemoryGitState {
 	currentBranch?: string | null | undefined;
 	currentBranchFailure?: GatewayFailure | undefined;
+	insideWorkTree?: boolean | undefined;
+	repoContextFailure?: GatewayFailure | undefined;
 	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
 	restructuredFiles?: readonly RestructuredFile[] | undefined;
 	restructuredFilesFailure?: GatewayFailure | undefined;
@@ -47,6 +51,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	private readonly reviews: ReadonlyMap<number, readonly PRReview[]>;
 	private readonly reviewThreads: ReadonlyMap<number, readonly PRReviewThread[]>;
 	private readonly discussionComments: ReadonlyMap<number, readonly PRDiscussionComment[]>;
+	private readonly listOpenPrsFailure: GatewayFailure | undefined;
 	private readonly lookupFailureBranches: ReadonlySet<string>;
 	private readonly lookupFailurePrNumbers: ReadonlySet<number>;
 	private readonly missingPrNumbers: ReadonlySet<number>;
@@ -76,6 +81,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		this.reviews = numberMap(state.reviews);
 		this.reviewThreads = numberMap(state.reviewThreads);
 		this.discussionComments = numberMap(state.discussionComments);
+		this.listOpenPrsFailure = state.listOpenPrsFailure;
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
 		this.lookupFailurePrNumbers = state.lookupFailurePrNumbers ?? new Set();
 		this.missingPrNumbers = state.missingPrNumbers ?? new Set();
@@ -118,6 +124,11 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		const pr = this.prsByBranch.get(branch);
 		if (pr === undefined) return lookupMiss();
 		return { type: "found", pr: clone(pr) };
+	}
+
+	async listOpenPrs(_options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>> {
+		if (this.listOpenPrsFailure !== undefined) return { type: "failure", failure: clone(this.listOpenPrsFailure) };
+		return { type: "ok", value: clone([...this.prsByNumber.values()].filter((pr) => pr.state === "OPEN")) };
 	}
 
 	async getReviews(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
@@ -172,6 +183,8 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly currentBranch: string | null;
 	private readonly currentBranchFailure: GatewayFailure | undefined;
+	private readonly insideWorkTree: boolean;
+	private readonly repoContextFailure: GatewayFailure | undefined;
 	private readonly branchHeadOids: ReadonlyMap<string, string>;
 	private readonly restructuredFiles: readonly RestructuredFile[];
 	private readonly restructuredFilesFailure: GatewayFailure | undefined;
@@ -179,6 +192,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	constructor(state: InMemoryGitState = {}) {
 		this.currentBranch = state.currentBranch === undefined ? "main" : state.currentBranch;
 		this.currentBranchFailure = state.currentBranchFailure;
+		this.insideWorkTree = state.insideWorkTree ?? true;
+		this.repoContextFailure = state.repoContextFailure;
 		this.branchHeadOids = stringMap(state.branchHeadOids);
 		this.restructuredFiles = clone(state.restructuredFiles ?? []);
 		this.restructuredFilesFailure = state.restructuredFilesFailure;
@@ -188,6 +203,11 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 		if (this.currentBranchFailure !== undefined) return { type: "failure", failure: clone(this.currentBranchFailure) };
 		if (this.currentBranch === null) return { type: "detached" };
 		return { type: "branch", branch: this.currentBranch };
+	}
+
+	async isInsideWorkTree(_options: GatewayOptions): Promise<RepoContextResult> {
+		if (this.repoContextFailure !== undefined) return { type: "failure", failure: clone(this.repoContextFailure) };
+		return this.insideWorkTree ? { type: "inside" } : { type: "outside" };
 	}
 
 	async getBranchHeadOid(branch: string, _options: GatewayOptions): Promise<BranchHeadOidResult> {

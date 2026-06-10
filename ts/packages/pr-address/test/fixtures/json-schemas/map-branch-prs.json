@@ -1,0 +1,99 @@
+{
+  "input_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "branches": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "branches"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "branch_prs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "branch": {
+              "type": "string"
+            },
+            "pr_number": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "title": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "head_ref_name": {
+              "type": "string"
+            },
+            "base_ref_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "branch",
+            "pr_number",
+            "title",
+            "url",
+            "head_ref_name",
+            "base_ref_name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "missing_branches": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "requested": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "matched": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "missing": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "requested",
+          "matched",
+          "missing"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "branch_prs",
+      "missing_branches",
+      "summary"
+    ],
+    "additionalProperties": false
+  }
+}

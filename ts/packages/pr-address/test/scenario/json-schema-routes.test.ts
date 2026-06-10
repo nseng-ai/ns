@@ -40,6 +40,10 @@ const PARITY_OPERATIONS = [
 // not held to the structural parity bar (pre-existing dialect/coverage gaps).
 const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-feedback-classification", "plan-feedback"] as const;
 
+// TypeScript-only operations with no Python counterpart; their fixtures are
+// captured from the TypeScript `--json-schema` output, not Python parity.
+const TS_ONLY_OPERATIONS = ["map-branch-prs"] as const;
+
 interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
@@ -93,6 +97,14 @@ describe("pr-address exec --json-schema routes", () => {
 	for (const operation of PRE_EXISTING_TS_SCHEMA_OPERATIONS) {
 		test(`${operation} serves its schema document without legacy fallback`, async () => {
 			await serveSchemaDocument(operation);
+		});
+	}
+
+	for (const operation of TS_ONLY_OPERATIONS) {
+		test(`${operation} serves its TypeScript-owned schema document matching the captured fixture`, async () => {
+			const document = await serveSchemaDocument(operation);
+			const fixture = await readFixture(operation);
+			expect(document).toEqual(fixture);
 		});
 	}
 
