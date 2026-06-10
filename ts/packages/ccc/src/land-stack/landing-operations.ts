@@ -10,7 +10,7 @@ import {
 } from "./command-exec.ts";
 import { BACKUP_REF_NAMESPACE, GH_MERGE_TIMEOUT_MS, GIT_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
-import { loadBranchChildrenFresh } from "./graphite-topology.ts";
+import { loadGraphiteTopology } from "./graphite-topology.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
 import { formatPrSubmitRequirement, loadPr, validateStrictMergeGate } from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
@@ -455,19 +455,20 @@ export async function runMergeLoop(
 		// Re-check the branch's Graphite children right before the forced delete: a
 		// child that appeared since planning means another stack now depends on it.
 		const skippedScope = maintenance.kind === "optional-descendant" ? `local branch ${branch} cleanup and descendant restack/update were` : `local branch ${branch} cleanup was`;
-		const childrenNow = await loadBranchChildrenFresh({ pi, repoRoot, dbPath: plan.metadataDbPath, branch });
-		if (childrenNow.type === "failure") {
+		const topology = await loadGraphiteTopology(pi, repoRoot, plan.metadataDbPath);
+		if (topology.type === "failure") {
 			warnings.push({
-				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${childrenNow.failure.message}`,
+				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${topology.failure.message}`,
 				suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			});
 			continue;
 		}
+		const childrenNow = topology.value.get(branch)?.children ?? [];
 		const allowedChildren = new Set(deletedBranches);
 		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
 			allowedChildren.add(maintenance.branch);
 		}
-		const unexpectedChildren = childrenNow.value.filter((child) => !allowedChildren.has(child));
+		const unexpectedChildren = childrenNow.filter((child) => !allowedChildren.has(child));
 		if (unexpectedChildren.length > 0) {
 			if (maintenance.kind === "required-next-landing") {
 				return failure(

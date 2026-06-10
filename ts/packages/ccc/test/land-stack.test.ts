@@ -347,12 +347,8 @@ function guardShaStep(branch: string, sha: string): ScriptedExec {
 	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` });
 }
 
-function childrenQueryArgs(branch: string): string[] {
-	return ["-readonly", "-json", DB_PATH, `SELECT children FROM branch_metadata WHERE branch_name = '${branch}' LIMIT 1`];
-}
-
 function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
-	return step("sqlite3", childrenQueryArgs(branch), { stdout: `${JSON.stringify([{ children: JSON.stringify(children) }])}\n` });
+	return step("sqlite3", TOPOLOGY_ARGS, { stdout: `${metadataDbJson([{ branch, children }])}\n` });
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
@@ -1726,7 +1722,7 @@ describe("land-stack command scenarios", () => {
 		expect(submitIndex).toBeGreaterThanOrEqual(0);
 		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
 		expect(recheckStackIndex).toBeLessThan(mergeIndex);
-		expect(pi.execCalls.filter((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS))).toHaveLength(1);
+		expect(pi.execCalls.slice(0, mergeIndex).filter((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS))).toHaveLength(1);
 		expect(context.notifications.at(-1)?.level).toBe("success");
 	});
 
