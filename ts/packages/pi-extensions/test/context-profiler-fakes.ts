@@ -1,14 +1,54 @@
 /**
- * In-memory fakes for context-profiler tests. Constructor-state style: the
- * fake models a segmentation backend that already has an answer (or a
- * deferred gate), rather than scripting ordered calls.
+ * In-memory fakes and shared data builders for context-profiler tests.
+ * Fakes are constructor-state style: the fake models a segmentation backend
+ * that already has an answer (or a deferred gate), rather than scripting
+ * ordered calls.
  */
 
+import type { LiveTurn, ProfileSnapshot } from "../src/context-profiler/model.ts";
+import { normalizeMessage } from "../src/context-profiler/model.ts";
 import type {
 	SegmentationCallResult,
 	SegmentationGateway,
 	SegmentationRequest,
 } from "../src/context-profiler/segmentation-gateway.ts";
+
+export function makeTurn(index: number, overrides: Partial<LiveTurn> = {}): LiveTurn {
+	return {
+		index,
+		role: "user",
+		tokens: { value: 4, provenance: "estimated" },
+		toolNames: [],
+		excerpt: `turn ${index}`,
+		message: normalizeMessage({ role: "user", content: `turn ${index}` }),
+		...overrides,
+	};
+}
+
+/** Turns at exactly these indices — gaps model an elided (capped-out) middle. */
+export function makeTurns(indices: readonly number[]): LiveTurn[] {
+	return indices.map((index) => makeTurn(index));
+}
+
+export function sequentialTurns(count: number): LiveTurn[] {
+	return makeTurns(Array.from({ length: count }, (_unused, position) => position + 1));
+}
+
+export function makeProfile(turns: readonly LiveTurn[], overrides: Partial<ProfileSnapshot> = {}): ProfileSnapshot {
+	const originalCount = overrides.cap?.originalCount ?? turns.length;
+	return {
+		cwd: "/repo",
+		model: "anthropic/claude-fable-5",
+		usage: undefined,
+		baseRegions: [],
+		liveTurns: [...turns],
+		liveRegions: [],
+		liveSource: "context-event",
+		cap: { originalCount, includedCount: turns.length, elidedMiddleTurns: originalCount - turns.length },
+		openedAt: "12:00:00",
+		...overrides,
+	};
+}
 
 export interface FakeSegmentationGatewayOptions {
 	result: SegmentationCallResult;

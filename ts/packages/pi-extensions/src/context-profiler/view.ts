@@ -45,6 +45,7 @@ const CONTENT_HINT = "↑↓/PgUp/PgDn scroll · esc back · q close";
 interface OverviewFrame {
 	type: "overview";
 	selection: number;
+	scroll: number;
 }
 
 interface BaseDetailFrame {
@@ -103,21 +104,21 @@ export class ProfilerView implements Component {
 		this.onRefresh = options.onRefresh;
 		this.profile = options.profile;
 		this.segmentation = options.segmentation;
-		this.frames = [{ type: "overview", selection: 0 }];
+		this.frames = [{ type: "overview", selection: 0, scroll: 0 }];
 		this.showHelp = false;
 	}
 
 	/**
 	 * Async segmentation arrival. The frozen snapshot is untouched — episodes
-	 * are an annotation layer recomputed over it — but the overview row count
-	 * can change, so the root selection is re-clamped.
+	 * are an annotation layer recomputed over it. The overview row count can
+	 * change, but the selection is reconciled against the rendered rows at
+	 * render time, so no clamp is needed here. Residual race (accepted): an
+	 * Enter keypress processed during the one throttled render cycle after
+	 * arrival resolves against the new rows while the old ones are still on
+	 * screen — inherent to synchronous-input/deferred-render TUIs.
 	 */
 	setSegmentation(state: SegmentationState): void {
 		this.segmentation = state;
-		const root = this.frames[0];
-		if (root !== undefined && root.type === "overview") {
-			root.selection = clamp(root.selection, 0, Math.max(0, this.overviewRows().length - 1));
-		}
 		this.tui.requestRender();
 	}
 
@@ -151,7 +152,7 @@ export class ProfilerView implements Component {
 			const refreshed = this.onRefresh();
 			this.profile = refreshed.profile;
 			this.segmentation = refreshed.segmentation;
-			this.frames = [{ type: "overview", selection: 0 }];
+			this.frames = [{ type: "overview", selection: 0, scroll: 0 }];
 			this.showHelp = false;
 			this.requestRender();
 			return;
@@ -201,6 +202,8 @@ export class ProfilerView implements Component {
 	 * LIVE rows: ready episodes are recomputed as an annotation layer over the
 	 * frozen snapshot's turns; every other state falls back to the snapshot's
 	 * deterministic regions, so LM failure never blocks the view.
+	 * `profile.liveRegions` is that deterministic fallback, and episode
+	 * annotation happens only here — the view is the single annotation point.
 	 */
 	private liveRegions(): LiveRegion[] {
 		if (this.segmentation.type === "ready" && this.segmentation.episodes.length > 0) {
@@ -269,17 +272,23 @@ export class ProfilerView implements Component {
 
 	private renderOverviewBody(frame: OverviewFrame, innerWidth: number, bodyHeight: number): string[] {
 		const rows = this.overviewRows();
+		// Async segmentation arrival can shrink/grow the row set between input
+		// and render, so the selection is re-clamped here against the rows
+		// actually drawn (input-time clamps only cover synchronous changes).
+		frame.selection = clamp(frame.selection, 0, Math.max(0, rows.length - 1));
 		const liveRegions = this.liveRegions();
 		const baseTokens = this.profile.baseRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
 		const liveTokens = liveRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
 		const totalTokens = Math.max(1, baseTokens + liveTokens);
 		const maxTokens = Math.max(1, ...rows.map((row) => row.region.tokens.value));
 		const lines: string[] = [];
+		let selectedLine = 0;
 		lines.push(...this.renderUsageBar(baseTokens, liveTokens, innerWidth));
 		lines.push("");
 		lines.push(this.sectionHeader(BASE_SECTION_HEADER, innerWidth));
 		rows.forEach((row, index) => {
 			if (row.type !== "base") return;
+			if (index === frame.selection) selectedLine = lines.length;
 			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
 		});
 		lines.push("");
@@ -290,6 +299,7 @@ export class ProfilerView implements Component {
 		if (liveRegions.length === 0) lines.push(this.theme.fg("dim", "no live conversation turns yet"));
 		rows.forEach((row, index) => {
 			if (row.type !== "live") return;
+			if (index === frame.selection) selectedLine = lines.length;
 			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
 		});
 		if (this.showHelp) {
@@ -298,8 +308,19 @@ export class ProfilerView implements Component {
 			lines.push(this.theme.fg("dim", `opened ${this.profile.openedAt} · source ${this.profile.liveSource} · model ${this.profile.model}`));
 			lines.push(this.theme.fg("dim", "bars are scaled to the largest visible row; ⏎ zooms one level into the selection."));
 		}
-		const hint = this.theme.fg("dim", `↑↓ select · ⏎ zoom · r refresh · ? ${this.showHelp ? "hide help" : "help"} · esc/q close`);
-		return pinFooter(lines, hint, bodyHeight);
+		const areaHeight = Math.max(1, bodyHeight - 1);
+		// Scroll is reconciled at render time because it depends on layout. The
+		// whole heterogeneous body scrolls as one window; anchoring the first
+		// row to line 0 keeps the usage bar and headers visible at the top.
+		const anchorLine = frame.selection === 0 ? 0 : selectedLine;
+		frame.scroll = clamp(frame.scroll, anchorLine - areaHeight + 1, anchorLine);
+		frame.scroll = clamp(frame.scroll, 0, Math.max(0, lines.length - areaHeight));
+		const visible = lines.slice(frame.scroll, frame.scroll + areaHeight);
+		const note = lines.length > areaHeight
+			? `${scrollNote(frame.scroll + 1, Math.min(lines.length, frame.scroll + areaHeight), lines.length, "lines")} · `
+			: "";
+		const hint = this.theme.fg("dim", `${note}↑↓ select · ⏎ zoom · r refresh · ? ${this.showHelp ? "hide help" : "help"} · esc/q close`);
+		return pinFooter(visible, hint, bodyHeight);
 	}
 
 	private renderUsageBar(baseTokens: number, liveTokens: number, innerWidth: number): string[] {

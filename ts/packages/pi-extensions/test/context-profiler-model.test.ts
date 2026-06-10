@@ -14,6 +14,7 @@ import {
 	normalizeMessage,
 	type LiveTurn,
 } from "../src/context-profiler/model.ts";
+import { makeTurns as makeTurnsAtIndices } from "./context-profiler-fakes.ts";
 
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
 	return {
@@ -354,6 +355,21 @@ describe("buildLiveRegions", () => {
 		});
 		expect(regions[1]).toMatchObject({ kind: "uncategorized", outcome: null, turnRange: { start: 5, end: 6 }, tokens: { value: 8 }, source: "deterministic" });
 		expect(regions[2]).toMatchObject({ kind: "edit", outcome: "active", turnRange: { start: 7, end: 10 }, tokens: { value: 16 }, isCurrent: true });
+	});
+
+	test("skips the elision-seam gap between episodes instead of emitting a ghost region", () => {
+		// Capped-shape list: indices 1..16 then 137..200; 17..136 are elided.
+		const turns = makeTurnsAtIndices([
+			...Array.from({ length: 16 }, (_unused, position) => position + 1),
+			...Array.from({ length: 64 }, (_unused, position) => position + 137),
+		]);
+		const regions = buildLiveRegions(turns, [
+			{ label: "early", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 16 } },
+			{ label: "late", kind: "edit", outcome: "active", turnRange: { start: 137, end: 200 } },
+		]);
+		// No zero-turn "unannotated turns" row for the 17..136 hole.
+		expect(regions.map((region) => region.label)).toEqual(["early", "late"]);
+		expect(regions.every((region) => region.tokens.value > 0)).toBe(true);
 	});
 
 	test("clamps annotation ranges to real turn indices", () => {
