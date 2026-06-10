@@ -48,14 +48,13 @@
   - Policy: builder and fake mutation paths are directly executable after preview. Live GitHub writes require explicit user confirmation for the exact operation and target.
   - Evidence: `updates/2026-06-09T154839Z-mutation-safety-fake-gateways.md` records reply formatting parity, fake-backed mutation gateway operations, validation-before-action tests, planned provenance validation, and the explicit absence of live GitHub write probes.
 - [~] Cut over public skill, wrapper, plugin, and distribution paths to TypeScript default.
-  - Update wrappers and docs to TypeScript/npm paths while preserving installed-skill and local-checkout behavior.
-  - Decide and implement the `asdl pr-address ...` compatibility path only after standalone TypeScript behavior is proven.
-  - Policy: docs, wrapper tests, local checkout behavior, and plugin compatibility scaffolding are directly executable after preview. npm publishing or installed global rollout requires explicit confirmation.
+  - Decided 2026-06-09: installed/prod mode executes a bundled JavaScript artifact shipped inside the installed skill (no npm publish), and the `asdl pr-address ...` plugin is retired outright. The current prod `uvx` pin (`0.1.0`) was never published and is broken; the rollback reference is PyPI `asdl-pr-address==0.1.1`.
+  - Policy: docs, wrapper behavior and tests, bundle build machinery, local checkout behavior, and plugin retirement are directly executable after preview. Live npm/PyPI publishing and pushing installed-skill artifacts to external stores remain out of scope.
   - Evidence should include wrapper local/prod checks, installed-skill compatibility evidence where practical, and documentation updates.
   - Progress evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` records local TypeScript operation status, wrapper alias coverage, public docs/playbook updates, and explicit deferral of npm/prod/plugin cutover decisions.
-- [ ] Retire active Python fallback paths after the explicit compatibility window.
-  - Delete, archive, or remove Python from active invocation paths once callers, docs, and tests no longer depend on it.
-  - Policy: ask before broad Python deletion or irreversible fallback removal; small fallback-scope reductions are directly executable when the affected operation has TypeScript parity and tests.
+- [ ] Retire active Python fallback paths and fully delete `packages/asdl-pr-address`.
+  - Decided 2026-06-09: the end state is full in-repo deletion within the endgame stack, gated on all operations being TypeScript-managed, all `--json-schema` routes TypeScript-owned, wrapper/bundle cutover landed, plugin retirement landed, and docs/tests free of Python invocation paths. PyPI `asdl-pr-address==0.1.1` is the external frozen rollback after deletion.
+  - Policy: per-operation fallback removal and the final gated deletion are directly executable within the endgame stack once the listed gates are evidenced in earlier branches; outside that stack context, ask before broad deletion.
   - Evidence should include operation parity coverage, wrapper/distribution cutover evidence, and docs showing no active invocation path depends on the retired Python surface.
   - Current evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` documents why broad Python fallback retirement is still blocked by installed/prod wrapper, plugin, artifact-writing, stack orchestration, and schema-route compatibility requirements.
   - Updated readiness evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` confirms Python is still present and still required for unported operations, public schema fallback routes, installed/prod wrapper mode, rollback, and the `asdl pr-address ...` plugin; broad deletion is not ready.
@@ -64,42 +63,44 @@
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.
   - Evidence should include concrete seams proven by `pr-address`, portability limits, and guidance for when future ports should avoid or reuse the same patterns.
 
-## Next Stack Candidate
+## Endgame Stack
 
-Attempt the remaining Objective as one medium Graphite stack, while stopping before public or irreversible decisions that are not settled by existing evidence.
+The first stack (runtime-schema through cutover-retirement-playbook) landed; its plan is recorded in `updates/`. This endgame stack covers all remaining Objective work and is designed to be executed in a single multi-agent session under the Runner Policy plus the 2026-06-09 Decided entries. Every branch is directly executable; the only standing exclusions are live GitHub write probes, registry publishing (npm or PyPI), and PR submission unless separately confirmed.
 
 Default branch sequence:
 
-1. `runtime-schema`
-   - Thesis: establish local TypeScript exec runtime, operation registry/fallback, JSON envelope, JSON input handling, Zod boundary schemas, schema emission, and test seams.
-2. `classification-core`
-   - Thesis: port the deterministic classification/planning core, including `classification-template`, `validate-feedback-classification`, and `plan-feedback`, using the runtime/schema seams.
-3. `payload-finalize`
-   - Thesis: port non-GitHub-mutating payload, detail, batch-payload, checkpoint, and finalization helpers where fixture/fake-driven evidence is sufficient.
-4. `readonly-stack`
-   - Thesis: port GitHub/git-backed read-only collection and stack prep/plan/diff behavior behind adapter-neutral gateways.
-5. `mutation-safety`
-   - Thesis: port mutation/reply builders and executor paths behind gateways while preserving fail-closed safety; validate with fakes only unless live writes are separately approved.
-6. `cutover-retirement-playbook`
-   - Thesis: perform safe public-path/docs/wrapper/playbook work and record remaining cutover/fallback retirement decisions; stop before unsafe public distribution, plugin, broad deletion, or live external actions.
+1. `payload-store`
+   - Thesis: port the payload artifact store (Python `asdl_core.payloads`) to TypeScript behind the filesystem gateway: `ASDL_PAYLOAD_ROOT`/`ASDL_PAYLOAD_SESSION_ID` session resolution, `{root}/{session}/artifacts/` layout, `{descriptor}--{role}.json` naming, and session metadata. Fake-driven tests plus parity probes against Python-written artifacts. Keystone for every later branch.
+2. `payload-operations`
+   - Thesis: make default payload-mode `get-feedback`, `read-feedback-details` (plural), and `record-batch-checkpoint` artifact writing TypeScript-managed using the store; golden/contract parity against Python artifact output.
+3. `prepare-run-summarize`
+   - Thesis: port `prepare-run` (contested-thread reopen via the existing TypeScript mutation gateway, restructured-files via the git gateway, payload/inline modes) and `summarize-feedback` (deterministic excerpt/automation-marker heuristics). Fake-validated only; no live writes.
+4. `stack-orchestration`
+   - Thesis: port `stack-feedback-prep`, `stack-feedback-plan`, and `build-stack-resolve-thread-payloads` on the store plus the already-ported planning/classification core. No Graphite dependency. The parent may split this into two adjacent branches (prep/plan vs payload building) for review size.
+5. `schema-routes`
+   - Thesis: make every remaining `pr-address exec ... --json-schema` route TypeScript-owned (structured semantic parity), removing the schema fallback dependency.
+6. `bundle-distribution`
+   - Thesis: add bundle build machinery producing a self-contained JavaScript artifact inside the installed skill; wrapper prod mode executes the bundle; `legacy-python` rollback mode becomes `uvx --from asdl-pr-address==0.1.1` (the broken unpublished `0.1.0` pin is removed); wrapper tests and public docs updated. Building the bundle locally is in scope; publishing anything externally is not.
+7. `plugin-retirement`
+   - Thesis: remove the `asdl pr-address ...` plugin entry point, plugin module, and asdl-scope plugin smoke test; update docs to name the standalone CLI as the only invocation surface.
+8. `python-deletion`
+   - Thesis: remove fallback dispatch from the TypeScript CLI, delete `packages/asdl-pr-address` and asdl-core surfaces that become unused, and scrub workspace/config/test references. Validate with full repo checks, not just the TS package.
+9. `playbook`
+   - Thesis: feed proven seams, portability limits, and bundle/retirement lessons into the umbrella porting playbook; record final Objective evidence.
 
 Planning guidance:
 
-- Keep these six branch theses and order fixed for the preview; the parent may move specific operations between adjacent branches after dependency inspection when that produces a cleaner review boundary.
-- Runners may decide local implementation details. The parent may decide shared candidates. Ask the user before public or irreversible boundaries.
-- Stop before changes to public invocation contracts, installed/prod distribution, live GitHub writes, broad Python fallback deletion, or published/shared package APIs.
-- Add Zod locally in `ts/packages/pr-address`; do not extract a shared runtime/schema package in this stack unless the user explicitly approves it.
+- Keep the branch order; the parent may merge or split adjacent branches when dependency inspection produces a cleaner review boundary.
+- Runners decide local implementation details; the parent verifies parity evidence per branch; ask the user only at the standing exclusions (live GitHub writes, registry publishing, PR submission, scope changes to public JSON shapes).
 - Treat existing golden JSON outputs as byte-for-byte parity targets where practical; treat generated `--json-schema` documents as structured semantic parity unless existing tests/docs assert exact formatting.
-- Use Zod as the authoritative runtime schema source; add a local schema-emission helper/dependency if needed.
-- Implement real adapters incrementally only when a slice needs them; otherwise use gateway interfaces, fakes, and legacy fallback for unproven real paths.
-- Keep the Python plugin as the `asdl pr-address ...` compatibility path during this stack unless TS plugin compatibility becomes clearly safe and non-breaking; otherwise record a cutover plan.
-- Retire Python fallback per proven operation when TypeScript parity and tests exist; do not broadly delete fallback paths in this stack without explicit approval.
-- If final cutover/fallback/playbook work hits a stop condition, land evidence-backed safe docs/tests/plan/playbook changes and stop before the unsafe change.
-- Validate each branch with targeted package/golden/scenario checks; broaden validation for wrapper, distribution, shared, or final-readiness surfaces.
+- Preserve Python/Pydantic explicit-`null` compatibility details wherever goldens or schema probes expose them.
+- Branches 1-5 validate with `pnpm --dir ts/packages/pr-address run check` and `run test` plus targeted golden/parity probes; branch 6 adds wrapper tests and dprint for docs; branches 7-8 broaden to full `just` because they remove Python packages, plugin wiring, and asdl-scope tests.
+- Capture parity fixtures from the Python implementation in early branches while it still exists in-repo; after branch 8 the reference is PyPI `0.1.1` and checked-in fixtures.
 - Record Objective Semantic Updates per meaningful branch group or durable decision point, not mechanically per branch.
 
 ## Parked
 
+- npm registry publishing of `@asdl/pr-address` — superseded by the bundled installed-skill distribution decision; revisit only if a registry consumer appears.
 - Full public API shape for a shared JS/TS clinkr-style framework until repeated seams prove it.
 - Direct browser execution for workflows that depend on local git, shell, filesystem, or authenticated GitHub state.
 - Broad TypeScript rewrites of Python `asdl-core` concepts not needed by this vertical slice.

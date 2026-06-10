@@ -14,7 +14,7 @@ This slice should prove migration patterns that later capability ports can reuse
 - Adapter-neutral TypeScript core logic with gateway boundaries for git, GitHub, filesystem, process, package/distribution, and other external behavior the later port needs.
 - Scenario, golden, and contract parity evidence sufficient to preserve stable behavior while identifying accidental Python implementation details.
 - Fake-driven tests with capability-shaped gateways, plus limited safe real-adapter smoke evidence for read-only or non-mutating paths where useful.
-- npm/pnpm distribution and wrapper local/prod detection once TypeScript becomes the default implementation path.
+- Bundled JavaScript distribution shipped inside the installed skill plus wrapper local/prod detection once TypeScript becomes the default implementation path. No npm registry publish is required for cutover.
 - Short, explicit Python fallback retirement after TypeScript default behavior is proven.
 
 ## Non-Goals
@@ -32,8 +32,9 @@ This slice should prove migration patterns that later capability ports can reuse
 - A TypeScript implementation becomes the default for public `pr-address` invocation in local-checkout and installed-skill contexts.
 - The standalone CLI, expected plugin/asdl integration path, JSON envelopes, payload artifact behavior, validation-before-action semantics, mutation-helper safety rules, and no-push guarantee are preserved or intentionally changed with explicit compatibility rationale.
 - Fake-driven unit and scenario tests, golden/contract parity, wrapper checks, and limited safe real-adapter smoke evidence cover the migration.
-- Public skill docs, wrapper behavior, README/developer docs, and distribution instructions point to TypeScript/npm paths.
-- Python fallback has a short explicit retirement phase and is then deleted, archived, or removed from active invocation paths.
+- Public skill docs, wrapper behavior, README/developer docs, and distribution instructions point to TypeScript paths: local checkout execution plus the bundled installed-skill artifact.
+- The `asdl pr-address ...` plugin is retired rather than ported; the standalone CLI is the only invocation surface after cutover.
+- Python fallback has a short explicit retirement phase ending in full in-repo deletion of `packages/asdl-pr-address`; the published PyPI `asdl-pr-address==0.1.1` artifact remains the external frozen rollback.
 - Lessons from the `pr-address` port feed back into the umbrella porting playbook for later capability slices.
 
 ## Definition of Progress
@@ -87,22 +88,37 @@ Assumptions:
 - A vertical-slice migration will reveal better shared command runtime and gateway abstractions than pre-porting Python `asdl-core` as a module map.
 - Compatibility-preserving TypeScript internals can still add cleaner TS-native APIs behind or alongside stable public contracts where useful.
 - Canonical Zod-first TypeScript contract modules are the right source of truth for feedback manifests and plan-feedback outputs once they preserve existing runtime JSON shapes and leave legacy-broader consumer parsing explicit.
+- The payload artifact store (`asdl_core.payloads`: `ASDL_PAYLOAD_ROOT`/`ASDL_PAYLOAD_SESSION_ID` resolution, `{root}/{session}/artifacts/` layout, `{descriptor}--{role}.json` naming, session metadata) is the single keystone dependency for all remaining unported operations; porting it first unblocks payload-mode `get-feedback`, `read-feedback-details`, `record-batch-checkpoint` artifacts, `prepare-run`, and stack orchestration.
+- Stack orchestration operations (`stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`) have no Graphite dependency; they need only the PR gateway, the payload store, and the already-ported classification/planning core.
+- `prepare-run`'s contested-thread reopen is a GitHub write (`unresolve_review_thread`) already covered by the ported TypeScript mutation gateway and fakes; porting it does not require new live-write validation.
+
+Decided (2026-06-09 endgame decisions):
+
+- Distribution: installed/prod mode executes a bundled, self-contained JavaScript artifact shipped inside the installed skill. No npm registry publish is required; `@asdl/pr-address` remains unpublished by design.
+- Plugin: the `asdl pr-address ...` Python plugin is retired outright, not shimmed or ported. The standalone `pr-address` CLI is the sole invocation surface after cutover.
+- Python end-state: `packages/asdl-pr-address` is fully deleted in-repo in the endgame stack once parity, bundle cutover, and plugin retirement evidence exist. Rollback after deletion is the external frozen PyPI artifact `asdl-pr-address==0.1.1` via `uvx`, not in-repo code.
 
 Risks:
 
 - Shared command-runtime work could overfit to `pr-address` if extracted before repeated seams are proven.
 - Skill or wrapper semantics could change accidentally, especially local/prod detection, payload defaults, mutation-helper ownership, or no-push guarantees.
 - Keeping Python fallback too long could create duplicate maintenance and obscure which path is authoritative; canonical TypeScript feedback contracts reduce this risk for classification/planning data but do not resolve distribution, plugin, artifact, stack, or schema-route fallback dependencies.
-- Deleting Python too early could remove a useful rollback/reference path before contract parity is mature. Current evidence says broad deletion is still unsafe while `prepare-run`, `summarize-feedback`, default payload-writing `get-feedback`, stack orchestration helpers, `read-feedback-details`, public `record-batch-checkpoint`, several `--json-schema` routes, installed/prod wrapper mode, and the `asdl pr-address ...` plugin still depend on Python fallback.
-- npm distribution, package binaries, and installed-skill execution may expose surprises not visible in the current `uv`/`uvx` flow.
+- Deleting Python too early could remove a useful rollback/reference path before contract parity is mature. Current evidence says broad deletion is still unsafe while `prepare-run`, `summarize-feedback`, default payload-writing `get-feedback`, stack orchestration helpers, `read-feedback-details`, public `record-batch-checkpoint`, several `--json-schema` routes, installed/prod wrapper mode, and the `asdl pr-address ...` plugin still depend on Python fallback. Updated 2026-06-09: deletion is now an explicit endgame-stack outcome gated on those surfaces being ported or retired within the same stack; external PyPI `0.1.1` preserves rollback after in-repo deletion.
+- Materialized 2026-06-09: the wrapper's prod mode pins `asdl-pr-address==0.1.0`, which was never published — only `0.1.1` exists on PyPI — so installed/prod invocation is currently broken. This lowers the regression risk of prod cutover (there is no working prod Python path to preserve) and raises the priority of the bundle-distribution branch.
+- npm distribution risk is retired by the bundle decision; the replacement risk is bundling machinery itself (build correctness, runtime requirements of the bundled artifact, skill-directory size and staleness between releases).
+- Plugin retirement is a deliberate breaking change for any `asdl pr-address ...` callers; the cutover must update docs/tests so no active caller path remains, rather than preserving compatibility.
 - GitHub mutation safety could regress if helper boundaries or validation-before-action semantics are weakened.
-- Stack-feedback behavior may be more complex than current scenario coverage shows.
+- Stack-feedback behavior may be more complex than current scenario coverage shows. Partially de-risked 2026-06-09: source inspection shows no Graphite dependency and reuse of already-ported planning/classification cores; the remaining complexity is plan-merge/batch/docket logic and cross-reference validation in `build-stack-resolve-thread-payloads`.
 - `packages/asdl-pr-address/docs/development.md` currently has a stale operation inventory relative to the skill, CLI reference, source registration, scenario tests, and golden fixtures; using it as the sole port inventory source would miss newer helpers and safety surfaces.
 
 ## Open Questions
 
-- How should `asdl pr-address ...` plugin compatibility be preserved or replaced after the standalone TypeScript path is proven?
 - Which golden outputs require byte-for-byte parity, and which represent structured compatibility where key order or formatting may intentionally differ?
 - How should TypeScript output handle Python/Pydantic compatibility details such as explicit `null` fields in otherwise optional manifest/template data?
-- What exact evidence is enough to begin and then complete the short Python fallback retirement phase? Current evidence indicates the phase cannot complete until unported operations, schema fallback routes, installed/prod wrapper behavior, rollback, and plugin compatibility have explicit TypeScript replacements or retirement decisions.
 - Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
+- What are the exact build inputs, runtime requirements, and refresh story for the bundled installed-skill artifact (Node version floor, single-file vs directory bundle, how installed skills pick up new bundles)?
+
+Resolved 2026-06-09 (see Decided entries under Assumptions and Risks):
+
+- Plugin compatibility: the `asdl pr-address ...` plugin is retired, not preserved or replaced.
+- Fallback retirement evidence: the retirement phase begins now and completes within the endgame stack — every remaining fallback surface is either ported (operations, schema routes, payload store) or retired (plugin), the wrapper cuts over to bundle/prod-TS behavior, and `packages/asdl-pr-address` is deleted in the final branches with PyPI `0.1.1` as external rollback.
