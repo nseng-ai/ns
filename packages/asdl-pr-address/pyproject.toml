@@ -9,7 +9,9 @@ dependencies = [
 ]
 
 [project.scripts]
-pr-address = "asdl_pr_address.cli.main:main"
+# Named pr-address-py so the TypeScript `pr-address` shim (installed by
+# `just install-pr-address`) is not shadowed by .venv/bin inside the repo.
+pr-address-py = "asdl_pr_address.cli.main:main"
 
 [project.entry-points."asdl.plugins"]
 pr_address = "asdl_pr_address.cli.plugin:build_pr_address_plugin"

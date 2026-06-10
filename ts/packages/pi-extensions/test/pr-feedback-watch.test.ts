@@ -17,7 +17,7 @@ import prFeedbackWatchExtension, {
 } from "../src/pr-feedback-watch.ts";
 
 const ROOT = "/repo";
-const RUNNER: PrAddressRunner = { command: "pr-address-run", baseArgs: [] };
+const RUNNER: PrAddressRunner = { command: "pr-address", baseArgs: [] };
 
 interface ExecResult {
 	stdout: string;
@@ -165,7 +165,7 @@ function envelope(data: object): string {
 }
 
 function prepareStep(data: object, sessionId: string): ScriptedExec {
-	return step("pr-address-run", ["exec", "prepare-run", "--payload-session-id", sessionId, "--format", "json"], {
+	return step("pr-address", ["exec", "prepare-run", "--payload-session-id", sessionId, "--format", "json"], {
 		result: { stdout: envelope(data) },
 	});
 }
@@ -440,7 +440,7 @@ describe("pr feedback watch extension", () => {
 		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
 
 		expect(pi.userMessages).toEqual([]);
-		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(1);
+		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(1);
 		pi.assertDone();
 	});
 
@@ -488,7 +488,7 @@ describe("pr feedback watch extension", () => {
 		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
 
 		expect(pi.userMessages).toEqual([]);
-		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(2);
+		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(2);
 		pi.assertDone();
 	});
 
@@ -509,7 +509,7 @@ describe("pr feedback watch extension", () => {
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
-		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(1);
+		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(1);
 		pi.assertDone();
 	});
 
@@ -534,7 +534,7 @@ describe("pr feedback watch extension", () => {
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("REST check failed");
-		expect(pi.calls.filter((call) => call.command === "pr-address-run")).toHaveLength(1);
+		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(1);
 		pi.assertDone();
 	});
 

@@ -2,8 +2,8 @@
 name: pr-address
 description: "Command: pr-address"
 allowed-tools:
-  - "Bash(*pr-address-run *)"
-  - "Bash(*pr-address-run)"
+  - "Bash(pr-address *)"
+  - "Bash(pr-address)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh auth status)"
@@ -17,7 +17,7 @@ allowed-tools:
   - "Bash(git remote*)"
   - "Bash(git branch*)"
   - "Bash(just *)"
-  - "Bash(test -x*)"
+  - "Bash(command -v*)"
   - "Read"
   - "Edit"
   - "Write"
@@ -60,50 +60,33 @@ code, commit, or mutate GitHub.
 
 ## How `pr-address` is invoked
 
-This skill bundles a wrapper at `scripts/pr-address-run` that dispatches to the
-local checkout implementation when available or to the pinned installed
-compatibility package otherwise, so the skill works without a local clone.
-During the TypeScript migration, local checkouts use the TypeScript scaffold by
-default while unported `exec` operations remain compatibility-backed. Installed
-skill/prod use and the `asdl pr-address ...` plugin still use the Python
-compatibility path until a later explicit cutover.
+This skill invokes the `pr-address` CLI on `PATH`. It is installed once from an
+asdl checkout with `just install-pr-address`, which places a small shim at
+`~/.local/bin/pr-address`. The shim runs the TypeScript implementation from the
+enclosing checkout's sources when invoked inside an asdl checkout, and from the
+installing checkout's sources everywhere else. It requires `node` (Node 24 or
+newer) on `PATH`.
 
-Current local TypeScript-managed execution covers classification/planning,
-selected read-only fetch helpers, selected payload/finalization helpers,
-selected stack-diff/detail helpers, and review mutation/reply helpers. Composite
-default payload setup, stack orchestration, batch checkpoint recovery, bulk
-payload reading, and unported schema routes remain compatibility-backed. See
-`references/cli-reference.md` for the operation-level migration status.
+Every `exec` operation and every `--json-schema` route runs the same
+implementation either way. The legacy Python compatibility package remains
+available only as an explicit manual rollback
+(`uvx --from asdl-pr-address==0.1.1 pr-address ...`); the `asdl pr-address ...`
+plugin still uses the Python path until its own cutover.
 
-Resolve the wrapper from this skill's own directory, not from a harness-specific
-path. For the rest of this document, `<pr-address-runner>` means the executable
-at `<skill-dir>/scripts/pr-address-run`, where `<skill-dir>` is the directory
-containing this `SKILL.md`.
-
-Common locations are:
-
-- `skills/pr-address/scripts/pr-address-run` in an asdl checkout
-- `.agents/skills/pr-address/scripts/pr-address-run` in an installed skill
-  mirror
-
-Wherever this skill or `references/cli-reference.md` shows `pr-address ...`,
-substitute `<pr-address-runner>`. For example:
+All commands in this skill and in `references/cli-reference.md` are written as
+literal `pr-address ...` invocations and can be run as shown. For example:
 
 ```bash
-<pr-address-runner> exec prepare-run \
+pr-address exec prepare-run \
   --payload-session-id pr-address-20260604t120000z-a1 \
   --format json
 ```
 
-`ASDL_PR_ADDRESS_MODE` overrides auto-detection when needed:
-
-- `local` or `ts-local` forces the local checkout implementation.
-- `python-local` or `legacy-python` forces the local compatibility-backed path.
-- `prod` forces the pinned installed compatibility package.
-
 ## Prerequisites
 
-1. `test -x <pr-address-runner>` succeeds.
+1. `command -v pr-address` succeeds. If it does not, report that `pr-address`
+   is not installed and that `just install-pr-address` from an asdl checkout
+   installs it.
 2. `gh auth status` is healthy.
 3. The current branch has an open PR.
 
@@ -136,7 +119,7 @@ execution plan. Do not edit files, commit, or call GitHub mutation commands.
 Use the composite helper in default payload mode:
 
 ```bash
-<pr-address-runner> exec prepare-run \
+pr-address exec prepare-run \
   --payload-session-id <payload-session-id> \
   --format json
 ```
@@ -165,7 +148,7 @@ noise by default).
   continuing
 
 For read-only stack triage where PR numbers are already known, use
-`<pr-address-runner> exec summarize-feedback <pr_number> --format json` to
+`pr-address exec summarize-feedback <pr_number> --format json` to
 reduce token volume. Do not use it as a replacement for `prepare-run` in the
 current-branch workflow; it does not reopen contested threads or return
 restructured-file evidence.
@@ -189,7 +172,7 @@ semantic classification:
 
 ```bash
 printf '%s' '<prepare-run data json>' \
-  | <pr-address-runner> exec classification-template --format json
+  | pr-address exec classification-template --format json
 ```
 
 The scaffold pre-fills IDs, locators, item pointers, and coverage skeletons.
@@ -236,7 +219,7 @@ Fallback path when no subagent/separate subagent or helper is available:
 
   ```bash
   printf '%s' '<selection-json>' \
-    | <pr-address-runner> exec read-feedback-details --format json
+    | pr-address exec read-feedback-details --format json
   ```
 
   where `<selection-json>` is:
@@ -261,7 +244,7 @@ Validate before displaying any execution plan. Prefer split manifest and
 classification inputs so no ad-hoc wrapper JSON is needed:
 
 ```bash
-<pr-address-runner> exec validate-feedback-classification \
+pr-address exec validate-feedback-classification \
   --manifest-file manifest.json \
   --classification-file classification.json \
   --format json
@@ -270,7 +253,7 @@ classification inputs so no ad-hoc wrapper JSON is needed:
 Direct JSON options are also supported for controlled invocations:
 
 ```bash
-<pr-address-runner> exec validate-feedback-classification \
+pr-address exec validate-feedback-classification \
   --manifest-json '<prepare-run data json>' \
   --classification-json '<classification packet json>' \
   --format json
@@ -280,7 +263,7 @@ Legacy wrapper stdin remains a compatibility fallback:
 
 ```bash
 printf '%s' '{"manifest":{...},"classification":{...}}' \
-  | <pr-address-runner> exec validate-feedback-classification --format json
+  | pr-address exec validate-feedback-classification --format json
 ```
 
 Validation outcomes:
@@ -304,7 +287,7 @@ execution plan:
 
 ```bash
 printf '%s' '<json wrapper>' \
-  | <pr-address-runner> exec plan-feedback --format json
+  | pr-address exec plan-feedback --format json
 ```
 
 Use the same wrapper shape as validation. If `plan-feedback` exits `1`, inspect
@@ -356,9 +339,6 @@ values.** Do not guess field names, omit required fields, or invent enum values
 (for example, `mode`). The reference is authoritative — if it disagrees with
 memory, the reference wins. If unsure about a field's exact shape, also run
 `pr-address exec <helper> --json-schema` to print the JSON schema.
-
-Substitute the wrapper path documented above for every literal `pr-address`
-shown in that reference.
 
 Commit format:
 
@@ -472,14 +452,14 @@ After the last batch, re-fetch current feedback with resolved-thread state and
 run deterministic finalization:
 
 ```bash
-<pr-address-runner> exec get-feedback <pr_number> \
+pr-address exec get-feedback <pr_number> \
   --include-resolved \
   --payload-session-id <payload-session-id> \
   --format json
 
 # Put the final get-feedback data object and all record-batch-checkpoint data
 # objects into a finalization JSON file, then run:
-<pr-address-runner> exec finalize-run \
+pr-address exec finalize-run \
   --payload-file pr-address-finalization.json \
   --format json
 ```

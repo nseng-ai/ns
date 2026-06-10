@@ -3,43 +3,28 @@
 Command reference for `pr-address exec` helpers, with invocation examples from real
 sessions.
 
-When this reference is used from the skill, replace literal `pr-address` with the
-bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
+All commands are literal `pr-address ...` invocations of the `pr-address` CLI
+on `PATH` (installed from an asdl checkout with `just install-pr-address`).
 
 ## TypeScript migration status
 
-Local checkout invocation is TypeScript-first, but installed/prod skill use and
-the `asdl pr-address ...` plugin remain Python compatibility paths.
-
-TypeScript-managed local execution after the current stack:
-
-- **Classification / planning**: `classification-template`,
-  `validate-feedback-classification`, `plan-feedback`
-- **Payload / finalization helpers**: `build-resolve-thread-batch-payload`,
-  `finalize-run`
-- **Read-only fetch helpers**: `get-pr-for-branch`, `get-reviews`,
-  `get-review-comments`, `get-discussion-comments`, and
-  `get-feedback --payload-mode inline`
-- **Payload detail / stack diff helpers**: `read-feedback-detail`,
-  `stack-feedback-diff-current`
-- **Mutation / reply helpers**: `resolve-thread`, `resolve-thread-with-reply`,
-  `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`,
-  `reply-to-review`, `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+Every `exec` operation and every operation `--json-schema` route is
+TypeScript-managed. The `pr-address` shim on `PATH` runs the TypeScript sources
+from the enclosing asdl checkout when invoked inside one, and from the
+installing checkout everywhere else. It requires `node` (Node 24 or newer).
 
 Compatibility-backed behavior that must remain for now:
 
-- `prepare-run`, `summarize-feedback`, and default payload-mode `get-feedback`
-- `stack-feedback-prep`, `stack-feedback-plan`,
-  `build-stack-resolve-thread-payloads`
-- `record-batch-checkpoint`
-- `read-feedback-details`
-- operation-specific `--json-schema` paths not yet implemented in TypeScript
-- installed/prod skill invocation and the Python `asdl pr-address ...` plugin
+- a small set of malformed-option usage errors (invalid `--payload-mode`,
+  invalid `--stdout-mode`, non-integer `--body-chars`) still render through the
+  legacy Python CLI
+- the Python `asdl pr-address ...` plugin
+- the explicit manual rollback to the published legacy Python package
+  (`uvx --from asdl-pr-address==0.1.1 pr-address ...`)
 
-Do not treat this migration status as permission to delete Python fallback. Each
-operation needs parity evidence for success, negative, validation, JSON envelope,
-schema, and payload/gateway behavior before its fallback route can be retired.
-Public distribution or plugin cutover requires an explicit release decision.
+Do not treat this migration status as permission to delete the Python
+compatibility package. Plugin cutover and final retirement require an explicit
+release decision.
 
 ## Invocation convention
 

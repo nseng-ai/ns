@@ -330,7 +330,7 @@ describe("legacy Python fallback routing", () => {
 		expect(requests).toEqual([
 			{
 				command: "uv",
-				args: ["run", "--project", REPO_ROOT, "pr-address", "exec", "prepare-run"],
+				args: ["run", "--project", REPO_ROOT, "pr-address-py", "exec", "prepare-run"],
 				cwd: REPO_ROOT,
 				env: { PATH: "/fake/bin" },
 				stdio: "inherit",
@@ -353,7 +353,7 @@ describe("legacy Python fallback routing", () => {
 		expect(requests).toEqual([
 			{
 				command: "uvx",
-				args: ["--from", "asdl-pr-address==0.1.0", "pr-address", "exec", "prepare-run"],
+				args: ["--from", "asdl-pr-address==0.1.1", "pr-address", "exec", "prepare-run"],
 				cwd: "/",
 				env: { PATH: "/fake/bin" },
 				stdio: "inherit",
