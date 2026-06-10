@@ -1,6 +1,6 @@
 import type { GitGateway } from "./gateways/git.ts";
 import type { GithubPrDetails, GithubPrGateway } from "./gateways/github-pr.ts";
-import { appendGeneratedMarker, hasGeneratedMarker, preparePrDescription, resolvePrDescriptionPrompt } from "./pr-description.ts";
+import { appendGeneratedMarker, hasGeneratedMarker, preparePrDescription, resolvePrDescriptionPrompt, type PromptSource } from "./pr-description.ts";
 import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
 
 export interface PrDescriptionApplyOptions {
@@ -11,7 +11,9 @@ export interface PrDescriptionApplyOptions {
 	git: GitGateway;
 }
 
-export type GeneratedPrDescriptionResult = { ok: true; title: string; body: string } | { ok: false; error: string; exitCode?: number };
+export type GeneratedPrDescriptionResult =
+	| { ok: true; title: string; body: string; promptSource: PromptSource }
+	| { ok: false; error: string; exitCode?: number };
 
 export function canOverwriteBody(body: string, shouldForce: boolean): boolean {
 	return shouldForce || body.trim() === "" || hasGeneratedMarker(body);
@@ -64,13 +66,13 @@ export async function generatePrDescriptionForPr(
 	if (!prepared.ok) {
 		return { ok: false, error: prepared.error };
 	}
-	return { ok: true, title: prepared.title, body: prepared.body };
+	return { ok: true, title: prepared.title, body: prepared.body, promptSource: prompt.source };
 }
 
 export async function applyGeneratedDescription(
 	pr: GithubPrDetails,
 	options: PrDescriptionApplyOptions,
-): Promise<{ ok: true; title: string } | { ok: false; error: string; exitCode?: number }> {
+): Promise<{ ok: true; title: string; promptSource: PromptSource } | { ok: false; error: string; exitCode?: number }> {
 	const prepared = await generatePrDescriptionForPr(pr, options);
 	if (!prepared.ok) return prepared;
 
@@ -83,5 +85,5 @@ export async function applyGeneratedDescription(
 	if (!edited.ok) {
 		return { ok: false, error: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.error.message}` };
 	}
-	return { ok: true, title: prepared.title };
+	return { ok: true, title: prepared.title, promptSource: prepared.promptSource };
 }

@@ -46,10 +46,10 @@ interface ParsedPreviewUrlArgs {
 	scope?: string;
 }
 
-type PreviewUrlParseResult =
+type ParseResult<TOptions> =
 	| {
 			kind: "ok";
-			options: ParsedPreviewUrlArgs;
+			options: TOptions;
 	  }
 	| {
 			kind: "help";
@@ -78,32 +78,6 @@ interface ParsedSubmitArgs {
 interface ParsedPrRegenArgs {
 	shouldForce: boolean;
 }
-
-type SubmitParseResult =
-	| {
-			kind: "ok";
-			options: ParsedSubmitArgs;
-	  }
-	| {
-			kind: "help";
-	  }
-	| {
-			kind: "error";
-			message: string;
-	  };
-
-type PrRegenParseResult =
-	| {
-			kind: "ok";
-			options: ParsedPrRegenArgs;
-	  }
-	| {
-			kind: "help";
-	  }
-	| {
-			kind: "error";
-			message: string;
-	  };
 
 interface CommandSpec {
 	name: string;
@@ -343,7 +317,7 @@ async function runPreviewUrlCommand(args: readonly string[], deps: RequiredCliDe
 	return result.exitCode;
 }
 
-function parsePreviewUrlArgs(args: readonly string[]): PreviewUrlParseResult {
+function parsePreviewUrlArgs(args: readonly string[]): ParseResult<ParsedPreviewUrlArgs> {
 	const options: ParsedPreviewUrlArgs = { shouldOutputJson: false };
 
 	for (let index = 0; index < args.length; index += 1) {
@@ -403,7 +377,7 @@ function parsePreviewUrlArgs(args: readonly string[]): PreviewUrlParseResult {
 	return { kind: "ok", options };
 }
 
-function parseSubmitArgs(args: readonly string[]): SubmitParseResult {
+function parseSubmitArgs(args: readonly string[]): ParseResult<ParsedSubmitArgs> {
 	const options: ParsedSubmitArgs = { restack: false };
 
 	for (const arg of args) {
@@ -420,7 +394,7 @@ function parseSubmitArgs(args: readonly string[]): SubmitParseResult {
 	return { kind: "ok", options };
 }
 
-function parsePrRegenArgs(args: readonly string[]): PrRegenParseResult {
+function parsePrRegenArgs(args: readonly string[]): ParseResult<ParsedPrRegenArgs> {
 	const options: ParsedPrRegenArgs = { shouldForce: false };
 	for (const arg of args) {
 		if (arg === "--help" || arg === "-h") {
