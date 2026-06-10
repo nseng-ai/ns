@@ -323,14 +323,12 @@ export async function runMergeLoop(
 	options: GraphiteMaintenanceOptions = {},
 ): Promise<LandStackOutcome> {
 	const { repoRoot, stack } = plan;
-
 	const backupRefs = await writeLandBackupRefs(pi, repoRoot, [...stack.landingBranches, ...stack.descendantBranches]);
 	if (backupRefs.type === "failure") return backupRefs;
 	const state: MergeLoopState = { expectedShas: new Map(backupRefs.value), deletedBranches: new Set(), warnings };
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
-
 		const localSha = await loadLocalSha(pi, repoRoot, branch);
 		if (localSha.type === "failure") return localSha;
 		const pr = await loadPr(pi, repoRoot, branch);
@@ -338,7 +336,6 @@ export async function runMergeLoop(
 		const currentPr = pr.value;
 		const mergeGate = validateStrictMergeGate({ branch, localSha: localSha.value, pr: currentPr, trunk: stack.trunk });
 		if (mergeGate.type === "failure") return mergeGate;
-
 		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
 		const mergeArgs = squashMergeArgs(currentPr);
 		const merge = await exec(pi, "gh", mergeArgs, repoRoot, GH_MERGE_TIMEOUT_MS);
@@ -353,7 +350,6 @@ export async function runMergeLoop(
 				}),
 			);
 		}
-
 		setStatus(ctx, `verifying #${currentPr.number}...`);
 		const verified = await loadPr(pi, repoRoot, String(currentPr.number));
 		if (verified.type === "failure") {
@@ -382,7 +378,6 @@ export async function runMergeLoop(
 				}),
 			);
 		}
-
 		const prUrl = verified.value.url ?? currentPr.url;
 		landed.push({ branch, number: currentPr.number, title: currentPr.title, ...(prUrl ? { url: prUrl } : {}) });
 
