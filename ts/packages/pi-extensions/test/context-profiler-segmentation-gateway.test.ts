@@ -31,12 +31,27 @@ function makeRegistry(state: FakeRegistryState = {}): SegmentationModelRegistry 
 	};
 }
 
-function makeResponse(overrides: Partial<{ stopReason: string; errorMessage: string; content: unknown[] }>): PiAi.AssistantMessage {
+const ZERO_USAGE: PiAi.Usage = {
+	input: 0,
+	output: 0,
+	cacheRead: 0,
+	cacheWrite: 0,
+	totalTokens: 0,
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+};
+
+function makeResponse(overrides: Partial<Pick<PiAi.AssistantMessage, "stopReason" | "errorMessage" | "content">>): PiAi.AssistantMessage {
 	return {
+		role: "assistant",
+		api: "fake-api",
+		provider: "fake-provider",
+		model: "fake-model",
+		usage: ZERO_USAGE,
+		timestamp: 0,
 		stopReason: "stop",
 		content: [],
 		...overrides,
-	} as unknown as PiAi.AssistantMessage;
+	};
 }
 
 function completeWith(response: PiAi.AssistantMessage): CompleteSimpleFunction {
