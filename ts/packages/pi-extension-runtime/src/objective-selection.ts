@@ -1,4 +1,4 @@
-import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "@asdl/core/exec";
+import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
 import type { CommandContext } from "./cmux/types.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
 import {
@@ -13,7 +13,6 @@ import {
 } from "./objective-picker.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
-export const OBJECTIVE_COMMAND_FAILURE_OPTIONS = { subject: "objective command" } as const;
 
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
@@ -146,7 +145,7 @@ async function listActiveObjectives(
 			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
-			return { type: "failed", message: formatExecFailure(formatCommand("objective", args), result, OBJECTIVE_COMMAND_FAILURE_OPTIONS) };
+			return { type: "failed", message: formatCommandFailure("objective command failed", formatCommand("objective", args), result) };
 		}
 
 		const parsedList = parseObjectiveList(result.stdout);
@@ -155,7 +154,7 @@ async function listActiveObjectives(
 		}
 		return { type: "loaded", list: parsedList.list };
 	} catch (error) {
-		return { type: "failed", message: formatExecStartupFailure(formatCommand("objective", args), error, OBJECTIVE_COMMAND_FAILURE_OPTIONS) };
+		return { type: "failed", message: formatCommandStartupFailure("objective command failed", formatCommand("objective", args), error) };
 	} finally {
 		if (ctx.hasUI) {
 			ctx.ui.setStatus?.(spec.statusKey, undefined);

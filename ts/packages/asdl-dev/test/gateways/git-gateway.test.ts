@@ -74,4 +74,22 @@ describe("RealGitGateway", () => {
 		});
 		runner.assertDone();
 	});
+
+	test("repoRoot does not infer startup failure from exit 127 stderr", async () => {
+		const runner = new ScriptedCommandRunner([step("git", ["rev-parse", "--show-toplevel"], "", 127, "hook: command not found")]);
+		const gateway = new RealGitGateway(runner.runner);
+
+		const result = await gateway.repoRoot({ cwd: "/work" });
+
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("expected failure");
+		expect(result.error.details).toMatchObject({
+			command: "git",
+			args: ["rev-parse", "--show-toplevel"],
+			exit_code: 127,
+			stderr: "hook: command not found",
+		});
+		expect(result.error.details).not.toHaveProperty("startup_error");
+		runner.assertDone();
+	});
 });

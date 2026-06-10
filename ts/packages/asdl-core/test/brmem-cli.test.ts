@@ -203,7 +203,7 @@ describe("runBrmemCandidate", () => {
 		if (run.type !== "unavailable") {
 			throw new Error(`expected unavailable run, got ${run.type}`);
 		}
-		expect(run.failure).toContain("brmem command failed before completion");
+		expect(run.failure).toContain("brmem command (failed before completion)");
 		expect(run.failure).toContain("spawn ENOENT");
 	});
 
@@ -252,6 +252,21 @@ describe("runFirstAvailableBrmemCommand", () => {
 		if (run.type !== "completed") throw new Error(`expected completed run, got ${run.type}`);
 		expect(run.command).toBe("uv");
 		expect(run.displayCommand).toBe(`uv run --directory ${root} brmem list --format json`);
+	});
+
+	test("falls back from explicit startupError result to the next candidate", async () => {
+		const root = makeProjectRoot();
+		const gateway = new FakeGateway([
+			step("brmem", ["list", "--format", "json"], { code: 127, stderr: "spawn brmem ENOENT", startupError: "spawn brmem ENOENT" }),
+			step("uv", ["run", "--directory", root, "brmem", "list", "--format", "json"], { code: 0, stdout: "{}" }),
+		]);
+
+		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: root, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
+
+		gateway.assertDone();
+		expect(run.type).toBe("completed");
+		if (run.type !== "completed") throw new Error(`expected completed run, got ${run.type}`);
+		expect(run.command).toBe("uv");
 	});
 
 	test("includes every attempted display command when all candidates are unavailable", async () => {

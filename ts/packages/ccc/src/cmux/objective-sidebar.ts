@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { formatCommand, formatPlainOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
+import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { parseObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
 import { formatErrorMessage } from "./primitives.ts";
@@ -328,14 +328,8 @@ function formatExecFailure(summary: string, commandDisplay: string, result: Exec
 		`Command: ${commandDisplay}`,
 		`Exit code: ${result.code}`,
 		`Killed: ${result.killed ? "yes" : "no"}`,
+		formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }),
+		formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }),
 	];
-	const stdout = formatPlainOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
-	if (stdout.length > 0) {
-		lines.push(stdout);
-	}
-	const stderr = formatPlainOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
-	if (stderr.length > 0) {
-		lines.push(stderr);
-	}
 	return tailText(lines.join("\n"), { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
 }

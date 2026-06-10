@@ -1,4 +1,4 @@
-import { runCommand, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "./checkpoint-flow.ts";
 import {
 	formatPendingWorktreeCommandDetails,
@@ -47,8 +47,6 @@ export type CheckpointIfPendingResult =
 			kind: "failed";
 			output: CheckpointCommandResult;
 	  };
-
-type CommandRunner = (command: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
 
 export class RealCheckpointGateway implements CheckpointGateway {
 	private readonly runner: CommandRunner;

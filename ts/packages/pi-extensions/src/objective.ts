@@ -1,8 +1,8 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
-import { OBJECTIVE_COMMAND_FAILURE_OPTIONS, buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
-import { formatCommand, formatExecFailure, formatExecStartupFailure, type ExecResult } from "@asdl/core/exec";
+import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
 import { expandSkillBlock } from "./skill-expansion.ts";
 import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
@@ -514,7 +514,7 @@ async function handleCustomCliCommand(
 			pi,
 			ctx,
 			spec,
-			formatExecStartupFailure(commandDisplay, error, OBJECTIVE_COMMAND_FAILURE_OPTIONS),
+			formatCommandStartupFailure("objective command failed", commandDisplay, error),
 			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx),
 			"error",
 		);
@@ -530,7 +530,7 @@ async function handleCustomCliCommand(
 			pi,
 			ctx,
 			spec,
-			formatExecFailure(commandDisplay, result, OBJECTIVE_COMMAND_FAILURE_OPTIONS),
+			formatCommandFailure("objective command failed", commandDisplay, result),
 			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx, result),
 			"error",
 		);

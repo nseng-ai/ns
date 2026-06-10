@@ -1,12 +1,11 @@
 import { formatBrmemUnavailableMessage, runFirstAvailableBrmemCommand } from "@asdl/core/brmem-cli";
-import { formatCommandFailure, tailText, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
+import { MAX_ERROR_CHARS, formatCommandFailure, tailText, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
 import { isRecord } from "@asdl/core/primitives";
 
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 
 const BRMEM_TIMEOUT_MS = 30_000;
-const MAX_ERROR_CHARS = 4_000;
 
 export interface BrmemCwdParams {
 	cwd: string;
