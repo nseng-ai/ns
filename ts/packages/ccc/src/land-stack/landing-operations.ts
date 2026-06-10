@@ -268,6 +268,28 @@ export async function writeLandBackupRefs(
 	repoRoot: string,
 	branches: string[],
 ): Promise<LandStackResult<Map<string, string>>> {
+	const staleRefs = await exec(pi, "git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], repoRoot, GIT_TIMEOUT_MS);
+	if (staleRefs.code !== 0) {
+		return failure(
+			landStackFailure("Could not list stale pre-land backup refs for pruning; no PRs were landed.", {
+				commandDisplay: formatCommand("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE]),
+				result: staleRefs,
+			}),
+		);
+	}
+	for (const ref of staleRefs.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+		const deleteArgs = ["update-ref", "-d", ref];
+		const deleted = await exec(pi, "git", deleteArgs, repoRoot, GIT_TIMEOUT_MS);
+		if (deleted.code !== 0) {
+			return failure(
+				landStackFailure(`Could not delete stale pre-land backup ref ${ref}; no PRs were landed.`, {
+					commandDisplay: formatCommand("git", deleteArgs),
+					result: deleted,
+				}),
+			);
+		}
+	}
+
 	const shas = new Map<string, string>();
 	for (const branch of branches) {
 		const sha = await loadLocalSha(pi, repoRoot, branch);

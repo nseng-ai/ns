@@ -333,14 +333,18 @@ function repoIntro(options: { current?: string | undefined; trunk?: string | und
 	];
 }
 
-function backupRefSteps(branches: string[], shas: Record<string, string> = BRANCH_SHAS): ScriptedExec[] {
-	return branches.flatMap((branch) => {
-		const sha = shas[branch] ?? SHA_A;
-		return [
-			step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` }),
-			step("git", ["update-ref", `refs/ccc/land-backup/${branch}`, sha]),
-		];
-	});
+function backupRefSteps(branches: string[], shas: Record<string, string> = BRANCH_SHAS, staleRefs: string[] = []): ScriptedExec[] {
+	return [
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { stdout: staleRefs.join("\n") }),
+		...staleRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
+		...branches.flatMap((branch) => {
+			const sha = shas[branch] ?? SHA_A;
+			return [
+				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` }),
+				step("git", ["update-ref", `refs/ccc/land-backup/${branch}`, sha]),
+			];
+		}),
+	];
 }
 
 function guardShaStep(branch: string, sha: string): ScriptedExec {
@@ -1212,6 +1216,36 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
+	});
+
+	test("prunes stale backup refs before writing new snapshots", async () => {
+		const staleRef = "refs/ccc/land-backup/old-branch";
+		const script = [...singleBranchPreflight(""), ...backupRefSteps(["feature-a"], BRANCH_SHAS, [staleRef]), ...mergeSingleFeatureA()];
+		const { pi, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		const listIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"]));
+		const deleteIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, ["update-ref", "-d", staleRef]));
+		const snapshotIndex = pi.execCalls.findIndex(
+			(call, index) => index > deleteIndex && call.command === "git" && sameArgs(call.args, ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"]),
+		);
+		expect(listIndex).toBeGreaterThanOrEqual(0);
+		expect(deleteIndex).toBeGreaterThan(listIndex);
+		expect(snapshotIndex).toBeGreaterThan(deleteIndex);
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("backup ref prune failure stops before landing any PRs", async () => {
+		const script = [
+			...singleBranchPreflight(""),
+			step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { code: 1, stderr: "cannot list refs" }),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		expect(commandMessagesText(messages)).toContain("no PRs were landed");
+		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")).toBe(false);
 	});
 
 	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
