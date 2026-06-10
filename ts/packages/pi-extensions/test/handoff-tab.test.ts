@@ -339,7 +339,7 @@ describe("handoff-tab extension", () => {
 		expect(result.isError).toBe(true);
 		expect(result.content[0]?.text).toContain("rename failed");
 		expect(result.content[0]?.text).toContain("Created cmux surface: surface-1");
-		expect(result.content[0]?.text).toContain(`Manual recovery: /handoff:pickup --branch ${BRANCH} finish-widget`);
+		expect(result.content[0]?.text).toContain("Manual recovery: run pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'");
 	});
 
 	test("handoff-tab launch tool reports manual recovery when sending launch command fails", async () => {

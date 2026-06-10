@@ -1,12 +1,5 @@
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./cmux/pi-launch.ts";
-import {
-	createCmuxSurface,
-	identifyCmuxCaller,
-	renameCmuxTab,
-	sendCmuxText,
-	type CmuxSendOptions,
-	type CmuxTabOptions,
-} from "./cmux/focused-terminal-tab.ts";
+import { launchFocusedCmuxTab, type CmuxTabLaunchStage } from "./cmux/focused-terminal-tab.ts";
 import { setLaunchStatus, type LaunchStatusUi } from "./launch-status.ts";
 import type { ExecResult } from "@asdl/pi-extension-runtime/command-runtime";
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
@@ -62,41 +55,6 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 			return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: exists.message };
 		}
 
-		updateProgress(options, "Resolving cmux caller context…", "resolving cmux caller…");
-		const identified = await identifyCmuxCaller(options.host, options.cwd);
-		if (identified.type === "failed") {
-			return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: identified.message };
-		}
-
-		updateProgress(options, "Creating focused cmux tab…", "creating cmux tab…");
-		const created = await createCmuxSurface({ host: options.host, cwd: options.cwd, caller: identified.caller, signal: options.signal });
-		if (created.type === "failed") {
-			return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: created.message };
-		}
-
-		const tabTitle = `handoff: ${options.params.slug}`;
-		const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
-		const windowIdEntry = identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
-		updateProgress(options, "Naming cmux tab…", "naming cmux tab…");
-		const renameOptions: CmuxTabOptions = {
-			workspaceId,
-			surfaceId: created.surface.surfaceId,
-			tabTitle,
-			signal: options.signal,
-			...windowIdEntry,
-		};
-		const renamed = await renameCmuxTab(options.host, options.cwd, renameOptions);
-		if (renamed.type === "failed") {
-			return {
-				type: "failed",
-				branch: options.params.branch,
-				slug: options.params.slug,
-				surfaceId: created.surface.surfaceId,
-				workspaceId,
-				message: `${renamed.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: ${options.params.pickupCommand}`,
-			};
-		}
-
 		const launchContext = options.model === undefined ? {} : { model: options.model };
 		const thinkingLevelHost = {
 			getThinkingLevel(): ThinkingLevel {
@@ -104,23 +62,29 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 			},
 		};
 		const command = buildPiLaunchCommand(options.params.pickupCommand, getPiLaunchOptions(thinkingLevelHost, launchContext));
-		updateProgress(options, "Launching pickup Pi…", "launching pickup Pi…");
-		const sendOptions: CmuxSendOptions = {
-			workspaceId,
-			surfaceId: created.surface.surfaceId,
-			text: `${command}\n`,
+
+		const launched = await launchFocusedCmuxTab({
+			host: options.host,
+			cwd: options.cwd,
+			tabTitle: `handoff: ${options.params.slug}`,
+			command,
 			signal: options.signal,
-			...windowIdEntry,
-		};
-		const sent = await sendCmuxText(options.host, options.cwd, sendOptions);
-		if (sent.type === "failed") {
+			onStage: (stage) => {
+				const progress = HANDOFF_STAGE_PROGRESS[stage];
+				updateProgress(options, progress.text, progress.status);
+			},
+		});
+		if (launched.type === "failed") {
+			const locationEntry =
+				launched.surfaceId === undefined || launched.workspaceId === undefined
+					? {}
+					: { surfaceId: launched.surfaceId, workspaceId: launched.workspaceId };
 			return {
 				type: "failed",
 				branch: options.params.branch,
 				slug: options.params.slug,
-				surfaceId: created.surface.surfaceId,
-				workspaceId,
-				message: `${sent.message}\n\nCreated cmux surface: ${created.surface.surfaceId}\nManual recovery: run ${command}`,
+				...locationEntry,
+				message: launched.message,
 			};
 		}
 
@@ -128,10 +92,10 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 			type: "launched",
 			branch: options.params.branch,
 			slug: options.params.slug,
-			tabTitle,
-			surfaceId: created.surface.surfaceId,
-			workspaceId,
-			command,
+			tabTitle: launched.tabTitle,
+			surfaceId: launched.surfaceId,
+			workspaceId: launched.workspaceId,
+			command: launched.command,
 		};
 	} finally {
 		setLaunchStatus(options, undefined);
@@ -149,6 +113,13 @@ export function formatHandoffTabLaunchSuccess(result: Extract<HandoffTabLaunchRe
 		`Command: ${result.command}`,
 	].join("\n");
 }
+
+const HANDOFF_STAGE_PROGRESS: Record<CmuxTabLaunchStage, { text: string; status: string }> = {
+	identify: { text: "Resolving cmux caller context…", status: "resolving cmux caller…" },
+	"create-surface": { text: "Creating focused cmux tab…", status: "creating cmux tab…" },
+	rename: { text: "Naming cmux tab…", status: "naming cmux tab…" },
+	send: { text: "Launching pickup Pi…", status: "launching pickup Pi…" },
+};
 
 function updateProgress(options: HandoffTabLaunchOptions, text: string, status: string): void {
 	options.onUpdate?.({ content: [{ type: "text", text }] });
