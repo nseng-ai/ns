@@ -75,7 +75,14 @@ export function overviewLabelWidth(innerWidth: number): number {
 	);
 }
 
-export function buildOverviewRowCells(source: OverviewRowSource, maxTokens: number, totalTokens: number, innerWidth: number): OverviewRowCells {
+export interface OverviewRowCellsOptions {
+	maxTokens: number;
+	totalTokens: number;
+	innerWidth: number;
+}
+
+export function buildOverviewRowCells(source: OverviewRowSource, options: OverviewRowCellsOptions): OverviewRowCells {
+	const { maxTokens, totalTokens, innerWidth } = options;
 	const region = source.region;
 	const { filled, empty } = meterParts(region.tokens.value, maxTokens, BAR_WIDTH);
 	const percentValue = Math.round((Math.max(0, region.tokens.value) / Math.max(1, totalTokens)) * 100);
@@ -142,7 +149,14 @@ export interface UsageBarSegments {
 	freeLegend: string;
 }
 
-export function buildUsageBarSegments(usage: ContextUsage | undefined, baseTokens: number, liveTokens: number, innerWidth: number): UsageBarSegments {
+export interface UsageBarSegmentsOptions {
+	baseTokens: number;
+	liveTokens: number;
+	innerWidth: number;
+}
+
+export function buildUsageBarSegments(usage: ContextUsage | undefined, options: UsageBarSegmentsOptions): UsageBarSegments {
+	const { baseTokens, liveTokens, innerWidth } = options;
 	const estimated = baseTokens + liveTokens;
 	const contextWindow = usage?.contextWindow ?? 0;
 	const total = Math.max(1, contextWindow > 0 ? contextWindow : estimated);

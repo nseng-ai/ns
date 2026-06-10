@@ -95,7 +95,7 @@ export class ProfilerView implements Component {
 	private profile: ProfileSnapshot;
 	private segmentation: SegmentationState;
 	private frames: ViewFrame[];
-	private showHelp: boolean;
+	private isHelpVisible: boolean;
 
 	constructor(options: ProfilerViewOptions) {
 		this.tui = options.tui;
@@ -105,7 +105,7 @@ export class ProfilerView implements Component {
 		this.profile = options.profile;
 		this.segmentation = options.segmentation;
 		this.frames = [{ type: "overview", selection: 0, scroll: 0 }];
-		this.showHelp = false;
+		this.isHelpVisible = false;
 	}
 
 	/**
@@ -144,7 +144,7 @@ export class ProfilerView implements Component {
 			return;
 		}
 		if (data === "?") {
-			this.showHelp = !this.showHelp;
+			this.isHelpVisible = !this.isHelpVisible;
 			this.requestRender();
 			return;
 		}
@@ -153,7 +153,7 @@ export class ProfilerView implements Component {
 			this.profile = refreshed.profile;
 			this.segmentation = refreshed.segmentation;
 			this.frames = [{ type: "overview", selection: 0, scroll: 0 }];
-			this.showHelp = false;
+			this.isHelpVisible = false;
 			this.requestRender();
 			return;
 		}
@@ -163,10 +163,10 @@ export class ProfilerView implements Component {
 				this.handleOverviewInput(data, frame);
 				return;
 			case "base-detail":
-				this.handleListInput(data, frame, frame.members.length, () => this.openMemberContent(frame));
+				this.handleListInput({ data, state: frame, count: frame.members.length, onEnter: () => this.openMemberContent(frame) });
 				return;
 			case "turn-list":
-				this.handleListInput(data, frame, frame.turns.length, () => this.openTurnContent(frame));
+				this.handleListInput({ data, state: frame, count: frame.turns.length, onEnter: () => this.openTurnContent(frame) });
 				return;
 			case "content":
 				this.handleContentInput(data, frame);
@@ -302,7 +302,7 @@ export class ProfilerView implements Component {
 			if (index === frame.selection) selectedLine = lines.length;
 			lines.push(this.renderOverviewRow(row, index === frame.selection, maxTokens, totalTokens, innerWidth));
 		});
-		if (this.showHelp) {
+		if (this.isHelpVisible) {
 			lines.push("");
 			lines.push(this.theme.fg("dim", "≈ sizes are chars/4 estimates and need not sum to the measured total."));
 			lines.push(this.theme.fg("dim", `opened ${this.profile.openedAt} · source ${this.profile.liveSource} · model ${this.profile.model}`));
@@ -319,12 +319,12 @@ export class ProfilerView implements Component {
 		const note = lines.length > areaHeight
 			? `${scrollNote(frame.scroll + 1, Math.min(lines.length, frame.scroll + areaHeight), lines.length, "lines")} · `
 			: "";
-		const hint = this.theme.fg("dim", `${note}↑↓ select · ⏎ zoom · r refresh · ? ${this.showHelp ? "hide help" : "help"} · esc/q close`);
+		const hint = this.theme.fg("dim", `${note}↑↓ select · ⏎ zoom · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
 		return pinFooter(visible, hint, bodyHeight);
 	}
 
 	private renderUsageBar(baseTokens: number, liveTokens: number, innerWidth: number): string[] {
-		const segments = buildUsageBarSegments(this.profile.usage, baseTokens, liveTokens, innerWidth);
+		const segments = buildUsageBarSegments(this.profile.usage, { baseTokens, liveTokens, innerWidth });
 		const bar = this.theme.fg("muted", "█".repeat(segments.baseWidth))
 			+ this.theme.fg("accent", "█".repeat(segments.liveWidth))
 			+ this.theme.fg("dim", "░".repeat(segments.freeWidth));
@@ -341,7 +341,7 @@ export class ProfilerView implements Component {
 	}
 
 	private renderOverviewRow(source: OverviewRowSource, isSelected: boolean, maxTokens: number, totalTokens: number, innerWidth: number): string {
-		const cells = buildOverviewRowCells(source, maxTokens, totalTokens, innerWidth);
+		const cells = buildOverviewRowCells(source, { maxTokens, totalTokens, innerWidth });
 		if (isSelected) {
 			return this.theme.bg("selectedBg", fitToWidth(composeOverviewRowText(cells), innerWidth));
 		}
@@ -433,7 +433,8 @@ export class ProfilerView implements Component {
 		}
 	}
 
-	private handleListInput(data: string, state: { selection: number; scroll: number }, count: number, onEnter: () => void): void {
+	private handleListInput(options: { data: string; state: { selection: number; scroll: number }; count: number; onEnter: () => void }): void {
+		const { data, state, count, onEnter } = options;
 		const page = this.listAreaHeight();
 		const maxSelection = Math.max(0, count - 1);
 		if (matchesKey(data, Key.up)) state.selection = clamp(state.selection - 1, 0, maxSelection);
