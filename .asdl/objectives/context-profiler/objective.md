@@ -58,11 +58,10 @@ Assumptions:
 Risks:
 
 - **External API drift**: the extension depends on pi-coding-agent's event and type surface; a breaking change there breaks the profiler. Accepted — same exposure as every extension in `ts/packages/pi-extensions`.
-- **LM response fragility**: segmentation and analysis responses are model-emitted JSON. Mitigated by Zod boundary schemas plus the repair pattern carried from the prototype; not yet de-risked in production code.
-- **Long-session payload size**: the profile is shipped as JSON to a small model; very long sessions can exceed its context or get expensive. The segmentation row must define an explicit truncation/windowing policy rather than inherit an accident.
+- **LM response fragility**: segmentation and analysis responses are model-emitted JSON. Segmentation is de-risked in production code by Zod boundary schemas, lenient parsing, and repair to real capped turn indices; per-episode analysis still needs the same treatment when that row lands.
+- **Long-session payload size**: the profile is shipped as JSON to a small model; very long sessions can exceed its context or get expensive. Segmentation is de-risked by an explicit payload policy: use the deterministically capped turn list, send excerpts rather than verbatim content, and drop middle turns beyond a hard serialized-size cap while preserving first/last context.
 - **`context` event availability**: the prototype needed a `branch-fallback` live source, implying the primary event is not always present. The rewrite must define which source is authoritative when sources disagree. _(De-risked by the deterministic core: `runtime.ts` defines the rule — the `context` event is authoritative once one has been received this session; the session-branch fallback applies only before that; the snapshot carries `liveSource` provenance.)_
 
 ## Open Questions
 
 - Should the analysis model become user-configurable, and through what mechanism? (Deferred from the LM-policy decision; default remains a single code-level constant.)
-- Should segmentation results persist/cache across overlay opens within a session, or recompute each time? Affects the runtime module's shape; decide no later than the segmentation row.
