@@ -7,7 +7,7 @@
  */
 
 import type * as PiAi from "@earendil-works/pi-ai";
-import { EPISODE_ANALYSIS_SYSTEM_PROMPT, parseEpisodeAnalysisResponseText, type EpisodeAnalysisVerdicts } from "./analysis.ts";
+import { EPISODE_ANALYSIS_SYSTEM_PROMPT, parseEpisodeAnalysisResponseText, type EpisodeAnalysis } from "./analysis.ts";
 import {
 	parseSegmentationResponseText,
 	SEGMENTATION_MODEL,
@@ -22,8 +22,8 @@ export const ANALYSIS_MODEL_ID = SEGMENTATION_MODEL;
 
 /** Bounded output: ≤12 episode starts, ≤24 delegations, plus one sentence fits comfortably. */
 const SEGMENTATION_MAX_TOKENS = 2_048;
-/** Bounded output: one verdict pair only. */
-const EPISODE_ANALYSIS_MAX_TOKENS = 256;
+/** Bounded output: a verdict pair plus a 4–8 line opinionated summary. */
+const EPISODE_ANALYSIS_MAX_TOKENS = 1_024;
 
 export type AnalysisModelErrorCode = "model-unavailable" | "auth" | "request-failed" | "invalid-response" | "aborted";
 
@@ -37,7 +37,7 @@ export type SegmentationCallResult =
 	| { ok: false; error: AnalysisModelError };
 
 export type EpisodeAnalysisCallResult =
-	| { ok: true; value: EpisodeAnalysisVerdicts }
+	| { ok: true; value: EpisodeAnalysis }
 	| { ok: false; error: AnalysisModelError };
 
 export interface SegmentationRequest {

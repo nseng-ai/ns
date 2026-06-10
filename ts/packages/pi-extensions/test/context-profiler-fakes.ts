@@ -67,7 +67,7 @@ export class FakeSegmentationGateway implements AnalysisModelGateway {
 
 	constructor(options: FakeSegmentationGatewayOptions) {
 		this.result = options.result;
-		this.analysisResult = options.analysisResult ?? { ok: true, value: { efficiency: "efficient", relevance: "load-bearing" } };
+		this.analysisResult = options.analysisResult ?? { ok: true, value: { efficiency: "efficient", relevance: "load-bearing", summary: null } };
 		this.gate = options.gate ?? null;
 	}
 
