@@ -11,12 +11,13 @@ import {
 	capTurns,
 	delegationsInSpan,
 	deriveLiveTurns,
-	displayDelegations,
 	estimateTokensFromChars,
 	inferredDelegations,
 	MAX_DELEGATIONS,
 	normalizeMessage,
+	renderNormalizedMessageText,
 	type LiveTurn,
+	type NormalizedMessage,
 } from "../src/context-profiler/model.ts";
 import { makeTurns as makeTurnsAtIndices } from "./context-profiler-fakes.ts";
 
@@ -81,6 +82,16 @@ function makeTurnWithTools(index: number, toolNames: readonly string[]): LiveTur
 		toolNames: [...toolNames],
 		excerpt: `turn ${index}`,
 		message: normalizeMessage({ role: "assistant", content: `turn ${index}` }),
+	};
+}
+
+function makeMessage(overrides: Partial<NormalizedMessage> = {}): NormalizedMessage {
+	return {
+		role: "assistant",
+		toolName: null,
+		parts: [{ kind: "text", text: "doing things" }],
+		detailsJson: null,
+		...overrides,
 	};
 }
 
@@ -331,13 +342,33 @@ describe("delegation helpers", () => {
 		]);
 	});
 
-	test("uses inferred delegations until ready segmentation replaces them", () => {
-		const profile = { liveTurns: [makeTurnWithTools(1, ["dispatch_runner_subagent"])] };
-		expect(displayDelegations(profile, { type: "loading" })).toEqual([{ turn: 1, label: "dispatch_runner_subagent", confidence: "inferred" }]);
-		expect(displayDelegations(profile, { type: "error" })).toEqual([{ turn: 1, label: "dispatch_runner_subagent", confidence: "inferred" }]);
-		expect(displayDelegations(profile, { type: "ready", delegations: [{ turn: 1, label: "LM task", confidence: "high" }] })).toEqual([
-			{ turn: 1, label: "LM task", confidence: "high" },
-		]);
+});
+
+describe("renderNormalizedMessageText", () => {
+	test("emits semantic part headers", () => {
+		const text = renderNormalizedMessageText(makeMessage({
+			role: "toolResult",
+			toolName: "bash",
+			parts: [
+				{ kind: "text", text: "stdout here" },
+				{ kind: "thinking", text: "hmm" },
+				{ kind: "toolCall", name: "read", argsJson: JSON.stringify({ path: "/x" }, null, 2) },
+				{ kind: "image" },
+				{ kind: "opaque", json: '{\n  "type": "mystery"\n}' },
+			],
+			detailsJson: JSON.stringify({ exitCode: 0 }, null, 2),
+		}));
+		expect(text).toContain("⏺ tool result · bash");
+		expect(text).toContain("stdout here");
+		expect(text).toContain("[thinking]\nhmm");
+		expect(text).toContain("⏺ read\n");
+		expect(text).toContain("[image]");
+		expect(text).toContain('"type": "mystery"');
+		expect(text).toContain("[details]");
+	});
+
+	test("renders an empty message as the empty string", () => {
+		expect(renderNormalizedMessageText(makeMessage({ parts: [] }))).toBe("");
 	});
 });
 

@@ -199,18 +199,14 @@ export function repairEpisodes(starts: readonly LmEpisodeStart[], turns: readonl
 		startsByTurn.set(firstTurn.index, { startTurn: firstTurn.index, label: "uncategorized", kind: "uncategorized", outcome: "unknown" });
 	}
 
-	const startIndices = [...startsByTurn.keys()].sort((left, right) => left - right).slice(0, MAX_EPISODES);
-	const startPositions = startIndices
-		.map((startIndex) => turns.findIndex((turn) => turn.index === startIndex))
-		.filter((position) => position !== -1);
-	const episodes = startPositions.flatMap((position, episodeNumber): EpisodeAnnotation[] => {
-		const start = startsByTurn.get(turns[position]?.index ?? firstTurn.index) ?? {
-			startTurn: firstTurn.index,
-			label: "uncategorized",
-			kind: "uncategorized",
-			outcome: "unknown",
-		};
-		const endPosition = (startPositions[episodeNumber + 1] ?? turns.length) - 1;
+	const sortedStarts = [...startsByTurn.entries()]
+		.sort(([left], [right]) => left - right)
+		.slice(0, MAX_EPISODES)
+		.map(([turnIndex, start]) => ({ start, position: turns.findIndex((turn) => turn.index === turnIndex) }))
+		// Guard only: snapStartTurn returns indices present in turns.
+		.filter((entry) => entry.position !== -1);
+	const episodes = sortedStarts.flatMap(({ start, position }, episodeNumber): EpisodeAnnotation[] => {
+		const endPosition = (sortedStarts[episodeNumber + 1]?.position ?? turns.length) - 1;
 		return splitRunAtSeams(turns, position, endPosition).map(
 			(turnRange): EpisodeAnnotation => ({
 				label: start.label,

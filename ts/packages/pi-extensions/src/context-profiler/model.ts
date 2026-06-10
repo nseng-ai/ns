@@ -108,16 +108,7 @@ export interface TurnRange {
 	end: number;
 }
 
-/**
- * Optional annotation over the turn list. Episodes are never structural: the
- * deterministic view is complete without them, and LM segmentation only
- * supplies these as additive input.
- */
-export interface EpisodeAnnotation {
-	label: string;
-	kind: EpisodeKind;
-	outcome: EpisodeOutcome;
-	turnRange: TurnRange;
+export interface AnalysisVerdicts {
 	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
 	efficiency?: EfficiencyVerdict;
 	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
@@ -126,8 +117,20 @@ export interface EpisodeAnnotation {
 	analysisSummary?: string;
 }
 
+/**
+ * Optional annotation over the turn list. Episodes are never structural: the
+ * deterministic view is complete without them, and LM segmentation only
+ * supplies these as additive input.
+ */
+export interface EpisodeAnnotation extends AnalysisVerdicts {
+	label: string;
+	kind: EpisodeKind;
+	outcome: EpisodeOutcome;
+	turnRange: TurnRange;
+}
+
 /** One LIVE-section overview row: a span of turns with a label. */
-export interface LiveRegion {
+export interface LiveRegion extends AnalysisVerdicts {
 	id: string;
 	label: string;
 	kind: EpisodeKind;
@@ -140,12 +143,6 @@ export interface LiveRegion {
 	source: "deterministic" | "annotation";
 	/** Index into the ready state's episode/status arrays; null for deterministic rows. */
 	episodeIndex: number | null;
-	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
-	efficiency?: EfficiencyVerdict;
-	/** Optional LM judgment; absence means unanalyzed or invalid/missing output. */
-	relevance?: RelevanceVerdict;
-	/** Optional opinionated-descriptive LM prose; absence means unanalyzed or omitted output. */
-	analysisSummary?: string;
 }
 
 export type LiveSource = "context-event" | "branch-fallback";
@@ -439,9 +436,7 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 			isCurrent: episode.turnRange.end >= lastIndex,
 			source: "annotation",
 			episodeIndex: position,
-			...(episode.efficiency === undefined ? {} : { efficiency: episode.efficiency }),
-			...(episode.relevance === undefined ? {} : { relevance: episode.relevance }),
-			...(episode.analysisSummary === undefined ? {} : { analysisSummary: episode.analysisSummary }),
+			...analysisVerdictFields(episode),
 		});
 		cursor = Math.max(cursor, episode.turnRange.end + 1);
 	});
@@ -468,13 +463,12 @@ export function delegationsInSpan(claims: readonly DelegationClaim[], turnRange:
 	return claims.filter((claim) => claim.turn >= turnRange.start && claim.turn <= turnRange.end);
 }
 
-export type DelegationDisplaySegmentation =
-	| { type: "ready"; delegations: readonly DelegationClaim[] }
-	| { type: "idle" | "loading" | "error" };
-
-export function displayDelegations(profile: Pick<ProfileSnapshot, "liveTurns">, segmentation: DelegationDisplaySegmentation): DelegationClaim[] {
-	if (segmentation.type === "ready") return [...segmentation.delegations];
-	return inferredDelegations(profile.liveTurns);
+function analysisVerdictFields(source: AnalysisVerdicts): AnalysisVerdicts {
+	return {
+		...(source.efficiency === undefined ? {} : { efficiency: source.efficiency }),
+		...(source.relevance === undefined ? {} : { relevance: source.relevance }),
+		...(source.analysisSummary === undefined ? {} : { analysisSummary: source.analysisSummary }),
+	};
 }
 
 /** Render a normalized message verbatim with semantic part headers. */

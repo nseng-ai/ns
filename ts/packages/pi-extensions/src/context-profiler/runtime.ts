@@ -172,7 +172,7 @@ export function startSegmentation(options: StartSegmentationOptions): { initial:
 			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary, delegations };
 			const analysis = initialAnalysisStatuses(episodes);
 			onUpdate(readyState({ episodes, summary: result.value.summary, delegations, analysis }));
-			startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate, statuses: analysis });
+			startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate });
 		},
 		(error: unknown) => {
 			if (controller.signal.aborted) return;
@@ -189,13 +189,19 @@ interface StartEpisodeAnalysisOptions {
 	fingerprint: string;
 	controller: AbortController;
 	onUpdate: (segmentation: SegmentationState) => void;
-	statuses?: EpisodeAnalysisStatus[];
 }
 
 function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void {
 	const cache = options.state.segmentationCache;
 	if (cache === null || cache.fingerprint !== options.fingerprint) return;
-	const statuses = options.statuses ?? initialAnalysisStatuses(cache.episodes);
+	const statuses = initialAnalysisStatuses(cache.episodes);
+	const guardedEmit = (apply: (cache: SegmentationCacheEntry) => void): void => {
+		if (options.controller.signal.aborted) return;
+		const currentCache = options.state.segmentationCache;
+		if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
+		apply(currentCache);
+		options.onUpdate(readyState({ episodes: currentCache.episodes, summary: currentCache.summary, delegations: currentCache.delegations, analysis: statuses }));
+	};
 	cache.episodes.forEach((episode, episodeIndex) => {
 		if (hasAnalysisVerdicts(episode)) return;
 		statuses[episodeIndex] = "loading";
@@ -208,53 +214,29 @@ function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void
 		});
 		void options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.controller.signal }).then(
 			(result) => {
-				if (options.controller.signal.aborted) return;
-				const currentCache = options.state.segmentationCache;
-				if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
 				if (!result.ok) {
 					if (result.error.code === "aborted") return;
-					statuses[episodeIndex] = { type: "error", message: result.error.message };
-					options.onUpdate(
-						readyState({
-							episodes: currentCache.episodes,
-							summary: currentCache.summary,
-							delegations: currentCache.delegations,
-							analysis: statuses,
-						}),
-					);
+					guardedEmit(() => {
+						statuses[episodeIndex] = { type: "error", message: result.error.message };
+					});
 					return;
 				}
-				currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
-					? {
-						...candidate,
-						efficiency: result.value.efficiency,
-						relevance: result.value.relevance,
-						...(result.value.summary === null ? {} : { analysisSummary: result.value.summary }),
-					}
-					: candidate);
-				statuses[episodeIndex] = "ready";
-				options.onUpdate(
-					readyState({
-						episodes: currentCache.episodes,
-						summary: currentCache.summary,
-						delegations: currentCache.delegations,
-						analysis: statuses,
-					}),
-				);
+				guardedEmit((currentCache) => {
+					currentCache.episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
+						? {
+							...candidate,
+							efficiency: result.value.efficiency,
+							relevance: result.value.relevance,
+							...(result.value.summary === null ? {} : { analysisSummary: result.value.summary }),
+						}
+						: candidate);
+					statuses[episodeIndex] = "ready";
+				});
 			},
 			(error: unknown) => {
-				if (options.controller.signal.aborted) return;
-				const currentCache = options.state.segmentationCache;
-				if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
-				statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
-				options.onUpdate(
-					readyState({
-						episodes: currentCache.episodes,
-						summary: currentCache.summary,
-						delegations: currentCache.delegations,
-						analysis: statuses,
-					}),
-				);
+				guardedEmit(() => {
+					statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
+				});
 			},
 		);
 	});
