@@ -9,23 +9,30 @@ that selects how `pr-address` runs. `<skill-dir>` is the directory containing
 the installed `SKILL.md`; common locations are `skills/pr-address/` in a repo
 checkout and `.agents/skills/pr-address/` in an installed skill mirror.
 
-- inside an asdl checkout (auto-detected via
-  `packages/asdl-pr-address/pyproject.toml`) →
-  `uv run --project <repo> pr-address`
-- otherwise → `uvx` installs a pinned `asdl-pr-address` release from PyPI,
-  with `asdl-core` resolved automatically as a declared dependency
+- inside an asdl checkout with `ts/packages/pr-address/src/cli.ts` → the local
+  TypeScript scaffold runs by default
+- unported `pr-address exec ...` operations reached through that scaffold
+  delegate directly to the legacy Python CLI with the same arguments and stdio
+- outside a checkout → `uvx` installs a pinned `asdl-pr-address` release from
+  PyPI, with `asdl-core` resolved automatically as a declared dependency
 
 uv caches the resolved PyPI wheel, so the first call downloads and subsequent
 calls are near-instant.
 
-Override with `ASDL_PR_ADDRESS_MODE=local` or `ASDL_PR_ADDRESS_MODE=prod`
-when you want to force a specific path.
+Override when you want to force a specific path:
+
+- `ASDL_PR_ADDRESS_MODE=local` or `ts-local` forces the local TypeScript
+  scaffold.
+- `ASDL_PR_ADDRESS_MODE=python-local` or `legacy-python` forces the local
+  legacy Python CLI for debugging and compatibility checks.
+- `ASDL_PR_ADDRESS_MODE=prod` forces the pinned PyPI Python path.
 
 ## Updating the pinned version
 
-To roll out new `asdl-pr-address` code to skill consumers, first publish the
-new release to PyPI (outside the scope of this skill), then bump
-`ASDL_VERSION` in the wrapper and commit the change. From an asdl checkout:
+To roll out new legacy/prod Python fallback code to skill consumers, first
+publish the new `asdl-pr-address` release to PyPI (outside the scope of this
+skill), then bump `ASDL_VERSION` in the wrapper and commit the change. From an
+asdl checkout:
 
 ```bash
 sed -i '' 's/^ASDL_VERSION=.*/ASDL_VERSION="0.2.0"/' \
@@ -45,9 +52,11 @@ cd asdl
 uv sync
 ```
 
-The wrapper auto-detects the checkout, so editing
-`packages/asdl-pr-address/` and re-invoking the skill picks up changes
-immediately. To run tests for just this package:
+The wrapper auto-detects the checkout and runs the TypeScript scaffold by
+default. Editing `packages/asdl-pr-address/` is picked up by unported `exec`
+operations through the direct Python fallback; force it explicitly with
+`ASDL_PR_ADDRESS_MODE=python-local` when debugging wrapper dispatch. To run tests
+for just this package:
 
 ```bash
 uv run pytest packages/asdl-pr-address
@@ -57,13 +66,23 @@ Or run the full suite from the repo root with `just`.
 
 ## Operation inventory
 
-The current operation set, by category:
+This Python package remains the legacy/current implementation for unported
+operations. Treat the public skill, `skills/pr-address/references/cli-reference.md`,
+source registration, scenario tests, and golden fixtures as stronger contract
+sources than this developer overview when porting behavior.
+
+The current legacy operation set, by category:
 
 - **Feedback fetch / composite**: `get-feedback`, `summarize-feedback`,
   `prepare-run`, `get-pr-for-branch`, `get-reviews`,
   `get-review-comments`, `get-discussion-comments`
 - **Classification / payload ergonomics**: `read-feedback-detail`,
-  `classification-template`, `validate-feedback-classification`
+  `read-feedback-details`, `classification-template`,
+  `validate-feedback-classification`, `plan-feedback`
+- **Batch / finalization**: `build-resolve-thread-batch-payload`,
+  `record-batch-checkpoint`, `finalize-run`
+- **Stack feedback**: `stack-feedback-prep`, `stack-feedback-plan`,
+  `stack-feedback-diff-current`, `build-stack-resolve-thread-payloads`
 - **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
   `resolve-thread-batch`, `unresolve-thread`, `add-review-thread-reply`
   - `resolve-thread-with-reply` / `resolve-thread-batch` share canonical
