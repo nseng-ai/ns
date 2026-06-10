@@ -173,10 +173,24 @@ export class ProfilerView implements Component {
 				this.handleOverviewInput(data, frame);
 				return;
 			case "base-detail":
-				this.handleListInput({ data, state: frame, count: frame.members.length, onEnter: () => this.openMemberContent(frame) });
+				this.handleListInput({
+					data,
+					selection: frame.selection,
+					count: frame.members.length,
+					lastAreaHeight: frame.lastAreaHeight,
+					onSelectionChange: (selection) => this.replaceFrame(frame, { ...frame, selection }),
+					onEnter: () => this.openMemberContent(frame),
+				});
 				return;
 			case "turn-list":
-				this.handleListInput({ data, state: frame, count: this.resolveTurnList(frame).turns.length, onEnter: () => this.openTurnContent(frame) });
+				this.handleListInput({
+					data,
+					selection: frame.selection,
+					count: this.resolveTurnList(frame).turns.length,
+					lastAreaHeight: frame.lastAreaHeight,
+					onSelectionChange: (selection) => this.replaceFrame(frame, { ...frame, selection }),
+					onEnter: () => this.openTurnContent(frame),
+				});
 				return;
 			case "content":
 				this.handleContentInput(data, frame);
@@ -199,6 +213,12 @@ export class ProfilerView implements Component {
 		// The constructor seeds the stack and pop is guarded by length > 1.
 		if (frame === undefined) throw new Error("profiler frame stack is empty");
 		return frame;
+	}
+
+	private replaceFrame(previous: ViewFrame, next: ViewFrame): void {
+		const index = this.frames.lastIndexOf(previous);
+		if (index === -1) throw new Error("profiler frame is no longer on the stack");
+		this.frames = this.frames.map((candidate, candidateIndex) => candidateIndex === index ? next : candidate);
 	}
 
 	private overviewRows(): OverviewRowSource[] {
@@ -284,6 +304,7 @@ export class ProfilerView implements Component {
 					claim: BASE_DETAIL_CLAIM,
 					rows: frame.members.map((member): ListRow => ({ tokens: member.tokens, text: member.name })),
 					state: frame,
+					onReconcile: (next) => this.replaceFrame(frame, { ...frame, ...next }),
 					emptyText: "no base members captured",
 					innerWidth,
 					bodyHeight,
@@ -300,6 +321,7 @@ export class ProfilerView implements Component {
 					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
 					rows: turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
 					state: frame,
+					onReconcile: (next) => this.replaceFrame(frame, { ...frame, ...next }),
 					emptyText: "no turns in this span",
 					innerWidth,
 					bodyHeight,
@@ -315,7 +337,7 @@ export class ProfilerView implements Component {
 		// Async segmentation arrival can shrink/grow the row set between input
 		// and render, so the selection is re-clamped here against the rows
 		// actually drawn (input-time clamps only cover synchronous changes).
-		frame.selection = clamp(frame.selection, 0, Math.max(0, rows.length - 1));
+		const selection = clamp(frame.selection, 0, Math.max(0, rows.length - 1));
 		const liveRegions = this.liveRegions();
 		const baseTokens = this.profile.baseRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
 		const liveTokens = liveRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
@@ -328,8 +350,8 @@ export class ProfilerView implements Component {
 		lines.push(this.sectionHeader(BASE_SECTION_HEADER, innerWidth));
 		rows.forEach((row, index) => {
 			if (row.type !== "base") return;
-			if (index === frame.selection) selectedLine = lines.length;
-			lines.push(this.renderOverviewRow(row, { isSelected: index === frame.selection, maxTokens, totalTokens, innerWidth }));
+			if (index === selection) selectedLine = lines.length;
+			lines.push(this.renderOverviewRow(row, { isSelected: index === selection, maxTokens, totalTokens, innerWidth }));
 		});
 		lines.push("");
 		lines.push(this.sectionHeader(liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)), innerWidth));
@@ -341,8 +363,8 @@ export class ProfilerView implements Component {
 		if (liveRegions.length === 0) lines.push(this.theme.fg("dim", "no live conversation turns yet"));
 		rows.forEach((row, index) => {
 			if (row.type !== "live") return;
-			if (index === frame.selection) selectedLine = lines.length;
-			lines.push(this.renderOverviewRow(row, { isSelected: index === frame.selection, maxTokens, totalTokens, innerWidth }));
+			if (index === selection) selectedLine = lines.length;
+			lines.push(this.renderOverviewRow(row, { isSelected: index === selection, maxTokens, totalTokens, innerWidth }));
 		});
 		if (this.isHelpVisible) {
 			lines.push("");
@@ -355,11 +377,12 @@ export class ProfilerView implements Component {
 		// Scroll is reconciled at render time because it depends on layout. The
 		// whole heterogeneous body scrolls as one window; anchoring the first
 		// row to line 0 keeps the usage bar and headers visible at the top.
-		const anchorLine = frame.selection === 0 ? 0 : selectedLine;
-		frame.scroll = reconcileScroll({ scroll: frame.scroll, anchor: anchorLine, areaHeight, totalLines: lines.length });
-		const visible = lines.slice(frame.scroll, frame.scroll + areaHeight);
+		const anchorLine = selection === 0 ? 0 : selectedLine;
+		const scroll = reconcileScroll({ scroll: frame.scroll, anchor: anchorLine, areaHeight, totalLines: lines.length });
+		this.replaceFrame(frame, { ...frame, selection, scroll });
+		const visible = lines.slice(scroll, scroll + areaHeight);
 		const note = lines.length > areaHeight
-			? `${scrollNote(frame.scroll + 1, Math.min(lines.length, frame.scroll + areaHeight), lines.length, "lines")} · `
+			? `${scrollNote(scroll + 1, Math.min(lines.length, scroll + areaHeight), lines.length, "lines")} · `
 			: "";
 		const hint = this.theme.fg("dim", `${note}↑↓/jk select · ⏎ zoom · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
 		return pinFooter(visible, hint, bodyHeight);
@@ -398,7 +421,8 @@ export class ProfilerView implements Component {
 		summaryLines?: readonly string[];
 		headerLines?: readonly string[];
 		rows: readonly ListRow[];
-		state: { selection: number; scroll: number; lastAreaHeight: number | null };
+		state: { selection: number; scroll: number };
+		onReconcile: (next: { selection: number; scroll: number; lastAreaHeight: number }) => void;
 		emptyText: string;
 		innerWidth: number;
 		bodyHeight: number;
@@ -407,21 +431,20 @@ export class ProfilerView implements Component {
 		const headerLines = options.headerLines ?? [];
 		const areaHeight = Math.max(1, options.bodyHeight - 3 - summaryLines.length - headerLines.length);
 		const count = options.rows.length;
-		const state = options.state;
-		state.lastAreaHeight = areaHeight;
 		// Derived row counts can shrink between input and render, so mirror the overview's render-time reclamp.
-		state.selection = clamp(state.selection, 0, Math.max(0, count - 1));
-		state.scroll = reconcileScroll({ scroll: state.scroll, anchor: state.selection, areaHeight, totalLines: count });
+		const selection = clamp(options.state.selection, 0, Math.max(0, count - 1));
+		const scroll = reconcileScroll({ scroll: options.state.scroll, anchor: selection, areaHeight, totalLines: count });
+		options.onReconcile({ selection, scroll, lastAreaHeight: areaHeight });
 		const maxTokens = Math.max(1, ...options.rows.map((row) => row.tokens.value));
 		const visible = options.rows
-			.slice(state.scroll, state.scroll + areaHeight)
+			.slice(scroll, scroll + areaHeight)
 			.map((row, offset) =>
-				this.renderListRow(row, { isSelected: state.scroll + offset === state.selection, maxTokens, innerWidth: options.innerWidth }));
+				this.renderListRow(row, { isSelected: scroll + offset === selection, maxTokens, innerWidth: options.innerWidth }));
 		const body = visible.length === 0 ? [this.theme.fg("dim", options.emptyText)] : visible;
 		const proseSummaryLines = summaryLines.map((line) => this.theme.fg("text", line));
 		const dimHeaderLines = headerLines.map((line) => this.theme.fg("dim", truncateToWidth(line, options.innerWidth, "…", true)));
 		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), ...proseSummaryLines, ...dimHeaderLines, "", ...body];
-		const note = count > areaHeight ? `${scrollNote(state.scroll + 1, Math.min(count, state.scroll + areaHeight), count, "rows")} · ` : "";
+		const note = count > areaHeight ? `${scrollNote(scroll + 1, Math.min(count, scroll + areaHeight), count, "rows")} · ` : "";
 		return pinFooter(lines, this.theme.fg("dim", `${note}${LIST_HINT}`), options.bodyHeight);
 	}
 
@@ -448,10 +471,11 @@ export class ProfilerView implements Component {
 		const wrapped = frame.source.text.trim().length === 0 ? [this.theme.fg("dim", "(empty)")] : wrapTextWithAnsi(frame.source.text, innerWidth);
 		const maxScroll = Math.max(0, wrapped.length - areaHeight);
 		// Scroll is reconciled at render time because it depends on layout (wrap width / area height).
-		frame.scroll = clamp(frame.scroll, 0, maxScroll);
-		const visible = wrapped.slice(frame.scroll, frame.scroll + areaHeight);
+		const scroll = clamp(frame.scroll, 0, maxScroll);
+		this.replaceFrame(frame, { ...frame, scroll });
+		const visible = wrapped.slice(scroll, scroll + areaHeight);
 		const lines = [this.theme.fg("dim", truncateToWidth(frame.source.note, innerWidth, "…", true)), "", ...visible];
-		const note = maxScroll > 0 ? `${scrollNote(frame.scroll + 1, Math.min(wrapped.length, frame.scroll + areaHeight), wrapped.length, "lines")} · ` : "";
+		const note = maxScroll > 0 ? `${scrollNote(scroll + 1, Math.min(wrapped.length, scroll + areaHeight), wrapped.length, "lines")} · ` : "";
 		return pinFooter(lines, this.theme.fg("dim", `${note}${CONTENT_HINT}`), bodyHeight);
 	}
 
@@ -473,12 +497,12 @@ export class ProfilerView implements Component {
 	private handleOverviewInput(data: string, frame: OverviewFrame): void {
 		const rows = this.overviewRows();
 		if (matchesKey(data, Key.up) || data === "k") {
-			frame.selection = clamp(frame.selection - 1, 0, Math.max(0, rows.length - 1));
+			this.replaceFrame(frame, { ...frame, selection: clamp(frame.selection - 1, 0, Math.max(0, rows.length - 1)) });
 			this.requestRender();
 			return;
 		}
 		if (matchesKey(data, Key.down) || data === "j") {
-			frame.selection = clamp(frame.selection + 1, 0, Math.max(0, rows.length - 1));
+			this.replaceFrame(frame, { ...frame, selection: clamp(frame.selection + 1, 0, Math.max(0, rows.length - 1)) });
 			this.requestRender();
 			return;
 		}
@@ -491,14 +515,21 @@ export class ProfilerView implements Component {
 		}
 	}
 
-	private handleListInput(options: { data: string; state: { selection: number; scroll: number; lastAreaHeight: number | null }; count: number; onEnter: () => void }): void {
-		const { data, state, count, onEnter } = options;
-		const page = state.lastAreaHeight ?? this.listAreaHeight();
+	private handleListInput(options: {
+		data: string;
+		selection: number;
+		count: number;
+		lastAreaHeight: number | null;
+		onSelectionChange: (selection: number) => void;
+		onEnter: () => void;
+	}): void {
+		const { data, selection, count, onEnter, onSelectionChange } = options;
+		const page = options.lastAreaHeight ?? this.listAreaHeight();
 		const maxSelection = Math.max(0, count - 1);
-		if (matchesKey(data, Key.up) || data === "k") state.selection = clamp(state.selection - 1, 0, maxSelection);
-		else if (matchesKey(data, Key.down) || data === "j") state.selection = clamp(state.selection + 1, 0, maxSelection);
-		else if (matchesKey(data, Key.pageUp)) state.selection = clamp(state.selection - page, 0, maxSelection);
-		else if (matchesKey(data, Key.pageDown)) state.selection = clamp(state.selection + page, 0, maxSelection);
+		if (matchesKey(data, Key.up) || data === "k") onSelectionChange(clamp(selection - 1, 0, maxSelection));
+		else if (matchesKey(data, Key.down) || data === "j") onSelectionChange(clamp(selection + 1, 0, maxSelection));
+		else if (matchesKey(data, Key.pageUp)) onSelectionChange(clamp(selection - page, 0, maxSelection));
+		else if (matchesKey(data, Key.pageDown)) onSelectionChange(clamp(selection + page, 0, maxSelection));
 		else if (matchesKey(data, Key.enter)) onEnter();
 		else return;
 		this.requestRender();
@@ -506,10 +537,10 @@ export class ProfilerView implements Component {
 
 	private handleContentInput(data: string, frame: ContentFrame): void {
 		const page = this.listAreaHeight();
-		if (matchesKey(data, Key.up) || data === "k") frame.scroll = Math.max(0, frame.scroll - 1);
-		else if (matchesKey(data, Key.down) || data === "j") frame.scroll++;
-		else if (matchesKey(data, Key.pageUp)) frame.scroll = Math.max(0, frame.scroll - page);
-		else if (matchesKey(data, Key.pageDown)) frame.scroll += page;
+		if (matchesKey(data, Key.up) || data === "k") this.replaceFrame(frame, { ...frame, scroll: Math.max(0, frame.scroll - 1) });
+		else if (matchesKey(data, Key.down) || data === "j") this.replaceFrame(frame, { ...frame, scroll: frame.scroll + 1 });
+		else if (matchesKey(data, Key.pageUp)) this.replaceFrame(frame, { ...frame, scroll: Math.max(0, frame.scroll - page) });
+		else if (matchesKey(data, Key.pageDown)) this.replaceFrame(frame, { ...frame, scroll: frame.scroll + page });
 		else return;
 		this.requestRender();
 	}

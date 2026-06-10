@@ -62,13 +62,19 @@ export function createProfilerState(): ProfilerState {
 	};
 }
 
-export function handleBeforeAgentStart(event: BeforeAgentStartEvent, state: ProfilerState): void {
-	state.lastPromptOptions = event.systemPromptOptions;
-	state.lastSystemPrompt = event.systemPrompt;
+export function handleBeforeAgentStart(event: BeforeAgentStartEvent, state: ProfilerState): ProfilerState {
+	return {
+		...state,
+		lastPromptOptions: event.systemPromptOptions,
+		lastSystemPrompt: event.systemPrompt,
+	};
 }
 
-export function handleContext(event: ContextEvent, state: ProfilerState): void {
-	state.latestContextMessages = [...event.messages];
+export function handleContext(event: ContextEvent, state: ProfilerState): ProfilerState {
+	return {
+		...state,
+		latestContextMessages: [...event.messages],
+	};
 }
 
 /**
@@ -79,10 +85,13 @@ export function handleContext(event: ContextEvent, state: ProfilerState): void {
  * running Pi provides it, options re-capture works; otherwise the last
  * `before_agent_start` capture stands and only the assembled prompt refreshes.
  */
-export function capturePromptState(ctx: ExtensionContext, state: ProfilerState): void {
-	state.lastSystemPrompt = ctx.getSystemPrompt();
+export function capturePromptState(ctx: ExtensionContext, state: ProfilerState): ProfilerState {
 	const options = probeSystemPromptOptions(ctx);
-	if (options !== null) state.lastPromptOptions = options;
+	return {
+		...state,
+		lastPromptOptions: options ?? state.lastPromptOptions,
+		lastSystemPrompt: ctx.getSystemPrompt(),
+	};
 }
 
 function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptions | null {
