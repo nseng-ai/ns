@@ -5,8 +5,9 @@
 - [x] Establish the initial migration ledger for active first-party capabilities.
   - Initial ledger recorded in `objective.md` with unstarted, TS-default, parked-pending-evidence, reference-source, and out-of-scope statuses.
   - Evidence: package metadata, first-party skill inventory, existing TS workspace packages, Graphite parent `master`, and PR #1148 for the umbrella Objective creation branch.
-- [ ] Create the `pr-address` capability subobjective as the first production vertical slice.
+- [x] Create the `pr-address` capability subobjective as the first production vertical slice.
   - The umbrella Objective should name `pr-address` only as the proving slice; detailed operation design belongs in the subobjective.
+  - Evidence: active subobjective `.asdl/objectives/pr-address-typescript-port/` now tracks the detailed `pr-address` TypeScript port contract inventory, migration boundary, cutover, and Python retirement work.
 - [ ] Define the minimal TS migration scaffold.
   - Capture package/layout conventions, command-runtime conventions, gateway interface conventions, golden-test conventions, and an initial porting checklist.
   - Standardize on the current TS workspace defaults: pnpm, Node ESM, strict TypeScript, and Vitest unless evidence forces a change.
