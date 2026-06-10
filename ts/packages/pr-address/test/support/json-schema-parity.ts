@@ -16,7 +16,7 @@ interface ObjectAtom {
 	kind: "object";
 	properties: Map<string, CanonicalSchema>;
 	required: Set<string>;
-	sealed: boolean;
+	isSealed: boolean;
 }
 
 interface RecordAtom {
@@ -52,9 +52,9 @@ const IGNORED_KEYS = new Set(["title", "description", "default", "examples", "$s
 
 export function collectSchemaParityMismatches(actual: unknown, expected: unknown): string[] {
 	const mismatches: string[] = [];
-	const actualCanonical = canonicalize(actual, rootDefs(actual), "actual");
-	const expectedCanonical = canonicalize(expected, rootDefs(expected), "expected");
-	compareCanonical(actualCanonical, expectedCanonical, "#", mismatches);
+	const actualCanonical = canonicalize({ node: actual, defs: rootDefs(actual), side: "actual" });
+	const expectedCanonical = canonicalize({ node: expected, defs: rootDefs(expected), side: "expected" });
+	compareCanonical({ actual: actualCanonical, expected: expectedCanonical, path: "#", mismatches });
 	return mismatches;
 }
 
@@ -67,7 +67,16 @@ function rootDefs(document: unknown): Map<string, unknown> {
 	return defs;
 }
 
-function canonicalize(node: unknown, defs: Map<string, unknown>, side: string, refStack: readonly string[] = []): CanonicalSchema {
+interface CanonicalizeOptions {
+	node: unknown;
+	defs: Map<string, unknown>;
+	side: string;
+	refStack?: readonly string[] | undefined;
+}
+
+function canonicalize(options: CanonicalizeOptions): CanonicalSchema {
+	const { node, defs, side } = options;
+	const refStack = options.refStack ?? [];
 	if (!isRecord(node)) throw new Error(`${side} schema node is not an object`);
 
 	const ref = node["$ref"];
@@ -76,13 +85,13 @@ function canonicalize(node: unknown, defs: Map<string, unknown>, side: string, r
 		if (refStack.includes(refName)) throw new Error(`${side} schema has a recursive $ref cycle at ${refName}`);
 		const resolved = defs.get(refName);
 		if (resolved === undefined) throw new Error(`${side} schema has unresolved $ref ${ref}`);
-		return canonicalize(resolved, defs, side, [...refStack, refName]);
+		return canonicalize({ node: resolved, defs, side, refStack: [...refStack, refName] });
 	}
 
 	const unionBranches = node["anyOf"] ?? node["oneOf"];
 	if (Array.isArray(unionBranches)) {
 		const atoms: SchemaAtom[] = [];
-		for (const branch of unionBranches) atoms.push(...canonicalize(branch, defs, side, refStack));
+		for (const branch of unionBranches) atoms.push(...canonicalize({ node: branch, defs, side, refStack }));
 		return atoms;
 	}
 
@@ -92,7 +101,7 @@ function canonicalize(node: unknown, defs: Map<string, unknown>, side: string, r
 
 	const type = node["type"];
 	if (Array.isArray(type)) {
-		return type.flatMap((member) => canonicalize({ ...node, type: member }, defs, side, refStack));
+		return type.flatMap((member) => canonicalize({ node: { ...node, type: member }, defs, side, refStack }));
 	}
 
 	if (type === "object" || hasObjectShape(node)) {
@@ -100,7 +109,7 @@ function canonicalize(node: unknown, defs: Map<string, unknown>, side: string, r
 		if (isRecord(properties)) {
 			const canonicalProperties = new Map<string, CanonicalSchema>();
 			for (const [name, propertyNode] of Object.entries(properties)) {
-				canonicalProperties.set(name, canonicalize(propertyNode, defs, side, refStack));
+				canonicalProperties.set(name, canonicalize({ node: propertyNode, defs, side, refStack }));
 			}
 			const required = node["required"];
 			return [
@@ -108,20 +117,20 @@ function canonicalize(node: unknown, defs: Map<string, unknown>, side: string, r
 					kind: "object",
 					properties: canonicalProperties,
 					required: new Set(Array.isArray(required) ? required.map(String) : []),
-					sealed: node["additionalProperties"] === false,
+					isSealed: node["additionalProperties"] === false,
 				},
 			];
 		}
 		const additional = node["additionalProperties"];
 		if (isRecord(additional)) {
-			return [{ kind: "record", value: canonicalize(additional, defs, side, refStack), keyEnum: recordKeyEnum(node) }];
+			return [{ kind: "record", value: canonicalize({ node: additional, defs, side, refStack }), keyEnum: recordKeyEnum(node) }];
 		}
 		return [{ kind: "record", value: [{ kind: "any" }], keyEnum: recordKeyEnum(node) }];
 	}
 
 	if (type === "array") {
 		const items = node["items"];
-		return [{ kind: "array", items: items === undefined ? [{ kind: "any" }] : canonicalize(items, defs, side, refStack) }];
+		return [{ kind: "array", items: items === undefined ? [{ kind: "any" }] : canonicalize({ node: items, defs, side, refStack }) }];
 	}
 
 	if (type === "null") return [{ kind: "primitive", type: "null" }];
@@ -143,7 +152,15 @@ function hasObjectShape(node: Record<string, unknown>): boolean {
 	return isRecord(node["properties"]) || "additionalProperties" in node || "propertyNames" in node;
 }
 
-function compareCanonical(actual: CanonicalSchema, expected: CanonicalSchema, path: string, mismatches: string[]): void {
+interface CompareCanonicalOptions {
+	actual: CanonicalSchema;
+	expected: CanonicalSchema;
+	path: string;
+	mismatches: string[];
+}
+
+function compareCanonical(options: CompareCanonicalOptions): void {
+	const { actual, expected, path, mismatches } = options;
 	const actualAtoms = mergeEnumAtoms(actual);
 	const expectedAtoms = mergeEnumAtoms(expected);
 
@@ -163,7 +180,7 @@ function compareCanonical(actual: CanonicalSchema, expected: CanonicalSchema, pa
 			continue;
 		}
 		remaining.splice(matchIndex, 1);
-		compareAtoms(actualAtom, expectedAtom, path, mismatches);
+		compareAtoms({ actual: actualAtom, expected: expectedAtom, path, mismatches });
 	}
 }
 
@@ -204,7 +221,15 @@ function bestMatchIndex(actualAtom: SchemaAtom, candidates: SchemaAtom[]): numbe
 	return fallbackIndex;
 }
 
-function compareAtoms(actual: SchemaAtom, expected: SchemaAtom, path: string, mismatches: string[]): void {
+interface CompareAtomsOptions {
+	actual: SchemaAtom;
+	expected: SchemaAtom;
+	path: string;
+	mismatches: string[];
+}
+
+function compareAtoms(options: CompareAtomsOptions): void {
+	const { actual, expected, path, mismatches } = options;
 	if (actual.kind === "enum" && expected.kind === "enum") {
 		if (!setsEqual(actual.values, expected.values)) {
 			mismatches.push(`${path}: enum values differ (actual: ${formatSet(actual.values)}; expected: ${formatSet(expected.values)})`);
@@ -212,22 +237,30 @@ function compareAtoms(actual: SchemaAtom, expected: SchemaAtom, path: string, mi
 		return;
 	}
 	if (actual.kind === "array" && expected.kind === "array") {
-		compareCanonical(actual.items, expected.items, `${path}[]`, mismatches);
+		compareCanonical({ actual: actual.items, expected: expected.items, path: `${path}[]`, mismatches });
 		return;
 	}
 	if (actual.kind === "record" && expected.kind === "record") {
 		if (!nullableSetsEqual(actual.keyEnum, expected.keyEnum)) {
 			mismatches.push(`${path}: record key enums differ (actual: ${formatSet(actual.keyEnum)}; expected: ${formatSet(expected.keyEnum)})`);
 		}
-		compareCanonical(actual.value, expected.value, `${path}.*`, mismatches);
+		compareCanonical({ actual: actual.value, expected: expected.value, path: `${path}.*`, mismatches });
 		return;
 	}
 	if (actual.kind === "object" && expected.kind === "object") {
-		compareObjectAtoms(actual, expected, path, mismatches);
+		compareObjectAtoms({ actual, expected, path, mismatches });
 	}
 }
 
-function compareObjectAtoms(actual: ObjectAtom, expected: ObjectAtom, path: string, mismatches: string[]): void {
+interface CompareObjectAtomsOptions {
+	actual: ObjectAtom;
+	expected: ObjectAtom;
+	path: string;
+	mismatches: string[];
+}
+
+function compareObjectAtoms(options: CompareObjectAtomsOptions): void {
+	const { actual, expected, path, mismatches } = options;
 	const actualNames = new Set(actual.properties.keys());
 	const expectedNames = new Set(expected.properties.keys());
 	if (!setsEqual(actualNames, expectedNames)) {
@@ -239,13 +272,13 @@ function compareObjectAtoms(actual: ObjectAtom, expected: ObjectAtom, path: stri
 	if (!setsEqual(actual.required, expected.required)) {
 		mismatches.push(`${path}: required sets differ (actual: ${formatSet(actual.required)}; expected: ${formatSet(expected.required)})`);
 	}
-	if (actual.sealed !== expected.sealed) {
-		mismatches.push(`${path}: additionalProperties strictness differs (actual sealed: ${actual.sealed}; expected sealed: ${expected.sealed})`);
+	if (actual.isSealed !== expected.isSealed) {
+		mismatches.push(`${path}: additionalProperties strictness differs (actual sealed: ${actual.isSealed}; expected sealed: ${expected.isSealed})`);
 	}
 	for (const [name, actualProperty] of actual.properties) {
 		const expectedProperty = expected.properties.get(name);
 		if (expectedProperty === undefined) continue;
-		compareCanonical(actualProperty, expectedProperty, `${path}.${name}`, mismatches);
+		compareCanonical({ actual: actualProperty, expected: expectedProperty, path: `${path}.${name}`, mismatches });
 	}
 }
 

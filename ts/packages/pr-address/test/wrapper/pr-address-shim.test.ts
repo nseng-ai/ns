@@ -33,7 +33,7 @@ async function installShim(canonicalCheckout: string): Promise<string> {
 }
 
 /** Creates a git repository that looks like an asdl checkout, with a fake CLI that echoes its arguments. */
-async function makeFakeCheckout(options: { includeNodeModules: boolean }): Promise<string> {
+async function makeFakeCheckout(options: { shouldIncludeNodeModules: boolean }): Promise<string> {
 	const dir = await makeTempDir();
 	spawnSync("git", ["init", "--quiet", dir], { encoding: "utf8" });
 	await mkdir(join(dir, "ts/packages/pr-address/src"), { recursive: true });
@@ -42,7 +42,7 @@ async function makeFakeCheckout(options: { includeNodeModules: boolean }): Promi
 		`console.log("fake-cli: " + process.argv.slice(2).join(" "));\n`,
 		"utf8",
 	);
-	if (options.includeNodeModules) {
+	if (options.shouldIncludeNodeModules) {
 		await mkdir(join(dir, "ts/node_modules"), { recursive: true });
 	}
 	return dir;
@@ -54,8 +54,8 @@ interface ShimRunResult {
 	stderr: string;
 }
 
-function runShim(shimPath: string, args: readonly string[], options: { cwd: string; outsideCheckout?: boolean }): ShimRunResult {
-	const env = options.outsideCheckout === true
+function runShim(shimPath: string, args: readonly string[], options: { cwd: string; isOutsideCheckout?: boolean }): ShimRunResult {
+	const env = options.isOutsideCheckout === true
 		// GIT_CEILING_DIRECTORIES keeps `git rev-parse` from discovering an
 		// enclosing repository above the cwd, mimicking use outside a checkout.
 		? { ...process.env, GIT_CEILING_DIRECTORIES: options.cwd }
@@ -75,7 +75,7 @@ describe("pr-address shim", () => {
 	});
 
 	test("prefers the enclosing checkout over the canonical checkout", async () => {
-		const fakeCheckout = await makeFakeCheckout({ includeNodeModules: true });
+		const fakeCheckout = await makeFakeCheckout({ shouldIncludeNodeModules: true });
 		const shimPath = await installShim(REPO_ROOT);
 
 		const result = runShim(shimPath, ["--version"], { cwd: fakeCheckout });
@@ -88,7 +88,7 @@ describe("pr-address shim", () => {
 		const outsideDir = await makeTempDir();
 		const shimPath = await installShim(REPO_ROOT);
 
-		const result = runShim(shimPath, ["--version"], { cwd: outsideDir, outsideCheckout: true });
+		const result = runShim(shimPath, ["--version"], { cwd: outsideDir, isOutsideCheckout: true });
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toBe("0.1.0\n");
@@ -105,7 +105,7 @@ describe("pr-address shim", () => {
 	});
 
 	test("fails clearly when the checkout has no installed ts dependencies", async () => {
-		const fakeCheckout = await makeFakeCheckout({ includeNodeModules: false });
+		const fakeCheckout = await makeFakeCheckout({ shouldIncludeNodeModules: false });
 		const shimPath = await installShim("/nonexistent/canonical/checkout");
 
 		const result = runShim(shimPath, ["--help"], { cwd: fakeCheckout });
@@ -119,7 +119,7 @@ describe("pr-address shim", () => {
 		const outsideDir = await makeTempDir();
 		const shimPath = await installShim("/nonexistent/canonical/checkout");
 
-		const result = runShim(shimPath, ["--help"], { cwd: outsideDir, outsideCheckout: true });
+		const result = runShim(shimPath, ["--help"], { cwd: outsideDir, isOutsideCheckout: true });
 
 		expect(result.status).toBe(2);
 		expect(result.stderr).toContain("no asdl checkout found");

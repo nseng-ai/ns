@@ -323,7 +323,7 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	private async getPrBySelector(selector: string, options: GatewayOptions): Promise<PRLookupResult> {
 		const result = await this.runGh(["pr", "view", selector, "--json", "number,title,url,headRefName,headRefOid,baseRefName,state"], options);
 		if (result.exitCode !== 0) {
-			if (isLookupMiss(result)) return { type: "miss", stderr: result.stderr || "no PR found", returncode: result.exitCode };
+			if (isLookupMiss(result)) return { type: "miss", stderr: result.stderr ?? "no PR found", returncode: result.exitCode };
 			return { type: "failure", failure: failureFromProcess(result) };
 		}
 		const parseResult = parseJson(result.stdout, prSummarySchema);
@@ -354,7 +354,7 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 	async getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult> {
 		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--verify", `${branch}^{commit}`], cwd: options.cwd, env: options.env });
 		if (result.exitCode === 0) return { type: "found", oid: result.stdout.trim() };
-		if (result.exitCode === 128) return { type: "missing", stderr: result.stderr || result.stdout || "branch not found", returncode: result.exitCode };
+		if (result.exitCode === 128) return { type: "missing", stderr: result.stderr ?? result.stdout ?? "branch not found", returncode: result.exitCode };
 		return { type: "failure", failure: failureFromProcess(result) };
 	}
 
