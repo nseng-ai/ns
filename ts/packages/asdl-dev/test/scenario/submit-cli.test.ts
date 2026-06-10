@@ -198,6 +198,36 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Diff");
 	});
 
+	test("overwrites a gt-prefilled body that matches the commit message", async () => {
+		const link = prLink(456);
+		const run = runWithFakes(["submit"], {
+			submit: {
+				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Add widget", body: "Implements the widget flow.", headRefName: "feature/demo", baseRefName: "main" } },
+				diffs: { 456: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n" },
+				commitMessages: { 456: [{ headline: "Add widget", body: "Implements the widget flow.\n" }] },
+			},
+			textGeneration: {
+				results: [
+					{
+						ok: true,
+						text: "Add the widget flow\n\nThis implements the widget flow end to end.\n\n## Key Changes\n\n- Adds the widget module",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
+		expect(run.githubPr.editPrCalls).toEqual([
+			expect.objectContaining({ number: 456, title: "Add the widget flow" }),
+		]);
+		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
+	});
+
 	test("does not overwrite a manually edited PR body", async () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
@@ -212,7 +242,11 @@ describe("asdl-dev submit CLI behavior", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).not.toContain("Generated PR descriptions:");
+		expect(run.stdout.join("")).toContain("Skipped PR descriptions (body looks hand-edited):");
+		expect(run.stdout.join("")).toContain("#456 https://github.com/acme/project/pull/456");
+		expect(run.stdout.join("")).toContain("Checkout the branch and run `asdl-dev pr-regen --force` to overwrite a hand-edited body.");
 		expect(run.githubPr.viewPrCalls).toEqual([{ cwd: "/work", number: 456 }]);
+		expect(run.githubPr.getPrCommitMessagesCalls).toEqual([{ cwd: "/work", number: 456 }]);
 		expect(run.githubPr.editPrCalls).toEqual([]);
 		expect(run.textGeneration.generateTextCalls).toEqual([]);
 	});

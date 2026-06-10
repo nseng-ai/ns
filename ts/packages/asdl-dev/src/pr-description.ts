@@ -122,6 +122,13 @@ export function hasGeneratedMarker(body: string): boolean {
 	return body.includes(GENERATED_BODY_MARKER);
 }
 
+export function isCommitMessagePrefillBody(body: string, commits: readonly PrCommitMessage[]): boolean {
+	const trimmedBody = body.trim();
+	// Empty bodies are owned by the existing empty-body overwrite check.
+	if (trimmedBody === "") return false;
+	return commits.some((commit) => commit.body?.trim() === trimmedBody);
+}
+
 export function appendGeneratedMarker(body: string): string {
 	const withoutExistingMarker = body.replace(GENERATED_BODY_MARKER, "").trimEnd();
 	return `${withoutExistingMarker}\n\n${GENERATED_BODY_MARKER}`;

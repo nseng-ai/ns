@@ -11,6 +11,7 @@ import {
 	filterLockfileSections,
 	GENERATED_BODY_MARKER,
 	hasGeneratedMarker,
+	isCommitMessagePrefillBody,
 	parsePrDescriptionOutput,
 	PR_DESCRIPTION_PROMPT_ENV,
 	resolvePrDescriptionPrompt,
@@ -53,6 +54,42 @@ describe("PR description helpers", () => {
 
 		expect(body).toBe(`Body text\n\n${GENERATED_BODY_MARKER}`);
 		expect(hasGeneratedMarker(body)).toBe(true);
+	});
+
+	test("detects a body that exactly matches a commit message body", () => {
+		const commits = [{ headline: "Add widget", body: "Implements the widget flow." }];
+
+		expect(isCommitMessagePrefillBody("Implements the widget flow.", commits)).toBe(true);
+	});
+
+	test("detects a prefill body despite trailing-newline differences", () => {
+		const commits = [{ headline: "Add widget", body: "Implements the widget flow.\n" }];
+
+		expect(isCommitMessagePrefillBody("Implements the widget flow.", commits)).toBe(true);
+	});
+
+	test("detects a prefill body matching a later commit of a multi-commit PR", () => {
+		const commits = [
+			{ headline: "First commit", body: "First body." },
+			{ headline: "Second commit", body: "Second body." },
+		];
+
+		expect(isCommitMessagePrefillBody("Second body.", commits)).toBe(true);
+	});
+
+	test("does not treat hand-edited text as a prefill body", () => {
+		const commits = [{ headline: "Add widget", body: "Implements the widget flow." }];
+
+		expect(isCommitMessagePrefillBody("Manually rewritten description.", commits)).toBe(false);
+	});
+
+	test("does not treat an empty PR body as a prefill body, even with bodyless commits", () => {
+		expect(isCommitMessagePrefillBody("", [{ headline: "Add widget" }])).toBe(false);
+		expect(isCommitMessagePrefillBody("  \n", [{ headline: "Add widget", body: "" }])).toBe(false);
+	});
+
+	test("does not match a commit without a body", () => {
+		expect(isCommitMessagePrefillBody("Some body.", [{ headline: "Add widget" }])).toBe(false);
 	});
 
 	test("filters lockfile diff sections and keeps source sections", () => {

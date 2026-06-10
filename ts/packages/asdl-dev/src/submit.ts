@@ -307,7 +307,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	}
 
 	const successText = prLinks.length > 0
-		? formatSubmitSuccessText(prLinks, descriptionResult.generated)
+		? formatSubmitSuccessText(prLinks, { generated: descriptionResult.generated, skipped: descriptionResult.skipped })
 		: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
 }
@@ -383,10 +383,22 @@ function joinOutput(output: Pick<SubmitCommandOutput, "stdout" | "stderr">): str
 	return `${output.stdout}\n${output.stderr}`;
 }
 
-function formatSubmitSuccessText(prLinks: SubmitPrLink[], generatedDescriptions: readonly SubmitPrLink[] = []): string {
+function formatSubmitSuccessText(
+	prLinks: SubmitPrLink[],
+	descriptions: { generated: readonly SubmitPrLink[]; skipped: readonly SubmitPrLink[] },
+): string {
 	const lines = ["gt submit succeeded", "", "PRs:", ...prLinks.map(formatPrLinkTextRow)];
-	if (generatedDescriptions.length > 0) {
-		lines.push("", "Generated PR descriptions:", ...generatedDescriptions.map(formatPrLinkTextRow));
+	if (descriptions.generated.length > 0) {
+		lines.push("", "Generated PR descriptions:", ...descriptions.generated.map(formatPrLinkTextRow));
+	}
+	if (descriptions.skipped.length > 0) {
+		lines.push(
+			"",
+			"Skipped PR descriptions (body looks hand-edited):",
+			...descriptions.skipped.map(formatPrLinkTextRow),
+			"",
+			"Checkout the branch and run `asdl-dev pr-regen --force` to overwrite a hand-edited body.",
+		);
 	}
 	return lines.join("\n");
 }

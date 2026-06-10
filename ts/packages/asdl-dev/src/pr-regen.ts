@@ -1,6 +1,6 @@
 import type { GitGateway } from "./gateways/git.ts";
 import type { GithubPrGateway } from "./gateways/github-pr.ts";
-import { applyGeneratedDescription, canOverwriteBody } from "./pr-description-apply.ts";
+import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 import type { PromptSource } from "./pr-description.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
@@ -25,17 +25,26 @@ export async function runPrRegenCommand(options: RunPrRegenCommandOptions): Prom
 		return failure(1, `Could not resolve current branch PR.\n${pr.error.message}`);
 	}
 
-	if (!canOverwriteBody(pr.value.body, options.shouldForce)) {
+	const decision = await decidePrBodyOverwrite({
+		pr: pr.value,
+		shouldForce: options.shouldForce,
+		cwd: options.cwd,
+		githubPr: options.githubPr,
+	});
+	if (decision.kind === "failed") {
+		return failure(1, decision.error);
+	}
+	if (decision.kind === "skip_hand_edited") {
 		return failure(
 			1,
 			[
-				`Refusing to overwrite PR #${pr.value.number} because its body does not contain the asdl generated-body marker.`,
+				`Refusing to overwrite PR #${pr.value.number} because its body looks hand-edited: it has no asdl generated-body marker and does not match a commit message.`,
 				"Run `asdl-dev pr-regen --force` to overwrite a manually edited body.",
 			].join("\n"),
 		);
 	}
 
-	const applied = await applyGeneratedDescription(pr.value, options);
+	const applied = await applyGeneratedDescription(pr.value, decision.commits, options);
 	if (!applied.ok) {
 		return failure(applied.exitCode ?? 1, applied.error);
 	}
