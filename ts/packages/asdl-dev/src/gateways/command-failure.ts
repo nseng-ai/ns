@@ -4,7 +4,16 @@ import type { ErrorInfo } from "../result.ts";
 
 const STDERR_DETAIL_LIMIT_CHARS = 1_200;
 
-export function commandFailure(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
+export interface CommandFailureOptions {
+	command: string;
+	args: readonly string[];
+	result: ExecResult;
+	code: string;
+	message: string;
+}
+
+export function commandFailure(options: CommandFailureOptions): ErrorInfo | undefined {
+	const { command, args, result, code, message } = options;
 	if (result.code === 0 && !result.killed) {
 		return undefined;
 	}

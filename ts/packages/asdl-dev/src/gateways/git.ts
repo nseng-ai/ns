@@ -16,7 +16,13 @@ export class RealGitGateway implements GitGateway {
 
 	async currentBranch(params: { cwd: string }): Promise<GatewayResult<string>> {
 		const result = await this.runner("git", ["branch", "--show-current"], { cwd: params.cwd });
-		const commandError = commandFailure("git", ["branch", "--show-current"], result, "branch_unresolved", "Could not resolve the current git branch.");
+		const commandError = commandFailure({
+			command: "git",
+			args: ["branch", "--show-current"],
+			result,
+			code: "branch_unresolved",
+			message: "Could not resolve the current git branch.",
+		});
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
@@ -34,7 +40,13 @@ export class RealGitGateway implements GitGateway {
 
 	async repoRoot(params: { cwd: string }): Promise<GatewayResult<string>> {
 		const result = await this.runner("git", ["rev-parse", "--show-toplevel"], { cwd: params.cwd });
-		const commandError = commandFailure("git", ["rev-parse", "--show-toplevel"], result, "repo_root_unresolved", "Could not resolve the git repository root.");
+		const commandError = commandFailure({
+			command: "git",
+			args: ["rev-parse", "--show-toplevel"],
+			result,
+			code: "repo_root_unresolved",
+			message: "Could not resolve the git repository root.",
+		});
 		if (commandError !== undefined) {
 			return err(commandError);
 		}
