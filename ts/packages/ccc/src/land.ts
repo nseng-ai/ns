@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { executeStackLanding, landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { landStackFailure } from "./land-stack/errors.ts";
 import { formatFailure, formatFailureNotification, presentBrief, usage } from "./land-stack/presentation.ts";
@@ -233,7 +234,7 @@ export async function loadPullRequest(pi: Pick<LandExtensionAPI, "exec">, cwd: s
 	try {
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
-		return { error: `Failed to parse gh pr view output: ${errorMessage(error)}. Merge not attempted.` };
+		return { error: `Failed to parse gh pr view output: ${formatErrorMessage(error)}. Merge not attempted.` };
 	}
 
 	return parsePullRequestView(raw);
@@ -281,8 +282,4 @@ function nonEmptyString(value: unknown): value is string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

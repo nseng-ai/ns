@@ -5,6 +5,8 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
+
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,
@@ -132,7 +134,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		} catch (error) {
 			const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
 			updateEmitter.emit(updateFromProgress(progress), { force: true });
-			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${errorMessage(error)}`, error);
+			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${formatErrorMessage(error)}`, error);
 		}
 	}
 
@@ -143,7 +145,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		await cleanupRuntimeFiles(runtimeFiles);
 		const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
-		return errorResult(title, progress, `Failed to create subagent session file: ${errorMessage(error)}`, error);
+		return errorResult(title, progress, `Failed to create subagent session file: ${formatErrorMessage(error)}`, error);
 	}
 
 	const terminalToolNames = terminalTools.map((tool) => tool.name);
@@ -183,7 +185,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		parser.markStopped();
 		updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 		await cleanupRuntimeFiles(runtimeFiles);
-		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${errorMessage(error)}`, error);
+		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${formatErrorMessage(error)}`, error);
 	}
 
 	return await new Promise<RunnerSubagentResult<TTerminalInput>>((resolve) => {
@@ -270,7 +272,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 				.then((result) => withRunnerSubagentUsage(result, dependencies.readSessionFile ?? defaultReadSessionFile))
 				.then(finish, (error: unknown) => {
 					const progress = parser.getProgress();
-					finish(errorResult(title, progress, `Failed to resolve subagent result: ${errorMessage(error)}`, error));
+					finish(errorResult(title, progress, `Failed to resolve subagent result: ${formatErrorMessage(error)}`, error));
 				});
 		});
 	});
@@ -585,7 +587,7 @@ async function withRunnerSubagentUsage<TTerminalInput>(
 			source: "child-session-file",
 			...(sessionFile === undefined ? {} : { sessionFile }),
 			reason: "session-read-error",
-			diagnostic: `Unexpected error while collecting subagent child session usage: ${errorMessage(error)}`,
+			diagnostic: `Unexpected error while collecting subagent child session usage: ${formatErrorMessage(error)}`,
 		};
 	}
 	return { ...result, usage };
@@ -759,11 +761,6 @@ function isSafelyDiscoverablePiScript(scriptPath: string): boolean {
 	if (scriptPath.startsWith("/$bunfs/root/")) return false;
 	const scriptName = basename(scriptPath).toLowerCase();
 	return /^(pi|pi-coding-agent)(\.[cm]?[jt]s)?$/.test(scriptName) || scriptPath.includes("pi-coding-agent");
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }
 
 class BoundedTextBuffer {

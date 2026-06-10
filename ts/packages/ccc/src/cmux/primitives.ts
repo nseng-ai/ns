@@ -1,5 +1,4 @@
 export {
-	formatErrorMessage,
 	isRecord,
 	stringField,
 } from "@asdl/pi-extension-runtime/cmux/primitives";

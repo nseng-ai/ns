@@ -1,5 +1,6 @@
 import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
-import { formatErrorMessage, isRecord, stringField } from "./primitives.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
+import { isRecord, stringField } from "./primitives.ts";
 
 const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;

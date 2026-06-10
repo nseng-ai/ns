@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
@@ -404,7 +405,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		try {
 			exitCode = await spec.runCli(argv, runDeps);
 		} catch (error) {
-			const message = errorMessage(error);
+			const message = formatErrorMessage(error);
 			const exceptionOutput = `Unhandled ${spec.cliName} command error: ${message}\n`;
 			traceCliCommand("runner_exception", { commandName: command.name, error: message, piCommandName });
 			stderr += exceptionOutput;
@@ -860,11 +861,4 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		}
 		seenNames.add(command.name);
 	}
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) {
-		return error.message;
-	}
-	return String(error);
 }

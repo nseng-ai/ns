@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { readFile as nodeReadFile, stat as nodeStat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
 
@@ -138,7 +139,7 @@ async function readUntrackedSnippets(input: AutobranchPreparationInput, root: st
 			const isTruncated = text.length > MAX_UNTRACKED_FILE_CHARS;
 			snippets.push(`## ${file}\n${text.slice(0, MAX_UNTRACKED_FILE_CHARS)}${isTruncated ? "\n...[truncated]" : ""}`);
 		} catch (error) {
-			snippets.push(`## ${file}\n[could not read: ${errorMessage(error)}]`);
+			snippets.push(`## ${file}\n[could not read: ${formatErrorMessage(error)}]`);
 		}
 	}
 	return snippets.join("\n\n");
@@ -187,8 +188,4 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 		.map((path) => path.split("/").pop() ?? path)
 		.join(" ");
 	return sanitizeBranchName(`update ${basenameWords.length > 0 ? basenameWords : snapshot.branch}`);
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

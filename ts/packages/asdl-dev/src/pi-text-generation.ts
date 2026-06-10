@@ -1,5 +1,7 @@
 import type * as PiAi from "@earendil-works/pi-ai";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
+
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
 
 const DEFAULT_MAX_TOKENS = 512;
@@ -94,7 +96,7 @@ export class PiTextGenerationGateway implements TextGenerationGateway {
 
 			return { ok: true, text };
 		} catch (error) {
-			return { ok: false, error: `Pi model ${request.modelRef} failed to generate text: ${errorMessage(error)}` };
+			return { ok: false, error: `Pi model ${request.modelRef} failed to generate text: ${formatErrorMessage(error)}` };
 		}
 	}
 }
@@ -125,8 +127,4 @@ async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
 async function loadDefaultModelRegistry(): Promise<PiModelRegistry> {
 	const { AuthStorage, ModelRegistry } = await import("@earendil-works/pi-coding-agent");
 	return ModelRegistry.create(AuthStorage.create());
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

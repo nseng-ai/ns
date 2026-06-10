@@ -54,10 +54,6 @@ export function isFailure<T>(result: LandStackResult<T>): result is Extract<Land
 	return result.type === "failure";
 }
 
-export function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 export function emptyResult(): ExecResult {
 	return { stdout: "", stderr: "", code: 1, killed: false };
 }

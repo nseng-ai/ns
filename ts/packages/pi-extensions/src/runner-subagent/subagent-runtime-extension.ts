@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	readRuntimeConfigFileSync,
 	writeRuntimeResultFileSync,
@@ -122,7 +123,7 @@ export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRunt
 							writeRuntimeResultFileSync(options.resultPath, capture);
 							terminalCaptured = true;
 						} catch (error) {
-							const message = `Failed to write subagent terminal capture: ${errorMessage(error)}`;
+							const message = `Failed to write subagent terminal capture: ${formatErrorMessage(error)}`;
 							writeRuntimeError(options.resultPath, "write-error", message);
 							throw new Error(message);
 						}
@@ -206,9 +207,4 @@ function writeRuntimeError(
 	} catch {
 		// The parent also observes subagent stderr/exit; avoid corrupting JSON stdout from inside the runtime.
 	}
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

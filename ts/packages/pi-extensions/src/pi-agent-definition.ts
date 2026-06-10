@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
+
 export const PI_AGENT_DEFINITION_SCHEMA = "asdl.pi-agent.v1";
 
 export interface PiAgentDefinition {
@@ -70,7 +72,7 @@ export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDe
 	try {
 		raw = readFileSync(filePath, "utf8");
 	} catch (error) {
-		throw new Error(`Failed to read Pi agent definition "${agentName}" at ${filePath}: ${errorMessage(error)}`);
+		throw new Error(`Failed to read Pi agent definition "${agentName}" at ${filePath}: ${formatErrorMessage(error)}`);
 	}
 
 	const definition = parsePiAgentDefinitionMarkdown(raw, filePath);
@@ -268,9 +270,4 @@ function isDirectory(path: string): boolean {
 		// Any filesystem failure means the path is not a usable agents directory.
 		return false;
 	}
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

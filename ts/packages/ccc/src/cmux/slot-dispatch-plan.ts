@@ -25,7 +25,7 @@ import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "./slot.ts";
 import { repositoryNameFromPath } from "./worktree-description.ts";
-import { formatErrorMessage } from "./primitives.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-plan";
