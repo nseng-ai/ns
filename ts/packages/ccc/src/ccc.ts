@@ -1,3 +1,4 @@
+import { registerCccClaudePlanTabCommand } from "./cmux/claude-plan-tab.ts";
 import { registerCccSlotDispatchPromptCommand } from "./cmux/dispatch-prompt.ts";
 import { createCccSidebarController, registerCccSidebarCommands } from "./cmux/sidebar.ts";
 import { registerCccSlotDispatchPlanCommand } from "./cmux/slot-dispatch-plan.ts";
@@ -10,4 +11,5 @@ export default function registerCccExtension(pi: ExtensionAPI): void {
 	registerCccSlotDispatchPlanCommand(pi);
 	registerCccSlotOpenBranchCommand(pi);
 	registerCccSlotDispatchPromptCommand(pi);
+	registerCccClaudePlanTabCommand(pi);
 }

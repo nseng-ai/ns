@@ -54,6 +54,7 @@ describe("CCC cmux command suite", () => {
 		registerCccExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual([
+			"ccc:claude-plan-tab",
 			"ccc:sidebar:objective-summary",
 			"ccc:sidebar:pr-summary",
 			"ccc:workspace:dispatch-plan",
