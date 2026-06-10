@@ -111,7 +111,7 @@ describe("formatUsage", () => {
 describe("buildOverviewRowCells", () => {
 	test("emits exact-width cells and a composed row matching the inner width", () => {
 		const source: OverviewRowSource = { type: "base", region: makeBaseRegion() };
-		const cells = buildOverviewRowCells(source, 2_000, 3_000, INNER_WIDTH);
+		const cells = buildOverviewRowCells(source, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
 		expect(visibleWidth(cells.label)).toBe(overviewLabelWidth(INNER_WIDTH));
 		expect(visibleWidth(cells.barFilled) + visibleWidth(cells.barEmpty)).toBe(BAR_WIDTH);
 		expect(visibleWidth(cells.tokens)).toBe(TOKENS_COLUMN_WIDTH);
@@ -121,17 +121,17 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("renders identical widths across renders for differing values (no jitter)", () => {
-		const small = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(3) }) }, 2_000, 3_000, INNER_WIDTH);
-		const large = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(1_999_999) }) }, 2_000_000, 3_000_000, INNER_WIDTH);
+		const small = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(3) }) }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		const large = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(1_999_999) }) }, { maxTokens: 2_000_000, totalTokens: 3_000_000, innerWidth: INNER_WIDTH });
 		expect(visibleWidth(composeOverviewRowText(small))).toBe(visibleWidth(composeOverviewRowText(large)));
 	});
 
 	test("scales the bar to the largest visible row", () => {
-		const full = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(2_000) }) }, 2_000, 4_000, INNER_WIDTH);
+		const full = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(2_000) }) }, { maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH });
 		expect(full.barFilled).toBe("█".repeat(BAR_WIDTH));
-		const half = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(1_000) }) }, 2_000, 4_000, INNER_WIDTH);
+		const half = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(1_000) }) }, { maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH });
 		expect(half.barFilled).toBe("█".repeat(BAR_WIDTH / 2));
-		const empty = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(0) }) }, 2_000, 4_000, INNER_WIDTH);
+		const empty = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(0) }) }, { maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH });
 		expect(empty.barFilled).toBe("");
 		expect(empty.barEmpty).toBe("░".repeat(BAR_WIDTH));
 	});
@@ -141,33 +141,29 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("computes the percent column against the combined total", () => {
-		const cells = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(600) }) }, 2_000, 900, INNER_WIDTH);
+		const cells = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(600) }) }, { maxTokens: 2_000, totalTokens: 900, innerWidth: INNER_WIDTH });
 		expect(cells.percent).toBe("  67%");
 	});
 
 	test("composes the status column from outcome glyph and kind abbrev", () => {
-		const base = buildOverviewRowCells({ type: "base", region: makeBaseRegion() }, 2_000, 3_000, INNER_WIDTH);
+		const base = buildOverviewRowCells({ type: "base", region: makeBaseRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
 		expect(base.status).toBe(" ".repeat(STATUS_COLUMN_WIDTH));
 		expect(base.health).toBe("neutral");
 
-		const current = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, 2_000, 3_000, INNER_WIDTH);
+		const current = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
 		expect(current.status).toBe(fitToWidth("● chat", STATUS_COLUMN_WIDTH));
 		expect(current.health).toBe("accent");
 
 		const explore = buildOverviewRowCells(
 			{ type: "live", region: makeLiveRegion({ kind: "explore", isCurrent: false, source: "annotation" }) },
-			2_000,
-			3_000,
-			INNER_WIDTH,
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 		);
 		expect(explore.status).toBe(fitToWidth("· exp", STATUS_COLUMN_WIDTH));
 		expect(explore.health).toBe("neutral");
 
 		const unannotated = buildOverviewRowCells(
 			{ type: "live", region: makeLiveRegion({ kind: "uncategorized", isCurrent: false }) },
-			2_000,
-			3_000,
-			INNER_WIDTH,
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 		);
 		expect(unannotated.status).toBe(fitToWidth("· —", STATUS_COLUMN_WIDTH));
 		expect(unannotated.health).toBe("dim");
@@ -184,9 +180,7 @@ describe("buildOverviewRowCells", () => {
 		for (const { outcome, glyph, health } of cases) {
 			const cells = buildOverviewRowCells(
 				{ type: "live", region: makeLiveRegion({ kind: "edit", outcome, isCurrent: false, source: "annotation" }) },
-				2_000,
-				3_000,
-				INNER_WIDTH,
+				{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 			);
 			expect(cells.status).toBe(fitToWidth(`${glyph} edit`, STATUS_COLUMN_WIDTH));
 			expect(visibleWidth(cells.status)).toBe(STATUS_COLUMN_WIDTH);
@@ -195,14 +189,14 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("labels live rows with their turn range", () => {
-		const cells = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, 2_000, 3_000, INNER_WIDTH);
+		const cells = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
 		expect(cells.label.trimEnd()).toBe("conversation turns · 1–12");
 	});
 });
 
 describe("buildUsageBarSegments", () => {
 	test("splits the bar into base, live, and free against the context window", () => {
-		const segments = buildUsageBarSegments({ tokens: 100_000, contextWindow: 200_000, percent: 50 }, 60_000, 30_000, 40);
+		const segments = buildUsageBarSegments({ tokens: 100_000, contextWindow: 200_000, percent: 50 }, { baseTokens: 60_000, liveTokens: 30_000, innerWidth: 40 });
 		expect(segments.baseWidth).toBe(12);
 		expect(segments.liveWidth).toBe(8);
 		expect(segments.freeWidth).toBe(20);
@@ -213,7 +207,7 @@ describe("buildUsageBarSegments", () => {
 	});
 
 	test("falls back to estimated totals when usage is unavailable", () => {
-		const segments = buildUsageBarSegments(undefined, 30_000, 10_000, 40);
+		const segments = buildUsageBarSegments(undefined, { baseTokens: 30_000, liveTokens: 10_000, innerWidth: 40 });
 		expect(segments.baseWidth + segments.liveWidth + segments.freeWidth).toBe(40);
 		expect(segments.freeWidth).toBe(0);
 	});
