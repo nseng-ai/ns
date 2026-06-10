@@ -126,6 +126,10 @@ function currentBranchStep(branch: string = SOURCE_BRANCH, result: Partial<ExecR
 	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
+function gtInfoStep(branch: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["info", branch, "--no-interactive"], result);
+}
+
 function gtTrackStep(branch: string, parent: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
 	return step("gt", ["track", branch, "--parent", parent, "--no-interactive"], result);
 }
@@ -187,6 +191,7 @@ function graphiteSuccessScript(input: { branch: string; key: string; filePath: s
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
 		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
 		currentBranchStep(),
+		gtInfoStep(),
 		gitBranchStep(input.branch),
 		gtTrackStep(input.branch),
 		brmemPutStep(input.branch, input.key, input.filePath, {
@@ -314,6 +319,7 @@ describe("createPlannedBranchFromFile", () => {
 			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${branch}`] },
 			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"] },
 			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "gt", args: ["info", SOURCE_BRANCH, "--no-interactive"] },
 			{ command: "git", args: ["branch", branch, "HEAD"] },
 			{ command: "gt", args: ["track", branch, "--parent", SOURCE_BRANCH, "--no-interactive"] },
 			{
@@ -347,6 +353,29 @@ describe("createPlannedBranchFromFile", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
 	});
 
+	test("refuses Graphite branch creation from an untracked parent before creating the branch", async () => {
+		const filePath = await makePlanFile();
+		const branch = `planned-branches/${PLAN_SLUG}`;
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(branch),
+			headStep(),
+			localBranchCheckStep(branch, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			currentBranchStep(),
+			gtInfoStep(SOURCE_BRANCH, { code: 1, stderr: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.` }),
+		]);
+
+		await expect(
+			createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT }),
+		).rejects.toThrow("Current branch is not tracked by Graphite; refusing to stack a planned branch on it.");
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", branch, "HEAD"]);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "track")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+	});
+
 	test("surfaces Graphite track failures before storing Branch Memory", async () => {
 		const filePath = await makePlanFile();
 		const branch = `planned-branches/${PLAN_SLUG}`;
@@ -357,6 +386,7 @@ describe("createPlannedBranchFromFile", () => {
 			localBranchCheckStep(branch, { code: 1 }),
 			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
 			currentBranchStep(),
+			gtInfoStep(),
 			gitBranchStep(branch),
 			gtTrackStep(branch, SOURCE_BRANCH, { code: 1, stderr: "current branch is not tracked" }),
 		]);
@@ -400,6 +430,7 @@ describe("createPlannedBranchFromFile", () => {
 			localBranchCheckStep(branch, { code: 1 }),
 			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
 			currentBranchStep(),
+			gtInfoStep(),
 			gitBranchStep(branch),
 			gtTrackStep(branch),
 			brmemPutStep(branch, PLAN_KEY, filePath, { code: 2, stderr: "write failed" }),

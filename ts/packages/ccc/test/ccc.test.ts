@@ -233,6 +233,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				step("brmem", ["check", PLAN_KEY, "--namespace", "planned-branch", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
 				gitCurrentBranchStep(),
+				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("brmem", ["put", PLAN_KEY, "--namespace", "planned-branch", "--branch", PLAN_SLUG, "--file", realPlanFile, "--format", "json"], {

@@ -163,6 +163,7 @@ export function formatPlannedBranchCreatePreview(
 	operation: PlannedBranchCreateOperation,
 	context: PlannedBranchCreatePreviewContext,
 ): string {
+	const graphiteParentBranch = context.graphiteParentBranch ?? "<current-branch>";
 	const lines = [
 		"Target:",
 		`Branch: ${operation.branch}`,
@@ -172,10 +173,13 @@ export function formatPlannedBranchCreatePreview(
 		`Branch Memory key: ${operation.key}`,
 		"",
 		"Planned-branch commands that would run:",
-		formatCommand("git", ["branch", operation.branch, "HEAD"]),
 	];
 	if (operation.branchCreation === "graphite") {
-		lines.push(formatCommand("gt", ["track", operation.branch, "--parent", context.graphiteParentBranch ?? "<current-branch>", "--no-interactive"]));
+		lines.push(formatCommand("gt", ["info", graphiteParentBranch, "--no-interactive"]));
+	}
+	lines.push(formatCommand("git", ["branch", operation.branch, "HEAD"]));
+	if (operation.branchCreation === "graphite") {
+		lines.push(formatCommand("gt", ["track", operation.branch, "--parent", graphiteParentBranch, "--no-interactive"]));
 	}
 	lines.push(
 		formatCommand("brmem", [
@@ -425,6 +429,22 @@ async function createPlainGitBranch(git: PlannedBranchGitGateway, options: Creat
 
 async function createGraphiteBranch(git: PlannedBranchGitGateway, graphite: PlannedBranchGraphiteGateway, options: CreateGraphiteBranchOptions): Promise<void> {
 	const parentBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
+	const parentTracked = await graphite.checkBranchTracked({ cwd: options.cwd, branch: parentBranch, signal: options.signal });
+	if (!parentTracked.ok) {
+		throw new Error(parentTracked.error.message);
+	}
+	if (!parentTracked.tracked) {
+		throw new Error(
+			[
+				"Current branch is not tracked by Graphite; refusing to stack a planned branch on it.",
+				`Parent branch: ${parentBranch}`,
+				"No branch was created and no plan was attached.",
+				`Track the parent first (gt track ${parentBranch} --parent <its-parent>) or pass --plain-git.`,
+				"",
+				parentTracked.detail,
+			].join("\n"),
+		);
+	}
 	await createPlainGitBranch(git, options);
 	const track = await graphite.trackBranch({ cwd: options.cwd, branch: options.branch, parentBranch, signal: options.signal });
 	if (!track.ok) {

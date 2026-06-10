@@ -244,17 +244,21 @@ The saved-plan filename is only a locator. If the model cannot derive and valida
 
 export const UP_AND_IMPL_USAGE = `Usage: /planned-branch:up-and-impl [options] [absolute-or-home-plan-file.md]
 
-Create a planned branch, attach the saved plan, check out that branch with git, start a new Pi session, and launch /planned-branch:impl for the attached plan in that new session.
+Stack a planned branch on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and launch /planned-branch:impl for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
   --yes, -y          Compatibility no-op; resolved planned branches create without confirmation.
-  --graphite         Create the target branch with Graphite.
-  --plain-git        Create the target branch with plain Git.
+  --graphite         Default: stack the target branch on the current branch with Graphite.
+  --plain-git        Escape hatch: create with plain Git instead; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
-This command intentionally models the manual flow: /planned-branch:create, git checkout <branch>, /new, then /planned-branch:impl <key> in the new Pi session.`;
+The current branch must be trunk or a Graphite-tracked branch; otherwise this command fails before creating a branch or attaching a plan.
+With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
+
+This command intentionally models the manual flow: /planned-branch:create --graphite, git checkout <branch>, /new, then /planned-branch:impl <key> in the new Pi session.`;
 
 const WRITE_PLAN_PROMPT_NAME = "plans-write";
 const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
@@ -623,7 +627,7 @@ export default function registerPlannedBranchExtension(
 	});
 
 	pi.registerCommand(UP_AND_IMPL_COMMAND_NAME, {
-		description: "Create a planned branch, check it out, and implement the attached plan in a new Pi session.",
+		description: "Stack a planned branch on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
 		handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
 	});
 
@@ -771,7 +775,7 @@ async function handleUpAndImplCommand(
 	let preview: CreatePlannedBranchPreview;
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
-		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, options);
+		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, { ...options, plannedBranchDefaultCreation: "graphite" });
 	} catch (error) {
 		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
 		return;

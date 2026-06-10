@@ -28,8 +28,9 @@ The public workflow surface is:
 4. `/planned-branch:impl [key-or-slug]` in Pi, or the `planned-branch-impl`
    skill, loads the canonical attached plan and starts implementation.
 
-For Pi users on this repo's Graphite-backed adapter, `/planned-branch:up-and-impl`
-combines branch creation, `git checkout <branch>`, a fresh Pi session, and
+For Pi users, `/planned-branch:up-and-impl` stacks the planned branch on the
+current branch with Graphite by default everywhere, with `--plain-git` as an
+escape hatch, then combines `git checkout <branch>`, a fresh Pi session, and
 `/planned-branch:impl` after a plan has been written.
 
 The agent skills form a bundled planned-branch skill family: the `planned-branch`
@@ -169,13 +170,14 @@ git checkout <branch>
 /planned-branch:impl <attached-plan-key>
 ```
 
-The command uses the same branch-creation options as `/planned-branch:create`;
-in this repo, the project-local adapter defaults to Graphite branch creation. It
-checks out the created branch by exact branch name with `git checkout <branch>`,
-starts a new Pi session, and sends `/planned-branch:impl <key>` in that new
-session. `--dry-run` previews the selected saved plan and the follow-up flow
-without creating a branch, checking out a branch, starting a new session, or
-sending an implementation prompt.
+The command defaults to Graphite stacking on the current branch regardless of
+extension options; `--plain-git` opts out to plain Git branch creation. The
+current branch must be trunk or Graphite-tracked, otherwise the command fails
+before creating a branch or attaching a plan. It checks out the created branch
+by exact branch name with `git checkout <branch>`, starts a new Pi session, and
+sends `/planned-branch:impl <key>` in that new session. `--dry-run` previews the
+selected saved plan and the follow-up flow without creating a branch, checking
+out a branch, starting a new session, or sending an implementation prompt.
 
 ### Load and implement an attached plan
 

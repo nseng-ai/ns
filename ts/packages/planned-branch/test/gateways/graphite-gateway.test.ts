@@ -80,11 +80,32 @@ function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function infoArgs(branch = PARENT_BRANCH): string[] {
+	return ["info", branch, "--no-interactive"];
+}
+
 function trackArgs(branch = BRANCH, parentBranch = PARENT_BRANCH): string[] {
 	return ["track", branch, "--parent", parentBranch, "--no-interactive"];
 }
 
 describe("in-memory planned-branch graphite gateway", () => {
+	test("records trackedness checks and succeeds by default", async () => {
+		const graphite = new InMemoryPlannedBranchGraphiteGateway();
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({ ok: true, tracked: true });
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: PARENT_BRANCH }]);
+	});
+
+	test("returns configured untracked branch checks", async () => {
+		const graphite = new InMemoryPlannedBranchGraphiteGateway({
+			untrackedBranches: [PARENT_BRANCH],
+			untrackedDetail: "untracked parent",
+		});
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({ ok: true, tracked: false, detail: "untracked parent" });
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: PARENT_BRANCH }]);
+	});
+
 	test("records track calls and succeeds by default", async () => {
 		const graphite = new InMemoryPlannedBranchGraphiteGateway();
 
@@ -106,6 +127,55 @@ describe("in-memory planned-branch graphite gateway", () => {
 });
 
 describe("real planned-branch graphite gateway", () => {
+	test("preserves trackedness command protocol", async () => {
+		const commands = new ScriptedCommands([step("gt", infoArgs())]);
+		const graphite = new RealPlannedBranchGraphiteGateway(commands);
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({ ok: true, tracked: true });
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([{ command: "gt", args: infoArgs(), options: { cwd: ROOT, timeout: 30_000 } }]);
+	});
+
+	test("threads AbortSignal into the trackedness command", async () => {
+		const controller = new AbortController();
+		const commands = new ScriptedCommands([step("gt", infoArgs())]);
+		const graphite = new RealPlannedBranchGraphiteGateway(commands);
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH, signal: controller.signal })).toEqual({ ok: true, tracked: true });
+		commands.assertDone();
+		expect(commands.execCalls[0]?.options).toEqual({ cwd: ROOT, timeout: 30_000, signal: controller.signal });
+	});
+
+	test("returns nonzero trackedness checks as untracked with detail", async () => {
+		const commands = new ScriptedCommands([step("gt", infoArgs(), { code: 1, stderr: `ERROR: Cannot perform this operation on untracked branch ${PARENT_BRANCH}` })]);
+		const graphite = new RealPlannedBranchGraphiteGateway(commands);
+
+		const result = await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH });
+
+		expect(result).toMatchObject({ ok: true, tracked: false });
+		if (result.ok && !result.tracked) {
+			expect(result.detail).toContain("gt info could not verify Graphite tracking");
+			expect(result.detail).toContain(`Command: gt info ${PARENT_BRANCH} --no-interactive`);
+			expect(result.detail).toContain("Cannot perform this operation on untracked branch");
+		}
+		commands.assertDone();
+	});
+
+	test("returns startup failures from trackedness checks as typed errors", async () => {
+		const commands = new ScriptedCommands([errorStep("gt", infoArgs(), new Error("spawn gt ENOENT"))]);
+		const graphite = new RealPlannedBranchGraphiteGateway(commands);
+
+		const result = await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH });
+
+		expect(result).toMatchObject({ ok: false, error: { code: "graphite_startup_failed" } });
+		if (!result.ok) {
+			expect(result.error.message).toContain("gt command failed before completion");
+			expect(result.error.message).toContain(`Command: gt info ${PARENT_BRANCH} --no-interactive`);
+			expect(result.error.message).toContain("spawn gt ENOENT");
+		}
+		commands.assertDone();
+	});
+
 	test("preserves track command protocol", async () => {
 		const commands = new ScriptedCommands([step("gt", trackArgs())]);
 		const graphite = new RealPlannedBranchGraphiteGateway(commands);

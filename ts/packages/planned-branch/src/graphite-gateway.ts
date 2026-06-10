@@ -9,6 +9,12 @@ export interface GraphiteTrackBranchParams {
 	signal?: AbortSignal | undefined;
 }
 
+export interface GraphiteCheckBranchTrackedParams {
+	cwd: string;
+	branch: string;
+	signal?: AbortSignal | undefined;
+}
+
 export interface GraphiteErrorInfo {
 	code: string;
 	message: string;
@@ -17,7 +23,13 @@ export interface GraphiteErrorInfo {
 
 export type GraphiteOperationResult = { ok: true } | { ok: false; error: GraphiteErrorInfo };
 
+export type GraphiteBranchTrackedResult =
+	| { ok: true; tracked: true }
+	| { ok: true; tracked: false; detail: string }
+	| { ok: false; error: GraphiteErrorInfo };
+
 export interface PlannedBranchGraphiteGateway {
+	checkBranchTracked(params: GraphiteCheckBranchTrackedParams): Promise<GraphiteBranchTrackedResult>;
 	trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult>;
 }
 
@@ -33,6 +45,26 @@ export class RealPlannedBranchGraphiteGateway implements PlannedBranchGraphiteGa
 		this.pi = pi;
 	}
 
+	async checkBranchTracked(params: GraphiteCheckBranchTrackedParams): Promise<GraphiteBranchTrackedResult> {
+		const args = ["info", params.branch, "--no-interactive"];
+		const displayCommand = formatCommand("gt", args);
+		let result: ExecResult;
+		try {
+			result = await this.pi.exec("gt", args, execOptions(params.cwd, GT_TIMEOUT_MS, params.signal));
+		} catch (caught) {
+			return { ok: false, error: startupFailure(displayCommand, caught) };
+		}
+
+		if (result.code !== 0 || result.killed) {
+			return {
+				ok: true,
+				tracked: false,
+				detail: formatCommandFailure("gt info could not verify Graphite tracking", displayCommand, result),
+			};
+		}
+		return { ok: true, tracked: true };
+	}
+
 	async trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult> {
 		const args = ["track", params.branch, "--parent", params.parentBranch, "--no-interactive"];
 		const displayCommand = formatCommand("gt", args);
@@ -40,15 +72,7 @@ export class RealPlannedBranchGraphiteGateway implements PlannedBranchGraphiteGa
 		try {
 			result = await this.pi.exec("gt", args, execOptions(params.cwd, GT_TIMEOUT_MS, params.signal));
 		} catch (caught) {
-			const message = caught instanceof Error ? caught.message : String(caught);
-			return {
-				ok: false,
-				error: {
-					code: "graphite_startup_failed",
-					message: `gt command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`,
-					displayCommand,
-				},
-			};
+			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
 
 		if (result.code !== 0 || result.killed) {
@@ -56,6 +80,15 @@ export class RealPlannedBranchGraphiteGateway implements PlannedBranchGraphiteGa
 		}
 		return { ok: true };
 	}
+}
+
+function startupFailure(displayCommand: string, caught: unknown): GraphiteErrorInfo {
+	const message = caught instanceof Error ? caught.message : String(caught);
+	return {
+		code: "graphite_startup_failed",
+		message: `gt command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`,
+		displayCommand,
+	};
 }
 
 function failure(code: string, title: string, run: CommandRun): GraphiteErrorInfo {
