@@ -137,7 +137,7 @@ command and continue from the current conflict state.
 **On each conflict stop**, read
 `skills/code-resolve-merge-conflicts/SKILL.md` and follow its workflow with the
 **Engine parameters** above. The engine handles everything per-conflict:
-auto-generated files, the intent-diff, the four-safe-category classification,
+auto-generated files, the intent-diff, safe-category classification,
 region-only edits, the migration-surface sweep, the verification gate,
 escalation, and running `gt continue`.
 

@@ -105,13 +105,18 @@ regenerated in step 8. All other files proceed to step 3.
 a. **Get the intent-diff** (modes table) — the ground truth for what the
 incoming side changed.
 
-b. **Classify** the conflict region against the four **safe** categories:
+b. **Classify** the conflict region against the five **safe** categories:
 
 - **complementary / non-overlapping** — sides change different things in the
   region; keep both
 - **identical** — both sides made the same change; keep one
 - **formatting / whitespace / import-order** — purely mechanical; resolve to
   the correct mechanical form
+- **rename / API-migration propagation** — one side applies a systematic
+  migration, such as renamed constructors, changed options shape, or inverted
+  argument order. Safe only when the migration rule is explicit from the
+  intent-diff or commit message, and the verification gate confirms the
+  propagated call-site changes.
 - **one-side strict-superset** — one side fully contains the other; keep the
   superset
 
