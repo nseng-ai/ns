@@ -290,13 +290,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 		}
 		if (registered.isRawExit) {
 			if (exit.type !== "ok") {
-				if (exit.type === "failure") {
-					io.stderr(`error: ${exit.message}\n`);
-					state.exitCode = 2;
-				} else {
-					io.stderr(`${exit.message}\n`);
-					state.exitCode = 1;
-				}
+				state.exitCode = emitExit(exit, { format: "human", io });
 				return;
 			}
 			const okData = exit.data;

@@ -78,13 +78,13 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 					cwd: ctx.cwd,
 					env: ctx.env,
 				};
-				if (request.branch) {
+				if (request.branch !== undefined) {
 					lookupOptions.branch = request.branch;
 				}
-				if (request.project) {
+				if (request.project !== undefined) {
 					lookupOptions.project = request.project;
 				}
-				if (request.scope) {
+				if (request.scope !== undefined) {
 					lookupOptions.scope = request.scope;
 				}
 
@@ -121,12 +121,7 @@ Environment:
 					gateway: ctx.context.checkpoint,
 					textGeneration: ctx.context.textGeneration,
 				});
-				if (result.stdout !== "") {
-					ctx.stdout(result.stdout);
-				}
-				if (result.stderr !== "") {
-					ctx.stderr(result.stderr);
-				}
+				writeCommandResultOutput(result, ctx);
 				return result.exitCode;
 			},
 		}),
@@ -212,12 +207,7 @@ Environment:
 					git: ctx.context.git,
 					shouldForce: request.force,
 				});
-				if (result.stdout !== "") {
-					ctx.stdout(result.stdout);
-				}
-				if (result.stderr !== "") {
-					ctx.stderr(result.stderr);
-				}
+				writeCommandResultOutput(result, ctx);
 				return result.exitCode;
 			},
 		}),
