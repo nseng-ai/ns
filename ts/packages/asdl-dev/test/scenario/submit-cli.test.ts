@@ -24,6 +24,13 @@ interface RunWithFakesOptions {
 	confirmResponses?: readonly boolean[];
 }
 
+interface SubmitCommandOutputOptions {
+	stdout?: string;
+	stderr?: string;
+	exitCode?: number;
+	killed?: boolean;
+}
+
 function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: RunWithFakesOptions = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
@@ -69,8 +76,9 @@ function runWithFakes(args: readonly string[], state: InMemoryContextState = {},
 	};
 }
 
-function output(stdout = "", stderr = "", exitCode = 0): SubmitCommandOutput {
-	return { stdout, stderr, exitCode };
+function output(options: SubmitCommandOutputOptions = {}): SubmitCommandOutput {
+	const { stdout = "", stderr = "", exitCode = 0, killed = false } = options;
+	return { stdout, stderr, exitCode, ...(killed ? { killed: true } : {}) };
 }
 
 function prLink(number: number): SubmitPrLink {
@@ -109,6 +117,39 @@ function dirtyPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
 }
 
 describe("asdl-dev submit CLI behavior", () => {
+	test("help documents submit behavior through clinkr", async () => {
+		const run = runWithFakes(["submit", "--help"]);
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: asdl-dev submit");
+		expect(help).toContain("gt submit -nps --no-ai");
+		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(help).toContain("--restack");
+		expect(help).toContain("--json-schema");
+		expect(help).not.toContain("--format");
+	});
+
+	test("json schema is available without running Graphite", async () => {
+		const run = runWithFakes(["submit", "--json-schema"]);
+
+		expect(await run.exit).toBe(0);
+		const schema = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
+		expect(schema).toHaveProperty("input_json_schema");
+		expect(schema).toHaveProperty("output_json_schema");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+	});
+
+	test("raw submit rejects clinkr --format", async () => {
+		const run = runWithFakes(["submit", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		// PINNED CLINKR SEMANTICS (raw command): handler-owned bytes mean no --format dialect.
+		expect(run.stderr.join("")).toContain("error: unknown option '--format'");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+	});
+
 	test("successful submit prints PR links and verifies the current PR", async () => {
 		const run = runWithFakes(["submit"]);
 
@@ -130,15 +171,15 @@ describe("asdl-dev submit CLI behavior", () => {
 			["submit"],
 			{
 				submit: {
-					preflight: { kind: "ready", output: output("dry-run ok\n") },
+					preflight: { kind: "ready", output: output({ stdout: "dry-run ok\n" }) },
 					submit: {
 						kind: "success",
-						output: output("Created https://github.com/acme/project/pull/456\n", "submit warning\n"),
+						output: output({ stdout: "Created https://github.com/acme/project/pull/456\n", stderr: "submit warning\n" }),
 						prLinks: [prLink(456)],
 					},
 					currentPr: {
 						kind: "present",
-						output: output("https://github.com/acme/project/pull/456\n"),
+						output: output({ stdout: "https://github.com/acme/project/pull/456\n" }),
 						prLinks: [prLink(456)],
 					},
 				},
@@ -182,8 +223,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
 			submit: {
-				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `Created ${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "", headRefName: "feature/demo", baseRefName: "main" } },
@@ -219,8 +260,8 @@ describe("asdl-dev submit CLI behavior", () => {
 				inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] },
 			},
 			submit: {
-				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `Created ${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Prepare widget metadata", body: generatedBody, headRefName: "feature/demo", baseRefName: "main" } },
@@ -246,8 +287,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const run = runWithFakes(["submit"], {
 			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 			submit: {
-				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `Created ${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Wrong title", body: "Wrong body", headRefName: "feature/demo", baseRefName: "main" } },
@@ -280,8 +321,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const run = runWithFakes(["submit"], {
 			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch({ commitMessages: [{ headline: "one" }, { headline: "two" }] })] } },
 			submit: {
-				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Add widget", body: "", headRefName: "feature/demo", baseRefName: "main" } },
@@ -310,8 +351,8 @@ describe("asdl-dev submit CLI behavior", () => {
 				},
 			},
 			submit: {
-				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Base PR", body: "Generated body", headRefName: "feature/base", baseRefName: "main" } },
@@ -330,7 +371,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		const run = runWithFakes(["submit"], {
 			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 			submit: {
-				submit: { kind: "failed", output: output("", "Graphite failed\n", 1) },
+				submit: { kind: "failed", output: output({ stdout: "", stderr: "Graphite failed\n", exitCode: 1 }) },
 			},
 			textGeneration: { results: [{ ok: true, text: `Prepare widget metadata\n\n${generatedBody}` }] },
 		});
@@ -344,7 +385,7 @@ describe("asdl-dev submit CLI behavior", () => {
 	test("failed dry-run does not prewrite metadata", async () => {
 		const run = runWithFakes(["submit"], {
 			submit: {
-				preflight: { kind: "failed", output: output("", "ERROR: Aborting dry run.\n", 1) },
+				preflight: { kind: "failed", output: output({ stdout: "", stderr: "ERROR: Aborting dry run.\n", exitCode: 1 }) },
 			},
 			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 		});
@@ -360,8 +401,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
 			submit: {
-				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `Created ${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Add widget", body: "Implements the widget flow.", headRefName: "feature/demo", baseRefName: "main" } },
@@ -390,8 +431,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
 			submit: {
-				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "Manual body", headRefName: "feature/demo", baseRefName: "main" } },
@@ -413,8 +454,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
 			submit: {
-				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Old title", body: `Previous generated body\n\n${GENERATED_BODY_MARKER}`, headRefName: "feature/demo", baseRefName: "main" } },
@@ -443,8 +484,8 @@ describe("asdl-dev submit CLI behavior", () => {
 		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
 			submit: {
-				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
-				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+				submit: { kind: "success", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
+				currentPr: { kind: "present", output: output({ stdout: `${link.url}\n` }), prLinks: [link] },
 			},
 			githubPr: {
 				prs: { 456: { number: 456, url: link.url, title: "Old title", body: "", headRefName: "feature/demo", baseRefName: "main" } },
@@ -461,8 +502,8 @@ describe("asdl-dev submit CLI behavior", () => {
 	test("submit success without detected PR links skips generation with pr-regen notice", async () => {
 		const run = runWithFakes(["submit"], {
 			submit: {
-				submit: { kind: "success", output: output("Submitted stack\n"), prLinks: [] },
-				currentPr: { kind: "present", output: output("current PR ok\n"), prLinks: [] },
+				submit: { kind: "success", output: output({ stdout: "Submitted stack\n" }), prLinks: [] },
+				currentPr: { kind: "present", output: output({ stdout: "current PR ok\n" }), prLinks: [] },
 			},
 		});
 
@@ -493,7 +534,7 @@ describe("asdl-dev submit CLI behavior", () => {
 			submit: {
 				preflight: {
 					kind: "restack_required",
-					output: output("", "Restack is required before submit.\n", 1),
+					output: output({ stdout: "", stderr: "Restack is required before submit.\n", exitCode: 1 }),
 				},
 			},
 		});
@@ -516,17 +557,17 @@ describe("asdl-dev submit CLI behavior", () => {
 				submit: {
 					preflight: {
 						kind: "restack_required",
-						output: output("", "Restack is required before submit.\n", 1),
+						output: output({ stdout: "", stderr: "Restack is required before submit.\n", exitCode: 1 }),
 					},
-					restack: { kind: "success", output: output("restacked\n") },
+					restack: { kind: "success", output: output({ stdout: "restacked\n" }) },
 					submit: {
 						kind: "success",
-						output: output(`${link.url}\n`),
+						output: output({ stdout: `${link.url}\n` }),
 						prLinks: [link],
 					},
 					currentPr: {
 						kind: "present",
-						output: output(`${link.url}\n`),
+						output: output({ stdout: `${link.url}\n` }),
 						prLinks: [link],
 					},
 				},
@@ -557,7 +598,7 @@ describe("asdl-dev submit CLI behavior", () => {
 				submit: {
 					preflight: {
 						kind: "restack_required",
-						output: output("", "Restack is required before submit.\n", 1),
+						output: output({ stdout: "", stderr: "Restack is required before submit.\n", exitCode: 1 }),
 					},
 				},
 			},
@@ -582,17 +623,17 @@ describe("asdl-dev submit CLI behavior", () => {
 				submit: {
 					preflight: {
 						kind: "restack_required",
-						output: output("", "Restack is required before submit.\n", 1),
+						output: output({ stdout: "", stderr: "Restack is required before submit.\n", exitCode: 1 }),
 					},
-					restack: { kind: "success", output: output("restacked\n") },
+					restack: { kind: "success", output: output({ stdout: "restacked\n" }) },
 					submit: {
 						kind: "success",
-						output: output(`${link.url}\n`),
+						output: output({ stdout: `${link.url}\n` }),
 						prLinks: [link],
 					},
 					currentPr: {
 						kind: "present",
-						output: output(`${link.url}\n`),
+						output: output({ stdout: `${link.url}\n` }),
 						prLinks: [link],
 					},
 				},
@@ -613,7 +654,7 @@ describe("asdl-dev submit CLI behavior", () => {
 			submit: {
 				submit: {
 					kind: "failed",
-					output: output("partial output\n", "submit failed\n", 1),
+					output: output({ stdout: "partial output\n", stderr: "submit failed\n", exitCode: 1 }),
 				},
 			},
 		});
@@ -631,7 +672,7 @@ describe("asdl-dev submit CLI behavior", () => {
 			submit: {
 				currentPr: {
 					kind: "no_current_pr",
-					output: output("", "No PR found for current branch.\n", 1),
+					output: output({ stdout: "", stderr: "No PR found for current branch.\n", exitCode: 1 }),
 					cause: "no_current_pr",
 				},
 			},
@@ -648,15 +689,13 @@ describe("asdl-dev submit CLI behavior", () => {
 			submit: {
 				submit: {
 					kind: "success",
-					output: output(
-						"This branch does not introduce any changes:\nGraphite will not be submitted because GitHub does not allow empty PRs.\n",
-					),
+					output: output({ stdout: "This branch does not introduce any changes:\nGraphite will not be submitted because GitHub does not allow empty PRs.\n" }),
 					prLinks: [],
 					semanticFailureCause: "empty_branch_skipped",
 				},
 				currentPr: {
 					kind: "present",
-					output: output("https://github.com/acme/project/pull/123\n"),
+					output: output({ stdout: "https://github.com/acme/project/pull/123\n" }),
 					prLinks: [prLink(123)],
 				},
 			},
@@ -672,7 +711,37 @@ describe("asdl-dev submit CLI behavior", () => {
 		const run = runWithFakes(["submit", "--bogus"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Unknown option: --bogus");
+		expect(run.stderr.join("")).toContain("error: unknown option '--bogus'");
+		expect(run.stderr.join("")).not.toContain("Usage: asdl-dev submit");
 		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+	});
+
+	test("timeout (exit 124) round-trips at shell level", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				preflight: {
+					kind: "failed",
+					output: output({ stdout: "", stderr: "", exitCode: 124, killed: true }),
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(124);
+		expect(run.stderr.join("")).toContain("timed out after");
+	});
+
+	test("arbitrary nonzero gt exit code passes through", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				preflight: {
+					kind: "failed",
+					output: output({ stdout: "some output\n", stderr: "some error\n", exitCode: 3 }),
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(3);
+		expect(run.stderr.join("")).toContain("some error");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([{ cwd: "/work" }]);
 	});
 });
