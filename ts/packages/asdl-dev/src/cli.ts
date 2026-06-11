@@ -52,6 +52,13 @@ export interface AsdlDevCliContext {
 	confirm?: ConfirmPrompt;
 }
 
+const COMMAND_SUMMARIES = {
+	"preview-url": "Print the Vercel preview URL for a branch.",
+	cp: "Create a checkpoint commit for the current diff.",
+	submit: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
+	"pr-regen": "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+} as const;
+
 export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 	const group = new ClinkrGroup<AsdlDevCliContext>({
 		name: "asdl-dev",
@@ -63,7 +70,7 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 		rawCommand({
 			name: "preview-url",
 			description: "Print the Vercel preview URL for the selected branch.",
-			summary: "Print the Vercel preview URL for a branch.",
+			summary: COMMAND_SUMMARIES["preview-url"],
 			schema: z.object({
 				branch: z.string().describe("Branch to look up. Defaults to the current git branch.").optional(),
 				project: z
@@ -112,7 +119,7 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 Environment:
   ${TEXT_BACKEND_ENV}      Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
   ${CHECKPOINT_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}.`,
-			summary: "Create a checkpoint commit for the current diff.",
+			summary: COMMAND_SUMMARIES.cp,
 			schema: z.object({}),
 			run: async (ctx) => {
 				const result = await runCheckpointCommand({
@@ -139,7 +146,7 @@ Automatic checkpointing uses the same model environment variables as \`asdl-dev 
 PR description generation uses ${PR_DESCRIPTION_MODEL_ENV} (defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}) and resolves the system prompt from ${PR_DESCRIPTION_PROMPT_ENV}, then ${REPO_PR_DESCRIPTION_PROMPT_PATH}, then the built-in prompt.
 
 If the dry-run says restack is required, interactive invocations ask before running \`gt restack --no-interactive\`; non-interactive invocations exit with guidance unless \`--restack\` is supplied.`,
-			summary: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
+			summary: COMMAND_SUMMARIES.submit,
 			schema: z.object({
 				restack: z.boolean().default(false).describe("If restack is required, run `gt restack --no-interactive` without prompting before submitting."),
 			}),
@@ -194,7 +201,7 @@ Environment:
   ${TEXT_BACKEND_ENV}                 Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
   ${PR_DESCRIPTION_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
   ${PR_DESCRIPTION_PROMPT_ENV}  Prompt file path. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.`,
-			summary: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+			summary: COMMAND_SUMMARIES["pr-regen"],
 			schema: z.object({
 				force: z.boolean().default(false).describe("Overwrite the PR body even when the asdl generated-body marker is absent."),
 			}),
@@ -217,12 +224,7 @@ Environment:
 }
 
 export function listAsdlDevCommands(): AsdlDevCommandInfo[] {
-	return [
-		{ name: "preview-url", description: "Print the Vercel preview URL for a branch." },
-		{ name: "cp", description: "Create a checkpoint commit for the current diff." },
-		{ name: "submit", description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai." },
-		{ name: "pr-regen", description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt." },
-	];
+	return Object.entries(COMMAND_SUMMARIES).map(([name, description]) => ({ name, description }));
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
