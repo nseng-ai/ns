@@ -39,9 +39,18 @@ Load these when their domain is touched:
 
 - `graphite` — stack topology, branch creation, and navigation.
 - `pr-address` — feedback payloads, classifier contract, stack planning,
-  pre-mutation drift diffing, and GitHub mutation helpers. Read
-  `references/cli-reference.md` before calling each `pr-address exec` helper and
-  `references/feedback-classifier.md` before classification.
+  pre-mutation drift diffing, and GitHub mutation helpers. Load its reference
+  docs lazily, in stages — never all up front:
+  1. Read `references/cli-reference.md` (routing index + shared conventions)
+     and the `references/cli-collection.md` sections for `map-branch-prs` and
+     `stack-feedback-prep`, then run the prep.
+  2. If the stack summary shows zero feedback, report and STOP — load no other
+     reference docs.
+  3. Only when feedback exists, read `references/feedback-classifier.md` and
+     the relevant `references/cli-planning.md` sections.
+  4. Only when the validated plan has actionable items, read the relevant
+     `references/cli-mutation.md` sections (and `references/cli-lifecycle.md`
+     when checkpointing).
 - `internal-code-gh` — any `gh` use beyond simple PR listing/viewing.
 - Language/test skills as needed for code changes, e.g. `typescript-style`,
   `dignified-python`, `pytest`, or fake-driven testing skills.
@@ -53,12 +62,13 @@ Load these when their domain is touched:
   missing PRs unless the user explicitly overrides.
 - Requires a clean worktree before stack navigation or branch creation unless
   the user explicitly asks to carry existing changes into the omnibus branch.
-- Creates or reuses one child omnibus branch at the stack tip. Reuse a verified
-  compatible branch before deriving a new semantic branch name.
+- Creates or reuses one child omnibus branch at the stack tip when code changes
+  are required. Reuse a verified compatible branch before deriving a new
+  semantic branch name.
 - Does **not** run `gt submit`, `git push`, or `gh pr create` by default.
 - Uses one payload session id for the stack run; normal operation does not
   create ad hoc `/tmp` scratch directories or paste raw payload JSON.
-- Requires `stack-feedback-prep`, `stack-feedback-plan`,
+- Requires `map-branch-prs`, `stack-feedback-prep`, `stack-feedback-plan`,
   `stack-feedback-diff-current`, `build-stack-resolve-thread-payloads`, and
   `resolve-thread-batch`. If a required helper is unavailable, stop and report;
   do not manually reconstruct the stack workflow.
@@ -90,6 +100,11 @@ Load these when their domain is touched:
   files with `>` and print only small `jq` summaries; do not `tee` full helper
   JSON into the transcript.
 - Do not use `--payload-mode inline` except for explicit debugging or migration.
+- Run every GitHub-hitting helper from inside the target repository: `gh`
+  resolves `owner/repo` from the cwd's git remotes, and these operations fail
+  fast with `repo_context_required` outside a git work tree.
+- When summarizing prep/plan output with `jq`, filter to PRs with non-zero
+  feedback counts; print stack totals plus only the interesting per-PR rows.
 - In linked worktrees `.git` is a pointer file, not a directory — never use
   `.git/` as a scratch location; derive real git paths with
   `git rev-parse --git-dir` if a git-adjacent path is ever needed.
@@ -101,10 +116,19 @@ Load these when their domain is touched:
    navigation or branch creation.
 3. Determine the full current Graphite stack from trunk through tip. If starting
    in the middle, move to the tip only after the worktree safety check.
-4. Resolve every non-trunk stack branch to an open PR with `gh pr list` or an
-   equivalent narrow query. Stop on missing PRs unless the user explicitly
-   chooses otherwise.
-5. Build explicit Graphite-neutral stack JSON from that coverage:
+4. Map every non-trunk stack branch to an open PR in one call: build the branch
+   list from `gt ls --stack` and pipe it to the Graphite-neutral helper (the
+   caller supplies branch names, so the helper itself has no `gt` dependency):
+
+   ```bash
+   printf '%s' '{"branches":["feature-branch","other-branch"]}' \
+     | pr-address exec map-branch-prs --format json
+   ```
+
+   - Exit `0`: build the stack JSON below from `data.branch_prs`.
+   - Exit `1`: at least one branch has no open PR; stop and report
+     `data.missing_branches` unless the user explicitly chooses otherwise.
+5. Build explicit Graphite-neutral stack JSON from `data.branch_prs`:
 
    ```json
    {
@@ -136,12 +160,21 @@ printf '%s' '<stack-json>' \
       --format json \
   > stack-prep.compact.json
 
-jq '{exit_code, summary:.data.summary, stack:(.data.stack|map({pr_number, branch, counts:.counts}))}' \
+jq '{exit_code, summary:.data.summary,
+    stack:(.data.stack
+      | map(select((.counts.reviews + .counts.unresolved_review_threads + .counts.discussion_comments) > 0))
+      | map({pr_number, branch, counts:.counts}))}' \
   stack-prep.compact.json
 ```
 
+The `jq` filter intentionally drops zero-feedback PRs from the transcript; the
+`summary` totals still cover the whole stack.
+
 Rules:
 
+- If `data.summary` shows zero reviews, zero unresolved review threads, and
+  zero discussion comments across the stack, report the clean scan and STOP —
+  do not load classifier/planning/mutation docs and do not create any branch.
 - Initial classification defaults to unresolved review threads only.
 - Use compact stdout for transcript-visible summaries. Load the full prep data
   for classification/planning from `data.stack_summary_reference.payload_path`.
@@ -209,6 +242,12 @@ Rules:
 
 Select the branch action only after the stack plan validates.
 
+**Already-addressed fast path:** if the validated plan's selected batches
+require no code changes (every decision will be `explained` or `pre_existing`
+after verification against the stack tip), skip omnibus-branch creation
+entirely — proceed directly to the drift gate (step 6) and payload building,
+and record "no omnibus branch needed" in the final report.
+
 - Preserve the stack prefix from the stack tip branch when present:
   `<stack-prefix>/<branch-slug>`.
 - Reuse one verified compatible child omnibus branch before creating any new
@@ -260,6 +299,12 @@ Address PR stack feedback (batch N/M)
 - <summary 1>
 - <summary 2>
 ```
+
+For explained-only runs (the fast path in step 4), the "committed fixes plus
+passing checks" mutation precondition reads as: verification against current
+stack-tip code plus checks already green on the tip. There is no new commit to
+point at; `explained`/`pre_existing` resolution messages reference the existing
+tip state.
 
 ### 6. Required pre-mutation drift check
 
@@ -340,9 +385,13 @@ For each selected stack batch represented in an omnibus commit:
      | pr-address exec resolve-thread-batch --format json
    ```
 
-5. Do not call `resolve-thread-batch` for entries where `payload_ready == false`;
+5. Per-PR `resolve-thread-batch` runs are independent and the payload store is
+   concurrency-safe (sequence-numbered artifacts created with exclusive-create
+   plus retry), so run the per-PR mutating calls in parallel rather than a
+   serial loop.
+6. Do not call `resolve-thread-batch` for entries where `payload_ready == false`;
    report warnings, skipped items, and ignored non-thread items.
-6. Fix builder decision errors before mutating GitHub. Report mutating-helper
+7. Fix builder decision errors before mutating GitHub. Report mutating-helper
    partial failures with failed thread IDs and retry/fallback guidance.
 
 Use `build-resolve-thread-batch-payload` only for single-PR `plan-feedback`
@@ -354,8 +403,19 @@ comments unless the user already approved that action in the plan.
 
 ### 8. Final verification and handoff
 
-After mutation, fetch compact final stack evidence. Prefer stack-wide prep for
-consistent counts:
+After mutation, fetch compact final verification evidence scoped to what the
+run touched. When mutations touched half the stack or fewer, prefer per-PR
+`get-feedback --include-resolved` on only the mutated PRs:
+
+```bash
+pr-address exec get-feedback <pr-number> \
+  --include-resolved \
+  --payload-session-id <payload-session-id> \
+  --format json
+```
+
+Full-stack prep remains the option when whole-stack before/after counts are
+needed for the report:
 
 ```bash
 printf '%s' '<same-stack-json>' \
@@ -367,9 +427,8 @@ printf '%s' '<same-stack-json>' \
   > stack-final-prep.compact.json
 ```
 
-Per-PR `get-feedback --include-resolved` is acceptable when per-PR evidence is
-needed. This final fetch is post-mutation verification, not the pre-mutation
-drift gate.
+This final fetch is post-mutation verification, not the pre-mutation drift
+gate.
 
 Report:
 
@@ -407,8 +466,9 @@ Never push or submit unless the user explicitly asks for that extra step.
   source of truth for actionable roaster findings.
 - Do not show automation discussion bodies in the decision docket unless direct
   request language or uncertainty is detected; summarize counts by reason.
-- Do not guess helper field names or enum values; read
-  `pr-address/references/cli-reference.md` or run `--json-schema`.
+- Do not guess helper field names or enum values; read the pr-address routing
+  index (`pr-address/references/cli-reference.md`) plus the mapped category
+  file's section for that helper, or run `--json-schema`.
 - Inline review-thread resolution is automatic only for matched addressed
   threads. Top-level human replies, skip/defer choices requiring judgment, and
   submitting/pushing remain confirmation-gated.
@@ -431,9 +491,10 @@ Already covered by current `pr-address` helpers:
   `validate-feedback-classification` plus `plan-feedback`.
 - Single-PR/per-batch resolution payload assembly:
   `build-resolve-thread-batch-payload`.
+- Stack branch → open PR mapping in one call: `map-branch-prs` (Graphite-neutral
+  — the caller supplies branch names, so no `gt`-named command is required).
 
 Future deterministic helpers to consider:
 
-- stack branch → open PR mapping, behind an explicit Graphite/`gt` command
 - rerun/idempotency summaries across stack PRs
 - compact stack finalization summaries
