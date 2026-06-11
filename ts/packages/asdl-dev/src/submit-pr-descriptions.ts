@@ -1,8 +1,8 @@
-import { applyGeneratedDescription, canOverwriteBody } from "./pr-description-apply.ts";
+import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 import type { SubmitPrDescriptionOptions, SubmitPrLink } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| { ok: true; generated: SubmitPrLink[] }
+	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[] }
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -17,6 +17,7 @@ export async function generateSubmitPrDescriptions(input: {
 	prLinks: readonly SubmitPrLink[];
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	const generated: SubmitPrLink[] = [];
+	const skipped: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
 
 	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
@@ -30,11 +31,22 @@ export async function generateSubmitPrDescriptions(input: {
 			continue;
 		}
 
-		if (!canOverwriteBody(viewed.value.body, false)) {
+		const decision = await decidePrBodyOverwrite({
+			pr: viewed.value,
+			shouldForce: false,
+			cwd: input.cwd,
+			githubPr: input.prDescription.githubPr,
+		});
+		if (decision.kind === "failed") {
+			failures.push({ link, number, reason: decision.error });
+			continue;
+		}
+		if (decision.kind === "skip_hand_edited") {
+			skipped.push(link);
 			continue;
 		}
 
-		const applied = await applyGeneratedDescription(viewed.value, {
+		const applied = await applyGeneratedDescription(viewed.value, decision.commits, {
 			cwd: input.cwd,
 			env: input.prDescription.env,
 			githubPr: input.prDescription.githubPr,
@@ -51,7 +63,7 @@ export async function generateSubmitPrDescriptions(input: {
 	if (failures.length > 0) {
 		return { ok: false, failures };
 	}
-	return { ok: true, generated };
+	return { ok: true, generated, skipped };
 }
 
 export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {

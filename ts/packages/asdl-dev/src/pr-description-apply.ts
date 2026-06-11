@@ -1,6 +1,13 @@
 import type { GitGateway } from "./gateways/git.ts";
-import type { GithubPrDetails, GithubPrGateway } from "./gateways/github-pr.ts";
-import { appendGeneratedMarker, hasGeneratedMarker, preparePrDescription, resolvePrDescriptionPrompt, type PromptSource } from "./pr-description.ts";
+import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "./gateways/github-pr.ts";
+import {
+	appendGeneratedMarker,
+	hasGeneratedMarker,
+	isCommitMessagePrefillBody,
+	preparePrDescription,
+	resolvePrDescriptionPrompt,
+	type PromptSource,
+} from "./pr-description.ts";
 import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
 
 export interface PrDescriptionApplyOptions {
@@ -15,12 +22,34 @@ export type GeneratedPrDescriptionResult =
 	| { ok: true; title: string; body: string; promptSource: PromptSource }
 	| { ok: false; error: string; exitCode?: number };
 
-export function canOverwriteBody(body: string, shouldForce: boolean): boolean {
-	return shouldForce || body.trim() === "" || hasGeneratedMarker(body);
+export type PrBodyOverwriteDecision =
+	| { kind: "generate"; commits: PrCommitMessage[] }
+	| { kind: "skip_hand_edited" }
+	| { kind: "failed"; error: string };
+
+export async function decidePrBodyOverwrite(params: {
+	pr: GithubPrDetails;
+	shouldForce: boolean;
+	cwd: string;
+	githubPr: GithubPrGateway;
+}): Promise<PrBodyOverwriteDecision> {
+	const commits = await params.githubPr.getPrCommitMessages({ cwd: params.cwd, number: params.pr.number });
+	if (!commits.ok) {
+		return { kind: "failed", error: commits.error.message };
+	}
+
+	const body = params.pr.body;
+	const isOverwritable =
+		params.shouldForce || body.trim() === "" || hasGeneratedMarker(body) || isCommitMessagePrefillBody(body, commits.value);
+	if (!isOverwritable) {
+		return { kind: "skip_hand_edited" };
+	}
+	return { kind: "generate", commits: commits.value };
 }
 
 export async function generatePrDescriptionForPr(
 	pr: GithubPrDetails,
+	commits: readonly PrCommitMessage[],
 	options: PrDescriptionApplyOptions,
 ): Promise<GeneratedPrDescriptionResult> {
 	const modelConfig = selectPrDescriptionTextGenerationConfig(options.env);
@@ -38,13 +67,7 @@ export async function generatePrDescriptionForPr(
 		return { ok: false, error: prompt.error, exitCode: 2 };
 	}
 
-	const [commits, diff] = await Promise.all([
-		options.githubPr.getPrCommitMessages({ cwd: options.cwd, number: pr.number }),
-		options.githubPr.getPrDiff({ cwd: options.cwd, number: pr.number }),
-	]);
-	if (!commits.ok) {
-		return { ok: false, error: commits.error.message };
-	}
+	const diff = await options.githubPr.getPrDiff({ cwd: options.cwd, number: pr.number });
 	if (!diff.ok) {
 		return { ok: false, error: diff.error.message };
 	}
@@ -59,7 +82,7 @@ export async function generatePrDescriptionForPr(
 			title: pr.title,
 			headRefName: pr.headRefName,
 			baseRefName: pr.baseRefName,
-			commitMessages: commits.value,
+			commitMessages: commits,
 			diff: diff.value,
 		},
 	});
@@ -71,9 +94,10 @@ export async function generatePrDescriptionForPr(
 
 export async function applyGeneratedDescription(
 	pr: GithubPrDetails,
+	commits: readonly PrCommitMessage[],
 	options: PrDescriptionApplyOptions,
 ): Promise<{ ok: true; title: string; promptSource: PromptSource } | { ok: false; error: string; exitCode?: number }> {
-	const prepared = await generatePrDescriptionForPr(pr, options);
+	const prepared = await generatePrDescriptionForPr(pr, commits, options);
 	if (!prepared.ok) return prepared;
 
 	const edited = await options.githubPr.editPr({

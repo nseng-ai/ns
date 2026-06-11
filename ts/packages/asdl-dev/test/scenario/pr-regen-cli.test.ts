@@ -80,6 +80,32 @@ describe("asdl-dev pr-regen", () => {
 		expect(run.githubPr.editPrCalls).toHaveLength(1);
 	});
 
+	test("regenerates a gt-prefilled body without --force", async () => {
+		const run = runWithFakes(["pr-regen"], {
+			githubPr: {
+				currentPr: { number: 123, url: "https://github.com/acme/project/pull/123", title: "Add widget", body: "Implements the widget flow.", headRefName: "feature/demo", baseRefName: "main" },
+				commitMessages: { 123: [{ headline: "Add widget", body: "Implements the widget flow.\n" }] },
+			},
+			textGeneration: { results: [{ ok: true, text: generatedText }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.githubPr.editPrCalls).toHaveLength(1);
+	});
+
+	test("reports a commit-fetch failure instead of refusing silently", async () => {
+		const run = runWithFakes(["pr-regen"], {
+			githubPr: {
+				currentPr: { number: 123, url: "https://github.com/acme/project/pull/123", title: "Old", body: "Manual body", headRefName: "feature/demo", baseRefName: "main" },
+				commitMessages: { 123: { error: { code: "github_pr_commits_failed", message: "commit messages unavailable" } } },
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("commit messages unavailable");
+		expect(run.githubPr.editPrCalls).toEqual([]);
+	});
+
 	test("refuses to overwrite a manual PR body without --force", async () => {
 		const run = runWithFakes(["pr-regen"], {
 			githubPr: { currentPr: { number: 123, url: "https://github.com/acme/project/pull/123", title: "Old", body: "Manual body", headRefName: "feature/demo", baseRefName: "main" } },
