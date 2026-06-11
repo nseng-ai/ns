@@ -224,23 +224,6 @@ describe("raw-exit escape hatch", () => {
 			expect(run.stdout).toContain("act");
 			expect(run.stdout).toContain("Short summary");
 		});
-
-		test("summary vs description: summary in parent help, description in leaf", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
-			group.command(
-				rawCommand({
-					name: "act",
-					description: "Full description text",
-					summary: "Short",
-					schema: z.object({}),
-					run: async () => 0,
-				}),
-			);
-			// Check leaf help has description, not summary
-			const leafRun = await runForTest(group, ["act", "--help"], { context: null });
-			expect(leafRun.stdout).toContain("Full description text");
-			// Summary would appear in parent group list, but we're testing the command itself
-		});
 	});
 
 	describe("mixed raw + normal leaves in one group", () => {

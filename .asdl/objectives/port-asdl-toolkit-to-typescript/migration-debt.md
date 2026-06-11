@@ -32,8 +32,8 @@ Entry contract: what the compromise is, why it exists, and the kill action. Kill
 
 - **Compromise:** `@asdl/clinkr` provides an optional `isRawExit?: true` spec field and `@asdl/clinkr/raw` subpath with `rawCommand` factory, allowing shell-code CLIs like `asdl-dev submit` and `pr-address`'s legacy shell dispatch to wrap raw process exit codes without emitting framework bytes or the canonical machine envelope.
 - **Why:** preserves byte-identical behavior for CLIs that dispatch directly to shell subcommands or other tools; these CLIs have no structured data contract beyond exit codes and handler-owned stdout/stderr. Raw mode omits `--format` (handler owns all bytes) while keeping `--json-schema` and `-h` available.
-- **Kill action:** delete `@asdl/clinkr/raw` and remove `isRawExit` from the spec once all raw-mode consumers (`asdl-dev submit`, `pr-address` shell branch) migrate to normal clinkr semantics or are otherwise eliminated. Update specs at those consumer call sites in the same change.
-- **Status (2026-06-11):** escape-hatch plumbing lives in `src/raw/index.ts` and is gated behind `isRawExit: true` in `group.ts`. The first consumers are expected in the `asdl-dev` and `pr-address` migrations.
+- **Kill action:** delete `@asdl/clinkr/raw` and remove `isRawExit` from the spec once all raw-mode consumers (`asdl-dev`'s raw commands (all four: `preview-url`, `cp`, `submit`, `pr-regen`), `pr-address` shell branch) migrate to normal clinkr semantics or are otherwise eliminated. Update specs at those consumer call sites in the same change.
+- **Status (2026-06-11):** escape-hatch plumbing lives in `src/raw/index.ts` and is gated behind `isRawExit: true` in `group.ts`. `asdl-dev` is a live consumer with four `rawCommand` call sites; `preview-url`, `cp`, and `pr-regen` have buffered/structured contracts and are burn-down candidates back to normal clinkr semantics, while `submit` is the genuinely raw command (live subprocess output, exit 124, arbitrary `gt` codes).
 - **Origin:** ts-clinkr-commander design, raw-exit decision (2026-06-11).
 
 ### 5. CLI surface divergences accepted during clinkr migrations
@@ -42,3 +42,9 @@ Entry contract: what the compromise is, why it exists, and the kill action. Kill
 - **Why:** these are deliberate framework semantics from the `ts-clinkr-commander` design and 2026-06-10 `plans` migration planning decision. Recreating legacy quirks in each migrated CLI would preserve duplicated parser behavior the framework exists to remove.
 - **Kill action:** documentation-style debt: after all four clinkr migrations land, confirm dependent skills/docs describe the new surface and fold that check into entry 1's consumer-update sweep; then close this entry together with the broader clinkr migration debt burn-down.
 - **Origin:** ts-clinkr-commander `plans` migration planning and implementation (2026-06-10), divergence-policy decision.
+
+### 6. CLI usage-error sniffing at the Pi extension boundary
+
+- **Compromise:** `pi-extensions`' `isCliUsageError` (`cli-command-extension.ts:501`) classifies CLI usage errors by sniffing `exitCode === 2 && stderr.startsWith("Error:" | "error:")` to drive editor-text restoration; clinkr `failure` exits (rendered human-format and raw-mode `ClinkrFailure`) emit the same `error:` prefix with exit 2, so handler failures are indistinguishable from usage errors at this boundary.
+- **Why:** `runCli`'s contract is `Promise<number>`; changing it to carry a structured classification would churn the contract, asdl-dev's test helpers, and ~15 pi-extensions test fixtures for a mild consequence (editor restore + warning vs error output). Only asdl-dev registers through `registerCliCommandExtension` today.
+- **Kill action:** carry the usage-error bit structurally (for example, a structured `runCli` result) the next time the `registerCliCommandExtension` contract is revised; delete the prefix sniff.
