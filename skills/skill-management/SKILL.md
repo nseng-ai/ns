@@ -66,7 +66,8 @@ For every skill-management operation, produce an end state with:
 - **Skill bodies that name model tiers must give concrete examples for both
   OpenAI and Anthropic** (e.g. `openai-codex/gpt-5.4-mini`,
   `claude-haiku-4-5`), each labeled with its harness, while keeping the default
-  guidance harness-neutral. See `AGENTS.md` "Skill Model Examples".
+  guidance harness-neutral. See `docs/skill-conventions.md` "Skill Model
+  Examples".
 
 ## Mental model
 

@@ -1,13 +1,13 @@
 ---
-name: internal-code-checkpoint
-description: "Command: internal-code-checkpoint"
+name: code-checkpoint
+description: "Command: code-checkpoint"
 allowed-tools:
   - "Bash(asdl-dev cp*)"
 metadata:
   internal: true
 ---
 
-# internal-code-checkpoint
+# code-checkpoint
 
 Create a quick checkpoint commit for the current git diff by delegating to the shared `asdl-dev cp` CLI. This is the cross-harness path for `/code:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
 

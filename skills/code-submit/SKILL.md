@@ -1,13 +1,13 @@
 ---
-name: internal-code-submit
-description: "Command: internal-code-submit"
+name: code-submit
+description: "Command: code-submit"
 allowed-tools:
   - "Bash(asdl-dev submit*)"
 metadata:
   internal: true
 ---
 
-# internal-code-submit
+# code-submit
 
 Submit or update the current Graphite stack by delegating to the shared `asdl-dev submit` CLI. This is the cross-harness path for `/code:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 

@@ -1,4 +1,4 @@
-<!-- Migrated from `internal-pr-stack-address`; loaded through `internal-code-workflows`. -->
+<!-- Loaded through `code-workflows`. -->
 
 # stack-address
 
@@ -51,7 +51,7 @@ Load these when their domain is touched:
   4. Only when the validated plan has actionable items, read the relevant
      `references/cli-mutation.md` sections (and `references/cli-lifecycle.md`
      when checkpointing).
-- `internal-code-gh` — any `gh` use beyond simple PR listing/viewing.
+- `code-gh` — any `gh` use beyond simple PR listing/viewing.
 - Language/test skills as needed for code changes, e.g. `typescript-style`,
   `dignified-python`, `pytest`, or fake-driven testing skills.
 

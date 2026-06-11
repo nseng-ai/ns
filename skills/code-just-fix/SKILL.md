@@ -1,6 +1,6 @@
 ---
-name: internal-code-just-fix
-description: "Command: internal-code-just-fix"
+name: code-just-fix
+description: "Command: code-just-fix"
 allowed-tools:
   - "Bash(just *)"
   - "Bash(uv run *)"
@@ -13,7 +13,7 @@ metadata:
   internal: true
 ---
 
-# internal-code-just-fix
+# code-just-fix
 
 Run `just` (the project's default check suite) and fix every failure.
 
@@ -65,7 +65,7 @@ Iteration 3: Fixed type error in src/asdl/cli/main.py — all checks pass
 ### Success
 
 ```
-## internal-code-just-fix: SUCCESS
+## code-just-fix: SUCCESS
 
 All checks passed after N iteration(s):
 
@@ -79,7 +79,7 @@ All checks passed after N iteration(s):
 ### Stuck
 
 ```
-## internal-code-just-fix: STUCK
+## code-just-fix: STUCK
 
 Unable to resolve the following after N attempts:
 

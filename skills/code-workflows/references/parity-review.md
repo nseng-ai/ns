@@ -1,4 +1,4 @@
-<!-- Migrated from `internal-code-parity-review`; loaded through `internal-code-workflows`. -->
+<!-- Loaded through `code-workflows`. -->
 
 # parity-review
 
@@ -144,8 +144,8 @@ The CI/manifest path is parked future work; plan it separately instead of adding
 For ordinary reviews, report the evidence commands you ran. When editing this router reference or Objective tracking, also run targeted formatting and whitespace checks such as:
 
 ```bash
-dprint check skills/internal-code-workflows/SKILL.md \
-  skills/internal-code-workflows/references/parity-review.md \
+dprint check skills/code-workflows/SKILL.md \
+  skills/code-workflows/references/parity-review.md \
   .asdl/objectives/cross-harness-parity/objective.md \
   .asdl/objectives/cross-harness-parity/roadmap.md \
   .asdl/objectives/cross-harness-parity/parity-table.md \

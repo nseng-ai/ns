@@ -25,7 +25,7 @@ allowed-tools:
   - "Glob"
 ---
 
-<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md section "Public Skill Authoring". -->
+<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See docs/skill-conventions.md section "Public Skill Authoring". -->
 
 # pr-address
 

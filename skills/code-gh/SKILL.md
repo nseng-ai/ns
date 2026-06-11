@@ -1,5 +1,5 @@
 ---
-name: internal-code-gh
+name: code-gh
 description: "Use when working with the GitHub CLI (gh): pull requests, issues, releases, repos, automation, or GitHub REST/GraphQL API access. Routes to detailed gh command and API references."
 metadata:
   internal: true

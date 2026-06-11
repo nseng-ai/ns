@@ -93,8 +93,8 @@ Do next work.
 
 	test("uses sourceInfo.baseDir when present", async () => {
 		const expanded = await expandSkillBlock(
-			host([skillCommand("internal-code-just-fix", "/resolved/SKILL.md", "/source/base")]),
-			"internal-code-just-fix",
+			host([skillCommand("code-just-fix", "/resolved/SKILL.md", "/source/base")]),
+			"code-just-fix",
 			{
 				readTextFile: async () => "# Internal Code Just Fix",
 			},
@@ -106,20 +106,20 @@ Do next work.
 
 	test("falls back to dirname(sourceInfo.path) when baseDir is absent", async () => {
 		const expanded = await expandSkillBlock(
-			host([skillCommand("internal-code-just-fix", "/resolved/internal-code-just-fix/SKILL.md")]),
-			"internal-code-just-fix",
+			host([skillCommand("code-just-fix", "/resolved/code-just-fix/SKILL.md")]),
+			"code-just-fix",
 			{
 				readTextFile: async () => "# Internal Code Just Fix",
 			},
 		);
 
-		expect(expanded?.baseDir).toBe("/resolved/internal-code-just-fix");
-		expect(expanded?.block).toContain("References are relative to /resolved/internal-code-just-fix.");
+		expect(expanded?.baseDir).toBe("/resolved/code-just-fix");
+		expect(expanded?.block).toContain("References are relative to /resolved/code-just-fix.");
 	});
 
 	test("propagates read errors", async () => {
 		await expect(
-			expandSkillBlock(host([skillCommand("internal-code-just-fix", "/missing/SKILL.md")]), "internal-code-just-fix", {
+			expandSkillBlock(host([skillCommand("code-just-fix", "/missing/SKILL.md")]), "code-just-fix", {
 				readTextFile: async () => {
 					throw new Error("cannot read skill");
 				},
@@ -129,8 +129,8 @@ Do next work.
 
 	test("trims Markdown without frontmatter", async () => {
 		const expanded = await expandSkillBlock(
-			host([skillCommand("internal-code-just-fix", "/skills/internal-code-just-fix/SKILL.md")]),
-			"internal-code-just-fix",
+			host([skillCommand("code-just-fix", "/skills/code-just-fix/SKILL.md")]),
+			"code-just-fix",
 			{
 				readTextFile: async () => "\n\n# Internal Code Just Fix\n\nFix it.\n\n",
 			},
