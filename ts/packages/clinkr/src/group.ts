@@ -22,6 +22,8 @@ export type ClinkrHandler<TContext, S extends z.ZodObject, T> = (
 export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	name: string;
 	description?: string;
+	/** Short summary for parent help lists; omitted from leaf command help body. */
+	summary?: string;
 	schema: S;
 	handler: ClinkrHandler<TContext, S, T>;
 	/** Source of `output_json_schema` for `--json-schema`; `{}` when absent. */
@@ -35,6 +37,8 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	 * ledger.
 	 */
 	legacyMachine?: (exit: ClinkrExit<T>) => LegacyMachineOutput;
+	/** Raw-exit escape hatch: handler returns a process exit code directly. */
+	isRawExit?: true;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 }
 
@@ -57,11 +61,13 @@ export interface ClinkrRunOptions<TContext> {
 interface RegisteredCommand<TContext> {
 	name: string;
 	description: string | undefined;
+	summary: string | undefined;
 	schema: z.ZodObject;
 	resultSchema: z.ZodType | undefined;
 	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown) => string) | undefined;
 	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
+	isRawExit: boolean;
 	plan: SurfacePlan;
 }
 
@@ -107,6 +113,7 @@ export class ClinkrGroup<TContext> {
 		this.registeredCommands.push({
 			name: spec.name,
 			description: spec.description,
+			summary: spec.summary,
 			schema: spec.schema,
 			resultSchema: spec.resultSchema,
 			// Erase the command generics once; zod re-establishes the request shape
@@ -116,6 +123,7 @@ export class ClinkrGroup<TContext> {
 			legacyMachine: spec.legacyMachine as
 				| ((exit: ClinkrExit<unknown>) => LegacyMachineOutput)
 				| undefined,
+			isRawExit: spec.isRawExit ?? false,
 			plan,
 		});
 		return this;
@@ -225,6 +233,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	const { registered, context, io, state } = options;
 	const command = createContainedCommand(registered.name, io);
 	if (registered.description !== undefined) command.description(registered.description);
+	if (registered.summary !== undefined) command.summary(registered.summary);
 	for (const positional of registered.plan.positionals) {
 		command.addArgument(buildCommanderArgument(positional));
 	}
@@ -237,9 +246,11 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	for (const optionPlan of registered.plan.options) {
 		command.addOption(buildCommanderOption(optionPlan));
 	}
-	command.addOption(
-		new Option("--format <format>", "Output format.").choices(["human", "json"]).default("human"),
-	);
+	if (!registered.isRawExit) {
+		command.addOption(
+			new Option("--format <format>", "Output format.").choices(["human", "json"]).default("human"),
+		);
+	}
 	command.addOption(
 		new Option("--json-schema", "Print the JSON Schema for this command's input/output and exit."),
 	);
@@ -276,6 +287,24 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 		} catch (error) {
 			if (!(error instanceof ClinkrFailure)) throw error;
 			exit = { type: "failure", errorType: error.errorType, message: error.message };
+		}
+		if (registered.isRawExit) {
+			if (exit.type !== "ok") {
+				if (exit.type === "failure") {
+					io.stderr(`error: ${exit.message}\n`);
+					state.exitCode = 2;
+				} else {
+					io.stderr(`${exit.message}\n`);
+					state.exitCode = 1;
+				}
+				return;
+			}
+			const okData = exit.data;
+			if (typeof okData !== "number") {
+				throw new Error("clinkr: raw command handler must return ok(exitCode: number)");
+			}
+			state.exitCode = okData;
+			return;
 		}
 		const format: ClinkrFormat = opts["format"] === "json" ? "json" : "human";
 		state.exitCode = emitExit(exit, {

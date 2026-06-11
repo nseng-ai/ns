@@ -62,3 +62,36 @@ describe("renderHuman", () => {
 		expect(run.stdout).toBe('{\n  "count": 2\n}\n');
 	});
 });
+
+describe("summary field", () => {
+	test("summary is used by commander for parent help lists", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			description: "Detailed description for the command",
+			summary: "Quick summary",
+			schema: z.object({}),
+			handler: async () => ok({ result: 1 }),
+		});
+		const parentRun = await runForTest(group, [], { context: null });
+		expect(parentRun.exitCode).toBe(0);
+		expect(parentRun.stdout).toContain("Quick summary");
+		expect(parentRun.stdout).not.toContain("Detailed description for the command");
+
+		const leafRun = await runForTest(group, ["act", "--help"], { context: null });
+		expect(leafRun.exitCode).toBe(0);
+		expect(leafRun.stdout).toContain("Detailed description for the command");
+	});
+
+	test("summary is optional; commands work without it", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			description: "No summary",
+			schema: z.object({}),
+			handler: async () => ok({ value: 1 }),
+		});
+		const run = await runForTest(group, ["act"], { context: null });
+		expect(run.exitCode).toBe(0);
+	});
+});
