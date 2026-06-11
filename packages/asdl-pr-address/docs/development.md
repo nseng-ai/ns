@@ -56,7 +56,8 @@ Or run the full suite from the repo root with `just`.
 This Python package remains the compatibility implementation for the
 `asdl pr-address ...` plugin, the explicit `pr-address-py` / pinned-`uvx`
 rollback paths, and a small set of usage-error envelope shapes. Treat the public
-skill, `skills/pr-address/references/cli-reference.md`, source registration,
+skill, the `skills/pr-address/references/cli-*.md` reference files, source
+registration,
 scenario tests, and golden fixtures as stronger contract sources than this
 developer overview when porting behavior.
 
