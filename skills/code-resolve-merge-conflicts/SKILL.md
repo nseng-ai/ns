@@ -155,8 +155,15 @@ the continue command:
 | Docs / markdown only | no check                                                                 |
 
 - **Pass** → `git add` the resolved files → run the continue command.
-- **Fail** → `git restore --merge <file>` to bring back the conflict markers,
-  then **escalate** that file.
+- **Fail** → inspect the verification failure:
+  - If the failure is mechanically classifiable (for example import order,
+    formatting, a missed call site in an explicit migration, or a deterministic
+    type error caused by the resolved hunk), make at most **1–2 self-repair
+    attempts**, rerunning the scoped check after each attempt. On pass, `git add`
+    the resolved files → run the continue command.
+  - If the failure is ambiguous, or the bounded attempts do not converge,
+    `git restore --merge <file>` to bring back the conflict markers, then
+    **escalate** that file.
 
 ### 6. Escalate
 
@@ -190,7 +197,8 @@ completed, plus any driver post-completion checks.
 Stop and hand back with a summary — never `git rebase --abort` /
 `git merge --abort` (or `gt abort`) without explicit confirmation — when:
 
-- the verification gate fails repeatedly on the same resolution,
+- the verification gate still fails after bounded **1–2** mechanically
+  classifiable self-repair attempts on the same resolution,
 - the repository is in a state you cannot safely classify, or
 - any driver-supplied bail-out condition triggers.
 
