@@ -41,6 +41,11 @@ const SUMMARY_MAX_CHARS = 220;
 
 export type EpisodeAnalysisStatus = "loading" | "ready" | { type: "error"; message: string };
 
+export type SegmentationBatchOutcome =
+	| { type: "ready"; episodes: readonly EpisodeAnnotation[]; summary: string | null; delegations: readonly DelegationClaim[]; analysis: readonly EpisodeAnalysisStatus[] }
+	| { type: "segmentation-error"; message: string }
+	| { type: "skipped"; reason: "too-few-turns" };
+
 export type SegmentationState =
 	| { type: "idle" }
 	| { type: "loading" }

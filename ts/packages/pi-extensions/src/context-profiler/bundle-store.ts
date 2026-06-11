@@ -6,21 +6,11 @@ import {
 	MESSAGES_FILE_NAME,
 	SYSTEM_PROMPT_FILE_NAME,
 	bundleManifestReadSchema,
+	type BundleManifestSummary,
 	type BundleSnapshot,
+	type PersistedBundle,
 } from "./bundle.ts";
-
-export interface PersistedBundle {
-	ordinal: number;
-	dir: string;
-	contentHash: string;
-	byteSize: number;
-	sessionTotalBytes: number;
-	reused: boolean;
-	sessionId: string;
-	model: string;
-	turnCount: number;
-	capturedAt: string;
-}
+import { errorMessage } from "./errors.ts";
 
 export type PersistBundleResult =
 	| { ok: true; value: PersistedBundle }
@@ -42,9 +32,8 @@ export function createFsBundleStore(options: { sessionDir: string; sessionId: st
 interface CommittedBundleInfo {
 	ordinal: number;
 	dir: string;
-	contentHash: string;
 	byteSize: number;
-	manifest: BundleSnapshot["manifest"];
+	manifest: BundleManifestSummary;
 }
 
 class FsBundleStore implements BundleStore {
@@ -113,10 +102,17 @@ class FsBundleStore implements BundleStore {
 			const committed = await this.listCommittedBundles(numericOrdinals);
 			const latest = committed.at(-1) ?? null;
 			const sessionTotalBefore = committed.reduce((total, bundle) => total + bundle.byteSize, 0);
-			if (latest !== null && latest.contentHash === snapshot.manifest.contentHash) {
+			if (latest !== null && latest.manifest.contentHash === snapshot.manifest.contentHash) {
 				return {
 					ok: true,
-					value: persistedFromCommitted(latest, sessionTotalBefore, true),
+					value: {
+						ordinal: latest.ordinal,
+						dir: latest.dir,
+						byteSize: latest.byteSize,
+						sessionTotalBytes: sessionTotalBefore,
+						reused: true,
+						manifest: latest.manifest,
+					},
 				};
 			}
 
@@ -140,14 +136,10 @@ class FsBundleStore implements BundleStore {
 				value: {
 					ordinal,
 					dir,
-					contentHash: snapshot.manifest.contentHash,
 					byteSize,
 					sessionTotalBytes: sessionTotalBefore + byteSize,
 					reused: false,
-					sessionId: snapshot.manifest.sessionId,
-					model: snapshot.manifest.model,
-					turnCount: snapshot.manifest.turnCount,
-					capturedAt: snapshot.manifest.capturedAt,
+					manifest: snapshot.manifest,
 				},
 			};
 		} catch (error) {
@@ -172,17 +164,18 @@ class FsBundleStore implements BundleStore {
 			const dir = path.join(this.rootDir, String(ordinal));
 			const manifest = await readManifest(path.join(dir, MANIFEST_FILE_NAME));
 			if (manifest === null) continue;
-			bundles.push({ ordinal, dir, contentHash: manifest.contentHash, byteSize: await committedBundleByteSize(dir), manifest });
+			bundles.push({ ordinal, dir, byteSize: await committedBundleByteSize(dir), manifest });
 		}
 		return bundles;
 	}
 }
 
-async function readManifest(manifestPath: string): Promise<BundleSnapshot["manifest"] | null> {
+async function readManifest(manifestPath: string): Promise<BundleManifestSummary | null> {
 	try {
 		const parsed = JSON.parse(await fs.readFile(manifestPath, "utf8")) as unknown;
-		if (!bundleManifestReadSchema.safeParse(parsed).success) return null;
-		return parsed as BundleSnapshot["manifest"];
+		const result = bundleManifestReadSchema.safeParse(parsed);
+		if (!result.success) return null;
+		return result.data;
 	} catch {
 		return null;
 	}
@@ -199,25 +192,6 @@ async function committedBundleByteSize(dir: string): Promise<number> {
 		}
 	}
 	return total;
-}
-
-function persistedFromCommitted(bundle: CommittedBundleInfo, sessionTotalBytes: number, reused: boolean): PersistedBundle {
-	return {
-		ordinal: bundle.ordinal,
-		dir: bundle.dir,
-		contentHash: bundle.contentHash,
-		byteSize: bundle.byteSize,
-		sessionTotalBytes,
-		reused,
-		sessionId: bundle.manifest.sessionId,
-		model: bundle.manifest.model,
-		turnCount: bundle.manifest.turnCount,
-		capturedAt: bundle.manifest.capturedAt,
-	};
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 function isNotFound(error: unknown): boolean {

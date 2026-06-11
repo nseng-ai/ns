@@ -13,8 +13,9 @@ import type { BeforeAgentStartEvent, ContextEvent, ExtensionAPI, ExtensionComman
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
 import { ANALYSIS_MODEL_ID, ANALYSIS_MODEL_PROVIDER, createCodexAnalysisModelGateway } from "./context-profiler/analysis-model-gateway.ts";
 import type { BundlePersistenceState } from "./context-profiler/bundle.ts";
-import { createFsBundleStore, type BundleStore, type PersistedBundle } from "./context-profiler/bundle-store.ts";
-import { InterrogationController } from "./context-profiler/interrogation-controller.ts";
+import { createFsBundleStore } from "./context-profiler/bundle-store.ts";
+import { errorMessage } from "./context-profiler/errors.ts";
+import { InterrogationController, type InterrogationViewPort } from "./context-profiler/interrogation-controller.ts";
 import { createPiInterrogationSessionFactory } from "./context-profiler/interrogation-session.ts";
 import type { InterrogationScope } from "./context-profiler/interrogation-prompt.ts";
 import {
@@ -27,11 +28,10 @@ import {
 	startBundlePersist,
 	startSegmentationBatch,
 	type ProfilerState,
-	type SegmentationBatchOutcome,
 } from "./context-profiler/runtime.ts";
 import { bundleStatusBarText } from "./context-profiler/render.ts";
 import type { SegmentationState } from "./context-profiler/segmentation.ts";
-import { ProfilerView, type InterrogationViewPort } from "./context-profiler/view.ts";
+import { ProfilerView } from "./context-profiler/view.ts";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 const STATUS_KEY = "context-profiler";
@@ -42,10 +42,7 @@ interface OverlaySession {
 	handle: OverlayHandle | null;
 	view: ProfilerView | null;
 	detachSegmentation: (() => void) | null;
-	bundleStore: BundleStore | null;
 	persistence: BundlePersistenceState;
-	whenPersisted: Promise<PersistedBundle | null> | null;
-	segmentationCompletion: Promise<SegmentationBatchOutcome> | null;
 	interrogation: InterrogationController | null;
 }
 
@@ -137,15 +134,13 @@ function openProfiler(options: OpenProfilerOptions): void {
 	const state = runtime.captureCurrentState(ctx);
 	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
+	const bundleStore = createFsBundleStore({ sessionDir: ctx.sessionManager.getSessionDir(), sessionId: ctx.sessionManager.getSessionId() });
 	const session: OverlaySession = {
 		close: () => {},
 		handle: null,
 		view: null,
 		detachSegmentation: null,
-		bundleStore: createFsBundleStore({ sessionDir: ctx.sessionManager.getSessionDir(), sessionId: ctx.sessionManager.getSessionId() }),
 		persistence: { type: "pending" },
-		whenPersisted: null,
-		segmentationCompletion: null,
 		interrogation: null,
 	};
 	sessions.set(session);
@@ -160,19 +155,14 @@ function openProfiler(options: OpenProfilerOptions): void {
 	};
 	const startWork = (workState: ProfilerState, workProfile: ReturnType<typeof buildProfile>, force: boolean): SegmentationState => {
 		session.detachSegmentation?.();
-		const store = session.bundleStore;
-		if (store === null) throw new Error("bundle store missing");
-		const persist = startBundlePersist({ store, state: workState, profile: workProfile, sessionId: ctx.sessionManager.getSessionId(), onUpdate: onPersistenceUpdate });
-		session.persistence = persist.initial;
-		session.whenPersisted = persist.whenPersisted;
+		const persist = startBundlePersist({ store: bundleStore, state: workState, profile: workProfile, sessionId: ctx.sessionManager.getSessionId(), onUpdate: onPersistenceUpdate });
 		onPersistenceUpdate(persist.initial);
 		const segmentation = startSegmentationBatch({ gateway, profile: workProfile, state: workState, force, onUpdate: onSegmentationUpdate });
 		session.detachSegmentation = segmentation.detach;
-		session.segmentationCompletion = segmentation.completion;
 		joinEpisodesWrite({
 			whenPersisted: persist.whenPersisted,
 			completion: segmentation.completion,
-			store,
+			store: bundleStore,
 			analysisModel: `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID}`,
 			onResult: (result) => {
 				if (result.ok || !sessions.isCurrent(session)) return;
@@ -220,8 +210,7 @@ function openProfiler(options: OpenProfilerOptions): void {
 			},
 		)
 		.catch((error: unknown) => {
-			const message = error instanceof Error ? error.message : String(error);
-			ctx.ui.notify(`Context profiler failed: ${message}`, "error");
+			ctx.ui.notify(`Context profiler failed: ${errorMessage(error)}`, "error");
 		})
 		.finally(() => {
 			session.detachSegmentation?.();
@@ -252,20 +241,7 @@ function openInterrogation(options: {
 			onTranscriptChange: () => session.view?.notifyInterrogationChanged(),
 		});
 	}
-	const controller = session.interrogation;
-	return {
-		ok: true,
-		port: {
-			getState: () => controller.state,
-			bundleOrdinal: controller.bundleOrdinal,
-			ask: (question, scope) => {
-				void controller.ask(question, scope);
-			},
-			abortTurn: () => {
-				void controller.abortTurn();
-			},
-		},
-	};
+	return { ok: true, port: session.interrogation };
 }
 
 function bundleUnavailableReason(state: BundlePersistenceState): string {

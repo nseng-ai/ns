@@ -67,7 +67,18 @@ export function scopeForRegion(region: LiveRegion): InterrogationScope {
 export function scopesEqual(left: InterrogationScope, right: InterrogationScope): boolean {
 	if (left.type !== right.type) return false;
 	if (left.type === "session" || right.type === "session") return true;
-	return JSON.stringify(left.seed) === JSON.stringify(right.seed);
+	return episodeScopeSeedsEqual(left.seed, right.seed);
+}
+
+function episodeScopeSeedsEqual(left: EpisodeScopeSeed, right: EpisodeScopeSeed): boolean {
+	return left.label === right.label
+		&& left.kind === right.kind
+		&& left.outcome === right.outcome
+		&& left.turnRange.start === right.turnRange.start
+		&& left.turnRange.end === right.turnRange.end
+		&& left.efficiency === right.efficiency
+		&& left.relevance === right.relevance
+		&& left.analysisSummary === right.analysisSummary;
 }
 
 export function scopeLabel(scope: InterrogationScope): string {

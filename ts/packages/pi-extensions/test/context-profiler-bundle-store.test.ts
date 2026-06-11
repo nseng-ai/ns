@@ -43,7 +43,7 @@ describe("fs bundle store", () => {
 		const reused = await store.persistBundle(snapshot("one"));
 		const second = await store.persistBundle(snapshot("two"));
 
-		expect(first.ok && first.value).toMatchObject({ ordinal: 1, reused: false, sessionId: "sid", model: "p/m", turnCount: 1 });
+		expect(first.ok && first.value).toMatchObject({ ordinal: 1, reused: false, manifest: { sessionId: "sid", model: "p/m", turnCount: 1 } });
 		expect(reused.ok && reused.value).toMatchObject({ ordinal: 1, reused: true });
 		expect(second.ok && second.value).toMatchObject({ ordinal: 2, reused: false });
 	});

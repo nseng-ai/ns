@@ -66,7 +66,14 @@ describe("interrogation core", () => {
 		const session = new FakeInterrogationSession({ events: [{ type: "assistant-delta", text: "ok" }, { type: "assistant-end" }] });
 		const factory = new FakeInterrogationSessionFactory({ ok: true, value: session });
 		const controller = new InterrogationController({
-			bundle: { ordinal: 3, dir: "/bundle", contentHash: "abc", byteSize: 1, sessionTotalBytes: 1, reused: false, sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
+			bundle: {
+				ordinal: 3,
+				dir: "/bundle",
+				byteSize: 1,
+				sessionTotalBytes: 1,
+				reused: false,
+				manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
+			},
 			model: { provider: "p", id: "m" } as never,
 			modelRegistry: {} as never,
 			factory,
