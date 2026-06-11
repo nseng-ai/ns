@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import {
 	getFeedbackManifestSchema,
 	prepareRunManifestSchema,
@@ -196,7 +196,7 @@ interface ClassifiedLookup {
 
 export async function runClassificationTemplateOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseOptions(invocation.args, ["--manifest-json", "--manifest-file"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 
 	const manifestResult = await loadJsonObjectSource({
 		inlineJson: options.values.get("--manifest-json"),
@@ -208,11 +208,11 @@ export async function runClassificationTemplateOperation(invocation: ExecOperati
 		fileOption: "--manifest-file",
 		stdin: invocation.deps.stdin,
 	});
-	if (manifestResult.type === "error") return { type: "exit", exit: clinkrFailure(manifestResult.errorType, manifestResult.message) };
+	if (manifestResult.type === "error") return { type: "exit", exit: failure(manifestResult.errorType, manifestResult.message) };
 
 	const result = buildFeedbackClassificationTemplate(manifestResult.value);
-	if (result.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", result.message) };
-	return { type: "exit", exit: clinkrOk(result.value) };
+	if (result.type === "error") return { type: "exit", exit: failure("invalid_request", result.message) };
+	return { type: "exit", exit: ok(result.value) };
 }
 
 export async function runValidateFeedbackClassificationOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
@@ -224,19 +224,19 @@ export async function runValidateFeedbackClassificationOperation(invocation: Exe
 		"--classification-json",
 		"--classification-file",
 	]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 
 	const payloadResult = await loadValidatePayload(options.values, invocation.deps.stdin);
-	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.errorType, payloadResult.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.errorType, payloadResult.message) };
 
 	const result = validateFeedbackClassification({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
-	if (result.valid) return { type: "exit", exit: clinkrOk(result) };
-	return { type: "exit", exit: clinkrNegative(result, "PR feedback classification failed validation.") };
+	if (result.valid) return { type: "exit", exit: ok(result) };
+	return { type: "exit", exit: negative("PR feedback classification failed validation.", result) };
 }
 
 export async function runPlanFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 
 	const payloadResult = await loadJsonInput({
 		optionValue: options.values.get("--payload-json"),
@@ -248,11 +248,11 @@ export async function runPlanFeedbackOperation(invocation: ExecOperationInvocati
 		schema: wrapperPayloadSchema,
 		stdin: invocation.deps.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 
 	const result = planFeedback({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
-	if (result.valid) return { type: "exit", exit: clinkrOk(result) };
-	return { type: "exit", exit: clinkrNegative(result, "PR feedback classification failed validation; no plan produced.") };
+	if (result.valid) return { type: "exit", exit: ok(result) };
+	return { type: "exit", exit: negative("PR feedback classification failed validation; no plan produced.", result) };
 }
 
 export function buildFeedbackClassificationTemplate(manifest: unknown): { type: "ok"; value: unknown } | { type: "error"; message: string } {

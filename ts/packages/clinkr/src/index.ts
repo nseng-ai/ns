@@ -16,5 +16,6 @@ export type {
 export { ClinkrFailure } from "./failure.ts";
 export { createProcessIo, resolveIo } from "./io.ts";
 export type { ClinkrIo, ClinkrIoOverrides } from "./io.ts";
-export type { ClinkrFormat, LegacyMachineOutput, LegacyMachineSerialization } from "./emit.ts";
+export { emitExit } from "./emit.ts";
+export type { ClinkrFormat, EmitExitOptions, LegacyMachineOutput, LegacyMachineSerialization } from "./emit.ts";
 export type { PositionalSpec } from "./surface.ts";

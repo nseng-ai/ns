@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
-import { resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+
+import { emitExit, failure, type ClinkrExit } from "@asdl/clinkr";
+import { formatErrorMessage } from "@asdl/core";
+import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
-import { clinkrFailure, emitClinkrExit, type ClinkrExit } from "./clinkr-envelope.ts";
 import { createDefaultExecOperationRegistry, type ExecOperationRegistry } from "./operation-registry.ts";
 import { buildOperationSchemaDocument } from "./operation-schemas.ts";
 
@@ -89,20 +89,18 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 		if (registeredOperation.isRepoContextRequired === true) {
 			const preconditionExit = await repoContextPreconditionExit(deps);
 			if (preconditionExit !== undefined) {
-				return emitClinkrExit(preconditionExit, {
+				return emitExit(preconditionExit, {
 					format: hasFormatJson(args) ? "json" : "human",
-					stdout: deps.stdout,
-					stderr: deps.stderr,
+					io: { stdout: deps.stdout, stderr: deps.stderr },
 				});
 			}
 		}
 		const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
 		switch (dispatchResult.type) {
 			case "exit":
-				return emitClinkrExit(dispatchResult.exit, {
+				return emitExit(dispatchResult.exit, {
 					format: hasFormatJson(args) ? "json" : "human",
-					stdout: deps.stdout,
-					stderr: deps.stderr,
+					io: { stdout: deps.stdout, stderr: deps.stderr },
 				});
 			case "raw-exit":
 				return dispatchResult.exitCode;
@@ -114,7 +112,7 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	try {
 		return await deps.context.legacy.run(["exec", ...args], { cwd: deps.cwd, env: deps.env });
 	} catch (error) {
-		deps.stderr(`Error: ${errorMessage(error)}\n`);
+		deps.stderr(`Error: ${formatErrorMessage(error)}\n`);
 		return 2;
 	}
 }
@@ -126,12 +124,12 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
  * fail-open: a missing git gateway or a probe failure must never block a run
  * that would have succeeded.
  */
-async function repoContextPreconditionExit(deps: RequiredCliDeps): Promise<ClinkrExit | undefined> {
+async function repoContextPreconditionExit(deps: RequiredCliDeps): Promise<ClinkrExit<unknown> | undefined> {
 	const git = deps.context.git;
 	if (git === undefined) return undefined;
 	const probe = await git.isInsideWorkTree({ cwd: deps.cwd, env: deps.env });
 	if (probe.type !== "outside") return undefined;
-	return clinkrFailure("repo_context_required", "pr-address must run inside the target git repository (gh resolves the repo from the current directory).");
+	return failure("repo_context_required", "pr-address must run inside the target git repository (gh resolves the repo from the current directory).");
 }
 
 function runtimeInfo(): string {
@@ -161,24 +159,6 @@ async function readProcessStdin(): Promise<string> {
 		process.stdin.on("error", reject);
 		process.stdin.on("end", () => resolveStdin(data));
 	});
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
-}
-
-function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {
-	if (argvPath === undefined) return false;
-
-	try {
-		const modulePath = realpathSync(fileURLToPath(metaUrl));
-		const entryPath = realpathSync(resolve(argvPath));
-		return modulePath === entryPath;
-	} catch {
-		// If either path cannot be resolved, this process is not a direct CLI entrypoint.
-		return false;
-	}
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

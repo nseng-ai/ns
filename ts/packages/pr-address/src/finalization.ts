@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
@@ -84,7 +84,7 @@ interface SkippedItem {
 
 export async function runFinalizeRunOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({
 		optionValue: options.options.values.get("--payload-json"),
 		filePath: options.options.values.get("--payload-file"),
@@ -95,10 +95,10 @@ export async function runFinalizeRunOperation(invocation: ExecOperationInvocatio
 		schema: finalizeRunInputSchema,
 		stdin: invocation.deps.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 	const result = finalizeRun(payloadResult.value);
-	if (resultValue(result, "valid") === true && resultValue(result, "ready_to_stop") === true) return { type: "exit", exit: clinkrOk(result) };
-	return { type: "exit", exit: clinkrNegative(result, "Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.") };
+	if (resultValue(result, "valid") === true && resultValue(result, "ready_to_stop") === true) return { type: "exit", exit: ok(result) };
+	return { type: "exit", exit: negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result) };
 }
 
 export function finalizeRun(input: unknown): Record<string, unknown> {

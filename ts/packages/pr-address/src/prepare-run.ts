@@ -1,4 +1,4 @@
-import { clinkrFailure, clinkrOk, toMachineEnvelope } from "./clinkr-envelope.ts";
+import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
 import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
@@ -86,16 +86,16 @@ export async function runPrepareRunOperation(invocation: ExecOperationInvocation
 		inlineResult = prepared.value;
 	}
 
-	if (store === undefined) return { type: "exit", exit: clinkrOk(inlineResult) };
+	if (store === undefined) return { type: "exit", exit: ok(inlineResult) };
 
 	const descriptor = inlineResult.found ? `pr-address-prepare-run-pr-${inlineResult.number}` : "pr-address-prepare-run-no-pr";
 	const rawReference = await store.writeJsonArtifact({
 		descriptor,
 		role: "raw",
-		payload: toMachineEnvelope(clinkrOk(inlineResult)),
+		payload: toMachineEnvelope(ok(inlineResult)),
 	});
 	if (rawReference.type === "error") return exitFailure(rawReference.errorType, rawReference.message);
-	return { type: "exit", exit: clinkrOk(buildManifest(inlineResult, rawReference.value)) };
+	return { type: "exit", exit: ok(buildManifest(inlineResult, rawReference.value)) };
 }
 
 async function prepareFoundRun(options: {
@@ -209,11 +209,11 @@ function restructuredFilesFailureMessage(baseRefName: string, failure: GatewayFa
 function gitGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error"; result: ExecOperationDispatchResult } {
 	const gateway = invocation.deps.context.git;
 	if (gateway === undefined) {
-		return { type: "error", result: { type: "exit", exit: clinkrFailure("missing_gateway", "This TypeScript pr-address operation requires a git gateway.") } };
+		return { type: "error", result: { type: "exit", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a git gateway.") } };
 	}
 	return { type: "ok", gateway };
 }
 
 function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: clinkrFailure(errorType, message) };
+	return { type: "exit", exit: failure(errorType, message) };
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
@@ -138,7 +138,7 @@ export interface RecordBatchCheckpointResult {
 
 export async function runRecordBatchCheckpointOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({
 		optionValue: options.options.values.get("--payload-json"),
 		filePath: options.options.values.get("--payload-file"),
@@ -149,19 +149,19 @@ export async function runRecordBatchCheckpointOperation(invocation: ExecOperatio
 		schema: recordBatchCheckpointInputSchema,
 		stdin: invocation.deps.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 
 	let checkpointResult = recordBatchCheckpoint(payloadResult.value);
 	if (checkpointResult.valid && checkpointResult.payload_path !== null) {
 		const written = await writeCheckpointArtifact(checkpointResult, invocation.deps.context.payloadClock);
-		if (written.type === "error") return { type: "exit", exit: clinkrFailure(written.errorType, written.message) };
+		if (written.type === "error") return { type: "exit", exit: failure(written.errorType, written.message) };
 		checkpointResult = { ...checkpointResult, checkpoint_reference: written.value };
 	}
 
-	if (checkpointResult.valid && checkpointResult.batch_complete) return { type: "exit", exit: clinkrOk(checkpointResult) };
+	if (checkpointResult.valid && checkpointResult.batch_complete) return { type: "exit", exit: ok(checkpointResult) };
 	return {
 		type: "exit",
-		exit: clinkrNegative(checkpointResult, "Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete."),
+		exit: negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", checkpointResult),
 	};
 }
 

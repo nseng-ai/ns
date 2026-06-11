@@ -1,4 +1,4 @@
-import { clinkrFailure } from "./clinkr-envelope.ts";
+import { failure } from "@asdl/clinkr";
 import type { GatewayFailure, PrAddressGitHubGateway } from "./gateways.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
@@ -17,10 +17,10 @@ export interface ParsePrNumberOperationOptions {
 
 export function parsePrNumberOperation(options: ParsePrNumberOperationOptions): { type: "ok"; prNumber: number; flags: ReadonlySet<string>; values: ReadonlyMap<string, string> } | { type: "error"; result: ExecOperationDispatchResult } {
 	const parsed = parseReadOptions(options.args, options.valueOptions ?? [], options.flagOptions ?? []);
-	if (parsed.type === "error") return { type: "error", result: { type: "exit", exit: clinkrFailure("invalid_request", parsed.message) } };
+	if (parsed.type === "error") return { type: "error", result: { type: "exit", exit: failure("invalid_request", parsed.message) } };
 	const rawPrNumber = parsed.options.positionals[0];
 	const prNumber = rawPrNumber === undefined ? Number.NaN : Number(rawPrNumber);
-	if (!Number.isInteger(prNumber)) return { type: "error", result: { type: "exit", exit: clinkrFailure("invalid_request", `${options.commandName} requires an integer PR number argument.`) } };
+	if (!Number.isInteger(prNumber)) return { type: "error", result: { type: "exit", exit: failure("invalid_request", `${options.commandName} requires an integer PR number argument.`) } };
 	return { type: "ok", prNumber, flags: parsed.options.flags, values: parsed.options.values };
 }
 
@@ -59,7 +59,7 @@ export function parseReadOptions(
 export function githubGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitHubGateway } | { type: "error"; result: ExecOperationDispatchResult } {
 	const gateway = invocation.deps.context.github;
 	if (gateway === undefined) {
-		return { type: "error", result: { type: "exit", exit: clinkrFailure("missing_gateway", "This TypeScript pr-address operation requires a GitHub gateway.") } };
+		return { type: "error", result: { type: "exit", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a GitHub gateway.") } };
 	}
 	return { type: "ok", gateway };
 }
@@ -68,14 +68,14 @@ export function gatewayOptions(invocation: ExecOperationInvocation): { cwd: stri
 	return { cwd: invocation.deps.cwd, env: invocation.deps.env };
 }
 
-export function gatewayFailureResult(prefix: string, failure: GatewayFailure): { type: "error"; result: ExecOperationDispatchResult } {
-	return { type: "error", result: { type: "exit", exit: clinkrFailure("pr_gateway_failure", gatewayFailureMessage(prefix, failure)) } };
+export function gatewayFailureResult(prefix: string, gatewayFailure: GatewayFailure): { type: "error"; result: ExecOperationDispatchResult } {
+	return { type: "error", result: { type: "exit", exit: failure("pr_gateway_failure", gatewayFailureMessage(prefix, gatewayFailure)) } };
 }
 
-export function gatewayFailureDetail(failure: GatewayFailure): string {
-	return failure.stderr ?? failure.stdout ?? `exit code ${failure.returncode}`;
+export function gatewayFailureDetail(gatewayFailure: GatewayFailure): string {
+	return gatewayFailure.stderr ?? gatewayFailure.stdout ?? `exit code ${gatewayFailure.returncode}`;
 }
 
-export function gatewayFailureMessage(prefix: string, failure: GatewayFailure): string {
-	return `${prefix}: ${gatewayFailureDetail(failure)}`;
+export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {
+	return `${prefix}: ${gatewayFailureDetail(gatewayFailure)}`;
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { loadArtifactReference, loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
@@ -133,7 +133,7 @@ interface BuildStackResolveThreadPayloadsResult {
 export async function runBuildStackResolveThreadPayloadsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file", "--stack-plan-reference"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const payloadResult = await loadJsonInput({
 		optionValue: options.options.values.get("--payload-json"),
 		filePath: options.options.values.get("--payload-file"),
@@ -144,7 +144,7 @@ export async function runBuildStackResolveThreadPayloadsOperation(invocation: Ex
 		schema: buildStackResolveThreadPayloadsWirePayloadSchema,
 		stdin: invocation.deps.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: clinkrFailure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 
 	let request = payloadResult.value;
 	const stackPlanReferencePath = options.options.values.get("--stack-plan-reference");
@@ -152,7 +152,7 @@ export async function runBuildStackResolveThreadPayloadsOperation(invocation: Ex
 		if (request.stack_plan === undefined) {
 			return {
 				type: "exit",
-				exit: clinkrFailure(
+				exit: failure(
 					"invalid_request",
 					"build-stack-resolve-thread-payloads requires a stack_plan input via the payload stack_plan key or --stack-plan-reference.",
 				),
@@ -162,7 +162,7 @@ export async function runBuildStackResolveThreadPayloadsOperation(invocation: Ex
 		if (request.stack_plan !== undefined) {
 			return {
 				type: "exit",
-				exit: clinkrFailure(
+				exit: failure(
 					"invalid_request",
 					"build-stack-resolve-thread-payloads cannot mix an embedded stack_plan payload key with --stack-plan-reference; pass exactly one stack plan source.",
 				),
@@ -175,13 +175,13 @@ export async function runBuildStackResolveThreadPayloadsOperation(invocation: Ex
 			artifactDescription: "a stack-feedback-plan data artifact",
 			schema: stackPlanReferenceShapeSchema,
 		});
-		if (referenceResult.type === "error") return { type: "exit", exit: clinkrFailure(referenceResult.error.errorType, referenceResult.error.message) };
+		if (referenceResult.type === "error") return { type: "exit", exit: failure(referenceResult.error.errorType, referenceResult.error.message) };
 		request = { ...request, stack_plan: referenceResult.value };
 	}
 
 	const result = buildStackResolveThreadPayloads(request);
-	if (result.valid) return { type: "exit", exit: clinkrOk(result) };
-	return { type: "exit", exit: clinkrNegative(result, "Stack resolve-thread payload decisions failed validation; no payloads produced.") };
+	if (result.valid) return { type: "exit", exit: ok(result) };
+	return { type: "exit", exit: negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", result) };
 }
 
 export function buildStackResolveThreadPayloads(input: unknown): BuildStackResolveThreadPayloadsResult {

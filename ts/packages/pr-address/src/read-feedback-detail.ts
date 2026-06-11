@@ -3,7 +3,7 @@ import { basename } from "node:path";
 
 import { z } from "zod";
 
-import { clinkrFailure, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, ok } from "@asdl/clinkr";
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import { readJsonPayloadArtifact, resolveJsonPointer as resolvePayloadJsonPointer } from "./payload-lookup.ts";
@@ -26,14 +26,14 @@ const DETAIL_KIND_PATTERNS: ReadonlyArray<{ pattern: RegExp; detailKind: DetailK
 
 export async function runReadFeedbackDetailOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseManagedOptions(invocation.args, ["--payload-path", "--json-pointer"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const payloadPath = options.options.values.get("--payload-path");
 	const jsonPointer = options.options.values.get("--json-pointer");
-	if (payloadPath === undefined) return { type: "exit", exit: clinkrFailure("invalid_request", "--payload-path requires a value.") };
-	if (jsonPointer === undefined) return { type: "exit", exit: clinkrFailure("invalid_request", "--json-pointer requires a value.") };
+	if (payloadPath === undefined) return { type: "exit", exit: failure("invalid_request", "--payload-path requires a value.") };
+	if (jsonPointer === undefined) return { type: "exit", exit: failure("invalid_request", "--json-pointer requires a value.") };
 	const result = await readFeedbackDetail({ payloadPath, jsonPointer });
-	if (result.type === "error") return { type: "exit", exit: clinkrFailure(result.errorType, result.message) };
-	return { type: "exit", exit: clinkrOk(result.value) };
+	if (result.type === "error") return { type: "exit", exit: failure(result.errorType, result.message) };
+	return { type: "exit", exit: ok(result.value) };
 }
 
 export async function readFeedbackDetail(options: { payloadPath: string; jsonPointer: string }): Promise<{ type: "ok"; value: unknown } | { type: "error"; errorType: string; message: string }> {
@@ -97,7 +97,7 @@ type ReadFeedbackDetailsOutcome = { type: "ok"; value: ReadFeedbackDetailsResult
 
 export async function runReadFeedbackDetailsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseManagedOptions(invocation.args, ["--selection-json"]);
-	if (options.type === "error") return { type: "exit", exit: clinkrFailure("invalid_request", options.message) };
+	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 	const selectionResult = await loadJsonInput({
 		optionValue: options.options.values.get("--selection-json"),
 		commandName: "read-feedback-details",
@@ -106,10 +106,10 @@ export async function runReadFeedbackDetailsOperation(invocation: ExecOperationI
 		schema: readFeedbackDetailsSelectionSchema,
 		stdin: invocation.deps.stdin,
 	});
-	if (selectionResult.type === "error") return { type: "exit", exit: clinkrFailure(selectionResult.error.errorType, selectionResult.error.message) };
+	if (selectionResult.type === "error") return { type: "exit", exit: failure(selectionResult.error.errorType, selectionResult.error.message) };
 	const result = await readFeedbackDetails({ selection: selectionResult.value, clock: invocation.deps.context.payloadClock });
-	if (result.type === "error") return { type: "exit", exit: clinkrFailure(result.errorType, result.message) };
-	return { type: "exit", exit: clinkrOk(result.value) };
+	if (result.type === "error") return { type: "exit", exit: failure(result.errorType, result.message) };
+	return { type: "exit", exit: ok(result.value) };
 }
 
 export async function readFeedbackDetails(options: { selection: ReadFeedbackDetailsSelection; clock?: PayloadClock | undefined }): Promise<ReadFeedbackDetailsOutcome> {

@@ -16,6 +16,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pr-address/test"
   },
   "dependencies": {
+    "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
     "zod": "^4.4.3"
   }

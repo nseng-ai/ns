@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
+import { failure, negative, ok } from "@asdl/clinkr";
 import type { PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
@@ -73,8 +73,8 @@ export async function runMapBranchPrsOperation(invocation: ExecOperationInvocati
 		missing_branches: missingBranches,
 		summary: { requested: branches.length, matched: branchPrs.length, missing: missingBranches.length },
 	};
-	if (missingBranches.length === 0) return { type: "exit", exit: clinkrOk(result) };
-	return { type: "exit", exit: clinkrNegative(result, `No open PR found for branches: ${missingBranches.join(", ")}`) };
+	if (missingBranches.length === 0) return { type: "exit", exit: ok(result) };
+	return { type: "exit", exit: negative(`No open PR found for branches: ${missingBranches.join(", ")}`, result) };
 }
 
 function branchesValidationMessage(branches: readonly string[]): string | null {
@@ -106,5 +106,5 @@ function duplicateValues(values: readonly string[]): string[] {
 }
 
 function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: clinkrFailure(errorType, message) };
+	return { type: "exit", exit: failure(errorType, message) };
 }
