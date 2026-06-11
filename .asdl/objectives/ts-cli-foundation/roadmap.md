@@ -4,8 +4,8 @@
 
 - [x] Migrate `@asdl/planned-branch` to clinkr.
       Command tree built through `@asdl/clinkr` with a hidden `exec` subgroup; the hand-rolled argv loop and help template literals are deleted. `--format json` success/failure bytes preserved via `legacyMachine`; divergences pinned in the scenario suite (commander help/usage-error bytes, inline-equals acceptance, include-flags relaxation outside `--format json`). No clinkr changes were needed. Evidence: local branch diff against master; package suite, full TS workspace check/test, and the full `just` gate passed.
-- [ ] Migrate `asdl-dev` to clinkr.
-      Resolve the pi-ai streaming open question during this migration; if a streaming need appears, give it its own escape hatch rather than reshaping the renderer contract.
+- [x] Migrate `asdl-dev` to clinkr.
+      The four flat commands (`preview-url`, `cp`, `submit`, `pr-regen`) and the root command now build through `@asdl/clinkr`; the hand-rolled argv dispatch/help path is deleted. `preview-url --json`, checkpoint output, submit streaming/confirmation, timeout exit 124, and arbitrary `gt` exit-code passthrough are preserved via the isolated `@asdl/clinkr/raw` hatch; clinkr surface divergences are pinned in scenario tests. The pi-ai question is resolved: generation is buffered, while `submit` needed raw exit codes and handler-owned I/O rather than renderer-contract changes. Evidence: submitted Graphite stack PRs #1278–#1281; full TS workspace check/test and the full `just` gate passed; completion grep found no remaining hand-rolled asdl-dev argv/help patterns.
 - [ ] Migrate the `@asdl/pr-address` CLI shell to clinkr, preserving legacy-Python fallback dispatch.
       Coordinate with `pr-address-typescript-port`; this record owns only the CLI shell, not operation semantics or Python retirement. Sequenced last among the migrations, after that record's payload-spec rows.
       Groundwork landed 2026-06-11: pr-address depends on `@asdl/clinkr` directly, its local `clinkr-envelope.ts` duplicate is deleted, and all call sites use the canonical envelope (`ok`/`negative`/`failure`/`emitExit`) plus `@asdl/core/cli-entry`. The shell itself (command tree, argv parsing, help) is still hand-rolled — that is the remaining work of this row.
@@ -24,7 +24,7 @@
 
 ## Parked
 
-- Uniform envelope adoption, per-command negative/failure classification, and the Result-type migration — end-of-migration debt owned by the umbrella (`port-asdl-toolkit-to-typescript/migration-debt.md` entries 1–4), not work for this record.
+- Uniform envelope adoption, per-command negative/failure classification, raw-exit hatch burn-down, and the Result-type migration — end-of-migration debt owned by the umbrella (`port-asdl-toolkit-to-typescript/migration-debt.md`), not work for this record.
 - TS-native machine envelope redesign (umbrella `migration-debt.md` entry 3 governs revisit timing).
 - npm publication and public API commitment for `@asdl/clinkr` and `@asdl/core`.
 - Python clinkr features without a current TS consumer: markdown renderers, command aliases, `Ensure`/`NonIdealState` idioms, context-factory machinery beyond what the four CLIs need.
