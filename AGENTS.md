@@ -17,9 +17,17 @@ Placement policy: root `AGENTS.md` holds only rules that apply repo-wide AND are
 
 ### What is ASDL?
 
-ASDL is a composable toolkit for plan-oriented agentic engineering, built as well-separated, independently adoptable features.
+ASDL is a composable toolkit for plan-oriented agentic engineering: tooling that helps humans and agents plan work, implement it in isolated environments, and carry context across sessions.
 
-**The goal**: each feature (plans, worktrees, etc.) should be usable on its own, without buying into the entire system. A team should be able to adopt just the plan workflow, etc., without pulling in unrelated machinery.
+**The goal**: each feature should be usable on its own, without buying into the entire system. A team should be able to adopt just the plan workflow, etc., without pulling in unrelated machinery.
+
+Major features:
+
+- **Plans and planned branches** — write an implementation plan, attach it to a branch, implement from it in a fresh session.
+- **Worktree slots** — parallel isolated checkouts for concurrent agent sessions.
+- **Branch Memory and handoffs** — branch-scoped durable context that carries decisions between sessions.
+- **Objectives** — tracked units of planned work with priorities.
+- **PR feedback tooling** — classify, plan, and resolve review feedback end-to-end (`pr-address`).
 
 ### Status
 
@@ -48,7 +56,7 @@ asdl/
 ### Design Principles
 
 1. **Composability over integration** — each feature works standalone. No hidden coupling between subsystems.
-2. **GitHub as storage** — plans and metadata live in GitHub issues and PRs, not local state. This makes the system distributed and transparent.
+2. **Git-native storage** — durable state lives in git-native mechanisms: branch-scoped refs (Branch Memory), branches, and GitHub issues/PRs where collaboration warrants. Never hidden databases or ad-hoc state files.
 3. **Small, testable units** — pure functions and data transformations over complex class hierarchies. Gateway interfaces for external I/O.
 4. **Port, don't copy** — when porting existing code, rethink the design. Simplify interfaces, remove unnecessary abstractions, and cut dependencies.
 
