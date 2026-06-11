@@ -98,7 +98,7 @@ commit, and all conflicted files.
 Files with an auto-generated header comment (e.g. `<!-- AUTO-GENERATED FILE -->`
 or similar tooling markers): accept either side whole-file —
 `git checkout --theirs <file>` (or `--ours`) — and `git add`. These get
-regenerated in step 7. All other files proceed to step 3.
+regenerated in step 8. All other files proceed to step 3.
 
 ### 3. Resolve each real content file
 
@@ -115,13 +115,25 @@ b. **Classify** the conflict region against the four **safe** categories:
 - **one-side strict-superset** — one side fully contains the other; keep the
   superset
 
-Anything **outside** the safe set → **escalate** (step 5), no matter how
+Anything **outside** the safe set → **escalate** (step 6), no matter how
 confident the resolution looks.
 
 c. **Edit only the conflict region.** The resolved file must contain no
 `<<<<<<<`, `=======`, or `>>>>>>>` markers.
 
-### 4. Verify before continuing
+### 4. Sweep the migration surface
+
+Before verifying or continuing, derive the incoming commit's migration shape
+from `git show <sha> --stat`, the intent-diff, and the commit message:
+
+- deleted files
+- renamed or migrated symbols
+- packages likely to contain stragglers
+
+Grep the affected packages for remaining references, including files that were
+not conflicted, and adapt those call sites mechanically.
+
+### 5. Verify before continuing
 
 When any auto-resolved file is **code**, run the scoped project check before
 the continue command:
@@ -137,7 +149,7 @@ the continue command:
 - **Fail** → `git restore --merge <file>` to bring back the conflict markers,
   then **escalate** that file.
 
-### 5. Escalate
+### 6. Escalate
 
 Pause and hand the decision to the user. Present:
 
@@ -148,18 +160,18 @@ Pause and hand the decision to the user. Present:
 Use AskUserQuestion or an inline prompt. On the user's decision: apply it,
 `git add`, run the continue command, and **auto-resume** the loop.
 
-### 6. Continue and loop
+### 7. Continue and loop
 
 Run the continue command. Each continue may stop on the next commit with new
 conflicts — repeat from step 1 until the operation reports completion.
 
-### 7. Regenerate auto-generated files
+### 8. Regenerate auto-generated files
 
 Regenerate any auto-generated files from step 2 using the project's tooling
 (doc generators, index builders, lock files). Commit the regenerated files
 separately.
 
-### 8. Verify completion
+### 9. Verify completion
 
 Run `git status` (clean) and `git log --oneline -5` to confirm the operation
 completed, plus any driver post-completion checks.

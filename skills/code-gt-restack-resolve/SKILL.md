@@ -138,8 +138,8 @@ command and continue from the current conflict state.
 `skills/code-resolve-merge-conflicts/SKILL.md` and follow its workflow with the
 **Engine parameters** above. The engine handles everything per-conflict:
 auto-generated files, the intent-diff, the four-safe-category classification,
-region-only edits, the verification gate, escalation, and running
-`gt continue`.
+region-only edits, the migration-surface sweep, the verification gate,
+escalation, and running `gt continue`.
 
 Each `gt continue` may stop on the next commit with new conflicts — the engine
 loops per conflict until the selected restack command reports nothing left.
