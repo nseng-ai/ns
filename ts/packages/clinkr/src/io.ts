@@ -13,3 +13,14 @@ export function createProcessIo(): ClinkrIo {
 		},
 	};
 }
+
+export interface ClinkrIoOverrides {
+	stdout?: ((text: string) => void) | undefined;
+	stderr?: ((text: string) => void) | undefined;
+}
+
+/** Process io with per-stream overrides; the seam CLIs hand their deps to. */
+export function resolveIo(overrides: ClinkrIoOverrides = {}): ClinkrIo {
+	const base = createProcessIo();
+	return { stdout: overrides.stdout ?? base.stdout, stderr: overrides.stderr ?? base.stderr };
+}
