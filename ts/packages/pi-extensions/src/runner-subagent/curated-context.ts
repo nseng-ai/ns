@@ -34,6 +34,11 @@ interface FileCandidate {
 	reasons: Set<CandidateReason>;
 }
 
+interface CandidateUpdate {
+	path: string;
+	candidate: FileCandidate;
+}
+
 interface IncludedSource {
 	path: string;
 	reasons: readonly CandidateReason[];
@@ -193,21 +198,25 @@ function runGit(cwd: string, args: readonly string[]): CommandResult {
 
 function collectFileCandidates(input: BuildCuratedRunnerSubagentContextInput, gitEvidence: GitEvidence): Map<string, FileCandidate> {
 	const candidates = new Map<string, FileCandidate>();
-	for (const path of extractMentionedPaths(`${input.title}\n${input.prompt}`)) addCandidate(candidates, path, "mentioned");
-	for (const path of parseGitStatusPaths(gitEvidence.statusShort ?? "")) addCandidate(candidates, path, "git-status");
-	for (const path of lines(gitEvidence.diffNameOnly ?? "")) addCandidate(candidates, path, "git-diff");
+	function applyCandidateUpdate(path: string, reason: CandidateReason): void {
+		const update = buildCandidateUpdate(candidates, path, reason);
+		if (update === null) return;
+		candidates.set(update.path, update.candidate);
+	}
+	for (const path of extractMentionedPaths(`${input.title}\n${input.prompt}`)) applyCandidateUpdate(path, "mentioned");
+	for (const path of parseGitStatusPaths(gitEvidence.statusShort ?? "")) applyCandidateUpdate(path, "git-status");
+	for (const path of lines(gitEvidence.diffNameOnly ?? "")) applyCandidateUpdate(path, "git-diff");
 	return candidates;
 }
 
-function addCandidate(candidates: Map<string, FileCandidate>, path: string, reason: CandidateReason): void {
+function buildCandidateUpdate(candidates: ReadonlyMap<string, FileCandidate>, path: string, reason: CandidateReason): CandidateUpdate | null {
 	const normalized = normalizeMentionedPath(path);
-	if (normalized.length === 0) return;
+	if (normalized.length === 0) return null;
 	const existing = candidates.get(normalized);
 	if (existing !== undefined) {
-		existing.reasons.add(reason);
-		return;
+		return { path: normalized, candidate: { path: existing.path, reasons: new Set([...existing.reasons, reason]) } };
 	}
-	candidates.set(normalized, { path: normalized, reasons: new Set([reason]) });
+	return { path: normalized, candidate: { path: normalized, reasons: new Set([reason]) } };
 }
 
 function extractMentionedPaths(text: string): readonly string[] {
