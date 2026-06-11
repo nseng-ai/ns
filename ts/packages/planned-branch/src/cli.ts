@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
-import { ClinkrFailure, ClinkrGroup, createProcessIo, ok, type ClinkrExit, type ClinkrIo, type LegacyMachineOutput } from "@asdl/clinkr";
+import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+import { legacyCommand, type LegacyPayload } from "@asdl/clinkr/legacy";
 import { z } from "zod";
 
+import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { normalizePlanFilePath, validatePlanSlug } from "@asdl/plans";
 
 import {
@@ -19,7 +18,9 @@ import {
 } from "./attached-plan.ts";
 import { createRealPlannedBranchContext, type PlannedBranchContext } from "./context.ts";
 import {
+	BRANCH_CREATION_METHODS,
 	createPlannedBranchFromFile,
+	DEFAULT_BRANCH_CREATION_METHOD,
 	formatPlannedBranchEvidence,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
@@ -31,7 +32,7 @@ const createRequestSchema = z.object({
 	slug: z.string().describe("Planned branch slug."),
 	plan_file: z.string().describe("Plan file path (must live outside the repository)."),
 	branch: z.string().optional().describe("Branch name (defaults to the slug)."),
-	branch_creation: z.enum(["plain-git", "graphite"]).default("plain-git").describe("Branch creation method."),
+	branch_creation: z.enum(BRANCH_CREATION_METHODS).default(DEFAULT_BRANCH_CREATION_METHOD).describe("Branch creation method."),
 	summary: z.string().optional().describe("Optional plan summary."),
 });
 
@@ -44,14 +45,6 @@ const loadPlanRequestSchema = z.object({
 
 type CreateRequest = z.infer<typeof createRequestSchema>;
 type LoadPlanRequest = z.infer<typeof loadPlanRequestSchema>;
-
-type CreateData = Record<string, unknown>;
-type LoadPlanData = Record<string, unknown>;
-
-interface JsonFailure {
-	success: false;
-	error: { code: string; message: string };
-}
 
 export interface CliDeps {
 	context?: PlannedBranchContext | undefined;
@@ -80,23 +73,25 @@ export function buildCli(): ClinkrGroup<PlannedBranchCliContext> {
 		description: "Run hidden deterministic planned-branch operations for agents.",
 		isHidden: true,
 	});
-	execGroup.command({
-		name: "create",
-		description: "Create a planned branch and attach a plan with Branch Memory.",
-		schema: createRequestSchema,
-		handler: handleCreate,
-		renderHuman: (data) => data["__human"] as string,
-		legacyMachine: legacyObjectMachine,
-	});
-	execGroup.command({
-		name: "load-plan",
-		description: "Load an attached plan and render the implementation prompt.",
-		schema: loadPlanRequestSchema,
-		positionals: { key_or_slug: { position: 0 } },
-		handler: handleLoadPlan,
-		renderHuman: (data) => data["__human"] as string,
-		legacyMachine: legacyObjectMachine,
-	});
+	execGroup.command(
+		legacyCommand({
+			name: "create",
+			description: "Create a planned branch and attach a plan with Branch Memory.",
+			schema: createRequestSchema,
+			errorType: PLANNED_BRANCH_ERROR_TYPE,
+			run: handleCreate,
+		}),
+	);
+	execGroup.command(
+		legacyCommand({
+			name: "load-plan",
+			description: "Load an attached plan and render the implementation prompt.",
+			schema: loadPlanRequestSchema,
+			positionals: { key_or_slug: { position: 0 } },
+			errorType: PLANNED_BRANCH_ERROR_TYPE,
+			run: handleLoadPlan,
+		}),
+	);
 	root.group(execGroup);
 
 	return root;
@@ -108,53 +103,45 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		cwd: deps.cwd ?? process.cwd(),
 		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 	};
-	const io = buildIo(deps);
+	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 	return buildCli().run(args, { context, io });
 }
 
-async function handleCreate(ctx: PlannedBranchCliContext, request: CreateRequest): Promise<ClinkrExit<CreateData>> {
-	try {
-		const slugError = validatePlanSlug(request.slug);
-		if (slugError !== undefined) throw plannedBranchFailure(`Invalid planned branch slug: ${slugError}`);
-		const evidence = await createPlannedBranchFromFile(
-			ctx.context.commands,
-			{
-				slug: request.slug,
-				filePath: request.plan_file,
-				...(request.branch === undefined ? {} : { branchName: request.branch }),
-				branchCreation: request.branch_creation,
-				...(request.summary === undefined ? {} : { summary: request.summary }),
-			},
-			{ cwd: ctx.cwd, git: ctx.context.git, brmem: ctx.context.brmem, graphite: ctx.context.graphite },
-		);
-		return ok(withHuman(plannedBranchJson(evidence), formatPlannedBranchEvidence(evidence)));
-	} catch (error) {
-		throw asPlannedBranchFailure(error);
-	}
+async function handleCreate(ctx: PlannedBranchCliContext, request: CreateRequest): Promise<LegacyPayload> {
+	const slugError = validatePlanSlug(request.slug);
+	if (slugError !== undefined) throw new Error(`Invalid planned branch slug: ${slugError}`);
+	const evidence = await createPlannedBranchFromFile(
+		ctx.context.commands,
+		{
+			slug: request.slug,
+			filePath: request.plan_file,
+			...(request.branch === undefined ? {} : { branchName: request.branch }),
+			branchCreation: request.branch_creation,
+			...(request.summary === undefined ? {} : { summary: request.summary }),
+		},
+		{ cwd: ctx.cwd, git: ctx.context.git, brmem: ctx.context.brmem, graphite: ctx.context.graphite },
+	);
+	return { machine: plannedBranchJson(evidence), human: formatPlannedBranchEvidence(evidence) };
 }
 
-async function handleLoadPlan(ctx: PlannedBranchCliContext, request: LoadPlanRequest): Promise<ClinkrExit<LoadPlanData>> {
-	try {
-		const requestedKey = request.key_or_slug;
-		const plan = await loadPlannedBranchPlan(ctx.context.commands, requestedKey === undefined ? {} : { requestedKey }, {
-			cwd: ctx.cwd,
-			git: ctx.context.git,
-			brmem: ctx.context.brmem,
-			...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
-		});
-		const promptFile = request.prompt_file === undefined ? undefined : normalizePlanFilePath(request.prompt_file);
-		if (promptFile !== undefined) {
-			await writeFile(promptFile, buildImplPlannedBranchPrompt(plan), "utf8");
-		}
-		const data = loadedPlanJson(plan, {
-			promptFile,
-			attachedPlanContent: request.include_content === true ? plan.content : undefined,
-			implementationPrompt: request.include_prompt === true ? buildImplPlannedBranchPrompt(plan) : undefined,
-		});
-		return ok(withHuman(data, formatLoadPlanHuman(plan, promptFile)));
-	} catch (error) {
-		throw asPlannedBranchFailure(error);
+async function handleLoadPlan(ctx: PlannedBranchCliContext, request: LoadPlanRequest): Promise<LegacyPayload> {
+	const requestedKey = request.key_or_slug;
+	const plan = await loadPlannedBranchPlan(ctx.context.commands, requestedKey === undefined ? {} : { requestedKey }, {
+		cwd: ctx.cwd,
+		git: ctx.context.git,
+		brmem: ctx.context.brmem,
+		...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
+	});
+	const promptFile = request.prompt_file === undefined ? undefined : normalizePlanFilePath(request.prompt_file);
+	if (promptFile !== undefined) {
+		await writeFile(promptFile, buildImplPlannedBranchPrompt(plan), "utf8");
 	}
+	const machine = loadedPlanJson(plan, {
+		promptFile,
+		attachedPlanContent: request.include_content === true ? plan.content : undefined,
+		implementationPrompt: request.include_prompt === true ? buildImplPlannedBranchPrompt(plan) : undefined,
+	});
+	return { machine, human: formatLoadPlanHuman(plan, promptFile) };
 }
 
 function formatLoadPlanHuman(plan: LoadedAttachedPlan, promptFile: string | undefined): string {
@@ -162,44 +149,6 @@ function formatLoadPlanHuman(plan: LoadedAttachedPlan, promptFile: string | unde
 		return `${formatLoadedAttachedPlanEvidence(plan)}\nImplementation prompt file: ${promptFile}`;
 	}
 	return `${formatLoadedAttachedPlanEvidence(plan)}\n\n${buildImplPlannedBranchPrompt(plan)}`;
-}
-
-function buildIo(deps: CliDeps): ClinkrIo {
-	if (deps.stdout === undefined && deps.stderr === undefined) return createProcessIo();
-	return {
-		stdout: deps.stdout ?? ((text: string) => process.stdout.write(text)),
-		stderr: deps.stderr ?? ((text: string) => process.stderr.write(text)),
-	};
-}
-
-function legacyObjectMachine(exit: ClinkrExit<Record<string, unknown>>): LegacyMachineOutput {
-	if (exit.type === "ok") {
-		const { __human: _human, ...data } = exit.data;
-		return { body: { success: true, ...data }, exitCode: 0, serialization: "compact" };
-	}
-	return legacyFailure(exit);
-}
-
-function legacyFailure<T>(exit: ClinkrExit<T>): LegacyMachineOutput {
-	if (exit.type === "failure") {
-		const body: JsonFailure = { success: false, error: { code: exit.errorType, message: exit.message } };
-		return { body, exitCode: 2, serialization: "compact" };
-	}
-	if (exit.type === "negative") {
-		const body: JsonFailure = { success: false, error: { code: PLANNED_BRANCH_ERROR_TYPE, message: exit.message } };
-		return { body, exitCode: 2, serialization: "compact" };
-	}
-	const body: JsonFailure = { success: false, error: { code: PLANNED_BRANCH_ERROR_TYPE, message: "Unexpected ok exit." } };
-	return { body, exitCode: 2, serialization: "compact" };
-}
-
-function plannedBranchFailure(message: string): ClinkrFailure {
-	return new ClinkrFailure({ errorType: PLANNED_BRANCH_ERROR_TYPE, message });
-}
-
-function asPlannedBranchFailure(error: unknown): ClinkrFailure {
-	if (error instanceof ClinkrFailure) return error;
-	return plannedBranchFailure(errorMessage(error));
 }
 
 function plannedBranchJson(evidence: PlannedBranchEvidence): Record<string, unknown> {
@@ -239,14 +188,6 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 	};
 }
 
-function withHuman(data: Record<string, unknown>, human: string): Record<string, unknown> {
-	return { ...data, __human: human };
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 function runtimeInfo(): string {
 	return "runtime: typescript\nentry_point: @asdl/planned-branch bin planned-branch -> ts/packages/planned-branch/src/cli.ts\n";
 }
@@ -254,16 +195,4 @@ function runtimeInfo(): string {
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
 	const exitCode = await runCli(process.argv.slice(2));
 	process.exitCode = exitCode;
-}
-
-function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {
-	if (argvPath === undefined) return false;
-
-	try {
-		const modulePath = realpathSync(fileURLToPath(metaUrl));
-		const entryPath = realpathSync(resolve(argvPath));
-		return modulePath === entryPath;
-	} catch {
-		return false;
-	}
 }
