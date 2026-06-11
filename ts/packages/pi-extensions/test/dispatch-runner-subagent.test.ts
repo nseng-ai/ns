@@ -233,7 +233,7 @@ describe("dispatch_runner_subagent extension", () => {
 
 		expect(updates[0]?.content[0]?.text).toBe("Dispatching runner subagent: Slice subagent");
 		expect(call.options.cwd).toBe(ROOT);
-		expect(call.args).toEqual([
+		expect(call.args.slice(0, -1)).toEqual([
 			"--mode",
 			"json",
 			"-p",
@@ -246,8 +246,11 @@ describe("dispatch_runner_subagent extension", () => {
 			"--no-extensions",
 			"--session",
 			SESSION_FILE,
-			composedFixturePrompt("Do focused work."),
 		]);
+		const childPrompt = call.args.at(-1) ?? "";
+		expect(childPrompt.startsWith("## Auto-curated context")).toBe(true);
+		expect(childPrompt).toContain("Treat it as orientation, not ground truth");
+		expect(childPrompt).toContain(composedFixturePrompt("Do focused work."));
 		expect(call.args).not.toContain("--extension");
 		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
@@ -255,6 +258,9 @@ describe("dispatch_runner_subagent extension", () => {
 			hasModelArg: true,
 			hasThinkingArg: true,
 		});
+		expect((updates[0]?.details as Record<string, unknown>).curatedContext).toEqual(
+			expect.objectContaining({ enabled: true, markdownChars: expect.any(Number) }),
+		);
 
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
@@ -273,6 +279,7 @@ describe("dispatch_runner_subagent extension", () => {
 			hasThinkingArg: true,
 		});
 		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
+		expect(details.curatedContext).toEqual(expect.objectContaining({ enabled: true }));
 	});
 
 	test("uses the resolved launch metadata without re-resolving it as launch options", async () => {
@@ -311,7 +318,7 @@ describe("dispatch_runner_subagent extension", () => {
 		);
 		const call = await waitForSpawn(runner.calls);
 
-		expect(call.args).toEqual([
+		expect(call.args.slice(0, -1)).toEqual([
 			"--mode",
 			"json",
 			"-p",
@@ -320,8 +327,8 @@ describe("dispatch_runner_subagent extension", () => {
 			"--no-extensions",
 			"--session",
 			SESSION_FILE,
-			composedFixturePrompt("Classify feedback."),
 		]);
+		expect(call.args.at(-1)).toContain(composedFixturePrompt("Classify feedback."));
 		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
 			requestedModel: "openai-codex/gpt-5.4-mini:medium",
 			thinkingLevel: "off",
