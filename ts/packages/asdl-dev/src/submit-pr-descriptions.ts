@@ -1,8 +1,10 @@
+import { appendGeneratedMarker } from "./pr-description.ts";
 import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
+import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type { SubmitPrDescriptionOptions, SubmitPrLink } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[] }
+	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -15,10 +17,14 @@ export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
+	prewrittenMetadata?: readonly PreparedSubmitPrMetadata[];
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	const generated: SubmitPrLink[] = [];
 	const skipped: SubmitPrLink[] = [];
+	const prewritten: SubmitPrLink[] = [];
+	const prewriteFallbacks: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
+	const prewrittenByBranch = new Map((input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]));
 
 	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
 	for (const link of input.prLinks) {
@@ -28,6 +34,27 @@ export async function generateSubmitPrDescriptions(input: {
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
 			failures.push({ link, number, reason: viewed.error.message });
+			continue;
+		}
+
+		const prewrittenMetadata = prewrittenByBranch.get(viewed.value.headRefName);
+		if (prewrittenMetadata !== undefined) {
+			if (prMetadataMatches(viewed.value.title, viewed.value.body, prewrittenMetadata)) {
+				prewritten.push(link);
+				continue;
+			}
+
+			const edited = await input.prDescription.githubPr.editPr({
+				cwd: input.cwd,
+				number,
+				title: prewrittenMetadata.title,
+				body: appendGeneratedMarker(prewrittenMetadata.body),
+			});
+			if (edited.ok) {
+				prewriteFallbacks.push(link);
+			} else {
+				failures.push({ link, number, reason: `Generated initial metadata, but failed to update PR #${number} after Graphite created mismatched metadata.\n${edited.error.message}` });
+			}
 			continue;
 		}
 
@@ -63,7 +90,7 @@ export async function generateSubmitPrDescriptions(input: {
 	if (failures.length > 0) {
 		return { ok: false, failures };
 	}
-	return { ok: true, generated, skipped };
+	return { ok: true, generated, skipped, prewritten, prewriteFallbacks };
 }
 
 export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {
@@ -79,6 +106,10 @@ export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[],
 		"Checkout the branch and run `asdl-dev pr-regen` to regenerate its PR description.",
 	];
 	return lines.join("\n");
+}
+
+function prMetadataMatches(title: string, body: string, metadata: PreparedSubmitPrMetadata): boolean {
+	return title.trim() === metadata.title.trim() && body.trim() === metadata.body.trim();
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {

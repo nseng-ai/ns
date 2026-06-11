@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
 
+import {
+	parseCommitMessages,
+	parseCurrentBranchFromGtLog,
+	parseGtLogStackBranches,
+	parseParentBranch,
+	RealSubmitMetadataGateway,
+} from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
 import { RealSubmitGateway } from "asdl-dev/src/submit.ts";
 import { ScriptedCommandRunner, startupErrorStep, step } from "../support/scripted-command-runner.ts";
 
@@ -134,6 +141,68 @@ describe("RealSubmitGateway", () => {
 		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
 
 		expect(result).toMatchObject({ kind: "failed", cause: "command_failed" });
+		runner.assertDone();
+	});
+});
+
+describe("RealSubmitMetadataGateway", () => {
+	test("parses Graphite stack and branch metadata facts", () => {
+		const log = `◯ parent-branch
+│
+◉ feature/demo (current)
+│
+◯ master
+`;
+
+		expect(parseGtLogStackBranches(log)).toEqual(["parent-branch", "feature/demo", "master"]);
+		expect(parseCurrentBranchFromGtLog(log)).toBe("feature/demo");
+		expect(parseParentBranch("feature/demo\n\nParent: parent-branch\n")).toBe("parent-branch");
+		expect(parseCommitMessages("Add widget\n\nImplement widget.\0Fix tests\0")).toEqual([
+			{ headline: "Add widget", body: "Implement widget." },
+			{ headline: "Fix tests" },
+		]);
+	});
+
+	test("inspectSubmitStack reads local diffs and commits for new submit branches", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], "◯ feature/demo (current)\n│\n◯ master\n"),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], "feature/demo\n\nParent: master\n"),
+			step("gt", ["pr", "--no-interactive", "feature/demo"], "", 1, "No PR found\n"),
+			step("git", ["log", "--format=%B%x00", "master..feature/demo"], "Add widget\n\nImplement widget.\0"),
+			step("git", ["diff", "master..feature/demo"], "diff --git a/src/widget.ts b/src/widget.ts\n+code\n"),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "master"], "master\n"),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
+
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				branches: [
+					{
+						branch: "feature/demo",
+						parentBranch: "master",
+						currentTitle: "Add widget",
+						commitCount: 1,
+						commitMessages: [{ headline: "Add widget", body: "Implement widget." }],
+						diff: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
+					},
+				],
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("amendBranchMetadataCommit uses Graphite modify without generated markers", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("git", ["status", "--porcelain"], ""),
+			step("git", ["branch", "--show-current"], "feature/demo\n"),
+			step("gt", ["modify", "--no-interactive", "-m", "Generated title", "-m", "Generated body"], "Modified\n"),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		expect(await gateway.amendBranchMetadataCommit({ cwd: "/repo", branch: "feature/demo", title: "Generated title", body: "Generated body" })).toEqual({ ok: true, value: undefined });
 		runner.assertDone();
 	});
 });

@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { runCli } from "asdl-dev/src/cli.ts";
 import { GENERATED_BODY_MARKER } from "asdl-dev/src/pr-description.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
+import type { SubmitStackBranchInspection } from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
 import type { SubmitCommandOutput, SubmitOutputStream, SubmitPrLink } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
@@ -73,6 +74,18 @@ function output(stdout = "", stderr = "", exitCode = 0): SubmitCommandOutput {
 
 function prLink(number: number): SubmitPrLink {
 	return { label: `#${number}`, url: `https://github.com/acme/project/pull/${number}` };
+}
+
+function newPrBranch(overrides: Partial<SubmitStackBranchInspection> = {}): SubmitStackBranchInspection {
+	return {
+		branch: "feature/demo",
+		parentBranch: "main",
+		currentTitle: "Add widget",
+		commitCount: 1,
+		commitMessages: [{ headline: "Add widget", body: "Implement widget flow." }],
+		diff: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
+		...overrides,
+	};
 }
 
 function cleanPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
@@ -188,7 +201,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
+		expect(run.stdout.join("")).toContain("Updated PR descriptions after submit:");
 		expect(run.githubPr.viewPrCalls).toEqual([{ cwd: "/work", number: 456 }]);
 		expect(run.githubPr.editPrCalls).toEqual([
 			expect.objectContaining({ number: 456, title: "Generate PR descriptions" }),
@@ -196,6 +209,112 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
 		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Context");
 		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## Diff");
+	});
+
+	test("prewrites generated metadata before submit and skips matching post-submit edits", async () => {
+		const link = prLink(456);
+		const generatedBody = "This implements the widget flow.\n\n## Key Changes\n\n- Adds widget support";
+		const run = runWithFakes(["submit"], {
+			submitMetadata: {
+				inspection: { branches: [newPrBranch()] },
+			},
+			submit: {
+				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Prepare widget metadata", body: generatedBody, headRefName: "feature/demo", baseRefName: "main" } },
+			},
+			textGeneration: {
+				results: [{ ok: true, text: `Prepare widget metadata\n\n${generatedBody}` }],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Prepared initial PR metadata:");
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toEqual([
+			{ cwd: "/work", branch: "feature/demo", title: "Prepare widget metadata", body: generatedBody },
+		]);
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls[0]?.body).not.toContain(GENERATED_BODY_MARKER);
+		expect(run.githubPr.editPrCalls).toEqual([]);
+		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("PR: not yet created; generate initial metadata for Graphite submit");
+	});
+
+	test("post-submit metadata mismatch falls back to editing with the generated marker", async () => {
+		const link = prLink(456);
+		const generatedBody = "This implements the widget flow.\n\n## Key Changes\n\n- Adds widget support";
+		const run = runWithFakes(["submit"], {
+			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			submit: {
+				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Wrong title", body: "Wrong body", headRefName: "feature/demo", baseRefName: "main" } },
+			},
+			textGeneration: { results: [{ ok: true, text: `Prepare widget metadata\n\n${generatedBody}` }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Updated PR descriptions after submit:");
+		expect(run.githubPr.editPrCalls).toEqual([
+			expect.objectContaining({ number: 456, title: "Prepare widget metadata" }),
+		]);
+		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
+	});
+
+	test("prewrite generation failure stops before amendment and submit", async () => {
+		const run = runWithFakes(["submit"], {
+			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			textGeneration: { results: [{ ok: false, error: "model unavailable" }] },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("Could not generate initial PR metadata for feature/demo");
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([]);
+	});
+
+	test("multi-commit branches stop before submit when metadata source is ambiguous", async () => {
+		const run = runWithFakes(["submit"], {
+			submitMetadata: { inspection: { branches: [newPrBranch({ commitCount: 2, commitMessages: [{ headline: "one" }, { headline: "two" }] })] } },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("branch has 2 commits and Graphite's creation-time metadata source is ambiguous");
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([]);
+	});
+
+	test("final submit failure after prewrite reports prepared local metadata", async () => {
+		const generatedBody = "This implements the widget flow.\n\n## Key Changes\n\n- Adds widget support";
+		const run = runWithFakes(["submit"], {
+			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			submit: {
+				submit: { kind: "failed", output: output("", "Graphite failed\n", 1) },
+			},
+			textGeneration: { results: [{ ok: true, text: `Prepare widget metadata\n\n${generatedBody}` }] },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("Local PR metadata commit messages were prepared before submit");
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toHaveLength(1);
+		expect(run.submit.verifyCurrentPrCalls).toEqual([]);
+	});
+
+	test("failed dry-run does not prewrite metadata", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				preflight: { kind: "failed", output: output("", "ERROR: Aborting dry run.\n", 1) },
+			},
+			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("gt submit -nps --no-ai --dry-run failed");
+		expect(run.submitMetadata.inspectSubmitStackCalls).toEqual([]);
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([]);
 	});
 
 	test("overwrites a gt-prefilled body that matches the commit message", async () => {
@@ -221,7 +340,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
+		expect(run.stdout.join("")).toContain("Updated PR descriptions after submit:");
 		expect(run.githubPr.editPrCalls).toEqual([
 			expect.objectContaining({ number: 456, title: "Add the widget flow" }),
 		]);
@@ -274,7 +393,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Generated PR descriptions:");
+		expect(run.stdout.join("")).toContain("Updated PR descriptions after submit:");
 		expect(run.githubPr.editPrCalls).toEqual([
 			expect.objectContaining({ number: 456, title: "Refresh PR descriptions" }),
 		]);
@@ -386,6 +505,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.submit.operationCalls.map((call) => call.operation)).toEqual([
 			"checkSubmitReadiness",
 			"restackCurrentStack",
+			"checkSubmitReadiness",
 			"submitCurrentStack",
 			"verifyCurrentPr",
 		]);
