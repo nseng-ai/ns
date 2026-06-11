@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
-import { resolve } from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
+import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { runCheckpointCommand, runCheckpointIfPending } from "./checkpoint.ts";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
@@ -54,35 +52,6 @@ export interface AsdlDevCliContext {
 	confirm?: ConfirmPrompt;
 }
 
-interface CommandSpecForListing {
-	name: string;
-	description: string;
-}
-
-const PREVIEW_URL_COMMAND: CommandSpecForListing = {
-	name: "preview-url",
-	description: "Print the Vercel preview URL for a branch.",
-};
-
-const CHECKPOINT_COMMAND: CommandSpecForListing = {
-	name: "cp",
-	description: "Create a checkpoint commit for the current diff.",
-};
-
-const SUBMIT_COMMAND: CommandSpecForListing = {
-	name: "submit",
-	description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
-};
-
-const PR_REGEN_COMMAND: CommandSpecForListing = {
-	name: "pr-regen",
-	description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
-};
-
-const MIGRATED_COMMANDS: readonly CommandSpecForListing[] = [PREVIEW_URL_COMMAND, CHECKPOINT_COMMAND, SUBMIT_COMMAND, PR_REGEN_COMMAND];
-
-const MIGRATED_COMMAND_NAMES = new Set(MIGRATED_COMMANDS.map((command) => command.name));
-
 export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 	const group = new ClinkrGroup<AsdlDevCliContext>({
 		name: "asdl-dev",
@@ -92,9 +61,9 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 
 	group.command(
 		rawCommand({
-			name: PREVIEW_URL_COMMAND.name,
+			name: "preview-url",
 			description: "Print the Vercel preview URL for the selected branch.",
-			summary: PREVIEW_URL_COMMAND.description,
+			summary: "Print the Vercel preview URL for a branch.",
 			schema: z.object({
 				branch: z.string().describe("Branch to look up. Defaults to the current git branch.").optional(),
 				project: z
@@ -137,13 +106,13 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 
 	group.command(
 		rawCommand({
-			name: CHECKPOINT_COMMAND.name,
+			name: "cp",
 			description: `Create a checkpoint commit for the current git diff using a model-authored message.
 
 Environment:
   ${TEXT_BACKEND_ENV}      Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
   ${CHECKPOINT_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}.`,
-			summary: CHECKPOINT_COMMAND.description,
+			summary: "Create a checkpoint commit for the current diff.",
 			schema: z.object({}),
 			run: async (ctx) => {
 				const result = await runCheckpointCommand({
@@ -165,7 +134,7 @@ Environment:
 
 	group.command(
 		rawCommand({
-			name: SUBMIT_COMMAND.name,
+			name: "submit",
 			description: `Checkpoint outstanding worktree changes with \`asdl-dev cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai\`.
 
 For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten; use \`asdl-dev pr-regen --force\` when you intend to replace one.
@@ -175,7 +144,7 @@ Automatic checkpointing uses the same model environment variables as \`asdl-dev 
 PR description generation uses ${PR_DESCRIPTION_MODEL_ENV} (defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}) and resolves the system prompt from ${PR_DESCRIPTION_PROMPT_ENV}, then ${REPO_PR_DESCRIPTION_PROMPT_PATH}, then the built-in prompt.
 
 If the dry-run says restack is required, interactive invocations ask before running \`gt restack --no-interactive\`; non-interactive invocations exit with guidance unless \`--restack\` is supplied.`,
-			summary: SUBMIT_COMMAND.description,
+			summary: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
 			schema: z.object({
 				restack: z.boolean().default(false).describe("If restack is required, run `gt restack --no-interactive` without prompting before submitting."),
 			}),
@@ -221,7 +190,7 @@ If the dry-run says restack is required, interactive invocations ask before runn
 
 	group.command(
 		rawCommand({
-			name: PR_REGEN_COMMAND.name,
+			name: "pr-regen",
 			description: `Regenerate the current branch PR's title and description with the asdl PR-description prompt.
 
 By default this refuses to overwrite a non-empty PR body unless it contains the asdl generated-body marker. Empty generated bodies and marker-bearing bodies are safe to overwrite; pass --force to overwrite a manually edited body.
@@ -230,7 +199,7 @@ Environment:
   ${TEXT_BACKEND_ENV}                 Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
   ${PR_DESCRIPTION_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
   ${PR_DESCRIPTION_PROMPT_ENV}  Prompt file path. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.`,
-			summary: PR_REGEN_COMMAND.description,
+			summary: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 			schema: z.object({
 				force: z.boolean().default(false).describe("Overwrite the PR body even when the asdl generated-body marker is absent."),
 			}),
@@ -258,10 +227,12 @@ Environment:
 }
 
 export function listAsdlDevCommands(): AsdlDevCommandInfo[] {
-	return MIGRATED_COMMANDS.map((command) => ({
-		name: command.name,
-		description: command.description,
-	}));
+	return [
+		{ name: "preview-url", description: "Print the Vercel preview URL for a branch." },
+		{ name: "cp", description: "Create a checkpoint commit for the current diff." },
+		{ name: "submit", description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai." },
+		{ name: "pr-regen", description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt." },
+	];
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
@@ -276,32 +247,16 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 
-	const commandName = args[0];
-	if (commandName === undefined || commandName === "--help" || commandName === "-h") {
-		stdout(topLevelHelp());
-		return 0;
+	const contextWithIO: AsdlDevCliContext = { context, cwd, env, stdout, stderr };
+	if (deps.onOutput !== undefined) {
+		contextWithIO.onOutput = deps.onOutput;
 	}
-	if (commandName === "--runtime") {
-		stdout(runtimeInfo());
-		return 0;
+	if (deps.confirm !== undefined) {
+		contextWithIO.confirm = deps.confirm;
 	}
 
-	// Dispatch to migrated (clinkr-based) commands
-	if (MIGRATED_COMMAND_NAMES.has(commandName)) {
-		const contextWithIO: AsdlDevCliContext = { context, cwd, env, stdout, stderr };
-		if (deps.onOutput !== undefined) {
-			contextWithIO.onOutput = deps.onOutput;
-		}
-		if (deps.confirm !== undefined) {
-			contextWithIO.confirm = deps.confirm;
-		}
-		const cli = buildCli();
-		const io = resolveIo({ stdout, stderr });
-		return cli.run(args, { context: contextWithIO, io });
-	}
-
-	stderr(`Unknown command: ${commandName}\n\n${topLevelHelp()}`);
-	return 2;
+	const io = resolveIo({ stdout, stderr });
+	return buildCli().run(args, { context: contextWithIO, io });
 }
 
 function writeCommandResultOutput(result: { stdout: string; stderr: string }, deps: Pick<AsdlDevCliContext, "stdout" | "stderr">): void {
@@ -317,27 +272,6 @@ function formatCheckpointBeforeSubmitFailure(stderr: string): string {
 	const trimmed = stderr.trimEnd();
 	const message = trimmed === "" ? "Checkpoint before submit failed. Submission was not attempted." : `Checkpoint before submit failed. Submission was not attempted.\n\n${trimmed}`;
 	return `${message}\n`;
-}
-
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: asdl-dev bin asdl-dev -> ts/packages/asdl-dev/src/cli.ts\n";
-}
-
-function topLevelHelp(): string {
-	const commandLines = listAsdlDevCommands().map((command) => `  ${command.name.padEnd(12)}  ${command.description}`).join("\n");
-	return `Usage: asdl-dev [--runtime] <command> [options]
-
-Developer tools for asdl-tools.
-
-*-dev CLIs use a flat list of task commands; avoid nested command groups.
-
-Commands:
-${commandLines}
-
-Options:
-  -h, --help    Show this help message.
-  --runtime     Show CLI runtime diagnostics and exit.
-`;
 }
 
 function createTerminalConfirmPrompt(): ConfirmPrompt | undefined {
@@ -366,16 +300,4 @@ function isYesAnswer(answer: string): boolean {
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
 	const confirm = createTerminalConfirmPrompt();
 	process.exitCode = await runCli(process.argv.slice(2), confirm === undefined ? {} : { confirm });
-}
-
-function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {
-	if (argvPath === undefined) return false;
-
-	try {
-		const modulePath = realpathSync(fileURLToPath(metaUrl));
-		const entryPath = realpathSync(resolve(argvPath));
-		return modulePath === entryPath;
-	} catch {
-		return false;
-	}
 }

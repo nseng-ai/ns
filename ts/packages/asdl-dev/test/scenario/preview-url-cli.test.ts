@@ -39,21 +39,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-const TOP_LEVEL_HELP = `Usage: asdl-dev [--runtime] <command> [options]
+const TOP_LEVEL_HELP = `Usage: asdl-dev [options] [command]
 
 Developer tools for asdl-tools.
 
-*-dev CLIs use a flat list of task commands; avoid nested command groups.
+Options:
+  --runtime              Show CLI runtime diagnostics and exit.
+  -h, --help             display help for command
 
 Commands:
-  preview-url   Print the Vercel preview URL for a branch.
-  cp            Create a checkpoint commit for the current diff.
-  submit        Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.
-  pr-regen      Regenerate the current branch PR's title and description with the asdl PR-description prompt.
-
-Options:
-  -h, --help    Show this help message.
-  --runtime     Show CLI runtime diagnostics and exit.
+  preview-url [options]  Print the Vercel preview URL for a branch.
+  cp [options]           Create a checkpoint commit for the current diff.
+  submit [options]       Checkpoint outstanding changes, then submit the current
+                         Graphite stack with gt submit -nps --no-ai.
+  pr-regen [options]     Regenerate the current branch PR's title and
+                         description with the asdl PR-description prompt.
 `;
 
 describe("asdl-dev preview-url CLI help and parsing", () => {
@@ -81,7 +81,7 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(help).toContain("preview-url");
 		expect(help).toContain("cp");
 		expect(help).toContain("submit");
-		expect(help).toContain("flat list of task commands");
+		expect(help).toContain("display help for command");
 		expect(help).not.toContain("latest-branch-deployment");
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -140,14 +140,12 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(help).toContain("-h, --help");
 	});
 
-	test("unknown command exits 2 and shows top-level help", async () => {
+	test("unknown command exits 2 with error message", async () => {
 		const run = runWithFakes(["latest-branch-deployment"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Unknown command: latest-branch-deployment");
-		expect(run.stderr.join("")).toContain("preview-url");
-		expect(run.stderr.join("")).toContain("cp");
-		expect(run.stderr.join("")).toContain("submit");
+		expect(run.stderr.join("")).toContain("error: unknown command 'latest-branch-deployment'");
+		// Unknown commands from clinkr do not dump help
 		expect(run.stdout.join("")).toBe("");
 	});
 
@@ -558,7 +556,7 @@ describe("asdl-dev CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(`Unknown command: ${flag}\n\n${TOP_LEVEL_HELP}`);
+		expect(run.stderr.join("")).toBe(`error: unknown option '${flag}'\n`);
 		// PINNED ABSENCE (clinkr-migration): asdl-dev has no top-level --version/-V behavior.
 	});
 
