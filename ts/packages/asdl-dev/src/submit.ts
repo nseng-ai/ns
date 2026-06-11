@@ -1,6 +1,7 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 import type { GithubPrGateway } from "./gateways/github-pr.ts";
 import type { GitGateway } from "./gateways/git.ts";
+import { prepareSubmitPrMetadata, type PreparedSubmitPrMetadata, type SubmitMetadataGateway } from "./submit-pr-metadata-prewrite.ts";
 import { formatPrDescriptionFailureText, formatPrLinkTextRow, generateSubmitPrDescriptions, prNumberFromUrl } from "./submit-pr-descriptions.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
@@ -137,6 +138,7 @@ export interface SubmitPrDescriptionOptions {
 export interface RunSubmitCommandOptions {
 	cwd: string;
 	gateway: SubmitGateway;
+	metadataGateway: SubmitMetadataGateway;
 	restack: boolean;
 	onOutput?: SubmitOutputListener;
 	confirmRestack?: SubmitRestackConfirmation;
@@ -278,11 +280,27 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		if (restackFailure !== undefined) {
 			return restackFailure;
 		}
+
+		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
+		if (rechecked.kind !== "ready") {
+			return failure(normalizedFailureExitCode(rechecked.output), formatReadinessRecheckFailureOutput(rechecked.output));
+		}
+	}
+
+	const prewrite = await prepareSubmitPrMetadata({
+		cwd: options.cwd,
+		env: options.prDescription.env,
+		gateway: options.metadataGateway,
+		git: options.prDescription.git,
+		textGeneration: options.prDescription.textGeneration,
+	});
+	if (prewrite.kind === "failed") {
+		return failure(prewrite.exitCode ?? 1, formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches));
 	}
 
 	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
-		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output));
+		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output, prewrite.prepared));
 	}
 
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
@@ -301,13 +319,19 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		cwd: options.cwd,
 		prDescription: options.prDescription,
 		prLinks,
+		prewrittenMetadata: prewrite.prepared,
 	});
 	if (!descriptionResult.ok) {
 		return failure(1, formatPrDescriptionFailureText(prLinks, descriptionResult.failures));
 	}
 
 	const successText = prLinks.length > 0
-		? formatSubmitSuccessText(prLinks, { generated: descriptionResult.generated, skipped: descriptionResult.skipped })
+		? formatSubmitSuccessText(prLinks, {
+				generated: descriptionResult.generated,
+				skipped: descriptionResult.skipped,
+				prewritten: descriptionResult.prewritten,
+				prewriteFallbacks: descriptionResult.prewriteFallbacks,
+			})
 		: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
 }
@@ -385,11 +409,20 @@ function joinOutput(output: Pick<SubmitCommandOutput, "stdout" | "stderr">): str
 
 function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
-	descriptions: { generated: readonly SubmitPrLink[]; skipped: readonly SubmitPrLink[] },
+	descriptions: {
+		generated: readonly SubmitPrLink[];
+		skipped: readonly SubmitPrLink[];
+		prewritten: readonly SubmitPrLink[];
+		prewriteFallbacks: readonly SubmitPrLink[];
+	},
 ): string {
 	const lines = ["gt submit succeeded", "", "PRs:", ...prLinks.map(formatPrLinkTextRow)];
-	if (descriptions.generated.length > 0) {
-		lines.push("", "Generated PR descriptions:", ...descriptions.generated.map(formatPrLinkTextRow));
+	if (descriptions.prewritten.length > 0) {
+		lines.push("", "Prepared initial PR metadata:", ...descriptions.prewritten.map(formatPrLinkTextRow));
+	}
+	const updated = [...descriptions.generated, ...descriptions.prewriteFallbacks];
+	if (updated.length > 0) {
+		lines.push("", "Updated PR descriptions after submit:", ...updated.map(formatPrLinkTextRow));
 	}
 	if (descriptions.skipped.length > 0) {
 		lines.push(
@@ -517,6 +550,20 @@ function formatRestackConflictOutput(output: SubmitCommandOutput, conflictedFile
 		.join("\n");
 }
 
+function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput): string {
+	return [
+		"Graphite readiness changed after restack. Submission was not attempted, and PR metadata was not prepared.",
+		"Run `gt submit -nps --no-ai --dry-run`, resolve the reported issue, then run `asdl-dev submit` again.",
+		"",
+		"$ gt submit -nps --no-ai --dry-run",
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
 function formatRestackFailureOutput(output: SubmitCommandOutput): string {
 	const reason = output.startupError
 		? `gt restack could not start: ${output.startupError}. Submission was not attempted.`
@@ -536,10 +583,26 @@ function formatRestackFailureOutput(output: SubmitCommandOutput): string {
 		.join("\n");
 }
 
-function formatSubmitFailureOutput(output: SubmitCommandOutput): string {
+function formatPrewriteFailureOutput(error: string, amendedBranches: readonly string[]): string {
+	return [
+		error,
+		...(amendedBranches.length === 0
+			? []
+			: ["", "Local PR metadata commit messages were amended before the failure:", ...amendedBranches.map((branch) => `- ${branch}`)]),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatSubmitFailureOutput(output: SubmitCommandOutput, prewrittenMetadata: readonly PreparedSubmitPrMetadata[] = []): string {
 	const reason = output.startupError ?? (output.killed ? "gt submit timed out and was killed." : `gt submit -nps --no-ai failed with exit code ${output.exitCode}.`);
 	return [
 		reason,
+		...(prewrittenMetadata.length === 0
+			? []
+			: [
+					"Local PR metadata commit messages were prepared before submit; rerun asdl-dev submit after resolving the Graphite failure.",
+				]),
 		"",
 		"$ gt submit -nps --no-ai",
 		"",

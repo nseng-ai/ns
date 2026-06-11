@@ -222,6 +222,7 @@ async function runSubmitCliCommand(args: readonly string[], deps: RequiredCliDep
 	const result = await runSubmitCommand({
 		cwd: deps.cwd,
 		gateway: deps.context.submit,
+		metadataGateway: deps.context.submitMetadata,
 		restack: parsed.options.restack,
 		prDescription: {
 			githubPr: deps.context.githubPr,
@@ -480,7 +481,9 @@ Options:
 function submitHelp(): string {
 	return `Usage: asdl-dev submit [options]
 
-Checkpoint outstanding worktree changes with \`asdl-dev cp\`, submit the current Graphite stack with \`gt submit -nps --no-ai\`, then generate PR titles/descriptions for submitted PRs whose bodies are empty or carry the asdl generated-body marker. Manually edited bodies are never overwritten; use \`asdl-dev pr-regen --force\` when you intend to replace one.
+Checkpoint outstanding worktree changes with \`asdl-dev cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai\`.
+
+For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten; use \`asdl-dev pr-regen --force\` when you intend to replace one.
 
 Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
 

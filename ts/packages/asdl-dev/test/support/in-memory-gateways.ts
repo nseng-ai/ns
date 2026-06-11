@@ -4,6 +4,11 @@ import type { GitGateway } from "asdl-dev/src/gateways/git.ts";
 import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "asdl-dev/src/gateways/github-pr.ts";
 import type { ProjectConfigReadResult, VercelProjectConfigStore } from "asdl-dev/src/gateways/project-config.ts";
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
+import type {
+	SubmitMetadataGateway,
+	SubmitStackBranchInspection,
+	SubmitStackInspection,
+} from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
 import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/src/pending-worktree.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "asdl-dev/src/result.ts";
 import type {
@@ -144,7 +149,7 @@ export class InMemoryCheckpointGateway implements CheckpointGateway {
 }
 
 export interface InMemorySubmitGatewayState {
-	preflight?: SubmitPreflightResult;
+	preflight?: SubmitPreflightResult | readonly SubmitPreflightResult[];
 	restack?: SubmitRestackResult;
 	submit?: SubmitRunResult;
 	currentPr?: CurrentPrVerificationResult;
@@ -161,7 +166,7 @@ export interface SubmitGatewayOperationCall extends SubmitGatewayCall {
 }
 
 export class InMemorySubmitGateway implements SubmitGateway {
-	private readonly preflightResult: SubmitPreflightResult;
+	private readonly preflightResults: SubmitPreflightResult[];
 	private readonly restackResult: SubmitRestackResult;
 	private readonly submitResult: SubmitRunResult;
 	private readonly currentPrResult: CurrentPrVerificationResult;
@@ -172,7 +177,12 @@ export class InMemorySubmitGateway implements SubmitGateway {
 	private readonly operationLog: SubmitGatewayOperationCall[] = [];
 
 	constructor(state: InMemorySubmitGatewayState = {}) {
-		this.preflightResult = copySubmitPreflightResult(state.preflight ?? { kind: "ready", output: defaultSubmitOutput() });
+		const preflight = state.preflight;
+		this.preflightResults = preflight === undefined
+			? [copySubmitPreflightResult({ kind: "ready", output: defaultSubmitOutput() })]
+			: isPreflightSequence(preflight)
+				? preflight.map(copySubmitPreflightResult)
+				: [copySubmitPreflightResult(preflight)];
 		this.restackResult = copySubmitRestackResult(state.restack ?? { kind: "success", output: defaultSubmitOutput("restacked\n") });
 		this.submitResult = copySubmitRunResult(
 			state.submit ?? {
@@ -213,8 +223,9 @@ export class InMemorySubmitGateway implements SubmitGateway {
 	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
 		this.preflightLog.push({ cwd: params.cwd });
 		this.operationLog.push({ operation: "checkSubmitReadiness", cwd: params.cwd });
-		emitSubmitOutput(params, this.preflightResult.output);
-		return copySubmitPreflightResult(this.preflightResult);
+		const result = this.preflightResults.shift() ?? this.preflightResults[this.preflightResults.length - 1] ?? { kind: "ready", output: defaultSubmitOutput() };
+		emitSubmitOutput(params, result.output);
+		return copySubmitPreflightResult(result);
 	}
 
 	async restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult> {
@@ -236,6 +247,59 @@ export class InMemorySubmitGateway implements SubmitGateway {
 		this.operationLog.push({ operation: "verifyCurrentPr", cwd: params.cwd });
 		emitSubmitOutput(params, this.currentPrResult.output);
 		return copyCurrentPrVerificationResult(this.currentPrResult);
+	}
+}
+
+export interface InMemorySubmitMetadataGatewayState {
+	inspection?: SubmitStackInspection | { error: ErrorInfo };
+	amendResults?: Readonly<Record<string, { error: ErrorInfo }>>;
+}
+
+export interface SubmitMetadataInspectCall {
+	cwd: string;
+}
+
+export interface SubmitMetadataAmendCall {
+	cwd: string;
+	branch: string;
+	title: string;
+	body: string;
+}
+
+export class InMemorySubmitMetadataGateway implements SubmitMetadataGateway {
+	private readonly inspection: SubmitStackInspection | { error: ErrorInfo };
+	private readonly amendResults: Readonly<Record<string, { error: ErrorInfo }>>;
+	private readonly inspectLog: SubmitMetadataInspectCall[] = [];
+	private readonly amendLog: SubmitMetadataAmendCall[] = [];
+
+	constructor(state: InMemorySubmitMetadataGatewayState = {}) {
+		this.inspection = copySubmitStackInspectionOrError(state.inspection ?? { branches: [] });
+		this.amendResults = { ...(state.amendResults ?? {}) };
+	}
+
+	get inspectSubmitStackCalls(): readonly SubmitMetadataInspectCall[] {
+		return this.inspectLog.map((call) => ({ ...call }));
+	}
+
+	get amendBranchMetadataCommitCalls(): readonly SubmitMetadataAmendCall[] {
+		return this.amendLog.map((call) => ({ ...call }));
+	}
+
+	async inspectSubmitStack(params: { cwd: string }): Promise<GatewayResult<SubmitStackInspection>> {
+		this.inspectLog.push({ cwd: params.cwd });
+		if ("error" in this.inspection) {
+			return err(this.inspection.error);
+		}
+		return ok(copySubmitStackInspection(this.inspection));
+	}
+
+	async amendBranchMetadataCommit(params: { cwd: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>> {
+		this.amendLog.push({ cwd: params.cwd, branch: params.branch, title: params.title, body: params.body });
+		const result = this.amendResults[params.branch];
+		if (result !== undefined) {
+			return err(result.error);
+		}
+		return ok(undefined);
 	}
 }
 
@@ -492,6 +556,7 @@ export interface InMemoryContextState {
 	projectConfig?: ProjectConfigReadResult;
 	checkpoint?: InMemoryCheckpointGatewayState;
 	submit?: InMemorySubmitGatewayState;
+	submitMetadata?: InMemorySubmitMetadataGatewayState;
 	githubPr?: InMemoryGithubPrGatewayState;
 	textGeneration?: InMemoryTextGenerationGatewayState;
 }
@@ -503,6 +568,7 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	projectConfig: InMemoryVercelProjectConfigStore;
 	checkpoint: InMemoryCheckpointGateway;
 	submit: InMemorySubmitGateway;
+	submitMetadata: InMemorySubmitMetadataGateway;
 	githubPr: InMemoryGithubPrGateway;
 	textGeneration: InMemoryTextGenerationGateway;
 } {
@@ -511,15 +577,17 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	const projectConfig = new InMemoryVercelProjectConfigStore(state.projectConfig);
 	const checkpoint = new InMemoryCheckpointGateway(state.checkpoint);
 	const submit = new InMemorySubmitGateway(state.submit);
+	const submitMetadata = new InMemorySubmitMetadataGateway(state.submitMetadata);
 	const githubPr = new InMemoryGithubPrGateway(state.githubPr);
 	const textGeneration = new InMemoryTextGenerationGateway(state.textGeneration);
 	return {
-		context: { git, vercel, projectConfig, checkpoint, submit, githubPr, textGeneration },
+		context: { git, vercel, projectConfig, checkpoint, submit, submitMetadata, githubPr, textGeneration },
 		git,
 		vercel,
 		projectConfig,
 		checkpoint,
 		submit,
+		submitMetadata,
 		githubPr,
 		textGeneration,
 	};
@@ -597,6 +665,10 @@ function copySubmitOutput(output: SubmitCommandOutput): SubmitCommandOutput {
 	};
 }
 
+function isPreflightSequence(value: SubmitPreflightResult | readonly SubmitPreflightResult[]): value is readonly SubmitPreflightResult[] {
+	return Array.isArray(value);
+}
+
 function copySubmitPreflightResult(result: SubmitPreflightResult): SubmitPreflightResult {
 	if (result.kind === "ready") {
 		return { kind: "ready", output: copySubmitOutput(result.output) };
@@ -637,6 +709,29 @@ function copyCurrentPrVerificationResult(result: CurrentPrVerificationResult): C
 		return { kind: "no_current_pr", output: copySubmitOutput(result.output), cause: result.cause };
 	}
 	return { kind: "failed", output: copySubmitOutput(result.output), cause: result.cause };
+}
+
+function copySubmitStackInspectionOrError(value: SubmitStackInspection | { error: ErrorInfo }): SubmitStackInspection | { error: ErrorInfo } {
+	if ("error" in value) {
+		return { error: { ...value.error } };
+	}
+	return copySubmitStackInspection(value);
+}
+
+function copySubmitStackInspection(inspection: SubmitStackInspection): SubmitStackInspection {
+	return { branches: inspection.branches.map(copySubmitStackBranchInspection) };
+}
+
+function copySubmitStackBranchInspection(branch: SubmitStackBranchInspection): SubmitStackBranchInspection {
+	return {
+		branch: branch.branch,
+		parentBranch: branch.parentBranch,
+		currentTitle: branch.currentTitle,
+		commitCount: branch.commitCount,
+		commitMessages: branch.commitMessages.map(copyCommitMessage),
+		diff: branch.diff,
+		...(branch.existingPr === undefined ? {} : { existingPr: { ...branch.existingPr } }),
+	};
 }
 
 function defaultPendingWorktreeSnapshot(): PendingWorktreeSnapshot {

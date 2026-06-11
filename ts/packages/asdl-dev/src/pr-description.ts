@@ -89,9 +89,21 @@ export type PromptResolutionResult =
 	| { ok: true; text: string; source: PromptSource }
 	| { ok: false; error: string; source: PromptSource };
 
-export interface PrDescriptionPromptContext {
+export type PrDescriptionPromptContext = ExistingPrDescriptionPromptContext | LocalPrDescriptionPromptContext;
+
+export interface ExistingPrDescriptionPromptContext {
+	kind?: "github";
 	number: number;
 	url: string;
+	title: string;
+	headRefName: string;
+	baseRefName: string;
+	commitMessages?: readonly PrCommitMessage[];
+	diff: string;
+}
+
+export interface LocalPrDescriptionPromptContext {
+	kind: "local";
 	title: string;
 	headRefName: string;
 	baseRefName: string;
@@ -163,10 +175,10 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 	const context = [
 		"## Context",
 		"",
-		`- PR: #${input.number} (${input.url})`,
+		...formatPrContextLines(input),
 		`- Head branch: ${input.headRefName}`,
 		`- Base branch: ${input.baseRefName}`,
-		`- Current PR title: ${input.title}`,
+		`- Current title source: ${input.title}`,
 	].join("\n");
 	const commitMessages = formatCommitMessages(input.commitMessages ?? []);
 	const diff = truncateDiff(filterLockfileSections(input.diff));
@@ -254,6 +266,13 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 	const headChars = Math.floor(remaining * 0.7);
 	const tailChars = remaining - headChars;
 	return `${diff.slice(0, headChars)}${marker}${diff.slice(diff.length - tailChars)}`;
+}
+
+function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
+	if ("number" in input) {
+		return [`- PR: #${input.number} (${input.url})`];
+	}
+	return ["- PR: not yet created; generate initial metadata for Graphite submit"];
 }
 
 function formatCommitMessages(messages: readonly PrCommitMessage[]): string {
