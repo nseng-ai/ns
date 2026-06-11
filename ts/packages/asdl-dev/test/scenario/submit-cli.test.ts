@@ -3,8 +3,9 @@ import { describe, expect, test } from "vitest";
 import { runCli } from "asdl-dev/src/cli.ts";
 import { GENERATED_BODY_MARKER } from "asdl-dev/src/pr-description.ts";
 import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
-import type { SubmitStackBranchInspection } from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
-import type { SubmitCommandOutput, SubmitOutputStream, SubmitPrLink } from "asdl-dev/src/submit.ts";
+import type { SubmitPrLink } from "asdl-dev/src/gt-output.ts";
+import type { SubmitStackNewBranch } from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
+import type { SubmitCommandOutput, SubmitOutputStream } from "asdl-dev/src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
 interface OutputEvent {
@@ -76,12 +77,11 @@ function prLink(number: number): SubmitPrLink {
 	return { label: `#${number}`, url: `https://github.com/acme/project/pull/${number}` };
 }
 
-function newPrBranch(overrides: Partial<SubmitStackBranchInspection> = {}): SubmitStackBranchInspection {
+function newPrBranch(overrides: Partial<SubmitStackNewBranch> = {}): SubmitStackNewBranch {
 	return {
+		kind: "new",
 		branch: "feature/demo",
 		parentBranch: "main",
-		currentTitle: "Add widget",
-		commitCount: 1,
 		commitMessages: [{ headline: "Add widget", body: "Implement widget flow." }],
 		diff: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
 		...overrides,
@@ -216,7 +216,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		const generatedBody = "This implements the widget flow.\n\n## Key Changes\n\n- Adds widget support";
 		const run = runWithFakes(["submit"], {
 			submitMetadata: {
-				inspection: { branches: [newPrBranch()] },
+				inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] },
 			},
 			submit: {
 				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
@@ -233,7 +233,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Prepared initial PR metadata:");
 		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toEqual([
-			{ cwd: "/work", branch: "feature/demo", title: "Prepare widget metadata", body: generatedBody },
+			{ cwd: "/work", currentBranch: "feature/demo", branch: "feature/demo", title: "Prepare widget metadata", body: generatedBody },
 		]);
 		expect(run.submitMetadata.amendBranchMetadataCommitCalls[0]?.body).not.toContain(GENERATED_BODY_MARKER);
 		expect(run.githubPr.editPrCalls).toEqual([]);
@@ -244,7 +244,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		const link = prLink(456);
 		const generatedBody = "This implements the widget flow.\n\n## Key Changes\n\n- Adds widget support";
 		const run = runWithFakes(["submit"], {
-			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 			submit: {
 				submit: { kind: "success", output: output(`Created ${link.url}\n`), prLinks: [link] },
 				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
@@ -265,7 +265,7 @@ describe("asdl-dev submit CLI behavior", () => {
 
 	test("prewrite generation failure stops before amendment and submit", async () => {
 		const run = runWithFakes(["submit"], {
-			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 			textGeneration: { results: [{ ok: false, error: "model unavailable" }] },
 		});
 
@@ -275,21 +275,60 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
 	});
 
-	test("multi-commit branches stop before submit when metadata source is ambiguous", async () => {
+	test("multi-commit branches skip prewrite and generate after submit", async () => {
+		const link = prLink(456);
 		const run = runWithFakes(["submit"], {
-			submitMetadata: { inspection: { branches: [newPrBranch({ commitCount: 2, commitMessages: [{ headline: "one" }, { headline: "two" }] })] } },
+			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch({ commitMessages: [{ headline: "one" }, { headline: "two" }] })] } },
+			submit: {
+				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Add widget", body: "", headRefName: "feature/demo", baseRefName: "main" } },
+				diffs: { 456: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n" },
+				commitMessages: { 456: [{ headline: "one" }, { headline: "two" }] },
+			},
+			textGeneration: { results: [{ ok: true, text: "Generated after submit\n\nGenerated body." }] },
 		});
 
-		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("branch has 2 commits and Graphite's creation-time metadata source is ambiguous");
-		expect(run.textGeneration.generateTextCalls).toEqual([]);
-		expect(run.submit.submitCurrentStackCalls).toEqual([]);
+		expect(await run.exit).toBe(0);
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.githubPr.editPrCalls).toEqual([expect.objectContaining({ number: 456, title: "Generated after submit" })]);
+	});
+
+	test("upstack new branches skip prewrite", async () => {
+		const link = prLink(456);
+		const run = runWithFakes(["submit"], {
+			submitMetadata: {
+				inspection: {
+					currentBranch: "feature/base",
+					branches: [
+						newPrBranch({ branch: "feature/base", parentBranch: "main" }),
+						newPrBranch({ branch: "feature/upstack", parentBranch: "feature/base" }),
+					],
+				},
+			},
+			submit: {
+				submit: { kind: "success", output: output(`${link.url}\n`), prLinks: [link] },
+				currentPr: { kind: "present", output: output(`${link.url}\n`), prLinks: [link] },
+			},
+			githubPr: {
+				prs: { 456: { number: 456, url: link.url, title: "Base PR", body: "Generated body", headRefName: "feature/base", baseRefName: "main" } },
+			},
+			textGeneration: { results: [{ ok: true, text: "Base PR\n\nGenerated body" }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toEqual([
+			{ cwd: "/work", currentBranch: "feature/base", branch: "feature/base", title: "Base PR", body: "Generated body" },
+		]);
 	});
 
 	test("final submit failure after prewrite reports prepared local metadata", async () => {
 		const generatedBody = "This implements the widget flow.\n\n## Key Changes\n\n- Adds widget support";
 		const run = runWithFakes(["submit"], {
-			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 			submit: {
 				submit: { kind: "failed", output: output("", "Graphite failed\n", 1) },
 			},
@@ -307,7 +346,7 @@ describe("asdl-dev submit CLI behavior", () => {
 			submit: {
 				preflight: { kind: "failed", output: output("", "ERROR: Aborting dry run.\n", 1) },
 			},
-			submitMetadata: { inspection: { branches: [newPrBranch()] } },
+			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
 		});
 
 		expect(await run.exit).toBe(1);

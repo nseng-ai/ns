@@ -1,7 +1,8 @@
-import { appendGeneratedMarker } from "./pr-description.ts";
+import { appendGeneratedMarker, resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./pr-description.ts";
 import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
+import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
-import type { SubmitPrDescriptionOptions, SubmitPrLink } from "./submit.ts";
+import type { SubmitPrDescriptionOptions } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
 	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
@@ -25,6 +26,7 @@ export async function generateSubmitPrDescriptions(input: {
 	const prewriteFallbacks: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
 	const prewrittenByBranch = new Map((input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]));
+	let generation: Extract<PrDescriptionGenerationResolution, { ok: true }> | undefined;
 
 	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
 	for (const link of input.prLinks) {
@@ -39,21 +41,21 @@ export async function generateSubmitPrDescriptions(input: {
 
 		const prewrittenMetadata = prewrittenByBranch.get(viewed.value.headRefName);
 		if (prewrittenMetadata !== undefined) {
-			if (prMetadataMatches(viewed.value.title, viewed.value.body, prewrittenMetadata)) {
-				prewritten.push(link);
-				continue;
-			}
-
-			const edited = await input.prDescription.githubPr.editPr({
+			const reconciled = await reconcilePrewrittenPr({
 				cwd: input.cwd,
+				githubPr: input.prDescription.githubPr,
+				link,
 				number,
-				title: prewrittenMetadata.title,
-				body: appendGeneratedMarker(prewrittenMetadata.body),
+				title: viewed.value.title,
+				body: viewed.value.body,
+				prewrittenMetadata,
 			});
-			if (edited.ok) {
+			if (reconciled.kind === "matched") {
+				prewritten.push(link);
+			} else if (reconciled.kind === "updated") {
 				prewriteFallbacks.push(link);
 			} else {
-				failures.push({ link, number, reason: `Generated initial metadata, but failed to update PR #${number} after Graphite created mismatched metadata.\n${edited.error.message}` });
+				failures.push(reconciled.failure);
 			}
 			continue;
 		}
@@ -73,12 +75,24 @@ export async function generateSubmitPrDescriptions(input: {
 			continue;
 		}
 
+		const resolvedGeneration = generation ?? await resolvePrDescriptionGeneration({
+			cwd: input.cwd,
+			env: input.prDescription.env,
+			git: input.prDescription.git,
+		});
+		if (!resolvedGeneration.ok) {
+			failures.push({ link, number, reason: resolvedGeneration.error });
+			continue;
+		}
+		generation = resolvedGeneration;
+
 		const applied = await applyGeneratedDescription(viewed.value, decision.commits, {
 			cwd: input.cwd,
 			env: input.prDescription.env,
 			githubPr: input.prDescription.githubPr,
 			textGeneration: input.prDescription.textGeneration,
 			git: input.prDescription.git,
+			generation,
 		});
 		if (applied.ok) {
 			generated.push(link);
@@ -108,6 +122,37 @@ export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[],
 	return lines.join("\n");
 }
 
+async function reconcilePrewrittenPr(input: {
+	cwd: string;
+	githubPr: SubmitPrDescriptionOptions["githubPr"];
+	link: SubmitPrLink;
+	number: number;
+	title: string;
+	body: string;
+	prewrittenMetadata: PreparedSubmitPrMetadata;
+}): Promise<{ kind: "matched" } | { kind: "updated" } | { kind: "failed"; failure: PrDescriptionFailure }> {
+	if (prMetadataMatches(input.title, input.body, input.prewrittenMetadata)) {
+		return { kind: "matched" };
+	}
+
+	const edited = await input.githubPr.editPr({
+		cwd: input.cwd,
+		number: input.number,
+		title: input.prewrittenMetadata.title,
+		body: appendGeneratedMarker(input.prewrittenMetadata.body),
+	});
+	if (edited.ok) return { kind: "updated" };
+
+	return {
+		kind: "failed",
+		failure: {
+			link: input.link,
+			number: input.number,
+			reason: `Generated initial metadata, but failed to update PR #${input.number} after Graphite created mismatched metadata.\n${edited.error.message}`,
+		},
+	};
+}
+
 function prMetadataMatches(title: string, body: string, metadata: PreparedSubmitPrMetadata): boolean {
 	return title.trim() === metadata.title.trim() && body.trim() === metadata.body.trim();
 }
@@ -127,12 +172,4 @@ function prNumberFromLink(link: SubmitPrLink): number | undefined {
 	if (value === undefined) return undefined;
 	const number = Number.parseInt(value, 10);
 	return Number.isSafeInteger(number) ? number : undefined;
-}
-
-export function prNumberFromUrl(url: string): string | undefined {
-	const graphiteMatch = url.match(/^https:\/\/app\.graphite\.com\/github\/pr\/[^\/\s?#]+\/[^\/\s?#]+\/(\d+)(?:[\/?#].*)?$/);
-	if (graphiteMatch?.[1]) return graphiteMatch[1];
-
-	const githubMatch = url.match(/^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\/(\d+)(?:[\/?#].*)?$/);
-	return githubMatch?.[1];
 }

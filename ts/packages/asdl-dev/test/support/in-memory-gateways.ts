@@ -6,7 +6,7 @@ import type { ProjectConfigReadResult, VercelProjectConfigStore } from "asdl-dev
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
 import type {
 	SubmitMetadataGateway,
-	SubmitStackBranchInspection,
+	SubmitStackBranch,
 	SubmitStackInspection,
 } from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
 import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/src/pending-worktree.ts";
@@ -223,7 +223,7 @@ export class InMemorySubmitGateway implements SubmitGateway {
 	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
 		this.preflightLog.push({ cwd: params.cwd });
 		this.operationLog.push({ operation: "checkSubmitReadiness", cwd: params.cwd });
-		const result = this.preflightResults.shift() ?? this.preflightResults[this.preflightResults.length - 1] ?? { kind: "ready", output: defaultSubmitOutput() };
+		const result = this.preflightResults.shift() ?? { kind: "ready", output: defaultSubmitOutput() };
 		emitSubmitOutput(params, result.output);
 		return copySubmitPreflightResult(result);
 	}
@@ -261,6 +261,7 @@ export interface SubmitMetadataInspectCall {
 
 export interface SubmitMetadataAmendCall {
 	cwd: string;
+	currentBranch: string;
 	branch: string;
 	title: string;
 	body: string;
@@ -273,7 +274,7 @@ export class InMemorySubmitMetadataGateway implements SubmitMetadataGateway {
 	private readonly amendLog: SubmitMetadataAmendCall[] = [];
 
 	constructor(state: InMemorySubmitMetadataGatewayState = {}) {
-		this.inspection = copySubmitStackInspectionOrError(state.inspection ?? { branches: [] });
+		this.inspection = copySubmitStackInspectionOrError(state.inspection ?? { currentBranch: "feature/demo", branches: [] });
 		this.amendResults = { ...(state.amendResults ?? {}) };
 	}
 
@@ -293,8 +294,12 @@ export class InMemorySubmitMetadataGateway implements SubmitMetadataGateway {
 		return ok(copySubmitStackInspection(this.inspection));
 	}
 
-	async amendBranchMetadataCommit(params: { cwd: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>> {
-		this.amendLog.push({ cwd: params.cwd, branch: params.branch, title: params.title, body: params.body });
+	async ensureCleanWorktree(_params: { cwd: string }): Promise<GatewayResult<void>> {
+		return ok(undefined);
+	}
+
+	async amendBranchMetadataCommit(params: { cwd: string; currentBranch: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>> {
+		this.amendLog.push({ cwd: params.cwd, currentBranch: params.currentBranch, branch: params.branch, title: params.title, body: params.body });
 		const result = this.amendResults[params.branch];
 		if (result !== undefined) {
 			return err(result.error);
@@ -719,18 +724,19 @@ function copySubmitStackInspectionOrError(value: SubmitStackInspection | { error
 }
 
 function copySubmitStackInspection(inspection: SubmitStackInspection): SubmitStackInspection {
-	return { branches: inspection.branches.map(copySubmitStackBranchInspection) };
+	return { currentBranch: inspection.currentBranch, branches: inspection.branches.map(copySubmitStackBranch) };
 }
 
-function copySubmitStackBranchInspection(branch: SubmitStackBranchInspection): SubmitStackBranchInspection {
+function copySubmitStackBranch(branch: SubmitStackBranch): SubmitStackBranch {
+	if (branch.kind === "existing") {
+		return { kind: "existing", branch: branch.branch, parentBranch: branch.parentBranch, pr: { ...branch.pr } };
+	}
 	return {
+		kind: "new",
 		branch: branch.branch,
 		parentBranch: branch.parentBranch,
-		currentTitle: branch.currentTitle,
-		commitCount: branch.commitCount,
 		commitMessages: branch.commitMessages.map(copyCommitMessage),
 		diff: branch.diff,
-		...(branch.existingPr === undefined ? {} : { existingPr: { ...branch.existingPr } }),
 	};
 }
 

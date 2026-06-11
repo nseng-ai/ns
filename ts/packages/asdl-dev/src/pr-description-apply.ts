@@ -5,10 +5,11 @@ import {
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
 	preparePrDescription,
-	resolvePrDescriptionPrompt,
+	resolvePrDescriptionGeneration,
+	type PrDescriptionGenerationResolution,
 	type PromptSource,
 } from "./pr-description.ts";
-import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerationGateway } from "./text-generation.ts";
 
 export interface PrDescriptionApplyOptions {
 	cwd: string;
@@ -16,6 +17,7 @@ export interface PrDescriptionApplyOptions {
 	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
 	git: GitGateway;
+	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 }
 
 export type GeneratedPrDescriptionResult =
@@ -52,19 +54,9 @@ export async function generatePrDescriptionForPr(
 	commits: readonly PrCommitMessage[],
 	options: PrDescriptionApplyOptions,
 ): Promise<GeneratedPrDescriptionResult> {
-	const modelConfig = selectPrDescriptionTextGenerationConfig(options.env);
-	if (!modelConfig.ok) {
-		return { ok: false, error: modelConfig.error, exitCode: 2 };
-	}
-
-	const repoRoot = await options.git.repoRoot({ cwd: options.cwd });
-	const prompt = await resolvePrDescriptionPrompt({
-		env: options.env,
-		cwd: options.cwd,
-		...(repoRoot.ok ? { repoRoot: repoRoot.value } : {}),
-	});
-	if (!prompt.ok) {
-		return { ok: false, error: prompt.error, exitCode: 2 };
+	const generation = options.generation ?? await resolvePrDescriptionGeneration(options);
+	if (!generation.ok) {
+		return generation;
 	}
 
 	const diff = await options.githubPr.getPrDiff({ cwd: options.cwd, number: pr.number });
@@ -74,9 +66,10 @@ export async function generatePrDescriptionForPr(
 
 	const prepared = await preparePrDescription({
 		textGeneration: options.textGeneration,
-		modelRef: modelConfig.value.modelRef,
-		promptText: prompt.text,
+		modelRef: generation.modelRef,
+		promptText: generation.promptText,
 		context: {
+			kind: "github",
 			number: pr.number,
 			url: pr.url,
 			title: pr.title,
@@ -89,7 +82,7 @@ export async function generatePrDescriptionForPr(
 	if (!prepared.ok) {
 		return { ok: false, error: prepared.error };
 	}
-	return { ok: true, title: prepared.title, body: prepared.body, promptSource: prompt.source };
+	return { ok: true, title: prepared.title, body: prepared.body, promptSource: generation.promptSource };
 }
 
 export async function applyGeneratedDescription(

@@ -2,8 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	parseCommitMessages,
-	parseCurrentBranchFromGtLog,
-	parseGtLogStackBranches,
+	parseGtLogStack,
 	parseParentBranch,
 	RealSubmitMetadataGateway,
 } from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
@@ -154,13 +153,54 @@ describe("RealSubmitMetadataGateway", () => {
 ◯ master
 `;
 
-		expect(parseGtLogStackBranches(log)).toEqual(["parent-branch", "feature/demo", "master"]);
-		expect(parseCurrentBranchFromGtLog(log)).toBe("feature/demo");
+		expect(parseGtLogStack(log)).toEqual({ branches: ["parent-branch", "feature/demo", "master"], currentBranch: "feature/demo" });
 		expect(parseParentBranch("feature/demo\n\nParent: parent-branch\n")).toBe("parent-branch");
 		expect(parseCommitMessages("Add widget\n\nImplement widget.\0Fix tests\0")).toEqual([
 			{ headline: "Add widget", body: "Implement widget." },
 			{ headline: "Fix tests" },
 		]);
+	});
+
+	test("inspectSubmitStack skips local diff reads for existing PR branches", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], "◉ feature/demo (current)\n│\n◯ master\n"),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], "feature/demo\n\nParent: master\n"),
+			step("gt", ["pr", "--no-interactive", "feature/demo"], "https://github.com/acme/project/pull/456\n"),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "master"], "master\n"),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
+
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				currentBranch: "feature/demo",
+				branches: [
+					{
+						kind: "existing",
+						branch: "feature/demo",
+						parentBranch: "master",
+						pr: { label: "#456", url: "https://github.com/acme/project/pull/456" },
+					},
+				],
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("inspectSubmitStack fails on non-no-PR Graphite PR failures", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], "◉ feature/demo (current)\n│\n◯ master\n"),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], "feature/demo\n\nParent: master\n"),
+			step("gt", ["pr", "--no-interactive", "feature/demo"], "", 2, "Graphite failed\n"),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ ok: false, error: { code: "submit_existing_pr_inspection_failed" } });
+		runner.assertDone();
 	});
 
 	test("inspectSubmitStack reads local diffs and commits for new submit branches", async () => {
@@ -179,12 +219,12 @@ describe("RealSubmitMetadataGateway", () => {
 		expect(result).toEqual({
 			ok: true,
 			value: {
+				currentBranch: "feature/demo",
 				branches: [
 					{
+						kind: "new",
 						branch: "feature/demo",
 						parentBranch: "master",
-						currentTitle: "Add widget",
-						commitCount: 1,
 						commitMessages: [{ headline: "Add widget", body: "Implement widget." }],
 						diff: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
 					},
@@ -196,13 +236,11 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("amendBranchMetadataCommit uses Graphite modify without generated markers", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("git", ["status", "--porcelain"], ""),
-			step("git", ["branch", "--show-current"], "feature/demo\n"),
 			step("gt", ["modify", "--no-interactive", "-m", "Generated title", "-m", "Generated body"], "Modified\n"),
 		]);
 		const gateway = new RealSubmitMetadataGateway(runner.runner);
 
-		expect(await gateway.amendBranchMetadataCommit({ cwd: "/repo", branch: "feature/demo", title: "Generated title", body: "Generated body" })).toEqual({ ok: true, value: undefined });
+		expect(await gateway.amendBranchMetadataCommit({ cwd: "/repo", currentBranch: "feature/demo", branch: "feature/demo", title: "Generated title", body: "Generated body" })).toEqual({ ok: true, value: undefined });
 		runner.assertDone();
 	});
 });
