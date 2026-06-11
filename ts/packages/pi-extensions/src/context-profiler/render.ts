@@ -20,6 +20,7 @@ import type {
 	TokenCount,
 	TurnCapInfo,
 } from "./model.ts";
+import type { BundlePersistenceState } from "./bundle.ts";
 import type { SegmentationState } from "./segmentation.ts";
 
 export const BAR_WIDTH = 14;
@@ -232,6 +233,41 @@ export function segmentationStatusText(state: SegmentationState): string | null 
 	if (state.type === "loading") return "symbolizing…";
 	if (state.type === "error") return `no symbols: ${state.message}`;
 	return null;
+}
+
+export function bundlePersistenceLine(state: BundlePersistenceState): string {
+	switch (state.type) {
+		case "pending":
+			return "bundle: writing…";
+		case "skipped":
+			return "bundle: no provider context yet";
+		case "failed":
+			return `bundle: unavailable · ${state.message}`;
+		case "persisted": {
+			const reused = state.reused ? " · reused" : "";
+			return `bundle: #${state.ordinal} · ${formatByteSize(state.byteSize)} · session ${formatByteSize(state.sessionTotalBytes)}${reused}`;
+		}
+	}
+}
+
+export function bundleStatusBarText(state: BundlePersistenceState): string {
+	switch (state.type) {
+		case "pending":
+			return "ctx profile · bundle writing";
+		case "skipped":
+			return "ctx profile · no provider context";
+		case "failed":
+			return "ctx profile · bundle unavailable";
+		case "persisted":
+			return `ctx profile · bundle #${state.ordinal}`;
+	}
+}
+
+export function formatByteSize(bytes: number): string {
+	if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+	if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+	return `${bytes.toLocaleString()} B`;
 }
 
 export const BASE_DETAIL_CLAIM = "members sorted by estimated size, descending · ⏎ views content";

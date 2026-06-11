@@ -6,9 +6,13 @@
  * help layer. The snapshot on screen is frozen; only `r` swaps it.
  */
 
-import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
+import type { BundlePersistenceState } from "./bundle.ts";
+import { chatFrameMeta, chatHint, chatScrollWindow, buildChatLines, type ChatLine } from "./interrogation-render.ts";
+import { scopeForRegion, type InterrogationScope } from "./interrogation-prompt.ts";
+import type { TranscriptState } from "./interrogation-transcript.ts";
 import type { BaseMember, BaseRegion, DelegationClaim, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
 import { buildLiveRegions, delegationsInSpan, inferredDelegations, turnsInRange } from "./model.ts";
 import type { EpisodeAnalysisStatus, SegmentationState } from "./segmentation.ts";
@@ -18,6 +22,7 @@ import {
 	buildListRowCells,
 	buildOverviewRowCells,
 	buildUsageBarSegments,
+	bundlePersistenceLine,
 	clamp,
 	composeListRowText,
 	composeOverviewRowText,
@@ -48,6 +53,7 @@ const FALLBACK_TERMINAL_ROWS = 24;
 const LIST_CHROME_ROWS = 5;
 const LIST_HINT = "↑↓/jk select · ⏎ open · PgUp/PgDn page · esc back · q close";
 const CONTENT_HINT = "↑↓/jk/PgUp/PgDn scroll · esc back · q close";
+const CHAT_PAGE_LINES = 8;
 
 type ProfilerThemeColor = "text" | "muted" | "accent" | "warning" | "dim";
 
@@ -80,7 +86,22 @@ interface ContentFrame {
 	scroll: number;
 }
 
-type ViewFrame = OverviewFrame | BaseDetailFrame | TurnListFrame | ContentFrame;
+export interface InterrogationViewPort {
+	getState: () => TranscriptState;
+	bundleOrdinal: number | null;
+	ask: (question: string, scope: InterrogationScope) => void;
+	abortTurn: () => void;
+}
+
+interface ChatFrame {
+	type: "chat";
+	port: InterrogationViewPort | null;
+	scope: InterrogationScope;
+	scrollFromBottom: number;
+	degradedReason: string | null;
+}
+
+type ViewFrame = OverviewFrame | BaseDetailFrame | TurnListFrame | ContentFrame | ChatFrame;
 
 interface ListRow {
 	tokens: TokenCount;
@@ -92,30 +113,38 @@ export interface ProfilerViewOptions {
 	theme: Theme;
 	profile: ProfileSnapshot;
 	segmentation: SegmentationState;
+	persistence: BundlePersistenceState;
 	onClose: () => void;
+	onOpenInterrogation: (scope: InterrogationScope) => { ok: true; port: InterrogationViewPort } | { ok: false; reason: string };
 	/** Re-snapshot for `r`; the returned pair replaces the frozen one. */
-	onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState };
+	onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState; persistence: BundlePersistenceState };
 }
 
 export class ProfilerView implements Component {
 	private readonly tui: TUI;
 	private readonly theme: Theme;
 	private readonly onClose: () => void;
-	private readonly onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState };
+	private readonly onOpenInterrogation: (scope: InterrogationScope) => { ok: true; port: InterrogationViewPort } | { ok: false; reason: string };
+	private readonly onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState; persistence: BundlePersistenceState };
 	private profile: ProfileSnapshot;
 	private segmentation: SegmentationState;
+	private persistence: BundlePersistenceState;
 	private frames: ViewFrame[];
 	private isHelpVisible: boolean;
+	private chatEditor: Editor | null;
 
 	constructor(options: ProfilerViewOptions) {
 		this.tui = options.tui;
 		this.theme = options.theme;
 		this.onClose = options.onClose;
+		this.onOpenInterrogation = options.onOpenInterrogation;
 		this.onRefresh = options.onRefresh;
 		this.profile = options.profile;
 		this.segmentation = options.segmentation;
+		this.persistence = options.persistence;
 		this.frames = [{ type: "overview", selection: 0, scroll: 0 }];
 		this.isHelpVisible = false;
+		this.chatEditor = null;
 	}
 
 	/**
@@ -132,6 +161,15 @@ export class ProfilerView implements Component {
 		this.tui.requestRender();
 	}
 
+	setPersistence(state: BundlePersistenceState): void {
+		this.persistence = state;
+		this.tui.requestRender();
+	}
+
+	notifyInterrogationChanged(): void {
+		this.tui.requestRender();
+	}
+
 	render(width: number): string[] {
 		const height = Math.max(8, this.terminalRows());
 		const frame = this.topFrame();
@@ -140,6 +178,11 @@ export class ProfilerView implements Component {
 	}
 
 	handleInput(data: string): void {
+		const top = this.topFrame();
+		if (top.type === "chat") {
+			this.handleChatInput(data, top);
+			return;
+		}
 		if (matchesKey(data, Key.escape)) {
 			if (this.frames.length > 1) {
 				this.frames.pop();
@@ -162,8 +205,14 @@ export class ProfilerView implements Component {
 			const refreshed = this.onRefresh();
 			this.profile = refreshed.profile;
 			this.segmentation = refreshed.segmentation;
+			this.persistence = refreshed.persistence;
 			this.frames = [{ type: "overview", selection: 0, scroll: 0 }];
 			this.isHelpVisible = false;
+			this.requestRender();
+			return;
+		}
+		if (data === "p") {
+			this.openChatFrame(this.scopeForFrame(this.topFrame()));
 			this.requestRender();
 			return;
 		}
@@ -194,6 +243,9 @@ export class ProfilerView implements Component {
 				return;
 			case "content":
 				this.handleContentInput(data, frame);
+				return;
+			case "chat":
+				this.handleChatInput(data, frame);
 				return;
 		}
 	}
@@ -275,6 +327,8 @@ export class ProfilerView implements Component {
 					return [this.resolveTurnList(frame).region.label];
 				case "content":
 					return [frame.source.title];
+				case "chat":
+					return ["ask"];
 			}
 		});
 		return ["context profiler", ...crumbs].join(" › ");
@@ -290,6 +344,8 @@ export class ProfilerView implements Component {
 				return formatTokenCountLong(this.resolveTurnList(frame).region.tokens);
 			case "content":
 				return frame.source.meta;
+			case "chat":
+				return chatFrameMeta({ ordinal: frame.port?.bundleOrdinal ?? null, scope: frame.scope });
 		}
 	}
 
@@ -329,6 +385,8 @@ export class ProfilerView implements Component {
 			}
 			case "content":
 				return this.composeContentBody(frame, innerWidth, bodyHeight);
+			case "chat":
+				return this.composeChatBody(frame, innerWidth, bodyHeight);
 		}
 	}
 
@@ -346,6 +404,7 @@ export class ProfilerView implements Component {
 		const lines: string[] = [];
 		let selectedLine = 0;
 		lines.push(...this.renderUsageBar(baseTokens, liveTokens, innerWidth));
+		lines.push(this.theme.fg("dim", truncateToWidth(bundlePersistenceLine(this.persistence), innerWidth, "…", true)));
 		lines.push("");
 		lines.push(this.sectionHeader(BASE_SECTION_HEADER, innerWidth));
 		rows.forEach((row, index) => {
@@ -371,7 +430,7 @@ export class ProfilerView implements Component {
 			lines.push(this.theme.fg("dim", "≈ sizes are chars/4 estimates and need not sum to the measured total."));
 			lines.push(this.theme.fg("dim", "⇄ marks delegation claims; (inferred) marks the deterministic tool-name heuristic."));
 			lines.push(this.theme.fg("dim", `opened ${this.profile.openedAt} · source ${this.profile.liveSource} · model ${this.profile.model}`));
-			lines.push(this.theme.fg("dim", "bars are scaled to the largest visible row; ⏎ zooms one level into the selection."));
+			lines.push(this.theme.fg("dim", "bars are scaled to the largest visible row; ⏎ zooms one level into the selection; p asks about the frozen bundle."));
 		}
 		const areaHeight = Math.max(1, bodyHeight - 1);
 		// Scroll is reconciled at render time because it depends on layout. The
@@ -384,7 +443,7 @@ export class ProfilerView implements Component {
 		const note = lines.length > areaHeight
 			? `${scrollNote(scroll + 1, Math.min(lines.length, scroll + areaHeight), lines.length, "lines")} · `
 			: "";
-		const hint = this.theme.fg("dim", `${note}↑↓/jk select · ⏎ zoom · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
+		const hint = this.theme.fg("dim", `${note}↑↓/jk select · ⏎ zoom · p ask · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
 		return pinFooter(visible, hint, bodyHeight);
 	}
 
@@ -479,6 +538,42 @@ export class ProfilerView implements Component {
 		return pinFooter(lines, this.theme.fg("dim", `${note}${CONTENT_HINT}`), bodyHeight);
 	}
 
+	private composeChatBody(frame: ChatFrame, innerWidth: number, bodyHeight: number): string[] {
+		const editor = this.ensureChatEditor();
+		const state = frame.port?.getState() ?? { entries: [{ type: "notice" as const, text: frame.degradedReason ?? "interrogation unavailable" }], isStreaming: false };
+		editor.disableSubmit = state.isStreaming || frame.port === null;
+		const editorLines = editor.render(innerWidth);
+		const transcriptHeight = Math.max(1, bodyHeight - editorLines.length - 2);
+		const allLines = buildChatLines(state, innerWidth);
+		const window = chatScrollWindow({ lines: allLines, height: transcriptHeight, scrollFromBottom: frame.scrollFromBottom });
+		this.replaceFrame(frame, { ...frame, scrollFromBottom: window.scrollFromBottom });
+		const visible = window.lines.map((line) => this.renderChatLine(line, innerWidth));
+		const separator = this.theme.fg("dim", "─".repeat(innerWidth));
+		return pinFooter([...visible, separator, ...editorLines], this.theme.fg("dim", chatHint({ isStreaming: state.isStreaming, isDegraded: frame.port === null })), bodyHeight);
+	}
+
+	private renderChatLine(line: ChatLine, innerWidth: number): string {
+		const color: ProfilerThemeColor = line.role === "assistant" ? "text" : line.role === "user" ? "accent" : "dim";
+		return this.theme.fg(color, truncateToWidth(line.text, innerWidth, "…", true));
+	}
+
+	private ensureChatEditor(): Editor {
+		if (this.chatEditor !== null) return this.chatEditor;
+		const editor = new Editor(this.tui, { borderColor: (text) => this.theme.fg("border", text), selectList: getSelectListTheme() }, { paddingX: 0 });
+		editor.onSubmit = (text) => {
+			const frame = this.topFrame();
+			if (frame.type !== "chat" || frame.port === null) return;
+			const question = text.trim();
+			if (question.length === 0) return;
+			editor.addToHistory(question);
+			editor.setText("");
+			frame.port.ask(question, frame.scope);
+			this.requestRender();
+		};
+		this.chatEditor = editor;
+		return editor;
+	}
+
 	private boxed(options: { title: string; meta: string; body: readonly string[]; width: number }): string[] {
 		const boxWidth = Math.max(24, options.width);
 		const innerWidth = boxWidth - 4;
@@ -545,6 +640,32 @@ export class ProfilerView implements Component {
 		this.requestRender();
 	}
 
+	private handleChatInput(data: string, frame: ChatFrame): void {
+		if (matchesKey(data, Key.escape)) {
+			this.frames.pop();
+			this.requestRender();
+			return;
+		}
+		if (data === "\u0003") {
+			frame.port?.abortTurn();
+			this.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.pageUp)) {
+			this.replaceFrame(frame, { ...frame, scrollFromBottom: frame.scrollFromBottom + CHAT_PAGE_LINES });
+			this.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.pageDown)) {
+			this.replaceFrame(frame, { ...frame, scrollFromBottom: Math.max(0, frame.scrollFromBottom - CHAT_PAGE_LINES) });
+			this.requestRender();
+			return;
+		}
+		if (frame.port === null) return;
+		this.ensureChatEditor().handleInput(data);
+		this.requestRender();
+	}
+
 	private pushRowFrame(row: OverviewRowSource): void {
 		if (row.type === "base") {
 			const members = [...row.region.members].sort((left, right) => right.tokens.value - left.tokens.value);
@@ -558,6 +679,24 @@ export class ProfilerView implements Component {
 			scroll: 0,
 			lastAreaHeight: null,
 		});
+	}
+
+	private openChatFrame(scope: InterrogationScope): void {
+		const result = this.onOpenInterrogation(scope);
+		if (result.ok) {
+			this.frames.push({ type: "chat", port: result.port, scope, scrollFromBottom: 0, degradedReason: null });
+			return;
+		}
+		this.frames.push({ type: "chat", port: null, scope, scrollFromBottom: 0, degradedReason: result.reason });
+	}
+
+	private scopeForFrame(frame: ViewFrame): InterrogationScope {
+		if (frame.type === "overview") {
+			const row = this.overviewRows()[frame.selection];
+			if (row?.type === "live") return scopeForRegion(row.region);
+		}
+		if (frame.type === "turn-list") return scopeForRegion(this.resolveTurnList(frame).region);
+		return { type: "session" };
 	}
 
 	private openMemberContent(frame: BaseDetailFrame): void {

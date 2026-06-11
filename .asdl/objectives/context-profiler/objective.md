@@ -44,9 +44,16 @@ Productionize the episodic context profiler prototype as a first-class Pi extens
 - **User-facing model configurability** for the analysis model: not in initial scope (tracked as an open question).
 - **Background/automatic profiling**: rejected for this objective by the on-demand LM policy.
 
+## Roadmap
+
+- Bundle persistence: freeze the exact provider-visible context into immutable `context-profiles/<sessionId>/<ordinal>/` bundles (`messages.jsonl`, `manifest.json`, `system-prompt.md`) when the profiler launches.
+- Episodes export: let startup segmentation/analysis run to completion after overlay close/refresh and write terminal `episodes.json` once per bundle.
+- Interrogation core: spawn a read-only embedded `AgentSession` scoped to a persisted bundle, with bundle-contract prompting and transcript/controller state.
+- Interrogation UI: add `p` from overview/episode scopes to ask freeform questions about the frozen bundle in an overlay chat frame.
+
 ## Completion Criteria
 
-All four capabilities landed on `master`: deterministic core, LM episode segmentation, per-episode analysis, and delegation detection — usable through `/context-profiler` with the degradation, testing, and architecture constraints in Scope. The full vision is the closure gate; re-scoping along the way happens through Semantic Updates, not by quietly shrinking the gate.
+All four capabilities landed on `master`: deterministic core, LM episode segmentation, per-episode analysis, delegation detection, bundle persistence, episodes export, and read-only bundle interrogation — usable through `/context-profiler` with the degradation, testing, and architecture constraints in Scope. The full vision is the closure gate; re-scoping along the way happens through Semantic Updates, not by quietly shrinking the gate.
 
 ## Assumptions and Risks
 

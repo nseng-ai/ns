@@ -11,18 +11,27 @@
 
 import type { BeforeAgentStartEvent, ContextEvent, ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
+import { ANALYSIS_MODEL_ID, ANALYSIS_MODEL_PROVIDER, createCodexAnalysisModelGateway } from "./context-profiler/analysis-model-gateway.ts";
+import type { BundlePersistenceState } from "./context-profiler/bundle.ts";
+import { createFsBundleStore, type BundleStore, type PersistedBundle } from "./context-profiler/bundle-store.ts";
+import { InterrogationController } from "./context-profiler/interrogation-controller.ts";
+import { createPiInterrogationSessionFactory } from "./context-profiler/interrogation-session.ts";
+import type { InterrogationScope } from "./context-profiler/interrogation-prompt.ts";
 import {
 	buildProfile,
 	capturePromptState,
 	createProfilerState,
 	handleBeforeAgentStart,
 	handleContext,
-	startSegmentation,
+	joinEpisodesWrite,
+	startBundlePersist,
+	startSegmentationBatch,
 	type ProfilerState,
+	type SegmentationBatchOutcome,
 } from "./context-profiler/runtime.ts";
-import { createCodexAnalysisModelGateway } from "./context-profiler/analysis-model-gateway.ts";
+import { bundleStatusBarText } from "./context-profiler/render.ts";
 import type { SegmentationState } from "./context-profiler/segmentation.ts";
-import { ProfilerView } from "./context-profiler/view.ts";
+import { ProfilerView, type InterrogationViewPort } from "./context-profiler/view.ts";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 const STATUS_KEY = "context-profiler";
@@ -32,7 +41,12 @@ interface OverlaySession {
 	close: () => void;
 	handle: OverlayHandle | null;
 	view: ProfilerView | null;
-	abortSegmentation: (() => void) | null;
+	detachSegmentation: (() => void) | null;
+	bundleStore: BundleStore | null;
+	persistence: BundlePersistenceState;
+	whenPersisted: Promise<PersistedBundle | null> | null;
+	segmentationCompletion: Promise<SegmentationBatchOutcome> | null;
+	interrogation: InterrogationController | null;
 }
 
 export function registerContextProfilerExtension(pi: ExtensionAPI): void {
@@ -102,6 +116,7 @@ class OverlaySessionController {
 	}
 
 	close(ctx: ExtensionContext): void {
+		this.currentSession?.interrogation?.dispose();
 		this.currentSession?.close();
 		this.currentSession?.handle?.hide();
 		this.currentSession = null;
@@ -124,37 +139,70 @@ function openProfiler(options: OpenProfilerOptions): void {
 	}
 	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
-	const session: OverlaySession = { close: () => {}, handle: null, view: null, abortSegmentation: null };
+	const session: OverlaySession = {
+		close: () => {},
+		handle: null,
+		view: null,
+		detachSegmentation: null,
+		bundleStore: createFsBundleStore({ sessionDir: ctx.sessionManager.getSessionDir(), sessionId: ctx.sessionManager.getSessionId() }),
+		persistence: { type: "pending" },
+		whenPersisted: null,
+		segmentationCompletion: null,
+		interrogation: null,
+	};
 	sessions.set(session);
-	// Open and `r` refresh are the only LM call sites — the model is never
-	// consulted while the overlay is closed.
 	const onSegmentationUpdate = (segmentation: SegmentationState): void => {
 		if (sessions.isCurrent(session)) session.view?.setSegmentation(segmentation);
+	};
+	const onPersistenceUpdate = (persistence: BundlePersistenceState): void => {
+		session.persistence = persistence;
+		if (!sessions.isCurrent(session)) return;
+		session.view?.setPersistence(persistence);
+		ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(persistence));
+	};
+	const startWork = (workState: ProfilerState, workProfile: ReturnType<typeof buildProfile>, force: boolean): SegmentationState => {
+		session.detachSegmentation?.();
+		const store = session.bundleStore;
+		if (store === null) throw new Error("bundle store missing");
+		const persist = startBundlePersist({ store, state: workState, profile: workProfile, sessionId: ctx.sessionManager.getSessionId(), onUpdate: onPersistenceUpdate });
+		session.persistence = persist.initial;
+		session.whenPersisted = persist.whenPersisted;
+		onPersistenceUpdate(persist.initial);
+		const segmentation = startSegmentationBatch({ gateway, profile: workProfile, state: workState, force, onUpdate: onSegmentationUpdate });
+		session.detachSegmentation = segmentation.detach;
+		session.segmentationCompletion = segmentation.completion;
+		joinEpisodesWrite({
+			whenPersisted: persist.whenPersisted,
+			completion: segmentation.completion,
+			store,
+			analysisModel: `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID}`,
+			onResult: (result) => {
+				if (result.ok || !sessions.isCurrent(session)) return;
+				ctx.ui.notify(`Context profiler could not write episodes.json: ${result.error.message}`, "warning");
+			},
+		});
+		return segmentation.initial;
 	};
 	void ctx.ui
 		.custom<void>(
 			(tui: TUI, theme: Theme, _keybindings, done) => {
 				session.close = () => done(undefined);
-				// Computed inside the factory, right before the view exists: the
-				// initial state feeds the constructor, and session.view is set
-				// before any async onUpdate can fire.
-				const segmentation = startSegmentation({ gateway, profile, state, force: false, onUpdate: onSegmentationUpdate });
-				session.abortSegmentation = segmentation.abort;
+				const initialSegmentation = startWork(state, profile, false);
 				const view = new ProfilerView({
 					tui,
 					theme,
 					profile,
-					segmentation: segmentation.initial,
+					segmentation: initialSegmentation,
+					persistence: session.persistence,
 					onClose: () => session.close(),
+					onOpenInterrogation: (scope) => openInterrogation({ ctx, session, scope }),
 					onRefresh: () => {
-						// The open snapshot is frozen; r re-captures, rebuilds, and
-						// always recomputes segmentation (force bypasses the cache).
-						session.abortSegmentation?.();
+						session.interrogation?.dispose();
+						session.interrogation = null;
 						const refreshedState = runtime.capturePromptState(ctx);
 						const refreshedProfile = buildProfile(ctx, refreshedState);
-						const refreshed = startSegmentation({ gateway, profile: refreshedProfile, state: refreshedState, force: true, onUpdate: onSegmentationUpdate });
-						session.abortSegmentation = refreshed.abort;
-						return { profile: refreshedProfile, segmentation: refreshed.initial };
+						const refreshedSegmentation = startWork(refreshedState, refreshedProfile, true);
+						return { profile: refreshedProfile, segmentation: refreshedSegmentation, persistence: session.persistence };
 					},
 				});
 				session.view = view;
@@ -178,22 +226,66 @@ function openProfiler(options: OpenProfilerOptions): void {
 			ctx.ui.notify(`Context profiler failed: ${message}`, "error");
 		})
 		.finally(() => {
-			// Single cancellation authority: every close path (q/Esc → done(),
-			// closeProfiler → close() → done(), factory errors → .catch) settles
-			// this chain, so aborting here guarantees no in-flight LM call from a
-			// closed session can write the cache or reach the view.
-			session.abortSegmentation?.();
+			session.detachSegmentation?.();
+			session.interrogation?.dispose();
 			if (sessions.isCurrent(session)) {
 				sessions.clearIfCurrent(session);
 				ctx.ui.setStatus(STATUS_KEY, undefined);
 			}
 		});
-	ctx.ui.setStatus(STATUS_KEY, "ctx profile");
+	ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(session.persistence));
+}
+
+function openInterrogation(options: {
+	ctx: ExtensionCommandContext;
+	session: OverlaySession;
+	scope: InterrogationScope;
+}): { ok: true; port: InterrogationViewPort } | { ok: false; reason: string } {
+	const { ctx, session } = options;
+	if (session.persistence.type !== "persisted") return { ok: false, reason: bundleUnavailableReason(session.persistence) };
+	if (ctx.model === undefined) return { ok: false, reason: "host session has no selected model" };
+	if (session.interrogation === null || session.interrogation.bundleOrdinal !== session.persistence.ordinal) {
+		session.interrogation?.dispose();
+		session.interrogation = new InterrogationController({
+			bundle: session.persistence,
+			model: ctx.model,
+			modelRegistry: ctx.modelRegistry,
+			factory: createPiInterrogationSessionFactory(),
+			onTranscriptChange: () => session.view?.notifyInterrogationChanged(),
+		});
+	}
+	const controller = session.interrogation;
+	return {
+		ok: true,
+		port: {
+			getState: () => controller.state,
+			bundleOrdinal: controller.bundleOrdinal,
+			ask: (question, scope) => {
+				void controller.ask(question, scope);
+			},
+			abortTurn: () => {
+				void controller.abortTurn();
+			},
+		},
+	};
+}
+
+function bundleUnavailableReason(state: BundlePersistenceState): string {
+	switch (state.type) {
+		case "pending":
+			return "bundle is still being written";
+		case "skipped":
+			return state.message;
+		case "failed":
+			return state.message;
+		case "persisted":
+			return "bundle unavailable";
+	}
 }
 
 function closeProfiler(ctx: ExtensionContext, sessions: OverlaySessionController): void {
 	// Teardown converges in the ui.custom(...).finally() in openProfiler:
-	// close() settles that chain, which aborts any in-flight segmentation
+	// close() settles that chain, which detaches in-flight segmentation view updates
 	// (session_shutdown routes here too).
 	sessions.close(ctx);
 }
