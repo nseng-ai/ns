@@ -146,10 +146,22 @@ loops per conflict until the selected restack command reports nothing left.
 
 ### 5. Done
 
-When the restack reports there is nothing left, follow the engine's completion
-steps (final `git status`, regenerating any auto-generated files that were
-touched, committing them separately), then run the driver post-completion
-checks from **Engine parameters**.
+When the selected restack command reports there is nothing left to restack:
+
+- Run a final `git status` (clean) and `gt log` / `gt ls` to confirm a clean
+  stack rooted correctly.
+- Regenerate any auto-generated files that were touched (per
+  `code-resolve-merge-conflicts` step 8) and stage/commit them as appropriate.
+- For a **full-scope** restack, run a final scoped verification from the stack
+  tip after the restack completes, at least when any conflict was resolved
+  mid-stack. This covers upstack branches that replayed without conflicts but
+  now sit atop resolved code. Use the same categories as the Loop verification
+  gate:
+  - `ts/**` only → `just ts-check` (optionally `just ts-test`).
+  - Python only → `just ty` + targeted `uv run pytest <affected package>`
+    (or `just test`).
+  - Mixed / uncertain → `just check`.
+  - Docs / markdown only → **no check**.
 
 ### 6. Bail-out
 
