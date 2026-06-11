@@ -77,9 +77,11 @@ escalation format, abort policy — is engine policy and not overridable.
 
 Resolve from **intent**, not from raw conflict markers. The intent-diff (see
 the modes table) shows what the incoming side actually changed relative to its
-own parent, separated from content it never touched. The most common conflict
-shape: the base **added** content while the incoming commit **edited adjacent**
-content — the fix is a complementary merge that keeps both.
+own parent, separated from content it never touched. Pair it with
+`git show --no-patch <sha>` because the commit message may be the only record
+of a migration rule for files absent from the intent-diff. The most common
+conflict shape: the base **added** content while the incoming commit **edited
+adjacent** content — the fix is a complementary merge that keeps both.
 
 **Edit only the conflict region** to keep the chosen side(s). Never
 `git checkout --theirs`/`--ours` a whole file — that discards non-conflicting
@@ -102,8 +104,9 @@ regenerated in step 8. All other files proceed to step 3.
 
 ### 3. Resolve each real content file
 
-a. **Get the intent-diff** (modes table) — the ground truth for what the
-incoming side changed.
+a. **Get the intent-diff** (modes table) and the incoming commit's full message
+with `git show --no-patch <sha>` — together these are the ground truth for what
+the incoming side changed and any documented migration rule.
 
 b. **Classify** the conflict region against the five **safe** categories:
 
@@ -116,7 +119,8 @@ b. **Classify** the conflict region against the five **safe** categories:
   migration, such as renamed constructors, changed options shape, or inverted
   argument order. Safe only when the migration rule is explicit from the
   intent-diff or commit message, and the verification gate confirms the
-  propagated call-site changes.
+  propagated call-site changes. Flag documented argument-order changes in
+  particular, because they can survive type checks if propagated incorrectly.
 - **one-side strict-superset** — one side fully contains the other; keep the
   superset
 
