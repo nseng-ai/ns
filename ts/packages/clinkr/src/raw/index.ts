@@ -1,8 +1,9 @@
 import type { z } from "zod";
 
-import { ok, type ClinkrExit } from "../exit.ts";
-import type { ClinkrCommandSpec } from "../group.ts";
+import type { RawCommandSpec } from "../group.ts";
 import type { PositionalSpec } from "../surface.ts";
+
+export type { RawCommandSpec } from "../group.ts";
 
 export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 	name: string;
@@ -14,24 +15,13 @@ export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 }
 
 /**
- * Factory for raw-exit commands. Wraps a handler that returns a process exit
- * code directly into a ClinkrCommandSpec with `isRawExit: true`. No framework
- * bytes are emitted; all output is handler-owned. Exit codes pass through
- * directly; non-number data throws an invariant error.
+ * Factory for raw-exit commands. Brands a raw process-exit-code handler with
+ * `isRawExit: true` so callers declare raw byte/exit ownership via the
+ * `@asdl/clinkr/raw` subpath. No framework bytes are emitted; all output is
+ * handler-owned and exit codes pass through directly.
  */
 export function rawCommand<TContext, S extends z.ZodObject>(
 	options: RawCommandOptions<TContext, S>,
-): ClinkrCommandSpec<TContext, S, number> {
-	return {
-		name: options.name,
-		...(options.description === undefined ? {} : { description: options.description }),
-		...(options.summary === undefined ? {} : { summary: options.summary }),
-		schema: options.schema,
-		...(options.positionals === undefined ? {} : { positionals: options.positionals }),
-		handler: async (ctx: TContext, request: z.output<S>): Promise<ClinkrExit<number>> => {
-			const exitCode = await options.run(ctx, request);
-			return ok(exitCode);
-		},
-		isRawExit: true,
-	};
+): RawCommandSpec<TContext, S> {
+	return { ...options, isRawExit: true };
 }
