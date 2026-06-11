@@ -29,12 +29,14 @@ interface WorkflowRoute {
 	aliases: readonly string[];
 	reference: string;
 	summary: string;
+	directSkill?: string;
 }
 
 interface SelectedWorkflowDetails {
 	route: string;
 	reference: string;
 	prompt: string;
+	directSkill?: string;
 }
 
 const ROUTES = [
@@ -67,6 +69,7 @@ const ROUTES = [
 		aliases: ["pr-stack-address", "internal-pr-stack-address"],
 		reference: "skills/internal-code-workflows/references/stack-address.md",
 		summary: "address unresolved feedback across a Graphite PR stack",
+		directSkill: "internal-pr-stack-address",
 	},
 	{
 		route: "gh-ci-debug",
@@ -146,11 +149,14 @@ export function formatWorkflowSelection(route: WorkflowRoute, options: { editorU
 	const nextStep = options.editorUpdated === true
 		? "The prompt has been placed in the editor. Press Enter when ready to run it."
 		: "To run this workflow, send this prompt when ready:";
+	const targetLine = route.directSkill === undefined
+		? `Reference: \`${route.reference}\``
+		: `Skill: \`${route.directSkill}\``;
 	return [
 		"## internal-code-workflows",
 		"",
 		`Selected route: \`${route.route}\``,
-		`Reference: \`${route.reference}\``,
+		targetLine,
 		"",
 		"No model turn was started.",
 		nextStep,
@@ -188,6 +194,7 @@ function emitWorkflowSelection(
 		route: route.route,
 		reference: route.reference,
 		prompt,
+		...(route.directSkill === undefined ? {} : { directSkill: route.directSkill }),
 	};
 	if (pi.sendMessage !== undefined) {
 		pi.sendMessage({
@@ -222,7 +229,7 @@ function getLegacyWorkflowCommandNames(route: WorkflowRoute): string[] {
 }
 
 function buildWorkflowPrompt(route: WorkflowRoute): string {
-	return `Use internal-code-workflows ${route.route}`;
+	return route.directSkill === undefined ? `Use internal-code-workflows ${route.route}` : `Use ${route.directSkill}`;
 }
 
 function formatWorkflowLabel(route: WorkflowRoute): string {

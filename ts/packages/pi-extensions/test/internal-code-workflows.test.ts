@@ -121,7 +121,8 @@ describe("internal code workflows extension", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.messages).toHaveLength(1);
 		expect(pi.messages[0]?.content).toContain("Selected route: `stack-address`");
-		expect(ctx.editorText).toBe("Use internal-code-workflows stack-address");
+		expect(pi.messages[0]?.content).toContain("Skill: `internal-pr-stack-address`");
+		expect(ctx.editorText).toBe("Use internal-pr-stack-address");
 		expect(ctx.selectedLabels).toEqual([]);
 	});
 
@@ -151,6 +152,23 @@ describe("internal code workflows extension", () => {
 		expect(pi.messages).toHaveLength(1);
 		expect(pi.messages[0]?.content).toContain("Selected route: `gh-ci-debug`");
 		expect(ctx.editorText).toBe("Use internal-code-workflows gh-ci-debug");
+		expect(ctx.selectedLabels).toEqual([]);
+	});
+
+	test("legacy stack-address command selects the direct standalone skill", async () => {
+		const pi = new FakePi();
+		internalCodeWorkflowsExtension(pi);
+		const command = pi.commands.get("internal-pr-stack-address");
+		if (command === undefined) throw new Error("missing command");
+		const ctx = new FakeCommandContext();
+
+		await command.handler("", ctx);
+
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.messages).toHaveLength(1);
+		expect(pi.messages[0]?.content).toContain("Selected route: `stack-address`");
+		expect(pi.messages[0]?.content).toContain("Skill: `internal-pr-stack-address`");
+		expect(ctx.editorText).toBe("Use internal-pr-stack-address");
 		expect(ctx.selectedLabels).toEqual([]);
 	});
 

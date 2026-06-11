@@ -26,19 +26,20 @@ Lazy-loading router for rare internal code workflows. This skill keeps the insta
 
 - If the user gives a route or alias, read the mapped reference and follow it as the active playbook.
 - If no route is supplied, show the menu below and ask which workflow to load.
-- Treat old standalone skill names as aliases when the user mentions them explicitly; those workflows are no longer installed as separate skills.
+- Treat old standalone skill names as aliases when the user mentions them explicitly; most are no longer installed as separate skills.
+- Exception: `internal-pr-stack-address` is installed directly again. Prefer that standalone skill for stack-wide PR feedback work; this router keeps only a compatibility redirect.
 - Resolve relative paths in loaded references from this router skill directory.
 
 ## Routes
 
-| Route             | Aliases                                                  | Reference                          |
-| ----------------- | -------------------------------------------------------- | ---------------------------------- |
-| `delete-stack`    | `gt-delete-stack`, `internal-code-gt-delete-stack`       | `references/delete-stack.md`       |
-| `stackify-branch` | `gt-stackify-branch`, `internal-code-gt-stackify-branch` | `references/gt-stackify-branch.md` |
-| `stacker-agent`   | `stacker`, `internal-code-stacker-agent`                 | `references/stacker-agent.md`      |
-| `parity-review`   | `cross-harness-parity`, `internal-code-parity-review`    | `references/parity-review.md`      |
-| `stack-address`   | `pr-stack-address`, `internal-pr-stack-address`          | `references/stack-address.md`      |
-| `gh-ci-debug`     | `ci-debug`, `internal-code-gh-ci-debug`                  | `references/gh-ci-debug.md`        |
+| Route             | Aliases                                                  | Reference                                                               |
+| ----------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `delete-stack`    | `gt-delete-stack`, `internal-code-gt-delete-stack`       | `references/delete-stack.md`                                            |
+| `stackify-branch` | `gt-stackify-branch`, `internal-code-gt-stackify-branch` | `references/gt-stackify-branch.md`                                      |
+| `stacker-agent`   | `stacker`, `internal-code-stacker-agent`                 | `references/stacker-agent.md`                                           |
+| `parity-review`   | `cross-harness-parity`, `internal-code-parity-review`    | `references/parity-review.md`                                           |
+| `stack-address`   | `pr-stack-address`, `internal-pr-stack-address`          | `references/stack-address.md` (redirect to `internal-pr-stack-address`) |
+| `gh-ci-debug`     | `ci-debug`, `internal-code-gh-ci-debug`                  | `references/gh-ci-debug.md`                                             |
 
 ## Menu prompt
 

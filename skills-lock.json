@@ -129,7 +129,12 @@
     "internal-code-workflows": {
       "source": "skills/internal-code-workflows",
       "sourceType": "local",
-      "computedHash": "4620e81d3d2f9f07970dfe4a3196496086b494ca78a44c63c2d6c6b52b788d73"
+      "computedHash": "4c3f0e002887e85ee04c5b83a8d005666e44f800af92266124d317235ce4d47a"
+    },
+    "internal-pr-stack-address": {
+      "source": "skills/internal-pr-stack-address",
+      "sourceType": "local",
+      "computedHash": "105dba8356a9ee904613433923225eeb43c95d0fb6a4ae78459e9d0a68b04b39"
     },
     "objective": {
       "source": "skills/objective",
