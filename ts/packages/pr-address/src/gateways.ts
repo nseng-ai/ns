@@ -81,6 +81,7 @@ export type GatewayResult<T> = { type: "ok"; value: T } | { type: "failure"; fai
 export type PRLookupResult = { type: "found"; pr: PRSummary } | PRLookupMiss | { type: "failure"; failure: GatewayFailure };
 export type CurrentBranchResult = { type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GatewayFailure };
 export type BranchHeadOidResult = { type: "found"; oid: string } | { type: "missing"; stderr: string; returncode: number } | { type: "failure"; failure: GatewayFailure };
+export type RepoContextResult = { type: "inside" } | { type: "outside" } | { type: "failure"; failure: GatewayFailure };
 
 export interface GatewayOptions {
 	cwd: string;
@@ -90,6 +91,7 @@ export interface GatewayOptions {
 export interface PrAddressGitHubGateway {
 	getPr(prNumber: number, options: GatewayOptions): Promise<PRLookupResult>;
 	getPrForBranch(branch: string, options: GatewayOptions): Promise<PRLookupResult>;
+	listOpenPrs(options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>>;
 	getReviews(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>>;
 	getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>>;
 	getDiscussionComments(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>>;
@@ -102,6 +104,7 @@ export interface PrAddressGitHubGateway {
 
 export interface PrAddressGitGateway {
 	getCurrentBranch(options: GatewayOptions): Promise<CurrentBranchResult>;
+	isInsideWorkTree(options: GatewayOptions): Promise<RepoContextResult>;
 	getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult>;
 	getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>>;
 }
@@ -256,6 +259,15 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		return await this.getPrBySelector(branch, options);
 	}
 
+	async listOpenPrs(options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>> {
+		// --limit 1000 caps pathological repos; pr-address stacks are far below this bound.
+		const result = await this.runGh(["pr", "list", "--state", "open", "--json", "number,title,url,headRefName,baseRefName,state", "--limit", "1000"], options);
+		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		const parseResult = parseJson(result.stdout, z.array(prSummarySchema));
+		if (parseResult.type === "failure") return parseResult;
+		return { type: "ok", value: parseResult.value.map(normalizePrSummary) };
+	}
+
 	async getReviews(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
 		const result = await this.runGh(["pr", "view", String(prNumber), "--json", "reviews"], options);
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
@@ -352,6 +364,14 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 		const branch = result.stdout.trim();
 		if (branch === "") return { type: "detached" };
 		return { type: "branch", branch };
+	}
+
+	async isInsideWorkTree(options: GatewayOptions): Promise<RepoContextResult> {
+		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--is-inside-work-tree"], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
+		if (result.exitCode === 0) return result.stdout.trim() === "true" ? { type: "inside" } : { type: "outside" };
+		// git exits 128 with "not a git repository" outside any work tree.
+		if (result.exitCode === 128) return { type: "outside" };
+		return { type: "failure", failure: failureFromProcess(result) };
 	}
 
 	async getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult> {
