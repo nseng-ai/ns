@@ -41,6 +41,39 @@ This regenerates the PR title and body with the asdl-owned prompt.
 - Adds guarded body updates`;
 
 describe("asdl-dev pr-regen", () => {
+	test("help documents pr-regen behavior through clinkr", async () => {
+		const run = runWithFakes(["pr-regen", "--help"]);
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: asdl-dev pr-regen");
+		expect(help).toContain("generated-body marker");
+		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(help).toContain("--force");
+		expect(help).toContain("--json-schema");
+		expect(help).not.toContain("--format");
+	});
+
+	test("json schema is available without touching GitHub", async () => {
+		const run = runWithFakes(["pr-regen", "--json-schema"]);
+
+		expect(await run.exit).toBe(0);
+		const schema = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
+		expect(schema).toHaveProperty("input_json_schema");
+		expect(schema).toHaveProperty("output_json_schema");
+		expect(run.githubPr.viewCurrentBranchPrCalls).toEqual([]);
+	});
+
+	test("raw pr-regen rejects clinkr --format", async () => {
+		const run = runWithFakes(["pr-regen", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		// PINNED CLINKR SEMANTICS (raw command): handler-owned bytes mean no --format dialect.
+		expect(run.stderr.join("")).toContain("error: unknown option '--format'");
+		expect(run.githubPr.viewCurrentBranchPrCalls).toEqual([]);
+	});
+
 	test("regenerates a marker-bearing current branch PR", async () => {
 		const run = runWithFakes(["pr-regen"], {
 			githubPr: {
@@ -188,7 +221,8 @@ describe("asdl-dev pr-regen", () => {
 		const run = runWithFakes(["pr-regen", "--bogus"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Unknown option: --bogus");
+		expect(run.stderr.join("")).toContain("error: unknown option '--bogus'");
+		expect(run.stderr.join("")).not.toContain("Usage: asdl-dev pr-regen");
 		expect(run.githubPr.viewCurrentBranchPrCalls).toEqual([]);
 	});
 });

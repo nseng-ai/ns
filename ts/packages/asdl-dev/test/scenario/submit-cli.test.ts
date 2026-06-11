@@ -69,8 +69,8 @@ function runWithFakes(args: readonly string[], state: InMemoryContextState = {},
 	};
 }
 
-function output(stdout = "", stderr = "", exitCode = 0): SubmitCommandOutput {
-	return { stdout, stderr, exitCode };
+function output(stdout = "", stderr = "", exitCode = 0, killed = false): SubmitCommandOutput {
+	return { stdout, stderr, exitCode, ...(killed ? { killed: true } : {}) };
 }
 
 function prLink(number: number): SubmitPrLink {
@@ -109,6 +109,39 @@ function dirtyPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
 }
 
 describe("asdl-dev submit CLI behavior", () => {
+	test("help documents submit behavior through clinkr", async () => {
+		const run = runWithFakes(["submit", "--help"]);
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: asdl-dev submit");
+		expect(help).toContain("gt submit -nps --no-ai");
+		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(help).toContain("--restack");
+		expect(help).toContain("--json-schema");
+		expect(help).not.toContain("--format");
+	});
+
+	test("json schema is available without running Graphite", async () => {
+		const run = runWithFakes(["submit", "--json-schema"]);
+
+		expect(await run.exit).toBe(0);
+		const schema = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
+		expect(schema).toHaveProperty("input_json_schema");
+		expect(schema).toHaveProperty("output_json_schema");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+	});
+
+	test("raw submit rejects clinkr --format", async () => {
+		const run = runWithFakes(["submit", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		// PINNED CLINKR SEMANTICS (raw command): handler-owned bytes mean no --format dialect.
+		expect(run.stderr.join("")).toContain("error: unknown option '--format'");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+	});
+
 	test("successful submit prints PR links and verifies the current PR", async () => {
 		const run = runWithFakes(["submit"]);
 
@@ -672,7 +705,37 @@ describe("asdl-dev submit CLI behavior", () => {
 		const run = runWithFakes(["submit", "--bogus"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Unknown option: --bogus");
+		expect(run.stderr.join("")).toContain("error: unknown option '--bogus'");
+		expect(run.stderr.join("")).not.toContain("Usage: asdl-dev submit");
 		expect(run.submit.checkSubmitReadinessCalls).toEqual([]);
+	});
+
+	test("timeout (exit 124) round-trips at shell level", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				preflight: {
+					kind: "failed",
+					output: output("", "", 124, true),
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(124);
+		expect(run.stderr.join("")).toContain("timed out after");
+	});
+
+	test("arbitrary nonzero gt exit code passes through", async () => {
+		const run = runWithFakes(["submit"], {
+			submit: {
+				preflight: {
+					kind: "failed",
+					output: output("some output\n", "some error\n", 3),
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(3);
+		expect(run.stderr.join("")).toContain("some error");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([{ cwd: "/work" }]);
 	});
 });
