@@ -13,7 +13,7 @@ function tempRepo(): string {
 }
 
 describe("runner subagent curated context", () => {
-	test("renders manifest-first context with task focus, repo facts, included sources, parent digest, and omissions", () => {
+	test("renders manifest-first context with task focus, repo facts, included sources, and omissions", () => {
 		const cwd = tempRepo();
 		writeFileSync(join(cwd, "src", "example.ts"), "export function example(): string {\n\treturn 'ok';\n}\n", "utf8");
 
@@ -21,13 +21,6 @@ describe("runner subagent curated context", () => {
 			title: "Inspect src/example.ts",
 			prompt: "Use `src/example.ts`, mention missing `missing.ts`, and ignore `/tmp/outside-secret.txt`.",
 			cwd,
-			sessionEntries: [
-				{ type: "message", message: { role: "user", content: "Earlier we discussed src/example.ts for the runner context." } },
-				{
-					type: "message",
-					message: { role: "assistant", content: [{ type: "text", text: "Summary: src/example.ts should stay concise." }] },
-				},
-			],
 		});
 
 		expect(context.markdown.startsWith("## Auto-curated context")).toBe(true);
@@ -37,8 +30,6 @@ describe("runner subagent curated context", () => {
 		expect(context.markdown).toContain("### Included sources");
 		expect(context.markdown).toContain("#### `src/example.ts`");
 		expect(context.markdown).toContain("export function example");
-		expect(context.markdown).toContain("### Parent-session digest");
-		expect(context.markdown).toContain("src/example.ts should stay concise");
 		expect(context.markdown).toContain("Unreadable `missing.ts`");
 		expect(context.markdown).toContain("Omitted `/tmp/outside-secret.txt`");
 		expect(context.audit.enabled).toBe(true);
@@ -83,13 +74,12 @@ describe("runner subagent curated context", () => {
 		expect(context.markdown).not.toContain("UNIQUE_TAIL");
 	});
 
-	test("continues when git and session manager evidence are unavailable", () => {
+	test("continues when git evidence is unavailable", () => {
 		const cwd = join(tmpdir(), "runner-subagent-context-missing-cwd");
 		const context = buildCuratedRunnerSubagentContext({ title: "No repo", prompt: "Classify this task.", cwd });
 
 		expect(context.audit.isGitAvailable).toBe(false);
 		expect(context.markdown).toContain("Git evidence unavailable");
-		expect(context.markdown).toContain("No parent-session entries were available");
 		expect(context.markdown).toContain("No readable mentioned or changed source files were included");
 	});
 });

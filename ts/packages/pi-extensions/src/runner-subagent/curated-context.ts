@@ -6,7 +6,6 @@ export interface BuildCuratedRunnerSubagentContextInput {
 	title: string;
 	prompt: string;
 	cwd: string;
-	sessionEntries?: readonly unknown[];
 }
 
 export interface CuratedRunnerSubagentContext {
@@ -82,9 +81,6 @@ const MAX_INCLUDED_FILES = 6;
 const MAX_FILE_READ_BYTES = 128_000;
 const MAX_FILE_EXCERPT_CHARS = 4_000;
 const MAX_TASK_PREVIEW_CHARS = 1_200;
-const MAX_SESSION_DIGEST_CHARS = 3_000;
-const MAX_SESSION_DIGEST_ITEMS = 6;
-const MAX_SESSION_ENTRY_CHARS = 320;
 const MAX_GIT_OUTPUT_CHARS = 4_000;
 
 export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubagentContextInput): CuratedRunnerSubagentContext {
@@ -142,7 +138,6 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 		});
 	}
 
-	const digest = buildParentSessionDigest({ entries: input.sessionEntries ?? [], title: input.title, prompt: input.prompt });
 	const notes = [...gitEvidence.notes];
 	const draft = renderCuratedContextMarkdown({
 		input,
@@ -151,7 +146,6 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 		includedSources,
 		omittedCandidates,
 		unreadableCandidates,
-		parentSessionDigest: digest,
 		isTruncated,
 	});
 	const markdown = boundMarkdown(draft);
@@ -290,75 +284,6 @@ function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult | s
 	}
 }
 
-function buildParentSessionDigest(options: { entries: readonly unknown[]; title: string; prompt: string }): string[] {
-	if (options.entries.length === 0) return [];
-	const terms = taskTerms(`${options.title}\n${options.prompt}`);
-	const recentEntries = options.entries.slice(-30).reverse();
-	const selected: string[] = [];
-	let chars = 0;
-
-	for (const entry of recentEntries) {
-		const summary = summarizeSessionEntry(entry);
-		if (summary === undefined) continue;
-		if (selected.length >= MAX_SESSION_DIGEST_ITEMS) break;
-		if (selected.length > 0 && !matchesTerms(summary, terms)) continue;
-		const bounded = truncateText(summary, MAX_SESSION_ENTRY_CHARS);
-		if (chars + bounded.length > MAX_SESSION_DIGEST_CHARS) break;
-		selected.push(bounded);
-		chars += bounded.length;
-	}
-
-	return selected.reverse();
-}
-
-function summarizeSessionEntry(entry: unknown): string | undefined {
-	const message = messageFromEntry(entry);
-	if (message !== undefined) {
-		const role = typeof message.role === "string" ? message.role : "message";
-		const text = textFromContent(message.content);
-		if (text.length > 0) return `${role}: ${compactWhitespace(text)}`;
-		if (typeof message.toolName === "string") return `${role} ${message.toolName}: ${compactWhitespace(JSON.stringify(message.details ?? {}))}`;
-		return undefined;
-	}
-	if (isRecord(entry) && typeof entry.type === "string") {
-		return `${entry.type}: ${truncateText(compactWhitespace(JSON.stringify(entry)), MAX_SESSION_ENTRY_CHARS)}`;
-	}
-	return undefined;
-}
-
-function messageFromEntry(entry: unknown): Record<string, unknown> | undefined {
-	if (!isRecord(entry)) return undefined;
-	if (entry.type === "message" && isRecord(entry.message)) return entry.message;
-	if (typeof entry.role === "string") return entry;
-	return undefined;
-}
-
-function textFromContent(content: unknown): string {
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	const textParts: string[] = [];
-	for (const item of content) {
-		if (isRecord(item) && item.type === "text" && typeof item.text === "string") textParts.push(item.text);
-	}
-	return textParts.join("\n");
-}
-
-function taskTerms(text: string): readonly string[] {
-	const terms = new Set<string>();
-	for (const path of extractMentionedPaths(text)) terms.add(path.toLowerCase());
-	for (const match of text.toLowerCase().matchAll(/[a-z0-9][a-z0-9_-]{3,}/g)) {
-		const value = match[0];
-		if (!COMMON_WORDS.has(value)) terms.add(value);
-	}
-	return [...terms].slice(0, 40);
-}
-
-function matchesTerms(text: string, terms: readonly string[]): boolean {
-	if (terms.length === 0) return true;
-	const normalized = text.toLowerCase();
-	return terms.some((term) => normalized.includes(term));
-}
-
 function renderCuratedContextMarkdown(options: {
 	input: BuildCuratedRunnerSubagentContextInput;
 	cwd: string;
@@ -366,7 +291,6 @@ function renderCuratedContextMarkdown(options: {
 	includedSources: readonly IncludedSource[];
 	omittedCandidates: readonly CandidateNote[];
 	unreadableCandidates: readonly CandidateNote[];
-	parentSessionDigest: readonly string[];
 	isTruncated: boolean;
 }): string {
 	const linesOut = [
@@ -385,9 +309,6 @@ function renderCuratedContextMarkdown(options: {
 		"",
 		"### Included sources",
 		...renderIncludedSources(options.includedSources),
-		"",
-		"### Parent-session digest",
-		...renderParentSessionDigest(options.parentSessionDigest),
 		"",
 		"### Omitted or unreadable candidates",
 		...renderCandidateNotes(options.omittedCandidates, options.unreadableCandidates),
@@ -418,11 +339,6 @@ function renderIncludedSources(sources: readonly IncludedSource[]): string[] {
 		escapeFence(source.excerpt),
 		"```",
 	]);
-}
-
-function renderParentSessionDigest(digest: readonly string[]): string[] {
-	if (digest.length === 0) return ["- No parent-session entries were available or selected for this bounded deterministic digest."];
-	return ["Generated deterministic digest of recent relevant parent entries; it may be stale or incomplete.", ...digest.map((item) => `- ${item}`)];
 }
 
 function renderCandidateNotes(omitted: readonly CandidateNote[], unreadable: readonly CandidateNote[]): string[] {
@@ -473,34 +389,8 @@ function toPosixPath(value: string): string {
 	return sep === "/" ? value : value.split(sep).join("/");
 }
 
-function compactWhitespace(value: string): string {
-	return value.replace(/\s+/g, " ").trim();
-}
-
 function errorMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
 	if (typeof error === "string") return error;
 	return "unknown error";
 }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-const COMMON_WORDS = new Set([
-	"about",
-	"after",
-	"before",
-	"context",
-	"focused",
-	"from",
-	"implement",
-	"into",
-	"please",
-	"report",
-	"task",
-	"that",
-	"this",
-	"with",
-	"work",
-]);
