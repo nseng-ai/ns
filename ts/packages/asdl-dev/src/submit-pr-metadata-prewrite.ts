@@ -1,17 +1,17 @@
-import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
+import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "@asdl/core/exec";
 
+import { commandFailure } from "./gateways/command-failure.ts";
 import type { GitGateway } from "./gateways/git.ts";
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
-import { preparePrDescription, resolvePrDescriptionPrompt, type PromptSource } from "./pr-description.ts";
+import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
+import { preparePrDescription, resolvePrDescriptionGeneration, type PromptSource } from "./pr-description.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
-import type { SubmitPrDescriptionOptions, SubmitPrLink } from "./submit.ts";
-import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerationGateway } from "./text-generation.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_BRANCH_INFO_BASE_ARGS = ["branch", "info", "--no-interactive", "--branch"] as const;
 const GT_PR_BASE_ARGS = ["pr", "--no-interactive"] as const;
 const GT_MODIFY_BASE_ARGS = ["modify", "--no-interactive"] as const;
-const GIT_CURRENT_BRANCH_ARGS = ["branch", "--show-current"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const COMMAND_TIMEOUT_MS = 60_000;
 const MODIFY_TIMEOUT_MS = 600_000;
@@ -20,23 +20,32 @@ export interface SubmitMetadataCommandParams {
 	cwd: string;
 }
 
-export interface SubmitStackBranchInspection {
-	branch: string;
-	parentBranch: string;
-	currentTitle: string;
-	commitCount: number;
-	commitMessages: readonly PrCommitMessage[];
-	diff: string;
-	existingPr?: SubmitPrLink;
+export interface SubmitStackInspection {
+	currentBranch: string;
+	branches: readonly SubmitStackBranch[];
 }
 
-export interface SubmitStackInspection {
-	branches: readonly SubmitStackBranchInspection[];
+export type SubmitStackBranch = SubmitStackExistingBranch | SubmitStackNewBranch;
+
+export interface SubmitStackExistingBranch {
+	kind: "existing";
+	branch: string;
+	parentBranch: string;
+	pr: SubmitPrLink;
+}
+
+export interface SubmitStackNewBranch {
+	kind: "new";
+	branch: string;
+	parentBranch: string;
+	commitMessages: readonly PrCommitMessage[];
+	diff: string;
 }
 
 export interface SubmitMetadataGateway {
 	inspectSubmitStack(params: SubmitMetadataCommandParams): Promise<GatewayResult<SubmitStackInspection>>;
-	amendBranchMetadataCommit(params: { cwd: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>>;
+	ensureCleanWorktree(params: SubmitMetadataCommandParams): Promise<GatewayResult<void>>;
+	amendBranchMetadataCommit(params: { cwd: string; currentBranch: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>>;
 }
 
 export interface PreparedSubmitPrMetadata {
@@ -48,13 +57,8 @@ export interface PreparedSubmitPrMetadata {
 	promptSource: PromptSource;
 }
 
-export interface SubmitPrMetadataSkip {
-	branch: string;
-	reason: string;
-}
-
 export type SubmitPrMetadataPrewriteResult =
-	| { kind: "prepared"; prepared: PreparedSubmitPrMetadata[]; skipped: SubmitPrMetadataSkip[] }
+	| { kind: "prepared"; prepared: PreparedSubmitPrMetadata[] }
 	| { kind: "failed"; error: string; exitCode?: number; amendedBranches: string[] };
 
 export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
@@ -66,22 +70,21 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 
 	async inspectSubmitStack(params: SubmitMetadataCommandParams): Promise<GatewayResult<SubmitStackInspection>> {
 		const log = await this.runGt([...GT_LOG_STACK_ARGS], params.cwd, COMMAND_TIMEOUT_MS);
-		const logError = commandError(log, "submit_stack_inspection_failed", "Could not inspect the Graphite submit stack.");
+		const logError = commandError("gt", GT_LOG_STACK_ARGS, log, "submit_stack_inspection_failed", "Could not inspect the Graphite submit stack.");
 		if (logError !== undefined) return err(logError);
 
-		const branchNames = parseGtLogStackBranches(log.stdout);
-		const currentBranch = parseCurrentBranchFromGtLog(log.stdout);
-		if (branchNames.length === 0) {
+		const parsedLog = parseGtLogStack(log.stdout);
+		if (parsedLog.branches.length === 0) {
 			return err({ code: "submit_stack_empty", message: "Graphite stack inspection did not return any branches." });
 		}
-		if (currentBranch === undefined) {
+		if (parsedLog.currentBranch === undefined) {
 			return err({ code: "submit_stack_current_unknown", message: "Graphite stack inspection did not identify the current branch." });
 		}
 
-		const branches: SubmitStackBranchInspection[] = [];
-		for (const branch of branchNames) {
+		const branches: SubmitStackBranch[] = [];
+		for (const branch of parsedLog.branches) {
 			const info = await this.runGt([...GT_BRANCH_INFO_BASE_ARGS, branch], params.cwd, COMMAND_TIMEOUT_MS);
-			const infoError = commandError(info, "submit_branch_info_failed", `Could not inspect Graphite branch ${branch}.`);
+			const infoError = commandError("gt", [...GT_BRANCH_INFO_BASE_ARGS, branch], info, "submit_branch_info_failed", `Could not inspect Graphite branch ${branch}.`);
 			if (infoError !== undefined) return err(infoError);
 
 			const parentBranch = parseParentBranch(info.stdout);
@@ -90,64 +93,32 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			}
 
 			const existingPr = await this.readExistingPr(params.cwd, branch);
+			if (!existingPr.ok) return existingPr;
+			if (existingPr.value !== undefined) {
+				branches.push({ kind: "existing", branch, parentBranch, pr: existingPr.value });
+				continue;
+			}
+
 			const commitMessages = await this.readBranchCommitMessages(params.cwd, parentBranch, branch);
 			if (!commitMessages.ok) return commitMessages;
 			const diff = await this.readBranchDiff(params.cwd, parentBranch, branch);
 			if (!diff.ok) return diff;
 
 			branches.push({
+				kind: "new",
 				branch,
 				parentBranch,
-				currentTitle: commitMessages.value[0]?.headline ?? branch,
-				commitCount: commitMessages.value.length,
 				commitMessages: commitMessages.value,
 				diff: diff.value,
-				...(existingPr === undefined ? {} : { existingPr }),
 			});
 		}
 
-		return ok({ branches });
+		return ok({ currentBranch: parsedLog.currentBranch, branches });
 	}
 
-	async amendBranchMetadataCommit(params: { cwd: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>> {
-		const clean = await this.ensureCleanWorktree(params.cwd);
-		if (!clean.ok) return clean;
-
-		const current = await this.currentBranch(params.cwd);
-		if (!current.ok) return current;
-
-		const args = current.value === params.branch
-			? [...GT_MODIFY_BASE_ARGS, "-m", params.title, "-m", params.body]
-			: [...GT_MODIFY_BASE_ARGS, "--into", params.branch, "-m", params.title, "-m", params.body];
-		const result = await this.runGt(args, params.cwd, MODIFY_TIMEOUT_MS);
-		const resultError = commandError(result, "submit_metadata_amend_failed", `Could not amend local PR metadata commit for ${params.branch}.`);
-		if (resultError !== undefined) return err(resultError);
-		return ok(undefined);
-	}
-
-	private async readExistingPr(cwd: string, branch: string): Promise<SubmitPrLink | undefined> {
-		const result = await this.runGt([...GT_PR_BASE_ARGS, branch], cwd, COMMAND_TIMEOUT_MS);
-		if (result.exitCode !== 0 || result.startupError !== undefined || result.killed === true) return undefined;
-		return extractPrLinks(`${result.stdout}\n${result.stderr}`)[0];
-	}
-
-	private async readBranchCommitMessages(cwd: string, parentBranch: string, branch: string): Promise<GatewayResult<PrCommitMessage[]>> {
-		const result = await this.runGit(["log", "--format=%B%x00", `${parentBranch}..${branch}`], cwd, COMMAND_TIMEOUT_MS);
-		const resultError = commandError(result, "submit_branch_commits_failed", `Could not read commits for ${branch}.`);
-		if (resultError !== undefined) return err(resultError);
-		return ok(parseCommitMessages(result.stdout));
-	}
-
-	private async readBranchDiff(cwd: string, parentBranch: string, branch: string): Promise<GatewayResult<string>> {
-		const result = await this.runGit(["diff", `${parentBranch}..${branch}`], cwd, COMMAND_TIMEOUT_MS);
-		const resultError = commandError(result, "submit_branch_diff_failed", `Could not read diff for ${branch}.`);
-		if (resultError !== undefined) return err(resultError);
-		return ok(result.stdout);
-	}
-
-	private async ensureCleanWorktree(cwd: string): Promise<GatewayResult<void>> {
-		const result = await this.runGit([...GIT_STATUS_PORCELAIN_ARGS], cwd, COMMAND_TIMEOUT_MS);
-		const resultError = commandError(result, "submit_metadata_clean_check_failed", "Could not verify that the worktree is clean before amending PR metadata.");
+	async ensureCleanWorktree(params: SubmitMetadataCommandParams): Promise<GatewayResult<void>> {
+		const result = await this.runGit([...GIT_STATUS_PORCELAIN_ARGS], params.cwd, COMMAND_TIMEOUT_MS);
+		const resultError = commandError("git", GIT_STATUS_PORCELAIN_ARGS, result, "submit_metadata_clean_check_failed", "Could not verify that the worktree is clean before amending PR metadata.");
 		if (resultError !== undefined) return err(resultError);
 		if (result.stdout.trim() !== "") {
 			return err({
@@ -158,21 +129,54 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		return ok(undefined);
 	}
 
-	private async currentBranch(cwd: string): Promise<GatewayResult<string>> {
-		const result = await this.runGit([...GIT_CURRENT_BRANCH_ARGS], cwd, COMMAND_TIMEOUT_MS);
-		const resultError = commandError(result, "branch_unresolved", "Could not resolve the current git branch before PR metadata amendment.");
+	async amendBranchMetadataCommit(params: { cwd: string; currentBranch: string; branch: string; title: string; body: string }): Promise<GatewayResult<void>> {
+		const args = params.currentBranch === params.branch
+			? [...GT_MODIFY_BASE_ARGS, "-m", params.title, "-m", params.body]
+			: [...GT_MODIFY_BASE_ARGS, "--into", params.branch, "-m", params.title, "-m", params.body];
+		const result = await this.runGt(args, params.cwd, MODIFY_TIMEOUT_MS);
+		const resultError = commandError("gt", args, result, "submit_metadata_amend_failed", `Could not amend local PR metadata commit for ${params.branch}.`);
 		if (resultError !== undefined) return err(resultError);
-		const branch = result.stdout.trim();
-		if (branch === "") return err({ code: "detached_head", message: "Cannot amend PR metadata from a detached HEAD." });
-		return ok(branch);
+		return ok(undefined);
 	}
 
-	private async runGt(args: string[], cwd: string, timeoutMs: number): Promise<CommandOutput> {
-		return toCommandOutput(await this.runner("gt", args, { cwd, timeout: timeoutMs }));
+	private async readExistingPr(cwd: string, branch: string): Promise<GatewayResult<SubmitPrLink | undefined>> {
+		const args = [...GT_PR_BASE_ARGS, branch];
+		const result = await this.runGt(args, cwd, COMMAND_TIMEOUT_MS);
+		const output = `${result.stdout}\n${result.stderr}`;
+		if (result.code === 0 && result.startupError === undefined && result.killed !== true) {
+			const link = extractPrLinks(output)[0];
+			if (link !== undefined) return ok(link);
+			return err({ code: "submit_existing_pr_link_missing", message: `Graphite reported an existing PR for ${branch}, but no PR URL was detected.` });
+		}
+		if (/No PR found/i.test(stripTerminalEscapes(output))) {
+			return ok(undefined);
+		}
+		const resultError = commandError("gt", args, result, "submit_existing_pr_inspection_failed", `Could not inspect existing PR for ${branch}.`);
+		return err(resultError ?? { code: "submit_existing_pr_inspection_failed", message: `Could not inspect existing PR for ${branch}.` });
 	}
 
-	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<CommandOutput> {
-		return toCommandOutput(await this.runner("git", args, { cwd, timeout: timeoutMs }));
+	private async readBranchCommitMessages(cwd: string, parentBranch: string, branch: string): Promise<GatewayResult<PrCommitMessage[]>> {
+		const args = ["log", "--format=%B%x00", `${parentBranch}..${branch}`];
+		const result = await this.runGit(args, cwd, COMMAND_TIMEOUT_MS);
+		const resultError = commandError("git", args, result, "submit_branch_commits_failed", `Could not read commits for ${branch}.`);
+		if (resultError !== undefined) return err(resultError);
+		return ok(parseCommitMessages(result.stdout));
+	}
+
+	private async readBranchDiff(cwd: string, parentBranch: string, branch: string): Promise<GatewayResult<string>> {
+		const args = ["diff", `${parentBranch}..${branch}`];
+		const result = await this.runGit(args, cwd, COMMAND_TIMEOUT_MS);
+		const resultError = commandError("git", args, result, "submit_branch_diff_failed", `Could not read diff for ${branch}.`);
+		if (resultError !== undefined) return err(resultError);
+		return ok(result.stdout);
+	}
+
+	private async runGt(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
+		return this.runner("gt", args, { cwd, timeout: timeoutMs });
+	}
+
+	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
+		return this.runner("git", args, { cwd, timeout: timeoutMs });
 	}
 }
 
@@ -188,22 +192,12 @@ export async function prepareSubmitPrMetadata(input: {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
 	}
 
-	const skipped: SubmitPrMetadataSkip[] = inspected.value.branches
-		.filter((branch) => branch.existingPr !== undefined)
-		.map((branch) => ({ branch: branch.branch, reason: "PR already exists" }));
-	const newBranches = inspected.value.branches.filter((branch) => branch.existingPr === undefined);
+	const amendableBranches = findAmendableBranchNames(inspected.value);
+	const newBranches = inspected.value.branches.filter(
+		(branch): branch is SubmitStackNewBranch => branch.kind === "new" && branch.commitMessages.length === 1 && amendableBranches.has(branch.branch),
+	);
 	if (newBranches.length === 0) {
-		return { kind: "prepared", prepared: [], skipped };
-	}
-
-	for (const branch of newBranches) {
-		if (branch.commitCount !== 1) {
-			return {
-				kind: "failed",
-				error: `Could not prepare initial PR metadata for ${branch.branch}: branch has ${branch.commitCount} commits and Graphite's creation-time metadata source is ambiguous. Submission was not attempted. Squash/split the branch or run plain gt submit/asdl-dev pr-regen manually.`,
-				amendedBranches: [],
-			};
-		}
+		return { kind: "prepared", prepared: [] };
 	}
 
 	const generated = await generateMetadataForBranches({
@@ -216,11 +210,20 @@ export async function prepareSubmitPrMetadata(input: {
 	if (generated.kind === "failed") {
 		return { ...generated, amendedBranches: [] };
 	}
+	if (generated.prepared.length === 0) {
+		return { kind: "prepared", prepared: [] };
+	}
+
+	const clean = await input.gateway.ensureCleanWorktree({ cwd: input.cwd });
+	if (!clean.ok) {
+		return { kind: "failed", error: clean.error.message, amendedBranches: [] };
+	}
 
 	const amendedBranches: string[] = [];
 	for (const metadata of generated.prepared) {
 		const amended = await input.gateway.amendBranchMetadataCommit({
 			cwd: input.cwd,
+			currentBranch: inspected.value.currentBranch,
 			branch: metadata.branch,
 			title: metadata.title,
 			body: metadata.body,
@@ -235,7 +238,7 @@ export async function prepareSubmitPrMetadata(input: {
 		amendedBranches.push(metadata.branch);
 	}
 
-	return { kind: "prepared", prepared: generated.prepared, skipped };
+	return { kind: "prepared", prepared: generated.prepared };
 }
 
 async function generateMetadataForBranches(input: {
@@ -243,32 +246,23 @@ async function generateMetadataForBranches(input: {
 	env: Record<string, string | undefined>;
 	git: GitGateway;
 	textGeneration: TextGenerationGateway;
-	branches: readonly SubmitStackBranchInspection[];
+	branches: readonly SubmitStackNewBranch[];
 }): Promise<{ kind: "prepared"; prepared: PreparedSubmitPrMetadata[] } | { kind: "failed"; error: string; exitCode?: number }> {
-	const modelConfig = selectPrDescriptionTextGenerationConfig(input.env);
-	if (!modelConfig.ok) {
-		return { kind: "failed", error: modelConfig.error, exitCode: 2 };
-	}
-
-	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
-	const prompt = await resolvePrDescriptionPrompt({
-		env: input.env,
-		cwd: input.cwd,
-		...(repoRoot.ok ? { repoRoot: repoRoot.value } : {}),
-	});
-	if (!prompt.ok) {
-		return { kind: "failed", error: prompt.error, exitCode: 2 };
+	const generation = await resolvePrDescriptionGeneration({ env: input.env, cwd: input.cwd, git: input.git });
+	if (!generation.ok) {
+		return { kind: "failed", error: generation.error, ...(generation.exitCode === undefined ? {} : { exitCode: generation.exitCode }) };
 	}
 
 	const prepared: PreparedSubmitPrMetadata[] = [];
 	for (const branch of input.branches) {
+		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
 		const generated = await preparePrDescription({
 			textGeneration: input.textGeneration,
-			modelRef: modelConfig.value.modelRef,
-			promptText: prompt.text,
+			modelRef: generation.modelRef,
+			promptText: generation.promptText,
 			context: {
 				kind: "local",
-				title: branch.currentTitle,
+				title: currentTitle,
 				headRefName: branch.branch,
 				baseRefName: branch.parentBranch,
 				commitMessages: branch.commitMessages,
@@ -284,69 +278,49 @@ async function generateMetadataForBranches(input: {
 			title: generated.title,
 			body: generated.body,
 			commitRange: `${branch.parentBranch}..${branch.branch}`,
-			promptSource: prompt.source,
+			promptSource: generation.promptSource,
 		});
 	}
 	return { kind: "prepared", prepared };
 }
 
-interface CommandOutput {
-	stdout: string;
-	stderr: string;
-	exitCode: number;
-	startupError?: string;
-	killed?: boolean;
-}
-
-function toCommandOutput(result: ExecResult): CommandOutput {
-	return {
-		stdout: result.stdout,
-		stderr: result.stderr,
-		exitCode: result.code,
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
-		...(result.killed ? { killed: true } : {}),
-	};
-}
-
-function commandError(output: CommandOutput, code: string, message: string): ErrorInfo | undefined {
-	if (output.startupError !== undefined) {
-		return { code, message: `${message}\n${output.startupError}` };
+function findAmendableBranchNames(inspection: SubmitStackInspection): Set<string> {
+	const byBranch = new Map(inspection.branches.map((branch) => [branch.branch, branch]));
+	const amendable = new Set<string>();
+	let branchName: string | undefined = inspection.currentBranch;
+	while (branchName !== undefined && !amendable.has(branchName)) {
+		amendable.add(branchName);
+		branchName = byBranch.get(branchName)?.parentBranch;
 	}
-	if (output.killed === true) {
-		return { code, message: `${message}\nCommand timed out.` };
-	}
-	if (output.exitCode !== 0) {
-		return { code, message: `${message}\n${formatCommandOutput(output)}` };
-	}
-	return undefined;
+	return amendable;
 }
 
-function formatCommandOutput(output: CommandOutput): string {
-	return [`exit code ${output.exitCode}`, output.stdout.trim() === "" ? undefined : `stdout:\n${output.stdout.trimEnd()}`, output.stderr.trim() === "" ? undefined : `stderr:\n${output.stderr.trimEnd()}`]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
+function commandError(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
+	return commandFailure({ command, args, result, code, message });
 }
 
-export function parseGtLogStackBranches(output: string): string[] {
+export interface ParsedGtLogStack {
+	branches: string[];
+	currentBranch?: string;
+}
+
+export function parseGtLogStack(output: string): ParsedGtLogStack {
 	const branches: string[] = [];
-	for (const line of stripAnsi(output).replace(/\r/g, "\n").split("\n")) {
-		const match = line.match(/^[│\s]*[◉◯]\s+([^\s(]+)(?:\s+\((current)\))?/);
-		if (match?.[1] === undefined) continue;
-		branches.push(match[1]);
+	let currentBranch: string | undefined;
+	for (const line of stripTerminalEscapes(output).replace(/\r/g, "\n").split("\n")) {
+		const match = line.match(/^[│\s]*[◉◯]\s+([^\s(]+)(?:\s+\(current\))?/);
+		const branch = match?.[1];
+		if (branch === undefined) continue;
+		branches.push(branch);
+		if (/\(current\)/.test(line)) {
+			currentBranch = branch;
+		}
 	}
-	return branches;
-}
-
-export function parseCurrentBranchFromGtLog(output: string): string | undefined {
-	for (const line of stripAnsi(output).replace(/\r/g, "\n").split("\n")) {
-		const match = line.match(/^[│\s]*[◉◯]\s+([^\s(]+)\s+\(current\)/);
-		if (match?.[1] !== undefined) return match[1];
-	}
-	return undefined;
+	return currentBranch === undefined ? { branches } : { branches, currentBranch };
 }
 
 export function parseParentBranch(output: string): string | undefined {
-	const match = stripAnsi(output).replace(/\r/g, "\n").match(/^Parent:\s*(\S+)\s*$/m);
+	const match = stripTerminalEscapes(output).replace(/\r/g, "\n").match(/^Parent:\s*(\S+)\s*$/m);
 	return match?.[1];
 }
 
@@ -365,37 +339,4 @@ export function parseCommitMessages(output: string): PrCommitMessage[] {
 			};
 		})
 		.filter((message) => message.headline !== "");
-}
-
-function extractPrLinks(output: string): SubmitPrLink[] {
-	const links: SubmitPrLink[] = [];
-	const seenUrls = new Set<string>();
-	for (const match of stripAnsi(output).matchAll(/https?:\/\/[^\s<>"'\u0060]+/g)) {
-		const url = trimTerminalPunctuation(match[0]);
-		if (seenUrls.has(url)) continue;
-		const prNumber = prNumberFromUrl(url);
-		if (prNumber === undefined) continue;
-		seenUrls.add(url);
-		links.push({ label: `#${prNumber}`, url });
-	}
-	return links;
-}
-
-function prNumberFromUrl(url: string): string | undefined {
-	const graphiteMatch = url.match(/^https:\/\/app\.graphite\.com\/github\/pr\/[^\/\s?#]+\/[^\/\s?#]+\/(\d+)(?:[\/?#].*)?$/);
-	if (graphiteMatch?.[1] !== undefined) return graphiteMatch[1];
-	const githubMatch = url.match(/^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\/(\d+)(?:[\/?#].*)?$/);
-	return githubMatch?.[1];
-}
-
-function trimTerminalPunctuation(url: string): string {
-	let trimmed = url;
-	while (/[),.;:!?}\]]$/.test(trimmed)) {
-		trimmed = trimmed.slice(0, -1);
-	}
-	return trimmed;
-}
-
-function stripAnsi(text: string): string {
-	return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, "");
 }

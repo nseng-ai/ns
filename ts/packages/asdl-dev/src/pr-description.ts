@@ -4,8 +4,9 @@ import process from "node:process";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 
+import type { GitGateway } from "./gateways/git.ts";
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";
@@ -89,10 +90,14 @@ export type PromptResolutionResult =
 	| { ok: true; text: string; source: PromptSource }
 	| { ok: false; error: string; source: PromptSource };
 
+export type PrDescriptionGenerationResolution =
+	| { ok: true; modelRef: string; promptText: string; promptSource: PromptSource }
+	| { ok: false; error: string; exitCode?: number };
+
 export type PrDescriptionPromptContext = ExistingPrDescriptionPromptContext | LocalPrDescriptionPromptContext;
 
 export interface ExistingPrDescriptionPromptContext {
-	kind?: "github";
+	kind: "github";
 	number: number;
 	url: string;
 	title: string;
@@ -146,6 +151,29 @@ export function appendGeneratedMarker(body: string): string {
 	return `${withoutExistingMarker}\n\n${GENERATED_BODY_MARKER}`;
 }
 
+export async function resolvePrDescriptionGeneration(input: {
+	env: Record<string, string | undefined>;
+	cwd: string;
+	git: GitGateway;
+}): Promise<PrDescriptionGenerationResolution> {
+	const modelConfig = selectPrDescriptionTextGenerationConfig(input.env);
+	if (!modelConfig.ok) {
+		return { ok: false, error: modelConfig.error, exitCode: 2 };
+	}
+
+	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
+	const prompt = await resolvePrDescriptionPrompt({
+		env: input.env,
+		cwd: input.cwd,
+		...(repoRoot.ok ? { repoRoot: repoRoot.value } : {}),
+	});
+	if (!prompt.ok) {
+		return { ok: false, error: prompt.error, exitCode: 2 };
+	}
+
+	return { ok: true, modelRef: modelConfig.value.modelRef, promptText: prompt.text, promptSource: prompt.source };
+}
+
 export async function resolvePrDescriptionPrompt(input: {
 	env: Record<string, string | undefined>;
 	repoRoot?: string;
@@ -178,7 +206,6 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 		...formatPrContextLines(input),
 		`- Head branch: ${input.headRefName}`,
 		`- Base branch: ${input.baseRefName}`,
-		`- Current title source: ${input.title}`,
 	].join("\n");
 	const commitMessages = formatCommitMessages(input.commitMessages ?? []);
 	const diff = truncateDiff(filterLockfileSections(input.diff));
@@ -269,10 +296,12 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 }
 
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
-	if ("number" in input) {
-		return [`- PR: #${input.number} (${input.url})`];
+	switch (input.kind) {
+		case "github":
+			return [`- PR: #${input.number} (${input.url})`, `- Current PR title: ${input.title}`];
+		case "local":
+			return ["- PR: not yet created; generate initial metadata for Graphite submit", `- Title source (commit headline): ${input.title}`];
 	}
-	return ["- PR: not yet created; generate initial metadata for Graphite submit"];
 }
 
 function formatCommitMessages(messages: readonly PrCommitMessage[]): string {

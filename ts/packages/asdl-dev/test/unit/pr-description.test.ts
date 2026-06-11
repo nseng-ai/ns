@@ -115,6 +115,7 @@ describe("PR description helpers", () => {
 
 	test("builds context, commit messages, and diff into the user prompt", () => {
 		const prompt = buildPrDescriptionUserPrompt({
+			kind: "github",
 			number: 12,
 			url: "https://github.com/acme/project/pull/12",
 			title: "Current title",
