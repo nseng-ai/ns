@@ -2,7 +2,7 @@
 
 ## Thesis
 
-One record owns the shared TypeScript layer beneath the four core TS CLIs: the `@asdl/clinkr` schema-first command framework, the `@asdl/core` foundation package, and the migration of the four CLIs (`plans` ✅, `planned-branch` ✅, `asdl-dev`, `pr-address`) onto them. Each CLI grew its own argv parsing, exec runtime, gateways, and test scaffolding because no shared layer existed; this record consolidates those seams bottom-up from the proven implementations so future capability ports start on the foundation instead of growing another parallel stack.
+One record owns the shared TypeScript layer beneath the four core TS CLIs: the `@asdl/clinkr` schema-first command framework, the `@asdl/core` foundation package, and the migration of the four CLIs (`plans` ✅, `planned-branch` ✅, `asdl-dev` ✅, `pr-address`) onto them. Each CLI grew its own argv parsing, exec runtime, gateways, and test scaffolding because no shared layer existed; this record consolidates those seams bottom-up from the proven implementations so future capability ports start on the foundation instead of growing another parallel stack.
 
 This Objective is a subobjective of `port-asdl-toolkit-to-typescript`, realizing its "minimal TS migration scaffold" and "internal JS/TS clinkr foundation" roadmap rows.
 
@@ -12,7 +12,7 @@ Created 2026-06-10 by consolidating `asdl-core-ts` and `ts-clinkr-commander`. Bo
 
 Remaining live scope carried from both parents:
 
-- Clinkr migrations of the remaining two CLIs (`planned-branch` shipped 2026-06-10): `asdl-dev` (resolving the pi-ai streaming question) and the `pr-address` CLI shell — shell only; operation semantics, cutover, and Python retirement stay with `pr-address-typescript-port`.
+- Clinkr migration of the remaining CLI: the `pr-address` CLI shell — shell only; operation semantics, cutover, and Python retirement stay with `pr-address-typescript-port`. `asdl-dev` shipped on 2026-06-11 and resolved the pi-ai streaming question with the isolated `@asdl/clinkr/raw` escape hatch.
 - Shared git gateway in `@asdl/core`: one interface with real and in-memory implementations replacing the planned-branch/plans/asdl-dev gateways and the git methods in `pr-address/src/gateways.ts`; unify `sourceBranch`/`currentBranch` naming; delete `plans-git-adapter.ts`; consolidate the per-package in-memory git fakes.
 - Zod boundary validation in `plans`, `planned-branch`, and `asdl-dev`, replacing hand-rolled extractors (`requiredStringField`, `extractPlannedBranchEvidence`, `validateCheckpointMessage`, session-entry extraction).
 - `asdl-dev` public surface: add `index.ts` plus an `exports` field and migrate `ccc`/`pi-extensions` off `asdl-dev/src/*` deep imports (15+ files in ccc today).
@@ -22,7 +22,7 @@ Remaining live scope carried from both parents:
 Explicit conflict resolutions from the consolidation:
 
 - `@asdl/clinkr` owns everything command-shell-shaped: parsing, help, machine envelope, `--json-schema`, and shell testing helpers. asdl-core-ts's "CLI scaffolding layer" row is superseded by clinkr and is not carried over.
-- Envelope/Result adoption: clinkr's Python-parity envelope plus the `legacyMachine` escape hatch stands. Uniform envelope adoption and per-command negative/failure classification remain umbrella debt (`port-asdl-toolkit-to-typescript/migration-debt.md` entries 1–4), not rows here. asdl-core-ts's "Result type and tri-state envelope" row is reframed accordingly: parked, with the migration-debt ledger as the owner.
+- Envelope/Result adoption: clinkr's Python-parity envelope plus the `legacyMachine` escape hatch stands. Uniform envelope adoption, per-command negative/failure classification, and the raw-exit hatch burn-down remain umbrella debt (`port-asdl-toolkit-to-typescript/migration-debt.md`), not rows here. asdl-core-ts's "Result type and tri-state envelope" row is reframed accordingly: parked, with the migration-debt ledger as the owner.
 
 ## Non-Goals
 
@@ -48,17 +48,22 @@ Explicit conflict resolutions from the consolidation:
 
 Assumptions:
 
-- Schema-first parameter generation hardens across the remaining migrations without per-CLI parser shims; partially de-risked by the `plans` migration (first CLI migrated cleanly, and clinkr-side corrections — root version/runtime, compact legacy serialization, bare-group help — are reusable), and further de-risked by the `planned-branch` migration (second consumer exercised required options, an enum with a default, boolean flags, an optional positional, and a file-writing side effect; zero clinkr changes were needed).
-- The four CLIs' flag surfaces fit the settled clinkr v1 type vocabulary (string/number/boolean/enum/string-array + optional/default), surveyed against all four CLIs.
+- Schema-first parameter generation hardens across the remaining migrations without per-CLI parser shims; partially de-risked by the `plans` migration (first CLI migrated cleanly, and clinkr-side corrections — root version/runtime, compact legacy serialization, bare-group help — are reusable), further de-risked by the `planned-branch` migration (second consumer exercised required options, an enum with a default, boolean flags, an optional positional, and a file-writing side effect; zero clinkr changes were needed), and now exercised by the `asdl-dev` migration (third consumer moved all four flat commands and root dispatch onto clinkr; command-contract divergences are pinned in scenario tests).
+- The four CLIs' flag surfaces fit the settled clinkr v1 type vocabulary (string/number/boolean/enum/string-array + optional/default), surveyed against all four CLIs. Revised 2026-06-11: `asdl-dev submit` showed that flag vocabulary was sufficient, but handler-owned output and raw process exit-code passthrough needed a deliberately isolated clinkr raw-exit hatch.
 
 Risks:
 
 - Coordination with `pr-address-typescript-port` on the same package: uncoordinated edits could conflict. Mitigation: sequence the pr-address shell migration last, after that record's payload-spec rows, per its sequenced roadmap.
-- "New monolith" risk for `@asdl/core`: the package could accrete into the erk failure mode this repo exists to avoid. Mitigation: decoupled subpath-exported modules with no cross-module reach-through; a CLI can adopt one layer without the others. Partially de-risked by the `formatErrorMessage` sweep, which adopted `@asdl/core/primitives` as a narrow leaf dependency across `asdl-dev`, `pr-address`, `ccc`, `pi-extensions`, and `pi-extension-runtime` without pulling those packages onto unrelated core modules. Holding as of 2026-06-11: the legacy machine-contract plumbing and entrypoint detection both shipped as isolated subpath exports (`@asdl/clinkr/legacy`, deliberately deletable as a unit; `@asdl/core/cli-entry`) rather than accreting into package roots.
+- "New monolith" risk for `@asdl/core`: the package could accrete into the erk failure mode this repo exists to avoid. Mitigation: decoupled subpath-exported modules with no cross-module reach-through; a CLI can adopt one layer without the others. Partially de-risked by the `formatErrorMessage` sweep, which adopted `@asdl/core/primitives` as a narrow leaf dependency across `asdl-dev`, `pr-address`, `ccc`, `pi-extensions`, and `pi-extension-runtime` without pulling those packages onto unrelated core modules. Holding as of 2026-06-11: the legacy machine-contract plumbing, raw-exit hatch, and entrypoint detection all shipped as isolated subpath exports (`@asdl/clinkr/legacy`, `@asdl/clinkr/raw`, and `@asdl/core/cli-entry`) rather than accreting into package roots.
 - Name collision: Python `packages/asdl-core` already exists; the TS package shares the name by design, but tooling, search, and contributor navigation may conflate them.
 
 ## Open Questions
 
-- Do `asdl-dev`'s pi-ai-dependent commands need anything beyond the clinkr v1 feature set (streaming output that resists the envelope model)? Stays open until the `asdl-dev` migration; a streaming need gets its own escape hatch rather than reshaping the renderer contract.
+Resolved:
+
+- Resolved 2026-06-11: `asdl-dev`'s pi-ai generation path is buffered; the actual clinkr gap was `submit`'s handler-owned live subprocess output, interactive restack confirmation, timeout exit 124, and arbitrary `gt` exit-code passthrough. The isolated `@asdl/clinkr/raw` hatch satisfies that need without reshaping the normal `ClinkrExit` renderer contract.
+
+Still open:
+
 - Payload/JSON-input home: clinkr first-class vs package-local in pr-address. Recommendation recorded (clinkr-first-class, pr-address as proving consumer); the decision row in the roadmap finalizes it.
 - Does the `@asdl/core` testing export stay a subpath export, or does production/test dependency separation eventually force a sibling package? (Same question was resolved for clinkr — `@asdl/clinkr/testing` subpath — unless helpers grow deps clinkr should not carry.)
