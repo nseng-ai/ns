@@ -28,7 +28,15 @@ Entry contract: what the compromise is, why it exists, and the kill action. Kill
 - **Kill action:** revisit the parked TS-native envelope redesign (tracked in the `ts-clinkr-commander` objective's Parked section) once all four CLIs are migrated and Python clinkr is no longer authoritative; either deliberately recommit to the parity envelope as permanent or execute the redesign. Includes revisiting unexpected-throw semantics (currently: propagate raw with no envelope, matching Python).
 - **Origin:** ts-clinkr-commander objective scope + design grilling (2026-06-10).
 
-### 4. CLI surface divergences accepted during clinkr migrations
+### 4. Raw-exit escape hatch for shell-backed CLIs
+
+- **Compromise:** `@asdl/clinkr` provides an optional `isRawExit?: true` spec field and `@asdl/clinkr/raw` subpath with `rawCommand` factory, allowing shell-code CLIs like `asdl-dev submit` and `pr-address`'s legacy shell dispatch to wrap raw process exit codes without emitting framework bytes or the canonical machine envelope.
+- **Why:** preserves byte-identical behavior for CLIs that dispatch directly to shell subcommands or other tools; these CLIs have no structured data contract beyond exit codes and handler-owned stdout/stderr. Raw mode omits `--format` (handler owns all bytes) while keeping `--json-schema` and `-h` available.
+- **Kill action:** delete `@asdl/clinkr/raw` and remove `isRawExit` from the spec once all raw-mode consumers (`asdl-dev submit`, `pr-address` shell branch) migrate to normal clinkr semantics or are otherwise eliminated. Update specs at those consumer call sites in the same change.
+- **Status (2026-06-11):** escape-hatch plumbing lives in `src/raw/index.ts` and is gated behind `isRawExit: true` in `group.ts`. The first consumers are expected in the `asdl-dev` and `pr-address` migrations.
+- **Origin:** ts-clinkr-commander design, raw-exit decision (2026-06-11).
+
+### 5. CLI surface divergences accepted during clinkr migrations
 
 - **Compromise:** CLIs migrated onto `@asdl/clinkr` accept a fixed set of user-facing surface changes instead of emulating every hand-rolled parser/help quirk: clinkr/commander-generated help bytes, commander-format unknown-command errors, raw-stderr never-enveloped usage errors even under `--format json`, accepted `--flag=value` and explicit `--format human`, clinkr's lowercase human failure prefix (`error:`), and hidden `exec` subgroups per repo convention. Per-CLI divergence call-outs start with `@asdl/plans`, whose compact `--format json` success and domain-failure bodies remain byte-identical while help/usage/parse-error surface adopts clinkr semantics.
 - **Why:** these are deliberate framework semantics from the `ts-clinkr-commander` design and 2026-06-10 `plans` migration planning decision. Recreating legacy quirks in each migrated CLI would preserve duplicated parser behavior the framework exists to remove.
