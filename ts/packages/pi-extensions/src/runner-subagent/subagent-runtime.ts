@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
+
 import type {
 	RunnerSubagentTerminalStatus,
 	RunnerSubagentTerminalToolDefinition,
@@ -135,7 +137,7 @@ export function readRuntimeConfigFileSync(configPath: string): RuntimeConfigRead
 	try {
 		raw = readFileSync(configPath, "utf8");
 	} catch (error) {
-		return { type: "read-error", failure: { message: errorMessage(error), cause: error } };
+		return { type: "read-error", failure: { message: formatErrorMessage(error), cause: error } };
 	}
 	const parsed = parseRuntimeConfigJsonResult(raw);
 	if (parsed.type === "invalid") return parsed;
@@ -148,7 +150,7 @@ export async function readRuntimeResultFile(resultPath: string): Promise<Runtime
 		raw = await readFile(resultPath, "utf8");
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
-		return { type: "read-error", failure: { message: errorMessage(error), cause: error } };
+		return { type: "read-error", failure: { message: formatErrorMessage(error), cause: error } };
 	}
 	const parsed = parseRuntimeResultJsonResult(raw);
 	if (parsed.type === "invalid") return parsed;
@@ -177,7 +179,7 @@ export function parseRuntimeConfigJsonResult(raw: string): RuntimeConfigParseRes
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		return invalidConfig(`Invalid runner subagent runtime config JSON: ${errorMessage(error)}`, error);
+		return invalidConfig(`Invalid runner subagent runtime config JSON: ${formatErrorMessage(error)}`, error);
 	}
 	return parseRuntimeConfigValueResult(value);
 }
@@ -205,7 +207,7 @@ export function parseRuntimeConfigValueResult(value: unknown): RuntimeConfigPars
 			},
 		};
 	} catch (error) {
-		return invalidConfig(errorMessage(error), error);
+		return invalidConfig(formatErrorMessage(error), error);
 	}
 }
 
@@ -214,7 +216,7 @@ export function parseRuntimeResultJsonResult(raw: string): RuntimeResultParseRes
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		return invalidResult(`Invalid runner subagent runtime result JSON: ${errorMessage(error)}`, error);
+		return invalidResult(`Invalid runner subagent runtime result JSON: ${formatErrorMessage(error)}`, error);
 	}
 	return parseRuntimeResultValueResult(value);
 }
@@ -339,7 +341,7 @@ function cloneJsonSerializable(value: unknown, label: string): TypeBoxLikeSchema
 	try {
 		raw = JSON.stringify(value);
 	} catch (error) {
-		throw new RuntimeConfigValidationError(`${label} must be JSON-serializable: ${errorMessage(error)}`);
+		throw new RuntimeConfigValidationError(`${label} must be JSON-serializable: ${formatErrorMessage(error)}`);
 	}
 	if (raw === undefined) {
 		throw new RuntimeConfigValidationError(`${label} must be JSON-serializable.`);
@@ -365,9 +367,4 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNodeErrorCode(error: unknown, code: string): boolean {
 	return isRecord(error) && error.code === code;
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+import { formatErrorMessage } from "@asdl/core";
 import { payloadError, pythonRepr, validateContainedArtifactPath, type PayloadResult } from "./payload-store.ts";
 
 const DEFAULT_JSON_PAYLOAD_ROLES: ReadonlySet<string> = new Set(["raw", "summary"]);
@@ -59,12 +60,12 @@ export async function readJsonPayloadArtifact(
 	try {
 		artifactText = await readFile(payloadPath, "utf8");
 	} catch (error) {
-		return payloadError("payload_lookup_failed", `Failed to read payload artifact ${payloadPath}: ${errorMessage(error)}`);
+		return payloadError("payload_lookup_failed", `Failed to read payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
 	}
 	try {
 		return { type: "ok", value: JSON.parse(artifactText) as unknown };
 	} catch (error) {
-		return payloadError("payload_lookup_failed", `Failed to parse JSON payload artifact ${payloadPath}: ${errorMessage(error)}`);
+		return payloadError("payload_lookup_failed", `Failed to parse JSON payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
 	}
 }
 
@@ -117,9 +118,4 @@ function arrayIndexForToken(token: string, pointer: string): PayloadResult<numbe
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

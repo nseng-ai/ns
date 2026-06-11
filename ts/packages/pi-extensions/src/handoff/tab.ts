@@ -4,6 +4,7 @@ import {
 	type HandoffTabLaunchParams,
 	type HandoffTabLaunchResult,
 } from "@asdl/ccc/handoff-tab";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { identifyCmuxCaller } from "../cmux/focused-terminal-tab.ts";
 import { isRecord, stringField } from "../cmux/primitives.ts";
 import { HANDOFF_NAMESPACE, formatPickupHandoffCommand, handoffSlugToKey, parseFlatHandoffSlug } from "./identity.ts";
@@ -18,7 +19,6 @@ import {
 	CREATE_HANDOFF_SKILL_NAME,
 	checkHandoffExists,
 	currentBranch,
-	errorMessage,
 	expandHandoffSkill,
 	fencedBlock,
 	resolveCreateFocus,
@@ -91,7 +91,7 @@ export async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ct
 	try {
 		branch = await currentBranch(pi, ctx, "create");
 	} catch (error) {
-		ctx.ui.notify(errorMessage(error), "error");
+		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
 	}
 
@@ -118,7 +118,7 @@ export async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ct
 	try {
 		skill = await expandHandoffSkill(pi, CREATE_HANDOFF_SKILL_NAME);
 	} catch (error) {
-		skillReadError = errorMessage(error);
+		skillReadError = formatErrorMessage(error);
 	}
 
 	ctx.ui.notify(createHandoffTabStartMessage(skill, skillReadError), skill ? "info" : "warning");
@@ -168,7 +168,7 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 					},
 				};
 			} catch (error) {
-				return handoffTabToolFailure(errorMessage(error));
+				return handoffTabToolFailure(formatErrorMessage(error));
 			} finally {
 				setStatus(ctx, HANDOFF_TAB_STATUS_KEY, undefined);
 			}

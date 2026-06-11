@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { parseObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
-import { formatErrorMessage } from "./primitives.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import type { ExtensionAPI } from "./types.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;

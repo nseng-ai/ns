@@ -54,7 +54,7 @@ Assumptions:
 Risks:
 
 - Coordination with `pr-address-typescript-port` on the same package: uncoordinated edits could conflict. Mitigation: sequence the pr-address shell migration last, after that record's payload-spec rows, per its sequenced roadmap.
-- "New monolith" risk for `@asdl/core`: the package could accrete into the erk failure mode this repo exists to avoid. Mitigation: decoupled subpath-exported modules with no cross-module reach-through; a CLI can adopt one layer without the others.
+- "New monolith" risk for `@asdl/core`: the package could accrete into the erk failure mode this repo exists to avoid. Mitigation: decoupled subpath-exported modules with no cross-module reach-through; a CLI can adopt one layer without the others. Partially de-risked by the `formatErrorMessage` sweep, which adopted `@asdl/core/primitives` as a narrow leaf dependency across `asdl-dev`, `pr-address`, `ccc`, `pi-extensions`, and `pi-extension-runtime` without pulling those packages onto unrelated core modules.
 - Name collision: Python `packages/asdl-core` already exists; the TS package shares the name by design, but tooling, search, and contributor navigation may conflate them.
 
 ## Open Questions

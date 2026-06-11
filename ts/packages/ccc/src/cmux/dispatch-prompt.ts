@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
@@ -8,7 +9,7 @@ import {
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
-import { formatErrorMessage, type TextResult } from "./primitives.ts";
+import type { TextResult } from "./primitives.ts";
 import {
 	resolvePromptFileOptions,
 	writeTimestampedPromptFile,

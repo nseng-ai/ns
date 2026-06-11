@@ -1,4 +1,5 @@
 import { formatCommand } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	LandStackCommandStream,
 	commandStreamDetailsForLanded,
@@ -6,7 +7,7 @@ import {
 	withCommandStreaming,
 } from "./land-stack/command-stream.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./land-stack/constants.ts";
-import { errorMessage, failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./land-stack/errors.ts";
+import { failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./land-stack/errors.ts";
 import { buildLandingPlan, submitUpdateArgs } from "./land-stack/landing-plan.ts";
 import {
 	confirmAndFreeManagedSlots,
@@ -150,7 +151,7 @@ export async function executeStackLanding(
 			ctx,
 			commandStream,
 			landed,
-			failure: landStackFailure(`land failed unexpectedly: ${errorMessage(error)}`),
+			failure: landStackFailure(`land failed unexpectedly: ${formatErrorMessage(error)}`),
 		});
 	} finally {
 		setStatus(ctx, undefined);

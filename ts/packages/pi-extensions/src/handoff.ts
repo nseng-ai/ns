@@ -1,4 +1,5 @@
 import { formatCommand, type ExecResult } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { isRecord } from "./cmux/primitives.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";
@@ -13,7 +14,6 @@ import {
 	CREATE_HANDOFF_FALLBACK,
 	CREATE_HANDOFF_SKILL_NAME,
 	currentBranch,
-	errorMessage,
 	expandHandoffSkill,
 	fencedBlock,
 	formatExecFailure,
@@ -427,7 +427,7 @@ async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: C
 	try {
 		skill = await expandHandoffSkill(pi, CREATE_HANDOFF_SKILL_NAME);
 	} catch (error) {
-		skillReadError = errorMessage(error);
+		skillReadError = formatErrorMessage(error);
 	}
 
 	if (ctx.hasUI) {
@@ -455,7 +455,7 @@ async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx
 	try {
 		branch = args.branch ?? (await currentBranch(pi, ctx, "pick up"));
 	} catch (error) {
-		ctx.ui.notify(errorMessage(error), "error");
+		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
 	}
 
@@ -499,7 +499,7 @@ async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx
 	try {
 		artifact = await readHandoff(pi, ctx, branch, selectedKey);
 	} catch (error) {
-		ctx.ui.notify(errorMessage(error), "error");
+		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
 	} finally {
 		setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, undefined);
@@ -530,7 +530,7 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	try {
 		branch = args.allBranches ? undefined : (args.branch ?? (await currentBranch(pi, ctx, "list")));
 	} catch (error) {
-		ctx.ui.notify(errorMessage(error), "error");
+		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
 	}
 

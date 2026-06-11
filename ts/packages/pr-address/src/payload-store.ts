@@ -3,6 +3,8 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
 
+import { formatErrorMessage } from "@asdl/core";
+
 export const ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
 export const ASDL_PAYLOAD_SESSION_ID_ENV = "ASDL_PAYLOAD_SESSION_ID";
 
@@ -235,7 +237,7 @@ export class PayloadStore {
 		try {
 			payloadEntries = await readdir(this.payloadDir);
 		} catch (error) {
-			return payloadError("payload_write_failed", `Failed to scan payload directory ${this.payloadDir}: ${errorMessage(error)}`);
+			return payloadError("payload_write_failed", `Failed to scan payload directory ${this.payloadDir}: ${formatErrorMessage(error)}`);
 		}
 		let maxSequence = 0;
 		for (const payloadEntry of payloadEntries) {
@@ -332,7 +334,7 @@ function serializeJsonPayload(payload: unknown): { type: "ok"; text: string } | 
 	try {
 		serialized = JSON.stringify(payload, null, 2);
 	} catch (error) {
-		return { type: "error", message: errorMessage(error) };
+		return { type: "error", message: formatErrorMessage(error) };
 	}
 	if (serialized === undefined) return { type: "error", message: "Payload is not JSON serializable" };
 	const asciiSerialized = serialized.replace(/[\u007f-\uffff]/g, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
@@ -356,13 +358,13 @@ async function ensurePrivateDirectory(
 			if (raceStatus !== "directory") return payloadError(options.notDirectoryErrorType, `Managed payload path must be a directory: ${path}`);
 			return await validatePrivateDirectory(path);
 		}
-		return payloadError(options.createErrorType, `Failed to create managed payload directory ${path}: ${errorMessage(error)}`);
+		return payloadError(options.createErrorType, `Failed to create managed payload directory ${path}: ${formatErrorMessage(error)}`);
 	}
 
 	try {
 		await chmod(path, 0o700);
 	} catch (error) {
-		return payloadError("payload_directory_unsafe", `Failed to set private permissions on managed payload directory ${path}: ${errorMessage(error)}`);
+		return payloadError("payload_directory_unsafe", `Failed to set private permissions on managed payload directory ${path}: ${formatErrorMessage(error)}`);
 	}
 	return await validatePrivateDirectory(path);
 }
@@ -373,7 +375,7 @@ async function validatePrivateDirectory(path: string): Promise<PayloadResult<nul
 	try {
 		mode = (await stat(path)).mode & 0o777;
 	} catch (error) {
-		return payloadError("payload_directory_unsafe", `Failed to inspect managed payload directory ${path}: ${errorMessage(error)}`);
+		return payloadError("payload_directory_unsafe", `Failed to inspect managed payload directory ${path}: ${formatErrorMessage(error)}`);
 	}
 	if ((mode & 0o077) !== 0) {
 		return payloadError("payload_directory_unsafe", `Managed payload directory must not be group/world accessible: ${path}`);
@@ -413,7 +415,7 @@ async function writeBytesExclusive(path: string, payload: Buffer): Promise<{ typ
 		fileHandle = await open(path, "wx", 0o600);
 	} catch (error) {
 		if (isErrnoCode(error, "EEXIST")) return { type: "exists" };
-		return { type: "error", message: errorMessage(error) };
+		return { type: "error", message: formatErrorMessage(error) };
 	}
 	try {
 		if (process.platform !== "win32") await fileHandle.chmod(0o600);
@@ -423,7 +425,7 @@ async function writeBytesExclusive(path: string, payload: Buffer): Promise<{ typ
 	} catch (error) {
 		await closeAfterWriteFailure(fileHandle);
 		await removePartialPayloadFile(path);
-		return { type: "error", message: errorMessage(error) };
+		return { type: "error", message: formatErrorMessage(error) };
 	}
 }
 
@@ -445,9 +447,4 @@ async function removePartialPayloadFile(path: string): Promise<void> {
 
 function isErrnoCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

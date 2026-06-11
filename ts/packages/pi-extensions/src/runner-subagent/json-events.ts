@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { isThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
@@ -424,7 +425,7 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private fail(line: string, cause: unknown): void {
-		this.parseError = new RunnerSubagentJsonEventParserError(`Malformed runner subagent Pi JSONL output: ${errorMessage(cause)}`, line, cause);
+		this.parseError = new RunnerSubagentJsonEventParserError(`Malformed runner subagent Pi JSONL output: ${formatErrorMessage(cause)}`, line, cause);
 		this.markStopped();
 	}
 
@@ -475,9 +476,4 @@ export function isRecord(value: unknown): value is JsonRecord {
 
 function hasToolInputValue(event: JsonRecord): boolean {
 	return ["args", "arguments", "input"].some((key) => Object.prototype.hasOwnProperty.call(event, key));
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

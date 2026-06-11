@@ -1,4 +1,5 @@
 import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { expandSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "./identity.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
@@ -104,10 +105,6 @@ export function setStatus(ctx: BaseRuntimeContext, key: string, value: string | 
 	}
 }
 
-export function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
@@ -116,7 +113,7 @@ export function formatExecFailure(commandDisplay: string, result: ExecResult): s
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${errorMessage(error)}`);
+	return truncateError(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`);
 }
 
 export function fencedBlock(language: string, content: string): string {

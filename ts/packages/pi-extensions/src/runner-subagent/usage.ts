@@ -1,4 +1,4 @@
-import { errorMessage } from "../handoff/shared.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import type {
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageTotals,
@@ -35,7 +35,7 @@ export async function readRunnerSubagentUsageFromSessionFile(
 		return unavailableUsage({
 			sessionFile,
 			reason: "session-read-error",
-			diagnostic: `Subagent child session file is not readable: ${errorMessage(error)}`,
+			diagnostic: `Subagent child session file is not readable: ${formatErrorMessage(error)}`,
 		});
 	}
 
@@ -75,7 +75,7 @@ export function aggregateRunnerSubagentUsageFromSessionJsonl(
 			return unavailableUsage({
 				...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
 				reason: "malformed-session-jsonl",
-				diagnostic: `Subagent child session JSONL is malformed on line ${lineNumber}: ${errorMessage(error)}`,
+				diagnostic: `Subagent child session JSONL is malformed on line ${lineNumber}: ${formatErrorMessage(error)}`,
 			});
 		}
 

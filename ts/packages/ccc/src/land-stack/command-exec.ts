@@ -5,8 +5,8 @@ import {
 	tailText,
 	type ExecResult,
 } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
-import { errorMessage } from "./errors.ts";
 import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 export interface CheckedOutElsewhere {
@@ -37,7 +37,7 @@ export async function execRaw(
 	} catch (error) {
 		return {
 			stdout: "",
-			stderr: errorMessage(error),
+			stderr: formatErrorMessage(error),
 			code: 1,
 			killed: false,
 		};

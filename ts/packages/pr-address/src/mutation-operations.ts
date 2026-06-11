@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok } from "@asdl/clinkr";
+import { formatErrorMessage } from "@asdl/core";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
@@ -326,7 +327,7 @@ function parseProvenanceJson(value: string | undefined, commandName: string): { 
 	try {
 		parsed = JSON.parse(value);
 	} catch (error) {
-		return { type: "error", errorType: "invalid_json", message: `${commandName} received invalid JSON for --provenance-json: ${errorMessage(error)}` };
+		return { type: "error", errorType: "invalid_json", message: `${commandName} received invalid JSON for --provenance-json: ${formatErrorMessage(error)}` };
 	}
 	const result = provenanceInputSchema.safeParse(parsed);
 	if (!result.success) return { type: "error", errorType: "invalid_request", message: z.prettifyError(result.error) };
@@ -382,9 +383,4 @@ function exitFailure(errorType: string, message: string): ExecOperationDispatchR
 
 function invalid(message: string): { type: "error"; errorType: "invalid_request"; message: string } {
 	return { type: "error", errorType: "invalid_request", message };
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

@@ -10,7 +10,7 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
-import { formatErrorMessage } from "./primitives.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
 const PR_SIDEBAR_COMMAND_NAME = "ccc:sidebar:pr-summary";

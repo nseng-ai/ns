@@ -1,8 +1,8 @@
 import { formatCommand } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
 import { completed, failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
-import { errorMessage } from "./errors.ts";
 import type { BranchPlan, LandStackExtensionAPI, PrSubmitRequirement, PullRequestSnapshot } from "./types.ts";
 
 export async function loadPr(pi: LandStackExtensionAPI, repoRoot: string, branchOrNumber: string): Promise<LandStackResult<PullRequestSnapshot>> {
@@ -16,7 +16,7 @@ export async function loadPr(pi: LandStackExtensionAPI, repoRoot: string, branch
 	try {
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
-		return failure(landStackFailure(`Failed to parse gh pr view output for ${branchOrNumber}: ${errorMessage(error)}.`));
+		return failure(landStackFailure(`Failed to parse gh pr view output for ${branchOrNumber}: ${formatErrorMessage(error)}.`));
 	}
 
 	const pr = parsePullRequestSnapshot(raw);

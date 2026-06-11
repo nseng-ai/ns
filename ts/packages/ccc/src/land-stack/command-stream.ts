@@ -1,4 +1,5 @@
 import { formatCommand, normalizeExecResult, type ExecResult } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -8,7 +9,6 @@ import {
 } from "@asdl/pi-extension-runtime/terminal-presentation";
 import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE } from "./constants.ts";
-import { errorMessage } from "./errors.ts";
 import type {
 	CommandStreamMessageDetails,
 	CustomMessage,
@@ -88,7 +88,7 @@ export function withCommandStreaming(pi: LandStackExtensionAPI, commandStream: L
 				commandStream.finish(commandDisplay, finish);
 				return finish.result;
 			} catch (error) {
-				const result: ExecResult = { stdout: "", stderr: errorMessage(error), code: 1, killed: false };
+				const result: ExecResult = { stdout: "", stderr: formatErrorMessage(error), code: 1, killed: false };
 				commandStream.finish(commandDisplay, { result });
 				return result;
 			}

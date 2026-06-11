@@ -1,5 +1,6 @@
 import { tailText, type TailTextOptions } from "@asdl/core/exec";
-import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
+import { isRecord } from "./cmux/primitives.ts";
 
 export interface MachineEnvelopeParseOptions {
 	label: string;

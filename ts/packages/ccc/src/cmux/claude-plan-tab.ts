@@ -2,8 +2,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { formatShellArg } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
-import { formatErrorMessage, isRecord, stringField } from "./primitives.ts";
+import { isRecord, stringField } from "./primitives.ts";
 import {
 	resolvePromptFileOptions,
 	writeTimestampedPromptFile,

@@ -17,6 +17,7 @@ import {
 	type PlannedBranchOutputDetails,
 } from "@asdl/planned-branch";
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	formatSavedPlanFileEvidence,
@@ -25,7 +26,7 @@ import {
 	type SavedPlanFileEvidence,
 	type SelectedSavedPlanFile,
 } from "@asdl/plans";
-import { formatErrorMessage, isRecord } from "./cmux/primitives.ts";
+import { isRecord } from "./cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
 
