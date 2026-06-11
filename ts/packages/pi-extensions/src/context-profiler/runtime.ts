@@ -226,9 +226,9 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	completion: Promise<SegmentationBatchOutcome>;
 } {
 	const { gateway, profile, state, force, onUpdate } = options;
-	let detached = false;
+	let isDetached = false;
 	const detach = (): void => {
-		detached = true;
+		isDetached = true;
 	};
 	if (profile.liveTurns.length < MIN_TURNS_FOR_SEGMENTATION) {
 		return { initial: { type: "idle" }, detach, completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }) };
@@ -237,11 +237,11 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	// Detach-only model: keep LM calls running for episodes.json; gateways still require a signal.
 	const signal = new AbortController().signal;
 	const emitReady = (ready: ReadyStateOptions): void => {
-		if (detached) return;
+		if (isDetached) return;
 		onUpdate(readyState(ready));
 	};
 	const emitError = (message: string): void => {
-		if (detached) return;
+		if (isDetached) return;
 		onUpdate({ type: "error", message });
 	};
 	const cached = state.segmentationCache;
@@ -257,7 +257,7 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 			delegations: cached.delegations,
 			analysis,
 			signal,
-			canWriteCache: () => !detached,
+			canWriteCache: () => !isDetached,
 			onUpdate: emitReady,
 		});
 		return { initial: readyState({ episodes: cached.episodes, summary: cached.summary, delegations: cached.delegations, analysis }), detach, completion };
@@ -268,7 +268,7 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 		state,
 		fingerprint,
 		signal,
-		canWriteCache: () => !detached,
+		canWriteCache: () => !isDetached,
 		onReady: emitReady,
 		onError: emitError,
 	});
@@ -305,7 +305,7 @@ async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promi
 	const summary = result.value.summary;
 	const analysis = initialAnalysisStatuses(episodes);
 	if (options.canWriteCache()) {
-		options.state.segmentationCache = { fingerprint: options.fingerprint, episodes, summary, delegations };
+		rememberSegmentationCache(options.state, { fingerprint: options.fingerprint, episodes, summary, delegations });
 		options.onReady({ episodes, summary, delegations, analysis });
 	}
 	return runMissingEpisodeAnalysis({
@@ -383,7 +383,7 @@ function emitAnalysisUpdate(options: RunEpisodeAnalysisOptions, episodes: readon
 	if (!options.canWriteCache()) return;
 	const currentCache = options.state.segmentationCache;
 	if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
-	options.state.segmentationCache = { ...currentCache, episodes: [...episodes] };
+	rememberSegmentationCache(options.state, { ...currentCache, episodes: [...episodes] });
 	options.onUpdate({ episodes, summary: options.summary, delegations: options.delegations, analysis });
 }
 
@@ -425,6 +425,10 @@ function readyState(options: ReadyStateOptions): SegmentationState {
 
 function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {
 	return episodes.map((episode): EpisodeAnalysisStatus => hasAnalysisVerdicts(episode) ? "ready" : "loading");
+}
+
+function rememberSegmentationCache(state: ProfilerState, entry: SegmentationCacheEntry): void {
+	state.segmentationCache = entry;
 }
 
 function hasAnalysisVerdicts(episode: EpisodeAnnotation): boolean {

@@ -40,12 +40,12 @@ describe("fs bundle store", () => {
 		const store = createFsBundleStore({ sessionDir: root, sessionId: "sid" });
 
 		const first = await store.persistBundle(snapshot("one"));
-		const reused = await store.persistBundle(snapshot("one"));
+		const duplicate = await store.persistBundle(snapshot("one"));
 		const second = await store.persistBundle(snapshot("two"));
 
-		expect(first.ok && first.value).toMatchObject({ ordinal: 1, reused: false, manifest: { sessionId: "sid", model: "p/m", turnCount: 1 } });
-		expect(reused.ok && reused.value).toMatchObject({ ordinal: 1, reused: true });
-		expect(second.ok && second.value).toMatchObject({ ordinal: 2, reused: false });
+		expect(first.ok && first.value).toMatchObject({ ordinal: 1, isReused: false, manifest: { sessionId: "sid", model: "p/m", turnCount: 1 } });
+		expect(duplicate.ok && duplicate.value).toMatchObject({ ordinal: 1, isReused: true });
+		expect(second.ok && second.value).toMatchObject({ ordinal: 2, isReused: false });
 	});
 
 	test("invalid manifest directories still reserve ordinals but do not dedupe", async () => {
@@ -68,7 +68,7 @@ describe("fs bundle store", () => {
 		const first = await store.writeEpisodesFile({ bundleDir: persisted.value.dir, json: "{}\n" });
 		const second = await store.writeEpisodesFile({ bundleDir: persisted.value.dir, json: "{\"different\":true}\n" });
 
-		expect(first).toEqual({ ok: true, alreadyPresent: false });
-		expect(second).toEqual({ ok: true, alreadyPresent: true });
+		expect(first).toEqual({ ok: true, isAlreadyPresent: false });
+		expect(second).toEqual({ ok: true, isAlreadyPresent: true });
 	});
 });

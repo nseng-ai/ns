@@ -86,7 +86,7 @@ describe("context-profiler bundle", () => {
 					dir: "/bundle",
 					byteSize: 1,
 					sessionTotalBytes: 1,
-					reused: false,
+					isReused: false,
 					manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 1, capturedAt: "now" },
 				},
 			},

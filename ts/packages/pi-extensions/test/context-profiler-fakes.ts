@@ -69,7 +69,7 @@ export class FakeBundleStore implements BundleStore {
 
 	constructor(options: { persistResult: PersistBundleResult; writeResult?: WriteEpisodesFileResult }) {
 		this.persistResult = options.persistResult;
-		this.writeResult = options.writeResult ?? { ok: true, alreadyPresent: false };
+		this.writeResult = options.writeResult ?? { ok: true, isAlreadyPresent: false };
 	}
 
 	get persistedSnapshots(): readonly BundleSnapshot[] {
@@ -95,8 +95,8 @@ export class FakeInterrogationSession implements InterrogationSession {
 	private readonly events: InterrogationEvent[];
 	private readonly askResult: AskResult;
 	private listeners: Array<(event: InterrogationEvent) => void> = [];
-	private disposed = false;
-	private streaming = false;
+	private isDisposedValue = false;
+	private isStreamingValue = false;
 	private readonly asks: string[] = [];
 	private aborts = 0;
 
@@ -114,7 +114,7 @@ export class FakeInterrogationSession implements InterrogationSession {
 	}
 
 	get isDisposed(): boolean {
-		return this.disposed;
+		return this.isDisposedValue;
 	}
 
 	subscribe(listener: (event: InterrogationEvent) => void): () => void {
@@ -126,25 +126,25 @@ export class FakeInterrogationSession implements InterrogationSession {
 
 	async ask(text: string): Promise<AskResult> {
 		this.asks.push(text);
-		this.streaming = true;
+		this.isStreamingValue = true;
 		for (const event of this.events) {
 			for (const listener of this.listeners) listener(event);
 		}
-		this.streaming = false;
+		this.isStreamingValue = false;
 		return this.askResult;
 	}
 
 	async abortTurn(): Promise<void> {
 		this.aborts += 1;
-		this.streaming = false;
+		this.isStreamingValue = false;
 	}
 
 	isStreaming(): boolean {
-		return this.streaming;
+		return this.isStreamingValue;
 	}
 
 	dispose(): void {
-		this.disposed = true;
+		this.isDisposedValue = true;
 	}
 }
 

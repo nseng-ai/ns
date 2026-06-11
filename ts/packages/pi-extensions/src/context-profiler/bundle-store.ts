@@ -17,7 +17,7 @@ export type PersistBundleResult =
 	| { ok: false; error: { code: "io-error"; message: string } };
 
 export type WriteEpisodesFileResult =
-	| { ok: true; alreadyPresent: boolean }
+	| { ok: true; isAlreadyPresent: boolean }
 	| { ok: false; error: { code: "not-committed" | "io-error"; message: string } };
 
 export interface BundleStore {
@@ -69,12 +69,12 @@ class FsBundleStore implements BundleStore {
 			} catch (error) {
 				if (isAlreadyExists(error)) {
 					await fs.rm(tempPath, { force: true });
-					return { ok: true, alreadyPresent: true };
+					return { ok: true, isAlreadyPresent: true };
 				}
 				throw error;
 			}
 			await fs.rm(tempPath, { force: true });
-			return { ok: true, alreadyPresent: false };
+			return { ok: true, isAlreadyPresent: false };
 		} catch (error) {
 			await fs.rm(tempPath, { force: true }).catch(() => undefined);
 			return { ok: false, error: { code: "io-error", message: errorMessage(error) } };
@@ -110,7 +110,7 @@ class FsBundleStore implements BundleStore {
 						dir: latest.dir,
 						byteSize: latest.byteSize,
 						sessionTotalBytes: sessionTotalBefore,
-						reused: true,
+						isReused: true,
 						manifest: latest.manifest,
 					},
 				};
@@ -138,7 +138,7 @@ class FsBundleStore implements BundleStore {
 					dir,
 					byteSize,
 					sessionTotalBytes: sessionTotalBefore + byteSize,
-					reused: false,
+					isReused: false,
 					manifest: snapshot.manifest,
 				},
 			};

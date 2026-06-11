@@ -109,7 +109,7 @@ export interface PersistedBundle {
 	dir: string;
 	byteSize: number;
 	sessionTotalBytes: number;
-	reused: boolean;
+	isReused: boolean;
 	manifest: BundleManifestSummary;
 }
 
