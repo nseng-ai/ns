@@ -26,6 +26,6 @@ When a skill body references model tiers or per-dispatch model selection, keep t
 
 Use `/code:*` as the Pi slash-command namespace for codebase/source-control management workflows: worktree snapshots, checkpoints, branch/stack maintenance, and Graphite/GitHub workflows that manage code state.
 
-Use `internal-code-*` for repo-private, unpublished code/source-control workflow skills. Skill visibility is controlled by frontmatter, not the prefix; internal/prototype skills must carry `metadata.internal: true`.
+Use `code-*` for code/source-control workflow skills, whether published or repo-private. The code-skill family does not use an `internal-` name prefix: visibility is controlled by frontmatter, and internal/prototype skills must carry `metadata.internal: true`. The `internal-` prefix remains available for repo-private skills in other domains.
 
 `dev-` no longer means "codebase-related." Do not introduce new `dev-*` skills for codebase/source-control work. Reserve `dev-` for skills or commands affiliated with the future `asdl-dev` namespace, or for existing explicitly excluded dev-prefixed workflows whose fate will be decided separately.

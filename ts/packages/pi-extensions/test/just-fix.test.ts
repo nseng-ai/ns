@@ -119,7 +119,7 @@ function createContext(): {
 
 function skillCommandInfo(skillPath: string, baseDir: string): SkillCommandInfo {
 	return {
-		name: "skill:internal-code-just-fix",
+		name: "skill:code-just-fix",
 		source: "skill",
 		sourceInfo: { path: skillPath, baseDir },
 	};
@@ -133,13 +133,13 @@ async function loadJustFixExtension(): Promise<JustFixExtension> {
 }
 
 describe("just-fix extension", () => {
-	test("runs just and invokes internal-code-just-fix with the expanded skill block on failure", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "internal-code-just-fix-skill-"));
+	test("runs just and invokes code-just-fix with the expanded skill block on failure", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "code-just-fix-skill-"));
 		const skillPath = join(dir, "SKILL.md");
 		await writeFile(
 			skillPath,
 			`---
-name: internal-code-just-fix
+name: code-just-fix
 hidden-frontmatter-token: do-not-include
 ---
 
@@ -173,12 +173,12 @@ Repair the failed just run.
 			]);
 			expect(context.notifications).toContainEqual({ message: "Running `just`…", level: "info" });
 			expect(context.notifications).toContainEqual({
-				message: "`just` failed; invoking internal-code-just-fix.",
+				message: "`just` failed; invoking code-just-fix.",
 				level: "warning",
 			});
 
 			const prompt = pi.sentUserMessages[0] ?? "";
-			expect(prompt).toContain(`<skill name="internal-code-just-fix" location="${skillPath}">`);
+			expect(prompt).toContain(`<skill name="code-just-fix" location="${skillPath}">`);
 			expect(prompt).toContain(`References are relative to ${dir}.`);
 			expect(prompt).toContain("# Internal Code Just Fix\n\nRepair the failed just run.");
 			expect(prompt).not.toContain("hidden-frontmatter-token");

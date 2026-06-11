@@ -1,8 +1,8 @@
-<!-- Migrated from `internal-code-gh-ci-debug`; loaded through `internal-code-workflows`. -->
+<!-- Loaded through `code-workflows`. -->
 
 # gh-ci-debug
 
-A focused playbook for diagnosing GitHub Actions CI failures from a run URL, run ID, PR URL/number, Graphite PR URL, or the current branch. Narrower than `internal-code-gh` (which is the broad `gh` CLI reference); this skill is a diagnostic recipe, not a command catalog.
+A focused playbook for diagnosing GitHub Actions CI failures from a run URL, run ID, PR URL/number, Graphite PR URL, or the current branch. Narrower than `code-gh` (which is the broad `gh` CLI reference); this skill is a diagnostic recipe, not a command catalog.
 
 ## When to use
 
@@ -11,7 +11,7 @@ A focused playbook for diagnosing GitHub Actions CI failures from a run URL, run
 - User pastes a PR URL or Graphite PR URL (e.g. `https://github.com/<owner>/<repo>/pull/<n>` or `https://app.graphite.com/github/pr/<owner>/<repo>/<n>`).
 - User says "debug CI", "why did CI fail", "look at gh actions run …", "investigate the failing workflow", or asks about failing checks on the current branch.
 
-Defer to `internal-code-gh` for general `gh` questions (PRs, issues, API, auth). Defer to `internal-code-just-fix` when the failure is local `just` output and no run is involved.
+Defer to `code-gh` for general `gh` questions (PRs, issues, API, auth). Defer to `code-just-fix` when the failure is local `just` output and no run is involved.
 
 ## Workflow
 
@@ -92,7 +92,7 @@ Common categories of root cause, in rough order of frequency:
 2. **Environment / secrets** — missing `secrets.X`, wrong scope on `permissions:`, missing `with:` input.
 3. **Checkout depth / ref** — `actions/checkout@v4` without `fetch-depth: 0` when the step needs history.
 4. **Matrix expansion** — `fromJson(...)` on an output that wasn't valid JSON (see category 1).
-5. **Production code** — actual lint/type/test failure surfaced by CI; in that case hand off to `internal-code-just-fix` for the local fix loop.
+5. **Production code** — actual lint/type/test failure surfaced by CI; in that case hand off to `code-just-fix` for the local fix loop.
 
 ### 6. Propose a fix
 

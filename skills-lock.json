@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "skills": {
     "branch-retro": {
       "source": "skills/branch-retro",
@@ -106,28 +105,28 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ef32aea0a8fab9b365ff9e08a95f8d353e20ca21ea46ec2e73587c86dd341351"
     },
-    "internal-code-checkpoint": {
-      "source": "skills/internal-code-checkpoint",
+    "code-checkpoint": {
+      "source": "skills/code-checkpoint",
       "sourceType": "local",
       "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
     },
-    "internal-code-gh": {
-      "source": "skills/internal-code-gh",
+    "code-gh": {
+      "source": "skills/code-gh",
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
-    "internal-code-just-fix": {
-      "source": "skills/internal-code-just-fix",
+    "code-just-fix": {
+      "source": "skills/code-just-fix",
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
-    "internal-code-submit": {
-      "source": "skills/internal-code-submit",
+    "code-submit": {
+      "source": "skills/code-submit",
       "sourceType": "local",
       "computedHash": "4e1c879f8eb21a576866358ff051f5979e32aee8c5b0112dbabbb5102e08b8b5"
     },
-    "internal-code-workflows": {
-      "source": "skills/internal-code-workflows",
+    "code-workflows": {
+      "source": "skills/code-workflows",
       "sourceType": "local",
       "computedHash": "4620e81d3d2f9f07970dfe4a3196496086b494ca78a44c63c2d6c6b52b788d73"
     },
@@ -283,5 +282,6 @@
       "sourceType": "local",
       "computedHash": "3ccb68bc62fdf060b686a2bce37122059e4a0c21d58a2dd77e2852465e9150ed"
     }
-  }
+  },
+  "version": 1
 }

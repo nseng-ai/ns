@@ -1,4 +1,4 @@
-<!-- Migrated from `internal-code-gt-delete-stack`; loaded through `internal-code-workflows`. -->
+<!-- Loaded through `code-workflows`. -->
 
 # delete-stack
 

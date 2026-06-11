@@ -1,8 +1,8 @@
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type { CommandContext, CustomMessage, RenderComponent, RenderTheme } from "./handoff/runtime-types.ts";
 
-export const INTERNAL_CODE_WORKFLOWS_COMMAND_NAME = "internal-code-workflows";
-export const INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE = "internal-code-workflows-selection";
+export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";
+export const CODE_WORKFLOWS_MESSAGE_TYPE = "code-workflows-selection";
 
 interface AutocompleteItem {
 	value: string;
@@ -16,7 +16,7 @@ interface RegisteredCommand {
 	handler(args: string, ctx: CommandContext): Promise<void> | void;
 }
 
-interface InternalCodeWorkflowsExtensionAPI {
+interface CodeWorkflowsExtensionAPI {
 	registerCommand(name: string, command: RegisteredCommand): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
@@ -40,54 +40,56 @@ interface SelectedWorkflowDetails {
 const ROUTES = [
 	{
 		route: "delete-stack",
-		aliases: ["gt-delete-stack", "internal-code-gt-delete-stack"],
-		reference: "skills/internal-code-workflows/references/delete-stack.md",
+		aliases: ["gt-delete-stack"],
+		reference: "skills/code-workflows/references/delete-stack.md",
 		summary: "delete a Graphite subtree with slot/PR/remote cleanup",
 	},
 	{
 		route: "stackify-branch",
-		aliases: ["gt-stackify-branch", "internal-code-gt-stackify-branch"],
-		reference: "skills/internal-code-workflows/references/gt-stackify-branch.md",
+		aliases: ["gt-stackify-branch"],
+		reference: "skills/code-workflows/references/gt-stackify-branch.md",
 		summary: "split one branch into a clean Graphite stack",
 	},
 	{
 		route: "stacker-agent",
-		aliases: ["stacker", "internal-code-stacker-agent"],
-		reference: "skills/internal-code-workflows/references/stacker-agent.md",
+		aliases: ["stacker"],
+		reference: "skills/code-workflows/references/stacker-agent.md",
 		summary: "serial multi-slice implementation coordinator",
 	},
 	{
 		route: "parity-review",
-		aliases: ["cross-harness-parity", "internal-code-parity-review"],
-		reference: "skills/internal-code-workflows/references/parity-review.md",
+		aliases: ["cross-harness-parity"],
+		reference: "skills/code-workflows/references/parity-review.md",
 		summary: "review Pi command/tool changes for cross-harness parity",
 	},
 	{
 		route: "stack-address",
-		aliases: ["pr-stack-address", "internal-pr-stack-address"],
-		reference: "skills/internal-code-workflows/references/stack-address.md",
+		aliases: ["pr-stack-address"],
+		reference: "skills/code-workflows/references/stack-address.md",
 		summary: "address unresolved feedback across a Graphite PR stack",
 	},
 	{
 		route: "gh-ci-debug",
-		aliases: ["ci-debug", "internal-code-gh-ci-debug"],
-		reference: "skills/internal-code-workflows/references/gh-ci-debug.md",
+		aliases: ["ci-debug"],
+		reference: "skills/code-workflows/references/gh-ci-debug.md",
 		summary: "diagnose a failing GitHub Actions run or PR check",
 	},
 ] as const satisfies readonly WorkflowRoute[];
 
-export default function internalCodeWorkflowsExtension(pi: InternalCodeWorkflowsExtensionAPI): void {
-	pi.registerMessageRenderer?.(INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE, renderInternalCodeWorkflowMessage);
-	registerWorkflowCommand(pi, INTERNAL_CODE_WORKFLOWS_COMMAND_NAME);
-	for (const route of ROUTES) {
-		for (const commandName of getLegacyWorkflowCommandNames(route)) {
-			registerWorkflowCommand(pi, commandName, route.route);
-		}
-	}
+export default function codeWorkflowsExtension(pi: CodeWorkflowsExtensionAPI): void {
+	pi.registerMessageRenderer?.(CODE_WORKFLOWS_MESSAGE_TYPE, renderCodeWorkflowMessage);
+	pi.registerCommand(CODE_WORKFLOWS_COMMAND_NAME, {
+		description: "Select a rare code workflow without starting a model turn",
+		getArgumentCompletions: completeWorkflowRoute,
+		handler: async (args, ctx) => {
+			await ctx.waitForIdle();
+			await showCodeWorkflowSelector(pi, ctx, args);
+		},
+	});
 }
 
-export async function showInternalCodeWorkflowSelector(
-	pi: Pick<InternalCodeWorkflowsExtensionAPI, "sendMessage">,
+export async function showCodeWorkflowSelector(
+	pi: Pick<CodeWorkflowsExtensionAPI, "sendMessage">,
 	ctx: CommandContext,
 	args: string,
 ): Promise<WorkflowRoute | undefined> {
@@ -95,7 +97,7 @@ export async function showInternalCodeWorkflowSelector(
 	if (requestedRoute !== "" && requestedRoute !== "list" && requestedRoute !== "menu") {
 		const resolvedRoute = resolveWorkflowRoute(requestedRoute);
 		if (resolvedRoute === undefined) {
-			ctx.ui.notify(`Unknown internal code workflow: ${requestedRoute}\n\n${formatWorkflowMenu()}`, "error");
+			ctx.ui.notify(`Unknown code workflow: ${requestedRoute}\n\n${formatWorkflowMenu()}`, "error");
 			return undefined;
 		}
 		emitWorkflowSelection(pi, ctx, resolvedRoute);
@@ -108,9 +110,9 @@ export async function showInternalCodeWorkflowSelector(
 	}
 
 	const labelToRoute = new Map(ROUTES.map((route) => [formatWorkflowLabel(route), route]));
-	const selectedLabel = await ctx.ui.select("Select internal code workflow", [...labelToRoute.keys()]);
+	const selectedLabel = await ctx.ui.select("Select code workflow", [...labelToRoute.keys()]);
 	if (selectedLabel === undefined) {
-		ctx.ui.notify("Internal code workflow selection cancelled.", "info");
+		ctx.ui.notify("Code workflow selection cancelled.", "info");
 		return undefined;
 	}
 
@@ -138,7 +140,7 @@ export function resolveWorkflowRoute(input: string): WorkflowRoute | undefined {
 }
 
 export function formatWorkflowMenu(): string {
-	return ["Available internal code workflows:", ...ROUTES.map((route) => `- ${route.route} — ${route.summary}`)].join("\n");
+	return ["Available code workflows:", ...ROUTES.map((route) => `- ${route.route} — ${route.summary}`)].join("\n");
 }
 
 export function formatWorkflowSelection(route: WorkflowRoute, options: { editorUpdated?: boolean } = {}): string {
@@ -147,7 +149,7 @@ export function formatWorkflowSelection(route: WorkflowRoute, options: { editorU
 		? "The prompt has been placed in the editor. Press Enter when ready to run it."
 		: "To run this workflow, send this prompt when ready:";
 	return [
-		"## internal-code-workflows",
+		"## code-workflows",
 		"",
 		`Selected route: \`${route.route}\``,
 		`Reference: \`${route.reference}\``,
@@ -161,7 +163,7 @@ export function formatWorkflowSelection(route: WorkflowRoute, options: { editorU
 	].join("\n");
 }
 
-export function renderInternalCodeWorkflowMessage(
+export function renderCodeWorkflowMessage(
 	message: CustomMessage,
 	_options: { expanded: boolean },
 	theme: RenderTheme,
@@ -176,7 +178,7 @@ export function renderInternalCodeWorkflowMessage(
 }
 
 function emitWorkflowSelection(
-	pi: Pick<InternalCodeWorkflowsExtensionAPI, "sendMessage">,
+	pi: Pick<CodeWorkflowsExtensionAPI, "sendMessage">,
 	ctx: CommandContext,
 	route: WorkflowRoute,
 ): void {
@@ -191,7 +193,7 @@ function emitWorkflowSelection(
 	};
 	if (pi.sendMessage !== undefined) {
 		pi.sendMessage({
-			customType: INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE,
+			customType: CODE_WORKFLOWS_MESSAGE_TYPE,
 			content,
 			display: true,
 			details,
@@ -202,27 +204,8 @@ function emitWorkflowSelection(
 	ctx.ui.notify(content, "info");
 }
 
-function registerWorkflowCommand(pi: InternalCodeWorkflowsExtensionAPI, commandName: string, defaultRoute?: string): void {
-	const isRouterCommand = defaultRoute === undefined;
-	pi.registerCommand(commandName, {
-		description: isRouterCommand
-			? "Select a rare internal code workflow without starting a model turn"
-			: `Select the ${defaultRoute} internal code workflow without starting a model turn`,
-		...(isRouterCommand ? { getArgumentCompletions: completeWorkflowRoute } : {}),
-		handler: async (args, ctx) => {
-			await ctx.waitForIdle();
-			const requestedRoute = args.trim() === "" && defaultRoute !== undefined ? defaultRoute : args;
-			await showInternalCodeWorkflowSelector(pi, ctx, requestedRoute);
-		},
-	});
-}
-
-function getLegacyWorkflowCommandNames(route: WorkflowRoute): string[] {
-	return route.aliases.filter((alias) => alias.startsWith("internal-"));
-}
-
 function buildWorkflowPrompt(route: WorkflowRoute): string {
-	return `Use internal-code-workflows ${route.route}`;
+	return `Use code-workflows ${route.route}`;
 }
 
 function formatWorkflowLabel(route: WorkflowRoute): string {

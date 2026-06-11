@@ -1,4 +1,4 @@
-<!-- Migrated from `internal-code-gt-stackify-branch`; loaded through `internal-code-workflows`. -->
+<!-- Loaded through `code-workflows`. -->
 
 # gt-stackify-branch
 

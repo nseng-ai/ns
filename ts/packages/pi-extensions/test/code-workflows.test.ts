@@ -1,15 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import internalCodeWorkflowsExtension, {
+import codeWorkflowsExtension, {
+	CODE_WORKFLOWS_COMMAND_NAME,
+	CODE_WORKFLOWS_MESSAGE_TYPE,
 	completeWorkflowRoute,
 	formatWorkflowMenu,
-	INTERNAL_CODE_WORKFLOWS_COMMAND_NAME,
-	INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE,
 	resolveWorkflowRoute,
-} from "../src/internal-code-workflows.ts";
+} from "../src/code-workflows.ts";
 import type { CommandContext, CustomMessage } from "../src/handoff/runtime-types.ts";
 
-type ExtensionAPI = Parameters<typeof internalCodeWorkflowsExtension>[0];
+type ExtensionAPI = Parameters<typeof codeWorkflowsExtension>[0];
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 
 class FakePi {
@@ -64,30 +64,22 @@ class FakeCommandContext implements CommandContext {
 	}
 }
 
-describe("internal code workflows extension", () => {
-	test("registers the router command plus deterministic legacy aliases", () => {
+describe("code workflows extension", () => {
+	test("registers only the router command", () => {
 		const pi = new FakePi();
 
-		internalCodeWorkflowsExtension(pi);
+		codeWorkflowsExtension(pi);
 
-		expect(INTERNAL_CODE_WORKFLOWS_COMMAND_NAME).toBe("internal-code-workflows");
-		expect([...pi.commands.keys()]).toEqual([
-			"internal-code-workflows",
-			"internal-code-gt-delete-stack",
-			"internal-code-gt-stackify-branch",
-			"internal-code-stacker-agent",
-			"internal-code-parity-review",
-			"internal-pr-stack-address",
-			"internal-code-gh-ci-debug",
-		]);
-		expect(pi.commands.get("internal-code-workflows")?.description).toContain("without starting a model turn");
-		expect(pi.renderers.has(INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE)).toBe(true);
+		expect(CODE_WORKFLOWS_COMMAND_NAME).toBe("code-workflows");
+		expect([...pi.commands.keys()]).toEqual(["code-workflows"]);
+		expect(pi.commands.get("code-workflows")?.description).toContain("without starting a model turn");
+		expect(pi.renderers.has(CODE_WORKFLOWS_MESSAGE_TYPE)).toBe(true);
 	});
 
 	test("selects a workflow from UI without sending a user message", async () => {
 		const pi = new FakePi();
-		internalCodeWorkflowsExtension(pi);
-		const command = pi.commands.get("internal-code-workflows");
+		codeWorkflowsExtension(pi);
+		const command = pi.commands.get("code-workflows");
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext({
 			selectedLabels: ["gh-ci-debug — diagnose a failing GitHub Actions run or PR check"],
@@ -99,36 +91,36 @@ describe("internal code workflows extension", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.messages).toHaveLength(1);
 		expect(pi.messages[0]).toMatchObject({
-			customType: INTERNAL_CODE_WORKFLOWS_MESSAGE_TYPE,
+			customType: CODE_WORKFLOWS_MESSAGE_TYPE,
 			display: true,
 		});
 		expect(pi.messages[0]?.content).toContain("Selected route: `gh-ci-debug`");
 		expect(pi.messages[0]?.content).toContain("No model turn was started.");
 		expect(pi.messages[0]?.content).toContain("The prompt has been placed in the editor.");
-		expect(pi.messages[0]?.content).toContain("Use internal-code-workflows gh-ci-debug");
-		expect(ctx.editorText).toBe("Use internal-code-workflows gh-ci-debug");
+		expect(pi.messages[0]?.content).toContain("Use code-workflows gh-ci-debug");
+		expect(ctx.editorText).toBe("Use code-workflows gh-ci-debug");
 	});
 
 	test("resolves route argument directly without opening the selector", async () => {
 		const pi = new FakePi();
-		internalCodeWorkflowsExtension(pi);
-		const command = pi.commands.get("internal-code-workflows");
+		codeWorkflowsExtension(pi);
+		const command = pi.commands.get("code-workflows");
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext();
 
-		await command.handler("internal-pr-stack-address", ctx);
+		await command.handler("pr-stack-address", ctx);
 
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.messages).toHaveLength(1);
 		expect(pi.messages[0]?.content).toContain("Selected route: `stack-address`");
-		expect(ctx.editorText).toBe("Use internal-code-workflows stack-address");
+		expect(ctx.editorText).toBe("Use code-workflows stack-address");
 		expect(ctx.selectedLabels).toEqual([]);
 	});
 
 	test("falls back to menu notification when UI select is unavailable", async () => {
 		const pi = new FakePi();
-		internalCodeWorkflowsExtension(pi);
-		const command = pi.commands.get("internal-code-workflows");
+		codeWorkflowsExtension(pi);
+		const command = pi.commands.get("code-workflows");
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext({ hasUI: false });
 
@@ -138,25 +130,9 @@ describe("internal code workflows extension", () => {
 		expect(ctx.notifications).toEqual([{ message: formatWorkflowMenu(), level: "info" }]);
 	});
 
-	test("legacy standalone command selects its workflow without a model turn", async () => {
-		const pi = new FakePi();
-		internalCodeWorkflowsExtension(pi);
-		const command = pi.commands.get("internal-code-gh-ci-debug");
-		if (command === undefined) throw new Error("missing command");
-		const ctx = new FakeCommandContext();
-
-		await command.handler("", ctx);
-
-		expect(pi.sentUserMessages).toEqual([]);
-		expect(pi.messages).toHaveLength(1);
-		expect(pi.messages[0]?.content).toContain("Selected route: `gh-ci-debug`");
-		expect(ctx.editorText).toBe("Use internal-code-workflows gh-ci-debug");
-		expect(ctx.selectedLabels).toEqual([]);
-	});
-
 	test("supports aliases and completions", () => {
 		expect(resolveWorkflowRoute("ci-debug")?.route).toBe("gh-ci-debug");
-		expect(resolveWorkflowRoute("internal-code-gt-delete-stack")?.route).toBe("delete-stack");
+		expect(resolveWorkflowRoute("gt-delete-stack")?.route).toBe("delete-stack");
 		expect(completeWorkflowRoute("stack")).toEqual([
 			{ value: "stackify-branch", label: "stackify-branch" },
 			{ value: "stacker-agent", label: "stacker-agent" },

@@ -1,4 +1,4 @@
-<!-- Migrated from `internal-code-stacker-agent`; loaded through `internal-code-workflows`. -->
+<!-- Loaded through `code-workflows`. -->
 
 # stacker-agent
 

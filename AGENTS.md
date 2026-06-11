@@ -175,4 +175,4 @@ Graphite is the contributor workflow tool for this repo, but runtime package cod
 
 ### GitHub Backend Interactions
 
-When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `internal-code-gh` skill (`.claude/skills/internal-code-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `asdl-core`.
+When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `code-gh` skill (`.claude/skills/code-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `asdl-core`.
