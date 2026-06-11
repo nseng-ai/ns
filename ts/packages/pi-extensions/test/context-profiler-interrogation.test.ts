@@ -109,7 +109,7 @@ describe("interrogation core", () => {
 
 	test("controller spawns once and sends scope preamble only on scope changes", async () => {
 		const session = new FakeInterrogationSession({ events: [{ type: "assistant-delta", text: "ok" }, { type: "assistant-end" }] });
-		const factory = new FakeInterrogationSessionFactory({ ok: true, value: session });
+		const factory = new FakeInterrogationSessionFactory({ result: { ok: true, value: session } });
 		const controller = new InterrogationController({
 			bundle: {
 				ordinal: 3,
@@ -133,5 +133,39 @@ describe("interrogation core", () => {
 		expect(session.askLog[0]).toContain("FOCUS: episode edit files");
 		expect(session.askLog[1]).toBe("second?");
 		expect(controller.state.entries.filter((entry) => entry.type === "assistant")).toHaveLength(2);
+	});
+
+	test("controller disposes a session created after close and does not respawn", async () => {
+		let releaseGate!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			releaseGate = resolve;
+		});
+		const session = new FakeInterrogationSession();
+		const factory = new FakeInterrogationSessionFactory({ result: { ok: true, value: session }, gate });
+		const controller = new InterrogationController({
+			bundle: {
+				ordinal: 3,
+				dir: "/bundle",
+				byteSize: 1,
+				sessionTotalBytes: 1,
+				isReused: false,
+				manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
+			},
+			model: TEST_MODEL,
+			modelRegistry: createTestModelRegistry(),
+			factory,
+			onTranscriptChange: () => {},
+		});
+
+		const ask = controller.ask("what happened?", { type: "session" });
+		expect(factory.createCalls).toHaveLength(1);
+		controller.dispose();
+		releaseGate();
+		await ask;
+		await controller.ask("later?", { type: "session" });
+
+		expect(session.isDisposed).toBe(true);
+		expect(session.askLog).toEqual([]);
+		expect(factory.createCalls).toHaveLength(1);
 	});
 });

@@ -28,9 +28,9 @@ import {
 	buildLiveRegions,
 	capTurns,
 	deriveLiveTurns,
+	type CapturedContext,
 	type DelegationClaim,
 	type EpisodeAnnotation,
-	type LiveSource,
 	type ProfileSnapshot,
 } from "./model.ts";
 import {
@@ -56,12 +56,7 @@ export interface SegmentationCacheEntry {
 export interface ProfilerState {
 	lastPromptOptions: BuildSystemPromptOptions | null;
 	lastSystemPrompt: string | null;
-	latestContextMessages: readonly unknown[] | null;
-	latestContextSource: LiveSource | null;
-	contextEventCount: number;
-	lastContextEventAt: string | null;
-	beforeAgentStartEventCount: number;
-	lastBeforeAgentStartEventAt: string | null;
+	latestContext: CapturedContext | null;
 	segmentationCache: SegmentationCacheEntry | null;
 }
 
@@ -69,12 +64,7 @@ export function createProfilerState(): ProfilerState {
 	return {
 		lastPromptOptions: null,
 		lastSystemPrompt: null,
-		latestContextMessages: null,
-		latestContextSource: null,
-		contextEventCount: 0,
-		lastContextEventAt: null,
-		beforeAgentStartEventCount: 0,
-		lastBeforeAgentStartEventAt: null,
+		latestContext: null,
 		segmentationCache: null,
 	};
 }
@@ -84,18 +74,13 @@ export function handleBeforeAgentStart(event: BeforeAgentStartEvent, state: Prof
 		...state,
 		lastPromptOptions: event.systemPromptOptions,
 		lastSystemPrompt: event.systemPrompt,
-		beforeAgentStartEventCount: state.beforeAgentStartEventCount + 1,
-		lastBeforeAgentStartEventAt: new Date().toLocaleTimeString(),
 	};
 }
 
 export function handleContext(event: ContextEvent, state: ProfilerState): ProfilerState {
 	return {
 		...state,
-		latestContextMessages: [...event.messages],
-		latestContextSource: "context-event",
-		contextEventCount: state.contextEventCount + 1,
-		lastContextEventAt: new Date().toLocaleTimeString(),
+		latestContext: { messages: [...event.messages], source: "context-event" },
 	};
 }
 
@@ -118,12 +103,11 @@ export function capturePromptState(ctx: ExtensionContext, state: ProfilerState):
 
 export function captureCurrentState(ctx: ExtensionContext, state: ProfilerState): ProfilerState {
 	const promptState = capturePromptState(ctx, state);
-	if (promptState.latestContextMessages !== null) return promptState;
+	if (promptState.latestContext !== null) return promptState;
 	const sessionContext = buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId());
 	return {
 		...promptState,
-		latestContextMessages: [...sessionContext.messages],
-		latestContextSource: "session-context",
+		latestContext: { messages: [...sessionContext.messages], source: "session-context" },
 	};
 }
 
@@ -140,8 +124,7 @@ function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptio
  */
 export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState): ProfileSnapshot {
 	const live = deriveLiveTurns({
-		contextMessages: state.latestContextMessages,
-		contextSource: state.latestContextSource,
+		context: state.latestContext,
 		branchEntries: ctx.sessionManager.getBranch(),
 	});
 	const capped = capTurns(live.turns);
@@ -171,7 +154,7 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 	whenPersisted: Promise<PersistedBundle | null>;
 } {
 	const snapshot = buildBundleSnapshot({
-		messages: options.state.latestContextMessages,
+		messages: options.state.latestContext?.messages ?? null,
 		systemPrompt: options.state.lastSystemPrompt,
 		promptOptions: options.state.lastPromptOptions,
 		sessionId: options.sessionId,
@@ -181,8 +164,8 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 		liveSource: options.profile.liveSource,
 	});
 	if (!snapshot.ok) {
-		const skipped: BundlePersistenceState = snapshot.error.code === "no-provider-context"
-			? { type: "skipped", reason: "no-provider-context", message: noProviderContextMessage(options.state, options.profile) }
+		const skipped: BundlePersistenceState = snapshot.error.code === "empty-context"
+			? { type: "skipped", reason: "empty-context" }
 			: { type: "failed", message: snapshot.error.message };
 		return { initial: skipped, whenPersisted: Promise.resolve(null) };
 	}
@@ -198,12 +181,6 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 		return null;
 	});
 	return { initial: { type: "pending" }, whenPersisted };
-}
-
-function noProviderContextMessage(state: ProfilerState, profile: ProfileSnapshot): string {
-	const lastContext = state.lastContextEventAt ?? "never";
-	const lastBeforeAgentStart = state.lastBeforeAgentStartEventAt ?? "never";
-	return `No context messages are available for this snapshot. The profiler can still show ${profile.liveTurns.length.toLocaleString()} ${profile.liveSource} turn(s), but interrogation requires a bundle built from provider or reconstructed session context. Press r or reopen /context-profiler to retry. Debug: contextEvents=${state.contextEventCount.toLocaleString()} (last=${lastContext}); beforeAgentStartEvents=${state.beforeAgentStartEventCount.toLocaleString()} (last=${lastBeforeAgentStart}); latestContextMessages=null; liveSource=${profile.liveSource}.`;
 }
 
 export interface StartSegmentationOptions {

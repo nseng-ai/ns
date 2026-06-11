@@ -244,16 +244,14 @@ function openInterrogation(options: {
 	return { ok: true, port: session.interrogation };
 }
 
-function bundleUnavailableReason(state: BundlePersistenceState): string {
+function bundleUnavailableReason(state: Exclude<BundlePersistenceState, { type: "persisted" }>): string {
 	switch (state.type) {
 		case "pending":
 			return "The context bundle is still being written. Wait a moment, then press Esc and p again.";
 		case "skipped":
-			return `Interrogation needs a context bundle, but this snapshot could not be bundled: ${state.message}`;
+			return "Interrogation needs a context bundle, but this session has no conversation yet. Send a prompt, then press r to refresh.";
 		case "failed":
 			return `The context bundle could not be written: ${state.message}. Interrogation is disabled because it can only read bundles from disk.`;
-		case "persisted":
-			return "The context bundle is unavailable, so interrogation cannot start.";
 	}
 }
 

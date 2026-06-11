@@ -636,7 +636,7 @@ export class ProfilerView implements Component {
 			this.requestRender();
 			return;
 		}
-		if (data === "\u0003") {
+		if (matchesKey(data, Key.ctrl("c"))) {
 			if (frame.interrogation.type === "ready") void frame.interrogation.port.abortTurn();
 			this.requestRender();
 			return;
