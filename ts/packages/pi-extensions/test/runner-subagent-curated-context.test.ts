@@ -77,7 +77,7 @@ describe("runner subagent curated context", () => {
 		});
 
 		expect(context.audit.includedPaths).toEqual(["large.txt"]);
-		expect(context.audit.truncated).toBe(true);
+		expect(context.audit.isTruncated).toBe(true);
 		expect(context.markdown).toContain("Excerpt characters:");
 		expect(context.markdown).toContain("(truncated)");
 		expect(context.markdown).not.toContain("UNIQUE_TAIL");
@@ -87,7 +87,7 @@ describe("runner subagent curated context", () => {
 		const cwd = join(tmpdir(), "runner-subagent-context-missing-cwd");
 		const context = buildCuratedRunnerSubagentContext({ title: "No repo", prompt: "Classify this task.", cwd });
 
-		expect(context.audit.gitAvailable).toBe(false);
+		expect(context.audit.isGitAvailable).toBe(false);
 		expect(context.markdown).toContain("Git evidence unavailable");
 		expect(context.markdown).toContain("No parent-session entries were available");
 		expect(context.markdown).toContain("No readable mentioned or changed source files were included");

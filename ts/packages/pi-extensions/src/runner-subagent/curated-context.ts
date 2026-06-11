@@ -19,9 +19,9 @@ export interface CuratedRunnerSubagentContextAudit {
 	includedPaths: readonly string[];
 	omittedPaths: readonly string[];
 	unreadablePaths: readonly string[];
-	truncated: boolean;
+	isTruncated: boolean;
 	markdownChars: number;
-	gitAvailable: boolean;
+	isGitAvailable: boolean;
 	notes: readonly string[];
 }
 
@@ -38,7 +38,7 @@ interface IncludedSource {
 	path: string;
 	reasons: readonly CandidateReason[];
 	excerpt: string;
-	truncated: boolean;
+	isTruncated: boolean;
 	chars: number;
 }
 
@@ -49,7 +49,7 @@ interface CandidateNote {
 }
 
 interface GitEvidence {
-	available: boolean;
+	isAvailable: boolean;
 	statusShort?: string;
 	diffNameOnly?: string;
 	diffStat?: string;
@@ -69,7 +69,7 @@ interface ResolvedCandidatePath {
 
 interface TextExcerptResult {
 	excerpt: string;
-	truncated: boolean;
+	isTruncated: boolean;
 }
 
 const MAX_MARKDOWN_CHARS = 48_000;
@@ -89,7 +89,7 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 	const includedSources: IncludedSource[] = [];
 	const omittedCandidates: CandidateNote[] = [];
 	const unreadableCandidates: CandidateNote[] = [];
-	let truncated = false;
+	let isTruncated = false;
 
 	for (const candidate of candidates.values()) {
 		if (includedSources.length >= MAX_INCLUDED_FILES) {
@@ -98,7 +98,7 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 				reason: "candidate-limit",
 				note: `Skipped after the first ${MAX_INCLUDED_FILES} readable candidates to keep the packet bounded.`,
 			});
-			truncated = true;
+			isTruncated = true;
 			continue;
 		}
 
@@ -127,12 +127,12 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 			continue;
 		}
 
-		if (excerpt.truncated) truncated = true;
+		if (excerpt.isTruncated) isTruncated = true;
 		includedSources.push({
 			path: resolved.relativePath,
 			reasons: [...candidate.reasons],
 			excerpt: excerpt.excerpt,
-			truncated: excerpt.truncated,
+			isTruncated: excerpt.isTruncated,
 			chars: excerpt.excerpt.length,
 		});
 	}
@@ -147,7 +147,7 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 		omittedCandidates,
 		unreadableCandidates,
 		parentSessionDigest: digest,
-		truncated,
+		isTruncated,
 	});
 	const markdown = boundMarkdown(draft);
 	const wasMarkdownTruncated = markdown.length !== draft.length;
@@ -156,9 +156,9 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 		includedPaths: includedSources.map((source) => source.path),
 		omittedPaths: omittedCandidates.map((candidate) => candidate.path),
 		unreadablePaths: unreadableCandidates.map((candidate) => candidate.path),
-		truncated: truncated || wasMarkdownTruncated,
+		isTruncated: isTruncated || wasMarkdownTruncated,
 		markdownChars: markdown.length,
-		gitAvailable: gitEvidence.available,
+		isGitAvailable: gitEvidence.isAvailable,
 		notes: wasMarkdownTruncated ? [...notes, `Auto-curated context was truncated to ${MAX_MARKDOWN_CHARS} characters.`] : notes,
 	};
 	return { markdown, audit };
@@ -171,7 +171,7 @@ function collectGitEvidence(cwd: string): GitEvidence {
 	const commands = [status, diffNameOnly, diffStat];
 	const notes = commands.flatMap((command) => (command.ok ? [] : [command.diagnostic ?? "git command failed"]));
 	return {
-		available: commands.some((command) => command.ok),
+		isAvailable: commands.some((command) => command.ok),
 		...(status.ok ? { statusShort: truncateText(status.stdout.trim(), MAX_GIT_OUTPUT_CHARS) } : {}),
 		...(diffNameOnly.ok ? { diffNameOnly: truncateText(diffNameOnly.stdout.trim(), MAX_GIT_OUTPUT_CHARS) } : {}),
 		...(diffStat.ok ? { diffStat: truncateText(diffStat.stdout.trim(), MAX_GIT_OUTPUT_CHARS) } : {}),
@@ -272,8 +272,8 @@ function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult | s
 		const data = buffer.subarray(0, bytesRead);
 		if (data.includes(0)) return "Skipped because the file appears to be binary.";
 		const text = data.toString("utf8").replace(/\r\n?/g, "\n");
-		const truncated = sizeBytes > bytesRead || text.length > MAX_FILE_EXCERPT_CHARS;
-		return { excerpt: truncateText(text, MAX_FILE_EXCERPT_CHARS), truncated };
+		const isTruncated = sizeBytes > bytesRead || text.length > MAX_FILE_EXCERPT_CHARS;
+		return { excerpt: truncateText(text, MAX_FILE_EXCERPT_CHARS), isTruncated };
 	} catch (error) {
 		return errorMessage(error);
 	} finally {
@@ -358,7 +358,7 @@ function renderCuratedContextMarkdown(options: {
 	omittedCandidates: readonly CandidateNote[];
 	unreadableCandidates: readonly CandidateNote[];
 	parentSessionDigest: readonly string[];
-	truncated: boolean;
+	isTruncated: boolean;
 }): string {
 	const linesOut = [
 		"## Auto-curated context",
@@ -384,13 +384,13 @@ function renderCuratedContextMarkdown(options: {
 		...renderCandidateNotes(options.omittedCandidates, options.unreadableCandidates),
 		"",
 		"### Budget and truncation notes",
-		`- Approximate packet characters before final bounding: ${options.truncated ? "truncated" : "not truncated by file/session budgets"}.`,
+		`- Approximate packet characters before final bounding: ${options.isTruncated ? "truncated" : "not truncated by file/session budgets"}.`,
 	];
 	return linesOut.join("\n");
 }
 
 function renderGitEvidence(gitEvidence: GitEvidence): string[] {
-	if (!gitEvidence.available) return ["- Git evidence unavailable; continue with explicit task context and read files directly."];
+	if (!gitEvidence.isAvailable) return ["- Git evidence unavailable; continue with explicit task context and read files directly."];
 	return [
 		"- Git evidence collected with `git status --short`, `git diff --name-only`, and `git diff --stat`.",
 		codeListItem("status --short", gitEvidence.statusShort),
@@ -404,7 +404,7 @@ function renderIncludedSources(sources: readonly IncludedSource[]): string[] {
 	return sources.flatMap((source) => [
 		`#### \`${source.path}\``,
 		`- Reason: ${source.reasons.join(", ")}`,
-		`- Excerpt characters: ${source.chars}${source.truncated ? " (truncated)" : ""}`,
+		`- Excerpt characters: ${source.chars}${source.isTruncated ? " (truncated)" : ""}`,
 		"```text",
 		escapeFence(source.excerpt),
 		"```",
