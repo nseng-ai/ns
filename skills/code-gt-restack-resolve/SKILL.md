@@ -12,8 +12,10 @@ allowed-tools:
   - "Bash(git checkout --theirs *)"
   - "Bash(git log *)"
   - "Bash(git rebase *)"
+  - "Bash(git commit *)"
   - "Bash(slot gt *)"
   - "Bash(just *)"
+  - "Bash(uv run pytest *)"
   - Read
   - Edit
   - Grep
@@ -60,14 +62,12 @@ When the engine's Driver contract asks for overrides, use:
 - **Scope must be explicit.** Default to **full** for generic restack requests,
   matching plain `gt restack`; use **downstack** only when the user asks for the
   narrower ancestors/current scope or confirms a prompt.
-- **A single-PR (or tip) stack has no scope decision.** Full and downstack
-  differ _only_ by upstack descendants. When the current branch has none — a
-  single-PR stack, or the current branch is the stack tip — the two scopes are
-  the **identical** operation. Never prompt for scope (or for freeing upstack
-  slots) in that case; just proceed as full (= downstack).
+- **A single-PR (or tip) stack has no scope decision** — full and downstack
+  differ only by upstack descendants. See the single-PR rule in **Choose
+  scope**.
 - **Full scope:** operate on the current Graphite stack as `gt restack` does
-  (ancestors + current + descendants). This may rewrite upstack descendants, but
-  that is the expected default for this skill.
+  (ancestors + current + descendants) — not every stack in the repo. This may
+  rewrite upstack descendants, but that is the expected default for this skill.
 - **Downstack scope:** operate on the chain trunk → current (ancestors +
   current). Upstack is not touched.
 - **Never** `gt submit` / push / land.
@@ -107,12 +107,8 @@ Rules:
   result is identical). There are no upstack slots to free either, so skip the
   consolidation prompt too unless an in-scope **ancestor** is checked out in
   another slot.
-- If the user did **not** explicitly ask for downstack-only behavior, default to
-  `full`. When in doubt, ask — **but only when scope actually changes the
-  outcome** (i.e., the current branch has upstack descendants).
-- `full` means Graphite's current stack from the current branch: ancestors,
-  current, and descendants (upstack). It does **not** mean every stack in the
-  repo.
+- When in doubt, ask — **but only when scope actually changes the outcome**
+  (i.e., the current branch has upstack descendants).
 - Do not auto-checkout to the tip. Run the command from the user's current
   branch unless they explicitly ask to move first.
 
@@ -120,50 +116,23 @@ Rules:
 
 In this repo a stack's branches can be checked out across multiple worktree
 **slots**, which locks them against rebasing. A restack can fail when another
-slot has a branch in the selected scope checked out, so consolidate only the
-selected scope before looping.
+slot has a branch in the selected scope checked out, so run the slot
+consolidation command from the **Choose scope** table before looping.
 
 If the current branch has no upstack descendants (the single-PR / tip case from
-**Choose scope**), there are no upstack slots in scope — skip this step entirely
-unless an in-scope **ancestor** branch is itself checked out in another slot.
+**Choose scope**), skip this step entirely unless an in-scope **ancestor**
+branch is itself checked out in another slot.
 
 The `slot gt free-stack` command is **mutating**: it releases matching slots by
-detaching them at trunk. Do not treat `--format json` as a dry-run. If the user
-has not already authorized freeing stack slots, ask before running it.
-
-For downstack scope:
-
-```bash
-slot gt free-stack --downstack
-```
-
-For full scope:
-
-```bash
-slot gt free-stack
-```
-
-Use `--format json` only when you need a machine-readable record of what was
-freed; the scope is still mutating. `data.downstack: true` means downstack
-scope; `data.downstack: false` means full-stack slot consolidation.
-
-Then proceed straight into the Loop.
+detaching them at trunk — `--format json` is a machine-readable record of what
+was freed, not a dry-run. If the user has not already authorized freeing stack
+slots, ask before running it.
 
 ### 4. Loop
 
-If no rebase is currently in progress, start the restack with the command chosen
-in **Choose scope**:
-
-```bash
-# downstack scope
-gt restack --downstack
-
-# full scope
-gt restack
-```
-
-If a rebase is already interrupted, skip this start command and continue from
-the current conflict state.
+If no rebase is currently in progress, start the restack with the command
+chosen in **Choose scope**. If a rebase is already interrupted, skip the start
+command and continue from the current conflict state.
 
 **On each conflict stop**, read
 `skills/code-resolve-merge-conflicts/SKILL.md` and follow its workflow with the
@@ -177,18 +146,14 @@ loops per conflict until the selected restack command reports nothing left.
 
 ### 5. Done
 
-When the restack reports there is nothing left:
-
-- Follow the engine's completion steps (final `git status`, regenerating any
-  auto-generated files that were touched, committing them separately).
-- Run the driver post-completion checks: `gt log` / `gt ls` confirm a clean
-  stack rooted correctly.
+When the restack reports there is nothing left, follow the engine's completion
+steps (final `git status`, regenerating any auto-generated files that were
+touched, committing them separately), then run the driver post-completion
+checks from **Engine parameters**.
 
 ### 6. Bail-out
 
-The engine's bail-out policy applies (repeated verification failures,
-unclassifiable repository state, never abort without explicit confirmation).
-This driver adds one condition: a conflict in a branch **outside the selected
-scope** — for example, an upstack branch during downstack scope, or a
-sibling/unrelated stack during any scope. Summarize per the engine: what was
-resolved, what remains, and the exact command/state you stopped at.
+The engine's bail-out policy applies, plus this driver's extra condition from
+**Engine parameters** (a conflict outside the selected scope). Summarize per
+the engine: what was resolved, what remains, and the exact command/state you
+stopped at.

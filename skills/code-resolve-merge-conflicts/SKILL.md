@@ -14,7 +14,9 @@ allowed-tools:
   - "Bash(git rebase *)"
   - "Bash(git merge *)"
   - "Bash(git commit *)"
+  - "Bash(gt continue)"
   - "Bash(just *)"
+  - "Bash(uv run pytest *)"
   - Read
   - Edit
   - Grep
