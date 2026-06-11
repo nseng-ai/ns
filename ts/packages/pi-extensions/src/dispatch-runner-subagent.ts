@@ -60,15 +60,9 @@ export interface DispatchRunnerSubagentDetails {
 	protocolError?: unknown;
 }
 
-interface DispatchRunnerSubagentSessionManager {
-	getBranch?(): readonly unknown[];
-	getEntries?(): readonly unknown[];
-}
-
 export interface ExtensionContext {
 	cwd: string;
 	model?: ModelInfo;
-	sessionManager?: DispatchRunnerSubagentSessionManager;
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, text: string | undefined): void;
@@ -147,7 +141,6 @@ export default function dispatchRunnerSubagentExtension(
 				title: input.title,
 				prompt: input.prompt,
 				cwd: ctx.cwd,
-				sessionEntries: ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [],
 			});
 			const childPrompt = `${curatedContext.markdown}\n\n${composePiAgentPrompt(runnerDefinition, input)}`;
 			const launch =
