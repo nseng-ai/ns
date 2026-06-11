@@ -8,6 +8,7 @@
       Resolve the pi-ai streaming open question during this migration; if a streaming need appears, give it its own escape hatch rather than reshaping the renderer contract.
 - [ ] Migrate the `@asdl/pr-address` CLI shell to clinkr, preserving legacy-Python fallback dispatch.
       Coordinate with `pr-address-typescript-port`; this record owns only the CLI shell, not operation semantics or Python retirement. Sequenced last among the migrations, after that record's payload-spec rows.
+      Groundwork landed 2026-06-11: pr-address depends on `@asdl/clinkr` directly, its local `clinkr-envelope.ts` duplicate is deleted, and all call sites use the canonical envelope (`ok`/`negative`/`failure`/`emitExit`) plus `@asdl/core/cli-entry`. The shell itself (command tree, argv parsing, help) is still hand-rolled — that is the remaining work of this row.
 - [ ] Extract the shared git gateway into `@asdl/core` with real and in-memory implementations.
       One interface replacing the planned-branch/plans/asdl-dev gateways and the git methods in `pr-address/src/gateways.ts`; unify `sourceBranch`/`currentBranch` naming; delete `plans-git-adapter.ts`; consolidate the per-package in-memory git fakes.
 - [ ] Decide and implement the payload/JSON-input home (clinkr first-class vs package-local).
