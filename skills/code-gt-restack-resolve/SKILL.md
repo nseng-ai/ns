@@ -8,6 +8,8 @@ allowed-tools:
   - "Bash(git diff *)"
   - "Bash(git add *)"
   - "Bash(git restore *)"
+  - "Bash(git checkout --ours *)"
+  - "Bash(git checkout --theirs *)"
   - "Bash(git log *)"
   - "Bash(git rebase *)"
   - "Bash(slot gt *)"
@@ -21,19 +23,29 @@ allowed-tools:
 
 Drive a Graphite restack semi-autonomously with an explicit **scope**:
 **full stack** by default, matching plain `gt restack`, or **downstack** when
-the user asks for the narrower ancestors/current scope. Auto-resolve the
-mechanically-safe conflicts, verify any code resolution with the project's
-checks, and escalate only the genuinely ambiguous conflicts to a human with a
-proposed resolution.
+the user asks for the narrower ancestors/current scope.
 
-This skill is **prose-only** — it adds no conflict-resolution tooling. It
-composes two existing skills and you should defer to them rather than duplicate
-their content:
+This skill is a **driver**: it owns the restack workflow — preflight, scope,
+slot consolidation, starting the loop, and gt-specific bail-outs. All
+per-conflict resolution policy lives in the engine skill,
+**`code-resolve-merge-conflicts`**
+(`skills/code-resolve-merge-conflicts/SKILL.md`). At every conflict stop, read
+that document and follow it with the **Engine parameters** below. Do not
+restate or improvise per-file resolution policy here.
 
-- **`graphite`** — `gt` mental model, stack navigation, and the "Recovering
-  from Interrupted Rebase" section.
-- **`code-resolve-merge-conflicts`** — per-file conflict-resolution mechanics,
-  auto-generated-file handling, and the conflict-marker anatomy.
+It also defers to **`graphite`** for the `gt` mental model, stack navigation,
+and the "Recovering from Interrupted Rebase" section.
+
+## Engine parameters
+
+When the engine's Driver contract asks for overrides, use:
+
+- **Continue command:** `gt continue`
+- **Extra bail-out condition:** a conflict surfaces in a branch **outside the
+  selected scope** (an upstack branch during downstack scope, or a
+  sibling/unrelated stack during any scope)
+- **Post-completion checks:** `gt log` / `gt ls` confirm a clean stack rooted
+  correctly
 
 ## When to use
 
@@ -61,26 +73,7 @@ their content:
 - **Never** `gt submit` / push / land.
 - **Never** touch sibling stacks. Upstack descendants are in scope only for a
   full restack.
-- **Never** `gt abort` without explicit confirmation.
-
-## The decisive technique
-
-Every conflict in the motivating session was the same shape: the rebase base had
-**added** content while the branch's commit **edited adjacent** content, and the
-fix was always a **complementary merge** — keep the base addition _and_ take the
-commit's edit. The tool that makes this unambiguous:
-
-```bash
-git show <incoming-commit> -- <file>
-```
-
-This shows the **intent-diff**: what the incoming commit actually changed
-relative to _its own parent_, separated from base content the commit never had.
-Resolve from intent, not from raw conflict markers.
-
-**Edit only the conflict region** to keep the chosen side(s). Do **not**
-`git checkout --theirs`/`--ours` the whole file — that discards non-conflicting
-base changes elsewhere in the file. (Key lesson.)
+- **Never** `gt abort` without explicit confirmation (engine abort policy).
 
 ## Workflow
 
@@ -172,80 +165,30 @@ gt restack
 If a rebase is already interrupted, skip this start command and continue from
 the current conflict state.
 
-On each conflict, `git status` reports the stopped commit:
+**On each conflict stop**, read
+`skills/code-resolve-merge-conflicts/SKILL.md` and follow its workflow with the
+**Engine parameters** above. The engine handles everything per-conflict:
+auto-generated files, the intent-diff, the four-safe-category classification,
+region-only edits, the verification gate, escalation, and running
+`gt continue`.
 
-- "Last command done: pick `<sha>`" and the `>>>>>>> <sha>` markers identify the
-  **incoming commit**.
-
-For **each conflicted file**:
-
-1. **Get the intent-diff:**
-
-   ```bash
-   git show <sha> -- <file>
-   ```
-
-   This is what the incoming commit truly changed vs its own parent — the
-   ground truth for resolution.
-
-2. **Classify** the conflict region against the four **safe** categories:
-   - `complementary / non-overlapping` — both sides change different things in
-     the region; keep both.
-   - `identical` — both sides made the same change; keep one.
-   - `formatting / whitespace / import-order` — purely mechanical; resolve to
-     the correct mechanical form.
-   - `one-side strict-superset` — one side fully contains the other; keep the
-     superset.
-
-   - **Auto-generated files** (per `code-resolve-merge-conflicts`): accept either
-     side now, regenerate after the restack completes.
-   - **Edit only the conflict region** to keep the chosen side(s). Never
-     `git checkout --theirs/--ours` the whole file.
-   - Anything **not** in the safe set → **escalate** (see below).
-
-3. **Verify** (only when an auto-resolved file is **code**): run the scoped
-   check **before** `gt continue`:
-   - `ts/**` only → `just ts-check` (optionally `just ts-test`).
-   - Python only → `just ty` + targeted `uv run pytest <affected package>`
-     (or `just test`).
-   - Mixed / uncertain → `just check`.
-   - Docs / markdown only → **no check**.
-
-   - **Pass** → `git add` the resolved files → `gt continue`.
-   - **Fail** → `git restore --merge <file>` to bring back the conflict markers,
-     then **escalate** that file.
-
-4. **Escalate** = pause and hand the decision to the user. Present:
-   - both sides of the conflict region,
-   - the `git show <sha>` intent-diff, and
-   - a **proposed** resolution with your reasoning.
-
-   Use AskUserQuestion or an inline prompt. On the user's decision: apply it,
-   `git add`, `gt continue`, and **auto-resume** the Loop.
-
-5. **Multi-commit branches & subsequent conflicts:** each `gt continue` may stop
-   on the next commit with new conflicts — repeat this Loop per `gt continue`
-   until the restack reports nothing left.
+Each `gt continue` may stop on the next commit with new conflicts — the engine
+loops per conflict until the selected restack command reports nothing left.
 
 ### 5. Done
 
-When the selected restack command reports there is nothing left to restack:
+When the restack reports there is nothing left:
 
-- Run a final `git status` (clean) and `gt log` / `gt ls` to confirm a clean
+- Follow the engine's completion steps (final `git status`, regenerating any
+  auto-generated files that were touched, committing them separately).
+- Run the driver post-completion checks: `gt log` / `gt ls` confirm a clean
   stack rooted correctly.
-- Regenerate any auto-generated files that were touched (per
-  `code-resolve-merge-conflicts` step 6) and stage/commit them as appropriate.
 
 ### 6. Bail-out
 
-Stop and hand back with a summary — never `gt abort` without explicit
-confirmation — if any of these occur:
-
-- a conflict surfaces in a branch **outside the selected scope** (for example,
-  an upstack branch during downstack scope, or a sibling/unrelated stack during
-  any scope),
-- the verification gate fails repeatedly on the same resolution,
-- the repository is in an unrecognizable state you cannot safely classify.
-
-Summarize what was resolved, what remains, and the exact command/state you
-stopped at so the user (or a fresh session) can resume.
+The engine's bail-out policy applies (repeated verification failures,
+unclassifiable repository state, never abort without explicit confirmation).
+This driver adds one condition: a conflict in a branch **outside the selected
+scope** — for example, an upstack branch during downstack scope, or a
+sibling/unrelated stack during any scope. Summarize per the engine: what was
+resolved, what remains, and the exact command/state you stopped at.

@@ -1,74 +1,175 @@
 ---
 name: code-resolve-merge-conflicts
-description: "Resolve merge conflicts from an in-progress rebase. Use when a rebase hits conflicts and the user wants Claude to resolve them intelligently."
+description: "Resolve merge conflicts from an in-progress rebase or merge. Use when a rebase or merge hits conflicts and the user wants Claude to resolve them intelligently. Also the per-conflict engine that driver skills (e.g. code-gt-restack-resolve) invoke."
 allowed-tools:
-  - "Bash(git *)"
+  - "Bash(git status *)"
+  - "Bash(git show *)"
+  - "Bash(git diff *)"
+  - "Bash(git log *)"
+  - "Bash(git merge-base *)"
+  - "Bash(git add *)"
+  - "Bash(git restore *)"
+  - "Bash(git checkout --ours *)"
+  - "Bash(git checkout --theirs *)"
+  - "Bash(git rebase *)"
+  - "Bash(git merge *)"
+  - "Bash(git commit *)"
+  - "Bash(just *)"
+  - Read
+  - Edit
+  - Grep
 ---
 
 # code-resolve-merge-conflicts
 
-Resolve merge conflicts from a rebase already in progress. This skill does NOT initiate a rebase. The rebase was started externally (via `git rebase`, `git merge`, etc.) and hit conflicts. Your job is to resolve those conflicts and continue to completion.
+Resolve conflicts from a rebase or merge that is **already in progress**. This
+skill does NOT initiate the operation — it was started externally (`git rebase`,
+`git merge`, or a driver skill) and hit conflicts. Your job is to resolve those
+conflicts safely and continue to completion.
+
+This document is also the **conflict-resolution engine** for driver skills. A
+driver (e.g. `code-gt-restack-resolve`) owns starting the operation and its
+surrounding workflow, and delegates every conflict stop here. The **Driver
+contract** section defines exactly what a driver may override; everything else
+is fixed policy for every invocation, bare or driven.
 
 ## When to use
 
-- User says "resolve conflicts", "fix conflicts", "help with rebase", "merge conflicts"
+- User says "resolve conflicts", "fix conflicts", "help with rebase", "merge
+  conflicts"
 - A rebase or merge is in progress and has conflicted files
-- User ran `git rebase <branch>` and it stopped with conflicts
+- A driver skill directs you here for per-conflict mechanics
+
+## Operation modes
+
+| Mode   | Detect via `git status`                                      | Default continue command | Intent-diff source                                                |
+| ------ | ------------------------------------------------------------ | ------------------------ | ----------------------------------------------------------------- |
+| rebase | "rebase in progress"; "Last command done: pick `<sha>`"      | `git rebase --continue`  | `git show <sha> -- <file>`                                        |
+| merge  | "You have unmerged paths" while merging; `MERGE_HEAD` exists | `git merge --continue`   | `git diff $(git merge-base HEAD MERGE_HEAD) MERGE_HEAD -- <file>` |
+
+**Conflict-marker sides differ by mode.** In a **merge**, `<<<<<<< HEAD` is your
+branch and `>>>>>>> <ref>` is the incoming branch. In a **rebase** the sides are
+inverted from what you might expect: `HEAD` is the new base being rebased onto
+(plus commits already replayed), and `>>>>>>> <sha>` is your own commit being
+replayed.
+
+**Graphite check:** if the rebase was started by Graphite (`gt restack`,
+`gt move`), continue with `gt continue` instead of `git rebase --continue` so
+gt's stack bookkeeping stays intact — or switch to the
+`code-gt-restack-resolve` skill, which drives the whole restack.
+
+## Driver contract
+
+A driver skill may override exactly three things:
+
+1. **Continue command** — e.g. `gt continue` instead of the mode default.
+2. **Extra bail-out conditions** — e.g. "a conflict surfaces in a branch
+   outside the selected scope".
+3. **Post-completion checks** — e.g. `gt log` / `gt ls` after the final
+   continue.
+
+Everything else — classification, region-only edits, the verification gate,
+escalation format, abort policy — is engine policy and not overridable.
+
+## The decisive technique: intent-diff
+
+Resolve from **intent**, not from raw conflict markers. The intent-diff (see
+the modes table) shows what the incoming side actually changed relative to its
+own parent, separated from content it never touched. The most common conflict
+shape: the base **added** content while the incoming commit **edited adjacent**
+content — the fix is a complementary merge that keeps both.
+
+**Edit only the conflict region** to keep the chosen side(s). Never
+`git checkout --theirs`/`--ours` a whole file — that discards non-conflicting
+changes elsewhere in the file. The only exception is auto-generated files
+(workflow step 2).
 
 ## Workflow
 
 ### 1. Check status
 
-Run `git status` to understand the state and identify all conflicted files.
+Run `git status` — determine the mode (rebase or merge), the stopped/incoming
+commit, and all conflicted files.
 
-### 2. Separate auto-generated files from real content
+### 2. Auto-generated files
 
-Check each conflicted file for an auto-generated header comment (e.g. `<!-- AUTO-GENERATED FILE -->` or similar markers indicating the file is generated by tooling).
-
-- **Auto-generated files**: Accept either side (`git checkout --theirs <file>` or `git checkout --ours <file>`), stage with `git add`. These will be regenerated after the rebase completes.
-- **Real content files**: Proceed to step 3.
+Files with an auto-generated header comment (e.g. `<!-- AUTO-GENERATED FILE -->`
+or similar tooling markers): accept either side whole-file —
+`git checkout --theirs <file>` (or `--ours`) — and `git add`. These get
+regenerated in step 7. All other files proceed to step 3.
 
 ### 3. Resolve each real content file
 
-For each conflicted file that is NOT auto-generated:
+a. **Get the intent-diff** (modes table) — the ground truth for what the
+incoming side changed.
 
-**a. Read the file** and understand both sides of the conflict by examining the conflict markers:
+b. **Classify** the conflict region against the four **safe** categories:
 
-- `<<<<<<< HEAD` marks the start of your local changes
-- `=======` separates local from incoming changes
-- `>>>>>>> <commit>` marks the end of incoming changes
+- **complementary / non-overlapping** — sides change different things in the
+  region; keep both
+- **identical** — both sides made the same change; keep one
+- **formatting / whitespace / import-order** — purely mechanical; resolve to
+  the correct mechanical form
+- **one-side strict-superset** — one side fully contains the other; keep the
+  superset
 
-**b. Understand intent** - Determine what each side was trying to accomplish:
+Anything **outside** the safe set → **escalate** (step 5), no matter how
+confident the resolution looks.
 
-- What was the local change trying to do?
-- What was the incoming change trying to do?
-- Are the changes complementary or contradictory?
+c. **Edit only the conflict region.** The resolved file must contain no
+`<<<<<<<`, `=======`, or `>>>>>>>` markers.
 
-**c. Resolve intelligently:**
+### 4. Verify before continuing
 
-- If changes are complementary -> merge both
-- If conflicts are mechanical (formatting, syntax, import ordering, whitespace) -> resolve automatically
-- If conflicts represent semantic differences or differences in intent -> prompt the user to make a decision, presenting both sides and what each was trying to accomplish
+When any auto-resolved file is **code**, run the scoped project check before
+the continue command:
 
-**d. Remove all conflict markers** - The resolved file must have no `<<<<<<<`, `=======`, or `>>>>>>>` markers remaining.
+| Conflicted files     | Check                                                                    |
+| -------------------- | ------------------------------------------------------------------------ |
+| `ts/**` only         | `just ts-check` (optionally `just ts-test`)                              |
+| Python only          | `just ty` + targeted `uv run pytest <affected package>` (or `just test`) |
+| Mixed / uncertain    | `just check`                                                             |
+| Docs / markdown only | no check                                                                 |
 
-**e. Stage the resolution** - `git add <file>`
+- **Pass** → `git add` the resolved files → run the continue command.
+- **Fail** → `git restore --merge <file>` to bring back the conflict markers,
+  then **escalate** that file.
 
-### 4. Continue the rebase
+### 5. Escalate
 
-After resolving all conflicts in the current step:
+Pause and hand the decision to the user. Present:
 
-- Stage all resolved files with `git add`
-- Continue with `git rebase --continue`
+- both sides of the conflict region,
+- the intent-diff, and
+- a **proposed** resolution with your reasoning.
 
-### 5. Loop
+Use AskUserQuestion or an inline prompt. On the user's decision: apply it,
+`git add`, run the continue command, and **auto-resume** the loop.
 
-If the rebase continues and hits more conflicts on subsequent commits, repeat from step 1.
+### 6. Continue and loop
 
-### 6. Regenerate auto-generated files
+Run the continue command. Each continue may stop on the next commit with new
+conflicts — repeat from step 1 until the operation reports completion.
 
-If any auto-generated files were resolved in step 2, regenerate them now using the project's tooling (e.g. doc generators, index builders, lock files). Commit the regenerated files separately.
+### 7. Regenerate auto-generated files
 
-### 7. Verify completion
+Regenerate any auto-generated files from step 2 using the project's tooling
+(doc generators, index builders, lock files). Commit the regenerated files
+separately.
 
-Run `git status` and `git log --oneline -5` to confirm the rebase completed successfully.
+### 8. Verify completion
+
+Run `git status` (clean) and `git log --oneline -5` to confirm the operation
+completed, plus any driver post-completion checks.
+
+## Bail-out
+
+Stop and hand back with a summary — never `git rebase --abort` /
+`git merge --abort` (or `gt abort`) without explicit confirmation — when:
+
+- the verification gate fails repeatedly on the same resolution,
+- the repository is in a state you cannot safely classify, or
+- any driver-supplied bail-out condition triggers.
+
+Summarize what was resolved, what remains, and the exact command/state you
+stopped at so the user (or a fresh session) can resume.
