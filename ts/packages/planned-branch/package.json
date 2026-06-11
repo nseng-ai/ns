@@ -14,8 +14,10 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/planned-branch/test"
   },
   "dependencies": {
+    "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
-    "@asdl/plans": "workspace:*"
+    "@asdl/plans": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {}
 }

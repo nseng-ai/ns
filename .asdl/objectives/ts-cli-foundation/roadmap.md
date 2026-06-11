@@ -2,7 +2,8 @@
 
 ## Work
 
-- [ ] Migrate `@asdl/planned-branch` to clinkr.
+- [x] Migrate `@asdl/planned-branch` to clinkr.
+      Command tree built through `@asdl/clinkr` with a hidden `exec` subgroup; the hand-rolled argv loop and help template literals are deleted. `--format json` success/failure bytes preserved via `legacyMachine`; divergences pinned in the scenario suite (commander help/usage-error bytes, inline-equals acceptance, include-flags relaxation outside `--format json`). No clinkr changes were needed. Evidence: local branch diff against master; package suite, full TS workspace check/test, and the full `just` gate passed.
 - [ ] Migrate `asdl-dev` to clinkr.
       Resolve the pi-ai streaming open question during this migration; if a streaming need appears, give it its own escape hatch rather than reshaping the renderer contract.
 - [ ] Migrate the `@asdl/pr-address` CLI shell to clinkr, preserving legacy-Python fallback dispatch.
@@ -17,8 +18,8 @@
       Add `index.ts` plus an `exports` field sized to what `ccc`/`pi-extensions` actually consume, then migrate their `asdl-dev/src/*` deep imports (15+ files) onto it.
 - [ ] Consolidate scenario-test scaffolding into `@asdl/clinkr/testing` plus a `@asdl/core` testing export.
       Shell-level helpers stay in `@asdl/clinkr/testing`; non-shell fixtures (async temp-dir fixture, node-runtime CLI smoke helper) get a `@asdl/core` testing export. Replace the quadruplicated node-runtime test and tripled temp-dir fixture. Coordinate with `pr-address-typescript-port`'s test-scaffolding row.
-- [ ] Reconcile the umbrella `port-asdl-toolkit-to-typescript`.
-      Update its scaffold/clinkr rows to reference this record and confirm the package-identity open question is recorded as resolved (`@asdl/clinkr` + `@asdl/core`).
+- [x] Reconcile the umbrella `port-asdl-toolkit-to-typescript`.
+      Verified satisfied 2026-06-10: the umbrella's scaffold and clinkr rows already cite `ts-cli-foundation` as their realization, and its records show the package-identity question resolved as `@asdl/clinkr` + `@asdl/core`. No umbrella edits were required.
 
 ## Parked
 

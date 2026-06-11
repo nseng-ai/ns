@@ -2,7 +2,7 @@
 
 ## Thesis
 
-One record owns the shared TypeScript layer beneath the four core TS CLIs: the `@asdl/clinkr` schema-first command framework, the `@asdl/core` foundation package, and the migration of the four CLIs (`plans` ✅, `planned-branch`, `asdl-dev`, `pr-address`) onto them. Each CLI grew its own argv parsing, exec runtime, gateways, and test scaffolding because no shared layer existed; this record consolidates those seams bottom-up from the proven implementations so future capability ports start on the foundation instead of growing another parallel stack.
+One record owns the shared TypeScript layer beneath the four core TS CLIs: the `@asdl/clinkr` schema-first command framework, the `@asdl/core` foundation package, and the migration of the four CLIs (`plans` ✅, `planned-branch` ✅, `asdl-dev`, `pr-address`) onto them. Each CLI grew its own argv parsing, exec runtime, gateways, and test scaffolding because no shared layer existed; this record consolidates those seams bottom-up from the proven implementations so future capability ports start on the foundation instead of growing another parallel stack.
 
 This Objective is a subobjective of `port-asdl-toolkit-to-typescript`, realizing its "minimal TS migration scaffold" and "internal JS/TS clinkr foundation" roadmap rows.
 
@@ -12,7 +12,7 @@ Created 2026-06-10 by consolidating `asdl-core-ts` and `ts-clinkr-commander`. Bo
 
 Remaining live scope carried from both parents:
 
-- Clinkr migrations of the remaining three CLIs: `planned-branch`, `asdl-dev` (resolving the pi-ai streaming question), and the `pr-address` CLI shell — shell only; operation semantics, cutover, and Python retirement stay with `pr-address-typescript-port`.
+- Clinkr migrations of the remaining two CLIs (`planned-branch` shipped 2026-06-10): `asdl-dev` (resolving the pi-ai streaming question) and the `pr-address` CLI shell — shell only; operation semantics, cutover, and Python retirement stay with `pr-address-typescript-port`.
 - Shared git gateway in `@asdl/core`: one interface with real and in-memory implementations replacing the planned-branch/plans/asdl-dev gateways and the git methods in `pr-address/src/gateways.ts`; unify `sourceBranch`/`currentBranch` naming; delete `plans-git-adapter.ts`; consolidate the per-package in-memory git fakes.
 - Zod boundary validation in `plans`, `planned-branch`, and `asdl-dev`, replacing hand-rolled extractors (`requiredStringField`, `extractPlannedBranchEvidence`, `validateCheckpointMessage`, session-entry extraction).
 - `asdl-dev` public surface: add `index.ts` plus an `exports` field and migrate `ccc`/`pi-extensions` off `asdl-dev/src/*` deep imports (15+ files in ccc today).
@@ -48,7 +48,7 @@ Explicit conflict resolutions from the consolidation:
 
 Assumptions:
 
-- Schema-first parameter generation hardens across the remaining migrations without per-CLI parser shims; partially de-risked by the `plans` migration (first CLI migrated cleanly, and clinkr-side corrections — root version/runtime, compact legacy serialization, bare-group help — are reusable).
+- Schema-first parameter generation hardens across the remaining migrations without per-CLI parser shims; partially de-risked by the `plans` migration (first CLI migrated cleanly, and clinkr-side corrections — root version/runtime, compact legacy serialization, bare-group help — are reusable), and further de-risked by the `planned-branch` migration (second consumer exercised required options, an enum with a default, boolean flags, an optional positional, and a file-writing side effect; zero clinkr changes were needed).
 - The four CLIs' flag surfaces fit the settled clinkr v1 type vocabulary (string/number/boolean/enum/string-array + optional/default), surveyed against all four CLIs.
 
 Risks:

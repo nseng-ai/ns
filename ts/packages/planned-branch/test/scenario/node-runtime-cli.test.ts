@@ -22,7 +22,8 @@ describe("planned-branch Node runtime CLI entrypoint", () => {
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: planned-branch");
 		expect(result.stdout).toContain("--runtime");
-		expect(result.stdout).toContain("exec");
+		// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from top-level help.
+		expect(result.stdout).not.toContain("exec");
 	});
 
 	test("prints TypeScript runtime diagnostics", () => {
