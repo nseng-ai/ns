@@ -1,5 +1,6 @@
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import { composePiAgentPrompt, loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
+import { buildCuratedRunnerSubagentContext, type CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
 import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
 import {
 	dispatchRunnerSubagent,
@@ -46,6 +47,7 @@ export interface DispatchRunnerSubagentDetails {
 	status: RunnerSubagentResult["status"];
 	title?: string;
 	requestedModel?: string;
+	curatedContext?: CuratedRunnerSubagentContextAudit;
 	elapsedMs: number;
 	sessionFile?: string;
 	progress: RunnerSubagentResult["progress"];
@@ -58,9 +60,15 @@ export interface DispatchRunnerSubagentDetails {
 	protocolError?: unknown;
 }
 
+interface DispatchRunnerSubagentSessionManager {
+	getBranch?(): readonly unknown[];
+	getEntries?(): readonly unknown[];
+}
+
 export interface ExtensionContext {
 	cwd: string;
 	model?: ModelInfo;
+	sessionManager?: DispatchRunnerSubagentSessionManager;
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, text: string | undefined): void;
@@ -135,7 +143,13 @@ export default function dispatchRunnerSubagentExtension(
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
-			const childPrompt = composePiAgentPrompt(runnerDefinition, input);
+			const curatedContext = buildCuratedRunnerSubagentContext({
+				title: input.title,
+				prompt: input.prompt,
+				cwd: ctx.cwd,
+				sessionEntries: ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [],
+			});
+			const childPrompt = `${curatedContext.markdown}\n\n${composePiAgentPrompt(runnerDefinition, input)}`;
 			const launch =
 				resolveRunnerSubagentLaunch(pi, ctx, {
 					prompt: childPrompt,
@@ -148,7 +162,7 @@ export default function dispatchRunnerSubagentExtension(
 			};
 			onUpdate?.({
 				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
-				details: { status: "starting", title: input.title, progress: initialUpdate.progress },
+				details: { status: "starting", title: input.title, progress: initialUpdate.progress, curatedContext: curatedContext.audit },
 			});
 			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
 
@@ -175,7 +189,7 @@ export default function dispatchRunnerSubagentExtension(
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-					details: dispatchRunnerSubagentDetails(result, { requestedModel: input.model }),
+					details: dispatchRunnerSubagentDetails(result, { requestedModel: input.model, curatedContext: curatedContext.audit }),
 				};
 			} finally {
 				setWidget(ctx, undefined);
@@ -218,7 +232,7 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 
 export function dispatchRunnerSubagentDetails(
 	result: RunnerSubagentResult,
-	options: { requestedModel?: string | undefined } = {},
+	options: { requestedModel?: string | undefined; curatedContext?: CuratedRunnerSubagentContextAudit | undefined } = {},
 ): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
 	const sessionFile = runnerSubagentSessionFile(result);
@@ -226,6 +240,7 @@ export function dispatchRunnerSubagentDetails(
 		status: result.status,
 		...(title === undefined ? {} : { title }),
 		...(options.requestedModel === undefined ? {} : { requestedModel: options.requestedModel }),
+		...(options.curatedContext === undefined ? {} : { curatedContext: options.curatedContext }),
 		elapsedMs: result.elapsedMs,
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,
