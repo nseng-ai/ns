@@ -145,7 +145,7 @@ export interface LiveRegion extends AnalysisVerdicts {
 	episodeIndex: number | null;
 }
 
-export type LiveSource = "context-event" | "branch-fallback";
+export type LiveSource = "context-event" | "session-context" | "branch-fallback";
 
 export interface TurnCapInfo {
 	originalCount: number;
@@ -305,21 +305,22 @@ function skillContentText(skill: Skill): string {
 }
 
 export interface LiveTurnsInput {
-	/** Messages from the latest `context` event, or null if none arrived yet. */
+	/** Messages from the latest `context` event or reconstructed session context, or null if neither exists yet. */
 	contextMessages: readonly unknown[] | null;
-	/** Session-branch entries, the pre-first-event fallback. */
+	/** Provenance for `contextMessages`. */
+	contextSource?: LiveSource | null;
+	/** Session-branch entries, the last-resort display fallback. */
 	branchEntries: readonly SessionEntry[];
 }
 
 /**
- * Select the live source and derive turns. The `context` event is
- * authoritative whenever one has been received this session; the branch
- * fallback is used only before the first event arrives (rule documented in
- * runtime.ts).
+ * Select the live source and derive turns. Captured or reconstructed context
+ * messages are authoritative for the snapshot; raw branch entries are only a
+ * display fallback when no message list could be assembled.
  */
 export function deriveLiveTurns(input: LiveTurnsInput): { turns: LiveTurn[]; source: LiveSource } {
 	if (input.contextMessages !== null) {
-		return { turns: buildTurnsFromMessages(input.contextMessages), source: "context-event" };
+		return { turns: buildTurnsFromMessages(input.contextMessages), source: input.contextSource ?? "context-event" };
 	}
 	return { turns: buildTurnsFromEntries(input.branchEntries), source: "branch-fallback" };
 }

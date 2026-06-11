@@ -19,7 +19,7 @@ import { createPiInterrogationSessionFactory } from "./context-profiler/interrog
 import type { InterrogationScope } from "./context-profiler/interrogation-prompt.ts";
 import {
 	buildProfile,
-	capturePromptState,
+	captureCurrentState,
 	createProfilerState,
 	handleBeforeAgentStart,
 	handleContext,
@@ -90,8 +90,8 @@ class ProfilerRuntimeStore {
 		this.state = handleContext(event, this.state);
 	}
 
-	capturePromptState(ctx: ExtensionContext): ProfilerState {
-		this.state = capturePromptState(ctx, this.state);
+	captureCurrentState(ctx: ExtensionContext): ProfilerState {
+		this.state = captureCurrentState(ctx, this.state);
 		return this.state;
 	}
 }
@@ -131,12 +131,10 @@ function openProfiler(options: OpenProfilerOptions): void {
 		return;
 	}
 	closeProfiler(ctx, sessions);
-	// before_agent_start only fires on the next turn; pull the current prompt
-	// state directly so BASE is populated even right after an extension reload.
-	let state = runtime.current();
-	if (state.lastPromptOptions === null) {
-		state = runtime.capturePromptState(ctx);
-	}
+	// before_agent_start and context events only fire on model turns; pull the
+	// current prompt and session-context state directly so the profiler works
+	// immediately after an extension reload.
+	const state = runtime.captureCurrentState(ctx);
 	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
 	const session: OverlaySession = {
@@ -199,7 +197,7 @@ function openProfiler(options: OpenProfilerOptions): void {
 					onRefresh: () => {
 						session.interrogation?.dispose();
 						session.interrogation = null;
-						const refreshedState = runtime.capturePromptState(ctx);
+						const refreshedState = runtime.captureCurrentState(ctx);
 						const refreshedProfile = buildProfile(ctx, refreshedState);
 						const refreshedSegmentation = startWork(refreshedState, refreshedProfile, true);
 						return { profile: refreshedProfile, segmentation: refreshedSegmentation, persistence: session.persistence };
@@ -243,7 +241,7 @@ function openInterrogation(options: {
 }): { ok: true; port: InterrogationViewPort } | { ok: false; reason: string } {
 	const { ctx, session } = options;
 	if (session.persistence.type !== "persisted") return { ok: false, reason: bundleUnavailableReason(session.persistence) };
-	if (ctx.model === undefined) return { ok: false, reason: "host session has no selected model" };
+	if (ctx.model === undefined) return { ok: false, reason: "The host session has no selected model, so the interrogation agent cannot start." };
 	if (session.interrogation === null || session.interrogation.bundleOrdinal !== session.persistence.ordinal) {
 		session.interrogation?.dispose();
 		session.interrogation = new InterrogationController({
@@ -273,13 +271,13 @@ function openInterrogation(options: {
 function bundleUnavailableReason(state: BundlePersistenceState): string {
 	switch (state.type) {
 		case "pending":
-			return "bundle is still being written";
+			return "The context bundle is still being written. Wait a moment, then press Esc and p again.";
 		case "skipped":
-			return state.message;
+			return `Interrogation needs a context bundle, but this snapshot could not be bundled: ${state.message}`;
 		case "failed":
-			return state.message;
+			return `The context bundle could not be written: ${state.message}. Interrogation is disabled because it can only read bundles from disk.`;
 		case "persisted":
-			return "bundle unavailable";
+			return "The context bundle is unavailable, so interrogation cannot start.";
 	}
 }
 

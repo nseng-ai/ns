@@ -67,12 +67,12 @@ export function chatScrollWindow(options: { lines: readonly ChatLine[]; height: 
 }
 
 export function chatFrameMeta(options: { ordinal: number | null; scope: InterrogationScope }): string {
-	const ordinal = options.ordinal === null ? "bundle unavailable" : `bundle #${options.ordinal}`;
+	const ordinal = options.ordinal === null ? "interrogation unavailable" : `bundle #${options.ordinal}`;
 	return `${ordinal} · ${scopeLabel(options.scope)}`;
 }
 
 export function chatHint(options: { isStreaming: boolean; isDegraded: boolean }): string {
-	if (options.isDegraded) return "interrogation unavailable · esc back";
+	if (options.isDegraded) return "interrogation unavailable · reason shown above · esc back";
 	if (options.isStreaming) return "streaming · Ctrl+C abort · esc back";
 	return "ask about frozen bundle · enter submit · esc back";
 }

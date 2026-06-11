@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import { buildBundleSnapshot, buildEpisodesFileJson, computeBundleContentHash } from "../src/context-profiler/bundle.ts";
+import { captureCurrentState, createProfilerState, startBundlePersist } from "../src/context-profiler/runtime.ts";
+import { FakeBundleStore, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
 
 describe("context-profiler bundle", () => {
-	test("refuses to build before provider context exists", () => {
+	test("refuses to build before any context message list exists", () => {
 		const result = buildBundleSnapshot({
 			messages: null,
 			systemPrompt: "sys",
@@ -56,6 +58,52 @@ describe("context-profiler bundle", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.code).toBe("unserializable-message");
+	});
+
+	test("captures session context so reload can persist a bundle before the next provider event", async () => {
+		const ctx = {
+			getSystemPrompt: () => "system",
+			sessionManager: {
+				getEntries: () => [
+					{
+						id: "m1",
+						parentId: null,
+						timestamp: "2026-01-01T00:00:00Z",
+						type: "message",
+						message: { role: "user", content: "already here" },
+					},
+				],
+				getLeafId: () => "m1",
+			},
+		} as never;
+		const state = captureCurrentState(ctx, createProfilerState());
+		const profile = makeProfile(sequentialTurns(1), { liveSource: "session-context" });
+		const store = new FakeBundleStore({
+			persistResult: { ok: true, value: { ordinal: 1, dir: "/bundle", contentHash: "abc", byteSize: 1, sessionTotalBytes: 1, reused: false, sessionId: "sid", model: "p/m", turnCount: 1, capturedAt: "now" } },
+		});
+
+		const result = startBundlePersist({ store, state, profile, sessionId: "sid", onUpdate: () => {} });
+
+		expect(result.initial).toEqual({ type: "pending" });
+		expect(await result.whenPersisted).toMatchObject({ ordinal: 1 });
+		expect(state.latestContextSource).toBe("session-context");
+		expect(store.persistedSnapshots[0]?.messagesJsonl).toContain("already here");
+	});
+
+	test("bundle persist skip explains missing context without requiring a throwaway prompt", async () => {
+		const state = createProfilerState();
+		const profile = makeProfile(sequentialTurns(2), { liveSource: "branch-fallback" });
+		const store = new FakeBundleStore({
+			persistResult: { ok: false, error: { code: "io-error", message: "should not persist" } },
+		});
+
+		const result = startBundlePersist({ store, state, profile, sessionId: "sid", onUpdate: () => {} });
+
+		expect(result.initial).toMatchObject({ type: "skipped", reason: "no-provider-context" });
+		expect(result.initial.type === "skipped" && result.initial.message).toContain("contextEvents=0");
+		expect(result.initial.type === "skipped" && result.initial.message).not.toContain("Send one normal prompt");
+		expect(await result.whenPersisted).toBeNull();
+		expect(store.persistedSnapshots).toEqual([]);
 	});
 
 	test("episodes file records terminal skipped outcomes", () => {

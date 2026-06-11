@@ -2,20 +2,22 @@
  * Live-update state for the context profiler: what the extension has captured
  * from session events, and how a frozen ProfileSnapshot is assembled from it.
  *
- * Authoritative-source rule: the `context` event carries the exact messages
- * sent to the provider and is authoritative whenever one has been received
- * this session. The session-branch fallback is used only before the first
- * `context` event arrives (e.g. the profiler is opened before any prompt is
- * sent). The snapshot records which source was used (`liveSource`), surfaced
- * in the view's `?` help layer rather than always-on chrome.
+ * Source rule: the `context` event carries the exact messages sent to a
+ * provider request while this extension instance is loaded. When the extension
+ * has just reloaded, the profiler reconstructs the active session context from
+ * the session tree so the overlay and interrogation can start immediately
+ * without requiring a throwaway host prompt. The snapshot records which source
+ * was used (`liveSource`), surfaced in the view's `?` help layer rather than
+ * always-on chrome.
  */
 
-import type {
-	BeforeAgentStartEvent,
-	BuildSystemPromptOptions,
-	ContextEvent,
-	ExtensionCommandContext,
-	ExtensionContext,
+import {
+	buildSessionContext,
+	type BeforeAgentStartEvent,
+	type BuildSystemPromptOptions,
+	type ContextEvent,
+	type ExtensionCommandContext,
+	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { buildEpisodeAnalysisPayload } from "./analysis.ts";
 import type { AnalysisModelGateway } from "./analysis-model-gateway.ts";
@@ -28,6 +30,7 @@ import {
 	deriveLiveTurns,
 	type DelegationClaim,
 	type EpisodeAnnotation,
+	type LiveSource,
 	type ProfileSnapshot,
 } from "./model.ts";
 import {
@@ -52,6 +55,11 @@ export interface ProfilerState {
 	lastPromptOptions: BuildSystemPromptOptions | null;
 	lastSystemPrompt: string | null;
 	latestContextMessages: readonly unknown[] | null;
+	latestContextSource: LiveSource | null;
+	contextEventCount: number;
+	lastContextEventAt: string | null;
+	beforeAgentStartEventCount: number;
+	lastBeforeAgentStartEventAt: string | null;
 	segmentationCache: SegmentationCacheEntry | null;
 }
 
@@ -60,6 +68,11 @@ export function createProfilerState(): ProfilerState {
 		lastPromptOptions: null,
 		lastSystemPrompt: null,
 		latestContextMessages: null,
+		latestContextSource: null,
+		contextEventCount: 0,
+		lastContextEventAt: null,
+		beforeAgentStartEventCount: 0,
+		lastBeforeAgentStartEventAt: null,
 		segmentationCache: null,
 	};
 }
@@ -69,6 +82,8 @@ export function handleBeforeAgentStart(event: BeforeAgentStartEvent, state: Prof
 		...state,
 		lastPromptOptions: event.systemPromptOptions,
 		lastSystemPrompt: event.systemPrompt,
+		beforeAgentStartEventCount: state.beforeAgentStartEventCount + 1,
+		lastBeforeAgentStartEventAt: new Date().toLocaleTimeString(),
 	};
 }
 
@@ -76,6 +91,9 @@ export function handleContext(event: ContextEvent, state: ProfilerState): Profil
 	return {
 		...state,
 		latestContextMessages: [...event.messages],
+		latestContextSource: "context-event",
+		contextEventCount: state.contextEventCount + 1,
+		lastContextEventAt: new Date().toLocaleTimeString(),
 	};
 }
 
@@ -96,6 +114,17 @@ export function capturePromptState(ctx: ExtensionContext, state: ProfilerState):
 	};
 }
 
+export function captureCurrentState(ctx: ExtensionContext, state: ProfilerState): ProfilerState {
+	const promptState = capturePromptState(ctx, state);
+	if (promptState.latestContextMessages !== null) return promptState;
+	const sessionContext = buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId());
+	return {
+		...promptState,
+		latestContextMessages: [...sessionContext.messages],
+		latestContextSource: "session-context",
+	};
+}
+
 function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptions | null {
 	const candidate = (ctx as { getSystemPromptOptions?: unknown }).getSystemPromptOptions;
 	if (typeof candidate !== "function") return null;
@@ -110,6 +139,7 @@ function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptio
 export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState): ProfileSnapshot {
 	const live = deriveLiveTurns({
 		contextMessages: state.latestContextMessages,
+		contextSource: state.latestContextSource,
 		branchEntries: ctx.sessionManager.getBranch(),
 	});
 	const capped = capTurns(live.turns);
@@ -150,7 +180,7 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 	});
 	if (!snapshot.ok) {
 		const skipped: BundlePersistenceState = snapshot.error.code === "no-provider-context"
-			? { type: "skipped", reason: "no-provider-context", message: snapshot.error.message }
+			? { type: "skipped", reason: "no-provider-context", message: noProviderContextMessage(options.state, options.profile) }
 			: { type: "failed", message: snapshot.error.message };
 		return { initial: skipped, whenPersisted: Promise.resolve(null) };
 	}
@@ -167,6 +197,12 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 		return null;
 	});
 	return { initial: { type: "pending" }, whenPersisted };
+}
+
+function noProviderContextMessage(state: ProfilerState, profile: ProfileSnapshot): string {
+	const lastContext = state.lastContextEventAt ?? "never";
+	const lastBeforeAgentStart = state.lastBeforeAgentStartEventAt ?? "never";
+	return `No context messages are available for this snapshot. The profiler can still show ${profile.liveTurns.length.toLocaleString()} ${profile.liveSource} turn(s), but interrogation requires a bundle built from provider or reconstructed session context. Press r or reopen /context-profiler to retry. Debug: contextEvents=${state.contextEventCount.toLocaleString()} (last=${lastContext}); beforeAgentStartEvents=${state.beforeAgentStartEventCount.toLocaleString()} (last=${lastBeforeAgentStart}); latestContextMessages=null; liveSource=${profile.liveSource}.`;
 }
 
 function persistenceStateFromBundle(bundle: PersistedBundle): BundlePersistenceState {

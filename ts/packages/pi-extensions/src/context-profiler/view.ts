@@ -540,7 +540,7 @@ export class ProfilerView implements Component {
 
 	private composeChatBody(frame: ChatFrame, innerWidth: number, bodyHeight: number): string[] {
 		const editor = this.ensureChatEditor();
-		const state = frame.port?.getState() ?? { entries: [{ type: "notice" as const, text: frame.degradedReason ?? "interrogation unavailable" }], isStreaming: false };
+		const state = frame.port?.getState() ?? unavailableTranscript(frame.degradedReason);
 		editor.disableSubmit = state.isStreaming || frame.port === null;
 		const editorLines = editor.render(innerWidth);
 		const transcriptHeight = Math.max(1, bodyHeight - editorLines.length - 2);
@@ -718,6 +718,16 @@ export class ProfilerView implements Component {
 
 function frameInnerWidth(width: number): number {
 	return Math.max(16, width - 4);
+}
+
+function unavailableTranscript(reason: string | null): TranscriptState {
+	return {
+		entries: [
+			{ type: "notice", text: "Interrogation is unavailable for this snapshot." },
+			{ type: "notice", text: `Reason: ${reason ?? "No unavailable reason was provided."}` },
+		],
+		isStreaming: false,
+	};
 }
 
 function pinFooter(lines: readonly string[], footer: string, bodyHeight: number): string[] {

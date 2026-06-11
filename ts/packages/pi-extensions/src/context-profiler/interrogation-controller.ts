@@ -59,6 +59,7 @@ export class InterrogationController {
 			bundleDir: this.bundle.dir,
 			systemPrompt: buildInterrogationSystemPrompt({
 				sessionId: this.bundle.sessionId,
+				bundleDir: this.bundle.dir,
 				model: this.bundle.model,
 				turnCount: this.bundle.turnCount,
 				capturedAt: this.bundle.capturedAt,

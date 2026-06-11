@@ -388,7 +388,13 @@ describe("deriveLiveTurns", () => {
 		expect(live.turns).toHaveLength(0);
 	});
 
-	test("falls back to branch entries before the first context event", () => {
+	test("uses session-context provenance for reconstructed reload snapshots", () => {
+		const live = deriveLiveTurns({ contextMessages: [{ role: "user", content: "hi" }], contextSource: "session-context", branchEntries: [] });
+		expect(live.source).toBe("session-context");
+		expect(live.turns).toHaveLength(1);
+	});
+
+	test("falls back to branch entries before any message list exists", () => {
 		const branchEntries = [
 			{
 				id: "e",
