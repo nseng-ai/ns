@@ -37,9 +37,24 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	 * ledger.
 	 */
 	legacyMachine?: (exit: ClinkrExit<T>) => LegacyMachineOutput;
-	/** Raw-exit escape hatch: handler returns a process exit code directly. */
-	isRawExit?: true;
+	/** Rendered commands cannot opt into raw mode; use `@asdl/clinkr/raw`. */
+	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+}
+
+export interface RawCommandSpec<TContext, S extends z.ZodObject> {
+	name: string;
+	description?: string;
+	/** Short summary for parent help lists; omitted from leaf command help body. */
+	summary?: string;
+	schema: S;
+	isRawExit: true;
+	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
+	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+	handler?: never;
+	resultSchema?: never;
+	renderHuman?: never;
+	legacyMachine?: never;
 }
 
 export interface ClinkrGroupOptions {
@@ -63,12 +78,21 @@ interface RegisteredCommand<TContext> {
 	description: string | undefined;
 	summary: string | undefined;
 	schema: z.ZodObject;
+	execution: RenderedExecution<TContext> | RawExecution<TContext>;
+	plan: SurfacePlan;
+}
+
+interface RenderedExecution<TContext> {
+	type: "rendered";
 	resultSchema: z.ZodType | undefined;
 	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown) => string) | undefined;
 	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
-	isRawExit: boolean;
-	plan: SurfacePlan;
+}
+
+interface RawExecution<TContext> {
+	type: "raw";
+	run: (ctx: TContext, request: unknown) => Promise<number>;
 }
 
 interface RunState {
@@ -108,22 +132,18 @@ export class ClinkrGroup<TContext> {
 		this.subgroups = [];
 	}
 
-	command<S extends z.ZodObject, T>(spec: ClinkrCommandSpec<TContext, S, T>): this {
+	command<S extends z.ZodObject>(spec: RawCommandSpec<TContext, S>): this;
+	command<S extends z.ZodObject, T>(spec: ClinkrCommandSpec<TContext, S, T>): this;
+	command<S extends z.ZodObject, T>(
+		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
+	): this {
 		const plan = buildSurfacePlan(spec.name, spec.schema, spec.positionals ?? {});
 		this.registeredCommands.push({
 			name: spec.name,
 			description: spec.description,
 			summary: spec.summary,
 			schema: spec.schema,
-			resultSchema: spec.resultSchema,
-			// Erase the command generics once; zod re-establishes the request shape
-			// at parse time, so the cast is backed by a runtime guarantee.
-			handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
-			renderHuman: spec.renderHuman as ((data: unknown) => string) | undefined,
-			legacyMachine: spec.legacyMachine as
-				| ((exit: ClinkrExit<unknown>) => LegacyMachineOutput)
-				| undefined,
-			isRawExit: spec.isRawExit ?? false,
+			execution: executionOf(spec),
 			plan,
 		});
 		return this;
@@ -196,6 +216,32 @@ export class ClinkrGroup<TContext> {
 	}
 }
 
+function executionOf<TContext, S extends z.ZodObject, T>(
+	spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
+): RenderedExecution<TContext> | RawExecution<TContext> {
+	if (spec.isRawExit === true) {
+		return {
+			type: "raw",
+			// Erase the command generics once; zod re-establishes the request shape
+			// at parse time, so the cast is backed by a runtime guarantee.
+			run: spec.run as (ctx: TContext, request: unknown) => Promise<number>,
+		};
+	}
+	return {
+		type: "rendered",
+		resultSchema: spec.resultSchema,
+		// Erase the command generics once; zod re-establishes the request shape
+		// at parse time, so the cast is backed by a runtime guarantee.
+		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
+		renderHuman: spec.renderHuman as ((data: unknown) => string) | undefined,
+		legacyMachine: spec.legacyMachine as ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined,
+	};
+}
+
+function assertNever(value: never): never {
+	throw new Error(`clinkr: unexpected execution type ${JSON.stringify(value)}`);
+}
+
 function commandAtPath(program: Command, path: readonly string[]): Command {
 	let current = program;
 	for (const name of path) {
@@ -246,7 +292,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	for (const optionPlan of registered.plan.options) {
 		command.addOption(buildCommanderOption(optionPlan));
 	}
-	if (!registered.isRawExit) {
+	if (registered.execution.type === "rendered") {
 		command.addOption(
 			new Option("--format <format>", "Output format.").choices(["human", "json"]).default("human"),
 		);
@@ -259,7 +305,9 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 		// Eager like --help: schema printing happens before required-argument
 		// validation, which lives entirely in zod below.
 		if (opts["jsonSchema"] === true) {
-			const document = buildJsonSchemaDocument(registered.schema, registered.resultSchema);
+			const resultSchema =
+				registered.execution.type === "rendered" ? registered.execution.resultSchema : undefined;
+			const document = buildJsonSchemaDocument(registered.schema, resultSchema);
 			io.stdout(`${JSON.stringify(document, null, 2)}\n`);
 			state.exitCode = 0;
 			return;
@@ -281,32 +329,38 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 			state.exitCode = 2;
 			return;
 		}
-		let exit: ClinkrExit<unknown>;
-		try {
-			exit = await registered.handler(context, parsed.data);
-		} catch (error) {
-			if (!(error instanceof ClinkrFailure)) throw error;
-			exit = { type: "failure", errorType: error.errorType, message: error.message };
-		}
-		if (registered.isRawExit) {
-			if (exit.type !== "ok") {
-				state.exitCode = emitExit(exit, { format: "human", io });
+		switch (registered.execution.type) {
+			case "raw":
+				try {
+					state.exitCode = await registered.execution.run(context, parsed.data);
+				} catch (error) {
+					if (!(error instanceof ClinkrFailure)) throw error;
+					state.exitCode = emitExit(
+						{ type: "failure", errorType: error.errorType, message: error.message },
+						{ format: "human", io },
+					);
+				}
+				return;
+			case "rendered": {
+				let exit: ClinkrExit<unknown>;
+				try {
+					exit = await registered.execution.handler(context, parsed.data);
+				} catch (error) {
+					if (!(error instanceof ClinkrFailure)) throw error;
+					exit = { type: "failure", errorType: error.errorType, message: error.message };
+				}
+				const format: ClinkrFormat = opts["format"] === "json" ? "json" : "human";
+				state.exitCode = emitExit(exit, {
+					format,
+					io,
+					renderHuman: registered.execution.renderHuman,
+					legacyMachine: registered.execution.legacyMachine,
+				});
 				return;
 			}
-			const okData = exit.data;
-			if (typeof okData !== "number") {
-				throw new Error("clinkr: raw command handler must return ok(exitCode: number)");
-			}
-			state.exitCode = okData;
-			return;
+			default:
+				assertNever(registered.execution);
 		}
-		const format: ClinkrFormat = opts["format"] === "json" ? "json" : "human";
-		state.exitCode = emitExit(exit, {
-			format,
-			io,
-			renderHuman: registered.renderHuman,
-			legacyMachine: registered.legacyMachine,
-		});
 	});
 	return command;
 }

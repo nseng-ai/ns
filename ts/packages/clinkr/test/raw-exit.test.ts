@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ClinkrFailure, negative, ok } from "../src/index.ts";
+import { ClinkrGroup, ClinkrFailure, ok, type ClinkrCommandSpec } from "../src/index.ts";
 import { rawCommand } from "../src/raw/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
@@ -185,23 +185,28 @@ describe("raw-exit escape hatch", () => {
 		});
 	});
 
-	describe("non-number ok data invariant", () => {
-		test("returns invariant error when handler returns non-number in ok", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
-			group.command({
+	describe("illegal raw spec states are unrepresentable", () => {
+		test("rendered command specs cannot opt into raw mode", () => {
+			const schema = z.object({});
+			const spec: ClinkrCommandSpec<null, typeof schema, number> = {
+				name: "act",
+				schema,
+				handler: async () => ok(0),
+				// @ts-expect-error rendered specs cannot set the raw discriminant
+				isRawExit: true,
+			};
+			expect(spec.name).toBe("act");
+		});
+
+		test("rawCommand cannot accept rendered-only renderHuman", () => {
+			const spec = rawCommand({
 				name: "act",
 				schema: z.object({}),
-				handler: async () => ok("not a number"),
-				isRawExit: true,
+				run: async () => 0,
+				// @ts-expect-error raw command options do not include rendered-only hooks
+				renderHuman: () => "rendered",
 			});
-			let errorThrown: Error | undefined;
-			try {
-				await group.run(["act"], { context: null });
-			} catch (error) {
-				errorThrown = error as Error;
-			}
-			expect(errorThrown).toBeDefined();
-			expect(errorThrown?.message).toContain("raw command handler must return ok(exitCode: number)");
+			expect(spec.name).toBe("act");
 		});
 	});
 
