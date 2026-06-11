@@ -499,7 +499,7 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 }
 
 function isCliUsageError(details: CliCommandOutputDetails): boolean {
-	return details.exitCode === 2 && details.stderr.startsWith("Error:");
+	return details.exitCode === 2 && (details.stderr.startsWith("Error:") || details.stderr.startsWith("error:"));
 }
 
 interface LiveCommandProgressOptions {
