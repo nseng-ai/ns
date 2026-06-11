@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./legacy": "./src/legacy/index.ts",
+    "./raw": "./src/raw/index.ts",
     "./testing": "./src/testing/index.ts"
   },
   "files": ["src"],
