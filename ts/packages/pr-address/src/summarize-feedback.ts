@@ -1,13 +1,7 @@
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
-import {
-	fetchFeedbackSnapshot,
-	gatewayFailureMessage,
-	gatewayOptions,
-	githubGateway,
-	parsePrNumberOperation,
-	type FeedbackSnapshot,
-} from "./feedback-collection.ts";
+import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
+import { gatewayFailureMessage, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";

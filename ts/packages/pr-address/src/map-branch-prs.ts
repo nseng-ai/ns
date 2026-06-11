@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 import { clinkrFailure, clinkrNegative, clinkrOk } from "./clinkr-envelope.ts";
-import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./feedback-collection.ts";
 import type { PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
+import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const mapBranchPrsInputSchema = z.looseObject({

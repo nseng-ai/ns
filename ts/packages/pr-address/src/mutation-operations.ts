@@ -5,6 +5,7 @@ import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGatew
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
+import { gatewayFailureDetail } from "./operation-support.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
@@ -373,10 +374,6 @@ function gatewayOptions(invocation: ExecOperationInvocation): GatewayOptions {
 
 function gatewayFailureExit(prefix: string, failure: GatewayFailure): ExecOperationDispatchResult {
 	return { type: "exit", exit: clinkrFailure("pr_gateway_failure", `${prefix}: ${gatewayFailureDetail(failure)}`) };
-}
-
-function gatewayFailureDetail(failure: GatewayFailure): string {
-	return failure.stderr ?? failure.stdout ?? `exit code ${failure.returncode}`;
 }
 
 function failure(errorType: string, message: string): ExecOperationDispatchResult {
