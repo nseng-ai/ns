@@ -1,11 +1,15 @@
-import { spawnSync } from "node:child_process";
 import { closeSync, openSync, readSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+
+import type { ExecResult } from "@asdl/core/exec";
+
+export type CuratedContextExecGit = (args: readonly string[], timeoutMs: number) => Promise<ExecResult>;
 
 export interface BuildCuratedRunnerSubagentContextInput {
 	title: string;
 	prompt: string;
 	cwd: string;
+	execGit: CuratedContextExecGit;
 }
 
 export interface CuratedRunnerSubagentContext {
@@ -14,7 +18,6 @@ export interface CuratedRunnerSubagentContext {
 }
 
 export interface CuratedRunnerSubagentContextAudit {
-	enabled: true;
 	includedPaths: readonly string[];
 	omittedPaths: readonly string[];
 	unreadablePaths: readonly string[];
@@ -24,19 +27,9 @@ export interface CuratedRunnerSubagentContextAudit {
 	notes: readonly string[];
 }
 
-type CandidateReason = "mentioned" | "git-status" | "git-diff";
+type CandidateReason = "mentioned" | "git-status";
 
 type CandidateOutcomeReason = CandidateReason | "candidate-limit" | "outside-cwd" | "not-file";
-
-interface FileCandidate {
-	path: string;
-	reasons: Set<CandidateReason>;
-}
-
-interface CandidateUpdate {
-	path: string;
-	candidate: FileCandidate;
-}
 
 interface IncludedSource {
 	path: string;
@@ -49,13 +42,13 @@ interface IncludedSource {
 interface CandidateNote {
 	path: string;
 	reason: CandidateOutcomeReason;
+	reasons: readonly CandidateReason[];
 	note: string;
 }
 
 interface GitEvidence {
 	isAvailable: boolean;
 	statusShort?: string;
-	diffNameOnly?: string;
 	diffStat?: string;
 	notes: readonly string[];
 }
@@ -71,41 +64,49 @@ interface ResolvedCandidatePath {
 	relativePath: string;
 }
 
-interface TextExcerptResult {
-	excerpt: string;
-	isTruncated: boolean;
-}
+type TextExcerptResult = { ok: true; excerpt: string; isTruncated: boolean } | { ok: false; note: string };
 
 const MAX_MARKDOWN_CHARS = 48_000;
 const MAX_INCLUDED_FILES = 6;
+const MAX_CANDIDATES = 30;
 const MAX_FILE_READ_BYTES = 128_000;
 const MAX_FILE_EXCERPT_CHARS = 4_000;
 const MAX_TASK_PREVIEW_CHARS = 1_200;
 const MAX_GIT_OUTPUT_CHARS = 4_000;
+const GIT_TIMEOUT_MS = 2_000;
 
-export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubagentContextInput): CuratedRunnerSubagentContext {
+export async function buildCuratedRunnerSubagentContext(
+	input: BuildCuratedRunnerSubagentContextInput,
+): Promise<CuratedRunnerSubagentContext> {
 	const cwd = resolve(input.cwd);
-	const gitEvidence = collectGitEvidence(cwd);
+	const gitEvidence = await collectGitEvidence(input.execGit);
 	const candidates = collectFileCandidates(input, gitEvidence);
 	const includedSources: IncludedSource[] = [];
 	const omittedCandidates: CandidateNote[] = [];
 	const unreadableCandidates: CandidateNote[] = [];
 	let isTruncated = false;
 
-	for (const candidate of candidates.values()) {
+	for (const [candidatePath, candidateReasons] of candidates) {
+		const reasons = [...candidateReasons];
 		if (includedSources.length >= MAX_INCLUDED_FILES) {
 			omittedCandidates.push({
-				path: candidate.path,
+				path: candidatePath,
 				reason: "candidate-limit",
+				reasons,
 				note: `Skipped after the first ${MAX_INCLUDED_FILES} readable candidates to keep the packet bounded.`,
 			});
 			isTruncated = true;
 			continue;
 		}
 
-		const resolved = resolveCandidatePath(cwd, candidate.path);
+		const resolved = resolveCandidatePath(cwd, candidatePath);
 		if (resolved === undefined) {
-			omittedCandidates.push({ path: candidate.path, reason: "outside-cwd", note: "Rejected because it resolves outside cwd." });
+			omittedCandidates.push({
+				path: candidatePath,
+				reason: "outside-cwd",
+				reasons,
+				note: "Rejected because it resolves outside cwd.",
+			});
 			continue;
 		}
 
@@ -113,28 +114,33 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 		try {
 			stat = statSync(resolved.absolutePath);
 		} catch (error) {
-			unreadableCandidates.push({ path: resolved.relativePath, reason: primaryReason(candidate), note: errorMessage(error) });
+			unreadableCandidates.push({ path: resolved.relativePath, reason: reasons[0] ?? "mentioned", reasons, note: errorMessage(error) });
 			continue;
 		}
 
 		if (!stat.isFile()) {
-			omittedCandidates.push({ path: resolved.relativePath, reason: "not-file", note: "Candidate exists but is not a regular file." });
+			omittedCandidates.push({
+				path: resolved.relativePath,
+				reason: "not-file",
+				reasons,
+				note: "Candidate exists but is not a regular file.",
+			});
 			continue;
 		}
 
-		const excerpt = readTextExcerpt(resolved.absolutePath, stat.size);
-		if (typeof excerpt === "string") {
-			unreadableCandidates.push({ path: resolved.relativePath, reason: primaryReason(candidate), note: excerpt });
+		const loaded = readTextExcerpt(resolved.absolutePath, stat.size);
+		if (!loaded.ok) {
+			unreadableCandidates.push({ path: resolved.relativePath, reason: reasons[0] ?? "mentioned", reasons, note: loaded.note });
 			continue;
 		}
 
-		if (excerpt.isTruncated) isTruncated = true;
+		if (loaded.isTruncated) isTruncated = true;
 		includedSources.push({
 			path: resolved.relativePath,
-			reasons: [...candidate.reasons],
-			excerpt: excerpt.excerpt,
-			isTruncated: excerpt.isTruncated,
-			chars: excerpt.excerpt.length,
+			reasons,
+			excerpt: loaded.excerpt,
+			isTruncated: loaded.isTruncated,
+			chars: loaded.excerpt.length,
 		});
 	}
 
@@ -146,12 +152,10 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 		includedSources,
 		omittedCandidates,
 		unreadableCandidates,
-		isTruncated,
 	});
 	const markdown = boundMarkdown(draft);
 	const wasMarkdownTruncated = markdown.length !== draft.length;
 	const audit: CuratedRunnerSubagentContextAudit = {
-		enabled: true,
 		includedPaths: includedSources.map((source) => source.path),
 		omittedPaths: omittedCandidates.map((candidate) => candidate.path),
 		unreadablePaths: unreadableCandidates.map((candidate) => candidate.path),
@@ -163,63 +167,60 @@ export function buildCuratedRunnerSubagentContext(input: BuildCuratedRunnerSubag
 	return { markdown, audit };
 }
 
-function collectGitEvidence(cwd: string): GitEvidence {
-	const status = runGit(cwd, ["status", "--short"]);
-	const diffNameOnly = runGit(cwd, ["diff", "--name-only"]);
-	const diffStat = runGit(cwd, ["diff", "--stat"]);
-	const commands = [status, diffNameOnly, diffStat];
+async function collectGitEvidence(execGit: CuratedContextExecGit): Promise<GitEvidence> {
+	const [status, diffStat] = await Promise.all([runGit(execGit, ["status", "--short"]), runGit(execGit, ["diff", "--stat"])]);
+	const commands = [status, diffStat];
 	const notes = commands.flatMap((command) => (command.ok ? [] : [command.diagnostic ?? "git command failed"]));
 	return {
 		isAvailable: commands.some((command) => command.ok),
-		...(status.ok ? { statusShort: truncateText(status.stdout.trim(), MAX_GIT_OUTPUT_CHARS) } : {}),
-		...(diffNameOnly.ok ? { diffNameOnly: truncateText(diffNameOnly.stdout.trim(), MAX_GIT_OUTPUT_CHARS) } : {}),
-		...(diffStat.ok ? { diffStat: truncateText(diffStat.stdout.trim(), MAX_GIT_OUTPUT_CHARS) } : {}),
+		...(status.ok ? { statusShort: status.stdout.trim() } : {}),
+		...(diffStat.ok ? { diffStat: diffStat.stdout.trim() } : {}),
 		notes,
 	};
 }
 
-function runGit(cwd: string, args: readonly string[]): CommandResult {
-	const result = spawnSync("git", [...args], { cwd, encoding: "utf8", timeout: 1_500, maxBuffer: 64_000 });
-	if (result.error !== undefined) {
-		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} unavailable: ${errorMessage(result.error)}` };
+async function runGit(execGit: CuratedContextExecGit, args: readonly string[]): Promise<CommandResult> {
+	let result: ExecResult;
+	try {
+		result = await execGit(args, GIT_TIMEOUT_MS);
+	} catch (error) {
+		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} failed: ${errorMessage(error)}` };
 	}
-	if (result.status !== 0) {
-		const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
+	if (result.startupError !== undefined) {
+		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} unavailable: ${result.startupError}` };
+	}
+	if (result.killed) {
+		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} timed out after ${GIT_TIMEOUT_MS}ms.` };
+	}
+	if (result.code !== 0) {
+		const stderr = result.stderr.trim();
 		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} failed${stderr.length === 0 ? "" : `: ${truncateText(stderr, 240)}`}` };
 	}
-	return { ok: true, stdout: typeof result.stdout === "string" ? result.stdout : "" };
+	return { ok: true, stdout: result.stdout };
 }
 
-function collectFileCandidates(input: BuildCuratedRunnerSubagentContextInput, gitEvidence: GitEvidence): Map<string, FileCandidate> {
-	const candidates = new Map<string, FileCandidate>();
-	function applyCandidateUpdate(path: string, reason: CandidateReason): void {
-		const update = buildCandidateUpdate(candidates, path, reason);
-		if (update === null) return;
-		candidates.set(update.path, update.candidate);
-	}
-	for (const path of extractMentionedPaths(`${input.title}\n${input.prompt}`)) applyCandidateUpdate(path, "mentioned");
-	for (const path of parseGitStatusPaths(gitEvidence.statusShort ?? "")) applyCandidateUpdate(path, "git-status");
-	for (const path of lines(gitEvidence.diffNameOnly ?? "")) applyCandidateUpdate(path, "git-diff");
+function collectFileCandidates(input: BuildCuratedRunnerSubagentContextInput, gitEvidence: GitEvidence): Map<string, Set<CandidateReason>> {
+	const candidates = new Map<string, Set<CandidateReason>>();
+	for (const path of extractMentionedPaths(`${input.title}\n${input.prompt}`)) addCandidate(candidates, path, "mentioned");
+	for (const path of parseGitStatusPaths(gitEvidence.statusShort ?? "")) addCandidate(candidates, path, "git-status");
 	return candidates;
 }
 
-function buildCandidateUpdate(candidates: ReadonlyMap<string, FileCandidate>, path: string, reason: CandidateReason): CandidateUpdate | null {
+function addCandidate(candidates: Map<string, Set<CandidateReason>>, path: string, reason: CandidateReason): void {
 	const normalized = normalizeMentionedPath(path);
-	if (normalized.length === 0) return null;
+	if (normalized.length === 0) return;
 	const existing = candidates.get(normalized);
 	if (existing !== undefined) {
-		return { path: normalized, candidate: { path: existing.path, reasons: new Set([...existing.reasons, reason]) } };
+		existing.add(reason);
+		return;
 	}
-	return { path: normalized, candidate: { path: normalized, reasons: new Set([reason]) } };
+	if (candidates.size >= MAX_CANDIDATES) return;
+	candidates.set(normalized, new Set([reason]));
 }
 
 function extractMentionedPaths(text: string): readonly string[] {
 	const paths = new Set<string>();
 	for (const match of text.matchAll(/`([^`]+)`/g)) {
-		const value = match[1];
-		if (value !== undefined && looksLikePath(value)) paths.add(value);
-	}
-	for (const match of text.matchAll(/(?:^|[\s"'(<])((?:\.?\.?\/?[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+|[A-Za-z0-9_.-]+\.[A-Za-z0-9][A-Za-z0-9_.-]*)(?=$|[\s"'),;:>])/g)) {
 		const value = match[1];
 		if (value !== undefined && looksLikePath(value)) paths.add(value);
 	}
@@ -238,10 +239,11 @@ function normalizeMentionedPath(value: string): string {
 }
 
 function parseGitStatusPaths(statusShort: string): readonly string[] {
-	return lines(statusShort).map((line) => {
+	return statusShort.split("\n").flatMap((line) => {
+		if (line.trim().length === 0) return [];
 		const path = line.slice(3).trim();
 		const renameIndex = path.lastIndexOf(" -> ");
-		return renameIndex === -1 ? path : path.slice(renameIndex + 4);
+		return [renameIndex === -1 ? path : path.slice(renameIndex + 4)];
 	});
 }
 
@@ -265,7 +267,7 @@ function isInsideRoot(root: string, path: string): boolean {
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
-function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult | string {
+function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult {
 	let fd: number | undefined;
 	try {
 		fd = openSync(path, "r");
@@ -273,12 +275,12 @@ function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult | s
 		const buffer = Buffer.alloc(readBytes);
 		const bytesRead = readSync(fd, buffer, 0, readBytes, 0);
 		const data = buffer.subarray(0, bytesRead);
-		if (data.includes(0)) return "Skipped because the file appears to be binary.";
+		if (data.includes(0)) return { ok: false, note: "Skipped because the file appears to be binary." };
 		const text = data.toString("utf8").replace(/\r\n?/g, "\n");
 		const isTruncated = sizeBytes > bytesRead || text.length > MAX_FILE_EXCERPT_CHARS;
-		return { excerpt: truncateText(text, MAX_FILE_EXCERPT_CHARS), isTruncated };
+		return { ok: true, excerpt: truncateText(text, MAX_FILE_EXCERPT_CHARS), isTruncated };
 	} catch (error) {
-		return errorMessage(error);
+		return { ok: false, note: errorMessage(error) };
 	} finally {
 		if (fd !== undefined) closeSync(fd);
 	}
@@ -291,46 +293,42 @@ function renderCuratedContextMarkdown(options: {
 	includedSources: readonly IncludedSource[];
 	omittedCandidates: readonly CandidateNote[];
 	unreadableCandidates: readonly CandidateNote[];
-	isTruncated: boolean;
 }): string {
-	const linesOut = [
-		"## Auto-curated context",
-		"",
-		"This context was generated by the parent `dispatch_runner_subagent` tool. Treat it as orientation, not ground truth. Read cited files before editing.",
-		"",
-		"### Task focus",
-		`- Title: ${options.input.title}`,
-		"- Delegated prompt preview:",
-		blockquote(truncateText(options.input.prompt.trim(), MAX_TASK_PREVIEW_CHARS)),
-		"",
-		"### Repo/worktree facts",
-		`- Cwd: \`${options.cwd}\``,
-		...renderGitEvidence(options.gitEvidence),
-		"",
-		"### Included sources",
-		...renderIncludedSources(options.includedSources),
-		"",
-		"### Omitted or unreadable candidates",
-		...renderCandidateNotes(options.omittedCandidates, options.unreadableCandidates),
-		"",
-		"### Budget and truncation notes",
-		`- Approximate packet characters before final bounding: ${options.isTruncated ? "truncated" : "not truncated by file/session budgets"}.`,
+	const sections = [
+		[
+			"## Auto-curated context",
+			"",
+			"This context was generated by the parent `dispatch_runner_subagent` tool. Treat it as orientation, not ground truth. Read cited files before editing.",
+			"",
+			"### Task focus",
+			`- Title: ${options.input.title}`,
+			"- Delegated prompt preview:",
+			blockquote(truncateText(options.input.prompt.trim(), MAX_TASK_PREVIEW_CHARS)),
+			"",
+			"### Repo/worktree facts",
+			`- Cwd: \`${options.cwd}\``,
+			...renderGitEvidence(options.gitEvidence),
+		],
+		...optionalSection("### Included sources", renderIncludedSources(options.includedSources)),
+		...optionalSection("### Omitted or unreadable candidates", renderCandidateNotes(options.omittedCandidates, options.unreadableCandidates)),
 	];
-	return linesOut.join("\n");
+	return sections.flatMap((section, index) => (index === 0 ? section : ["", ...section])).join("\n");
+}
+
+function optionalSection(heading: string, body: readonly string[]): readonly string[][] {
+	return body.length === 0 ? [] : [[heading, ...body]];
 }
 
 function renderGitEvidence(gitEvidence: GitEvidence): string[] {
 	if (!gitEvidence.isAvailable) return ["- Git evidence unavailable; continue with explicit task context and read files directly."];
 	return [
-		"- Git evidence collected with `git status --short`, `git diff --name-only`, and `git diff --stat`.",
-		codeListItem("status --short", gitEvidence.statusShort),
-		codeListItem("diff --name-only", gitEvidence.diffNameOnly),
-		codeListItem("diff --stat", gitEvidence.diffStat),
+		"- Git evidence collected with `git status --short` and `git diff --stat`.",
+		codeListItem("status --short", truncateText(gitEvidence.statusShort ?? "", MAX_GIT_OUTPUT_CHARS)),
+		codeListItem("diff --stat", truncateText(gitEvidence.diffStat ?? "", MAX_GIT_OUTPUT_CHARS)),
 	];
 }
 
 function renderIncludedSources(sources: readonly IncludedSource[]): string[] {
-	if (sources.length === 0) return ["- No readable mentioned or changed source files were included."];
 	return sources.flatMap((source) => [
 		`#### \`${source.path}\``,
 		`- Reason: ${source.reasons.join(", ")}`,
@@ -342,11 +340,14 @@ function renderIncludedSources(sources: readonly IncludedSource[]): string[] {
 }
 
 function renderCandidateNotes(omitted: readonly CandidateNote[], unreadable: readonly CandidateNote[]): string[] {
-	const notes = [
-		...omitted.map((candidate) => `- Omitted \`${candidate.path}\` (${candidate.reason}): ${candidate.note}`),
-		...unreadable.map((candidate) => `- Unreadable \`${candidate.path}\` (${candidate.reason}): ${candidate.note}`),
+	const candidateLimitedCount = omitted.filter((candidate) => candidate.reason === "candidate-limit").length;
+	const visibleOmitted = omitted.filter((candidate) => candidate.reason !== "candidate-limit");
+	const visibleUnreadable = unreadable.filter((candidate) => candidate.reasons.includes("git-status"));
+	return [
+		...visibleOmitted.map((candidate) => `- Omitted \`${candidate.path}\` (${candidate.reason}): ${candidate.note}`),
+		...(candidateLimitedCount === 0 ? [] : [`- Omitted ${candidateLimitedCount} candidate(s) after the first ${MAX_INCLUDED_FILES} readable files.`]),
+		...visibleUnreadable.map((candidate) => `- Unreadable \`${candidate.path}\` (${candidate.reasons.join(", ")}): ${candidate.note}`),
 	];
-	return notes.length === 0 ? ["- None."] : notes;
 }
 
 function codeListItem(label: string, value: string | undefined): string {
@@ -366,10 +367,6 @@ function blockquote(value: string): string {
 function boundMarkdown(markdown: string): string {
 	if (markdown.length <= MAX_MARKDOWN_CHARS) return markdown;
 	return `${markdown.slice(0, MAX_MARKDOWN_CHARS)}\n\n[Auto-curated context truncated at ${MAX_MARKDOWN_CHARS} characters.]`;
-}
-
-function primaryReason(candidate: FileCandidate): CandidateReason {
-	return candidate.reasons.values().next().value ?? "mentioned";
 }
 
 function truncateText(value: string, maxChars: number): string {
