@@ -491,6 +491,22 @@ describe("cli command extension helper", () => {
 		expect(editorTexts).toEqual(["/dev:preview-url --json words"]);
 	});
 
+	test("restores command text after clinkr lowercase error usage errors", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stderr("error: unknown option '--bogus'\n");
+				return 2;
+			},
+		});
+		const { ctx, editorTexts } = createContext();
+
+		await commandFor(pi, "dev:preview-url").handler("--bogus", ctx);
+
+		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 2.\n\nstderr:\nerror: unknown option '--bogus'\n", "error");
+		expect(editorTexts).toEqual(["/dev:preview-url --bogus"]);
+	});
+
 	test("allows positional arguments for commands that opt in", async () => {
 		const pi = new FakePi();
 		const calls: RunCall[] = [];

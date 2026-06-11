@@ -99,10 +99,15 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("--branch TEXT");
-		expect(help).toContain("--project TEXT");
-		expect(help).toContain("--scope TEXT");
+		// PINNED CLINKR SEMANTICS (commander leaf help bytes): --branch <value> instead of --branch TEXT
+		expect(help).toContain("--branch <value>");
+		expect(help).toContain("--project <value>");
+		expect(help).toContain("--scope <value>");
 		expect(help).toContain("--json");
+		expect(help).toContain("--json-schema");
+		expect(help).not.toContain("--format");
+		expect(help).toContain("VERCEL_PROJECT");
+		expect(help).toContain("VERCEL_SCOPE");
 		expect(help).toContain("-h, --help");
 	});
 
@@ -112,9 +117,12 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: asdl-dev cp");
-		expect(help).toContain("model-authored message");
+		expect(help).toContain("model-authored");
+		expect(help).toContain("message");
 		expect(help).toContain("ASDL_DEV_TEXT_BACKEND");
 		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(help).toContain("--json-schema");
+		expect(help).not.toContain("--format");
 		expect(help).toContain("-h, --help");
 		expect(help).not.toContain("draft harness");
 	});
@@ -147,7 +155,28 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		const run = runWithFakes(["preview-url", "--bogus"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Unknown option: --bogus");
+		// PINNED CLINKR SEMANTICS (usage errors): lowercase error: and raw output, no help dump
+		expect(run.stderr.join("")).toContain("error: unknown option");
+		expect(run.stderr.join("")).not.toContain("Usage: asdl-dev preview-url");
+	});
+
+	test("raw commands reject clinkr --format", async () => {
+		const run = runWithFakes(["preview-url", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		// PINNED CLINKR SEMANTICS (raw command): handler-owned bytes mean no --format dialect.
+		expect(run.stderr.join("")).toContain("error: unknown option '--format'");
+		expect(run.stdout.join("")).toBe("");
+	});
+
+	test("raw commands expose json schema", async () => {
+		const run = runWithFakes(["preview-url", "--json-schema"]);
+
+		expect(await run.exit).toBe(0);
+		const document = parseJsonOutput(run);
+		expect(document).toHaveProperty("input_json_schema");
+		expect(document).toHaveProperty("output_json_schema");
+		expect(run.stderr.join("")).toBe("");
 	});
 });
 
@@ -311,8 +340,17 @@ describe("asdl-dev cp CLI behavior", () => {
 		const run = runWithFakes(["cp", "--bogus"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Unknown option: --bogus");
+		// PINNED CLINKR SEMANTICS (usage errors): lowercase error: format
+		expect(run.stderr.join("")).toContain("error: unknown option");
 		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([]);
+	});
+
+	test("cp accepts a bare option terminator", async () => {
+		const run = runWithFakes(["cp", "--"]);
+
+		expect(await run.exit).toBe(0);
+		// PINNED CLINKR SEMANTICS (raw command): commander strips the -- terminator; old parser rejected it.
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
 	});
 });
 
@@ -522,6 +560,28 @@ describe("asdl-dev CLI surface pinning", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe(`Unknown command: ${flag}\n\n${TOP_LEVEL_HELP}`);
 		// PINNED ABSENCE (clinkr-migration): asdl-dev has no top-level --version/-V behavior.
+	});
+
+	test("duplicate scalar flags use the last value", async () => {
+		const run = runWithFakes(
+			["preview-url", "--branch", "feature/old", "--branch", "feature/new", "--json"],
+			{
+				git: { currentBranch: { kind: "detached" } },
+				vercel: {
+					deployments: [
+						deploymentRecord({
+							meta: { githubCommitRef: "feature/new", branchAlias: "new-alias.vercel.app" },
+							inspection: { id: "dpl_new", url: "new.vercel.app", aliases: ["new-alias.vercel.app"] },
+							url: "new.vercel.app",
+						}),
+					],
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run).branch).toBe("feature/new");
+		// PINNED CLINKR SEMANTICS (commander scalar flags): duplicate values are last-wins.
 	});
 
 	test("supports inline --branch=value syntax", async () => {
