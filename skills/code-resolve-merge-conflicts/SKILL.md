@@ -128,7 +128,9 @@ Anything **outside** the safe set → **escalate** (step 6), no matter how
 confident the resolution looks.
 
 c. **Edit only the conflict region.** The resolved file must contain no
-`<<<<<<<`, `=======`, or `>>>>>>>` markers.
+`<<<<<<<`, `=======`, or `>>>>>>>` markers. Before staging, verify the touched
+paths with `grep -rn '<<<<<<<' <touched paths>` or `git diff --check` so
+leftover conflict markers cannot be continued accidentally.
 
 ### 4. Sweep the migration surface
 
@@ -154,13 +156,15 @@ the continue command:
 | Mixed / uncertain    | `just check`                                                             |
 | Docs / markdown only | no check                                                                 |
 
-- **Pass** → `git add` the resolved files → run the continue command.
+- **Pass** → run the conflict-marker sweep from step 3c → `git add` the
+  resolved files → run the continue command.
 - **Fail** → inspect the verification failure:
   - If the failure is mechanically classifiable (for example import order,
     formatting, a missed call site in an explicit migration, or a deterministic
     type error caused by the resolved hunk), make at most **1–2 self-repair
-    attempts**, rerunning the scoped check after each attempt. On pass, `git add`
-    the resolved files → run the continue command.
+    attempts**, rerunning the scoped check after each attempt. On pass, run the
+    conflict-marker sweep from step 3c → `git add` the resolved files → run the
+    continue command.
   - If the failure is ambiguous, or the bounded attempts do not converge,
     `git restore --merge <file>` to bring back the conflict markers, then
     **escalate** that file.

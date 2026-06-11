@@ -139,7 +139,8 @@ command and continue from the current conflict state.
 **Engine parameters** above. The engine handles everything per-conflict:
 auto-generated files, the intent-diff and commit message, safe-category
 classification, region-only edits, the migration-surface sweep, the verification
-gate, bounded self-repair, escalation, and running `gt continue`.
+gate, bounded self-repair, conflict-marker sweep, escalation, and running
+`gt continue`.
 
 Each `gt continue` may stop on the next commit with new conflicts — the engine
 loops per conflict until the selected restack command reports nothing left.
