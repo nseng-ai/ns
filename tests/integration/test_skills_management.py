@@ -3,7 +3,8 @@
 These tests validate the invariants that hold if and only if every skill was
 installed through `npx skills add`. If any of them fail, a skill was added,
 removed, or modified by hand and must be reinstalled via `npx skills`. See
-AGENTS.md (section "Managing Skills With `npx skills`") for the workflow.
+docs/skill-conventions.md (section "Managing Skills With `npx skills`") for the
+workflow.
 """
 
 from __future__ import annotations
