@@ -38,7 +38,7 @@ export interface InMemoryGitHubState {
 export interface InMemoryGitState {
 	currentBranch?: string | null | undefined;
 	currentBranchFailure?: GatewayFailure | undefined;
-	insideWorkTree?: boolean | undefined;
+	isInsideWorkTree?: boolean | undefined;
 	repoContextFailure?: GatewayFailure | undefined;
 	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
 	restructuredFiles?: readonly RestructuredFile[] | undefined;
@@ -183,7 +183,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly currentBranch: string | null;
 	private readonly currentBranchFailure: GatewayFailure | undefined;
-	private readonly insideWorkTree: boolean;
+	private readonly isConfiguredInsideWorkTree: boolean;
 	private readonly repoContextFailure: GatewayFailure | undefined;
 	private readonly branchHeadOids: ReadonlyMap<string, string>;
 	private readonly restructuredFiles: readonly RestructuredFile[];
@@ -192,7 +192,7 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	constructor(state: InMemoryGitState = {}) {
 		this.currentBranch = state.currentBranch === undefined ? "main" : state.currentBranch;
 		this.currentBranchFailure = state.currentBranchFailure;
-		this.insideWorkTree = state.insideWorkTree ?? true;
+		this.isConfiguredInsideWorkTree = state.isInsideWorkTree ?? true;
 		this.repoContextFailure = state.repoContextFailure;
 		this.branchHeadOids = stringMap(state.branchHeadOids);
 		this.restructuredFiles = clone(state.restructuredFiles ?? []);
@@ -207,7 +207,7 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 
 	async isInsideWorkTree(_options: GatewayOptions): Promise<RepoContextResult> {
 		if (this.repoContextFailure !== undefined) return { type: "failure", failure: clone(this.repoContextFailure) };
-		return this.insideWorkTree ? { type: "inside" } : { type: "outside" };
+		return this.isConfiguredInsideWorkTree ? { type: "inside" } : { type: "outside" };
 	}
 
 	async getBranchHeadOid(branch: string, _options: GatewayOptions): Promise<BranchHeadOidResult> {

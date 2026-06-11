@@ -86,7 +86,7 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 
 	const registeredOperation = deps.registry.get(operation);
 	if (registeredOperation !== undefined) {
-		if (registeredOperation.requiresRepoContext === true) {
+		if (registeredOperation.isRepoContextRequired === true) {
 			const preconditionExit = await repoContextPreconditionExit(deps);
 			if (preconditionExit !== undefined) {
 				return emitClinkrExit(preconditionExit, {
