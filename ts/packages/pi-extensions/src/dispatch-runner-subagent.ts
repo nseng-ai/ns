@@ -1,3 +1,5 @@
+import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import { composePiAgentPrompt, loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import { buildCuratedRunnerSubagentContext, type CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
@@ -88,6 +90,7 @@ export interface ToolDefinition {
 
 export interface ExtensionAPI extends RunnerSubagentPi {
 	getThinkingLevel?: () => ThinkingLevel;
+	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerTool(tool: ToolDefinition): void;
 }
 
@@ -105,7 +108,8 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 		},
 		prompt: {
 			type: "string",
-			description: "Complete prompt for the subagent, including all necessary context.",
+			description:
+				"Complete prompt for the subagent. An auto-curated context packet (git status/diff summary and excerpts of backtick-mentioned files) is appended automatically; do not paste large file contents the subagent can read itself.",
 		},
 		model: {
 			type: "string",
@@ -137,12 +141,14 @@ export default function dispatchRunnerSubagentExtension(
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
-			const curatedContext = buildCuratedRunnerSubagentContext({
+			const curatedContext = await buildCuratedRunnerSubagentContext({
 				title: input.title,
 				prompt: input.prompt,
 				cwd: ctx.cwd,
+				execGit: (args, timeoutMs) =>
+					pi.exec("git", [...args], { cwd: ctx.cwd, timeout: timeoutMs, ...(signal === undefined ? {} : { signal }) }),
 			});
-			const childPrompt = `${curatedContext.markdown}\n\n${composePiAgentPrompt(runnerDefinition, input)}`;
+			const childPrompt = `${composePiAgentPrompt(runnerDefinition, input)}\n\n${curatedContext.markdown}`;
 			const launch =
 				resolveRunnerSubagentLaunch(pi, ctx, {
 					prompt: childPrompt,

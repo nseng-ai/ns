@@ -123,7 +123,7 @@ export function createFakeRunnerSubagentDispatcher(
 }
 
 export async function waitForSpawn(calls: readonly SpawnCall[]): Promise<SpawnCall> {
-	for (let attempt = 0; attempt < 5; attempt += 1) {
+	for (let attempt = 0; attempt < 20; attempt += 1) {
 		const call = calls[0];
 		if (call) return call;
 		await Promise.resolve();

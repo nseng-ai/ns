@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+
 import type { ThinkingLevel } from "../src/cmux/types.ts";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
@@ -32,8 +34,18 @@ interface JsonSchemaObject {
 	additionalProperties?: boolean;
 }
 
+interface FakeExecCall {
+	command: string;
+	args: string[];
+	options?: ExecOptions;
+}
+
+type FakeExecHandler = (command: string, args: string[], options?: ExecOptions) => Promise<ExecResult> | ExecResult;
+
 class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	readonly tools = new Map<string, ToolDefinition>();
+	readonly execCalls: FakeExecCall[] = [];
+	execHandler: FakeExecHandler = () => ({ stdout: "", stderr: "", code: 0, killed: false });
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	[key: string]: unknown;
 	private readonly thinkingLevel: ThinkingLevel;
@@ -45,6 +57,11 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 
 	getThinkingLevel(): ThinkingLevel {
 		return this.thinkingLevel;
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.execCalls.push({ command, args: [...args], ...(options === undefined ? {} : { options }) });
+		return this.execHandler(command, args, options);
 	}
 
 	registerTool(tool: ToolDefinition): void {
@@ -248,9 +265,9 @@ describe("dispatch_runner_subagent extension", () => {
 			SESSION_FILE,
 		]);
 		const childPrompt = call.args.at(-1) ?? "";
-		expect(childPrompt.startsWith("## Auto-curated context")).toBe(true);
+		expect(childPrompt.startsWith(composedFixturePrompt("Do focused work."))).toBe(true);
 		expect(childPrompt).toContain("Treat it as orientation, not ground truth");
-		expect(childPrompt).toContain(composedFixturePrompt("Do focused work."));
+		expect(childPrompt.indexOf("## Auto-curated context")).toBeGreaterThan(childPrompt.indexOf("## Delegated task"));
 		expect(call.args).not.toContain("--extension");
 		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
@@ -259,7 +276,7 @@ describe("dispatch_runner_subagent extension", () => {
 			hasThinkingArg: true,
 		});
 		expect((updates[0]?.details as Record<string, unknown>).curatedContext).toEqual(
-			expect.objectContaining({ enabled: true, markdownChars: expect.any(Number) }),
+			expect.objectContaining({ markdownChars: expect.any(Number) }),
 		);
 
 		call.process.emitStdout(finalTextMessage("Done."));
@@ -279,7 +296,39 @@ describe("dispatch_runner_subagent extension", () => {
 			hasThinkingArg: true,
 		});
 		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
-		expect(details.curatedContext).toEqual(expect.objectContaining({ enabled: true }));
+		expect(details.curatedContext).toEqual(expect.objectContaining({ markdownChars: expect.any(Number) }));
+	});
+
+	test("threads cwd and abort signal through curated git evidence collection", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool({ pi });
+		const abortController = new AbortController();
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Slice subagent", prompt: "Do focused work." },
+			abortController.signal,
+			undefined,
+			{ cwd: ROOT },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(pi.execCalls).toHaveLength(2);
+		expect(pi.execCalls.map((execCall) => execCall.args)).toEqual([
+			["status", "--short"],
+			["diff", "--stat"],
+		]);
+		for (const execCall of pi.execCalls) {
+			expect(execCall.command).toBe("git");
+			expect(execCall.options?.cwd).toBe(ROOT);
+			expect(execCall.options?.signal).toBe(abortController.signal);
+			expect(execCall.options?.timeout).toBeGreaterThan(0);
+		}
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		await expect(running).resolves.toEqual(expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }));
 	});
 
 	test("uses the resolved launch metadata without re-resolving it as launch options", async () => {
