@@ -137,19 +137,31 @@ command and continue from the current conflict state.
 **On each conflict stop**, read
 `skills/code-resolve-merge-conflicts/SKILL.md` and follow its workflow with the
 **Engine parameters** above. The engine handles everything per-conflict:
-auto-generated files, the intent-diff, the four-safe-category classification,
-region-only edits, the verification gate, escalation, and running
-`gt continue`.
+auto-generated files, the intent-diff, safe-category classification,
+region-only edits, the verification gate, conflict-marker sweep, escalation,
+and running `gt continue`.
 
 Each `gt continue` may stop on the next commit with new conflicts — the engine
 loops per conflict until the selected restack command reports nothing left.
 
 ### 5. Done
 
-When the restack reports there is nothing left, follow the engine's completion
-steps (final `git status`, regenerating any auto-generated files that were
-touched, committing them separately), then run the driver post-completion
-checks from **Engine parameters**.
+When the selected restack command reports there is nothing left to restack:
+
+- Run a final `git status` (clean) and `gt log` / `gt ls` to confirm a clean
+  stack rooted correctly.
+- Regenerate any auto-generated files that were touched (per
+  `code-resolve-merge-conflicts` step 7) and stage/commit them as appropriate.
+- For a **full-scope** restack, run a final scoped verification from the stack
+  tip after the restack completes, at least when any conflict was resolved
+  mid-stack. This covers upstack branches that replayed without conflicts but
+  now sit atop resolved code. Use the same categories as the Loop verification
+  gate:
+  - `ts/**` only → `just ts-check` (optionally `just ts-test`).
+  - Python only → `just ty` + targeted `uv run pytest <affected package>`
+    (or `just test`).
+  - Mixed / uncertain → `just check`.
+  - Docs / markdown only → **no check**.
 
 ### 6. Bail-out
 

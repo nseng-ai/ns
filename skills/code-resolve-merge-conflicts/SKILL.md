@@ -105,13 +105,18 @@ regenerated in step 7. All other files proceed to step 3.
 a. **Get the intent-diff** (modes table) — the ground truth for what the
 incoming side changed.
 
-b. **Classify** the conflict region against the four **safe** categories:
+b. **Classify** the conflict region against the five **safe** categories:
 
 - **complementary / non-overlapping** — sides change different things in the
   region; keep both
 - **identical** — both sides made the same change; keep one
 - **formatting / whitespace / import-order** — purely mechanical; resolve to
   the correct mechanical form
+- **rename / API-migration propagation** — one side applies a systematic
+  migration, such as renamed constructors, changed options shape, or inverted
+  argument order. Safe only when the migration rule is explicit from the
+  intent-diff or commit message, and the verification gate confirms the
+  propagated call-site changes.
 - **one-side strict-superset** — one side fully contains the other; keep the
   superset
 
@@ -119,7 +124,9 @@ Anything **outside** the safe set → **escalate** (step 5), no matter how
 confident the resolution looks.
 
 c. **Edit only the conflict region.** The resolved file must contain no
-`<<<<<<<`, `=======`, or `>>>>>>>` markers.
+`<<<<<<<`, `=======`, or `>>>>>>>` markers. Before staging, verify the touched
+paths with `grep -rn '<<<<<<<' <touched paths>` or `git diff --check` so
+leftover conflict markers cannot be continued accidentally.
 
 ### 4. Verify before continuing
 
@@ -133,7 +140,8 @@ the continue command:
 | Mixed / uncertain    | `just check`                                                             |
 | Docs / markdown only | no check                                                                 |
 
-- **Pass** → `git add` the resolved files → run the continue command.
+- **Pass** → run the conflict-marker sweep from step 3c → `git add` the
+  resolved files → run the continue command.
 - **Fail** → `git restore --merge <file>` to bring back the conflict markers,
   then **escalate** that file.
 
