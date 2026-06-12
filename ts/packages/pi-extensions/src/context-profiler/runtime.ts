@@ -2,23 +2,27 @@
  * Live-update state for the context profiler: what the extension has captured
  * from session events, and how a frozen ProfileSnapshot is assembled from it.
  *
- * Authoritative-source rule: the `context` event carries the exact messages
- * sent to the provider and is authoritative whenever one has been received
- * this session. The session-branch fallback is used only before the first
- * `context` event arrives (e.g. the profiler is opened before any prompt is
- * sent). The snapshot records which source was used (`liveSource`), surfaced
- * in the view's `?` help layer rather than always-on chrome.
+ * Source rule: the `context` event carries the exact messages sent to a
+ * provider request while this extension instance is loaded. When the extension
+ * has just reloaded, the profiler reconstructs the active session context from
+ * the session tree so the overlay and interrogation can start immediately
+ * without requiring a throwaway host prompt. The snapshot records which source
+ * was used (`liveSource`), surfaced in the view's `?` help layer rather than
+ * always-on chrome.
  */
 
-import type {
-	BeforeAgentStartEvent,
-	BuildSystemPromptOptions,
-	ContextEvent,
-	ExtensionCommandContext,
-	ExtensionContext,
+import {
+	buildSessionContext,
+	type BeforeAgentStartEvent,
+	type BuildSystemPromptOptions,
+	type ContextEvent,
+	type ExtensionCommandContext,
+	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { buildEpisodeAnalysisPayload } from "./analysis.ts";
 import type { AnalysisModelGateway } from "./analysis-model-gateway.ts";
+import { buildBundleSnapshot, buildEpisodesFileJson, type BundlePersistenceState, type EpisodesFileOutcome } from "./bundle.ts";
+import type { BundleStore, PersistedBundle, WriteEpisodesFileResult } from "./bundle-store.ts";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
@@ -26,6 +30,7 @@ import {
 	deriveLiveTurns,
 	type DelegationClaim,
 	type EpisodeAnnotation,
+	type LiveSource,
 	type ProfileSnapshot,
 } from "./model.ts";
 import {
@@ -50,6 +55,11 @@ export interface ProfilerState {
 	lastPromptOptions: BuildSystemPromptOptions | null;
 	lastSystemPrompt: string | null;
 	latestContextMessages: readonly unknown[] | null;
+	latestContextSource: LiveSource | null;
+	contextEventCount: number;
+	lastContextEventAt: string | null;
+	beforeAgentStartEventCount: number;
+	lastBeforeAgentStartEventAt: string | null;
 	segmentationCache: SegmentationCacheEntry | null;
 }
 
@@ -58,6 +68,11 @@ export function createProfilerState(): ProfilerState {
 		lastPromptOptions: null,
 		lastSystemPrompt: null,
 		latestContextMessages: null,
+		latestContextSource: null,
+		contextEventCount: 0,
+		lastContextEventAt: null,
+		beforeAgentStartEventCount: 0,
+		lastBeforeAgentStartEventAt: null,
 		segmentationCache: null,
 	};
 }
@@ -67,6 +82,8 @@ export function handleBeforeAgentStart(event: BeforeAgentStartEvent, state: Prof
 		...state,
 		lastPromptOptions: event.systemPromptOptions,
 		lastSystemPrompt: event.systemPrompt,
+		beforeAgentStartEventCount: state.beforeAgentStartEventCount + 1,
+		lastBeforeAgentStartEventAt: new Date().toLocaleTimeString(),
 	};
 }
 
@@ -74,6 +91,9 @@ export function handleContext(event: ContextEvent, state: ProfilerState): Profil
 	return {
 		...state,
 		latestContextMessages: [...event.messages],
+		latestContextSource: "context-event",
+		contextEventCount: state.contextEventCount + 1,
+		lastContextEventAt: new Date().toLocaleTimeString(),
 	};
 }
 
@@ -94,6 +114,17 @@ export function capturePromptState(ctx: ExtensionContext, state: ProfilerState):
 	};
 }
 
+export function captureCurrentState(ctx: ExtensionContext, state: ProfilerState): ProfilerState {
+	const promptState = capturePromptState(ctx, state);
+	if (promptState.latestContextMessages !== null) return promptState;
+	const sessionContext = buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId());
+	return {
+		...promptState,
+		latestContextMessages: [...sessionContext.messages],
+		latestContextSource: "session-context",
+	};
+}
+
 function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptions | null {
 	const candidate = (ctx as { getSystemPromptOptions?: unknown }).getSystemPromptOptions;
 	if (typeof candidate !== "function") return null;
@@ -108,6 +139,7 @@ function probeSystemPromptOptions(ctx: ExtensionContext): BuildSystemPromptOptio
 export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState): ProfileSnapshot {
 	const live = deriveLiveTurns({
 		contextMessages: state.latestContextMessages,
+		contextSource: state.latestContextSource,
 		branchEntries: ctx.sessionManager.getBranch(),
 	});
 	const capped = capTurns(live.turns);
@@ -124,6 +156,71 @@ export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState)
 	};
 }
 
+export interface StartBundlePersistOptions {
+	store: BundleStore;
+	state: ProfilerState;
+	profile: ProfileSnapshot;
+	sessionId: string;
+	onUpdate: (state: BundlePersistenceState) => void;
+}
+
+export function startBundlePersist(options: StartBundlePersistOptions): {
+	initial: BundlePersistenceState;
+	whenPersisted: Promise<PersistedBundle | null>;
+} {
+	const snapshot = buildBundleSnapshot({
+		messages: options.state.latestContextMessages,
+		systemPrompt: options.state.lastSystemPrompt,
+		promptOptions: options.state.lastPromptOptions,
+		sessionId: options.sessionId,
+		cwd: options.profile.cwd,
+		model: options.profile.model,
+		usage: options.profile.usage,
+		liveSource: options.profile.liveSource,
+	});
+	if (!snapshot.ok) {
+		const skipped: BundlePersistenceState = snapshot.error.code === "no-provider-context"
+			? { type: "skipped", reason: "no-provider-context", message: noProviderContextMessage(options.state, options.profile) }
+			: { type: "failed", message: snapshot.error.message };
+		return { initial: skipped, whenPersisted: Promise.resolve(null) };
+	}
+	const whenPersisted = options.store.persistBundle(snapshot.value).then((result): PersistedBundle | null => {
+		if (!result.ok) {
+			options.onUpdate({ type: "failed", message: result.error.message });
+			return null;
+		}
+		const persisted = persistenceStateFromBundle(result.value);
+		options.onUpdate(persisted);
+		return result.value;
+	}, (error: unknown) => {
+		options.onUpdate({ type: "failed", message: error instanceof Error ? error.message : String(error) });
+		return null;
+	});
+	return { initial: { type: "pending" }, whenPersisted };
+}
+
+function noProviderContextMessage(state: ProfilerState, profile: ProfileSnapshot): string {
+	const lastContext = state.lastContextEventAt ?? "never";
+	const lastBeforeAgentStart = state.lastBeforeAgentStartEventAt ?? "never";
+	return `No context messages are available for this snapshot. The profiler can still show ${profile.liveTurns.length.toLocaleString()} ${profile.liveSource} turn(s), but interrogation requires a bundle built from provider or reconstructed session context. Press r or reopen /context-profiler to retry. Debug: contextEvents=${state.contextEventCount.toLocaleString()} (last=${lastContext}); beforeAgentStartEvents=${state.beforeAgentStartEventCount.toLocaleString()} (last=${lastBeforeAgentStart}); latestContextMessages=null; liveSource=${profile.liveSource}.`;
+}
+
+function persistenceStateFromBundle(bundle: PersistedBundle): BundlePersistenceState {
+	return {
+		type: "persisted",
+		ordinal: bundle.ordinal,
+		dir: bundle.dir,
+		contentHash: bundle.contentHash,
+		byteSize: bundle.byteSize,
+		sessionTotalBytes: bundle.sessionTotalBytes,
+		reused: bundle.reused,
+		sessionId: bundle.sessionId,
+		model: bundle.model,
+		turnCount: bundle.turnCount,
+		capturedAt: bundle.capturedAt,
+	};
+}
+
 export interface StartSegmentationOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
@@ -133,127 +230,216 @@ export interface StartSegmentationOptions {
 	onUpdate: (segmentation: SegmentationState) => void;
 }
 
+export type SegmentationBatchOutcome =
+	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null; delegations: DelegationClaim[]; analysis: EpisodeAnalysisStatus[] }
+	| { type: "segmentation-error"; message: string }
+	| { type: "skipped"; reason: "too-few-turns" };
+
 /**
- * On-demand segmentation + per-episode analysis controller. Resolves
- * synchronously to idle (too few turns), a fully-cached ready state, or a
- * cached ready state whose missing verdicts are being analyzed. Fresh
- * segmentation returns loading first, then emits ready when symbols exist.
- * Aborted calls never reach onUpdate, and errors are surfaced but never block
- * deterministic rows. Analysis failures are not cached, so reopen retries.
+ * Startup segmentation + per-episode analysis controller. Detaching gates view
+ * and cache mutation only; the LM calls continue to terminal state so their
+ * bundle can receive episodes.json.
  */
-export function startSegmentation(options: StartSegmentationOptions): { initial: SegmentationState; abort: () => void } {
+export function startSegmentationBatch(options: StartSegmentationOptions): {
+	initial: SegmentationState;
+	detach: () => void;
+	completion: Promise<SegmentationBatchOutcome>;
+} {
 	const { gateway, profile, state, force, onUpdate } = options;
+	let detached = false;
+	const detach = (): void => {
+		detached = true;
+	};
 	if (profile.liveTurns.length < MIN_TURNS_FOR_SEGMENTATION) {
-		return { initial: { type: "idle" }, abort: () => {} };
+		return { initial: { type: "idle" }, detach, completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }) };
 	}
 	const fingerprint = computeSegmentationFingerprint(profile);
-	const cached = state.segmentationCache;
 	const controller = new AbortController();
+	const emitReady = (ready: ReadyStateOptions): void => {
+		if (detached) return;
+		onUpdate(readyState(ready));
+	};
+	const emitError = (message: string): void => {
+		if (detached) return;
+		onUpdate({ type: "error", message });
+	};
+	const cached = state.segmentationCache;
 	if (!force && cached !== null && cached.fingerprint === fingerprint) {
-		const initial = readyState({
+		const analysis = initialAnalysisStatuses(cached.episodes);
+		const completion = runMissingEpisodeAnalysis({
+			gateway,
+			profile,
+			state,
+			fingerprint,
 			episodes: cached.episodes,
 			summary: cached.summary,
 			delegations: cached.delegations,
-			analysis: initialAnalysisStatuses(cached.episodes),
+			analysis,
+			controller,
+			canWriteCache: () => !detached,
+			onUpdate: emitReady,
 		});
-		startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate });
-		return { initial, abort: () => controller.abort() };
+		return { initial: readyState({ episodes: cached.episodes, summary: cached.summary, delegations: cached.delegations, analysis }), detach, completion };
 	}
-	const payload = buildSegmentationPayload(profile);
-	// Rejection handling is scoped to the gateway promise via the two-argument
-	// .then form: gateway failures are values, so a rejection is a programmer
-	// error in the gateway; surface it as an error state to keep the overlay
-	// functional. A throw from inside the fulfillment handler is also a
-	// programmer error, but it must NOT be converted into an error update —
-	// onUpdate(ready) may already have fired and the cache been written, so a
-	// contradictory error update would corrupt view state. It surfaces as an
-	// unhandled rejection instead.
-	void gateway.segmentTurns({ json: payload.json }, { signal: controller.signal }).then(
-		(result) => {
-			if (controller.signal.aborted) return;
-			if (!result.ok) {
-				if (result.error.code === "aborted") return;
-				onUpdate({ type: "error", message: result.error.message });
-				return;
-			}
-			const episodes = repairEpisodes(result.value.episodes, profile.liveTurns);
-			const delegations = repairDelegations(result.value.delegations, profile.liveTurns);
-			state.segmentationCache = { fingerprint, episodes, summary: result.value.summary, delegations };
-			const analysis = initialAnalysisStatuses(episodes);
-			onUpdate(readyState({ episodes, summary: result.value.summary, delegations, analysis }));
-			startMissingEpisodeAnalysis({ gateway, profile, state, fingerprint, controller, onUpdate });
-		},
-		(error: unknown) => {
-			if (controller.signal.aborted) return;
-			onUpdate({ type: "error", message: error instanceof Error ? error.message : String(error) });
-		},
-	);
-	return { initial: { type: "loading" }, abort: () => controller.abort() };
+	const completion = runFreshSegmentation({
+		gateway,
+		profile,
+		state,
+		fingerprint,
+		controller,
+		canWriteCache: () => !detached,
+		onReady: emitReady,
+		onError: emitError,
+	});
+	return { initial: { type: "loading" }, detach, completion };
 }
 
-interface StartEpisodeAnalysisOptions {
+/** Backward-compatible wrapper for older tests/callers; abort now means detach. */
+export function startSegmentation(options: StartSegmentationOptions): { initial: SegmentationState; abort: () => void } {
+	const batch = startSegmentationBatch(options);
+	return { initial: batch.initial, abort: batch.detach };
+}
+
+interface RunFreshSegmentationOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
 	state: ProfilerState;
 	fingerprint: string;
 	controller: AbortController;
-	onUpdate: (segmentation: SegmentationState) => void;
+	canWriteCache: () => boolean;
+	onReady: (ready: ReadyStateOptions) => void;
+	onError: (message: string) => void;
 }
 
-function startMissingEpisodeAnalysis(options: StartEpisodeAnalysisOptions): void {
-	const { controller, fingerprint, gateway, onUpdate, profile, state } = options;
-	const cache = state.segmentationCache;
-	if (cache === null || cache.fingerprint !== fingerprint) return;
-	const statuses = initialAnalysisStatuses(cache.episodes);
-	const guardedEmit = (buildNext: (cache: SegmentationCacheEntry) => SegmentationCacheEntry): void => {
-		if (controller.signal.aborted) return;
-		const currentCache = state.segmentationCache;
-		if (currentCache === null || currentCache.fingerprint !== fingerprint) return;
-		const nextCache = buildNext(currentCache);
-		state.segmentationCache = nextCache;
-		onUpdate(readyState({ episodes: nextCache.episodes, summary: nextCache.summary, delegations: nextCache.delegations, analysis: statuses }));
-	};
-	cache.episodes.forEach((episode, episodeIndex) => {
-		if (hasAnalysisVerdicts(episode)) return;
-		statuses[episodeIndex] = "loading";
-		const payload = buildEpisodeAnalysisPayload({
-			profile,
-			episodes: cache.episodes,
-			episodeIndex,
-			summary: cache.summary,
-			delegations: cache.delegations,
-		});
-		void gateway.analyzeEpisode({ json: payload.json }, { signal: controller.signal }).then(
-			(result) => {
-				if (!result.ok) {
-					if (result.error.code === "aborted") return;
-					guardedEmit((currentCache) => {
-						statuses[episodeIndex] = { type: "error", message: result.error.message };
-						return currentCache;
-					});
-					return;
-				}
-				guardedEmit((currentCache) => {
-					const episodes = currentCache.episodes.map((candidate, index) => index === episodeIndex
-						? {
-							...candidate,
-							efficiency: result.value.efficiency,
-							relevance: result.value.relevance,
-							...(result.value.summary === null ? {} : { analysisSummary: result.value.summary }),
-						}
-						: candidate);
-					statuses[episodeIndex] = "ready";
-					return { ...currentCache, episodes };
-				});
-			},
-			(error: unknown) => {
-				guardedEmit((currentCache) => {
-					statuses[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
-					return currentCache;
-				});
-			},
-		);
+async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promise<SegmentationBatchOutcome> {
+	const payload = buildSegmentationPayload(options.profile);
+	let result: Awaited<ReturnType<AnalysisModelGateway["segmentTurns"]>>;
+	try {
+		result = await options.gateway.segmentTurns({ json: payload.json }, { signal: options.controller.signal });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		options.onError(message);
+		return { type: "segmentation-error", message };
+	}
+	if (!result.ok) {
+		if (result.error.code !== "aborted") options.onError(result.error.message);
+		return { type: "segmentation-error", message: result.error.message };
+	}
+	const episodes = repairEpisodes(result.value.episodes, options.profile.liveTurns);
+	const delegations = repairDelegations(result.value.delegations, options.profile.liveTurns);
+	const summary = result.value.summary;
+	const analysis = initialAnalysisStatuses(episodes);
+	if (options.canWriteCache()) {
+		options.state.segmentationCache = { fingerprint: options.fingerprint, episodes, summary, delegations };
+		options.onReady({ episodes, summary, delegations, analysis });
+	}
+	return runMissingEpisodeAnalysis({
+		gateway: options.gateway,
+		profile: options.profile,
+		state: options.state,
+		fingerprint: options.fingerprint,
+		episodes,
+		summary,
+		delegations,
+		analysis,
+		controller: options.controller,
+		canWriteCache: options.canWriteCache,
+		onUpdate: options.onReady,
 	});
+}
+
+interface RunEpisodeAnalysisOptions {
+	gateway: AnalysisModelGateway;
+	profile: ProfileSnapshot;
+	state: ProfilerState;
+	fingerprint: string;
+	episodes: readonly EpisodeAnnotation[];
+	summary: string | null;
+	delegations: readonly DelegationClaim[];
+	analysis: EpisodeAnalysisStatus[];
+	controller: AbortController;
+	canWriteCache: () => boolean;
+	onUpdate: (ready: ReadyStateOptions) => void;
+}
+
+async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Promise<SegmentationBatchOutcome> {
+	const episodes = options.episodes.map((episode) => ({ ...episode }));
+	const analysis = [...options.analysis];
+	const tasks = episodes.map(async (episode, episodeIndex) => {
+		if (hasAnalysisVerdicts(episode)) {
+			analysis[episodeIndex] = "ready";
+			return;
+		}
+		analysis[episodeIndex] = "loading";
+		const payload = buildEpisodeAnalysisPayload({
+			profile: options.profile,
+			episodes,
+			episodeIndex,
+			summary: options.summary,
+			delegations: options.delegations,
+		});
+		try {
+			const result = await options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.controller.signal });
+			if (!result.ok) {
+				if (result.error.code !== "aborted") {
+					analysis[episodeIndex] = { type: "error", message: result.error.message };
+					emitAnalysisUpdate(options, episodes, analysis);
+				}
+				return;
+			}
+			episodes[episodeIndex] = {
+				...episode,
+				efficiency: result.value.efficiency,
+				relevance: result.value.relevance,
+				...(result.value.summary === null ? {} : { analysisSummary: result.value.summary }),
+			};
+			analysis[episodeIndex] = "ready";
+			emitAnalysisUpdate(options, episodes, analysis);
+		} catch (error) {
+			analysis[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
+			emitAnalysisUpdate(options, episodes, analysis);
+		}
+	});
+	await Promise.all(tasks);
+	return { type: "ready", episodes, summary: options.summary, delegations: [...options.delegations], analysis };
+}
+
+function emitAnalysisUpdate(options: RunEpisodeAnalysisOptions, episodes: readonly EpisodeAnnotation[], analysis: readonly EpisodeAnalysisStatus[]): void {
+	if (!options.canWriteCache()) return;
+	const currentCache = options.state.segmentationCache;
+	if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
+	options.state.segmentationCache = { ...currentCache, episodes: [...episodes] };
+	options.onUpdate({ episodes, summary: options.summary, delegations: options.delegations, analysis });
+}
+
+export interface JoinEpisodesWriteOptions {
+	whenPersisted: Promise<PersistedBundle | null>;
+	completion: Promise<SegmentationBatchOutcome>;
+	store: BundleStore;
+	analysisModel: string;
+	onResult?: (result: WriteEpisodesFileResult) => void;
+}
+
+export function joinEpisodesWrite(options: JoinEpisodesWriteOptions): void {
+	void Promise.all([options.whenPersisted, options.completion]).then(async ([bundle, outcome]) => {
+		if (bundle === null) return;
+		const json = buildEpisodesFileJson({ outcome: episodesFileOutcome(outcome), contentHash: bundle.contentHash, analysisModel: options.analysisModel });
+		const result = await options.store.writeEpisodesFile({ bundleDir: bundle.dir, json });
+		options.onResult?.(result);
+	}).catch((error: unknown) => {
+		options.onResult?.({ ok: false, error: { code: "io-error", message: error instanceof Error ? error.message : String(error) } });
+	});
+}
+
+function episodesFileOutcome(outcome: SegmentationBatchOutcome): EpisodesFileOutcome {
+	switch (outcome.type) {
+		case "ready":
+			return outcome;
+		case "segmentation-error":
+			return outcome;
+		case "skipped":
+			return outcome;
+	}
 }
 
 interface ReadyStateOptions {
