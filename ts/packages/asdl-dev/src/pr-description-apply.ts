@@ -27,7 +27,7 @@ export type GeneratedPrDescriptionResult =
 
 export type PrBodyOverwriteDecision =
 	| { kind: "generate"; commits: PrCommitMessage[] }
-	| { kind: "skip_hand_edited" }
+	| { kind: "skip_hand_edited"; commits: PrCommitMessage[] }
 	| { kind: "failed"; error: string };
 
 export async function decidePrBodyOverwrite(params: {
@@ -45,7 +45,7 @@ export async function decidePrBodyOverwrite(params: {
 	const isOverwritable =
 		params.shouldForce || body.trim() === "" || hasGeneratedMarker(body) || isCommitMessagePrefillBody(body, commits.value);
 	if (!isOverwritable) {
-		return { kind: "skip_hand_edited" };
+		return { kind: "skip_hand_edited", commits: commits.value };
 	}
 	return { kind: "generate", commits: commits.value };
 }

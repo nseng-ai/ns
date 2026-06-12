@@ -139,7 +139,7 @@ Environment:
 			name: "submit",
 			description: `Checkpoint outstanding worktree changes with \`asdl-dev cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --no-interactive --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai --no-interactive\`.
 
-For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten; use \`asdl-dev pr-regen --force\` when you intend to replace one.
+For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten by submit; use explicit \`asdl-dev pr-regen\` when you intend to replace one.
 
 Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
 
@@ -195,7 +195,7 @@ If the dry-run says restack is required, interactive invocations ask before runn
 			name: "pr-regen",
 			description: `Regenerate the current branch PR's title and description with the asdl PR-description prompt.
 
-By default this refuses to overwrite a non-empty PR body unless it contains the asdl generated-body marker. Empty generated bodies and marker-bearing bodies are safe to overwrite; pass --force to overwrite a manually edited body.
+By default this regenerates both the PR title and body, replacing any existing body. The --force flag is accepted for compatibility with older guarded pr-regen workflows.
 
 Environment:
   ${TEXT_BACKEND_ENV}                 Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
@@ -203,7 +203,7 @@ Environment:
   ${PR_DESCRIPTION_PROMPT_ENV}  Prompt file path. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.`,
 			summary: COMMAND_SUMMARIES["pr-regen"],
 			schema: z.object({
-				force: z.boolean().default(false).describe("Overwrite the PR body even when the asdl generated-body marker is absent."),
+				force: z.boolean().default(false).describe("Compatibility flag from older guarded pr-regen workflows; pr-regen now always replaces the PR body."),
 			}),
 			run: async (ctx, request) => {
 				const result = await runPrRegenCommand({

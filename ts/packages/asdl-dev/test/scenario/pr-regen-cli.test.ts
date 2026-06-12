@@ -47,7 +47,7 @@ describe("asdl-dev pr-regen", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: asdl-dev pr-regen");
-		expect(help).toContain("generated-body marker");
+		expect(help).toContain("replaces the PR body");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help).toContain("--force");
@@ -139,15 +139,23 @@ describe("asdl-dev pr-regen", () => {
 		expect(run.githubPr.editPrCalls).toEqual([]);
 	});
 
-	test("refuses to overwrite a manual PR body without --force", async () => {
+	test("overwrites a manual PR body without --force", async () => {
 		const run = runWithFakes(["pr-regen"], {
 			githubPr: { currentPr: { number: 123, url: "https://github.com/acme/project/pull/123", title: "Old", body: "Manual body", headRefName: "feature/demo", baseRefName: "main" } },
+			textGeneration: { results: [{ ok: true, text: generatedText }] },
 		});
 
-		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("generated-body marker");
-		expect(run.stderr.join("")).toContain("--force");
-		expect(run.githubPr.editPrCalls).toEqual([]);
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Regenerated PR description.");
+		expect(run.githubPr.editPrCalls).toEqual([
+			expect.objectContaining({
+				cwd: "/work",
+				number: 123,
+				title: "Improve PR descriptions",
+			}),
+		]);
+		expect(run.githubPr.editPrCalls[0]?.body).toContain("This regenerates the PR title and body");
+		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
 	});
 
 	test("--force overwrites a manual PR body", async () => {

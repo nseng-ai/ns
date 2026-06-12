@@ -74,13 +74,13 @@ Before touching Graphite, `submit` inspects the worktree. If there are pending c
 
 Most users hit this behavior through the Pi slash commands: `/code:submit` submits the stack and generates descriptions; `/code:pr-regen` regenerates the current branch's PR. Both wrap the `asdl-dev` commands of the same name, so the rules below apply identically from Pi or the raw CLI.
 
-After a successful submit, a title/body is generated for each submitted PR whose body asdl owns. A body is overwritable when it is empty, carries the `asdl-dev pr-description` generated marker, or exactly matches one of the PR's commit message bodies (the prefill `gt submit` writes into every new PR). Anything else is treated as hand-edited and left alone — skipped PRs are listed in the submit output with a pointer to `pr-regen --force`.
+After a successful submit, a title/body is generated for each submitted PR whose body asdl owns. A body is overwritable during submit when it is empty, carries the `asdl-dev pr-description` generated marker, or exactly matches one of the PR's commit message bodies (the prefill `gt submit` writes into every new PR). Anything else is treated as hand-edited and left alone — skipped PRs are listed in the submit output with a pointer to `pr-regen`.
 
-`/code:pr-regen` applies the same rules to one PR: empty, marker-bearing, and commit-prefilled bodies regenerate directly; a hand-edited body is refused unless you pass `--force`. Generated bodies always end with the marker, so later regenerations stay automatic.
+`/code:pr-regen` is explicit regeneration for one PR: it regenerates both title and body, replacing any existing body. Generated bodies always end with the marker, so later submit-time regenerations stay automatic.
 
 Generation uses `ASDL_DEV_PR_DESCRIPTION_MODEL` and resolves the system prompt from `ASDL_DEV_PR_DESCRIPTION_PROMPT`, `.asdl/prompts/pr-description.md`, then the built-in prompt.
 
-Edge case: a PR body hand-copied verbatim from a commit message is indistinguishable from gt's prefill and will be overwritten without `--force`.
+Edge case for submit: a PR body hand-copied verbatim from a commit message is indistinguishable from gt's prefill and may be overwritten by submit-time generation.
 
 ### Testing architecture
 

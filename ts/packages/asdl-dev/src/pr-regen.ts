@@ -35,16 +35,6 @@ export async function runPrRegenCommand(options: RunPrRegenCommandOptions): Prom
 	if (decision.kind === "failed") {
 		return failure(1, decision.error);
 	}
-	if (decision.kind === "skip_hand_edited") {
-		return failure(
-			1,
-			[
-				`Refusing to overwrite PR #${pr.value.number} because its body looks hand-edited: it has no asdl generated-body marker and does not match a commit message.`,
-				"Run `asdl-dev pr-regen --force` to overwrite a manually edited body.",
-			].join("\n"),
-		);
-	}
-
 	const applied = await applyGeneratedDescription(pr.value, decision.commits, options);
 	if (!applied.ok) {
 		return failure(applied.exitCode ?? 1, applied.error);
