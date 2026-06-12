@@ -212,7 +212,7 @@ export function createContext(
 	options: {
 		hasUI?: boolean;
 		mode?: CommandContext["mode"];
-		customUi?: boolean;
+		hasCustomUi?: boolean;
 		cancelSelect?: boolean;
 		selectIndex?: number;
 		inputResponse?: string;
@@ -257,7 +257,7 @@ export function createContext(
 		};
 	}
 
-	if (options.customUi) {
+	if (options.hasCustomUi) {
 		ui.custom = async <T>(
 			factory: (
 				tui: { stop(): void; start(): void; requestRender(force?: boolean): void },
@@ -314,7 +314,7 @@ export async function runCommand(
 	contextOptions: {
 		hasUI?: boolean;
 		mode?: CommandContext["mode"];
-		customUi?: boolean;
+		hasCustomUi?: boolean;
 		cancelSelect?: boolean;
 		selectIndex?: number;
 		inputResponse?: string;

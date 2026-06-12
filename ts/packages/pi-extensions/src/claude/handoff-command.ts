@@ -39,6 +39,13 @@ export interface ClaudeHandoffRequest {
 	focus: string;
 }
 
+export interface ClaudeHandoffCommandOptions {
+	pi: ExtensionAPI;
+	args: string;
+	ctx: CommandContext;
+	deps: ClaudeHandoffDeps;
+}
+
 export function scrubClaudeEnv(env: Record<string, string | undefined>): Record<string, string | undefined> {
 	const scrubbed = { ...env };
 	delete scrubbed.ANTHROPIC_API_KEY;
@@ -91,12 +98,8 @@ If a Pi slash-command equivalent is useful, the pickup target is /handoff:pickup
 Do not create a new handoff. Read and follow the existing handoff artifact from Branch Memory. If the handoff cannot be read, report the exact failure and stop.`;
 }
 
-export async function handleClaudeHandoffCommand(
-	pi: ExtensionAPI,
-	args: string,
-	ctx: CommandContext,
-	_deps: ClaudeHandoffDeps,
-): Promise<void> {
+export async function handleClaudeHandoffCommand(options: ClaudeHandoffCommandOptions): Promise<void> {
+	const { pi, args, ctx } = options;
 	if (!canUseInteractiveClaude(ctx)) {
 		ctx.ui.notify("/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.", "error");
 		return;
@@ -207,7 +210,7 @@ export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHando
 	pi.registerTool?.(buildClaudeHandoffLaunchTool(pi, deps));
 	pi.registerCommand(CLAUDE_HANDOFF_COMMAND_NAME, {
 		description: "Create a handoff, then pick it up in an interactive Claude Code session.",
-		handler: async (args, ctx) => handleClaudeHandoffCommand(pi, args, ctx, deps),
+		handler: async (args, ctx) => handleClaudeHandoffCommand({ pi, args, ctx, deps }),
 	});
 }
 

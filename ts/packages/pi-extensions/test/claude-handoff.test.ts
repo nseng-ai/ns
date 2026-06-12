@@ -54,9 +54,9 @@ describe("claude handoff command", () => {
 	});
 
 	test.each([
-		{ name: "rpc mode", options: { mode: "rpc" as const, customUi: true } },
-		{ name: "missing mode", options: { customUi: true } },
-		{ name: "missing custom UI", options: { mode: "tui" as const, customUi: false } },
+		{ name: "rpc mode", options: { mode: "rpc" as const, hasCustomUi: true } },
+		{ name: "missing mode", options: { hasCustomUi: true } },
+		{ name: "missing custom UI", options: { mode: "tui" as const, hasCustomUi: false } },
 	])("refuses command outside an interactive TUI: $name", async ({ options }) => {
 		const pi = new FakePi();
 		const runClaude = registerTestCommand(pi);
@@ -85,7 +85,7 @@ describe("claude handoff command", () => {
 		await withTempSkill(async (skillPath) => {
 			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
 			registerTestCommand(pi);
-			const context = createContext({ mode: "tui", customUi: true });
+			const context = createContext({ mode: "tui", hasCustomUi: true });
 			const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
 			expect(command).toBeDefined();
 			if (command === undefined) {
@@ -111,7 +111,7 @@ describe("claude handoff command", () => {
 	test("command prompts for focus when args are empty", async () => {
 		const pi = new FakePi([branchStep()]);
 		registerTestCommand(pi);
-		const context = createContext({ mode: "tui", customUi: true, inputResponse: "continue from handoff" });
+		const context = createContext({ mode: "tui", hasCustomUi: true, inputResponse: "continue from handoff" });
 		const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
 		expect(command).toBeDefined();
 		if (command === undefined) {
@@ -131,7 +131,7 @@ describe("claude handoff command", () => {
 	])("command does not create prompt when branch lookup fails: $name", async ({ branch, message }) => {
 		const pi = new FakePi([branch]);
 		const runClaude = registerTestCommand(pi);
-		const context = createContext({ mode: "tui", customUi: true });
+		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
 		expect(command).toBeDefined();
 		if (command === undefined) {
@@ -152,7 +152,7 @@ describe("claude handoff command", () => {
 		const env = { PATH: "/bin", HOME: "/home/me", ANTHROPIC_API_KEY: "secret", ANTHROPIC_AUTH_TOKEN: "token" };
 		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
 		const runClaude = registerTestCommand(pi, fakeRunClaude({ type: "exited", code: 0, signal: null }), env);
-		const context = createContext({ mode: "tui", customUi: true });
+		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(tool).toBeDefined();
 		if (tool === undefined) {
@@ -177,8 +177,8 @@ describe("claude handoff command", () => {
 	});
 
 	test.each([
-		{ name: "rpc mode", options: { mode: "rpc" as const, customUi: true } },
-		{ name: "missing custom UI", options: { mode: "tui" as const, customUi: false } },
+		{ name: "rpc mode", options: { mode: "rpc" as const, hasCustomUi: true } },
+		{ name: "missing custom UI", options: { mode: "tui" as const, hasCustomUi: false } },
 	])("launch tool refuses outside interactive TUI: $name", async ({ options }) => {
 		const pi = new FakePi();
 		const runClaude = registerTestCommand(pi);
@@ -200,7 +200,7 @@ describe("claude handoff command", () => {
 	test("launch tool refuses invalid params before checking Branch Memory", async () => {
 		const pi = new FakePi();
 		const runClaude = registerTestCommand(pi);
-		const context = createContext({ mode: "tui", customUi: true });
+		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(tool).toBeDefined();
 		if (tool === undefined) {
@@ -229,7 +229,7 @@ describe("claude handoff command", () => {
 	])("launch tool does not launch when verification reports $name", async ({ check, expected }) => {
 		const pi = new FakePi([check]);
 		const runClaude = registerTestCommand(pi);
-		const context = createContext({ mode: "tui", customUi: true });
+		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(tool).toBeDefined();
 		if (tool === undefined) {
@@ -248,7 +248,7 @@ describe("claude handoff command", () => {
 	test("launch tool reports spawn failure after resuming the TUI", async () => {
 		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
 		const runClaude = registerTestCommand(pi, fakeRunClaude({ type: "spawn-failed", message: "spawn claude ENOENT" }));
-		const context = createContext({ mode: "tui", customUi: true });
+		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(tool).toBeDefined();
 		if (tool === undefined) {
