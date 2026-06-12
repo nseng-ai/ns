@@ -1,0 +1,25 @@
+# Roadmap
+
+## Work
+
+- [ ] Fix the vocabulary self-contradiction in the new docs and skills: rewrite "create a branch context" phrasing as "create a branch and attach its branch context" in `skills/branch-context/references/lifecycle.md`, `docs/pi/branch-context-workflow.md`, `docs/pi/README.md`, and `skills/from-plan/SKILL.md`; fix the lifecycle Term-distinctions entry to match ADR 0006. Sweep the related doc nits in the same pass: ADR 0005:49 staleness ("planned-branch impl remains the only execution surface"), the load synopsis missing the positional key, and "saved branch-context plan" in `skills/branch-context/SKILL.md`.
+- [ ] Restore the lost load-bearing workflow content and document the new primitives: Graphite creation mechanics and invariants, the upstack-impl-session resumption contract, and plan-path normalization rules (into the workflow doc or `skills/branch-context/references/`); add an attach/list/check/delete section to `branch-context-workflow.md` and update `diagnostics-admin.md` to prefer `branch-context exec list/check` over raw brmem.
+- [ ] Split `branch-context/test/scenario/cli.test.ts` (1037 lines) by command family with a shared `test/support/cli-harness.ts`; delete the unreachable `FakeCommands`/`ScriptedExec` machinery; trim attach/list/check/delete scenarios that duplicate `attach.test.ts` coverage.
+  Evidence: each resulting file well under 1k lines; full TS suite green.
+- [ ] Make `BranchContextContext.brmem`/`graphite` required; resolve the context once and pass it down; delete the six `?? new Real*Gateway(...)` fallback sites, the `BranchContextPrimitiveContext` shim, and the optionality from the four `*Options` interfaces.
+- [ ] Delete the dead validation layer in `branch-context-creation.ts`: type `createBranchContextFromFile`'s params, remove `parseCreateBranchContextFromFileParams` / `normalizeBranchCreationMethod` / `tryNormalizeBranchCreationMethod` and their tests, keep one slug-validation site (the CLI's Zod boundary).
+- [ ] Move `formatImplBranchContextCommand` and the `/branch-context:impl` command-name constant into `@asdl/branch-context`; collapse the duplicate literal in `branch-context-extension.ts:42`; remove the cross-feature import in `slot-dispatch-plan.ts`.
+- [ ] Type the session-artifact message contract: producers pass `BranchContextOutputDetails` (or a shared `buildBranchContextOutputMessage` exported beside the parser); resolve the dry-run-fields open question; collapse the producer dialects in ccc and pi-extensions.
+- [ ] Trim `branch-context/src/index.ts` (101 lines) to the externally consumed surface (~20 symbols) or curated subpaths; stop exporting cli/attach/brmem-parser internals.
+- [ ] Fix the introduced status-sequencing regression in both from-plan handlers (split the preview resolver at the call site so each `setStatus` brackets the work it describes) and clean the small stack-introduced residue in the same pass: the self-aliased import and dead re-export in `session-artifact.ts`, identity wrappers in `context.ts`, the constants-as-data `namespace`/`key` preview fields, the `PLAN_KEY` literal in `ccc-test-harness.ts`, and the stale `findLatestBranchContextSelection` name plus its divergent evidence scan (move one canonical `findLatestBranchContextEvidence` into session-artifact).
+- [ ] Decompose `branch-context-extension.ts` (1284 lines) into a thin registrar plus `host-types` / `enriched-plan-save` / `from-plan-commands` modules; split the 1319-line commands test by command family.
+  Evidence: `.pi/extensions` adapter unchanged; full TS suite green.
+- [ ] Relocate the stranded `@asdl/plans` primitive tests from pi-extensions to `ts/packages/plans/test/` (including the sole `writeSavedPlanFile` coverage); drop the duplicate `formatBranchContextEvidence` describe; move `saved-plan-content-slug.ts` and its test into `@asdl/plans`.
+- [ ] CONTEXT rebaseline (explicit domain-language task, absorbed from the closed `additive-plan-vocabulary` parked item with widened scope): update `ts/packages/pi-extensions/CONTEXT.md` (store path, CLI name, namespace, skill family, term entries), `ts/packages/ccc/CONTEXT.md` (planned-branch execution references), and `CONTEXT-MAP.md` (package name, routing rows, flagged ambiguities) to branch-context/enriched-plan vocabulary. Reference the closed record in the commit; do not edit it.
+
+## Parked
+
+- Zod-first boundary conversions: `brmem-gateway.ts:205-331` typeof ladders and the extension's `parseResolvePromptJson` / `parseWriteSavedPlanFileToolParams` — pre-existing debt; zod is already a dependency in both packages.
+- Cosmetic residue: duplicate `formatCompactNumber` in pi-extensions, roaster test fixtures referencing the deleted `planned-branch-extension.test.ts` path, `planned-branches/` fixture branch names in asdl-core tests.
+- `formatBranchContextCreateFailure` positional `.replace()` surgery in `slot-dispatch-plan.ts` — replace with a composable message API if the message ever changes shape.
+- `cli.ts` evidence-mapper boilerplate consolidation (four near-identical snake_case mappers) — low value unless a fifth command appears.
