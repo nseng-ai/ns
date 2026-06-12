@@ -1,5 +1,3 @@
-import { z, type ZodIssue } from "zod";
-
 export const CHECKPOINT_SUBJECT_MAX_LENGTH = 52;
 export const CHECKPOINT_MAX_BULLETS = 3;
 
@@ -25,47 +23,6 @@ export type CheckpointValidationResult =
 	| { ok: true; message: CheckpointMessage }
 	| { ok: false; normalizedText: string; issues: CheckpointMessageIssue[] };
 
-const checkpointMessageIssueSchema = z.discriminatedUnion("code", [
-	z.object({ code: z.literal("missing_subject") }).strip(),
-	z.object({ code: z.literal("missing_blank_line") }).strip(),
-	z.object({ code: z.literal("missing_cp_prefix"), subject: z.string() }).strip(),
-	z
-		.object({
-			code: z.literal("subject_too_long"),
-			length: z.number(),
-			maxLength: z.number(),
-			subject: z.string(),
-		})
-		.strip(),
-	z.object({ code: z.literal("subject_trailing_period"), subject: z.string() }).strip(),
-	z.object({ code: z.literal("no_bullets") }).strip(),
-	z.object({ code: z.literal("too_many_bullets"), count: z.number(), maxCount: z.number() }).strip(),
-	z.object({ code: z.literal("invalid_bullet_prefix"), lineNumber: z.number(), line: z.string() }).strip(),
-	z.object({ code: z.literal("extra_prose"), lineNumber: z.number(), line: z.string() }).strip(),
-	z.object({ code: z.literal("code_fence") }).strip(),
-	z.object({ code: z.literal("trailer"), lineNumber: z.number(), line: z.string() }).strip(),
-]) satisfies z.ZodType<CheckpointMessageIssue>;
-
-const checkpointIssueParamsSchema = z
-	.object({
-		checkpointIssue: checkpointMessageIssueSchema,
-	})
-	.strip();
-
-const checkpointMessageSchema = z
-	.string()
-	.superRefine((normalizedText, ctx) => {
-		const issues = collectCheckpointIssues(normalizedText);
-		for (const issue of issues) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: issue.code,
-				params: { checkpointIssue: issue },
-			});
-		}
-	})
-	.transform(buildCheckpointMessage);
-
 export function normalizeCheckpointDraft(output: string): string {
 	const withoutCarriageReturns = output.replace(/\r\n?/g, "\n");
 	const trimmed = trimOuterBlankLines(withoutCarriageReturns);
@@ -74,12 +31,12 @@ export function normalizeCheckpointDraft(output: string): string {
 
 export function validateCheckpointMessage(output: string): CheckpointValidationResult {
 	const normalizedText = normalizeCheckpointDraft(output);
-	const result = checkpointMessageSchema.safeParse(normalizedText);
-	if (!result.success) {
-		return { ok: false, normalizedText, issues: projectCheckpointIssues(result.error.issues) };
+	const issues = collectCheckpointIssues(normalizedText);
+	if (issues.length > 0) {
+		return { ok: false, normalizedText, issues };
 	}
 
-	return { ok: true, message: result.data };
+	return { ok: true, message: buildCheckpointMessage(normalizedText) };
 }
 
 export function formatCheckpointMessage(message: CheckpointMessage): string {
@@ -206,19 +163,6 @@ function buildCheckpointMessage(normalizedText: string): CheckpointMessage {
 	const blankLineIndex = subjectIndex + 1;
 	const bodyStart = lines[blankLineIndex] === "" ? blankLineIndex + 1 : blankLineIndex;
 	return { subject, bullets: lines.slice(bodyStart) };
-}
-
-function projectCheckpointIssues(issues: readonly ZodIssue[]): CheckpointMessageIssue[] {
-	return issues.map(projectCheckpointIssue);
-}
-
-function projectCheckpointIssue(issue: ZodIssue): CheckpointMessageIssue {
-	const params = "params" in issue ? issue.params : undefined;
-	const result = checkpointIssueParamsSchema.safeParse(params);
-	if (!result.success) {
-		throw new Error(`Unexpected checkpoint validation issue from schema: ${issue.message}`);
-	}
-	return result.data.checkpointIssue;
 }
 
 function trimOuterBlankLines(text: string): string {

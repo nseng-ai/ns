@@ -56,36 +56,32 @@ export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
 
 const repoIdentitySourceSchema = z.enum(["origin-url", "repo-root"]);
 
-const savedPlanFileEvidenceSchema = z
-	.object({
-		slug: z.string(),
-		repoRoot: z.string(),
-		repoKey: z.string(),
-		repoIdentitySource: repoIdentitySourceSchema,
-		sourceBranch: z.string(),
-		branchKey: z.string(),
-		filePath: z.string(),
-		summary: z.string().optional(),
-	})
-	.strip();
+const savedPlanFileEvidenceSchema = z.object({
+	slug: z.string(),
+	repoRoot: z.string(),
+	repoKey: z.string(),
+	repoIdentitySource: repoIdentitySourceSchema,
+	sourceBranch: z.string(),
+	branchKey: z.string(),
+	filePath: z.string(),
+	summary: z.string().optional(),
+});
 
-const savedPlanFileSessionEntrySchema = z
-	.object({
-		type: z.literal("message"),
-		message: z
-			.object({
-				role: z.literal("toolResult"),
-				toolName: z.literal(WRITE_SAVED_PLAN_FILE_TOOL_NAME),
-				isError: z.unknown().optional(),
-				details: savedPlanFileEvidenceSchema,
-			})
-			.strip(),
-	})
-	.strip();
+const savedPlanFileSessionEntrySchema = z.object({
+	type: z.literal("message"),
+	message: z
+		.object({
+			role: z.literal("toolResult"),
+			toolName: z.literal(WRITE_SAVED_PLAN_FILE_TOOL_NAME),
+			isError: z.unknown().optional(),
+			details: savedPlanFileEvidenceSchema,
+		})
+		.refine((message) => message.isError !== true),
+});
 
 export function extractSavedPlanFileEvidenceFromSessionEntry(entry: unknown): SavedPlanFileEvidence | undefined {
 	const result = savedPlanFileSessionEntrySchema.safeParse(entry);
-	if (!result.success || result.data.message.isError === true) {
+	if (!result.success) {
 		return undefined;
 	}
 
@@ -93,19 +89,8 @@ export function extractSavedPlanFileEvidenceFromSessionEntry(entry: unknown): Sa
 }
 
 function toSavedPlanFileEvidence(data: z.infer<typeof savedPlanFileEvidenceSchema>): SavedPlanFileEvidence {
-	const evidence = {
-		slug: data.slug,
-		repoRoot: data.repoRoot,
-		repoKey: data.repoKey,
-		repoIdentitySource: data.repoIdentitySource,
-		sourceBranch: data.sourceBranch,
-		branchKey: data.branchKey,
-		filePath: data.filePath,
-	};
-	if (data.summary === undefined) {
-		return evidence;
-	}
-	return { ...evidence, summary: data.summary };
+	const { summary, ...evidence } = data;
+	return { ...evidence, ...(summary === undefined ? {} : { summary }) };
 }
 
 export async function validateSessionSavedPlanCandidate(

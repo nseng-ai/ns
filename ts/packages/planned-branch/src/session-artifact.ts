@@ -20,27 +20,23 @@ export interface PlannedBranchOutputDetails {
 
 const nonEmptyEvidenceStringSchema = z.string().min(1);
 
-const plannedBranchEvidenceSchema = z
-	.object({
-		slug: nonEmptyEvidenceStringSchema,
-		branch: nonEmptyEvidenceStringSchema,
-		branchCreation: z.enum(BRANCH_CREATION_METHODS),
-		startPoint: nonEmptyEvidenceStringSchema,
-		namespace: nonEmptyEvidenceStringSchema,
-		key: nonEmptyEvidenceStringSchema,
-		refName: nonEmptyEvidenceStringSchema,
-		commit: nonEmptyEvidenceStringSchema,
-		sourceFile: nonEmptyEvidenceStringSchema,
-		summary: z.string().optional(),
-	})
-	.strip();
+const plannedBranchEvidenceSchema = z.object({
+	slug: nonEmptyEvidenceStringSchema,
+	branch: nonEmptyEvidenceStringSchema,
+	branchCreation: z.enum(BRANCH_CREATION_METHODS),
+	startPoint: nonEmptyEvidenceStringSchema,
+	namespace: nonEmptyEvidenceStringSchema,
+	key: nonEmptyEvidenceStringSchema,
+	refName: nonEmptyEvidenceStringSchema,
+	commit: nonEmptyEvidenceStringSchema,
+	sourceFile: nonEmptyEvidenceStringSchema,
+	summary: z.string().optional(),
+});
 
-const successfulPlannedBranchOutputDetailsSchema = z
-	.object({
-		status: z.literal("success"),
-		evidence: plannedBranchEvidenceSchema,
-	})
-	.strip();
+const successfulPlannedBranchOutputDetailsSchema = z.object({
+	status: z.literal("success"),
+	evidence: plannedBranchEvidenceSchema,
+});
 
 export function extractPlannedBranchEvidence(details: unknown): PlannedBranchEvidence | undefined {
 	const result = successfulPlannedBranchOutputDetailsSchema.safeParse(details);
@@ -52,19 +48,6 @@ export function extractPlannedBranchEvidence(details: unknown): PlannedBranchEvi
 }
 
 function toPlannedBranchEvidence(data: z.infer<typeof plannedBranchEvidenceSchema>): PlannedBranchEvidence {
-	const evidence = {
-		slug: data.slug,
-		branch: data.branch,
-		branchCreation: data.branchCreation,
-		startPoint: data.startPoint,
-		namespace: data.namespace,
-		key: data.key,
-		refName: data.refName,
-		commit: data.commit,
-		sourceFile: data.sourceFile,
-	};
-	if (data.summary === undefined) {
-		return evidence;
-	}
-	return { ...evidence, summary: data.summary };
+	const { summary, ...evidence } = data;
+	return { ...evidence, ...(summary === undefined ? {} : { summary }) };
 }
