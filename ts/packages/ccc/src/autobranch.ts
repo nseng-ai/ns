@@ -1,16 +1,17 @@
 import { formatErrorMessage } from "@asdl/core/primitives";
+import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 
 import {
 	commitPreparedCheckpointMessageWithAsdlDev,
 	prepareCheckpointMessageWithAsdlDev,
 	type ExtensionExec,
+	type PreparedCheckpointMessage,
 } from "./autobranch/asdl-dev-checkpoint.ts";
 import { createAutobranchCheckpointFlow, parseAutobranchArgs, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 
 const COMMAND_NAME = "code:autobranch";
 const STATUS_KEY = "autobranch";
-const AUTOBRANCH_CLI_TIMEOUT_MS = 10 * 60 * 1000;
 
 export interface AutobranchCommandContext {
 	cwd: string;
@@ -26,7 +27,7 @@ export interface AutobranchExtensionAPI {
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
-	): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }>;
+	): Promise<{ stdout: string; stderr: string; code: number; killed?: boolean }>;
 	registerCommand(
 		name: string,
 		options: {
@@ -36,11 +37,21 @@ export interface AutobranchExtensionAPI {
 	): void;
 }
 
-export function registerAutobranchCommand(pi: AutobranchExtensionAPI): void {
+type NoticeLevel = "info" | "warning" | "error" | "success";
+type PrepareCheckpointMessage = (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<PreparedCheckpointMessage>;
+type CommitPreparedCheckpointMessage = (message: string) => Promise<{ summary: string } | { error: string }>;
+
+export interface AutobranchCommandDeps {
+	prepareCheckpointMessage?: PrepareCheckpointMessage | undefined;
+	commitPreparedCheckpointMessage?: CommitPreparedCheckpointMessage | undefined;
+	now?: (() => number) | undefined;
+}
+
+export function registerAutobranchCommand(pi: AutobranchExtensionAPI, deps: AutobranchCommandDeps = {}): void {
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Create a Graphite branch from current uncommitted changes, or from the latest commit when the worktree is clean",
 		handler: async (args, ctx) => {
-			await runAutobranchCli(pi, ctx, args);
+			await runAutobranchFlow(pi, ctx, args, deps);
 		},
 	});
 }
@@ -69,53 +80,32 @@ export function buildAutobranchFlowInput({
 	};
 }
 
-async function runAutobranchCli(pi: AutobranchExtensionAPI, ctx: AutobranchCommandContext, argsText: string): Promise<void> {
+async function runAutobranchFlow(
+	pi: AutobranchExtensionAPI,
+	ctx: AutobranchCommandContext,
+	argsText: string,
+	deps: AutobranchCommandDeps,
+): Promise<void> {
 	await ctx.waitForIdle();
-	setStatus(ctx, STATUS_KEY, "running ccc exec autobranch…");
 	try {
-		const result = await pi.exec("ccc", buildAutobranchCliArgs(argsText), {
+		await createAutobranchCheckpointFlow({
 			cwd: ctx.cwd,
-			timeout: AUTOBRANCH_CLI_TIMEOUT_MS,
+			args: parseAutobranchArgs(argsText),
+			exec: (command, args, cwd, timeout) => pi.exec(command, args, { cwd, timeout }),
+			prepareCheckpointMessage: deps.prepareCheckpointMessage ?? ((snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot)),
+			commitPreparedCheckpointMessage: deps.commitPreparedCheckpointMessage ?? ((message) => commitPreparedCheckpointMessageWithAsdlDev(pi, ctx.cwd, message)),
+			notify: (message, level) => notify(ctx, message, level),
+			setStatus: (message) => setStatus(ctx, STATUS_KEY, message),
+			...(deps.now === undefined ? {} : { now: deps.now }),
 		});
-		renderCliResult(ctx, result);
 	} catch (error) {
-		notify(ctx, `Could not run ccc exec autobranch: ${formatErrorMessage(error)}`, "error");
+		notify(ctx, `Could not run /${COMMAND_NAME}: ${formatErrorMessage(error)}`, "error");
 	} finally {
 		setStatus(ctx, STATUS_KEY, undefined);
 	}
 }
 
-function buildAutobranchCliArgs(argsText: string): string[] {
-	const parsed = parseAutobranchArgs(argsText);
-	const args = ["exec", "autobranch"];
-	if (parsed.slug !== undefined) {
-		args.push("--slug", parsed.slug);
-	}
-	return args;
-}
-
-function renderCliResult(
-	ctx: AutobranchCommandContext,
-	result: { stdout: string; stderr: string; code: number; killed: boolean },
-): void {
-	const stdout = result.stdout.trimEnd();
-	const stderr = result.stderr.trimEnd();
-	if (stdout.length > 0) {
-		notify(ctx, stdout, result.code === 0 ? "info" : "error");
-	}
-	if (stderr.length > 0) {
-		notify(ctx, stderr, result.code === 0 ? "warning" : "error");
-	}
-	if (result.killed) {
-		notify(ctx, `ccc exec autobranch timed out after ${AUTOBRANCH_CLI_TIMEOUT_MS / 1000}s.`, "error");
-		return;
-	}
-	if (result.code !== 0 && stdout.length === 0 && stderr.length === 0) {
-		notify(ctx, `ccc exec autobranch failed with exit code ${result.code}.`, "error");
-	}
-}
-
-function notify(ctx: AutobranchCommandContext, message: string, level: "info" | "warning" | "error" | "success"): void {
+function notify(ctx: AutobranchCommandContext, message: string, level: NoticeLevel): void {
 	ctx.ui.notify(message, level === "success" ? "info" : level);
 }
 

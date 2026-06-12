@@ -10,7 +10,7 @@ metadata:
 
 # code-autobranch
 
-Create a Graphite branch from current work by delegating to the shared `ccc exec autobranch` CLI. This is the cross-harness path for Pi `/code:autobranch`; do not recreate the stash, Graphite, recovery, or checkpoint sequence by hand.
+Create a Graphite branch from current work by delegating to the shared `ccc exec autobranch` CLI. This is the cross-harness skill path corresponding to Pi `/code:autobranch`; do not recreate the stash, Graphite, recovery, or checkpoint sequence by hand.
 
 ## When to use
 
@@ -51,4 +51,4 @@ If `ccc exec autobranch` fails, surface its output and stop. Do not manually rep
 
 - Graphite/`gt` is part of this command contract.
 - This does not submit, land, restack, or create plain git branches.
-- Pi may add notification/status UX, but the mutation semantics belong to the shared CLI.
+- Pi may add notification/status UX, but the mutation semantics belong to the shared CCC autobranch core.
