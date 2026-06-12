@@ -41,6 +41,12 @@ export interface RenderComponent {
 	invalidate(): void;
 }
 
+export interface TuiHandle {
+	stop(): void;
+	start(): void;
+	requestRender(force?: boolean): void;
+}
+
 export interface ToolResult<Details = unknown> {
 	content: Array<{ type: "text"; text: string }>;
 	details?: Details;
@@ -77,9 +83,14 @@ export interface BaseRuntimeContext {
 }
 
 export interface CommandContext extends BaseRuntimeContext {
+	mode?: "tui" | "rpc" | "json" | "print";
 	ui: BaseRuntimeContext["ui"] & {
 		select?(title: string, items: string[]): Promise<string | undefined>;
 		input?(title: string, placeholder?: string): Promise<string | undefined>;
+		custom?<T>(
+			factory: (tui: TuiHandle, theme: unknown, keybindings: unknown, done: (value: T) => void) => RenderComponent,
+			options?: unknown,
+		): Promise<T>;
 	};
 	waitForIdle(): Promise<void>;
 }

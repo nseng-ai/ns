@@ -211,6 +211,8 @@ export function getStep(branch: string, key: string, artifact: string): Scripted
 export function createContext(
 	options: {
 		hasUI?: boolean;
+		mode?: CommandContext["mode"];
+		customUi?: boolean;
 		cancelSelect?: boolean;
 		selectIndex?: number;
 		inputResponse?: string;
@@ -222,12 +224,14 @@ export function createContext(
 	selections: Selection[];
 	inputs: InputPrompt[];
 	statuses: Array<string | undefined>;
+	tuiEvents: string[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const selections: Selection[] = [];
 	const inputs: InputPrompt[] = [];
 	const statuses: Array<string | undefined> = [];
+	const tuiEvents: string[] = [];
 	let waits = 0;
 
 	const ui: CommandContext["ui"] = {
@@ -253,16 +257,54 @@ export function createContext(
 		};
 	}
 
+	if (options.customUi) {
+		ui.custom = async <T>(
+			factory: (
+				tui: { stop(): void; start(): void; requestRender(force?: boolean): void },
+				theme: unknown,
+				keybindings: unknown,
+				done: (value: T) => void,
+			) => { render(width: number): string[]; invalidate(): void },
+		): Promise<T> => {
+			let doneCalled = false;
+			let doneValue: T | undefined;
+			factory(
+				{
+					stop(): void {
+						tuiEvents.push("stop");
+					},
+					start(): void {
+						tuiEvents.push("start");
+					},
+					requestRender(force?: boolean): void {
+						tuiEvents.push(`requestRender(${String(force)})`);
+					},
+				},
+				{},
+				{},
+				(value: T): void => {
+					doneValue = value;
+					doneCalled = true;
+				},
+			);
+			if (!doneCalled) {
+				throw new Error("custom UI factory did not call done");
+			}
+			return doneValue as T;
+		};
+	}
+
 	const ctx: CommandContext = {
 		cwd: ROOT,
 		hasUI: options.hasUI ?? true,
+		...(options.mode === undefined ? {} : { mode: options.mode }),
 		ui,
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
 	};
 
-	return { ctx, notifications, selections, inputs, statuses, waitForIdleCalls: () => waits };
+	return { ctx, notifications, selections, inputs, statuses, tuiEvents, waitForIdleCalls: () => waits };
 }
 
 export async function runCommand(
@@ -271,6 +313,8 @@ export async function runCommand(
 	script: ScriptedExec[] = [],
 	contextOptions: {
 		hasUI?: boolean;
+		mode?: CommandContext["mode"];
+		customUi?: boolean;
 		cancelSelect?: boolean;
 		selectIndex?: number;
 		inputResponse?: string;
@@ -284,6 +328,7 @@ export async function runCommand(
 	selections: Selection[];
 	inputs: InputPrompt[];
 	statuses: Array<string | undefined>;
+	tuiEvents: string[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script, commandInfos, piOptions);
