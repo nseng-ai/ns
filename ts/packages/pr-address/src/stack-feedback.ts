@@ -9,7 +9,7 @@ import {
 	type FeedbackPlanningResult,
 } from "./classification-core.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
+import { loadArtifactReference, loadJsonInput, resolveXorSourceInput, type JsonInputResult } from "./json-input.ts";
 import { githubGateway, parseReadOptions } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
@@ -274,7 +274,15 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	});
 	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
 
-	const prepResult = await resolvePlanPrepInput(payloadResult.value.prep, parsed.options.values.get("--prep-reference"));
+	const prepResult = await resolveXorSourceInput({
+		commandName: "stack-feedback-plan",
+		embeddedValue: payloadResult.value.prep,
+		embeddedKey: "prep",
+		referencePath: parsed.options.values.get("--prep-reference"),
+		optionName: "--prep-reference",
+		artifactDescription: "the stack-feedback-prep data object",
+		referenceSchema: stackPrepResultInputSchema,
+	});
 	if (prepResult.type === "error") return exitFailure(prepResult.error.errorType, prepResult.error.message);
 	const payload: StackFeedbackPlanInput = { ...payloadResult.value, prep: prepResult.value };
 
@@ -357,32 +365,6 @@ function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): st
 	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
 	if (duplicateBranches.length > 0) return `stack-feedback-prep stack contains duplicate branches: ${pythonTupleRepr(duplicateBranches)}`;
 	return null;
-}
-
-/** Resolve the plan's prep input from exactly one source: the embedded payload key or `--prep-reference`. */
-async function resolvePlanPrepInput(embeddedPrep: StackPrepResultInput | undefined, prepReferencePath: string | undefined): Promise<JsonInputResult<StackPrepResultInput>> {
-	if (prepReferencePath === undefined) {
-		if (embeddedPrep === undefined) {
-			return {
-				type: "error",
-				error: { errorType: "invalid_request", message: "stack-feedback-plan requires a prep input via the payload prep key or --prep-reference." },
-			};
-		}
-		return { type: "ok", value: embeddedPrep };
-	}
-	if (embeddedPrep !== undefined) {
-		return {
-			type: "error",
-			error: { errorType: "invalid_request", message: "stack-feedback-plan cannot mix an embedded prep payload key with --prep-reference; pass exactly one prep source." },
-		};
-	}
-	return await loadArtifactReference({
-		filePath: prepReferencePath,
-		commandName: "stack-feedback-plan",
-		optionName: "--prep-reference",
-		artifactDescription: "the stack-feedback-prep data object",
-		schema: stackPrepResultInputSchema,
-	});
 }
 
 function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; value: Map<number, unknown> } | { type: "error"; message: string } {

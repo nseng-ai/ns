@@ -61,6 +61,17 @@ export interface LoadArtifactReferenceOptions<T> {
 	schema: z.ZodType<T>;
 }
 
+export interface ResolveXorSourceInputOptions<T> {
+	commandName: string;
+	embeddedValue: T | undefined;
+	embeddedKey: string;
+	referencePath: string | undefined;
+	optionName: string;
+	artifactDescription: string;
+	referenceSchema: z.ZodType<T>;
+	inputName?: string | undefined;
+}
+
 /**
  * Read and validate a store-owned artifact referenced by a CLI path option.
  * Validation is structural only: references may come from any payload session,
@@ -94,11 +105,44 @@ export async function loadArtifactReference<T>(options: LoadArtifactReferenceOpt
 			type: "error",
 			error: {
 				errorType: "invalid_request",
-				message: `${options.commandName} ${options.optionName} must reference ${options.artifactDescription}: ${options.filePath}`,
+				message: `Invalid ${options.commandName} ${options.optionName}: ${z.prettifyError(parseResult.error)}`,
 			},
 		};
 	}
 	return { type: "ok", value: parseResult.data };
+}
+
+/** Resolve one input from exactly one source: an embedded payload key or its reference option. */
+export async function resolveXorSourceInput<T>(options: ResolveXorSourceInputOptions<T>): Promise<JsonInputResult<T>> {
+	const inputName = options.inputName ?? options.embeddedKey;
+	if (options.referencePath === undefined) {
+		if (options.embeddedValue === undefined) {
+			return {
+				type: "error",
+				error: {
+					errorType: "invalid_request",
+					message: `${options.commandName} requires a ${inputName} input via the payload ${options.embeddedKey} key or ${options.optionName}.`,
+				},
+			};
+		}
+		return { type: "ok", value: options.embeddedValue };
+	}
+	if (options.embeddedValue !== undefined) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_request",
+				message: `${options.commandName} cannot mix an embedded ${options.embeddedKey} payload key with ${options.optionName}; pass exactly one ${inputName} source.`,
+			},
+		};
+	}
+	return await loadArtifactReference({
+		filePath: options.referencePath,
+		commandName: options.commandName,
+		optionName: options.optionName,
+		artifactDescription: options.artifactDescription,
+		schema: options.referenceSchema,
+	});
 }
 
 export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {

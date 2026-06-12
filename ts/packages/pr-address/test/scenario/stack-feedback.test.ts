@@ -438,7 +438,8 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		expect(await run.exit).toBe(2);
 		const envelope = errorEnvelope(run);
 		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("stack-feedback-prep data object");
+		expect(envelope.message).toContain("Invalid stack-feedback-plan --prep-reference");
+		expect(envelope.message).toContain("payload_session_id");
 	});
 });
 

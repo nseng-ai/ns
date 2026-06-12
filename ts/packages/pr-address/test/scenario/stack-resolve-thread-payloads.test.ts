@@ -201,10 +201,9 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		const wrongShapePath = join(dir, "stack-prep.json");
 		await writeFile(wrongShapePath, JSON.stringify({ stack: [], summary: {} }), "utf8");
 		const wrongShapeRun = runManaged(["exec", "build-stack-resolve-thread-payloads", "--stack-plan-reference", wrongShapePath, "--payload-json", payloadJson, "--format", "json"]);
-		expect(await wrongShapeRun.exit).toBe(2);
-		const wrongShapeEnvelope = JSON.parse(wrongShapeRun.stdout.join("")) as { error_type: string; message: string };
-		expect(wrongShapeEnvelope.error_type).toBe("invalid_request");
-		expect(wrongShapeEnvelope.message).toContain("stack-feedback-plan data artifact");
+		expect(await wrongShapeRun.exit).toBe(1);
+		const wrongShapeEnvelope = JSON.parse(wrongShapeRun.stdout.join("")) as { data: { errors: Array<{ code: string }> } };
+		expect(wrongShapeEnvelope.data.errors.map((error) => error.code)).toContain("invalid_stack_plan_shape");
 	});
 
 	test("serves --json-schema from TypeScript without invoking the legacy CLI", async () => {

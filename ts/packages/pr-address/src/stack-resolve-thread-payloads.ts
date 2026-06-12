@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok } from "@asdl/clinkr";
-import { loadArtifactReference, loadJsonInput } from "./json-input.ts";
+import { loadJsonInput, resolveXorSourceInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -25,14 +25,6 @@ const buildStackResolveThreadPayloadsInputSchema = z.looseObject({
 /** Wire payload: `stack_plan` may be omitted when `--stack-plan-reference` supplies it. */
 const buildStackResolveThreadPayloadsWirePayloadSchema = buildStackResolveThreadPayloadsInputSchema.extend({
 	stack_plan: z.unknown().optional(),
-});
-
-// Cheap structural check for `--stack-plan-reference` artifacts; the builder
-// still performs the deep stack-plan validation on whatever this accepts.
-const stackPlanReferenceShapeSchema = z.looseObject({
-	valid: z.boolean(),
-	batches: z.array(z.unknown()),
-	validation: z.looseObject({}),
 });
 
 const stackPlanItemSchema = z.looseObject({
@@ -146,38 +138,18 @@ export async function runBuildStackResolveThreadPayloadsOperation(invocation: Ex
 	});
 	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 
-	let request = payloadResult.value;
-	const stackPlanReferencePath = options.options.values.get("--stack-plan-reference");
-	if (stackPlanReferencePath === undefined) {
-		if (request.stack_plan === undefined) {
-			return {
-				type: "exit",
-				exit: failure(
-					"invalid_request",
-					"build-stack-resolve-thread-payloads requires a stack_plan input via the payload stack_plan key or --stack-plan-reference.",
-				),
-			};
-		}
-	} else {
-		if (request.stack_plan !== undefined) {
-			return {
-				type: "exit",
-				exit: failure(
-					"invalid_request",
-					"build-stack-resolve-thread-payloads cannot mix an embedded stack_plan payload key with --stack-plan-reference; pass exactly one stack plan source.",
-				),
-			};
-		}
-		const referenceResult = await loadArtifactReference({
-			filePath: stackPlanReferencePath,
-			commandName: "build-stack-resolve-thread-payloads",
-			optionName: "--stack-plan-reference",
-			artifactDescription: "a stack-feedback-plan data artifact",
-			schema: stackPlanReferenceShapeSchema,
-		});
-		if (referenceResult.type === "error") return { type: "exit", exit: failure(referenceResult.error.errorType, referenceResult.error.message) };
-		request = { ...request, stack_plan: referenceResult.value };
-	}
+	const stackPlanResult = await resolveXorSourceInput({
+		commandName: "build-stack-resolve-thread-payloads",
+		embeddedValue: payloadResult.value.stack_plan,
+		embeddedKey: "stack_plan",
+		referencePath: options.options.values.get("--stack-plan-reference"),
+		optionName: "--stack-plan-reference",
+		artifactDescription: "a stack-feedback-plan data artifact",
+		referenceSchema: z.unknown(),
+		inputName: "stack plan",
+	});
+	if (stackPlanResult.type === "error") return { type: "exit", exit: failure(stackPlanResult.error.errorType, stackPlanResult.error.message) };
+	const request = { ...payloadResult.value, stack_plan: stackPlanResult.value };
 
 	const result = buildStackResolveThreadPayloads(request);
 	if (result.valid) return { type: "exit", exit: ok(result) };

@@ -201,7 +201,7 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		expect(errorEnvelope(run).error_type).toBe("invalid_json");
 	});
 
-	test("rejects reference artifacts with the wrong shape", async () => {
+	test("lets downstream validators diagnose reference artifacts with the wrong shape", async () => {
 		const dir = await makeTempDir();
 		const planPath = join(dir, "stack-plan.json");
 		const prepPath = join(dir, "current-prep.json");
@@ -209,16 +209,12 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
 
 		const planAsPrep = runDiffWithArgs(["--stack-plan-reference", prepPath, "--current-prep-reference", prepPath]);
-		expect(await planAsPrep.exit).toBe(2);
-		const planAsPrepEnvelope = errorEnvelope(planAsPrep);
-		expect(planAsPrepEnvelope.error_type).toBe("invalid_request");
-		expect(planAsPrepEnvelope.message).toContain("stack-feedback-plan data artifact");
+		expect(await planAsPrep.exit).toBe(1);
+		expect(parseDiffEnvelope(planAsPrep.stdout.join("")).data.errors.map((error) => error.code)).toContain("invalid_stack_plan_shape");
 
 		const prepAsPlan = runDiffWithArgs(["--stack-plan-reference", planPath, "--current-prep-reference", planPath]);
-		expect(await prepAsPlan.exit).toBe(2);
-		const prepAsPlanEnvelope = errorEnvelope(prepAsPlan);
-		expect(prepAsPlanEnvelope.error_type).toBe("invalid_request");
-		expect(prepAsPlanEnvelope.message).toContain("stack-feedback-prep data artifact");
+		expect(await prepAsPlan.exit).toBe(1);
+		expect(parseDiffEnvelope(prepAsPlan.stdout.join("")).data.errors.map((error) => error.code)).toContain("missing_current_pr");
 	});
 });
 
