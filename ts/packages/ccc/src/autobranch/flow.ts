@@ -39,25 +39,6 @@ export type AutobranchFlowResult =
 	  }
 	| { ok: false };
 
-export function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
-	const parts = argsText.trim().split(/\s+/).filter(Boolean);
-	const parsed: ParsedAutobranchArgs = {};
-	for (let index = 0; index < parts.length; index += 1) {
-		const part = parts[index];
-		const next = parts[index + 1];
-		if (part === "--slug" && next) {
-			parsed.slug = next;
-			index += 1;
-		} else if (part?.startsWith("--slug=")) {
-			const value = part.slice("--slug=".length);
-			if (value) {
-				parsed.slug = value;
-			}
-		}
-	}
-	return parsed;
-}
-
 export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput): Promise<AutobranchFlowResult> {
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,

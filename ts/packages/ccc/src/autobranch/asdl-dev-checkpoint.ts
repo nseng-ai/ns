@@ -10,13 +10,9 @@ import { selectCheckpointTextGenerationConfig } from "asdl-dev/text-generation";
 
 export type { CommandResult, PreparedCheckpointMessage };
 
-export interface ExtensionExec {
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<CommandResult>;
-}
-
 export async function prepareCheckpointMessageWithAsdlDev(
 	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
-	env: Record<string, string | undefined> = process.env,
+	env: Record<string, string | undefined>,
 ): Promise<PreparedCheckpointMessage> {
 	const textConfig = selectCheckpointTextGenerationConfig(env);
 	if (!textConfig.ok) {
@@ -32,13 +28,13 @@ export async function prepareCheckpointMessageWithAsdlDev(
 }
 
 export async function commitPreparedCheckpointMessageWithAsdlDev(
-	pi: ExtensionExec,
+	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>,
 	cwd: string,
 	message: string,
 ): Promise<{ summary: string } | { error: string }> {
 	return createCommitWithPreparedMessage({
 		cwd,
 		message,
-		exec: (command, args, commandCwd, timeout) => pi.exec(command, args, { cwd: commandCwd, timeout }),
+		exec,
 	});
 }

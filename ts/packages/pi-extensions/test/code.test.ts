@@ -75,7 +75,9 @@ describe("code extension registration", () => {
 		expect(pi.commands.get("code:pr-regen")?.description).toBe(
 			"asdl-dev pr-regen: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);
-		expect(pi.commands.get("code:autobranch")?.description).toContain("latest commit when the worktree is clean");
+		expect(pi.commands.get("code:autobranch")?.description).toBe(
+			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
+		);
 		expect(pi.commands.get("code:autoslot")?.description).toContain("managed slot worktree");
 		expect(pi.commands.get("code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");

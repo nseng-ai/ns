@@ -8,48 +8,37 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 
 import {
 	commitPreparedCheckpointMessageWithAsdlDev,
 	prepareCheckpointMessageWithAsdlDev,
-	type PreparedCheckpointMessage,
 } from "./autobranch/asdl-dev-checkpoint.ts";
-import { createAutobranchCheckpointFlow } from "./autobranch/flow.ts";
-import type { FileStat, ParsedAutobranchArgs } from "./autobranch/preparation.ts";
+import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
+import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 
 const VERSION = "0.1.0";
-const AUTOBRANCH_SUMMARY = "Create a Graphite branch from dirty worktree changes or the latest unpushed commit.";
+export const AUTOBRANCH_SUMMARY = "Create a Graphite branch from dirty worktree changes or the latest unpushed commit.";
 
-type NoticeLevel = "info" | "warning" | "error" | "success";
-
-type PrepareCheckpointMessage = (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<PreparedCheckpointMessage>;
-type CommitPreparedCheckpointMessage = (message: string) => Promise<{ summary: string } | { error: string }>;
+type AutobranchSeamOverrides = Partial<
+	Pick<AutobranchFlowInput, "prepareCheckpointMessage" | "commitPreparedCheckpointMessage" | "readFile" | "stat" | "now">
+>;
 
 export interface CccCliDeps {
 	commands?: CommandExecApi | undefined;
 	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: Record<string, string | undefined> | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
-	prepareCheckpointMessage?: PrepareCheckpointMessage | undefined;
-	commitPreparedCheckpointMessage?: CommitPreparedCheckpointMessage | undefined;
-	readFile?: ((path: string) => Promise<Uint8Array | string>) | undefined;
-	stat?: ((path: string) => Promise<FileStat>) | undefined;
-	now?: (() => number) | undefined;
+	autobranch?: AutobranchSeamOverrides | undefined;
 }
 
 export interface CccCliContext {
 	commands: CommandExecApi;
 	cwd: string;
-	env: NodeJS.ProcessEnv;
+	env: Record<string, string | undefined>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	prepareCheckpointMessage: PrepareCheckpointMessage;
-	commitPreparedCheckpointMessage: CommitPreparedCheckpointMessage;
-	readFile?: (path: string) => Promise<Uint8Array | string>;
-	stat?: (path: string) => Promise<FileStat>;
-	now?: () => number;
+	autobranch?: AutobranchSeamOverrides | undefined;
 }
 
 const autobranchRequestSchema = z.object({
@@ -104,56 +93,49 @@ export async function runCli(args: readonly string[], deps: CccCliDeps = {}): Pr
 		env,
 		stdout,
 		stderr,
-		prepareCheckpointMessage: deps.prepareCheckpointMessage ?? ((snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot, env)),
-		commitPreparedCheckpointMessage:
-			deps.commitPreparedCheckpointMessage ??
-			((message) =>
-				commitPreparedCheckpointMessageWithAsdlDev(
-					{
-						exec: (command, commandArgs, options) => commands.exec(command, commandArgs, { ...options, env }),
-					},
-					cwd,
-					message,
-				)),
-		...(deps.readFile === undefined ? {} : { readFile: deps.readFile }),
-		...(deps.stat === undefined ? {} : { stat: deps.stat }),
-		...(deps.now === undefined ? {} : { now: deps.now }),
+		...(deps.autobranch === undefined ? {} : { autobranch: deps.autobranch }),
 	};
 	const io = resolveIo({ stdout, stderr });
 	return buildCli().run(args, { context, io });
 }
 
 async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest): Promise<number> {
-	const notices: Array<{ message: string; level: NoticeLevel }> = [];
+	let hasError = false;
 	const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
+	const autobranch = ctx.autobranch ?? {};
 	await createAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd, timeout, env: ctx.env }),
-		prepareCheckpointMessage: ctx.prepareCheckpointMessage,
-		commitPreparedCheckpointMessage: ctx.commitPreparedCheckpointMessage,
+		prepareCheckpointMessage: autobranch.prepareCheckpointMessage ?? ((snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot, ctx.env)),
+		commitPreparedCheckpointMessage:
+			autobranch.commitPreparedCheckpointMessage ??
+			((message) =>
+				commitPreparedCheckpointMessageWithAsdlDev(
+					(command, commandArgs, commandCwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd: commandCwd, timeout, env: ctx.env }),
+					ctx.cwd,
+					message,
+				)),
 		notify: (message, level) => {
-			notices.push({ message, level });
+			const text = `${message.trimEnd()}\n`;
+			if (level === "error") {
+				hasError = true;
+				ctx.stderr(text);
+				return;
+			}
+			if (level === "warning") {
+				ctx.stderr(text);
+				return;
+			}
+			ctx.stdout(text);
 		},
 		setStatus: () => {},
-		...(ctx.readFile === undefined ? {} : { readFile: ctx.readFile }),
-		...(ctx.stat === undefined ? {} : { stat: ctx.stat }),
-		...(ctx.now === undefined ? {} : { now: ctx.now }),
+		...(autobranch.readFile === undefined ? {} : { readFile: autobranch.readFile }),
+		...(autobranch.stat === undefined ? {} : { stat: autobranch.stat }),
+		...(autobranch.now === undefined ? {} : { now: autobranch.now }),
 	});
 
-	renderNotices(ctx, notices);
-	return notices.some((notice) => notice.level === "error") ? 1 : 0;
-}
-
-function renderNotices(ctx: Pick<CccCliContext, "stdout" | "stderr">, notices: readonly { message: string; level: NoticeLevel }[]): void {
-	for (const notice of notices) {
-		const text = `${notice.message.trimEnd()}\n`;
-		if (notice.level === "error" || notice.level === "warning") {
-			ctx.stderr(text);
-		} else {
-			ctx.stdout(text);
-		}
-	}
+	return hasError ? 1 : 0;
 }
 
 function runtimeInfo(): string {

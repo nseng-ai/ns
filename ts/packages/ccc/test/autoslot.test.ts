@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { AutobranchCommandContext } from "../src/autobranch.ts";
-import type { AutoslotFlowInput } from "../src/autoslot.ts";
+import type { AutobranchCommandContext, AutoslotFlowInput } from "../src/autoslot.ts";
 import { createAutoslotFlow, registerAutoslotCommand } from "../src/autoslot.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 

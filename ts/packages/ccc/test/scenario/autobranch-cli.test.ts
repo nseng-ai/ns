@@ -141,11 +141,13 @@ function runWithFakes(args: readonly string[], options: FakeOptions = {}): CliRu
 			commands,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
-			now: () => 123,
-			prepareCheckpointMessage: async () => ({ ok: true, message: "[cp] Add pending work\n\n- Checkpoint current changes", source: "model" }),
-			commitPreparedCheckpointMessage: async (message) => {
-				commits.push(message);
-				return { summary: "abc123 [cp] Add pending work" };
+			autobranch: {
+				now: () => 123,
+				prepareCheckpointMessage: async () => ({ ok: true, message: "[cp] Add pending work\n\n- Checkpoint current changes", source: "model" }),
+				commitPreparedCheckpointMessage: async (message) => {
+					commits.push(message);
+					return { summary: "abc123 [cp] Add pending work" };
+				},
 			},
 		}),
 	};
