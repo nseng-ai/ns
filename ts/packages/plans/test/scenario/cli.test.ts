@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, realpath, rm, stat, utimes, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { mkdir, readFile, realpath, stat, utimes, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
 import { type CommandExecApi, type ExecOptions } from "@asdl/core/exec";
 import type { GitGateway } from "@asdl/core/git";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { createTempDirTracker } from "@asdl/core/testing";
 
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 
@@ -91,13 +92,10 @@ const RESOLVE_HELP = [
 	"",
 ].join("\n");
 
-const tempDirs: string[] = [];
-const homeTempDirs: string[] = [];
+const tempDirs = createTempDirTracker();
 
 afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	const homes = homeTempDirs.splice(0);
-	await Promise.all([...dirs, ...homes].map((dir) => rm(dir, { recursive: true, force: true })));
+	await tempDirs.cleanup();
 });
 
 interface CliRun {
@@ -149,15 +147,11 @@ async function makeFixture(): Promise<Fixture> {
 }
 
 async function makeTempDir(prefix = "plans-cli-scenario-"): Promise<string> {
-	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
-	tempDirs.push(dir);
-	return dir;
+	return tempDirs.makeTempDir(prefix);
 }
 
 async function makeHomeTempDir(): Promise<string> {
-	const dir = await realpath(await mkdtemp(join(homedir(), ".plans-cli-scenario-")));
-	homeTempDirs.push(dir);
-	return dir;
+	return tempDirs.makeHomeTempDir(".plans-cli-scenario-");
 }
 
 async function writePlanFile(fixture: Fixture, fileName: string, modifiedTimeMs = MODIFIED_TIME_MS): Promise<string> {

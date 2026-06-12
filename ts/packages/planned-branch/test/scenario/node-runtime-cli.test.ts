@@ -1,40 +1,15 @@
-import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { describe, expect, test } from "vitest";
+import { describeNodeRuntimeCliEntrypoint } from "@asdl/core/testing";
 
-const TS_WORKSPACE_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
-const CLI_SOURCE_PATH = "packages/planned-branch/src/cli.ts";
-
-describe("planned-branch Node runtime CLI entrypoint", () => {
-	test("the committed source has a Node shebang", async () => {
-		const source = await readFile(new URL("../../src/cli.ts", import.meta.url), "utf8");
-
-		expect(source.split("\n", 1)[0]).toBe("#!/usr/bin/env node");
-	});
-
-	test("Node executes the TypeScript source entrypoint directly", () => {
-		const result = spawnSync(process.execPath, [CLI_SOURCE_PATH, "--help"], {
-			cwd: TS_WORKSPACE_ROOT,
-			encoding: "utf8",
-		});
-
-		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toContain("Usage: planned-branch");
-		expect(result.stdout).toContain("--runtime");
-		// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from top-level help.
-		expect(result.stdout).not.toContain("exec");
-	});
-
-	test("prints TypeScript runtime diagnostics", () => {
-		const result = spawnSync(process.execPath, [CLI_SOURCE_PATH, "--runtime"], {
-			cwd: TS_WORKSPACE_ROOT,
-			encoding: "utf8",
-		});
-
-		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toBe(
-			"runtime: typescript\nentry_point: @asdl/planned-branch bin planned-branch -> ts/packages/planned-branch/src/cli.ts\n",
-		);
-	});
+describeNodeRuntimeCliEntrypoint({
+	name: "planned-branch Node runtime CLI entrypoint",
+	workspaceRoot: new URL("../../../../", import.meta.url),
+	cliSourcePathFromWorkspace: "packages/planned-branch/src/cli.ts",
+	cliSourceUrl: new URL("../../src/cli.ts", import.meta.url),
+	helpAssertions: [
+		{ type: "contains", text: "Usage: planned-branch" },
+		{ type: "contains", text: "--runtime" },
+		{ type: "not_contains", text: "exec" },
+	],
+	runtimeDiagnostics:
+		"runtime: typescript\nentry_point: @asdl/planned-branch bin planned-branch -> ts/packages/planned-branch/src/cli.ts\n",
 });

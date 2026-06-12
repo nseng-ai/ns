@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runCli } from "../../src/cli.ts";
@@ -9,6 +8,7 @@ import { encodeBranchForPlanPath } from "@asdl/plans";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryPlannedBranchBrmemGateway, type InMemoryBrmemGatewayState } from "../support/in-memory-brmem-gateway.ts";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
+import { createTempDirTracker } from "@asdl/core/testing";
 import { InMemoryPlannedBranchGraphiteGateway, type InMemoryGraphiteGatewayState } from "../support/in-memory-graphite-gateway.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
@@ -153,17 +153,14 @@ interface RunWithFakesOptions {
 	graphite?: InMemoryGraphiteGatewayState;
 }
 
-const tempDirs: string[] = [];
+const tempDirs = createTempDirTracker();
 
 afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+	await tempDirs.cleanup();
 });
 
 async function makeTempDir(prefix = "planned-branch-cli-"): Promise<string> {
-	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
-	tempDirs.push(dir);
-	return dir;
+	return tempDirs.makeTempDir(prefix);
 }
 
 function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] = [], options: RunWithFakesOptions): CliRun {
