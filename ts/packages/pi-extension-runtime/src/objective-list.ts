@@ -58,7 +58,7 @@ function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListR
 
 export function parseObjectiveList(stdout: string): ObjectiveListParseResult {
 	const envelope = parseMachineEnvelopeData(stdout, { label: "objective list JSON" });
-	if (envelope.type === "invalid") {
+	if (envelope.type !== "valid") {
 		return { type: "invalid", message: envelope.message };
 	}
 

@@ -7,6 +7,7 @@ export {
 } from "./branch-slug.ts";
 export {
 	parseMachineEnvelopeData,
+	type MachineEnvelopeDataParseFailure,
 	type MachineEnvelopeDataParseInvalid,
 	type MachineEnvelopeDataParseResult,
 	type MachineEnvelopeDataParseValid,

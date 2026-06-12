@@ -118,7 +118,7 @@ export async function listObjectiveSidebarChoices(
 	}
 
 	const parsed = parseObjectiveList(result.stdout);
-	if (parsed.type === "invalid") {
+	if (parsed.type !== "valid") {
 		return { type: "failed", message: parsed.message };
 	}
 
@@ -150,7 +150,7 @@ export async function validateObjectiveSidebarSlug(
 	}
 
 	const parsed = parseMachineEnvelopeData(result.stdout, { label: "objective read JSON", stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES } });
-	if (parsed.type === "invalid") {
+	if (parsed.type !== "valid") {
 		return { type: "failed", message: parsed.message };
 	}
 
@@ -236,7 +236,7 @@ export async function applyObjectiveSidebarFields(
 		label: "cmux workspace summary JSON",
 		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 	});
-	if (parsed.type === "invalid") {
+	if (parsed.type !== "valid") {
 		return { type: "failed", message: parsed.message };
 	}
 
@@ -315,7 +315,7 @@ function formatStartupFailure(summary: string, command: string, args: readonly s
 function formatFailedEnvelopeOrExecFailure(summary: string, commandDisplay: string, result: ExecResult, label: string): string {
 	if (result.stdout.trim().length > 0) {
 		const parsed = parseMachineEnvelopeData(result.stdout, { label, stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES } });
-		if (parsed.type === "invalid") {
+		if (parsed.type !== "valid") {
 			return `${summary}\nCommand: ${commandDisplay}\n${parsed.message}`;
 		}
 	}

@@ -20,6 +20,16 @@ describe("pi extension runtime helpers", () => {
 		});
 	});
 
+	test("parses failure machine-envelope data", () => {
+		expect(parseMachineEnvelopeData(JSON.stringify({ exit_code: 3, error_type: "no_available_slot", message: "No slot." }), { label: "example JSON" })).toEqual({
+			type: "failure",
+			exitCode: 3,
+			errorType: "no_available_slot",
+			cliMessage: "No slot.",
+			message: "example JSON reported failure: exit_code 3: error_type no_available_slot: No slot.",
+		});
+	});
+
 	test("formats exec failures with the canonical command dialect", () => {
 		const result = { stdout: "", stderr: "boom", code: 2, killed: false };
 		expect(formatCommandFailure("objective command failed", "objective list", result).startsWith("objective command failed (exit code 2)."))
