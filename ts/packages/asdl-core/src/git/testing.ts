@@ -9,9 +9,14 @@ import type {
 	GitResult,
 } from "./index.ts";
 
-type ValueState<T> = T | { type: "failure"; error?: GitErrorInfo | undefined };
-type OptionalValueState<T> = T | { type: "missing" } | { type: "failure"; error?: GitErrorInfo | undefined };
+interface FailureState {
+	type: "failure";
+	error?: GitErrorInfo | undefined;
+}
+type ValueState<T> = T | FailureState;
+type OptionalValueState<T> = T | { type: "missing" } | FailureState;
 type CurrentBranchState = ValueState<string> | { type: "detached" };
+type BranchPresenceFailureState = FailureState;
 
 export interface InMemoryGitGatewayState {
 	repoRoot?: ValueState<string> | undefined;
@@ -22,6 +27,8 @@ export interface InMemoryGitGatewayState {
 	headCommit?: ValueState<string> | undefined;
 	existingBranches?: readonly string[] | undefined;
 	invalidBranchRefs?: readonly string[] | undefined;
+	localBranchPresenceFailure?: BranchPresenceFailureState | undefined;
+	localBranchPresenceFailures?: Readonly<Record<string, BranchPresenceFailureState>> | undefined;
 	createBranchFailure?: GitErrorInfo | undefined;
 }
 
@@ -43,6 +50,8 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly headCommitState: ValueState<string>;
 	private readonly branches: Set<string>;
 	private readonly invalidBranchRefs: Set<string>;
+	private readonly localBranchPresenceFailure: BranchPresenceFailureState | undefined;
+	private readonly localBranchPresenceFailures: Readonly<Record<string, BranchPresenceFailureState>>;
 	private readonly createBranchFailure: GitErrorInfo | undefined;
 	private readonly repoRootLog: GitCall[] = [];
 	private readonly optionalRepoRootLog: GitCall[] = [];
@@ -63,6 +72,8 @@ export class InMemoryGitGateway implements GitGateway {
 		this.headCommitState = state.headCommit ?? "0123456789abcdef0123456789abcdef01234567";
 		this.branches = new Set(state.existingBranches ?? []);
 		this.invalidBranchRefs = new Set(state.invalidBranchRefs ?? []);
+		this.localBranchPresenceFailure = state.localBranchPresenceFailure;
+		this.localBranchPresenceFailures = { ...(state.localBranchPresenceFailures ?? {}) };
 		this.createBranchFailure = state.createBranchFailure;
 	}
 
@@ -156,6 +167,14 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult> {
 		this.localBranchPresenceLog.push(branchCallFromParams(params));
+		const branchFailure = this.localBranchPresenceFailures[params.branch];
+		if (branchFailure !== undefined) {
+			return branchPresenceFailureResult(branchFailure);
+		}
+		if (this.localBranchPresenceFailure !== undefined) {
+			return branchPresenceFailureResult(this.localBranchPresenceFailure);
+		}
+
 		const refName = `refs/heads/${params.branch}`;
 		if (this.branches.has(params.branch)) {
 			return { type: "present", refName, displayCommand: `git rev-parse --verify ${refName}` };
@@ -190,7 +209,14 @@ function optionalValueResult<T>(state: OptionalValueState<T>, defaultCode: strin
 	return { type: "found", value: state };
 }
 
-function isFailureState(value: unknown): value is { type: "failure"; error?: GitErrorInfo | undefined } {
+function branchPresenceFailureResult(state: BranchPresenceFailureState): GitBranchPresenceResult {
+	return {
+		type: "error",
+		error: state.error ?? { code: "branch_presence_failed", message: "Could not determine local branch presence." },
+	};
+}
+
+function isFailureState(value: unknown): value is FailureState {
 	return typeof value === "object" && value !== null && "type" in value && value.type === "failure";
 }
 

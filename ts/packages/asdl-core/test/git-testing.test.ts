@@ -55,6 +55,37 @@ describe("in-memory git gateway", () => {
 		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: BRANCH }]);
 	});
 
+	test("models global local branch presence failure after recording the call", async () => {
+		const git = new InMemoryGitGateway({ localBranchPresenceFailure: { type: "failure" } });
+
+		expect(await git.localBranchPresence({ cwd: ROOT, branch: BRANCH })).toEqual({
+			type: "error",
+			error: { code: "branch_presence_failed", message: "Could not determine local branch presence." },
+		});
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: BRANCH }]);
+	});
+
+	test("models branch-specific local branch presence failures without hiding unrelated branch state", async () => {
+		const git = new InMemoryGitGateway({
+			existingBranches: ["existing"],
+			localBranchPresenceFailures: {
+				[BRANCH]: { type: "failure", error: { code: "custom_presence_failure", message: "Custom presence failure." } },
+			},
+		});
+
+		expect(await git.localBranchPresence({ cwd: ROOT, branch: BRANCH })).toEqual({
+			type: "error",
+			error: { code: "custom_presence_failure", message: "Custom presence failure." },
+		});
+		expect(await git.localBranchPresence({ cwd: ROOT, branch: "existing" })).toMatchObject({ type: "present", refName: "refs/heads/existing" });
+		expect(await git.localBranchPresence({ cwd: ROOT, branch: "other" })).toEqual({ type: "absent", refName: "refs/heads/other" });
+		expect(git.localBranchPresenceCalls).toEqual([
+			{ cwd: ROOT, branch: BRANCH },
+			{ cwd: ROOT, branch: "existing" },
+			{ cwd: ROOT, branch: "other" },
+		]);
+	});
+
 	test("supports failure and missing state overrides", async () => {
 		const explicitError = { code: "custom", message: "Custom failure." };
 		const git = new InMemoryGitGateway({
