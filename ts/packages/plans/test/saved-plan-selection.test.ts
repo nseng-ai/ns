@@ -61,6 +61,41 @@ describe("saved plan session selection", () => {
 		expect(await findLatestSessionSavedPlanFile(entries, fixture.directory)).toEqual({ type: "not-found" });
 	});
 
+	test("accepts but strips unknown session entry, message, and evidence keys", async () => {
+		const fixture = await makeFixture();
+		const plan = evidence(fixture.directory, { filePath: join(fixture.directory.directoryPath, PLAN_KEY), summary: "Use this plan." });
+		const result = extractSavedPlanFileEvidenceFromSessionEntry({
+			type: "message",
+			entryExtra: "ignored",
+			message: {
+				role: "toolResult",
+				toolName: "write_saved_plan_file",
+				isError: false,
+				messageExtra: "ignored",
+				details: { ...plan, evidenceExtra: "ignored" },
+			},
+		});
+
+		expect(result).toEqual(plan);
+		expect(result).not.toHaveProperty("evidenceExtra");
+	});
+
+	test("rejects malformed summary evidence", async () => {
+		const fixture = await makeFixture();
+		const plan = evidence(fixture.directory, { filePath: join(fixture.directory.directoryPath, PLAN_KEY) });
+
+		expect(
+			extractSavedPlanFileEvidenceFromSessionEntry({
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "write_saved_plan_file",
+					details: { ...plan, summary: 123 },
+				},
+			}),
+		).toBeUndefined();
+	});
+
 	test("treats a missing session file as stale and continues to older valid evidence", async () => {
 		const fixture = await makeFixture();
 		const olderPath = await writePlanFile(fixture.directory, "older-valid-saved-plan.md", 1_700_000_000_000);

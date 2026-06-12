@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	CHECKPOINT_SUBJECT_MAX_LENGTH,
 	formatCheckpointMessage,
+	formatCheckpointValidationFeedback,
 	validateCheckpointMessage,
 	type CheckpointMessageIssue,
 } from "asdl-dev/src/checkpoint-message.ts";
@@ -122,6 +123,19 @@ Thanks!`);
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(issueCodes(result.issues)).toContain("extra_prose");
+		}
+	});
+
+	test("formats projected validation issues as repair feedback", () => {
+		const result = validateCheckpointMessage(`[cp] Update checkpoint tests.
+-Missing blank separator`);
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			const feedback = formatCheckpointValidationFeedback(result.issues);
+			expect(feedback).toContain("subject_trailing_period");
+			expect(feedback).toContain("missing_blank_line");
+			expect(feedback).toContain("line 2 must start with");
 		}
 	});
 });

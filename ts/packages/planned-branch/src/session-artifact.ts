@@ -1,10 +1,10 @@
+import { z } from "zod";
+
 import {
+	BRANCH_CREATION_METHODS,
 	formatPlannedBranchEvidence as formatPlanBranchEvidence,
-	tryNormalizeBranchCreationMethod,
-	type BranchCreationMethod,
 	type PlannedBranchEvidence,
 } from "./planned-branch-creation.ts";
-import { isRecord } from "@asdl/core/primitives";
 
 export { formatPlanBranchEvidence };
 
@@ -18,58 +18,53 @@ export interface PlannedBranchOutputDetails {
 	error?: string;
 }
 
+const nonEmptyEvidenceStringSchema = z.string().min(1);
+
+const plannedBranchEvidenceSchema = z
+	.object({
+		slug: nonEmptyEvidenceStringSchema,
+		branch: nonEmptyEvidenceStringSchema,
+		branchCreation: z.enum(BRANCH_CREATION_METHODS),
+		startPoint: nonEmptyEvidenceStringSchema,
+		namespace: nonEmptyEvidenceStringSchema,
+		key: nonEmptyEvidenceStringSchema,
+		refName: nonEmptyEvidenceStringSchema,
+		commit: nonEmptyEvidenceStringSchema,
+		sourceFile: nonEmptyEvidenceStringSchema,
+		summary: z.string().optional(),
+	})
+	.strip();
+
+const successfulPlannedBranchOutputDetailsSchema = z
+	.object({
+		status: z.literal("success"),
+		evidence: plannedBranchEvidenceSchema,
+	})
+	.strip();
+
 export function extractPlannedBranchEvidence(details: unknown): PlannedBranchEvidence | undefined {
-	if (!isRecord(details) || details.status !== "success") {
+	const result = successfulPlannedBranchOutputDetailsSchema.safeParse(details);
+	if (!result.success) {
 		return undefined;
 	}
 
-	const evidence = details.evidence;
-	if (!isRecord(evidence)) {
-		return undefined;
-	}
-
-	const slug = requiredStringField(evidence, "slug");
-	const branch = requiredStringField(evidence, "branch");
-	const branchCreation = branchCreationField(evidence, "branchCreation");
-	const startPoint = requiredStringField(evidence, "startPoint");
-	const namespace = requiredStringField(evidence, "namespace");
-	const key = requiredStringField(evidence, "key");
-	const refName = requiredStringField(evidence, "refName");
-	const commit = requiredStringField(evidence, "commit");
-	const sourceFile = requiredStringField(evidence, "sourceFile");
-	if (
-		slug === undefined ||
-		branch === undefined ||
-		branchCreation === undefined ||
-		startPoint === undefined ||
-		namespace === undefined ||
-		key === undefined ||
-		refName === undefined ||
-		commit === undefined ||
-		sourceFile === undefined
-	) {
-		return undefined;
-	}
-
-	const summary = evidence.summary;
-	if (summary === undefined) {
-		return { slug, branch, branchCreation, startPoint, namespace, key, refName, commit, sourceFile };
-	}
-	if (typeof summary !== "string") {
-		return undefined;
-	}
-	return { slug, branch, branchCreation, startPoint, namespace, key, refName, commit, sourceFile, summary };
+	return toPlannedBranchEvidence(result.data.evidence);
 }
 
-function requiredStringField(record: Record<string, unknown>, key: string): string | undefined {
-	const value = record[key];
-	return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function branchCreationField(record: Record<string, unknown>, key: string): BranchCreationMethod | undefined {
-	const value = record[key];
-	if (value === undefined) {
-		return undefined;
+function toPlannedBranchEvidence(data: z.infer<typeof plannedBranchEvidenceSchema>): PlannedBranchEvidence {
+	const evidence = {
+		slug: data.slug,
+		branch: data.branch,
+		branchCreation: data.branchCreation,
+		startPoint: data.startPoint,
+		namespace: data.namespace,
+		key: data.key,
+		refName: data.refName,
+		commit: data.commit,
+		sourceFile: data.sourceFile,
+	};
+	if (data.summary === undefined) {
+		return evidence;
 	}
-	return tryNormalizeBranchCreationMethod(value);
+	return { ...evidence, summary: data.summary };
 }
