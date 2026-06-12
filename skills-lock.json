@@ -35,10 +35,10 @@
       "sourceType": "local",
       "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
     },
-    "code-stack-address": {
-      "source": "skills/code-stack-address",
+    "stack-address": {
+      "source": "skills/stack-address",
       "sourceType": "local",
-      "computedHash": "06fa298528fa3e39cbdbd0502cde2ce6d0e0d01b9eee62da8a106c2811df766c"
+      "computedHash": "a3f4ccdd0f34ee1b55ee621cf1940e71c97d45ffce04febb605c166caf6c0a2e"
     },
     "create-bun-typescript-project": {
       "source": "skills/create-bun-typescript-project",

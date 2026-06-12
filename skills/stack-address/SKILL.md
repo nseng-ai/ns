@@ -1,6 +1,6 @@
 ---
-name: code-stack-address
-description: "Use when the user explicitly wants a stack-wide PR feedback pass: address all feedback in this Graphite stack, make an omnibus PR for stack feedback, retroactively resolve comments across the stack, or run pr-address across every PR in the stack. Also triggers for legacy names stack-address or pr-stack-address."
+name: stack-address
+description: "Use when the user explicitly wants a stack-wide PR feedback pass: address all feedback in this Graphite stack, make an omnibus PR for stack feedback, retroactively resolve comments across the stack, or run pr-address across every PR in the stack. Also triggers for legacy names code-stack-address or pr-stack-address."
 metadata:
   internal: true
 allowed-tools:
@@ -18,7 +18,7 @@ allowed-tools:
   - Glob
 ---
 
-# code-stack-address
+# stack-address
 
 Address unresolved feedback across every PR in the current Graphite stack by
 creating or reusing one child omnibus branch at the stack tip, committing fixes
