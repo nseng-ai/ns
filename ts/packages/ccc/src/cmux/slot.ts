@@ -1,6 +1,5 @@
 import { formatCommand, formatOutputSection } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
-import { isRecord } from "./primitives.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type { ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
@@ -14,19 +13,6 @@ export interface SlotCheckoutTarget {
 	worktreePath: string;
 	isAlreadyAssigned: boolean;
 }
-
-export interface SlotCheckoutSuccessEnvelope {
-	exit_code: 0;
-	data: SlotCheckoutTarget;
-}
-
-export interface SlotCheckoutFailureEnvelope {
-	exit_code: number;
-	error_type?: string;
-	message?: string;
-}
-
-export type SlotCheckoutEnvelope = SlotCheckoutSuccessEnvelope | SlotCheckoutFailureEnvelope;
 
 export interface OpenBranchInCmuxSlotOptions {
 	pi: Pick<ExtensionAPI, "exec">;
@@ -86,25 +72,19 @@ export async function checkoutSlot(
 		timeout: SLOT_TIMEOUT_MS,
 	});
 
-	const parsed = parseSlotCheckoutEnvelope(result.stdout);
-	if (!parsed) {
-		const stderr = result.stderr.trim();
-		return {
-			error:
-				stderr.length > 0
-					? `slot checkout failed: ${stderr}`
-					: "slot checkout failed with unreadable JSON output.",
-		};
+	const parsed = parseMachineEnvelopeData(result.stdout, { label: "slot checkout JSON", stdoutTail: false });
+	if (parsed.type === "failure") {
+		return { error: formatSlotCheckoutCliFailure(parsed) };
+	}
+	if (parsed.type === "invalid") {
+		return { error: "slot checkout failed with unreadable JSON output." };
 	}
 
-	if (isSlotCheckoutSuccessEnvelope(parsed)) {
-		return parsed.data;
+	const target = coerceSlotCheckoutTarget(parsed.data);
+	if (target === undefined) {
+		return { error: "slot checkout failed with malformed JSON data." };
 	}
-
-	const failure = parsed;
-	return {
-		error: failure.message ?? `slot checkout failed${failure.error_type ? ` (${failure.error_type})` : ""}.`,
-	};
+	return target;
 }
 
 export async function openCmuxWorkspace(
@@ -142,34 +122,11 @@ export function buildNewWorkspaceArgs(
 	return args;
 }
 
-export function isSlotCheckoutSuccessEnvelope(
-	envelope: SlotCheckoutEnvelope,
-): envelope is SlotCheckoutSuccessEnvelope {
-	return envelope.exit_code === 0 && "data" in envelope;
-}
-
-export function parseSlotCheckoutEnvelope(stdout: string): SlotCheckoutEnvelope | undefined {
-	const success = parseSlotCheckoutSuccessEnvelope(stdout);
-	if (success !== undefined) {
-		return success;
-	}
-	return parseSlotCheckoutFailureEnvelope(stdout);
-}
-
 function formatSlotCheckoutFailure(branchName: string, cause: string): string {
 	return ["Failed to check out branch slot.", `Branch: ${branchName}`, "", cause].join("\n");
 }
 
-function parseSlotCheckoutSuccessEnvelope(stdout: string): SlotCheckoutSuccessEnvelope | undefined {
-	const parsed = parseMachineEnvelopeData(stdout, { label: "slot checkout JSON", stdoutTail: false });
-	if (parsed.type === "invalid") {
-		// Malformed or non-success slot CLI output is handled by callers or the failure-envelope parser.
-		return undefined;
-	}
-	return coerceSlotCheckoutSuccessEnvelope(parsed.data);
-}
-
-function coerceSlotCheckoutSuccessEnvelope(data: Record<string, unknown>): SlotCheckoutSuccessEnvelope | undefined {
+function coerceSlotCheckoutTarget(data: Record<string, unknown>): SlotCheckoutTarget | undefined {
 	if (
 		typeof data.slot_name !== "string" ||
 		typeof data.branch_name !== "string" ||
@@ -179,37 +136,19 @@ function coerceSlotCheckoutSuccessEnvelope(data: Record<string, unknown>): SlotC
 		return undefined;
 	}
 	return {
-		exit_code: 0,
-		data: {
-			slotName: data.slot_name,
-			branchName: data.branch_name,
-			worktreePath: data.worktree_path,
-			isAlreadyAssigned: data.already_assigned,
-		},
+		slotName: data.slot_name,
+		branchName: data.branch_name,
+		worktreePath: data.worktree_path,
+		isAlreadyAssigned: data.already_assigned,
 	};
 }
 
-function parseSlotCheckoutFailureEnvelope(stdout: string): SlotCheckoutFailureEnvelope | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		// Success parsing intentionally accepts CLI envelopes with leading logs; failure output must be plain JSON.
-		return undefined;
+function formatSlotCheckoutCliFailure(failure: { exitCode: number; errorType?: string; cliMessage?: string }): string {
+	const status = failure.errorType === undefined ? "" : ` (${failure.errorType})`;
+	if (failure.cliMessage !== undefined) {
+		return `slot checkout failed${status}: ${failure.cliMessage}`;
 	}
-	if (!isRecord(parsed) || typeof parsed.exit_code !== "number" || parsed.exit_code === 0) {
-		return undefined;
-	}
-	const failure: SlotCheckoutFailureEnvelope = {
-		exit_code: parsed.exit_code,
-	};
-	if (typeof parsed.error_type === "string") {
-		failure.error_type = parsed.error_type;
-	}
-	if (typeof parsed.message === "string") {
-		failure.message = parsed.message;
-	}
-	return failure;
+	return `slot checkout failed with exit_code ${failure.exitCode}${status}.`;
 }
 
 function formatCmuxWorkspaceFailure(

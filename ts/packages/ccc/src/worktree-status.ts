@@ -174,7 +174,7 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 		if (run.result.killed || run.result.code !== 0) continue;
 
 		const parsed = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
-		if (parsed.type === "invalid") continue;
+		if (parsed.type !== "valid") continue;
 
 		const status = formatBrmemScopes(parseBrmemEntries(parsed.data.entries));
 		return status.length > 0 ? status : undefined;

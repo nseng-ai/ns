@@ -945,7 +945,7 @@ class PrFeedbackWatchController {
 			return { type: "failed", message: `prepare-run failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
 		}
 		const parsed = parseMachineEnvelopeData(result.stdout, { label: "pr-address prepare-run JSON", stdoutTail: { maxChars: 1_000 } });
-		if (parsed.type === "invalid") return { type: "failed", message: parsed.message };
+		if (parsed.type !== "valid") return { type: "failed", message: parsed.message };
 		const dataResult = parsePrepareRunData(parsed.data);
 		if (dataResult.type === "invalid") return { type: "failed", message: dataResult.message };
 		const currentUserLoginPromise = this.currentUserLogin === undefined

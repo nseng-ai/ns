@@ -411,7 +411,7 @@ function objectiveCompletionItem(record: ObjectiveCandidateRecord): Autocomplete
 
 function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResult {
 	const envelope = parseMachineEnvelopeData(stdout, { label: "objective candidates JSON" });
-	if (envelope.type === "invalid") {
+	if (envelope.type !== "valid") {
 		return { type: "invalid", message: envelope.message };
 	}
 
