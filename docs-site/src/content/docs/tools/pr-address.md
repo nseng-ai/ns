@@ -9,7 +9,7 @@ sidebar:
 replies, and resolve conversations.
 
 ```bash
-pr-address exec get-reviews --format json
+pr-address exec get-feedback --format json
 ```
 
 ## Mental model
@@ -21,25 +21,25 @@ while skills get stable JSON.
 ## Install
 
 ```bash
-uv tool install asdl-pr-address
+just install-pr-address
 pr-address --help
-asdl pr-address --help
 ```
 
 ## Common commands
 
-| Goal                  | Command                                     | Boundary        |
-| --------------------- | ------------------------------------------- | --------------- |
-| Prepare a review run  | `pr-address exec prepare-run`               | Read-only       |
-| Fetch review state    | `pr-address exec get-reviews`               | Read-only       |
-| Fetch review comments | `pr-address exec get-review-comments`       | Read-only       |
-| Reply to a review     | `pr-address exec reply-to-review`           | GitHub          |
-| Reply to a thread     | `pr-address exec add-review-thread-reply`   | GitHub          |
-| Resolve with a reply  | `pr-address exec resolve-thread-with-reply` | GitHub          |
-| Resolve a thread      | `pr-address exec resolve-thread`            | GitHub          |
-| Record batch evidence | `pr-address exec record-batch-checkpoint`   | Local           |
-| Finalize run evidence | `pr-address exec finalize-run`              | Local/read-only |
-| Reopen a thread       | `pr-address exec unresolve-thread`          | GitHub          |
+| Goal                         | Command                                     | Boundary        |
+| ---------------------------- | ------------------------------------------- | --------------- |
+| Prepare a review run         | `pr-address exec prepare-run`               | Read-only/local |
+| Fetch review state           | `pr-address exec get-feedback`              | Read-only       |
+| Read saved feedback details  | `pr-address exec read-feedback-details`     | Local           |
+| Plan feedback batches        | `pr-address exec plan-feedback`             | Local           |
+| Reply to a review            | `pr-address exec reply-to-review`           | GitHub          |
+| Reply to a discussion        | `pr-address exec reply-to-discussion`       | GitHub          |
+| Resolve with a reply         | `pr-address exec resolve-thread-with-reply` | GitHub          |
+| Resolve a thread batch       | `pr-address exec resolve-thread-batch`      | GitHub          |
+| Record batch evidence        | `pr-address exec record-batch-checkpoint`   | Local           |
+| Finalize run evidence        | `pr-address exec finalize-run`              | Local/read-only |
+| Summarize remaining feedback | `pr-address exec summarize-feedback`        | Local/read-only |
 
 ## Agent interface
 

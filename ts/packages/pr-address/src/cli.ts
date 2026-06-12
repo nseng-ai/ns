@@ -3,7 +3,6 @@
 import process from "node:process";
 
 import { emitExit, failure, type ClinkrExit } from "@asdl/clinkr";
-import { formatErrorMessage } from "@asdl/core";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
@@ -74,7 +73,7 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 		return 0;
 	}
 
-	// Mirrors the legacy CLI's eager `--json-schema` flag: print the operation's
+	// Preserve the eager `--json-schema` contract: print the operation's
 	// input/output JSON Schema document and exit 0 before any argument validation.
 	if (args.includes("--json-schema")) {
 		const schemaDocument = buildOperationSchemaDocument(operation);
@@ -85,35 +84,29 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 	}
 
 	const registeredOperation = deps.registry.get(operation);
-	if (registeredOperation !== undefined) {
-		if (registeredOperation.isRepoContextRequired === true) {
-			const preconditionExit = await repoContextPreconditionExit(deps);
-			if (preconditionExit !== undefined) {
-				return emitExit(preconditionExit, {
-					format: hasFormatJson(args) ? "json" : "human",
-					io: { stdout: deps.stdout, stderr: deps.stderr },
-				});
-			}
-		}
-		const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
-		switch (dispatchResult.type) {
-			case "exit":
-				return emitExit(dispatchResult.exit, {
-					format: hasFormatJson(args) ? "json" : "human",
-					io: { stdout: deps.stdout, stderr: deps.stderr },
-				});
-			case "raw-exit":
-				return dispatchResult.exitCode;
-			case "fallback":
-				break;
-		}
+	if (registeredOperation === undefined) {
+		deps.stderr(`Unknown operation: ${operation}\n\n${execHelp()}`);
+		return 2;
 	}
 
-	try {
-		return await deps.context.legacy.run(["exec", ...args], { cwd: deps.cwd, env: deps.env });
-	} catch (error) {
-		deps.stderr(`Error: ${formatErrorMessage(error)}\n`);
-		return 2;
+	if (registeredOperation.isRepoContextRequired === true) {
+		const preconditionExit = await repoContextPreconditionExit(deps);
+		if (preconditionExit !== undefined) {
+			return emitExit(preconditionExit, {
+				format: hasFormatJson(args) ? "json" : "human",
+				io: { stdout: deps.stdout, stderr: deps.stderr },
+			});
+		}
+	}
+	const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
+	switch (dispatchResult.type) {
+		case "exit":
+			return emitExit(dispatchResult.exit, {
+				format: hasFormatJson(args) ? "json" : "human",
+				io: { stdout: deps.stdout, stderr: deps.stderr },
+			});
+		case "raw-exit":
+			return dispatchResult.exitCode;
 	}
 }
 
@@ -141,7 +134,7 @@ function topLevelHelp(): string {
 }
 
 function execHelp(): string {
-	return `Usage: pr-address exec <operation> [args...]\n\nOperations for the pr-address skill.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to TypeScript. The legacy Python pr-address CLI is invoked only for unknown operations and a few invalid-argument shapes (click usage-error rendering), with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations (all TypeScript-managed):\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-feedback\n  map-branch-prs\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
+	return `Usage: pr-address exec <operation> [args...]\n\nOperations for the pr-address skill.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to native TypeScript operations. Unknown operations fail with exit 2.\n\nOperations:\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-feedback\n  map-branch-prs\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-prep\n  summarize-feedback\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
 }
 
 function hasFormatJson(args: readonly string[]): boolean {

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import {
 	discussionComment,
 	InMemoryPrAddressGitGateway,
@@ -16,7 +15,6 @@ interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
 }
 
 interface MachineEnvelope {
@@ -34,11 +32,9 @@ interface RunOptions {
 function run(args: readonly string[], options: RunOptions = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
 			context: {
-				legacy,
 				...(options.github === undefined ? {} : { github: options.github }),
 				...(options.git === undefined ? {} : { git: options.git }),
 			},
@@ -50,7 +46,6 @@ function run(args: readonly string[], options: RunOptions = {}): CliRun {
 		}),
 		stdout,
 		stderr,
-		legacy,
 	};
 }
 
@@ -74,7 +69,6 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 		expect(envelope.exit_code).toBe(2);
 		expect(envelope.error_type).toBe("repo_context_required");
 		expect(envelope.message).toBe(REPO_CONTEXT_MESSAGE);
-		expect(repoRun.legacy.calls).toEqual([]);
 	});
 
 	test("human format reports the repo-context failure on stderr", async () => {

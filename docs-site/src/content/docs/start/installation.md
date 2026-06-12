@@ -5,18 +5,25 @@ sidebar:
   order: 2
 ---
 
-asdl tools are independently adoptable Python CLIs. Install the tool you need;
-you do not have to adopt the whole suite first.
+asdl tools are independently adoptable. Install the tool you need; you do not
+have to adopt the whole suite first.
 
 ## Standalone tools
+
+Most standalone tools are Python CLIs installed with `uv`:
 
 ```bash
 uv tool install asdl-slots
 uv tool install brmem
-uv tool install asdl-pr-address
 uv tool install aretro
 uv tool install asdl-objectives
 uv tool install roaster
+```
+
+`pr-address` is installed from an asdl checkout as a TypeScript shim:
+
+```bash
+just install-pr-address
 ```
 
 Each package provides its own console script, such as `slot`, `brmem`, or

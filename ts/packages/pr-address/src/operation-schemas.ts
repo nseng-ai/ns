@@ -10,11 +10,11 @@ import { ACTION_COMPLEXITIES, INFORMATIONAL_REASONS } from "./feedback-plan-cont
 
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
 //
-// These schemas mirror the legacy Python (Pydantic) request/result contracts at the
+// These schemas preserve the retired Python (Pydantic) request/result contracts at the
 // structural-semantic level: property sets, required-ness, types, enums, and explicit
-// nullability match the Python documents, while dialect details (titles, `$defs`
-// naming, integer bounds) may differ. Parity is enforced against captured Python
-// fixtures in `test/scenario/json-schema-routes.test.ts`.
+// nullability match the captured documents, while dialect details (titles, `$defs`
+// naming, integer bounds) may differ. Parity is enforced against captured fixtures in
+// `test/scenario/json-schema-routes.test.ts`.
 //
 // Conventions:
 // - Pydantic `ClinkrModel` / `BaseModel(extra="forbid")` mirrors use `z.object`

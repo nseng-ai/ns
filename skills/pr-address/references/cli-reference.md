@@ -42,25 +42,15 @@ helper's input/output/error shapes.
 Do not read all category files up front; load each file's relevant section
 lazily, when a run actually needs that helper.
 
-## TypeScript migration status
+## TypeScript implementation status
 
 Every `exec` operation and every operation `--json-schema` route is
 TypeScript-managed. The `pr-address` shim on `PATH` runs the TypeScript sources
 from the enclosing asdl checkout when invoked inside one, and from the
 installing checkout everywhere else. It requires `node` (Node 24 or newer).
 
-Compatibility-backed behavior that must remain for now:
-
-- a small set of malformed-option usage errors (invalid `--payload-mode`,
-  invalid `--stdout-mode`, non-integer `--body-chars`) still render through the
-  legacy Python CLI
-- the Python `asdl pr-address ...` plugin
-- the explicit manual rollback to the published legacy Python package
-  (`uvx --from asdl-pr-address==0.1.1 pr-address ...`)
-
-Do not treat this migration status as permission to delete the Python
-compatibility package. Plugin cutover and final retirement require an explicit
-release decision.
+Use the standalone `pr-address` binary for all commands in this reference. Do
+not route these helpers through the umbrella command or a Python fallback.
 
 ## Invocation convention
 

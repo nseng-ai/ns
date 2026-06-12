@@ -1,14 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import { InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
 
 interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
 }
 
 interface MachineEnvelope {
@@ -27,10 +25,9 @@ interface MapBranchPrsData {
 function runWithGithub(args: readonly string[], options: { github?: InMemoryPrAddressGitHubGateway | undefined; stdin?: string | undefined } = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy, ...(options.github === undefined ? {} : { github: options.github }) },
+			context: { ...(options.github === undefined ? {} : { github: options.github }) },
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => options.stdin ?? "",
@@ -39,7 +36,6 @@ function runWithGithub(args: readonly string[], options: { github?: InMemoryPrAd
 		}),
 		stdout,
 		stderr,
-		legacy,
 	};
 }
 
@@ -64,7 +60,6 @@ describe("pr-address exec map-branch-prs", () => {
 			stdin: JSON.stringify({ branches: ["feature-b", "feature-a"] }),
 		});
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exit_code).toBe(0);
 		expect(envelope.data?.branch_prs).toEqual([
@@ -183,6 +178,5 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("missing_gateway");
-		expect(run.legacy.calls).toEqual([]);
 	});
 });

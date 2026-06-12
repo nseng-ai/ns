@@ -1,6 +1,6 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
@@ -10,10 +10,8 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import { finalizeRun } from "../../src/finalization.ts";
 import { buildGetFeedbackPayloadManifest, buildPrepareRunPayloadManifest } from "../../src/payload-manifest.ts";
 import { buildResolveThreadBatchPayload } from "../../src/resolve-thread-batch-payload.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
-const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
+const GOLDEN_ROOT = fileURLToPath(new URL("../fixtures/golden/v1", import.meta.url));
 const tempDirs: string[] = [];
 
 interface GoldenCase {
@@ -57,18 +55,13 @@ async function makeTempDir(): Promise<string> {
 	return dir;
 }
 
-function runWithNoFallback(args: readonly string[], deps: Pick<CliDeps, "stdin"> = {}) {
+function runManaged(args: readonly string[], deps: Pick<CliDeps, "stdin"> = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
-			cwd: REPO_ROOT,
+			context: {},
+			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: deps.stdin,
 			stdout: (text) => stdout.push(text),
@@ -133,14 +126,14 @@ describe("finalize-run TypeScript parity", () => {
 });
 
 describe("managed payload/finalization CLI operations", () => {
-	test("build-resolve-thread-batch-payload and finalize-run run without legacy fallback", async () => {
+	test("build-resolve-thread-batch-payload and finalize-run run natively", async () => {
 		const buildPayload = await readFile(join(GOLDEN_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
-		const buildRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--format", "json"]);
+		const buildRun = runManaged(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--format", "json"]);
 		expect(await buildRun.exit).toBe(0);
 		expect(JSON.parse(buildRun.stdout.join("")).data.payload_ready).toBe(true);
 
 		const finalizePayload = await readFile(join(GOLDEN_ROOT, "finalize-run/all-feedback-addressed/input.json"), "utf8");
-		const finalizeRunResult = runWithNoFallback(["exec", "finalize-run", "--payload-json", finalizePayload, "--format", "json"]);
+		const finalizeRunResult = runManaged(["exec", "finalize-run", "--payload-json", finalizePayload, "--format", "json"]);
 		expect(await finalizeRunResult.exit).toBe(0);
 		expect(JSON.parse(finalizeRunResult.stdout.join("")).data.ready_to_stop).toBe(true);
 	});
@@ -151,18 +144,18 @@ describe("managed payload/finalization CLI operations", () => {
 		const payloadPath = join(tempDir, "build-payload.json");
 		await writeFile(payloadPath, buildPayload, "utf8");
 
-		const fileRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-file", payloadPath, "--format", "json"]);
+		const fileRun = runManaged(["exec", "build-resolve-thread-batch-payload", "--payload-file", payloadPath, "--format", "json"]);
 		expect(await fileRun.exit).toBe(0);
 		expect(JSON.parse(fileRun.stdout.join("")).data.payload_ready).toBe(true);
 
-		const conflictRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--payload-file", payloadPath, "--format", "json"]);
+		const conflictRun = runManaged(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--payload-file", payloadPath, "--format", "json"]);
 		expect(await conflictRun.exit).toBe(2);
 		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
 		expect(conflictEnvelope.error_type).toBe("invalid_request");
 		expect(conflictEnvelope.message).toContain("--payload-file");
 	});
 
-	test("read-feedback-detail reads allowed raw payload pointers without legacy fallback", async () => {
+	test("read-feedback-detail reads allowed raw payload pointers natively", async () => {
 		const tempDir = await makeTempDir();
 		const payloadPath = join(tempDir, "20260603t123456z-0001-feedback.raw.json");
 		await writeFile(
@@ -171,7 +164,7 @@ describe("managed payload/finalization CLI operations", () => {
 			"utf8",
 		);
 
-		const run = runWithNoFallback(["exec", "read-feedback-detail", "--payload-path", payloadPath, "--json-pointer", "/data/reviews/0/body", "--format", "json"]);
+		const run = runManaged(["exec", "read-feedback-detail", "--payload-path", payloadPath, "--json-pointer", "/data/reviews/0/body", "--format", "json"]);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({

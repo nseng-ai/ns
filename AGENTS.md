@@ -129,20 +129,20 @@ Skill-authoring and skill-management conventions live in `docs/skill-conventions
 
 ### CLI Scenario Testing Convention
 
-Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and an asdl plugin subgroup discovered via `asdl.plugins` entry points. Test them separately:
+Each CLI package has two entry points: a standalone CLI (e.g., `roaster`) built by `build_cli()` in `<package>.cli.main`, and an asdl plugin subgroup discovered via `asdl.plugins` entry points. Test them separately:
 
-**Scenario tests** live in their home package (e.g., `packages/asdl-pr-address/tests/scenario/`) and should exhaustively cover every user-facing scenario for that package's standalone CLI via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file.
+**Scenario tests** live in their home package (e.g., `packages/roaster/tests/scenario/`) and should exhaustively cover every user-facing scenario for that package's standalone CLI via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file.
 
 **Plugin smoke tests** (`tests/scenario/test_plugins.py` in the top-level asdl package): Verify that each plugin's entry point wires up correctly through `discover_plugins`. One test per plugin that mounts the subgroup and invokes a representative command. These live at the asdl scope because they test the plugin discovery contract.
 
 ### Skill-Invoked CLI Commands (exec Subgroups)
 
-CLI commands intended for skill/agent invocation rather than interactive humans MUST be registered under a nested `exec` ClinkrGroup inside the package's outer group — e.g., `pr-address exec get-reviews`, `brmem exec resolve-prompt`, `roaster exec format-findings-comment`. This keeps user-facing top-level help focused on commands a human would actually type.
+CLI commands intended for skill/agent invocation rather than interactive humans MUST be registered under a nested `exec` ClinkrGroup inside the package's outer group — e.g., `brmem exec resolve-prompt`, `roaster exec format-findings-comment`. This keeps user-facing top-level help focused on commands a human would actually type.
 
 - **Visibility:** the `exec` subgroup MUST be `hidden = True`. Users do not discover these commands by reading top-level `--help`; they discover them by reading the skill that drives them. Pass `hidden=True` as a kwarg to the `ClinkrGroup` constructor — by convention `ClinkrGroup` is treated as immutable after construction, so do not mutate `.hidden` afterward. Hiding only affects help-text rendering, not invocability — `pkg exec <op>` continues to work.
 - **Layout:** operation files for exec commands live in `<package>/exec/`, with `exec/group.py` exposing a `build_exec_group()` (or equivalent) that the package's outer `group.py` mounts via `outer.add_command(exec_group)`. `exec/__init__.py` follows the repo's empty-init rule (docstring only, no re-exports).
 - **Naming:** prefer noun-or-verb-phrase command names (`resolve-prompt`, `get-reviews`) — the `exec` namespace already implies the actor, so the verb does not need to.
-- **Canonical examples:** `packages/asdl-pr-address/src/asdl_pr_address/cli/pr_address/group.py`, `packages/roaster/src/roaster/cli/roaster/exec/group.py`, `packages/asdl-core/src/asdl_core/brmem/group.py`.
+- **Canonical examples:** `packages/roaster/src/roaster/cli/roaster/exec/group.py`, `packages/asdl-core/src/asdl_core/brmem/group.py`.
 
 ### TypeScript Style
 

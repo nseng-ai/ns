@@ -35,10 +35,7 @@ export interface ExecOperationInvocation {
 	deps: ExecRuntimeDeps;
 }
 
-export type ExecOperationDispatchResult =
-	| { type: "fallback" }
-	| { type: "exit"; exit: ClinkrExit<unknown> }
-	| { type: "raw-exit"; exitCode: number };
+export type ExecOperationDispatchResult = { type: "exit"; exit: ClinkrExit<unknown> } | { type: "raw-exit"; exitCode: number };
 
 export type ExecOperationHandler = (invocation: ExecOperationInvocation) => Promise<ExecOperationDispatchResult>;
 
@@ -58,12 +55,13 @@ export interface ExecOperationRegistry {
 	isTsManaged(operation: string): boolean;
 }
 
-export const LEGACY_EXEC_OPERATIONS: readonly string[] = [
+export const EXEC_OPERATIONS: readonly string[] = [
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",
 	"classification-template",
 	"finalize-run",
 	"get-feedback",
+	"map-branch-prs",
 	"plan-feedback",
 	"prepare-run",
 	"read-feedback-detail",

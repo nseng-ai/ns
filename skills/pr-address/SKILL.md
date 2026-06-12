@@ -68,10 +68,8 @@ installing checkout's sources everywhere else. It requires `node` (Node 24 or
 newer) on `PATH`.
 
 Every `exec` operation and every `--json-schema` route runs the same
-implementation either way. The legacy Python compatibility package remains
-available only as an explicit manual rollback
-(`uvx --from asdl-pr-address==0.1.1 pr-address ...`); the `asdl pr-address ...`
-plugin still uses the Python path until its own cutover.
+TypeScript implementation either way. Use the standalone `pr-address` binary;
+do not route this skill through the umbrella command or any Python fallback.
 
 All commands in this skill and in the `references/cli-*.md` reference files are
 written as literal `pr-address ...` invocations and can be run as shown. For

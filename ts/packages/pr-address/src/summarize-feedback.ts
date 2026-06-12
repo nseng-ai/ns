@@ -102,8 +102,9 @@ export async function runSummarizeFeedbackOperation(invocation: ExecOperationInv
 	let bodyChars = DEFAULT_BODY_CHARS;
 	if (rawBodyChars !== undefined) {
 		const numericBodyChars = Number(rawBodyChars);
-		// Non-integer values keep legacy click usage-error behavior.
-		if (!Number.isInteger(numericBodyChars)) return { type: "fallback" };
+		if (!Number.isInteger(numericBodyChars)) {
+			return { type: "exit", exit: failure("invalid_request", `Invalid --body-chars: ${rawBodyChars} (expected integer).`) };
+		}
 		bodyChars = numericBodyChars;
 	}
 	if (bodyChars < 1 || bodyChars > MAX_BODY_CHARS) {

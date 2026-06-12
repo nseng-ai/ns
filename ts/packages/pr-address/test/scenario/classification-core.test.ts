@@ -1,5 +1,5 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -10,10 +10,8 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification } from "../../src/classification-core.ts";
 import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
 import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
-const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
+const GOLDEN_ROOT = fileURLToPath(new URL("../fixtures/golden/v1", import.meta.url));
 const tempDirs: string[] = [];
 
 interface GoldenCase {
@@ -62,18 +60,13 @@ function asWrapperInput(value: unknown): { manifest: unknown; classification: un
 	return value as { manifest: unknown; classification: unknown };
 }
 
-function runWithNoFallback(args: readonly string[], deps: Pick<CliDeps, "stdin"> = {}) {
+function runManaged(args: readonly string[], deps: Pick<CliDeps, "stdin"> = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
-			cwd: REPO_ROOT,
+			context: {},
+			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: deps.stdin,
 			stdout: (text) => stdout.push(text),
@@ -151,30 +144,30 @@ describe("canonical feedback contracts", () => {
 });
 
 describe("managed classification/planning CLI operations", () => {
-	test("classification-template accepts stdin, inline JSON, and file JSON without legacy fallback", async () => {
+	test("classification-template accepts stdin, inline JSON, and file JSON natively", async () => {
 		const input = await readJson(join(GOLDEN_ROOT, "classification-template/classification-template-rich-manifest/input.json"));
 		if (typeof input !== "object" || input === null || !("manifest" in input)) throw new TypeError("classification-template input must include manifest");
 		const manifest = JSON.stringify((input as { manifest: unknown }).manifest);
 
-		const stdinRun = runWithNoFallback(["exec", "classification-template", "--format", "json"], { stdin: async () => manifest });
+		const stdinRun = runManaged(["exec", "classification-template", "--format", "json"], { stdin: async () => manifest });
 		expect(await stdinRun.exit).toBe(0);
 		expect(JSON.parse(stdinRun.stdout.join("")).data.manifest_kind).toBe("prepare_run");
 
-		const inlineRun = runWithNoFallback(["exec", "classification-template", "--manifest-json", manifest, "--format", "json"]);
+		const inlineRun = runManaged(["exec", "classification-template", "--manifest-json", manifest, "--format", "json"]);
 		expect(await inlineRun.exit).toBe(0);
 		expect(JSON.parse(inlineRun.stdout.join("")).data.counts.review_threads).toBe(1);
 
 		const tempDir = await makeTempDir();
 		const manifestPath = join(tempDir, "manifest.json");
 		await writeFile(manifestPath, manifest, "utf8");
-		const fileRun = runWithNoFallback(["exec", "classification-template", "--manifest-file", manifestPath, "--format", "json"]);
+		const fileRun = runManaged(["exec", "classification-template", "--manifest-file", manifestPath, "--format", "json"]);
 		expect(await fileRun.exit).toBe(0);
 		expect(JSON.parse(fileRun.stdout.join("")).data.counts.resolved_review_threads_omitted).toBe(1);
 	});
 
 	test("managed operations serve JSON schema documents", async () => {
 		for (const operation of ["classification-template", "validate-feedback-classification", "plan-feedback"]) {
-			const run = runWithNoFallback(["exec", operation, "--json-schema"]);
+			const run = runManaged(["exec", operation, "--json-schema"]);
 			expect(await run.exit).toBe(0);
 			const schemaDocument = JSON.parse(run.stdout.join(""));
 			expect(Object.keys(schemaDocument).sort()).toEqual(["input_json_schema", "output_json_schema"]);
@@ -186,7 +179,7 @@ describe("managed classification/planning CLI operations", () => {
 		const inputPath = join(GOLDEN_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
 		const payload = await readFile(inputPath, "utf8");
 
-		const validateRun = runWithNoFallback(["exec", "validate-feedback-classification", "--payload-json", payload, "--format", "json"]);
+		const validateRun = runManaged(["exec", "validate-feedback-classification", "--payload-json", payload, "--format", "json"]);
 		expect(await validateRun.exit).toBe(0);
 		expect(JSON.parse(validateRun.stdout.join("")).data.valid).toBe(true);
 
@@ -196,7 +189,7 @@ describe("managed classification/planning CLI operations", () => {
 		const classificationPath = join(tempDir, "classification.json");
 		await writeFile(manifestPath, JSON.stringify(input.manifest), "utf8");
 		await writeFile(classificationPath, JSON.stringify(input.classification), "utf8");
-		const splitValidateRun = runWithNoFallback([
+		const splitValidateRun = runManaged([
 			"exec",
 			"validate-feedback-classification",
 			"--manifest-file",
@@ -209,7 +202,7 @@ describe("managed classification/planning CLI operations", () => {
 		expect(await splitValidateRun.exit).toBe(0);
 		expect(JSON.parse(splitValidateRun.stdout.join("")).data.valid).toBe(true);
 
-		const planRun = runWithNoFallback(["exec", "plan-feedback", "--payload-json", payload, "--format", "json"]);
+		const planRun = runManaged(["exec", "plan-feedback", "--payload-json", payload, "--format", "json"]);
 		expect(await planRun.exit).toBe(0);
 		expect(JSON.parse(planRun.stdout.join("")).data.valid).toBe(true);
 	});
@@ -221,11 +214,11 @@ describe("managed classification/planning CLI operations", () => {
 		const payloadPath = join(tempDir, "wrapper-payload.json");
 		await writeFile(payloadPath, payload, "utf8");
 
-		const fileRun = runWithNoFallback(["exec", "plan-feedback", "--payload-file", payloadPath, "--format", "json"]);
+		const fileRun = runManaged(["exec", "plan-feedback", "--payload-file", payloadPath, "--format", "json"]);
 		expect(await fileRun.exit).toBe(0);
 		expect(JSON.parse(fileRun.stdout.join("")).data.valid).toBe(true);
 
-		const conflictRun = runWithNoFallback(["exec", "plan-feedback", "--payload-json", payload, "--payload-file", payloadPath, "--format", "json"]);
+		const conflictRun = runManaged(["exec", "plan-feedback", "--payload-json", payload, "--payload-file", payloadPath, "--format", "json"]);
 		expect(await conflictRun.exit).toBe(2);
 		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
 		expect(conflictEnvelope.error_type).toBe("invalid_request");

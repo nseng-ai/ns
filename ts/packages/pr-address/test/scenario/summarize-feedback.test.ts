@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "../../src/gateways.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
@@ -42,14 +41,9 @@ function githubGatewayFor(variant: GithubVariant): InMemoryPrAddressGitHubGatewa
 function runManaged(args: readonly string[], github: InMemoryPrAddressGitHubGateway): { exit: Promise<number>; stdout: string[]; stderr: string[] } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github },
+			context: { github },
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => "",
@@ -78,5 +72,14 @@ describe("summarize-feedback parity with the Python CLI", () => {
 		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 		expect(envelope.error_type).toBe("invalid_request");
 		expect(envelope.message).toContain("summarize-feedback requires an integer PR number argument.");
+	});
+
+	test("requires an integer --body-chars value", async () => {
+		const run = runManaged(["exec", "summarize-feedback", "42", "--body-chars", "abc", "--format", "json"], githubGatewayFor("default"));
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("--body-chars");
 	});
 });

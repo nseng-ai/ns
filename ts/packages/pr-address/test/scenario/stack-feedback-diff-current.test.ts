@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 
 const tempDirs: string[] = [];
 
@@ -24,7 +23,6 @@ interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
 }
 
 interface DiffEnvelope {
@@ -41,10 +39,9 @@ interface DiffEnvelope {
 function runDiffWithArgs(args: readonly string[], stdinText = ""): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], {
-			context: { legacy },
+			context: {},
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => stdinText,
@@ -53,7 +50,6 @@ function runDiffWithArgs(args: readonly string[], stdinText = ""): CliRun {
 		}),
 		stdout,
 		stderr,
-		legacy,
 	};
 }
 
@@ -69,7 +65,6 @@ describe("stack-feedback-diff-current", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseDiffEnvelope(run.stdout.join(""));
 		expect(envelope.data.safe_to_resolve_planned).toBe(true);
 		expect(envelope.data.summary).toMatchObject({ planned_still_unresolved: 1, new_unresolved_threads: 0 });
@@ -122,7 +117,6 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		const run = runDiffWithArgs(["--stack-plan-reference", planPath, "--current-prep-reference", prepPath]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseDiffEnvelope(run.stdout.join(""));
 		expect(envelope.data.safe_to_resolve_planned).toBe(true);
 		expect(envelope.data.summary).toMatchObject({ planned_still_unresolved: 1, new_unresolved_threads: 0 });

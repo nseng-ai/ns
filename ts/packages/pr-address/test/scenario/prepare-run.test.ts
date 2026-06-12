@@ -6,7 +6,6 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import type { PayloadClock } from "../../src/payload-store.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary, RestructuredFile } from "../../src/gateways.ts";
 import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
@@ -94,14 +93,9 @@ interface ManagedRun {
 function runManaged(args: readonly string[], options: { github: InMemoryPrAddressGitHubGateway; git: InMemoryPrAddressGitGateway; env: NodeJS.ProcessEnv }): ManagedRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github: options.github, git: options.git, payloadClock: fixedClock(fixture.clock_iso) },
+			context: { github: options.github, git: options.git, payloadClock: fixedClock(fixture.clock_iso) },
 			cwd: "/repo",
 			env: options.env,
 			stdin: async () => "",
@@ -160,5 +154,18 @@ describe("prepare-run parity with the Python CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.github.unresolvedThreadIds).toEqual([]);
+	});
+
+	test("rejects invalid payload modes natively", async () => {
+		const run = runManaged(["exec", "prepare-run", "--payload-mode", "bogus", "--format", "json"], {
+			github: githubGatewayFor("default"),
+			git: gitGatewayFor("default"),
+			env: { PATH: "/fake/bin" },
+		});
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("--payload-mode");
 	});
 });

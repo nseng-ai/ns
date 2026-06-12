@@ -33,3 +33,9 @@ The fallback creates temporary duplication, including the Python package version
 - **Python plugin shim now:** adds another compatibility layer without advancing the TypeScript standalone boundary.
 - **npm prod default now:** requires distribution work for unreleased software before local behavior needs it.
 - **No runtime fallback:** would break unported operation behavior during the migration window.
+
+## Historical Closing Note
+
+The temporary Python package fallback and umbrella bridge described in this ADR
+were later removed. Current local installs use the TypeScript checkout shim via
+`just install-pr-address` and invoke the standalone `pr-address` binary.

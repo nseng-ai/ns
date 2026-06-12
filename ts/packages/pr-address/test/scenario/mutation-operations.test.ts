@@ -1,17 +1,15 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply } from "../../src/reply-formatting.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { ResolutionProvenance } from "../../src/reply-formatting.ts";
 import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
-const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
+const GOLDEN_ROOT = fileURLToPath(new URL("../fixtures/golden/v1", import.meta.url));
 const FIXED_REPLY_TIMESTAMP = "2026-06-01T12:34:56Z";
 
 interface GoldenCase {
@@ -22,13 +20,6 @@ interface GoldenCase {
 
 const replyFormattingCases = await goldenCases("reply-formatting");
 
-function noFallbackLegacy(): LegacyPrAddressGateway {
-	return {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-}
 
 function runWithFakes(args: readonly string[], deps: Pick<CliDeps, "stdin"> & { github?: InMemoryPrAddressGitHubGateway; git?: InMemoryPrAddressGitGateway } = {}) {
 	const stdout: string[] = [];
@@ -37,8 +28,8 @@ function runWithFakes(args: readonly string[], deps: Pick<CliDeps, "stdin"> & { 
 	const git = deps.git ?? new InMemoryPrAddressGitGateway();
 	return {
 		exit: runCli(args, {
-			context: { legacy: noFallbackLegacy(), github, git },
-			cwd: REPO_ROOT,
+			context: { github, git },
+			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: deps.stdin,
 			stdout: (text) => stdout.push(text),
