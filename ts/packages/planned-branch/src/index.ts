@@ -37,15 +37,6 @@ export {
 } from "./plan-content-slug.ts";
 export { createRealPlannedBranchContext, RealCommandExecApi, type PlannedBranchContext } from "./context.ts";
 export {
-	RealPlannedBranchGitGateway,
-	type GitBranchPresenceResult,
-	type GitErrorInfo,
-	type GitOperationResult,
-	type GitOptionalResult,
-	type GitResult,
-	type PlannedBranchGitGateway,
-} from "./git-gateway.ts";
-export {
 	RealPlannedBranchGraphiteGateway,
 	type GraphiteBranchTrackedResult,
 	type GraphiteCheckBranchTrackedParams,

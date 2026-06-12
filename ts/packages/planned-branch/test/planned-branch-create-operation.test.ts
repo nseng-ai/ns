@@ -16,7 +16,7 @@ import {
 } from "../src/planned-branch-creation.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
 import { InMemoryPlannedBranchBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
-import { InMemoryPlannedBranchGitGateway } from "./support/in-memory-git-gateway.ts";
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { InMemoryPlannedBranchGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const PLAN_SLUG = "branch-scoped-plan";
@@ -156,7 +156,7 @@ describe("planned-branch create preview", () => {
 	});
 
 	test("resolves preview context through the semantic git gateway", async () => {
-		const git = new InMemoryPlannedBranchGitGateway({ headCommit: START_POINT });
+		const git = new InMemoryGitGateway({ headCommit: START_POINT });
 
 		const context = await resolvePlannedBranchCreatePreviewContext(NO_COMMANDS, { cwd: "/repo", git });
 
@@ -167,7 +167,7 @@ describe("planned-branch create preview", () => {
 
 describe("planned-branch create execution", () => {
 	test("Graphite creation checks parent trackedness before tracking the new branch", async () => {
-		const git = new InMemoryPlannedBranchGitGateway({ optionalRepoRoot: { type: "missing" }, sourceBranch: SOURCE_BRANCH, headCommit: START_POINT });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" }, currentBranch: SOURCE_BRANCH, headCommit: START_POINT });
 		const brmem = new InMemoryPlannedBranchBrmemGateway();
 		const graphite = new InMemoryPlannedBranchGraphiteGateway();
 		const filePath = await makePlanFile();
@@ -186,7 +186,7 @@ describe("planned-branch create execution", () => {
 	});
 
 	test("untracked Graphite parents fail before creating a branch or attaching the plan", async () => {
-		const git = new InMemoryPlannedBranchGitGateway({ optionalRepoRoot: { type: "missing" }, sourceBranch: SOURCE_BRANCH, headCommit: START_POINT });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" }, currentBranch: SOURCE_BRANCH, headCommit: START_POINT });
 		const brmem = new InMemoryPlannedBranchBrmemGateway();
 		const graphite = new InMemoryPlannedBranchGraphiteGateway({
 			untrackedBranches: [SOURCE_BRANCH],

@@ -277,11 +277,20 @@ function brmemPutStep(branch: string, key: string, filePath: string, result: Par
 }
 
 function gitSymbolicHeadStep(branch: string = IMPL_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${branch}\n`, ...result });
+	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
 function gitDefaultSymbolicStep(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec {
-	return step("git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], result);
+	return step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], result);
+}
+
+function gitDefaultBranchProbeSteps(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec[] {
+	const stdout = result.stdout ?? "origin/master\n";
+	const candidate = stdout.trim().startsWith("origin/") ? stdout.trim().slice("origin/".length) : stdout.trim();
+	if ((result.code ?? 0) === 0 && candidate.length > 0) {
+		return [gitDefaultSymbolicStep(result), localBranchCheckStep(candidate, {})];
+	}
+	return [gitDefaultSymbolicStep(result), localBranchCheckStep("main", { code: 1, stderr: "missing" }), localBranchCheckStep("master", { code: 1, stderr: "missing" })];
 }
 
 function brmemListStep(branch: string, result: Partial<ExecResult>): ScriptedExec {
@@ -429,7 +438,7 @@ function implLoadSuccessScript(input: { branch?: string; key?: string; content?:
 	return [
 		gitRootStep(),
 		gitSymbolicHeadStep(branch),
-		gitDefaultSymbolicStep(),
+		...gitDefaultBranchProbeSteps(),
 		brmemListStep(branch, { stdout: listEnvelope(branch, [listEntry]) }),
 		brmemGetStep(branch, key, { stdout: getStdout }),
 	];
@@ -1142,8 +1151,9 @@ describe("plan workflow commands", () => {
 		expect(events[0]).toBe("wait");
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
 			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
-			{ command: "git", args: ["symbolic-ref", "--short", "HEAD"] },
-			{ command: "git", args: ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"] },
+			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "git", args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"] },
+			{ command: "git", args: ["rev-parse", "--verify", "refs/heads/master"] },
 			{ command: "brmem", args: ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
 			{ command: "brmem", args: ["get", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
 		]);
@@ -1193,7 +1203,7 @@ describe("plan workflow commands", () => {
 		const pi = new FakePi([
 			gitRootStep(),
 			gitSymbolicHeadStep(SOURCE_BRANCH),
-			gitDefaultSymbolicStep(),
+			...gitDefaultBranchProbeSteps(),
 			brmemListStep(SOURCE_BRANCH, { stdout: listEnvelope(SOURCE_BRANCH, []) }),
 			gitRootStep(),
 			gitCurrentBranchStep(SOURCE_BRANCH),
@@ -1219,7 +1229,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("planned-branch:impl presents load failures without sending an implementation prompt", async () => {
-		const pi = new FakePi([gitRootStep(), gitSymbolicHeadStep("main"), gitDefaultSymbolicStep({ stdout: "origin/main\n" })]);
+		const pi = new FakePi([gitRootStep(), gitSymbolicHeadStep("main"), ...gitDefaultBranchProbeSteps({ stdout: "origin/main\n" })]);
 		registerPlannedBranchExtension(pi);
 		const command = pi.commands.get("planned-branch:impl");
 		const context = createContext();
