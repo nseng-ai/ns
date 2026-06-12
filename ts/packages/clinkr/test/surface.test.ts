@@ -20,10 +20,27 @@ describe("buildSurfacePlan kinds", () => {
 		expect(kinds).toEqual({
 			name: { type: "string" },
 			count: { type: "number" },
-			ratio: { type: "number" },
+			ratio: { type: "integer" },
 			dry_run: { type: "boolean" },
 			mode: { type: "enum", values: ["fast", "slow"] },
 			tags: { type: "string-array" },
+		});
+	});
+
+	test("z.int() derives integer; wrapped z.int() keeps it; plain z.number() stays number", () => {
+		const plan = buildSurfacePlan(
+			"probe",
+			z.object({
+				pr_number: z.int(),
+				retries: z.int().default(3),
+				ratio: z.number(),
+			}),
+		);
+		const kinds = Object.fromEntries(plan.options.map((option) => [option.key, option.kind]));
+		expect(kinds).toEqual({
+			pr_number: { type: "integer" },
+			retries: { type: "integer" },
+			ratio: { type: "number" },
 		});
 	});
 

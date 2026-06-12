@@ -5,7 +5,7 @@ import { emitExit, type ClinkrFormat, type LegacyMachineOutput } from "./emit.ts
 import type { ClinkrExit } from "./exit.ts";
 import { ClinkrFailure } from "./failure.ts";
 import { createProcessIo, type ClinkrIo } from "./io.ts";
-import { buildJsonSchemaDocument } from "./json-schema.ts";
+import { buildJsonSchemaDocument, type JsonSchemaDocument } from "./json-schema.ts";
 import {
 	buildSurfacePlan,
 	type OptionPlan,
@@ -28,6 +28,12 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	handler: ClinkrHandler<TContext, S, T>;
 	/** Source of `output_json_schema` for `--json-schema`; `{}` when absent. */
 	resultSchema?: z.ZodType<T>;
+	/**
+	 * Serve this document verbatim for `--json-schema` instead of generating one
+	 * from the schemas. For commands whose published schema document predates
+	 * clinkr (e.g. pinned Python-parity documents).
+	 */
+	schemaDocument?: () => JsonSchemaDocument;
 	/** Human rendering for the ok variant; default is indented JSON of the data. */
 	renderHuman?: (data: T) => string;
 	/**
@@ -55,6 +61,7 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	resultSchema?: never;
 	renderHuman?: never;
 	legacyMachine?: never;
+	schemaDocument?: never;
 }
 
 export interface ClinkrGroupOptions {
@@ -78,6 +85,7 @@ interface RegisteredCommand<TContext> {
 	description: string | undefined;
 	summary: string | undefined;
 	schema: z.ZodObject;
+	schemaDocument: (() => JsonSchemaDocument) | undefined;
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
 	plan: SurfacePlan;
 }
@@ -143,6 +151,7 @@ export class ClinkrGroup<TContext> {
 			description: spec.description,
 			summary: spec.summary,
 			schema: spec.schema,
+			schemaDocument: spec.schemaDocument,
 			execution: executionOf(spec),
 			plan,
 		});
@@ -294,7 +303,9 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	}
 	if (registered.execution.type === "rendered") {
 		command.addOption(
-			new Option("--format <format>", "Output format.").choices(["human", "json"]).default("human"),
+			new Option("--format <format>", "Output format.")
+				.choices(["human", "json", "markdown", "md"])
+				.default("human"),
 		);
 	}
 	command.addOption(
@@ -307,7 +318,8 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 		if (opts["jsonSchema"] === true) {
 			const resultSchema =
 				registered.execution.type === "rendered" ? registered.execution.resultSchema : undefined;
-			const document = buildJsonSchemaDocument(registered.schema, resultSchema);
+			const document =
+				registered.schemaDocument?.() ?? buildJsonSchemaDocument(registered.schema, resultSchema);
 			io.stdout(`${JSON.stringify(document, null, 2)}\n`);
 			state.exitCode = 0;
 			return;
@@ -370,6 +382,7 @@ function buildCommanderArgument(plan: PositionalPlan): Argument {
 	// owns it, keeping the usage-error channel uniform and --json-schema eager.
 	const argument = new Argument(`[${plan.name}]`, plan.description);
 	if (plan.kind.type === "number") argument.argParser(parseNumberValue);
+	if (plan.kind.type === "integer") argument.argParser(parseIntegerValue);
 	if (plan.kind.type === "enum") argument.choices([...plan.kind.values]);
 	return argument;
 }
@@ -379,6 +392,9 @@ function buildCommanderOption(plan: OptionPlan): Option {
 	switch (plan.kind.type) {
 		case "number":
 			option.argParser(parseNumberValue);
+			break;
+		case "integer":
+			option.argParser(parseIntegerValue);
 			break;
 		case "enum":
 			option.choices([...plan.kind.values]);
@@ -399,6 +415,14 @@ function parseNumberValue(value: string): number {
 		throw new InvalidArgumentError("expected a number");
 	}
 	return parsed;
+}
+
+function parseIntegerValue(value: string): number {
+	// Click-strict: decimal digits only, so "12.5", "1e2", and "0x10" all reject.
+	if (!/^-?\d+$/.test(value)) {
+		throw new InvalidArgumentError("expected an integer");
+	}
+	return Number(value);
 }
 
 function accumulateValue(value: string, previous: string[] | undefined): string[] {
