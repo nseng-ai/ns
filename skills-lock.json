@@ -40,6 +40,11 @@
       "sourceType": "local",
       "computedHash": "a3f4ccdd0f34ee1b55ee621cf1940e71c97d45ffce04febb605c166caf6c0a2e"
     },
+    "context-bundle-analysis": {
+      "source": "skills/context-bundle-analysis",
+      "sourceType": "local",
+      "computedHash": "cff16da112a57ce41f06dc2f1b735beaa62c361f076c938fffb1d67267bbca14"
+    },
     "create-bun-typescript-project": {
       "source": "skills/create-bun-typescript-project",
       "sourceType": "local",
