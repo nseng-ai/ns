@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
+import { EXEC_OPERATION_NAMES } from "../../src/exec-commands.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
 
@@ -86,6 +87,14 @@ async function serveSchemaDocument(operation: string): Promise<Record<string, un
 }
 
 describe("pr-address exec --json-schema routes", () => {
+	test("the sweep covers every registered exec operation exactly once", () => {
+		// Total-coverage guard: a new operation cannot ship without joining one
+		// of the sweep buckets, so no --json-schema route can silently regress
+		// to the legacy CLI.
+		const sweepNames = [...PARITY_OPERATIONS, ...PRE_EXISTING_TS_SCHEMA_OPERATIONS, ...TS_ONLY_OPERATIONS].sort();
+		expect(sweepNames).toEqual([...EXEC_OPERATION_NAMES].sort());
+	});
+
 	for (const operation of PARITY_OPERATIONS) {
 		test(`${operation} serves a TypeScript schema document with structural parity to Python`, async () => {
 			const document = await serveSchemaDocument(operation);
