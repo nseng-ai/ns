@@ -9,7 +9,8 @@
     "./exec": "./src/exec.ts",
     "./git": "./src/git/index.ts",
     "./git/testing": "./src/git/testing.ts",
-    "./brmem-cli": "./src/brmem-cli.ts"
+    "./brmem-cli": "./src/brmem-cli.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "files": ["src"],
   "scripts": {

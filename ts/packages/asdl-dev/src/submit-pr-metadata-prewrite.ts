@@ -10,7 +10,6 @@ import type { TextGenerationGateway } from "./text-generation.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_BRANCH_INFO_BASE_ARGS = ["branch", "info", "--no-interactive", "--branch"] as const;
-const GT_PR_BASE_ARGS = ["pr", "--no-interactive"] as const;
 const GT_MODIFY_BASE_ARGS = ["modify", "--no-interactive"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const COMMAND_TIMEOUT_MS = 60_000;
@@ -92,7 +91,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 				continue;
 			}
 
-			const existingPr = await this.readExistingPr(params.cwd, branch);
+			const existingPr = parseExistingPrFromBranchInfo(`${info.stdout}\n${info.stderr}`, branch);
 			if (!existingPr.ok) return existingPr;
 			if (existingPr.value !== undefined) {
 				branches.push({ kind: "existing", branch, parentBranch, pr: existingPr.value });
@@ -137,22 +136,6 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		const resultError = commandError("gt", args, result, "submit_metadata_amend_failed", `Could not amend local PR metadata commit for ${params.branch}.`);
 		if (resultError !== undefined) return err(resultError);
 		return ok(undefined);
-	}
-
-	private async readExistingPr(cwd: string, branch: string): Promise<GatewayResult<SubmitPrLink | undefined>> {
-		const args = [...GT_PR_BASE_ARGS, branch];
-		const result = await this.runGt(args, cwd, COMMAND_TIMEOUT_MS);
-		const output = `${result.stdout}\n${result.stderr}`;
-		if (result.code === 0 && result.startupError === undefined && result.killed !== true) {
-			const link = extractPrLinks(output)[0];
-			if (link !== undefined) return ok(link);
-			return err({ code: "submit_existing_pr_link_missing", message: `Graphite reported an existing PR for ${branch}, but no PR URL was detected.` });
-		}
-		if (/No PR found/i.test(stripTerminalEscapes(output))) {
-			return ok(undefined);
-		}
-		const resultError = commandError("gt", args, result, "submit_existing_pr_inspection_failed", `Could not inspect existing PR for ${branch}.`);
-		return err(resultError ?? { code: "submit_existing_pr_inspection_failed", message: `Could not inspect existing PR for ${branch}.` });
 	}
 
 	private async readBranchCommitMessages(cwd: string, parentBranch: string, branch: string): Promise<GatewayResult<PrCommitMessage[]>> {
@@ -297,6 +280,17 @@ function findAmendableBranchNames(inspection: SubmitStackInspection): Set<string
 
 function commandError(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
 	return commandFailure({ command, args, result, code, message });
+}
+
+function parseExistingPrFromBranchInfo(output: string, branch: string): GatewayResult<SubmitPrLink | undefined> {
+	const link = extractPrLinks(output)[0];
+	if (link !== undefined) return ok(link);
+
+	if (/^\s*PR\s+#\d+\b/im.test(stripTerminalEscapes(output))) {
+		return err({ code: "submit_existing_pr_link_missing", message: `Graphite reported an existing PR for ${branch}, but no PR URL was detected.` });
+	}
+
+	return ok(undefined);
 }
 
 export interface ParsedGtLogStack {

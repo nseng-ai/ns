@@ -21,10 +21,10 @@ import { prepareSubmitPrMetadata, type SubmitMetadataGateway } from "./submit-pr
 import { formatPrDescriptionFailureText, generateSubmitPrDescriptions } from "./submit-pr-descriptions.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
-const SUBMIT_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive"] as const;
-const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--dry-run"] as const;
+const SUBMIT_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"] as const;
+const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"] as const;
 const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
-const CURRENT_PR_ARGS = ["pr"] as const;
+const CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"] as const;
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const SUBMIT_TIMEOUT_MS = 600_000;
@@ -240,7 +240,12 @@ export class RealSubmitGateway implements SubmitGateway {
 			return { kind: "failed", output, cause: "command_failed" };
 		}
 
-		return { kind: "present", output, prLinks: extractPrLinks(joinOutput(output)) };
+		const prLinks = extractPrLinks(joinOutput(output));
+		if (prLinks.length === 0) {
+			return { kind: "no_current_pr", output, cause: "no_current_pr" };
+		}
+
+		return { kind: "present", output, prLinks };
 	}
 
 	private async getConflictedFiles(cwd: string): Promise<string[]> {
