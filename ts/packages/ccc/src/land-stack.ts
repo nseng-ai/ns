@@ -1,4 +1,3 @@
-import { formatCommand } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	LandStackCommandStream,
@@ -8,15 +7,8 @@ import {
 } from "./land-stack/command-stream.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./land-stack/constants.ts";
 import { failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./land-stack/errors.ts";
-import { buildLandingPlan, submitUpdateArgs } from "./land-stack/landing-plan.ts";
-import {
-	confirmAndFreeManagedSlots,
-	confirmAndSubmitRequiredPrUpdates,
-	formatRemainingManagedSlotConflicts,
-	formatRemainingSubmitRequirements,
-	runMergeLoop,
-	slotFreeArgs,
-} from "./land-stack/landing-operations.ts";
+import { buildLandingPlan } from "./land-stack/landing-plan.ts";
+import { confirmAndFreeManagedSlots, confirmAndSubmitRequiredPrUpdates, residualPreMergeFailure, runMergeLoop } from "./land-stack/landing-operations.ts";
 import {
 	formatFailure,
 	formatFailureNotification,
@@ -35,7 +27,6 @@ import type {
 	LandingShape,
 	LandingWarning,
 	ParsedArgs,
-	RemainingCleanup,
 } from "./land-stack/types.ts";
 
 export type { LandStackExtensionAPI } from "./land-stack/types.ts";
@@ -64,7 +55,6 @@ export async function executeStackLanding(
 ): Promise<void> {
 	const landed: LandedPr[] = [];
 	const warnings: LandingWarning[] = [];
-	const cleanup: RemainingCleanup = { retainedLocalBranches: [], detachedWorktreeTrunk: undefined };
 	const commandStream = new LandStackCommandStream(pi, ctx);
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
@@ -132,37 +122,20 @@ export async function executeStackLanding(
 				presentLandStackFailure({ ctx, commandStream, landed, failure: plan.failure });
 				return;
 			}
-			if (plan.value.managedSlotConflicts.length > 0) {
-				presentLandStackFailure({
-					ctx,
-					commandStream,
-					landed,
-					failure: landStackFailure(formatRemainingManagedSlotConflicts(plan.value.managedSlotConflicts), {
-						suggestedAction: `Run ${formatCommand("slot", slotFreeArgs(plan.value.managedSlotConflicts))} manually, inspect worktrees, and rerun /code:land.`,
-					}),
-				});
-				return;
-			}
-			if (plan.value.prSubmitRequirements.length > 0) {
-				presentLandStackFailure({
-					ctx,
-					commandStream,
-					landed,
-					failure: landStackFailure(formatRemainingSubmitRequirements(plan.value.prSubmitRequirements), {
-						suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.value.stack.current))} manually, inspect PR heads, and rerun /code:land.`,
-					}),
-				});
+			const residualFailure = residualPreMergeFailure(plan.value);
+			if (residualFailure) {
+				presentLandStackFailure({ ctx, commandStream, landed, failure: residualFailure });
 				return;
 			}
 		}
 
-		const mergeOutcome = await runMergeLoop(runtimePi, ctx, plan.value, landed, warnings, { commandStream, unstreamedPi: pi, cleanup });
+		const mergeOutcome = await runMergeLoop(runtimePi, ctx, plan.value, landed, warnings, { commandStream, unstreamedPi: pi });
 		if (mergeOutcome.type === "failure") {
 			presentLandStackFailure({ ctx, commandStream, landed, failure: mergeOutcome.failure });
 			return;
 		}
 
-		const successSummary = formatSuccessSummary(landed, plan.value.descendantMaintenance, warnings, cleanup);
+		const successSummary = formatSuccessSummary(landed, plan.value.descendantMaintenance, warnings, mergeOutcome.value);
 		const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
 		const completionLevel = hasWarnings ? "warning" : "success";
 		const commandStreamDetails = commandStreamDetailsForLanded(landed);

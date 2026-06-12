@@ -1,14 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { formatCommand, type ExecResult } from "@asdl/core/exec";
-import {
-	isGtDeleteCheckedOutElsewhere,
-	isGtDeleteMissingBranch,
-	outputTail,
-	parseGitCheckedOutElsewhere,
-	shortSha,
-	stripAnsi,
-} from "../src/land-stack/command-exec.ts";
+import { isGtDeleteMissingBranch, outputTail, parseGitCheckedOutElsewhere, shortSha, stripAnsi } from "../src/land-stack/command-exec.ts";
 import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
 import { LandStackCommandStream, withCommandStreaming } from "../src/land-stack/command-stream.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
@@ -179,6 +172,9 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
+const BACKUP_ROTATION_ARGS = ["fetch", "--quiet", "--prune", "--no-tags", ".", "+refs/ccc/land-backup/*:refs/ccc/land-backup-prev/*"];
+const BACKUP_ROTATION_STEP = step("git", BACKUP_ROTATION_ARGS);
+
 function expectedSquashMergeArgs(options: { number: number; sha: string; title?: string | undefined; body?: string | null | undefined }): string[] {
 	const title = options.title ?? `PR ${options.number}`;
 	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
@@ -324,18 +320,13 @@ function repoIntro(options: { current?: string | undefined; trunk?: string | und
 
 function backupRefSteps(
 	branches: string[],
-	options: { shas?: Record<string, string>; prevRefs?: string[]; rotatedRefs?: Record<string, string> } = {},
+	options: { shas?: Record<string, string>; staleCurrentRefs?: string[] } = {},
 ): ScriptedExec[] {
-	const { shas = BRANCH_SHAS, prevRefs = [], rotatedRefs = {} } = options;
-	const rotatedLines = Object.entries(rotatedRefs).map(([branch, sha]) => `refs/ccc/land-backup/${branch} ${sha}`);
+	const { shas = BRANCH_SHAS, staleCurrentRefs = [] } = options;
 	return [
-		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup-prev"], { stdout: prevRefs.join("\n") }),
-		...prevRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
-		step("git", ["for-each-ref", "--format=%(refname) %(objectname)", "refs/ccc/land-backup"], { stdout: rotatedLines.join("\n") }),
-		...Object.entries(rotatedRefs).flatMap(([branch, sha]) => [
-			step("git", ["update-ref", `refs/ccc/land-backup-prev/${branch}`, sha]),
-			step("git", ["update-ref", "-d", `refs/ccc/land-backup/${branch}`]),
-		]),
+		BACKUP_ROTATION_STEP,
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { stdout: staleCurrentRefs.join("\n") }),
+		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
 		...branches.flatMap((branch) => {
 			const sha = shas[branch] ?? SHA_A;
 			return [
@@ -840,10 +831,6 @@ describe("land-stack pure helpers", () => {
 			true,
 		);
 		expect(isGtDeleteMissingBranch(execResult({ code: 1, stderr: "ERROR: authentication failed\n" }), "feature-a")).toBe(false);
-		expect(isGtDeleteCheckedOutElsewhere(execResult({ code: 1, stderr: "fatal: 'master' is already checked out at '/repo-main'\n" }))).toBe(
-			true,
-		);
-		expect(isGtDeleteCheckedOutElsewhere(execResult({ code: 1, stderr: "ERROR: authentication failed\n" }))).toBe(false);
 	});
 
 	test("formats plans and failures", () => {
@@ -929,6 +916,19 @@ describe("land-stack pure helpers", () => {
 
 		pi.assertDone();
 		expect(commandMessagesText(pi.messages)).toContain("✓ $ sqlite3 -json /repo/.git/.graphite_metadata.db 'select 1' — read Graphite stack topology");
+	});
+
+	test("does not label unrelated sqlite3 commands as Graphite topology reads", async () => {
+		const pi = new FakePi([step("sqlite3", ["-json", "/tmp/other.db", "select 1"])]);
+		const context = createContext();
+		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const streamed = withCommandStreaming(pi, commandStream);
+
+		await streamed.exec("sqlite3", ["-json", "/tmp/other.db", "select 1"], { cwd: ROOT });
+
+		pi.assertDone();
+		expect(commandMessagesText(pi.messages)).toContain("✓ $ sqlite3 -json /tmp/other.db 'select 1'");
+		expect(commandMessagesText(pi.messages)).not.toContain("read Graphite stack topology");
 	});
 
 	test("formats success notifications with action-first warnings", () => {
@@ -1253,38 +1253,30 @@ describe("land-stack command scenarios", () => {
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
 	});
 
-	test("rotates current backup refs before writing new snapshots", async () => {
-		const previousRef = "refs/ccc/land-backup-prev/old-branch";
-		const script = [
-			...singleBranchPreflight(""),
-			...backupRefSteps(["feature-a"], { prevRefs: [previousRef], rotatedRefs: { "old-branch": SHA_B } }),
-			...mergeSingleFeatureA(),
-		];
+	test("rotates backup refs before pruning current stale refs and writing new snapshots", async () => {
+		const staleCurrentRef = "refs/ccc/land-backup/old-branch";
+		const script = [...singleBranchPreflight(""), ...backupRefSteps(["feature-a"], { staleCurrentRefs: [staleCurrentRef] }), ...mergeSingleFeatureA()];
 		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		const prevPruneIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, ["update-ref", "-d", previousRef]));
-		const rotationWriteIndex = pi.execCalls.findIndex(
-			(call) => call.command === "git" && sameArgs(call.args, ["update-ref", "refs/ccc/land-backup-prev/old-branch", SHA_B]),
+		const rotationIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, BACKUP_ROTATION_ARGS));
+		const staleListIndex = pi.execCalls.findIndex(
+			(call) => call.command === "git" && sameArgs(call.args, ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"]),
 		);
-		const rotationDeleteIndex = pi.execCalls.findIndex(
-			(call) => call.command === "git" && sameArgs(call.args, ["update-ref", "-d", "refs/ccc/land-backup/old-branch"]),
-		);
+		const staleDeleteIndex = pi.execCalls.findIndex((call) => call.command === "git" && sameArgs(call.args, ["update-ref", "-d", staleCurrentRef]));
 		const snapshotIndex = pi.execCalls.findIndex(
-			(call, index) => index > rotationDeleteIndex && call.command === "git" && sameArgs(call.args, ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"]),
+			(call, index) =>
+				index > staleDeleteIndex && call.command === "git" && sameArgs(call.args, ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"]),
 		);
-		expect(prevPruneIndex).toBeGreaterThanOrEqual(0);
-		expect(rotationWriteIndex).toBeGreaterThan(prevPruneIndex);
-		expect(rotationDeleteIndex).toBeGreaterThan(rotationWriteIndex);
-		expect(snapshotIndex).toBeGreaterThan(rotationDeleteIndex);
+		expect(rotationIndex).toBeGreaterThanOrEqual(0);
+		expect(staleListIndex).toBeGreaterThan(rotationIndex);
+		expect(staleDeleteIndex).toBeGreaterThan(staleListIndex);
+		expect(snapshotIndex).toBeGreaterThan(staleDeleteIndex);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
-	test("backup ref prune failure stops before landing any PRs", async () => {
-		const script = [
-			...singleBranchPreflight(""),
-			step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup-prev"], { code: 1, stderr: "cannot list refs" }),
-		];
+	test("backup ref rotation failure stops before landing any PRs", async () => {
+		const script = [...singleBranchPreflight(""), step("git", BACKUP_ROTATION_ARGS, { code: 1, stderr: "cannot rotate refs" })];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
@@ -1293,11 +1285,11 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")).toBe(false);
 	});
 
-	test("backup ref rotation listing failure stops before landing any PRs", async () => {
+	test("backup ref stale-listing failure stops before landing any PRs", async () => {
 		const script = [
 			...singleBranchPreflight(""),
-			step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup-prev"]),
-			step("git", ["for-each-ref", "--format=%(refname) %(objectname)", "refs/ccc/land-backup"], { code: 1, stderr: "cannot list refs" }),
+			BACKUP_ROTATION_STEP,
+			step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], { code: 1, stderr: "cannot list refs" }),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -1659,8 +1651,33 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1 — branch feature-a checked out in this worktree; detaching at main and retrying");
 		expect(streamText).toContain("✓ $ git switch --detach main");
 		expect(streamText).toContain("✓ $ gt delete feature-a -f -q");
-		expect(streamText).toContain("This worktree was detached at main so the final landed local branch could be deleted.");
+		expect(streamText).toContain("This worktree was detached at main to delete the final landed local branch.");
 		expect(streamText).not.toContain("Completed with 1 warning:");
+	});
+
+	test("reports a warning when final local Graphite delete retry fails after detach", async () => {
+		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...backupRefSteps(["feature-a"]),
+			...mergeSteps.slice(0, -1),
+			step("gt", ["delete", "feature-a", "-f", "-q"], {
+				code: 1,
+				stderr: "fatal: 'feature-a' is already checked out at '/repo'\n",
+			}),
+			step("git", ["switch", "--detach", TRUNK]),
+			step("gt", ["delete", "feature-a", "-f", "-q"], { code: 1, stderr: "ERROR: authentication failed\n" }),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1");
+		expect(streamText).toContain("Completed with 1 warning:");
+		expect(streamText).toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
+		expect(streamText).toContain("This worktree was detached at main to delete the final landed local branch.");
+		expect(streamText).not.toContain("was kept (still checked out");
 	});
 
 	test("treats final local Graphite delete checkout conflict in another worktree as successful landing", async () => {
@@ -2027,7 +2044,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
-		expect(commandMessagesText(messages)).toContain("landing branches are again checked out in managed slots after submit/update");
+		expect(commandMessagesText(messages)).toContain("Landing branches are checked out in managed slots after submit/update");
 		expect(commandMessagesText(messages)).toContain("slot-01 feature-a");
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(false);
 	});
