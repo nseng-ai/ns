@@ -74,7 +74,7 @@ async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandCo
 	await ctx.waitForIdle();
 	try {
 		await createAutoslotFlow({
-			...buildAutobranchFlowInput(pi, ctx, args, STATUS_KEY),
+			...buildAutobranchFlowInput({ pi, ctx, args, statusKey: STATUS_KEY }),
 			slotExec: pi,
 		});
 	} finally {

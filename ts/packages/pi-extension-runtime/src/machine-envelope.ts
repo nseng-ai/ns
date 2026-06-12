@@ -48,7 +48,7 @@ export function parseMachineEnvelopeData(
 	}
 
 	if (envelopeExitCode !== 0) {
-		return failureMachineEnvelope(stdout, options, parsed, envelopeExitCode);
+		return failureMachineEnvelope({ stdout, options, envelope: parsed, exitCode: envelopeExitCode });
 	}
 
 	const data = parsed.data;
@@ -67,12 +67,19 @@ function invalidMachineEnvelope(
 	return { type: "invalid", message: formatEnvelopeMessage(stdout, options, `Malformed ${options.label}: ${reason}.`) };
 }
 
-function failureMachineEnvelope(
-	stdout: string,
-	options: MachineEnvelopeParseOptions,
-	envelope: Record<string, unknown>,
-	exitCode: number,
-): MachineEnvelopeDataParseFailure {
+interface FailureMachineEnvelopeOptions {
+	stdout: string;
+	options: MachineEnvelopeParseOptions;
+	envelope: Record<string, unknown>;
+	exitCode: number;
+}
+
+function failureMachineEnvelope({
+	stdout,
+	options,
+	envelope,
+	exitCode,
+}: FailureMachineEnvelopeOptions): MachineEnvelopeDataParseFailure {
 	const errorType = typeof envelope.error_type === "string" && envelope.error_type.length > 0 ? envelope.error_type : undefined;
 	const cliMessage = envelopeStatusText(envelope);
 	const details = [
