@@ -22,7 +22,7 @@ import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphi
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = "plan.md";
 const PLAN_FILE = "/tmp/branch-scoped-plan.md";
-const TARGET_BRANCH = "branch-contextes/branch-scoped-plan";
+const TARGET_BRANCH = "branch-contexts/branch-scoped-plan";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "feature/source-plan";
 const ROOT = "/repo";
@@ -244,7 +244,7 @@ describe("branch-context create formatting", () => {
 			startPoint: START_POINT,
 			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: PLAN_KEY,
-			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contextes---branch-scoped-plan:${PLAN_KEY}`,
+			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:${PLAN_KEY}`,
 			commit: "abc123",
 			sourceFile: PLAN_FILE,
 			summary: "Create the branch.",
@@ -256,7 +256,7 @@ describe("branch-context create formatting", () => {
 		expect(text).toContain(`Start point: ${START_POINT}`);
 		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 		expect(text).toContain(`Key: ${PLAN_KEY}`);
-		expect(text).toContain(`Ref: refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contextes---branch-scoped-plan:${PLAN_KEY}`);
+		expect(text).toContain(`Ref: refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:${PLAN_KEY}`);
 		expect(text).toContain("Commit: abc123");
 		expect(text).toContain(`Source file: ${PLAN_FILE}`);
 		expect(text).toContain(`Slug: ${PLAN_SLUG}`);

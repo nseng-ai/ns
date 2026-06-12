@@ -6,12 +6,12 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryBranchContextBrmemGateway } from "../support/in-memory-brmem-gateway.ts";
 
 const ROOT = "/no-such-branch-context-repo";
-const BRANCH = "branch-contextes/branch-scoped-plan";
+const BRANCH = "branch-contexts/branch-scoped-plan";
 const KEY = "branch-scoped-plan.md";
 const CONTENT = "# Plan\n";
 const COMMIT = "0123456789abcdef";
 const SOURCE_FILE = "/tmp/branch-scoped-plan.md";
-const REF = `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contextes---branch-scoped-plan:${KEY}`;
+const REF = `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:${KEY}`;
 
 interface ExecCall {
 	command: string;

@@ -52,7 +52,7 @@ Existing waiver examples from the parity table:
 
 - `dispatch_runner_subagent` is WAIVED with host Task/subagent fallback.
 - `grill_ask` is WAIVED with prose `grill-me` / `grill-with-docs` skill fallback.
-- `write_saved_plan_file` is sibling-owned by the `plans` CLI / planned-branch skill workflow, not closed by this Objective.
+- `write_saved_plan_file` is sibling-owned by the `enriched-plan` CLI / branch-context skill workflow, not closed by this Objective.
 
 ## Parity judgment rubric
 

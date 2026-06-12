@@ -71,7 +71,7 @@ import {
 describe("writeSavedPlanFile", () => {
 	test("writes a source branch saved plan file with origin identity evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "branch-contextes/add-widget";
+		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ stdout: `${origin}\n` })]);
 
@@ -122,7 +122,7 @@ describe("writeSavedPlanFile", () => {
 
 	test("refuses to overwrite an existing local plan store file", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "branch-contextes/add-widget";
+		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);

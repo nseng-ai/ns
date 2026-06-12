@@ -23,7 +23,7 @@ ASDL is a composable toolkit for plan-oriented agentic engineering: tooling that
 
 Major features:
 
-- **Plans and planned branches** — write an implementation plan, attach it to a branch, implement from it in a fresh session.
+- **Plans and branch contexts** — write an implementation plan, attach it to a branch, implement from it in a fresh session.
 - **Worktree slots** — parallel isolated checkouts for concurrent agent sessions.
 - **Branch Memory and handoffs** — branch-scoped durable context that carries decisions between sessions.
 - **Objectives** — tracked units of planned work with priorities.

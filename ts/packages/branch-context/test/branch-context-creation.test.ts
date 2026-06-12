@@ -213,14 +213,14 @@ describe("branch name helpers", () => {
 	test("deriveTargetBranch defaults to slug and trims explicit branch names", () => {
 		expect(deriveTargetBranch(undefined, PLAN_SLUG)).toBe(PLAN_SLUG);
 		expect(deriveTargetBranch("   ", PLAN_SLUG)).toBe(PLAN_SLUG);
-		expect(deriveTargetBranch("  branch-contextes/add-branch-core  ", PLAN_SLUG)).toBe("branch-contextes/add-branch-core");
+		expect(deriveTargetBranch("  branch-contexts/add-branch-core  ", PLAN_SLUG)).toBe("branch-contexts/add-branch-core");
 	});
 
 	test("validateTargetBranchName catches deterministic unsafe names", () => {
 		for (const branch of ["", "-bad", "bad branch", "/bad", "bad/", "bad//branch", "bad..branch", "bad@{1}", "bad.lock"]) {
 			expect(validateTargetBranchName(branch)).toBeDefined();
 		}
-		expect(validateTargetBranchName("branch-contextes/add-branch-core")).toBeUndefined();
+		expect(validateTargetBranchName("branch-contexts/add-branch-core")).toBeUndefined();
 	});
 });
 
@@ -273,7 +273,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("uses an explicit branch name without changing the storage key", async () => {
 		const filePath = await makePlanFile();
-		const branch = "branch-contextes/add-branch-context-core";
+		const branch = "branch-contexts/add-branch-context-core";
 		const { pi, evidence } = await runCreate(
 			{ slug: PLAN_SLUG, filePath, branchName: `  ${branch}  ` },
 			successScript({ branch, key: PLAN_KEY, filePath }),
@@ -299,7 +299,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("creates a Graphite branch context with an explicit prefixed branch name", async () => {
 		const filePath = await makePlanFile();
-		const branch = `branch-contextes/${PLAN_SLUG}`;
+		const branch = `branch-contexts/${PLAN_SLUG}`;
 		const { pi, evidence } = await runCreate(
 			{
 				slug: PLAN_SLUG,
@@ -333,7 +333,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("refuses Graphite branch creation from a detached checkout before creating the branch", async () => {
 		const filePath = await makePlanFile();
-		const branch = `branch-contextes/${PLAN_SLUG}`;
+		const branch = `branch-contexts/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -355,7 +355,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("refuses Graphite branch creation from an untracked parent before creating the branch", async () => {
 		const filePath = await makePlanFile();
-		const branch = `branch-contextes/${PLAN_SLUG}`;
+		const branch = `branch-contexts/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -378,7 +378,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("surfaces Graphite track failures before storing Branch Memory", async () => {
 		const filePath = await makePlanFile();
-		const branch = `branch-contextes/${PLAN_SLUG}`;
+		const branch = `branch-contexts/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -422,7 +422,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("reports partial state when brmem put fails after Graphite branch creation", async () => {
 		const filePath = await makePlanFile();
-		const branch = `branch-contextes/${PLAN_SLUG}`;
+		const branch = `branch-contexts/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -459,7 +459,7 @@ describe("createBranchContextFromFile", () => {
 
 	test("trims blank summaries from Graphite evidence", async () => {
 		const filePath = await makePlanFile();
-		const branch = `branch-contextes/${PLAN_SLUG}`;
+		const branch = `branch-contexts/${PLAN_SLUG}`;
 		const { pi, evidence } = await runCreate(
 			{ slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite", summary: "   " },
 			graphiteSuccessScript({ branch, key: PLAN_KEY, filePath }),

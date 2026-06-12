@@ -226,7 +226,7 @@ def test_resolve_prompt_uses_packaged_subagent_launch_default(tmp_path: Path) ->
     assert "## Fallback Behavior\n" in resolution.content
 
 
-def test_resolve_prompt_uses_packaged_planned_branch_write_plan_default(tmp_path: Path) -> None:
+def test_resolve_prompt_uses_packaged_plans_write_default(tmp_path: Path) -> None:
     resolution = resolve_prompt("plans-write", repo_root=tmp_path)
 
     assert resolution.provenance.source == "embedded_default"
@@ -255,7 +255,7 @@ def test_checked_in_subagent_launch_prompt_matches_embedded_default() -> None:
     assert checked_in_prompt.read_text(encoding="utf-8") == embedded_prompt
 
 
-def test_checked_in_planned_branch_write_plan_prompt_is_intentional_repo_override() -> None:
+def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     repo_root = _repo_root()
     checked_in_prompt = repo_root / ".asdl" / "prompts" / "plans-write.md"
     checked_in_content = checked_in_prompt.read_text(encoding="utf-8")

@@ -79,7 +79,7 @@ describe("deriveSavedPlanContentSlug", () => {
 
 		expect(prompt).toContain(SAVED_PLAN_CONTENT.trim());
 		expect(prompt).toContain("Do not use the current branch, repository name, request text, filename, or path.");
-		expect(prompt).not.toContain("branch-contextes/add-widget");
+		expect(prompt).not.toContain("branch-contexts/add-widget");
 		expect(prompt).not.toContain("/tmp/saved-plan.md");
 	});
 });

@@ -1,12 +1,12 @@
-# Planned-branch diagnostics and administration
+# Branch-context diagnostics and administration
 
-Use this reference for non-happy-path planned-branch work. Keep diagnostics narrow, inspect before mutating, and refuse ambiguous destructive changes.
+Use this reference for non-happy-path branch-context work. Keep diagnostics narrow, inspect before mutating, and refuse ambiguous destructive changes.
 
 ## General diagnostics posture
 
 - Prefer `enriched-plan exec resolve` for saved-plan resolution.
 - Prefer `enriched-plan list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
-- Prefer `planned-branch exec load-plan` for attached-plan loading.
+- Prefer `branch-context exec load` for attached-plan loading.
 - Use `brmem list/get` read-only only when diagnosing Branch Memory attachment state.
 - Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/enriched-plan/`; do not perform broad home-directory traversals.
 - Prefer deterministic CLI helpers over manual file or Branch Memory operations when available.
@@ -17,7 +17,7 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 - Target branch exists: stop and ask whether to choose another branch or inspect the existing branch.
 - Branch Memory entry exists: stop; do not overwrite the attached plan manually.
 - Graphite setup fails after branch creation: report the partial branch state; do not attach a plan manually unless the user explicitly directs recovery.
-- Multiple attached plans: rerun `planned-branch exec load-plan` with the desired key/slug from the error or listing.
+- Missing or unexpected attached plan key: inspect the `branch-context` namespace and rerun `branch-context exec load <key>` only when a non-default key is explicitly intended.
 - Current branch is trunk/default/detached for implementation: stop and ask for the intended implementation branch.
 - Stale plan content: report the observed mismatch and ask or adjust scope before implementing beyond the plan.
 
@@ -40,15 +40,15 @@ When manually inspecting saved plans:
 - Compute or verify the encoded branch path segment: branch slashes become `---`.
 - Inspect only the relevant `<repo>` or specific `<encoded-source-branch>` directory.
 - Do not search broadly from the home directory.
-- Treat the saved-plan filename slug as a local locator, not as proof of the planned-branch slug.
+- Treat the saved-plan filename slug as a local locator, not as proof of the branch-context slug.
 
 ## Read-only attached-plan inspection
 
 Inspect Branch Memory attachments directly only for diagnostics — not as a replacement for the create/load workflows:
 
 ```bash
-brmem list --namespace planned-branch --branch <branch>
-brmem get <key> --namespace planned-branch --branch <branch>
+brmem list --namespace branch-context --branch <branch>
+brmem get <key> --namespace branch-context --branch <branch>
 ```
 
 ## Admin examples
@@ -92,7 +92,7 @@ If the user asks in a way that could mean either move or copy, ask which behavio
 If a CLI helper such as this exists in the future, prefer it over manual `mv`/edit operations:
 
 ```bash
-planned-branch exec retarget-plan \
+branch-context exec retarget-plan \
   --plan-file <path> \
   --source-branch <branch> \
   --format json

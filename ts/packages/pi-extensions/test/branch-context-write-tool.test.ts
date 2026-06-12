@@ -177,7 +177,7 @@ describe("write_saved_plan_file tool", () => {
 		});
 	});
 
-	test("rejects assistant-provided saved-plan slugs so /plans:write cannot bypass Codex slugging", async () => {
+	test("rejects assistant-provided saved-plan slugs so /enriched-plan:save cannot bypass Codex slugging", async () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");

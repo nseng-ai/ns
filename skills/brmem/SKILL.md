@@ -16,7 +16,7 @@ stay attached to a Git branch without becoming working-tree files, commits, PR
 comments, or issues.
 
 This skill is a CLI reference. Prefer higher-level skills when they match the
-whole workflow. Use the `planned-branch` skill family for planned-branch saved
+whole workflow. Use the `branch-context` skill family for branch-context saved
 or attached plans; do not store those as generic `brmem` `plans/` keys. Use this
 skill directly when you need to inspect, write, copy, delete, or explain Branch
 Memory.
