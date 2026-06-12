@@ -1,13 +1,9 @@
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
-import {
-	planFeedback,
-	validateFeedbackClassification,
-	type FeedbackClassificationValidationError,
-	type FeedbackClassificationValidationResult,
-	type FeedbackPlanningResult,
-} from "./classification-core.ts";
+import { planFeedback, type FeedbackPlanningResult } from "./classification-planning.ts";
+import { type FeedbackClassificationValidationError } from "./classification-shared.ts";
+import { validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification-validation.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import { loadArtifactReference, loadJsonInput, loadOperationPayload, type JsonInputResult, type OperationPayloadField } from "./json-input.ts";
@@ -301,18 +297,18 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	if (classificationsResult.type === "error") return failure("invalid_request", classificationsResult.message);
 	const classificationByPr = classificationsResult.value;
 
-	const validations = payload.prep.stack.map((prResult) => validateFeedbackClassification({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }));
+	const validations = payload.prep.stack.map((prResult) => ({
+		prResult,
+		validation: validateFeedbackClassification({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }),
+	}));
 	const validationSummary: StackFeedbackPlanValidationSummary = {
-		all_valid: validations.every((validation) => validation.valid),
-		per_pr: payload.prep.stack.map((prResult, index) => {
-			const validation = requiredAt(validations, index);
-			return {
-				pr_number: pythonOrPrNumber(validation.pr_number, prResult.pr_number),
-				valid: validation.valid,
-				counts: validation.counts,
-				errors: validation.errors,
-			};
-		}),
+		all_valid: validations.every(({ validation }) => validation.valid),
+		per_pr: validations.map(({ prResult, validation }) => ({
+			pr_number: pythonOrPrNumber(validation.pr_number, prResult.pr_number),
+			valid: validation.valid,
+			counts: validation.counts,
+			errors: validation.errors,
+		})),
 	};
 	if (!validationSummary.all_valid) {
 		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary });
@@ -322,13 +318,16 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		);
 	}
 
-	const perPrPlans = payload.prep.stack.map((prResult) => planFeedback({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }));
-	if (!perPrPlans.every((plan) => plan.valid)) throw new Error("validated stack classifications must produce valid per-PR plans");
+	const prPlans: PrPlanPair[] = payload.prep.stack.map((prResult) => ({
+		prResult,
+		plan: planFeedback({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }),
+	}));
+	if (!prPlans.every(({ plan }) => plan.valid)) throw new Error("validated stack classifications must produce valid per-PR plans");
 	const resultWithoutReference = mergedStackPlanResult({
 		sessionId: store.sessionId,
 		prep: payload.prep,
 		validation: validationSummary,
-		perPrPlans,
+		prPlans,
 	});
 	const stackPlanReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-plan", role: "summary", payload: resultWithoutReference });
 	if (stackPlanReference.type === "error") return failure(stackPlanReference.errorType, stackPlanReference.message);
@@ -405,14 +404,19 @@ function emptyPlanResult(options: { sessionId: string; prCount: number; validati
 	};
 }
 
+interface PrPlanPair {
+	prResult: StackPrepPrResultInput;
+	plan: FeedbackPlanningResult;
+}
+
 function mergedStackPlanResult(options: {
 	sessionId: string;
 	prep: StackFeedbackPlanInput["prep"];
 	validation: StackFeedbackPlanValidationSummary;
-	perPrPlans: readonly FeedbackPlanningResult[];
+	prPlans: readonly PrPlanPair[];
 }): StackFeedbackPlanResult {
-	const batches = mergedBatches(options.prep, options.perPrPlans);
-	const informational = mergedInformational(options.prep, options.perPrPlans);
+	const batches = mergedBatches(options.prPlans);
+	const informational = mergedInformational(options.prPlans);
 	const automationSummary = automationDiscussionSummary(options.prep);
 	const actionItems = batches.flatMap((batch) => batch.items);
 	return {
@@ -434,17 +438,16 @@ function mergedStackPlanResult(options: {
 	};
 }
 
-function mergedBatches(prep: StackFeedbackPlanInput["prep"], perPrPlans: readonly FeedbackPlanningResult[]): StackFeedbackPlanBatch[] {
+function mergedBatches(prPlans: readonly PrPlanPair[]): StackFeedbackPlanBatch[] {
 	const batches: StackFeedbackPlanBatch[] = [];
 	for (const complexity of ACTION_COMPLEXITIES) {
 		const items: StackFeedbackPlanItem[] = [];
-		prep.stack.forEach((prResult, index) => {
-			const plan = requiredAt(perPrPlans, index);
+		for (const { prResult, plan } of prPlans) {
 			const sourceBatch = plan.batches.find((batch) => batch.batch_id === complexity);
 			if (sourceBatch !== undefined) {
 				for (const item of sourceBatch.items) items.push(actionItem(prResult, sourceBatch, item));
 			}
-		});
+		}
 		if (items.length > 0) {
 			batches.push({ batch_id: complexity, complexity, approval_required: APPROVAL_REQUIRED_COMPLEXITIES.has(complexity), items });
 		}
@@ -481,12 +484,11 @@ function actionItem(prResult: StackPrepPrResultInput, sourceBatch: FeedbackPlanB
 	};
 }
 
-function mergedInformational(prep: StackFeedbackPlanInput["prep"], perPrPlans: readonly FeedbackPlanningResult[]): StackFeedbackPlanInformationalItem[] {
+function mergedInformational(prPlans: readonly PrPlanPair[]): StackFeedbackPlanInformationalItem[] {
 	const items: StackFeedbackPlanInformationalItem[] = [];
-	prep.stack.forEach((prResult, index) => {
-		const plan = requiredAt(perPrPlans, index);
+	for (const { prResult, plan } of prPlans) {
 		for (const item of plan.informational) items.push(informationalItem(prResult, item));
-	});
+	}
 	return items;
 }
 
@@ -680,10 +682,4 @@ function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
 
 function pythonStringRepr(value: string): string {
 	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function requiredAt<T>(values: readonly T[], index: number): T {
-	const value = values[index];
-	if (value === undefined) throw new Error(`Missing aligned per-PR value at index ${index}.`);
-	return value;
 }

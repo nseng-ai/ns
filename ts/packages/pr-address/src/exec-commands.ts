@@ -1,7 +1,7 @@
 import type { ExecOperation } from "./exec-operation.ts";
 
 import { recordBatchCheckpointOperation } from "./batch-checkpoint.ts";
-import { classificationTemplateOperation, planFeedbackOperation, validateFeedbackClassificationOperation } from "./classification-core.ts";
+import { classificationTemplateOperation, planFeedbackOperation, validateFeedbackClassificationOperation } from "./classification-operations.ts";
 import { getFeedbackOperation } from "./feedback-collection.ts";
 import { finalizeRunOperation } from "./finalization.ts";
 import { mapBranchPrsOperation } from "./map-branch-prs.ts";

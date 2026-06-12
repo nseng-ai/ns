@@ -7,7 +7,9 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { buildPlanFeedbackSchemaDocument } from "../../src/classification-schemas.ts";
 import { runCli, type CliDeps } from "../../src/cli.ts";
-import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification } from "../../src/classification-core.ts";
+import { buildFeedbackClassificationTemplate } from "../../src/classification-packet.ts";
+import { planFeedback } from "../../src/classification-planning.ts";
+import { validateFeedbackClassification } from "../../src/classification-validation.ts";
 import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
 import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
