@@ -247,19 +247,31 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	const cached = cache.read();
 	if (!force && cached !== null && cached.fingerprint === fingerprint) {
 		const analysis = initialAnalysisStatuses(cached.episodes);
-		const completion = runMissingEpisodeAnalysis(gateway, profile, signal, sink, cached.episodes, cached.summary, cached.delegations, analysis);
+		const completion = runMissingEpisodeAnalysis({
+			gateway,
+			profile,
+			signal,
+			sink,
+			episodesInput: cached.episodes,
+			summary: cached.summary,
+			delegations: cached.delegations,
+			analysisInput: analysis,
+		});
 		return { initial: readyState({ episodes: cached.episodes, summary: cached.summary, delegations: cached.delegations, analysis }), detach, completion };
 	}
-	const completion = runFreshSegmentation(gateway, profile, signal, sink);
+	const completion = runFreshSegmentation({ gateway, profile, signal, sink });
 	return { initial: { type: "loading" }, detach, completion };
 }
 
-async function runFreshSegmentation(
-	gateway: AnalysisModelGateway,
-	profile: ProfileSnapshot,
-	signal: AbortSignal,
-	sink: SegmentationSink,
-): Promise<SegmentationBatchOutcome> {
+interface FreshSegmentationOptions {
+	gateway: AnalysisModelGateway;
+	profile: ProfileSnapshot;
+	signal: AbortSignal;
+	sink: SegmentationSink;
+}
+
+async function runFreshSegmentation(options: FreshSegmentationOptions): Promise<SegmentationBatchOutcome> {
+	const { gateway, profile, signal, sink } = options;
 	const payload = buildSegmentationPayload(profile);
 	let result: Awaited<ReturnType<AnalysisModelGateway["segmentTurns"]>>;
 	try {
@@ -278,19 +290,31 @@ async function runFreshSegmentation(
 	const summary = result.value.summary;
 	const analysis = initialAnalysisStatuses(episodes);
 	sink.commitReady({ episodes, summary, delegations, analysis });
-	return runMissingEpisodeAnalysis(gateway, profile, signal, sink, episodes, summary, delegations, analysis);
+	return runMissingEpisodeAnalysis({
+		gateway,
+		profile,
+		signal,
+		sink,
+		episodesInput: episodes,
+		summary,
+		delegations,
+		analysisInput: analysis,
+	});
 }
 
-async function runMissingEpisodeAnalysis(
-	gateway: AnalysisModelGateway,
-	profile: ProfileSnapshot,
-	signal: AbortSignal,
-	sink: SegmentationSink,
-	episodesInput: readonly EpisodeAnnotation[],
-	summary: string | null,
-	delegations: readonly DelegationClaim[],
-	analysisInput: readonly EpisodeAnalysisStatus[],
-): Promise<SegmentationBatchOutcome> {
+interface MissingEpisodeAnalysisOptions {
+	gateway: AnalysisModelGateway;
+	profile: ProfileSnapshot;
+	signal: AbortSignal;
+	sink: SegmentationSink;
+	episodesInput: readonly EpisodeAnnotation[];
+	summary: string | null;
+	delegations: readonly DelegationClaim[];
+	analysisInput: readonly EpisodeAnalysisStatus[];
+}
+
+async function runMissingEpisodeAnalysis(options: MissingEpisodeAnalysisOptions): Promise<SegmentationBatchOutcome> {
+	const { gateway, profile, signal, sink, episodesInput, summary, delegations, analysisInput } = options;
 	const episodes = episodesInput.map((episode) => ({ ...episode }));
 	const analysis = [...analysisInput];
 	const tasks = episodes.map(async (episode, episodeIndex) => {
