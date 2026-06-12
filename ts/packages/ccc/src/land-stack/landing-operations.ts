@@ -585,7 +585,7 @@ async function performGraphiteMaintenance(maintenanceOptions: PerformGraphiteMai
 			state.cleanup.retainedLocalBranches.push({ branch: deletion.branch, path: deletion.path });
 			break;
 		case "failed":
-			if (deletion.detachedAtTrunk) {
+			if (deletion.wasDetachedAtTrunk) {
 				state.cleanup.detachedWorktreeTrunk = stack.trunk;
 			}
 			return failOrWarn(severity, state.warnings, {
@@ -809,11 +809,11 @@ type LocalBranchDeletion =
 	| { kind: "deleted" }
 	| { kind: "deleted-after-detach" }
 	| { kind: "retained"; branch: string; path: string }
-	| { kind: "failed"; result: ExecResult; detachedAtTrunk: boolean };
+	| { kind: "failed"; result: ExecResult; wasDetachedAtTrunk: boolean };
 
 function localBranchDeletionFromResult(result: ExecResult): LocalBranchDeletion {
 	if (result.code === 0) return { kind: "deleted" };
-	return { kind: "failed", result, detachedAtTrunk: false };
+	return { kind: "failed", result, wasDetachedAtTrunk: false };
 }
 
 function assertNever(value: never): never {
@@ -835,7 +835,7 @@ async function deleteFinalLocalGraphiteBranch(options: DeleteFinalLocalGraphiteB
 	const checkout = !result.killed ? parseGitCheckedOutElsewhere(result) : undefined;
 	if (!checkout) {
 		commandStream.finish(commandDisplay, finish);
-		return { kind: "failed", result: finish.result, detachedAtTrunk: false };
+		return { kind: "failed", result: finish.result, wasDetachedAtTrunk: false };
 	}
 
 	if (normalizeExistingPath(checkout.path) !== normalizeExistingPath(repoRoot)) {
@@ -863,7 +863,7 @@ async function deleteFinalLocalGraphiteBranch(options: DeleteFinalLocalGraphiteB
 	const retryFinish = normalizeCommandFinish("gt", deleteArgs, retry);
 	commandStream.finish(commandDisplay, retryFinish);
 	if (retryFinish.result.code !== 0) {
-		return { kind: "failed", result: retryFinish.result, detachedAtTrunk: true };
+		return { kind: "failed", result: retryFinish.result, wasDetachedAtTrunk: true };
 	}
 	return { kind: "deleted-after-detach" };
 }
