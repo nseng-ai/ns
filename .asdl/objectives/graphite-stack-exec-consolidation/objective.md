@@ -60,3 +60,11 @@ Resolved (see `updates/2026-06-12-stack-branches-command-contract.md` for the fu
 - First canonical command scope: `stack-branches` only. Richer stack facts (trunk, current, scope, warnings) ride in its `--format json` data payload; a broader `stack-info` command is deferred to the exec-candidate audit roadmap item.
 - Fork behavior: fail closed by default — exit 2 with `error_type: forked_stack`, no partial branch list on stdout, message naming the fork branch and its children with remediation (check out the intended tip, or pass `--downstack`). Descendant-side forks are out of scope under `--downstack` and surface as warnings with exit 0. No "follow a selected path" flag in the first slice.
 - Machine-decision hazards vs visual confirmations: audited and migrated. `stack-address`, the PR-address collection reference, delete-stack, Objective Update, parity-review, and restack scope selection now use `slot gt exec stack-branches`, `gt parent --no-interactive`, or `gt children --no-interactive` for machine topology decisions. Acceptable human visual confirmations to retain: display-only `gt ls`/`gt log` mentions in restack/conflict guidance and setup docs. The TS `asdl-dev` submit parser remains retained under its submit-specific roadmap decision.
+
+## Closure
+
+Outcome: completed.
+
+Evidence: the canonical structured current-stack branch helper exists as `slot gt exec stack-branches`; its contract and structured `StackInfo` diagnostics are documented and tested; stack-address preflight mechanics were consolidated through `pr-address exec stack-feedback-preflight`; agent-facing guidance was migrated away from parsing `gt ls`, `gt ls --stack`, `gt log`, and `gt branch info` for machine topology decisions; and the remaining `asdl-dev submit` parser path was explicitly retained with submit-specific rationale and risk. The roadmap has no active non-parked work, and the final documentation-loop update records `just dprint-check` passing.
+
+Caveats and follow-ups: parked items remain intentionally outside this Objective's completion: repeated `--stdout-mode` option handling, general Graphite mutation wrappers, and possible CCC landing-topology unification. Future work should open or update a separate Objective if any parked item becomes material.
