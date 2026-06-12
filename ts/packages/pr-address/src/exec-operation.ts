@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler, type JsonSchemaDocument } from "@asdl/clinkr";
 
 import type { PrAddressContext } from "./context.ts";
-import { buildOperationSchemaDocument } from "./operation-schemas.ts";
+import { buildOperationSchemaDocument } from "./operation-schemas/index.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
 export interface PrAddressExecContext {
@@ -31,7 +31,7 @@ export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
 
 /**
  * Wrap a clinkr command spec as an exec operation: the `--json-schema` document
- * is served from the pinned Python-parity builders in `operation-schemas.ts`,
+ * is served from the pinned Python-parity builders in `operation-schemas/`,
  * and repo-context-required operations get the LBYL work-tree precondition
  * applied after parse (never blocking the eager `--json-schema` route).
  */
