@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-asdl plan management grew up branch-first: the `plans` store, `branch-context create`, and `branch-context impl` frame asdl as a plan _system_, competing with the plan concepts every agent harness now ships (Claude Code plan mode and plan files, Codex plan mode, Cursor plans, Copilot implementation plans). The intended posture is additive: asdl operates on plans authored anywhere, and its differentiated value is downstream of authorship — attaching plans to branches, layering behavior onto them, and executing them autonomously.
+asdl plan management grew up branch-first: the `plans` store, `planned-branch create`, and `planned-branch impl` frame asdl as a plan _system_, competing with the plan concepts every agent harness now ships (Claude Code plan mode and plan files, Codex plan mode, Cursor plans, Copilot implementation plans). The intended posture is additive: asdl operates on plans authored anywhere, and its differentiated value is downstream of authorship — attaching plans to branches, layering behavior onto them, and executing them autonomously.
 
 A vendor vocabulary survey (`docs/agent-vocabulary-survey.md`, researched 2026-06-12) established two facts that shaped this decision: the field has converged on specific words for adjacent concepts (automation, trigger, environment, run, skills), and the two concepts central to asdl — plan-attached-to-branch and plan enrichment — have no existing vocabulary at any vendor.
 
@@ -24,10 +24,10 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 
 - **`enriched-plan`** replaces the `plans` CLI group: `enriched-plan exec save`, `enriched-plan exec resolve`, `enriched-plan list`. Wordiness is acceptable: exec operations are skill-invoked, and the human surfaces are the Pi commands.
 - **save** replaces **write** as the intake verb (`enriched-plan exec save`, Pi `/enriched-plan:save`, `/enriched-plan:grill-and-save`). Saving is source-agnostic: it covers plans authored in-session and plans brought in from any harness's planning surface. The authorship framing of "write" is retired.
-- The TypeScript package renames to match: `ts/packages/plans/` → `ts/packages/enriched-plan/`.
-- The local store re-keys from `~/.asdl/branch-context/plans/<repo>/<branch>/` to an `enriched-plan` store path. The old path was mis-keyed twice over: the store is pre-branch by definition, and it predates the vocabulary. No migration shim (unreleased software).
+- The initially proposed TypeScript package rename (`ts/packages/plans/` → `ts/packages/enriched-plan/`) was scope-corrected during implementation: the package remains `@asdl/plans` / `ts/packages/plans/`; only the CLI group, verb, store path, and skill renamed.
+- The local store re-keys from `~/.asdl/planned-branch/plans/<repo>/<branch>/` to an `enriched-plan` store path. The old path was mis-keyed twice over: the store is pre-branch by definition, and it predates the vocabulary. No migration shim (unreleased software).
 - The `plans-write` skill renames to `enriched-plan-save`.
-- **branch-context dissolves into branch-context** — ADR 0006 supersedes this session's initial retention decision. The durable differentiator is a branch's standing Branch Memory context, with a plan as one entry type, not a branded special branch type.
+- **planned-branch dissolves into branch-context** — ADR 0006 supersedes this session's initial retention decision. The durable differentiator is a branch's standing Branch Memory context, with a plan as one entry type, not a branded special branch type.
 
 ### Bound now, for the future orchestration layer
 
@@ -46,13 +46,14 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 
 - **Pattern-application surface naming** (see above).
 - **Quality modifiers** (composable verification/judging add-ons applied to a pattern) — the feature is deferred and deliberately unnamed until designed.
-- **Unattended execution surface** — unbound until it exists; `branch-context impl` remains the only execution surface today.
+- **Unattended execution surface** — unbound until it exists; `planned-branch impl` remains the only execution surface today.
 
 ## Consequences
 
-- Staged renames (group, verb, package, store path, skill, Pi mirrors) are tracked as Objective `additive-plan-vocabulary` rather than executed ad hoc.
+- Staged renames (group, verb, store path, skill, Pi mirrors) are tracked as Objective `additive-plan-vocabulary` rather than executed ad hoc.
 - CONTEXT files and CONTEXT-MAP are not modified by this ADR; canonicalizing the vocabulary in domain-language files (including retiring "Saved plan"/"Source branch plan file" in favor of enriched-plan terms, the vibechk "run" ambiguity entry, and the existing Plan/attachment/handoff ambiguity) waits for a dedicated context rebaseline session per repo policy.
-- "Branch context" no longer remains the forward vocabulary for active surfaces; ADR 0006 replaces it with branch context while keeping `enriched-plan` unchanged.
+- "Planned branch" no longer remains the forward vocabulary for active surfaces; ADR 0006 replaces it with branch context while keeping `enriched-plan` unchanged.
+- The prompt backing `/enriched-plan:save` keeps the name `plans-write` because it is a runtime contract with `.asdl/prompts/plans-write.md`, consistent everywhere, and guarded by the checked-in prompt test.
 - Live saved plans in the old store path must be moved manually; the store typically holds zero-to-few transient files.
 - Unreleased status means all re-keying carries no compatibility burden.
 
@@ -63,7 +64,7 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 - **compile / target / flags scheme:** compilation vocabulary brought a free ecosystem (targets, flags, recompile, run-from-source) but connotes a deterministic transformation; enrichment exercises judgment. The pair-storage design was kept; the toolchain metaphor was not.
 - **One-document enrichment (in-place):** rewriting the reviewed plan on re-enrichment muddies the human-intent vs machine-overlay boundary; rejected in favor of the immutable-source pair.
 - **executable plan:** implies un-enriched plans cannot execute; also less accurate than "enriched" about what asdl adds.
-- **Dissolving "branch context" (`plan branch`, `plan attach`):** initially rejected because it discarded the brandable name of the differentiator and read ambiguously as a CLI invocation. ADR 0006 later adopts a different dissolution: `branch-context` names the standing branch-scoped context contract, while `attach`/`load` become primitives rather than bare `plan` subcommands.
+- **Dissolving "planned branch" (`plan branch`, `plan attach`):** initially rejected because it discarded the brandable name of the differentiator and read ambiguously as a CLI invocation. ADR 0006 later adopts a different dissolution: `branch-context` names the standing branch-scoped context contract, while `attach`/`load` become primitives rather than bare `plan` subcommands.
 - **job:** no vendor uses it; generic enough to become a god-noun absorbing plan, branch, and run.
 - **task / workflow / spec as asdl-distinctive terms:** overloaded (Codex/Claude/Jules/Copilot), owned (GHA, Claude dynamic workflows), and claimed for heavier requirements-grade artifacts (Kiro, Factory) respectively.
 - **routine / daemon for the standing automation:** Claude-only and Charlie-only precedents; "automation" is the cross-vendor winner.

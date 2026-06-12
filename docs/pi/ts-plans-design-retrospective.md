@@ -1,10 +1,10 @@
 # TypeScript Planned-Branch Recipes: Design Retrospective
 
-> Status: removed and parked. This document preserves the historical design for a possible future revival. The examples below are non-runnable after the cleanup that removed `@asdl/ts-plans` and all active `.plan.ts` branch-context commands, tools, and CLI operations.
+> Status: removed and parked. This document preserves the historical design for a possible future revival. The examples below are non-runnable after the cleanup that removed `@asdl/ts-plans` and all active `.plan.ts` planned-branch commands, tools, and CLI operations.
 
 ## What the prototype tried to add
 
-The prototype explored a typed recipe layer for branch-context plans. The active branch-context workflow already supported Markdown source-branch plans, branch context creation, Branch Memory attachment, and implementation prompt loading. TypeScript recipes attempted to add a second plan source format with explicit structure, deterministic rendering, validation-command recording, and optional Mermaid previews.
+The prototype explored a typed recipe layer for planned-branch plans. The active planned-branch workflow already supported Markdown source-branch plans, planned branch creation, Branch Memory attachment, and implementation prompt loading. TypeScript recipes attempted to add a second plan source format with explicit structure, deterministic rendering, validation-command recording, and optional Mermaid previews.
 
 The experiment deliberately scoped evaluation to trusted local Pi usage. It was never a sandbox for untrusted code.
 
@@ -131,31 +131,31 @@ Trust boundary: this preview evaluated a local .plan.ts file as trusted TypeScri
 
 This was an honest boundary: evaluating local TypeScript code is substantially different from reading Markdown. The prototype treated recipe files as trusted local code with local system permissions, not as untrusted plan data.
 
-## Historical branch-context integration
+## Historical planned-branch integration
 
-The prototype mapped `.plan.ts` into the branch-context workflow as a Pi-only extension of saved plans and attached plans:
+The prototype mapped `.plan.ts` into the planned-branch workflow as a Pi-only extension of saved plans and attached plans:
 
 - Local plan store file name: `<slug>.plan.ts`.
-- Branch Memory key: `<branch-context-slug>.plan.ts`.
-- Write command: `/branch-context:write-ts-plan`.
-- Create command: `/branch-context:create-ts`.
-- Preview command: `/branch-context:preview-ts`.
-- Implement command: `/branch-context:impl-ts`.
+- Branch Memory key: `<planned-branch-slug>.plan.ts`.
+- Write command: `/planned-branch:write-ts-plan`.
+- Create command: `/planned-branch:create-ts`.
+- Preview command: `/planned-branch:preview-ts`.
+- Implement command: `/planned-branch:impl-ts`.
 - Tool: `write_source_branch_ts_plan_file`.
-- CLI hidden operation: `branch-context exec preview-ts [key-or-slug] [--preview-format text|mermaid] [--format json]`.
+- CLI hidden operation: `planned-branch exec preview-ts [key-or-slug] [--preview-format text|mermaid] [--format json]`.
 
 Those integration points have been removed and should not be treated as active contracts.
 
 ## Behaviors tests covered
 
-Historical tests covered declarative recipes, imperative recipes, trust notices, validation-command recording without shell execution, text rendering, Mermaid rendering, rejected malformed default exports, rejected named metadata exports, branch-context saved-plan selection, attached-plan fallback behavior, Pi command registration, and the hidden preview CLI operation.
+Historical tests covered declarative recipes, imperative recipes, trust notices, validation-command recording without shell execution, text rendering, Mermaid rendering, rejected malformed default exports, rejected named metadata exports, planned-branch saved-plan selection, attached-plan fallback behavior, Pi command registration, and the hidden preview CLI operation.
 
 ## Lessons learned
 
 - Typed recipe plans made plan structure explicit and enabled deterministic rendering/previews, but introduced a second planning language alongside Markdown.
 - Imperative recording was expressive but increased trust and execution-model complexity.
 - The trust boundary was honest but heavy: evaluating local TypeScript code is substantially different from reading Markdown.
-- Pi-only evaluation created cross-harness ambiguity for the branch-context skill family.
+- Pi-only evaluation created cross-harness ambiguity for the planned-branch skill family.
 - The package and integration added broad maintenance surface across workspace dependencies, Pi commands/tools, CLI hidden operations, tests, docs, context vocabulary, and lockfile state.
 - Future revival should start from an explicit product/use-case decision and a stronger trust/portability story rather than dormant code.
 
@@ -177,7 +177,7 @@ A later unmerged prototype stack explored a saved `.plan.ts` viewer, structured 
 
 - Keep `@asdl/ts-plans` as a dormant package. Rejected because dormant runtime code still creates dependency, test, and API surface.
 - Leave fail-fast commands or TODO stubs. Rejected because users and agents should not see unavailable workflows as active capabilities.
-- Keep generic plan-file kind abstractions. Rejected because the active branch-context workflow is Markdown-only.
+- Keep generic plan-file kind abstractions. Rejected because the active planned-branch workflow is Markdown-only.
 
 ## Revival path
 
