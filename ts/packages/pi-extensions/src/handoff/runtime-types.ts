@@ -74,23 +74,23 @@ export type MessageRenderer = (message: CustomMessage, options: { expanded: bool
 export interface BaseRuntimeContext {
 	cwd: string;
 	hasUI: boolean;
+	mode?: "tui" | "rpc" | "json" | "print";
 	model?: ModelInfo;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
-	};
-}
-
-export interface CommandContext extends BaseRuntimeContext {
-	mode?: "tui" | "rpc" | "json" | "print";
-	ui: BaseRuntimeContext["ui"] & {
-		select?(title: string, items: string[]): Promise<string | undefined>;
-		input?(title: string, placeholder?: string): Promise<string | undefined>;
 		custom?<T>(
 			factory: (tui: TuiHandle, theme: unknown, keybindings: unknown, done: (value: T) => void) => RenderComponent,
 			options?: unknown,
 		): Promise<T>;
+	};
+}
+
+export interface CommandContext extends BaseRuntimeContext {
+	ui: BaseRuntimeContext["ui"] & {
+		select?(title: string, items: string[]): Promise<string | undefined>;
+		input?(title: string, placeholder?: string): Promise<string | undefined>;
 	};
 	waitForIdle(): Promise<void>;
 }
