@@ -109,6 +109,22 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("verifyCurrentPr reads PR links from branch info without opening the PR page", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				["branch", "info", "--no-interactive"],
+				"feature/demo\n\nPR #456 (Open) Demo PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ kind: "present", prLinks: [{ label: "#456", url: "https://github.com/acme/project/pull/456" }] });
+		runner.assertDone();
+	});
+
 	test("verifyCurrentPr maps startup errors", async () => {
 		const runner = new ScriptedCommandRunner([startupErrorStep("gt", ["branch", "info", "--no-interactive"], "spawn gt ENOENT")]);
 		const gateway = new RealSubmitGateway(runner.runner);
