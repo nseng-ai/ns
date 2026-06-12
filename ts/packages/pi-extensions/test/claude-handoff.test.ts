@@ -184,7 +184,7 @@ describe("claude handoff command", () => {
 		expect(runClaude.invocations[0]?.prompt).toContain("Entry: fix-auth-flow.md");
 		expect(runClaude.invocations[0]?.prompt).toContain(`/handoff:pickup --branch ${BRANCH} fix-auth-flow`);
 		expect(runClaude.invocations[0]?.prompt).toContain("Do not create a new handoff");
-		expect(runClaude.invocations[0]?.name).toBe("claude-handoff: fix-auth-flow");
+		expect(runClaude.invocations[0]?.name).toBe("[from-pi] handoff: fix-auth-flow");
 		expect(runClaude.invocations[0]?.env).toEqual({ PATH: "/bin", HOME: "/home/me" });
 		expect(env).toEqual({
 			PATH: "/bin",
@@ -206,7 +206,7 @@ describe("claude handoff command", () => {
 		pi.assertDone();
 		expect(result.isError).toBeUndefined();
 		expect(runClaude.invocations).toHaveLength(1);
-		expect(runClaude.invocations[0]?.name).toBe("claude-handoff: fix-auth-flow | from-pi-session: sess-9f3c");
+		expect(runClaude.invocations[0]?.name).toBe("[from-pi] session-id:sess-9f3c handoff: fix-auth-flow");
 	});
 
 	test.each([
@@ -313,26 +313,36 @@ describe("claude handoff command", () => {
 	});
 
 	test.each([
+		{
+			name: "timestamped session id keeps only the id segment",
+			input: "/home/me/.pi/sessions/2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl",
+			expected: "019eba6d-abd8-7fa8-bb1f-1888f3b09a56",
+		},
 		{ name: "posix path with extension", input: "/home/me/.pi/sessions/sess-9f3c.jsonl", expected: "sess-9f3c" },
 		{ name: "windows path with extension", input: "C:\\Users\\me\\sessions\\abc123.jsonl", expected: "abc123" },
 		{ name: "bare filename", input: "sess-9f3c.jsonl", expected: "sess-9f3c" },
 		{ name: "no extension", input: "/sessions/abc123", expected: "abc123" },
 		{ name: "multiple dots strips only last", input: "/sessions/2026-06-12.abc.jsonl", expected: "2026-06-12.abc" },
+		{ name: "multiple underscores keeps last segment", input: "/sessions/ts_extra_id.jsonl", expected: "id" },
 		{ name: "surrounding whitespace", input: "  /sessions/abc123.jsonl  ", expected: "abc123" },
 		{ name: "undefined", input: undefined, expected: undefined },
 		{ name: "empty string", input: "", expected: undefined },
 		{ name: "whitespace only", input: "   ", expected: undefined },
 		{ name: "directory path with trailing slash", input: "/sessions/", expected: undefined },
 		{ name: "dotfile only", input: "/sessions/.jsonl", expected: undefined },
+		{ name: "trailing underscore has no id segment", input: "/sessions/2026-06-12T06-03-30-136Z_.jsonl", expected: undefined },
 	])("deriveSourcePiSessionId: $name", ({ input, expected }) => {
 		expect(deriveSourcePiSessionId(input)).toBe(expected);
 	});
 
 	test("buildClaudeHandoffSessionName includes the session id when derivable and falls back otherwise", () => {
 		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/sess-9f3c.jsonl")).toBe(
-			"claude-handoff: fix-auth-flow | from-pi-session: sess-9f3c",
+			"[from-pi] session-id:sess-9f3c handoff: fix-auth-flow",
 		);
-		expect(buildClaudeHandoffSessionName("fix-auth-flow", undefined)).toBe("claude-handoff: fix-auth-flow");
-		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/")).toBe("claude-handoff: fix-auth-flow");
+		expect(
+			buildClaudeHandoffSessionName("fix-auth-flow", "/home/me/.pi/sessions/2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl"),
+		).toBe("[from-pi] session-id:019eba6d-abd8-7fa8-bb1f-1888f3b09a56 handoff: fix-auth-flow");
+		expect(buildClaudeHandoffSessionName("fix-auth-flow", undefined)).toBe("[from-pi] handoff: fix-auth-flow");
+		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/")).toBe("[from-pi] handoff: fix-auth-flow");
 	});
 });

@@ -76,12 +76,15 @@ export function buildClaudeHandoffPrompt(options: { skillBlock: string | undefin
 	return buildHandoffLaunchPrompt(CLAUDE_HANDOFF_PROMPT_COPY, options);
 }
 
-const CLAUDE_HANDOFF_SESSION_NAME_PREFIX = "claude-handoff";
+const CLAUDE_HANDOFF_SESSION_NAME_PREFIX = "[from-pi]";
 
 /**
- * Derive a compact source Pi session id from a session file path. Returns the
- * file's basename without its extension, or undefined when no usable id can be
- * extracted (missing, blank, or directory-only paths).
+ * Derive a compact source Pi session id from a session file path. Pi names
+ * session files `<timestamp>_<id>` (e.g.
+ * `2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl`), so we
+ * keep only the id segment after the timestamp prefix. Returns undefined when no
+ * usable id can be extracted (missing, blank, or directory-only paths). Names
+ * without an underscore are returned unchanged.
  */
 export function deriveSourcePiSessionId(sessionFile: string | undefined): string | undefined {
 	if (sessionFile === undefined) {
@@ -89,18 +92,21 @@ export function deriveSourcePiSessionId(sessionFile: string | undefined): string
 	}
 	const basename = sessionFile.trim().split(/[/\\]/).pop() ?? "";
 	const stem = basename.replace(/\.[^.]+$/, "");
-	return stem === "" ? undefined : stem;
+	const id = stem.slice(stem.lastIndexOf("_") + 1);
+	return id === "" ? undefined : id;
 }
 
 /**
  * Build the visually distinctive Claude Code session name for a handoff pickup.
- * Includes the source Pi session id when available, otherwise falls back to the
- * slug-only form.
+ * Includes the source Pi session id segment when available, otherwise falls back
+ * to the prefix-and-handoff form without the session-id segment.
  */
 export function buildClaudeHandoffSessionName(slug: string, sessionFile: string | undefined): string {
-	const base = `${CLAUDE_HANDOFF_SESSION_NAME_PREFIX}: ${slug}`;
+	const handoff = `handoff: ${slug}`;
 	const sessionId = deriveSourcePiSessionId(sessionFile);
-	return sessionId === undefined ? base : `${base} | from-pi-session: ${sessionId}`;
+	return sessionId === undefined
+		? `${CLAUDE_HANDOFF_SESSION_NAME_PREFIX} ${handoff}`
+		: `${CLAUDE_HANDOFF_SESSION_NAME_PREFIX} session-id:${sessionId} ${handoff}`;
 }
 
 export function buildClaudePickupPrompt(branch: string, slug: string): string {
