@@ -91,3 +91,55 @@ def test_downstack_default_false_returns_ancestors_and_descendants() -> None:
         "feat/child",
         "feat/grandchild",
     )
+
+
+def test_include_current_returns_ancestors_current_then_descendants() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_branches(
+        stack,
+        current="feat/middle",
+        trunk="master",
+        include_current=True,
+    ) == (
+        "feat/base",
+        "feat/middle",
+        "feat/child",
+        "feat/grandchild",
+    )
+
+
+def test_include_current_excludes_trunk_and_dedupes() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base", "feat/middle"),
+        descendants=("feat/base", "feat/child", "feat/middle"),
+    )
+
+    assert collect_stack_branches(
+        stack,
+        current="feat/middle",
+        trunk="master",
+        include_current=True,
+    ) == (
+        "feat/base",
+        "feat/middle",
+        "feat/child",
+    )
+
+
+def test_include_current_downstack_only_returns_ancestors_and_current() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_branches(
+        stack,
+        current="feat/middle",
+        trunk="master",
+        downstack_only=True,
+        include_current=True,
+    ) == ("feat/base", "feat/middle")
