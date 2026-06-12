@@ -2,16 +2,14 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
-import { RealBranchContextBrmemGateway, type AttachedPlanEntry, type BranchContextBrmemGateway } from "./brmem-gateway.ts";
+import type { AttachedPlanEntry } from "./brmem-gateway.ts";
 import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import type { GitGateway } from "@asdl/core/git";
 import { resolveSelectedSavedPlanFile } from "@asdl/plans";
+import type { BranchContextContext } from "./context.ts";
 
 const BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/branch-context-impl.md", import.meta.url), "utf8").trimEnd();
-
-export type { AttachedPlanEntry } from "./brmem-gateway.ts";
-export { parseBrmemGetContent, parseBrmemListEntries } from "./brmem-gateway.ts";
 
 export type LoadedPlanSource = "attached" | "saved";
 
@@ -33,9 +31,8 @@ export interface LoadAttachedPlanParams {
 
 export interface LoadAttachedPlanOptions {
 	cwd: string;
+	context: BranchContextContext;
 	signal?: AbortSignal | undefined;
-	git?: GitGateway | undefined;
-	brmem?: BranchContextBrmemGateway | undefined;
 	planStoreRoot?: string | undefined;
 	sessionEntries?: readonly unknown[] | undefined;
 	readTextFile?: ((path: string) => Promise<string>) | undefined;
@@ -111,14 +108,12 @@ function isSavedPlanFallbackEligibleError(error: unknown): error is NoAttachedBr
 }
 
 export async function loadAttachedPlan(
-	pi: CommandExecApi,
+	_pi: CommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
-	const branch = await resolveSafeImplementationBranch(git, options.cwd, options.signal);
-	const list = await brmem.listAttachedPlans({ cwd: options.cwd, branch, signal: options.signal });
+	const branch = await resolveSafeImplementationBranch(options.context.git, options.cwd, options.signal);
+	const list = await options.context.brmem.listAttachedPlans({ cwd: options.cwd, branch, signal: options.signal });
 	if (!list.ok) {
 		throw new Error(list.error.message);
 	}
@@ -130,7 +125,7 @@ export async function loadAttachedPlan(
 
 	const selectionInput = params.requestedKey === undefined ? { branch, entries } : { branch, requestedKey: params.requestedKey, entries };
 	const selectedKey = selectAttachedPlanKey(selectionInput);
-	const get = await brmem.getAttachedPlan({ cwd: options.cwd, branch, key: selectedKey, signal: options.signal });
+	const get = await options.context.brmem.getAttachedPlan({ cwd: options.cwd, branch, key: selectedKey, signal: options.signal });
 	if (!get.ok) {
 		throw new Error(get.error.message);
 	}
@@ -156,7 +151,7 @@ async function loadSavedPlanFallback(
 ): Promise<LoadedAttachedPlan> {
 	const selected = await resolveSelectedSavedPlanFile(pi, {
 		cwd: options.cwd,
-		git: options.git,
+		git: options.context.git,
 		planStoreRoot: options.planStoreRoot,
 		sessionEntries: options.sessionEntries,
 		shouldFallbackToLatest: true,

@@ -1,4 +1,4 @@
-import { NodeCommandExecApi, runCommand, type CommandExecApi, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
 import { RealBranchContextBrmemGateway, type BranchContextBrmemGateway } from "./brmem-gateway.ts";
@@ -7,12 +7,11 @@ import { RealBranchContextGraphiteGateway, type BranchContextGraphiteGateway } f
 export interface BranchContextContext {
 	commands: CommandExecApi;
 	git: GitGateway;
-	brmem?: BranchContextBrmemGateway | undefined;
-	graphite?: BranchContextGraphiteGateway | undefined;
+	brmem: BranchContextBrmemGateway;
+	graphite: BranchContextGraphiteGateway;
 }
 
-export function createRealBranchContextContext(): BranchContextContext {
-	const commands = new RealCommandExecApi();
+export function createBranchContextContext(commands: CommandExecApi): BranchContextContext {
 	return {
 		commands,
 		git: new RealGitGateway(commands),
@@ -21,6 +20,6 @@ export function createRealBranchContextContext(): BranchContextContext {
 	};
 }
 
-export class RealCommandExecApi extends NodeCommandExecApi {}
-
-export { runCommand, type ExecOptions, type ExecResult };
+export function createRealBranchContextContext(): BranchContextContext {
+	return createBranchContextContext(new NodeCommandExecApi());
+}

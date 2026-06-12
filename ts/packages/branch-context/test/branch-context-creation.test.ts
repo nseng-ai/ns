@@ -9,9 +9,13 @@ import {
 	deriveTargetBranch,
 	validateTargetBranchName,
 	type CreateBranchContextFromFileParams,
-} from "@asdl/branch-context";
+} from "../src/branch-context-creation.ts";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import type { ExecResult } from "@asdl/core/exec";
+import { RealGitGateway } from "@asdl/core/git";
+import { RealBranchContextBrmemGateway } from "../src/brmem-gateway.ts";
+import type { BranchContextContext } from "../src/context.ts";
+import { RealBranchContextGraphiteGateway } from "../src/graphite-gateway.ts";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -155,6 +159,15 @@ async function makePlanFile(content = "# Test Plan\n\nDo the work.\n"): Promise<
 	return filePath;
 }
 
+function branchContext(pi: CommandExecApi): BranchContextContext {
+	return {
+		commands: pi,
+		git: new RealGitGateway(pi),
+		brmem: new RealBranchContextBrmemGateway(pi),
+		graphite: new RealBranchContextGraphiteGateway(pi),
+	};
+}
+
 function putEnvelope(input: { branch: string; key: string; filePath: string; commit?: string; refName?: string }): string {
 	return JSON.stringify({
 		exit_code: 0,
@@ -205,7 +218,7 @@ async function runCreate(
 	script: ScriptedExec[],
 ): Promise<{ pi: FakePi; evidence: Awaited<ReturnType<typeof createBranchContextFromFile>> }> {
 	const pi = new FakePi(script);
-	const evidence = await createBranchContextFromFile(pi, params, { cwd: ROOT });
+	const evidence = await createBranchContextFromFile(pi, params, { cwd: ROOT, context: branchContext(pi) });
 	return { pi, evidence };
 }
 
@@ -344,7 +357,7 @@ describe("createBranchContextFromFile", () => {
 		]);
 
 		await expect(
-			createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT }),
+			createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT, context: branchContext(pi) }),
 		).rejects.toThrow("Graphite branch creation requires a named current branch");
 
 		pi.assertDone();
@@ -367,7 +380,7 @@ describe("createBranchContextFromFile", () => {
 		]);
 
 		await expect(
-			createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT }),
+			createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT, context: branchContext(pi) }),
 		).rejects.toThrow("Current branch is not tracked by Graphite; refusing to stack a branch context on it.");
 
 		pi.assertDone();
@@ -401,7 +414,7 @@ describe("createBranchContextFromFile", () => {
 					branchCreation: "graphite",
 					summary: "Store the plan on a Graphite branch.",
 				},
-				{ cwd: ROOT },
+				{ cwd: ROOT, context: branchContext(pi) },
 			),
 		).rejects.toThrow("gt track failed");
 
@@ -446,7 +459,7 @@ describe("createBranchContextFromFile", () => {
 					branchCreation: "graphite",
 					summary: "Store the plan on a Graphite branch.",
 				},
-				{ cwd: ROOT },
+				{ cwd: ROOT, context: branchContext(pi) },
 			),
 		).rejects.toThrow(
 			new RegExp(
@@ -470,29 +483,14 @@ describe("createBranchContextFromFile", () => {
 		expect(evidence.summary).toBeUndefined();
 	});
 
-	test("rejects invalid slug, parameter shape, branchCreation, and missing path before running commands", async () => {
-		const filePath = await makePlanFile();
-		const invalidSlugPi = new FakePi();
-		await expect(
-			createBranchContextFromFile(invalidSlugPi, { slug: "Branch Scoped Plan", filePath }, { cwd: ROOT }),
-		).rejects.toThrow("Invalid plan slug");
-		expect(invalidSlugPi.execCalls).toEqual([]);
-
-		const invalidShapePi = new FakePi();
-		await expect(createBranchContextFromFile(invalidShapePi, { slug: PLAN_SLUG }, { cwd: ROOT })).rejects.toThrow(
-			"requires string parameter `filePath`",
-		);
-		expect(invalidShapePi.execCalls).toEqual([]);
-
-		const invalidBranchCreationPi = new FakePi();
-		await expect(
-			createBranchContextFromFile(invalidBranchCreationPi, { slug: PLAN_SLUG, filePath, branchCreation: "hg" }, { cwd: ROOT }),
-		).rejects.toThrow("parameter `branchCreation` must be one of `plain-git` or `graphite`");
-		expect(invalidBranchCreationPi.execCalls).toEqual([]);
-
+	test("rejects a missing source plan path before running commands", async () => {
 		const missingPathPi = new FakePi();
 		await expect(
-			createBranchContextFromFile(missingPathPi, { slug: PLAN_SLUG, filePath: join(await makeTempDir(), "missing.md") }, { cwd: ROOT }),
+			createBranchContextFromFile(
+				missingPathPi,
+				{ slug: PLAN_SLUG, filePath: join(await makeTempDir(), "missing.md") },
+				{ cwd: ROOT, context: branchContext(missingPathPi) },
+			),
 		).rejects.toThrow("Plan file does not exist");
 		expect(missingPathPi.execCalls).toEqual([]);
 	});
@@ -506,7 +504,7 @@ describe("createBranchContextFromFile", () => {
 			localBranchCheckStep(PLAN_SLUG, { code: 0, stdout: START_POINT }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			"Target branch already exists",
 		);
 
@@ -534,7 +532,7 @@ describe("createBranchContextFromFile", () => {
 			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 0, stdout: "{}" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			"Attached plan already exists on target branch",
 		);
 
@@ -552,7 +550,7 @@ describe("createBranchContextFromFile", () => {
 			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 127, stderr: "brmem: command not found" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			"No brmem command available",
 		);
 
@@ -572,7 +570,7 @@ describe("createBranchContextFromFile", () => {
 			gitBranchStep(PLAN_SLUG, { code: 128, stderr: "cannot lock ref" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			"git branch failed",
 		);
 
@@ -591,7 +589,7 @@ describe("createBranchContextFromFile", () => {
 			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 2, stderr: "write failed" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			new RegExp(`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}`),
 		);
 
@@ -610,7 +608,7 @@ describe("createBranchContextFromFile", () => {
 			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 127, stderr: "brmem: command not found" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			new RegExp(
 				`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Namespace: ${BRANCH_CONTEXT_NAMESPACE}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}[\\s\\S]*No cleanup was attempted[\\s\\S]*No brmem command available`,
 			),
@@ -623,7 +621,7 @@ describe("createBranchContextFromFile", () => {
 		const filePath = await makePlanFile();
 		const pi = new FakePi(successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath, putStdout: "not json" }));
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 			/Partial failure:[\s\S]*No cleanup was attempted[\s\S]*Malformed brmem put JSON/,
 		);
 

@@ -190,14 +190,14 @@ async function handleCreate(ctx: BranchContextCliContext, request: CreateRequest
 			branchCreation: request.branch_creation,
 			...(request.summary === undefined ? {} : { summary: request.summary }),
 		},
-		{ ...primitiveOptions(ctx), graphite: ctx.context.graphite },
+		operationOptions(ctx),
 	);
 	return { machine: branchContextJson(evidence), human: formatBranchContextEvidence(evidence) };
 }
 
 async function handleLoad(ctx: BranchContextCliContext, request: LoadRequest): Promise<LegacyPayload> {
 	const requestedKey = request.key;
-	const plan = await loadBranchContextPlan(ctx.context.commands, requestedKey === undefined ? {} : { requestedKey }, primitiveOptions(ctx));
+	const plan = await loadBranchContextPlan(ctx.context.commands, requestedKey === undefined ? {} : { requestedKey }, operationOptions(ctx));
 	const promptFile = request.prompt_file === undefined ? undefined : normalizePlanFilePath(request.prompt_file);
 	if (promptFile !== undefined) {
 		await writeFile(promptFile, buildImplBranchContextPrompt(plan), "utf8");
@@ -211,12 +211,12 @@ async function handleLoad(ctx: BranchContextCliContext, request: LoadRequest): P
 }
 
 async function handleAttach(ctx: BranchContextCliContext, request: AttachRequest): Promise<LegacyPayload> {
-	const evidence = await attachBranchContextEntry(ctx.context.commands, { key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch }, primitiveOptions(ctx));
+	const evidence = await attachBranchContextEntry(ctx.context.commands, { key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch }, operationOptions(ctx));
 	return { machine: attachJson(evidence), human: formatAttachEvidence(evidence) };
 }
 
 async function handleList(ctx: BranchContextCliContext, request: ListRequest): Promise<LegacyPayload> {
-	const list = await listBranchContextEntries(ctx.context.commands, { branch: request.branch }, primitiveOptions(ctx));
+	const list = await listBranchContextEntries(ctx.context.commands, { branch: request.branch }, operationOptions(ctx));
 	return {
 		machine: { entries: list.entries.map((entry) => ({ namespace: entry.namespace, key: entry.key, branch: entry.branch, ref_name: entry.refName })) },
 		human: formatListEvidence(list.branch, list.entries),
@@ -224,20 +224,19 @@ async function handleList(ctx: BranchContextCliContext, request: ListRequest): P
 }
 
 async function handleCheck(ctx: BranchContextCliContext, request: KeyRequest): Promise<LegacyPayload> {
-	const evidence = await checkBranchContextEntry(ctx.context.commands, request, primitiveOptions(ctx));
+	const evidence = await checkBranchContextEntry(ctx.context.commands, request, operationOptions(ctx));
 	return { machine: checkJson(evidence), human: formatCheckEvidence(evidence) };
 }
 
 async function handleDelete(ctx: BranchContextCliContext, request: KeyRequest): Promise<LegacyPayload> {
-	const evidence = await deleteBranchContextEntry(ctx.context.commands, request, primitiveOptions(ctx));
+	const evidence = await deleteBranchContextEntry(ctx.context.commands, request, operationOptions(ctx));
 	return { machine: deleteJson(evidence), human: formatDeleteEvidence(evidence) };
 }
 
-function primitiveOptions(ctx: BranchContextCliContext) {
+function operationOptions(ctx: BranchContextCliContext) {
 	return {
 		cwd: ctx.cwd,
-		git: ctx.context.git,
-		brmem: ctx.context.brmem,
+		context: ctx.context,
 		...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
 	};
 }
