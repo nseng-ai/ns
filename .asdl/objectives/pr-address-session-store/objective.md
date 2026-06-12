@@ -8,6 +8,8 @@ This is the successor to the closed `pr-address-efficiency-hardening` Objective,
 
 The durable rule this Objective installs: **files carry what the agent authored; the session carries what the pipeline produced.**
 
+This is a successor Objective, not a parallel porting lane. It must not start implementation until `pr-address-typescript-port` has closed the TypeScript cutover: clinkr shell migration, bundle/distribution, plugin retirement, Python fallback deletion, and compatibility-preserving payload/reference cleanup all land there first.
+
 ## Scope
 
 Resolution contract:
@@ -34,7 +36,7 @@ Output and input contract:
 
 ## Non-Goals
 
-- Python compat package retirement, `asdl pr-address` plugin cutover, and bundle distribution — owned by the open `pr-address-typescript-port` Objective's endgame stack. This Objective assumes the post-retirement TS-only CLI and does not duplicate or migrate those rows.
+- Python compat package retirement, `asdl pr-address` plugin cutover, bundle distribution, clinkr shell migration, and compatibility-preserving payload/reference consolidation — owned by the open `pr-address-typescript-port` Objective's endgame stack. This Objective assumes the post-retirement TS-only CLI and does not duplicate or migrate those rows.
 - Staleness guard (mutation helpers refusing a build payload when a newer plan artifact exists) — deliberately excluded during the design interview; parked as future hardening.
 - Classification round-trip tightening (an `apply-classification` merge helper or subagent-direct schema emission) — out of scope.
 - Envelope auto-unwrapping on file inputs — moot once session resolution replaces file chaining.
@@ -52,7 +54,7 @@ Output and input contract:
 
 Assumptions:
 
-- The `pr-address-typescript-port` endgame (through its `python-deletion` branch) lands before this Objective's changes start landing. This work intentionally breaks the byte-parity contract that objective's remaining Group 1 rows depend on; starting earlier would invalidate parity fixtures. This is the load-bearing sequencing assumption.
+- The `pr-address-typescript-port` endgame lands and closes before this Objective's changes start landing. That includes clinkr shell migration, schema-route ownership, bundle distribution, plugin retirement, Python deletion, and compatibility-preserving payload/reference consolidation. This work intentionally breaks the byte-parity and composed-input contracts that objective's remaining rows depend on; starting earlier would invalidate parity fixtures and blur ownership. This is the load-bearing sequencing assumption.
 - The `pr-address` skill is the only consumer of the exec helpers; no external consumer depends on full-stdout defaults or composed-payload inputs. AGENTS.md's unreleased-private-software posture covers the contract breaks.
 - The existing payload filename contract (timestamp, monotonic sequence, descriptor, role) is sufficient for latest-of-kind resolution without an index file, including under concurrent writers.
 

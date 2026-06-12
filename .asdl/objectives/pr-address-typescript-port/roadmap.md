@@ -65,7 +65,7 @@
 - [ ] One reference-validation and diagnostics rule.
       Group 2 — payload/reference consolidation. Decide the shape-layer open question (delete vs canonical single definition), apply it to all three reference options, and make `loadArtifactReference` failure diagnostics consistent with the embedded-path `z.prettifyError` output. Resolves the duplicated `stackPlanReferenceShapeSchema` copies (also satisfies part of the canonical-contracts row).
 - [ ] Declarative per-operation payload spec.
-      Group 2 — payload/reference consolidation. `loadOperationPayload(invocation, { commandName, payloadSchema, fields })` consuming the shared resolver; owns source-count rejection, payload-optionality when all fields are reference-backed, and reference loading; the reference-backed operations declare specs instead of orchestrating. Keep the spec clinkr-compatible (snake_case keys, `--<key>-reference` derivation).
+      Group 2 — payload/reference consolidation. Package-local `loadOperationPayload(invocation, { commandName, payloadSchema, fields })` consuming the shared resolver; owns source-count rejection, payload-optionality when all fields are reference-backed, and reference loading; the reference-backed operations declare specs instead of orchestrating. Keep the spec clinkr-compatible (snake_case keys, `--<key>-reference` derivation), but do not extract it into `@asdl/clinkr` unless a later second consumer proves the seam.
 - [ ] Document and pin the stdin edge for fully reference-backed inputs.
       Group 2 — payload/reference consolidation. Piping a payload while passing all reference options silently ignores stdin instead of rejecting it as a mixed source — the only place mixing is tolerated. Document in the CLI reference and pin with a scenario test.
 - [ ] Dead-code sweep.
@@ -84,8 +84,8 @@
       Group 3 — structural/dedup. Phase 1 fetches per-PR data concurrently (first failure in input order wins); phase 2 writes artifacts sequentially in stack order so sequence numbers stay byte-identical. Decide flip-on timing per the open question.
 - [ ] Consolidate test scaffolding and align test layout.
       Group 3 — structural/dedup. Shared `run-scenario`/`temp`/`golden` support modules replacing the six hand-rolled CLI harnesses and repeated temp-dir/clock/golden helpers (~300 lines); move function-level golden tests from `test/scenario/` to `test/unit/` and legacy-gateway tests to `test/gateways/` per the repo layout convention; make `payload-operations` error cases order-independent; name the fake error-string constants the envelope fixtures depend on. Coordinate with `ts-cli-foundation`'s test-harness consolidation row.
-- [ ] Coordinate the clinkr shell migration owned by `ts-cli-foundation`.
-      The `pr-address` CLI shell migration to `@asdl/clinkr` happens under that record; this record sequences it after the group-2 payload spec and before the endgame's `schema-routes`/`bundle-distribution` branches as evidence allows.
+- [ ] Migrate the `pr-address` CLI shell to `@asdl/clinkr`.
+      Ownership transferred from `ts-cli-foundation` on 2026-06-12. This record owns the consumer migration: build the `pr-address` command tree through `@asdl/clinkr`, preserve legacy-Python fallback dispatch until the retirement rows, keep package-specific payload/reference behavior local, and coordinate only reusable framework gaps back to `ts-cli-foundation`. Sequence after the group-2 payload spec and before the endgame's `schema-routes`/`bundle-distribution` branches as evidence allows.
 - [ ] Retire active Python fallback paths and fully delete `packages/asdl-pr-address`.
   - Decided 2026-06-09: the end state is full in-repo deletion within the endgame stack, gated on all operations being TypeScript-managed, all `--json-schema` routes TypeScript-owned, wrapper/bundle cutover landed, plugin retirement landed, and docs/tests free of Python invocation paths. PyPI `asdl-pr-address==0.1.1` is the external frozen rollback after deletion.
   - Policy: per-operation fallback removal and the final gated deletion are directly executable within the endgame stack once the listed gates are evidenced in earlier branches; outside that stack context, ask before broad deletion.
@@ -112,17 +112,19 @@ Default branch sequence:
    - Thesis: port `prepare-run` (contested-thread reopen via the existing TypeScript mutation gateway, restructured-files via the git gateway, payload/inline modes) and `summarize-feedback` (deterministic excerpt/automation-marker heuristics). Fake-validated only; no live writes.
 4. `stack-orchestration` — landed as `pr-address-ts/stack-orchestration` (kept as one branch; the optional prep/plan vs payload-building split was not needed for thesis clarity).
    - Thesis: port `stack-feedback-prep`, `stack-feedback-plan`, and `build-stack-resolve-thread-payloads` on the store plus the already-ported planning/classification core. No Graphite dependency. The parent may split this into two adjacent branches (prep/plan vs payload building) for review size.
-5. `schema-routes`
+5. `clinkr-shell`
+   - Thesis: migrate the `pr-address` command shell to `@asdl/clinkr` while preserving fallback dispatch and package-local payload/reference behavior. Reusable framework gaps route back to `ts-cli-foundation`; package-specific compatibility fallout stays here.
+6. `schema-routes`
    - Thesis: make every remaining `pr-address exec ... --json-schema` route TypeScript-owned (structured semantic parity), removing the schema fallback dependency.
-6. `bundle-distribution`
+7. `bundle-distribution`
    - Thesis: add bundle build machinery producing a self-contained JavaScript artifact inside the installed skill; wrapper prod mode executes the bundle; `legacy-python` rollback mode becomes `uvx --from asdl-pr-address==0.1.1` (the broken unpublished `0.1.0` pin is removed); wrapper tests and public docs updated. Building the bundle locally is in scope; publishing anything externally is not.
-7. `plugin-retirement`
+8. `plugin-retirement`
    - Thesis: remove the `asdl pr-address ...` plugin entry point, plugin module, and asdl-scope plugin smoke test; update docs to name the standalone CLI as the only invocation surface.
-8. `python-deletion`
+9. `python-deletion`
    - Thesis: remove fallback dispatch from the TypeScript CLI, delete `packages/asdl-pr-address` and asdl-core surfaces that become unused, and scrub workspace/config/test references. Validate with full repo checks, not just the TS package.
    - Guard (2026-06-10 absorption): gated on the group-1 Python-reference-dependent rows being complete — parity corrections, test hardening with fixture regeneration/provenance, and canonical-contracts parity arbitration. Deleting the in-repo reference before they land makes them substantially more expensive or impossible to verify.
-9. `playbook`
-   - Thesis: feed proven seams, portability limits, and bundle/retirement lessons into the umbrella porting playbook; record final Objective evidence.
+10. `playbook`
+    - Thesis: feed proven seams, portability limits, and bundle/retirement lessons into the umbrella porting playbook; record final Objective evidence.
 
 Planning guidance:
 
@@ -130,17 +132,17 @@ Planning guidance:
 - Runners decide local implementation details; the parent verifies parity evidence per branch; ask the user only at the standing exclusions (live GitHub writes, registry publishing, PR submission, scope changes to public JSON shapes).
 - Treat existing golden JSON outputs as byte-for-byte parity targets where practical; treat generated `--json-schema` documents as structured semantic parity unless existing tests/docs assert exact formatting.
 - Preserve Python/Pydantic explicit-`null` compatibility details wherever goldens or schema probes expose them.
-- Branches 1-5 validate with `pnpm --dir ts/packages/pr-address run check` and `run test` plus targeted golden/parity probes; branch 6 adds wrapper tests and dprint for docs; branches 7-8 broaden to full `just` because they remove Python packages, plugin wiring, and asdl-scope tests.
-- Capture parity fixtures from the Python implementation in early branches while it still exists in-repo; after branch 8 the reference is PyPI `0.1.1` and checked-in fixtures.
+- Branches 1-6 validate with `pnpm --dir ts/packages/pr-address run check` and `run test` plus targeted golden/parity probes; branch 7 adds wrapper tests and dprint for docs; branches 8-9 broaden to full `just` because they remove Python packages, plugin wiring, and asdl-scope tests.
+- Capture parity fixtures from the Python implementation in early branches while it still exists in-repo; after branch 9 the reference is PyPI `0.1.1` and checked-in fixtures.
 - Record Objective Semantic Updates per meaningful branch group or durable decision point, not mechanically per branch.
 
 ## Parked
 
 - npm registry publishing of `@asdl/pr-address` — superseded by the bundled installed-skill distribution decision; revisit only if a registry consumer appears.
-- Restore `read-feedback-detail` (singular) Python containment parity — defer until clinkr payload support lands (the `ts-cli-foundation` payload-home decision), which should own or simplify this containment boundary. Original slice: rewrite `readFeedbackDetail` as a thin composition of the plural op's existing helpers (`readRawClinkrEnvelope`, `resolvePayloadJsonPointer`, `detailKindForPointer`); delete the bespoke `readJsonFile`, local `resolveJsonPointer`, `isJsonValue`, `JsonValue`, duplicate `pythonRepr`; move the scenario fixture to a contained `sessions/<id>/payloads/` path and assert Python rejection messages for relative path, symlink, and uncontained-dir cases.
+- Restore `read-feedback-detail` (singular) Python containment parity — defer until the package-local payload/reference consolidation and pr-address clinkr-shell migration can simplify this containment boundary. Original slice: rewrite `readFeedbackDetail` as a thin composition of the plural op's existing helpers (`readRawClinkrEnvelope`, `resolvePayloadJsonPointer`, `detailKindForPointer`); delete the bespoke `readJsonFile`, local `resolveJsonPointer`, `isJsonValue`, `JsonValue`, duplicate `pythonRepr`; move the scenario fixture to a contained `sessions/<id>/payloads/` path and assert Python rejection messages for relative path, symlink, and uncontained-dir cases.
 - Discriminated classified-item union narrowing after validation (deletes `requiredActionComplexity` throw and nullable-complexity plumbing) — revisit after the decomposition row lands.
 - Post-cutover fixture simplification: replace byte-exact `expected_envelope_text` comparisons with structural equality plus one byte-format test per emitter, and delete the parity comparator + captured fixtures alongside the Python package retirement. Solely owned here as of the 2026-06-10 consolidation.
-- Spec-driven generation of option allowlists and `--json-schema` request documents from the payload spec (the former payload-reference #5b) — dissolves into the clinkr shell migration under `ts-cli-foundation` rather than landing standalone.
+- Spec-driven generation of option allowlists and `--json-schema` request documents from the payload spec (the former payload-reference #5b) — dissolves into this record's pr-address clinkr-shell migration rather than landing standalone. It should remain package-local unless a later second consumer proves a shared clinkr seam.
 - Full public API shape for a shared JS/TS clinkr-style framework until repeated seams prove it.
 - Direct browser execution for workflows that depend on local git, shell, filesystem, or authenticated GitHub state.
 - Broad TypeScript rewrites of Python `asdl-core` concepts not needed by this vertical slice.

@@ -2,7 +2,7 @@
 
 ## Thesis
 
-One record owns the shared TypeScript layer beneath the four core TS CLIs: the `@asdl/clinkr` schema-first command framework, the `@asdl/core` foundation package, and the migration of the four CLIs (`plans` ✅, `planned-branch` ✅, `asdl-dev` ✅, `pr-address`) onto them. Each CLI grew its own argv parsing, exec runtime, gateways, and test scaffolding because no shared layer existed; this record consolidates those seams bottom-up from the proven implementations so future capability ports start on the foundation instead of growing another parallel stack.
+One record owns the shared TypeScript foundation beneath the core TS CLIs: the `@asdl/clinkr` schema-first command framework, the `@asdl/core` foundation package, and the reusable seams proven while migrating `plans`, `planned-branch`, and `asdl-dev`. Each CLI grew its own argv parsing, exec runtime, gateways, and test scaffolding because no shared layer existed; this record consolidates those seams bottom-up so future capability ports start on the foundation instead of growing another parallel stack. Consumer-specific adoption for `pr-address` now belongs to `pr-address-typescript-port`, with this record acting as the framework/core provider.
 
 This Objective is a subobjective of `port-asdl-toolkit-to-typescript`, realizing its "minimal TS migration scaffold" and "internal JS/TS clinkr foundation" roadmap rows.
 
@@ -12,12 +12,12 @@ Created 2026-06-10 by consolidating `asdl-core-ts` and `ts-clinkr-commander`. Bo
 
 Remaining live scope carried from both parents:
 
-- Clinkr migration of the remaining CLI: the `pr-address` CLI shell — shell only; operation semantics, cutover, and Python retirement stay with `pr-address-typescript-port`. `asdl-dev` shipped on 2026-06-11 and resolved the pi-ai streaming question with the isolated `@asdl/clinkr/raw` escape hatch.
-- Shared git gateway in `@asdl/core`: one interface with real and in-memory implementations replacing the planned-branch/plans/asdl-dev gateways and, later, the git methods in `pr-address/src/gateways.ts`. Landed for `plans`, `planned-branch`, and `asdl-dev`: `currentBranch` is the shared name, `plans-git-adapter.ts` is deleted, and their in-memory git fakes are consolidated. Remaining: pr-address git methods fold in during its shell migration.
+- Framework/core prerequisites for the remaining `pr-address` consumer adoption. The `pr-address` CLI shell migration, operation semantics, cutover, and Python retirement are owned by `pr-address-typescript-port`; this record owns only reusable clinkr/core capabilities requested by that consumer.
+- Shared git gateway in `@asdl/core`: one interface with real and in-memory implementations replacing the planned-branch/plans/asdl-dev gateways. Landed for `plans`, `planned-branch`, and `asdl-dev`: `currentBranch` is the shared name, `plans-git-adapter.ts` is deleted, and their in-memory git fakes are consolidated. `pr-address` adoption or any pr-address-specific gateway compatibility work is tracked in `pr-address-typescript-port`; new reusable core methods may still be added here only when that consumer proves a shared seam.
 - Zod boundary validation in `plans`, `planned-branch`, and `asdl-dev`, replacing hand-rolled extractors (`requiredStringField`, `extractPlannedBranchEvidence`, `validateCheckpointMessage`, session-entry extraction).
 - `asdl-dev` public surface: add `index.ts` plus an `exports` field and migrate `ccc`/`pi-extensions` off `asdl-dev/src/*` deep imports (15+ files in ccc today).
 - Scenario-test harness consolidation: shell-level helpers in `@asdl/clinkr/testing` plus a `@asdl/core` testing export for non-shell fixtures (async temp-dir fixture, node-runtime CLI smoke helper); replace the quadruplicated node-runtime test and tripled temp-dir fixture.
-- Decide and record the payload/JSON-input home. Recommendation: clinkr-first-class payload/reference support (the planted overlap note in `ts-clinkr-commander` concedes pr-address's reference-backed payload need "is that need"), with pr-address as the proving consumer. This decision row coordinates with `pr-address-typescript-port`'s absorbed payload-spec rows.
+- Record the payload/JSON-input ownership decision: `loadOperationPayload` and pr-address payload/reference policy stay package-local in `pr-address-typescript-port` for now. `@asdl/clinkr` should not grow first-class payload/reference support until at least one second consumer proves the seam.
 
 Explicit conflict resolutions from the consolidation:
 
@@ -35,14 +35,14 @@ Explicit conflict resolutions from the consolidation:
 
 ## Completion Criteria
 
-- All four CLIs build their command trees through `@asdl/clinkr`; no hand-rolled argv loops or hardcoded help/usage template literals remain under `ts/packages/*/src/`.
-- The `pr-address` shell migration preserves its legacy-Python fallback dispatch behavior.
-- The shared git gateway is adopted by the four CLIs and `plans-git-adapter.ts` is deleted.
+- `plans`, `planned-branch`, and `asdl-dev` build their command trees through `@asdl/clinkr`; no hand-rolled argv loops or hardcoded help/usage template literals remain for those migrated consumers.
+- `pr-address` consumer adoption is explicitly owned by `pr-address-typescript-port`, with this record providing reusable clinkr/core prerequisites and recording any shared-framework follow-ups that consumer proves.
+- The shared git gateway exists as isolated `@asdl/core/git` and `@asdl/core/git/testing` subpath exports, is adopted by `plans`, `planned-branch`, and `asdl-dev`, and `plans-git-adapter.ts` is deleted.
 - Boundary validation in `plans`, `planned-branch`, and `asdl-dev` uses Zod schemas rather than hand-rolled extractors.
 - `asdl-dev` has a declared public surface and no workspace package deep-imports `asdl-dev/src/*`.
-- The known duplicate test scaffolding is gone: the quadruplicated node-runtime CLI test and the tripled temp-dir fixture.
-- The payload/JSON-input ownership decision is made and recorded, coordinated with `pr-address-typescript-port`.
-- The umbrella's "minimal TS migration scaffold" and "clinkr foundation" rows reference this record's outcome.
+- The known duplicate non-pr-address test scaffolding is gone: the quadruplicated node-runtime CLI test and the tripled temp-dir fixture, with pr-address package-specific test consolidation owned by `pr-address-typescript-port`.
+- The payload/JSON-input ownership decision is made and recorded: package-local in `pr-address-typescript-port` unless a later second consumer justifies clinkr extraction.
+- The umbrella's "minimal TS migration scaffold" and "clinkr foundation" rows reference this record's outcome and the `pr-address-typescript-port` dependency.
 
 ## Assumptions and Risks
 
@@ -62,8 +62,8 @@ Risks:
 Resolved:
 
 - Resolved 2026-06-11: `asdl-dev`'s pi-ai generation path is buffered; the actual clinkr gap was `submit`'s handler-owned live subprocess output, interactive restack confirmation, timeout exit 124, and arbitrary `gt` exit-code passthrough. The isolated `@asdl/clinkr/raw` hatch satisfies that need without reshaping the normal `ClinkrExit` renderer contract.
+- Resolved 2026-06-12: payload/JSON-input home is package-local in `pr-address-typescript-port` for now. `@asdl/clinkr` should not grow first-class payload/reference support until a second consumer proves the seam.
 
 Still open:
 
-- Payload/JSON-input home: clinkr first-class vs package-local in pr-address. Recommendation recorded (clinkr-first-class, pr-address as proving consumer); the decision row in the roadmap finalizes it.
 - Does the `@asdl/core` testing export stay a subpath export, or does production/test dependency separation eventually force a sibling package? (Same question was resolved for clinkr — `@asdl/clinkr/testing` subpath — unless helpers grow deps clinkr should not carry.)
