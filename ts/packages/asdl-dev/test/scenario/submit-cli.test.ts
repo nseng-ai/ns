@@ -123,7 +123,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: asdl-dev submit");
-		expect(help).toContain("gt submit -nps --no-ai");
+		expect(help).toContain("gt submit -nps --no-ai --no-interactive");
 		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("--restack");
@@ -391,7 +391,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("gt submit -nps --no-ai --dry-run failed");
+		expect(run.stderr.join("")).toContain("gt submit -nps --no-ai --no-interactive --dry-run failed");
 		expect(run.submitMetadata.inspectSubmitStackCalls).toEqual([]);
 		expect(run.textGeneration.generateTextCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
@@ -543,7 +543,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
 		expect(run.stderr.join("")).toContain("--restack");
-		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --dry-run");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --no-interactive --dry-run");
 		expect(run.confirmations).toEqual([]);
 		expect(run.submit.restackCurrentStackCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
@@ -581,7 +581,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.confirmations).toHaveLength(1);
 		expect(run.confirmations[0]?.title).toBe("Run gt restack before submit?");
 		expect(run.confirmations[0]?.message).toContain("gt restack --no-interactive");
-		expect(run.confirmations[0]?.message).toContain("gt submit -nps --no-ai");
+		expect(run.confirmations[0]?.message).toContain("gt submit -nps --no-ai --no-interactive");
 		expect(run.submit.operationCalls.map((call) => call.operation)).toEqual([
 			"checkSubmitReadiness",
 			"restackCurrentStack",
@@ -609,7 +609,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Restack was not run.");
 		expect(run.stderr.join("")).toContain("Submission was not attempted.");
-		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --dry-run");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --no-interactive --dry-run");
 		expect(run.confirmations).toHaveLength(1);
 		expect(run.submit.restackCurrentStackCalls).toEqual([]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([]);
@@ -661,7 +661,7 @@ describe("asdl-dev submit CLI behavior", () => {
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("gt submit -nps --no-ai failed with exit code 1");
+		expect(run.stderr.join("")).toContain("gt submit -nps --no-ai --no-interactive failed with exit code 1");
 		expect(run.stderr.join("")).toContain("partial output");
 		expect(run.stderr.join("")).toContain("submit failed");
 		expect(run.submit.verifyCurrentPrCalls).toEqual([]);
@@ -704,7 +704,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Graphite skipped submitting part of the stack because a branch is empty");
-		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai");
+		expect(run.stderr.join("")).toContain("$ gt submit -nps --no-ai --no-interactive");
 	});
 
 	test("unsupported arguments fail before touching Graphite", async () => {

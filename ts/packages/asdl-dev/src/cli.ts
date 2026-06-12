@@ -55,7 +55,7 @@ export interface AsdlDevCliContext {
 const COMMAND_SUMMARIES = {
 	"preview-url": "Print the Vercel preview URL for a branch.",
 	cp: "Create a checkpoint commit for the current diff.",
-	submit: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai.",
+	submit: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 	"pr-regen": "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 } as const;
 
@@ -137,7 +137,7 @@ Environment:
 	group.command(
 		rawCommand({
 			name: "submit",
-			description: `Checkpoint outstanding worktree changes with \`asdl-dev cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai\`.
+			description: `Checkpoint outstanding worktree changes with \`asdl-dev cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --no-interactive --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai --no-interactive\`.
 
 For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten; use \`asdl-dev pr-regen --force\` when you intend to replace one.
 

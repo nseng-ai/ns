@@ -11,16 +11,16 @@ import { ScriptedCommandRunner, startupErrorStep, step } from "../support/script
 
 describe("RealSubmitGateway", () => {
 	test("checkSubmitReadiness invokes Graphite dry-run submit", async () => {
-		const runner = new ScriptedCommandRunner([step("gt", ["submit", "-nps", "--no-ai", "--dry-run"], "ok\n")]);
+		const runner = new ScriptedCommandRunner([step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--dry-run"], "ok\n")]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
 		expect(await gateway.checkSubmitReadiness({ cwd: "/repo" })).toMatchObject({ kind: "ready" });
-		expect(runner.calls).toEqual([{ command: "gt", args: ["submit", "-nps", "--no-ai", "--dry-run"], cwd: "/repo" }]);
+		expect(runner.calls).toEqual([{ command: "gt", args: ["submit", "-nps", "--no-ai", "--no-interactive", "--dry-run"], cwd: "/repo" }]);
 		runner.assertDone();
 	});
 
 	test("Graphite command output is streamed to the optional listener", async () => {
-		const runner = new ScriptedCommandRunner([step("gt", ["submit", "-nps", "--no-ai", "--dry-run"], "dry-run stdout\n", 0, "dry-run stderr\n")]);
+		const runner = new ScriptedCommandRunner([step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--dry-run"], "dry-run stdout\n", 0, "dry-run stderr\n")]);
 		const gateway = new RealSubmitGateway(runner.runner);
 		const outputEvents: Array<{ stream: string; text: string }> = [];
 
@@ -40,7 +40,7 @@ describe("RealSubmitGateway", () => {
 
 	test("checkSubmitReadiness maps restack-required dry-run output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["submit", "-nps", "--no-ai", "--dry-run"], "", 1, "This stack must be restacked before submitting.\n"),
+			step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--dry-run"], "", 1, "This stack must be restacked before submitting.\n"),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -67,7 +67,7 @@ describe("RealSubmitGateway", () => {
 
 	test("submitCurrentStack extracts PR links from submit output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["submit", "-nps", "--no-ai"], "Created https://github.com/acme/project/pull/456\n"),
+			step("gt", ["submit", "-nps", "--no-ai", "--no-interactive"], "Created https://github.com/acme/project/pull/456\n"),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -84,7 +84,7 @@ describe("RealSubmitGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			step(
 				"gt",
-				["submit", "-nps", "--no-ai"],
+				["submit", "-nps", "--no-ai", "--no-interactive"],
 				"This branch does not introduce any changes:\nGraphite will not be submitted because GitHub does not allow empty PRs.\n",
 			),
 		]);

@@ -26,8 +26,8 @@ asdl-dev submit
 The CLI owns the orchestration:
 
 - if the worktree is dirty, first creates a checkpoint with `asdl-dev cp`;
-- checks submit readiness with `gt submit -nps --no-ai --dry-run`;
-- runs `gt submit -nps --no-ai` to submit/update the current stack;
+- checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
+- runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
 - generates title/body descriptions for submitted PRs whose bodies are empty, carry the asdl generated-body marker, or exactly match a commit message body (the prefill `gt submit` writes into every new PR);
 - lists PRs whose bodies look hand-edited as skipped in the success output, with a pointer to `asdl-dev pr-regen --force`;
