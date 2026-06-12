@@ -37,12 +37,19 @@ export function registerAutobranchCommand(pi: AutobranchExtensionAPI): void {
 	});
 }
 
-export function buildAutobranchFlowInput(
-	pi: ExtensionExec,
-	ctx: AutobranchCommandContext,
-	args: ParsedAutobranchArgs,
+export interface BuildAutobranchFlowInputOptions {
+	pi: ExtensionExec;
+	ctx: AutobranchCommandContext;
+	args: ParsedAutobranchArgs;
+	statusKey?: string;
+}
+
+export function buildAutobranchFlowInput({
+	pi,
+	ctx,
+	args,
 	statusKey = STATUS_KEY,
-): AutobranchFlowInput {
+}: BuildAutobranchFlowInputOptions): AutobranchFlowInput {
 	return {
 		cwd: ctx.cwd,
 		args,
@@ -56,7 +63,7 @@ export function buildAutobranchFlowInput(
 
 async function createAutobranchCheckpoint(pi: AutobranchExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
 	await ctx.waitForIdle();
-	await createAutobranchCheckpointFlow(buildAutobranchFlowInput(pi, ctx, args));
+	await createAutobranchCheckpointFlow(buildAutobranchFlowInput({ pi, ctx, args }));
 }
 
 function notify(ctx: AutobranchCommandContext, message: string, level: "info" | "warning" | "error" | "success"): void {
