@@ -34,7 +34,7 @@ Agents should not parse human-facing Graphite output such as `gt ls`, `gt ls --s
 
 Assumptions:
 
-- `asdl_core.gt.GtGateway.stack()` and the existing Graphite metadata reader are the right starting point for Python-side structured stack facts.
+- `asdl_core.gt.GtGateway.stack()` and the existing Graphite metadata reader are the right starting point for Python-side structured stack facts. Revised during contract design: the starting point holds, but `StackInfo` reports forks, cycles, and missing metadata rows only as prose warning strings, which cannot support fail-closed classification at the CLI layer; structured walk diagnostics on `StackInfo` are a prerequisite slice.
 - `slot gt` is the appropriate explicit Graphite dependency boundary for reusable Graphite exec commands.
 - `pr-address exec map-branch-prs` should remain Graphite-neutral and consume branch lists supplied by a Graphite-aware caller or preflight helper.
 - The broader stack-address preflight helper can be designed without collapsing too much semantic agent judgment into CLI code.
@@ -42,14 +42,17 @@ Assumptions:
 Risks:
 
 - Graphite's metadata DB is private and schema-versioned; structured helpers must fail closed and provide clear remediation when metadata is missing, stale, or unsupported.
-- Forked stacks can make a linear trunk-to-tip branch list ambiguous. The helper must expose or reject ambiguity rather than silently following an arbitrary first child.
+- Forked stacks can make a linear trunk-to-tip branch list ambiguous. The helper must expose or reject ambiguity rather than silently following an arbitrary first child. Decision recorded (not yet de-risked in code): fail closed by default with a `forked_stack` error naming the fork point and children; `--downstack` is the unambiguous escape hatch.
 - Over-consolidating into one helper could blur domain boundaries between Graphite topology, GitHub PR mapping, and PR feedback collection.
 - Some existing `gt ls`/`gt log` references may be human-only verification guidance; replacing all mentions mechanically could remove useful visual checks.
 - Replacing the TypeScript submit parser may require careful coordination with `asdl-dev` submit metadata behavior and may not be worth doing in the first implementation slice.
 
 ## Open Questions
 
-- Should the first canonical command be only `stack-branches`, or should it expose a broader `stack-info` contract from the start?
-- Should forked stacks produce a negative exit by default, an explicit diagnostic with partial branch list, or require an opt-in flag to follow a selected path?
 - Should the stack-address preflight consolidation live in `pr-address exec` as a Graphite-neutral helper that accepts branch JSON, or in a Graphite-named command that composes topology and PR-address helpers?
-- Which `gt ls`/`gt log` skill references are machine-decision hazards versus acceptable human visual confirmations?
+
+Resolved (see `updates/2026-06-12-stack-branches-command-contract.md` for the full contract):
+
+- First canonical command scope: `stack-branches` only. Richer stack facts (trunk, current, scope, warnings) ride in its `--format json` data payload; a broader `stack-info` command is deferred to the exec-candidate audit roadmap item.
+- Fork behavior: fail closed by default — exit 2 with `error_type: forked_stack`, no partial branch list on stdout, message naming the fork branch and its children with remediation (check out the intended tip, or pass `--downstack`). Descendant-side forks are out of scope under `--downstack` and surface as warnings with exit 0. No "follow a selected path" flag in the first slice.
+- Machine-decision hazards vs visual confirmations: audited. Hazards to migrate: `skills/stack-address/SKILL.md` preflight (builds branch lists from `gt ls --stack`), `skills/pr-address/references/cli-collection.md` (suggests `gt ls --stack` as branch source), `skills/code-workflows/references/delete-stack.md` (instructs discovering the stack from `gt branch info`/`gt ls`/`gt log` output). Acceptable human visual confirmations to retain: `gt ls`/`gt log` mentions in `code-gt-restack-resolve`, `code-resolve-merge-conflicts`, and `setup-graphite`. The TS `asdl-dev` submit `gt log --stack` parser remains its own roadmap decision.

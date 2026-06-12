@@ -2,11 +2,16 @@
 
 ## Work
 
-- [ ] Design the canonical structured Graphite stack fact command.
+- [x] Design the canonical structured Graphite stack fact command.
       Decide the command path, likely `slot gt exec stack-branches`, and its stdout/JSON contract. Capture how trunk exclusion, current-branch inclusion, descendant handling, warnings, and fork ambiguity should behave.
+      Done: command is `slot gt exec stack-branches` (hidden exec subgroup); default stdout is compact `{"branches": [...]}` matching `pr-address exec map-branch-prs` stdin; `--format json` carries trunk/current/scope/warnings diagnostics; trunk excluded, current included, trunk-to-tip order; current-on-trunk is a negative exit; untracked/missing-metadata/fork are fail-closed failures with `--downstack` as the unambiguous escape. Full contract in `updates/2026-06-12-stack-branches-command-contract.md`. Parallel-implementation audit found no duplicate Python stack discovery; duplication is confined to skill guidance and the TS submit parser already tracked below.
 
-- [ ] Implement and test the first Graphite exec helper.
-      Use the existing `asdl_core.gt` metadata-backed gateway instead of parsing Graphite display output. Cover branch ordering, current branch inclusion, trunk exclusion, current-on-trunk behavior, untracked branch behavior, missing metadata, and fork/ambiguity behavior.
+- [ ] Add structured walk diagnostics to `asdl_core.gt` `StackInfo`.
+      Prerequisite slice discovered during contract design: the metadata reader reports forks, cycles, missing rows, and trunk-marker problems only as prose warning strings, so the exec command cannot classify fail-closed conditions without string matching. Extend the reader to emit structured diagnostics (walk scope: ancestor/descendant/trunk-marker; kind: fork/cycle/missing-row/marker; branch; children for fork points), deriving the existing human-readable warning strings from them.
+      Evidence: `asdl_core.gt` unit tests cover each diagnostic kind; existing consumers unaffected.
+
+- [ ] Implement and test the `slot gt exec stack-branches` helper.
+      Build the hidden exec subgroup under `slot gt` on the structured-diagnostics `StackInfo`. Cover branch ordering, current branch inclusion, trunk exclusion, current-on-trunk behavior, untracked branch behavior, missing metadata, scope-relevant warning fail-closed behavior, `--downstack`, and fork/ambiguity behavior. Share trunk-exclusion/dedupe logic with `collect_stack_branches` rather than forking it (note: that helper excludes current; the exec command includes it).
       Evidence: targeted unit/scenario tests and relevant repo checks pass.
 
 - [ ] Replace agent-facing `gt ls --stack` parsing guidance.
