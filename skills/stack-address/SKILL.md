@@ -34,8 +34,8 @@ stack-scoped and must use the tested `pr-address exec` stack helpers.
 - `pr-address` for feedback collection, classifier contract, planning, drift
   comparison, payload construction, and GitHub mutations. Load its references
   lazily:
-  1. Read `references/cli-reference.md` plus `references/cli-collection.md`
-     sections for `map-branch-prs` and `stack-feedback-prep` before prep.
+  1. Read `references/cli-reference.md` plus the `references/cli-collection.md`
+     section for `stack-feedback-preflight` before the preflight.
   2. If prep shows zero feedback, report and stop; load no more references.
   3. If feedback exists, read `references/feedback-classifier.md` and relevant
      `references/cli-planning.md` sections.
@@ -55,12 +55,13 @@ stack-scoped and must use the tested `pr-address exec` stack helpers.
 - Use one lowercase safe `ASDL_PAYLOAD_SESSION_ID` for the whole run.
 - Store helper stdout outside the worktree under `git rev-parse --git-path`; in
   linked worktrees `.git` is a pointer file, not a scratch directory.
-- Use `--stdout-mode compact` for `stack-feedback-prep` and
-  `stack-feedback-plan`; do not paste full raw payload JSON into the transcript.
+- Use `--stdout-mode compact` for `stack-feedback-preflight`,
+  `stack-feedback-prep`, and `stack-feedback-plan`; do not paste full raw
+  payload JSON into the transcript.
 - Do not use `--payload-mode inline` except for explicit debugging or migration.
 - Use payload artifact references and `read-feedback-details` for body lookup.
   Use `read-feedback-detail` only for exact one-off debugging.
-- Stop if any required helper is unavailable: `map-branch-prs`,
+- Stop if any required helper is unavailable: `stack-feedback-preflight`,
   `stack-feedback-prep`, `stack-feedback-plan`, `stack-feedback-diff-current`,
   `build-stack-resolve-thread-payloads`, `resolve-thread-batch`.
 - Do not show or execute a stack plan until `stack-feedback-plan` validates all
@@ -115,56 +116,62 @@ Stop on `2`.
    order, includes the current branch, and fails closed on ambiguous topology.
    If starting in the middle, move to the tip only after the worktree safety
    check.
-3. Map every non-trunk stack branch to an open PR in one pipeline. The stack
-   discovery command is Graphite-specific; `map-branch-prs` remains
-   Graphite-neutral because the caller supplies branch names:
+3. Run the Graphite-specific stack discovery into the Graphite-neutral preflight
+   helper. Preflight maps every branch to an open PR, freezes the exact stack
+   JSON as a payload artifact, fetches the unresolved-only initial stack
+   snapshot, and returns a transcript-safe compact envelope. It does not replace
+   the `gh auth status` or clean-worktree checks above.
 
    ```bash
    slot gt exec stack-branches \
-     | pr-address exec map-branch-prs --format json
+     | pr-address exec stack-feedback-preflight \
+         --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+         --stdout-mode compact \
+         --format json \
+     > "$STACK_ADDRESS_PREP_COMPACT"
+
+   jq '{exit_code, mapping_summary:.data.mapping_summary, summary:.data.summary,
+       stack:(.data.stack | map({pr_number, branch, counts:.counts})),
+       zero_feedback_prs:.data.zero_feedback_prs}' \
+     "$STACK_ADDRESS_PREP_COMPACT"
    ```
 
-4. On exit `1`, report `data.missing_branches` and stop unless the user chooses
-   otherwise. On exit `0`, build explicit stack JSON from `data.branch_prs`:
-
-   ```json
-   {"stack":[{"pr_number":1009,"branch":"feature-branch","title":"Optional PR title","url":"https://github.com/org/repo/pull/1009","head_ref_name":"feature-branch","base_ref_name":"base-branch"}]}
-   ```
-
-5. If launching classifier subagents in an asdl checkout, first read
+   - Exit `0`: use `data.stack_reference.payload_path` as the frozen stack for
+     every later full-stack refetch and `data.stack_summary_reference.payload_path`
+     as the full prep artifact for classification/planning.
+   - Exit `1`: at least one branch has no open PR; stop and report
+     `data.missing_branches` unless the user explicitly chooses otherwise. If
+     the user chooses to continue with partial coverage, compose the lower-level
+     public helpers manually: run `map-branch-prs`, hand-trim the stack, then
+     run `stack-feedback-prep` on the explicitly approved subset.
+   - Exit `2`: malformed input, precondition failure, or GitHub/helper failure;
+     stop and fix the cause.
+4. If launching classifier subagents in an asdl checkout, first read
    `.asdl/prompts/subagent-launch.md`.
 
 ### 2. Snapshot and classify
 
-Fetch unresolved-only stack feedback:
-
-```bash
-printf '%s' '<stack-json>' \
-  | pr-address exec stack-feedback-prep \
-      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
-      --stdout-mode compact \
-      --format json \
-  > "$STACK_ADDRESS_PREP_COMPACT"
-```
-
-Print only compact totals plus PRs with non-zero feedback counts. Include PRs
-with no feedback in the scan summary but produce no plan items for them. If
+The preflight output is the initial unresolved-only stack snapshot. It already
+filters `data.stack[]` to feedback-bearing PRs and lists the rest as
+`data.zero_feedback_prs`; no additional `jq` filtering is required. If
 `data.summary` has zero reviews, zero unresolved review threads, and zero
 discussion comments across the stack, report the clean scan and stop.
 
 Quick transcript-safe artifact refs (read referenced artifacts when full data is required):
 
 ```bash
-jq -r '.data.stack_summary_reference.payload_path' stack-prep.compact.json
+jq -r '.data.stack_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT"
+
+jq -r '.data.stack_summary_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT"
 
 jq -r '.data.stack[] |
   [.pr_number,.branch,
    .manifest_summary_reference.payload_path,
    .classification_template_reference.payload_path,
    .raw_feedback_reference.payload_path] | @tsv' \
-  stack-prep.compact.json
+  "$STACK_ADDRESS_PREP_COMPACT"
 
-jq -r '.data.stack_plan_reference.payload_path' stack-plan.compact.json
+jq -r '.data.stack_plan_reference.payload_path' "$STACK_ADDRESS_PLAN_COMPACT"
 ```
 
 Classification rules:
@@ -296,12 +303,12 @@ Immediately before review-thread mutation, refetch current stack feedback with
 resolved threads included:
 
 ```bash
-printf '%s' '<same-stack-json>' \
-  | pr-address exec stack-feedback-prep \
-      --include-resolved \
-      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
-      --stdout-mode compact \
-      --format json \
+pr-address exec stack-feedback-prep \
+  --stack-reference "$(jq -r '.data.stack_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT")" \
+  --include-resolved \
+  --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+  --stdout-mode compact \
+  --format json \
   > "$STACK_ADDRESS_CURRENT_PREP_COMPACT"
 
 pr-address exec stack-feedback-diff-current \
@@ -381,9 +388,11 @@ the user explicitly asks for another action.
 
 ## Push-down status
 
-Already pushed down: stack prep/classification templates, stack plan merge,
-drift comparison, stack payload assembly, single-PR validation/planning,
-single-PR payload assembly, and branch-to-PR mapping.
+Already pushed down: stack feedback preflight (initial branch-to-PR mapping,
+frozen stack construction, and initial prep in one scan), stack
+prep/classification templates, stack plan merge, drift comparison, stack
+payload assembly, single-PR validation/planning, single-PR payload assembly,
+and branch-to-PR mapping.
 
 Possible future helpers: rerun/idempotency summaries and compact stack
 finalization summaries.

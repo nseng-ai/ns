@@ -34,7 +34,7 @@ const stackFeedbackPrInputSchema = z.looseObject({
 	base_ref_name: nullableStringSchema,
 });
 
-const stackFeedbackPrepInputSchema = z.looseObject({
+export const stackFeedbackPrepInputSchema = z.looseObject({
 	stack: z.array(stackFeedbackPrInputSchema),
 });
 
@@ -108,11 +108,11 @@ const stackFeedbackPlanPayloadSchema = stackFeedbackPlanInputSchema.extend({
 	prep: stackPrepResultInputSchema.optional(),
 });
 
-type StackFeedbackPrInput = z.infer<typeof stackFeedbackPrInputSchema>;
+export type StackFeedbackPrInput = z.infer<typeof stackFeedbackPrInputSchema>;
 type StackPrepPrResultInput = z.infer<typeof stackPrepPrResultSchema>;
 type StackPrepResultInput = z.infer<typeof stackPrepResultInputSchema>;
 type StackFeedbackPlanInput = z.infer<typeof stackFeedbackPlanInputSchema>;
-type FeedbackCounts = z.infer<typeof feedbackCountsSchema>;
+export type FeedbackCounts = z.infer<typeof feedbackCountsSchema>;
 
 type DiscussionTriageHint = z.infer<typeof discussionTriageHintSchema>;
 type DiscussionTriageReason = z.infer<typeof discussionTriageReasonSchema>;
@@ -134,7 +134,7 @@ interface StackDiscussionTriageSummary {
 	items: StackDiscussionTriageItem[];
 }
 
-interface StackFeedbackPrepPrResult {
+export interface StackFeedbackPrepPrResult {
 	pr_number: number;
 	branch: string;
 	title: string | null;
@@ -150,7 +150,7 @@ interface StackFeedbackPrepPrResult {
 	discussion_triage: StackDiscussionTriageSummary;
 }
 
-interface StackFeedbackPrepSummary {
+export interface StackFeedbackPrepSummary {
 	prs: number;
 	reviews: number;
 	unresolved_review_threads: number;
@@ -159,12 +159,39 @@ interface StackFeedbackPrepSummary {
 	discussion_comments_needing_agent_review: number;
 }
 
-interface StackFeedbackPrepResult {
+export interface StackFeedbackPrepResult {
 	payload_session_id: string;
 	include_resolved: boolean;
 	stack: StackFeedbackPrepPrResult[];
 	stack_summary_reference: PayloadReference | null;
 	summary: StackFeedbackPrepSummary;
+}
+
+export interface StackFeedbackPrepCompactPrResult {
+	pr_number: number;
+	branch: string;
+	title: string | null;
+	url: string | null;
+	head_ref_name: string | null;
+	base_ref_name: string | null;
+	counts: FeedbackCounts;
+	raw_feedback_reference: PayloadReference;
+	manifest_summary_reference: PayloadReference;
+	classification_template_reference: PayloadReference;
+	discussion_triage_summary: {
+		automation_like: number;
+		human_like: number;
+		needs_agent_review: number;
+		by_reason: Record<string, number>;
+	};
+}
+
+export interface StackFeedbackPrepCompactResult {
+	payload_session_id: string;
+	include_resolved: boolean;
+	summary: StackFeedbackPrepSummary;
+	stack_summary_reference: PayloadReference;
+	stack: StackFeedbackPrepCompactPrResult[];
 }
 
 interface StackFeedbackPlanValidationPrResult {
@@ -283,7 +310,7 @@ interface StackFeedbackPlanResult {
 }
 
 export async function runStackFeedbackPrepOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--stack-json", "--payload-session-id", "--stdout-mode"], ["--include-resolved", "--include-empty-reviews"]);
+	const parsed = parseReadOptions(invocation.args, ["--stack-json", "--stack-reference", "--payload-session-id", "--stdout-mode"], ["--include-resolved", "--include-empty-reviews"]);
 	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-prep: ${unexpectedPositional}`);
@@ -300,12 +327,9 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 	if (storeResult.type === "error") return exitFailure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
-	const payloadResult = await loadJsonInput({
-		optionValue: parsed.options.values.get("--stack-json"),
-		commandName: "stack-feedback-prep",
-		inputDescription: "stack JSON payload",
-		optionName: "--stack-json",
-		schema: stackFeedbackPrepInputSchema,
+	const payloadResult = await resolvePrepStackInput({
+		stackJson: parsed.options.values.get("--stack-json"),
+		stackReference: parsed.options.values.get("--stack-reference"),
 		stdin: invocation.deps.stdin,
 	});
 	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
@@ -316,34 +340,17 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 	const github = githubGateway(invocation);
 	if (github.type === "error") return github.result;
 
-	const shouldIncludeResolved = parsed.options.flags.has("--include-resolved");
-	const shouldIncludeEmptyReviews = parsed.options.flags.has("--include-empty-reviews");
-	const prResults: StackFeedbackPrepPrResult[] = [];
-	for (const prInput of payloadResult.value.stack) {
-		const prepared = await prepareStackPr({
-			invocation,
-			store,
-			prInput,
-			github: github.gateway,
-			shouldIncludeResolved,
-			shouldIncludeEmptyReviews,
-		});
-		if (prepared.type === "error") return prepared.result;
-		prResults.push(prepared.value);
-	}
-
-	const resultWithoutReference: StackFeedbackPrepResult = {
-		payload_session_id: store.sessionId,
-		include_resolved: shouldIncludeResolved,
-		stack: prResults,
-		stack_summary_reference: null,
-		summary: prepSummary(prResults),
-	};
-	const stackSummaryReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-prep", role: "summary", payload: resultWithoutReference });
-	if (stackSummaryReference.type === "error") return exitFailure(stackSummaryReference.errorType, stackSummaryReference.message);
-	const result: StackFeedbackPrepResult = { ...resultWithoutReference, stack_summary_reference: stackSummaryReference.value };
-	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPrepResult(result, stackSummaryReference.value)) };
-	return { type: "exit", exit: ok(result) };
+	const prepared = await prepareStackFeedbackStack({
+		invocation,
+		store,
+		stack: payloadResult.value.stack,
+		github: github.gateway,
+		shouldIncludeResolved: parsed.options.flags.has("--include-resolved"),
+		shouldIncludeEmptyReviews: parsed.options.flags.has("--include-empty-reviews"),
+	});
+	if (prepared.type === "error") return prepared.result;
+	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPrepResult(prepared.value.result, prepared.value.stackSummaryReference)) };
+	return { type: "exit", exit: ok(prepared.value.result) };
 }
 
 export async function runStackFeedbackPlanOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
@@ -421,6 +428,36 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	return { type: "exit", exit: ok(result) };
 }
 
+async function resolvePrepStackInput(options: {
+	stackJson: string | undefined;
+	stackReference: string | undefined;
+	stdin: () => Promise<string>;
+}): Promise<JsonInputResult<{ stack: StackFeedbackPrInput[] }>> {
+	if (options.stackReference === undefined) {
+		return await loadJsonInput({
+			optionValue: options.stackJson,
+			commandName: "stack-feedback-prep",
+			inputDescription: "stack JSON payload",
+			optionName: "--stack-json",
+			schema: stackFeedbackPrepInputSchema,
+			stdin: options.stdin,
+		});
+	}
+	if (options.stackJson !== undefined) {
+		return {
+			type: "error",
+			error: { errorType: "invalid_request", message: "stack-feedback-prep cannot mix --stack-json with --stack-reference; pass exactly one stack source." },
+		};
+	}
+	return await loadArtifactReference({
+		filePath: options.stackReference,
+		commandName: "stack-feedback-prep",
+		optionName: "--stack-reference",
+		artifactDescription: "a stack JSON payload",
+		schema: stackFeedbackPrepInputSchema,
+	});
+}
+
 /** Resolve the plan's prep input from exactly one source: the embedded payload key or `--prep-reference`. */
 async function resolvePlanPrepInput(embeddedPrep: StackPrepResultInput | undefined, prepReferencePath: string | undefined): Promise<JsonInputResult<StackPrepResultInput>> {
 	if (prepReferencePath === undefined) {
@@ -445,6 +482,40 @@ async function resolvePlanPrepInput(embeddedPrep: StackPrepResultInput | undefin
 		artifactDescription: "the stack-feedback-prep data object",
 		schema: stackPrepResultInputSchema,
 	});
+}
+
+export async function prepareStackFeedbackStack(options: {
+	invocation: ExecOperationInvocation;
+	store: PayloadStore;
+	stack: readonly StackFeedbackPrInput[];
+	github: PrAddressGitHubGateway;
+	shouldIncludeResolved: boolean;
+	shouldIncludeEmptyReviews: boolean;
+}): Promise<{ type: "ok"; value: { result: StackFeedbackPrepResult; stackSummaryReference: PayloadReference } } | { type: "error"; result: ExecOperationDispatchResult }> {
+	const prResults: StackFeedbackPrepPrResult[] = [];
+	for (const prInput of options.stack) {
+		const prepared = await prepareStackPr({
+			invocation: options.invocation,
+			store: options.store,
+			prInput,
+			github: options.github,
+			shouldIncludeResolved: options.shouldIncludeResolved,
+			shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
+		});
+		if (prepared.type === "error") return prepared;
+		prResults.push(prepared.value);
+	}
+
+	const resultWithoutReference: StackFeedbackPrepResult = {
+		payload_session_id: options.store.sessionId,
+		include_resolved: options.shouldIncludeResolved,
+		stack: prResults,
+		stack_summary_reference: null,
+		summary: prepSummary(prResults),
+	};
+	const stackSummaryReference = await options.store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-prep", role: "summary", payload: resultWithoutReference });
+	if (stackSummaryReference.type === "error") return { type: "error", result: exitFailure(stackSummaryReference.errorType, stackSummaryReference.message) };
+	return { type: "ok", value: { result: { ...resultWithoutReference, stack_summary_reference: stackSummaryReference.value }, stackSummaryReference: stackSummaryReference.value } };
 }
 
 async function prepareStackPr(options: {
@@ -588,7 +659,7 @@ function prepSummary(prResults: readonly StackFeedbackPrepPrResult[]): StackFeed
 	};
 }
 
-function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryReference: PayloadReference): unknown {
+export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryReference: PayloadReference): StackFeedbackPrepCompactResult {
 	return {
 		payload_session_id: result.payload_session_id,
 		include_resolved: result.include_resolved,

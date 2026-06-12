@@ -12,10 +12,11 @@ const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.m
 
 // Operations whose schema documents were ported in this slice and must hold
 // structural semantic parity with the captured Python (Pydantic) fixtures.
-// Fixture input schemas for stack-feedback-plan, stack-feedback-diff-current,
-// build-stack-resolve-thread-payloads, and build-resolve-thread-batch-payload
-// additionally carry TypeScript-owned option fields (payload_file and artifact
-// reference options) that intentionally extend the original Python contract.
+// Fixture input schemas for stack-feedback-plan, stack-feedback-prep,
+// stack-feedback-diff-current, build-stack-resolve-thread-payloads, and
+// build-resolve-thread-batch-payload additionally carry TypeScript-owned option
+// fields (payload_file and artifact reference options) that intentionally extend
+// the original Python contract.
 const PARITY_OPERATIONS = [
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",
@@ -42,7 +43,7 @@ const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-
 
 // TypeScript-only operations with no Python counterpart; their fixtures are
 // captured from the TypeScript `--json-schema` output, not Python parity.
-const TS_ONLY_OPERATIONS = ["map-branch-prs"] as const;
+const TS_ONLY_OPERATIONS = ["map-branch-prs", "stack-feedback-preflight"] as const;
 
 interface CliRun {
 	exit: Promise<number>;

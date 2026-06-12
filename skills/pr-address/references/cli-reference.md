@@ -19,6 +19,7 @@ helper's input/output/error shapes.
 | ------------------------------------- | -------------------------------------- |
 | `prepare-run`                         | [cli-collection.md](cli-collection.md) |
 | `get-feedback`                        | [cli-collection.md](cli-collection.md) |
+| `stack-feedback-preflight`            | [cli-collection.md](cli-collection.md) |
 | `stack-feedback-prep`                 | [cli-collection.md](cli-collection.md) |
 | `map-branch-prs`                      | [cli-collection.md](cli-collection.md) |
 | `read-feedback-detail`                | [cli-collection.md](cli-collection.md) |
@@ -82,7 +83,8 @@ pr-address exec resolve-thread-with-reply \
 ```
 
 Operations that call GitHub (`prepare-run`, `get-feedback`,
-`summarize-feedback`, `stack-feedback-prep`, `map-branch-prs`, `reply-to-*`,
+`summarize-feedback`, `stack-feedback-preflight`, `stack-feedback-prep`,
+`map-branch-prs`, `reply-to-*`,
 and `resolve-thread-*` mutations) must run from inside the target repository:
 `gh` resolves `owner/repo` from the current directory's git remotes. Outside a
 git work tree they fail fast with `error_type: "repo_context_required"`
