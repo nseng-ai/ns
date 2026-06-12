@@ -2,10 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import {
 	formatBranchContextUpAndImplFollowUpFlow,
+	formatImplBranchContextCommand,
 	runBranchContextUpAndImplLaunch,
 	type BranchContextUpAndImplContext,
 	type BranchContextUpAndImplNewSessionOptions,
 } from "../src/branch-context-up-and-impl.ts";
+import { BRANCH_CONTEXT_PLAN_KEY } from "@asdl/branch-context";
 import { FakePi, ROOT, step } from "./ccc-test-harness.ts";
 
 const BRANCH = "branch-contexts/widget-flow";
@@ -68,7 +70,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		pi.assertDone();
 		expect(pi.execCalls).toEqual([{ command: "git", args: ["checkout", BRANCH], options: { cwd: ROOT, timeout: 30_000 } }]);
 		expect(ctx.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
-		expect(ctx.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(ctx.replacementUserMessages).toEqual(["/branch-context:impl widget-flow.md"]);
 		expect(ctx.statuses).toEqual([
 			{ key: STATUS_KEY, value: "checking out branch context…" },
 			{ key: STATUS_KEY, value: "starting implementation session…" },
@@ -77,8 +79,30 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		expect(result).toEqual({ type: "launched", branch: BRANCH, key: KEY, parentSession: "/sessions/source.jsonl" });
 	});
 
+	test("keeps the bare impl command for the default plan key", async () => {
+		const pi = new FakePi({ script: [checkoutStep()] });
+		const ctx = new FakeUpAndImplContext();
+
+		const result = await runBranchContextUpAndImplLaunch({
+			host: pi,
+			ctx,
+			statusKey: STATUS_KEY,
+			evidence: { branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY },
+		});
+
+		pi.assertDone();
+		expect(ctx.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(result).toEqual({ type: "launched", branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY });
+	});
+
+	test("formats impl commands from branch-context keys", () => {
+		expect(formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)).toBe("/branch-context:impl");
+		expect(formatImplBranchContextCommand(KEY)).toBe("/branch-context:impl widget-flow.md");
+	});
+
 	test("formats the manual follow-up flow", () => {
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH)).toBe(`git checkout ${BRANCH}\n/new\n/branch-context:impl`);
+		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, BRANCH_CONTEXT_PLAN_KEY)).toBe(`git checkout ${BRANCH}\n/new\n/branch-context:impl`);
+		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, KEY)).toBe(`git checkout ${BRANCH}\n/new\n/branch-context:impl widget-flow.md`);
 	});
 
 	test("returns checkout failure without starting a new session", async () => {
