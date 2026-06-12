@@ -12,6 +12,9 @@ Productionize the episodic context profiler prototype as a first-class Pi extens
   2. LM episode segmentation over the turn list.
   3. Per-episode efficiency/relevance analysis (`efficient/mixed/wasteful`; `load-bearing/still-useful/stale/rot`).
   4. Delegation/subagent detection.
+  5. Bundle persistence: freeze the exact provider-visible context into immutable `context-profiles/<sessionId>/<ordinal>/` bundles (`messages.jsonl`, `manifest.json`, `system-prompt.md`) when the profiler launches.
+  6. Episodes export: let startup segmentation/analysis run to completion after overlay close/refresh and write terminal `episodes.json` once per bundle.
+  7. Read-only bundle interrogation: an embedded `AgentSession` scoped to a persisted bundle (bundle-contract prompting, transcript/controller state), reached via `p` from overview/episode scopes in an overlay chat frame.
 - **Architecture**:
   - `model.ts` holds pure derivation (entries/events → regions + turns); `view.ts`/`render.ts` hold TUI components consuming plain data; `runtime.ts` holds live-update state and event subscription glue; the top-level module wires the extension and registers the command.
   - Token counts are best-effort estimates, clearly labeled. Estimation is isolated behind one function, and provenance ("reported" vs "estimated") is carried in the data so precision can improve later without a view rewrite.
@@ -22,6 +25,7 @@ Productionize the episodic context profiler prototype as a first-class Pi extens
   - On-demand only: segmentation/analysis fire on overlay open and manual refresh, never in the background while the overlay is closed. The profiler must not silently spend tokens or perturb the session it is profiling.
   - A fixed cheap/fast analysis model, defined as a single code-level constant and resolved through the model registry — never the session's main model.
   - Hard requirement — graceful degradation: if the analysis model is unavailable (no key, registry miss, request failure), the overlay remains fully functional deterministically with a clear "segmentation unavailable: <reason>" state. LM failure never blocks the view.
+  - The fixed-cheap-model rule applies to segmentation/analysis calls. The read-only bundle interrogation chat is different: it is explicitly user-initiated per question and uses the host session's selected model, degrading with a clear reason when no model is selected.
 - **UI design** (validated by the prototype on `model-subagents`; the rewrite owes fidelity to this interaction design, not to the prototype's code):
   - **Frame-stack navigation**: full-screen bordered overlay; frames form a stack — overview → base-region detail / episode list / episode detail → verbatim content. `⏎` pushes, `Esc`/`q` pops (closing from overview), `r` re-snapshots and resets to overview, `?` toggles help. Breadcrumb path in the frame title (`context profiler › <region> › <member>`); key-hint footer always pinned.
   - **Overview layout**: top usage bar (base vs. live vs. free, scaled to the context window) over two sections, `BASE` and `LIVE`, with uniform rows: `▌` selection marker · label · 14-char `█`/`░` bar scaled to the largest _visible_ row · `≈`-prefixed compact token column (`42k`, `3.5k`, `1.2M`) · percent column · dense 8-char status column (outcome glyph `✓ ● ✗ ? ·` + kind abbrev `exp/edit/dbg/test/rev/chat/—` + `⇄` delegation marker).
@@ -44,16 +48,9 @@ Productionize the episodic context profiler prototype as a first-class Pi extens
 - **User-facing model configurability** for the analysis model: not in initial scope (tracked as an open question).
 - **Background/automatic profiling**: rejected for this objective by the on-demand LM policy.
 
-## Roadmap
-
-- Bundle persistence: freeze the exact provider-visible context into immutable `context-profiles/<sessionId>/<ordinal>/` bundles (`messages.jsonl`, `manifest.json`, `system-prompt.md`) when the profiler launches.
-- Episodes export: let startup segmentation/analysis run to completion after overlay close/refresh and write terminal `episodes.json` once per bundle.
-- Interrogation core: spawn a read-only embedded `AgentSession` scoped to a persisted bundle, with bundle-contract prompting and transcript/controller state.
-- Interrogation UI: add `p` from overview/episode scopes to ask freeform questions about the frozen bundle in an overlay chat frame.
-
 ## Completion Criteria
 
-All four capabilities landed on `master`: deterministic core, LM episode segmentation, per-episode analysis, delegation detection, bundle persistence, episodes export, and read-only bundle interrogation — usable through `/context-profiler` with the degradation, testing, and architecture constraints in Scope. The full vision is the closure gate; re-scoping along the way happens through Semantic Updates, not by quietly shrinking the gate.
+All seven capabilities landed on `master`: deterministic core, LM episode segmentation, per-episode analysis, delegation detection, bundle persistence, episodes export, and read-only bundle interrogation — usable through `/context-profiler` with the degradation, testing, and architecture constraints in Scope. The full vision is the closure gate; re-scoping along the way happens through Semantic Updates, not by quietly shrinking the gate. _(The four later capabilities were briefly tracked in a `## Roadmap` section here when they landed; that section moved to `roadmap.md` rows, the canonical roadmap location, and the capability list in Scope.)_
 
 ## Assumptions and Risks
 
@@ -68,7 +65,16 @@ Risks:
 - **LM response fragility**: segmentation, delegation, and analysis responses are model-emitted JSON. Segmentation and delegation claims are de-risked in production code by Zod boundary schemas, lenient parsing, and repair to real capped turn indices; invalid delegation entries are dropped and valid claims are capped/deduplicated. Per-episode analysis is de-risked by the same gateway failure-as-value pattern plus a Zod verdict schema for exactly the allowed efficiency/relevance pairs; invalid analysis output remains visible as a non-blocking per-episode failure.
 - **Long-session payload size**: the profile is shipped as JSON to a small model; very long sessions can exceed its context or get expensive. Segmentation is de-risked by an explicit payload policy: use the deterministically capped turn list, send excerpts rather than verbatim content, and drop middle turns beyond a hard serialized-size cap while preserving first/last context. Per-episode analysis sends the full target episode from the capped snapshot with surrounding episode map/summary; this accepts residual risk for unusually large individual episodes rather than adding a second truncation policy in this row.
 - **`context` event availability**: the prototype needed a `branch-fallback` live source, implying the primary event is not always present. The rewrite must define which source is authoritative when sources disagree. _(De-risked by the deterministic core: `runtime.ts` defines the rule — the `context` event is authoritative once one has been received this session; the session-branch fallback applies only before that; the snapshot carries `liveSource` provenance.)_
+- **Interrogation token spend**: the embedded interrogation agent uses the host session's selected model, which may be expensive. Accepted — spend is strictly user-initiated per question (consistent with the on-demand LM policy's intent), and the session degrades visibly rather than silently when no model is selected.
 
 ## Open Questions
 
-- Should the analysis model become user-configurable, and through what mechanism? (Deferred from the LM-policy decision; default remains a single code-level constant.)
+- Should the analysis model become user-configurable, and through what mechanism? (Deferred from the LM-policy decision; default remains a single code-level constant. Carried as a follow-up past closure; any future work belongs to a new objective.)
+
+## Closure
+
+Completed. All seven capabilities in the Completion Criteria are landed on `master` and usable through `/context-profiler`: deterministic core (PR #1207 stack), LM episode segmentation, per-episode efficiency/relevance analysis with opinionated summaries, delegation/subagent detection, bundle persistence under `context-profiles/<sessionId>/<ordinal>/`, terminal `episodes.json` export per bundle, and read-only bundle interrogation (embedded session core plus the `p` chat overlay) — the last four landing in the `d4d442d6c` stack with refinement/hardening follow-ups (`6fb441ea5`, `1fc88e968`) and structural refactors (`40793fbdb`, `5fb0e06b6`, `80a4bb20c`).
+
+The architecture, degradation, and testing constraints in Scope held: pure derivation in `model.ts`, gateway-isolated LM calls with in-memory fakes, Zod-validated/repaired model output, LM failure never blocking the deterministic view, and Vitest coverage across `test/context-profiler-*.test.ts`. Closure verification: full pi-extensions Vitest suite passed.
+
+Caveats and follow-ups: the interrogation chat intentionally uses the host session's selected model (recorded in Scope's LM policy and as an accepted risk); analysis-model user-configurability remains an open question deferred to any future objective; the advisory/actionable layer remains an explicit non-goal and candidate future objective.
