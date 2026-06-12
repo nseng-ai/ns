@@ -1,5 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute, resolve } from "node:path";
+import { z } from "zod";
 
 import {
 	buildPlanFileName,
@@ -12,7 +13,6 @@ import {
 } from "./saved-plan-file.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
-import { isRecord } from "@asdl/core/primitives";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";
 
@@ -54,25 +54,43 @@ export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
 	shouldFallbackToLatest?: boolean | undefined;
 }
 
+const repoIdentitySourceSchema = z.enum(["origin-url", "repo-root"]);
+
+const savedPlanFileEvidenceSchema = z.object({
+	slug: z.string(),
+	repoRoot: z.string(),
+	repoKey: z.string(),
+	repoIdentitySource: repoIdentitySourceSchema,
+	sourceBranch: z.string(),
+	branchKey: z.string(),
+	filePath: z.string(),
+	summary: z.string().optional(),
+});
+
+const savedPlanFileSessionEntrySchema = z.object({
+	type: z.literal("message"),
+	message: z
+		.object({
+			role: z.literal("toolResult"),
+			toolName: z.literal(WRITE_SAVED_PLAN_FILE_TOOL_NAME),
+			isError: z.unknown().optional(),
+			details: savedPlanFileEvidenceSchema,
+		})
+		.refine((message) => message.isError !== true),
+});
+
 export function extractSavedPlanFileEvidenceFromSessionEntry(entry: unknown): SavedPlanFileEvidence | undefined {
-	if (!isRecord(entry) || entry.type !== "message") {
+	const result = savedPlanFileSessionEntrySchema.safeParse(entry);
+	if (!result.success) {
 		return undefined;
 	}
 
-	const message = entry.message;
-	if (!isRecord(message) || message.role !== "toolResult") {
-		return undefined;
-	}
-	if ((message.toolName ?? undefined) !== WRITE_SAVED_PLAN_FILE_TOOL_NAME || message.isError === true) {
-		return undefined;
-	}
+	return toSavedPlanFileEvidence(result.data.message.details);
+}
 
-	const details = message.details;
-	if (!isRecord(details)) {
-		return undefined;
-	}
-
-	return parseSavedPlanFileEvidence(details);
+function toSavedPlanFileEvidence(data: z.infer<typeof savedPlanFileEvidenceSchema>): SavedPlanFileEvidence {
+	const { summary, ...evidence } = data;
+	return { ...evidence, ...(summary === undefined ? {} : { summary }) };
 }
 
 export async function validateSessionSavedPlanCandidate(
@@ -210,47 +228,6 @@ export async function resolveSelectedSavedPlanFile(
 	}
 
 	throw new Error("No usable saved plan was found in the current session branch.");
-}
-
-function parseSavedPlanFileEvidence(details: Record<string, unknown>): SavedPlanFileEvidence | undefined {
-	const slug = details.slug;
-	const repoRoot = details.repoRoot;
-	const repoKey = details.repoKey;
-	const repoIdentitySource = details.repoIdentitySource;
-	const sourceBranch = details.sourceBranch;
-	const branchKey = details.branchKey;
-	const filePath = details.filePath;
-	if (
-		typeof slug !== "string" ||
-		typeof repoRoot !== "string" ||
-		typeof repoKey !== "string" ||
-		typeof sourceBranch !== "string" ||
-		typeof branchKey !== "string" ||
-		typeof filePath !== "string"
-	) {
-		return undefined;
-	}
-	if (repoIdentitySource !== "origin-url" && repoIdentitySource !== "repo-root") {
-		return undefined;
-	}
-
-	const evidence: SavedPlanFileEvidence = {
-		slug,
-		repoRoot,
-		repoKey,
-		repoIdentitySource,
-		sourceBranch,
-		branchKey,
-		filePath,
-	};
-	const summary = details.summary;
-	if (summary === undefined) {
-		return evidence;
-	}
-	if (typeof summary !== "string") {
-		return undefined;
-	}
-	return { ...evidence, summary };
 }
 
 function validateDirectoryMetadata(evidence: SavedPlanFileEvidence, directory: PlanStoreDirectoryEvidence): string | undefined {

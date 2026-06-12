@@ -31,11 +31,55 @@ export function normalizeCheckpointDraft(output: string): string {
 
 export function validateCheckpointMessage(output: string): CheckpointValidationResult {
 	const normalizedText = normalizeCheckpointDraft(output);
+	const issues = collectCheckpointIssues(normalizedText);
+	if (issues.length > 0) {
+		return { ok: false, normalizedText, issues };
+	}
+
+	return { ok: true, message: buildCheckpointMessage(normalizedText) };
+}
+
+export function formatCheckpointMessage(message: CheckpointMessage): string {
+	return [message.subject, "", ...message.bullets].join("\n");
+}
+
+export function formatCheckpointValidationFeedback(issues: CheckpointMessageIssue[]): string {
+	return issues.map(formatIssue).join("\n");
+}
+
+function formatIssue(issue: CheckpointMessageIssue): string {
+	switch (issue.code) {
+		case "missing_subject":
+			return "- missing_subject: first non-blank line must be the [cp] subject";
+		case "missing_blank_line":
+			return "- missing_blank_line: subject must be followed by exactly one blank separator line";
+		case "missing_cp_prefix":
+			return `- missing_cp_prefix: subject must start with \"[cp] \"; found ${JSON.stringify(issue.subject)}`;
+		case "subject_too_long":
+			return `- subject_too_long: length ${issue.length}, max ${issue.maxLength}: ${JSON.stringify(issue.subject)}`;
+		case "subject_trailing_period":
+			return `- subject_trailing_period: remove trailing period from ${JSON.stringify(issue.subject)}`;
+		case "no_bullets":
+			return "- no_bullets: include 1 to 3 bullet lines after the blank line";
+		case "too_many_bullets":
+			return `- too_many_bullets: found ${issue.count}, max ${issue.maxCount}`;
+		case "invalid_bullet_prefix":
+			return `- invalid_bullet_prefix: line ${issue.lineNumber} must start with \"- \"; found ${JSON.stringify(issue.line)}`;
+		case "extra_prose":
+			return `- extra_prose: line ${issue.lineNumber} is outside the checkpoint message structure: ${JSON.stringify(issue.line)}`;
+		case "code_fence":
+			return "- code_fence: return only the commit message, without markdown fences";
+		case "trailer":
+			return `- trailer: line ${issue.lineNumber} looks like a commit trailer and is not allowed: ${JSON.stringify(issue.line)}`;
+	}
+}
+
+function collectCheckpointIssues(normalizedText: string): CheckpointMessageIssue[] {
 	const lines = normalizedText.split("\n").map((line) => line.trimEnd());
 	const issues: CheckpointMessageIssue[] = [];
 
 	if (normalizedText.trim().length === 0) {
-		return { ok: false, normalizedText, issues: [{ code: "missing_subject" }, { code: "no_bullets" }] };
+		return [{ code: "missing_subject" }, { code: "no_bullets" }];
 	}
 
 	for (const line of lines) {
@@ -109,46 +153,16 @@ export function validateCheckpointMessage(output: string): CheckpointValidationR
 		issues.push({ code: "too_many_bullets", count: bulletCount, maxCount: CHECKPOINT_MAX_BULLETS });
 	}
 
-	if (issues.length > 0) {
-		return { ok: false, normalizedText, issues };
-	}
-
-	return { ok: true, message: { subject, bullets: bodyLines } };
+	return issues;
 }
 
-export function formatCheckpointMessage(message: CheckpointMessage): string {
-	return [message.subject, "", ...message.bullets].join("\n");
-}
-
-export function formatCheckpointValidationFeedback(issues: CheckpointMessageIssue[]): string {
-	return issues.map(formatIssue).join("\n");
-}
-
-function formatIssue(issue: CheckpointMessageIssue): string {
-	switch (issue.code) {
-		case "missing_subject":
-			return "- missing_subject: first non-blank line must be the [cp] subject";
-		case "missing_blank_line":
-			return "- missing_blank_line: subject must be followed by exactly one blank separator line";
-		case "missing_cp_prefix":
-			return `- missing_cp_prefix: subject must start with \"[cp] \"; found ${JSON.stringify(issue.subject)}`;
-		case "subject_too_long":
-			return `- subject_too_long: length ${issue.length}, max ${issue.maxLength}: ${JSON.stringify(issue.subject)}`;
-		case "subject_trailing_period":
-			return `- subject_trailing_period: remove trailing period from ${JSON.stringify(issue.subject)}`;
-		case "no_bullets":
-			return "- no_bullets: include 1 to 3 bullet lines after the blank line";
-		case "too_many_bullets":
-			return `- too_many_bullets: found ${issue.count}, max ${issue.maxCount}`;
-		case "invalid_bullet_prefix":
-			return `- invalid_bullet_prefix: line ${issue.lineNumber} must start with \"- \"; found ${JSON.stringify(issue.line)}`;
-		case "extra_prose":
-			return `- extra_prose: line ${issue.lineNumber} is outside the checkpoint message structure: ${JSON.stringify(issue.line)}`;
-		case "code_fence":
-			return "- code_fence: return only the commit message, without markdown fences";
-		case "trailer":
-			return `- trailer: line ${issue.lineNumber} looks like a commit trailer and is not allowed: ${JSON.stringify(issue.line)}`;
-	}
+function buildCheckpointMessage(normalizedText: string): CheckpointMessage {
+	const lines = normalizedText.split("\n").map((line) => line.trimEnd());
+	const subjectIndex = findSubjectIndex(lines);
+	const subject = lines[subjectIndex] ?? "";
+	const blankLineIndex = subjectIndex + 1;
+	const bodyStart = lines[blankLineIndex] === "" ? blankLineIndex + 1 : blankLineIndex;
+	return { subject, bullets: lines.slice(bodyStart) };
 }
 
 function trimOuterBlankLines(text: string): string {

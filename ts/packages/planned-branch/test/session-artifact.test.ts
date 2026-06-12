@@ -29,6 +29,17 @@ describe("planned-branch session artifact", () => {
 		expect(extractPlannedBranchEvidence({ status: "success", evidence: EVIDENCE })).toEqual(EVIDENCE);
 	});
 
+	test("accepts but strips unknown output detail and evidence keys", () => {
+		const result = extractPlannedBranchEvidence({
+			status: "success",
+			evidence: { ...EVIDENCE, extraEvidence: "ignored" },
+			extraDetail: "ignored",
+		});
+
+		expect(result).toEqual(EVIDENCE);
+		expect(result).not.toHaveProperty("extraEvidence");
+	});
+
 	test("rejects non-success and malformed output details", () => {
 		expect(extractPlannedBranchEvidence({ status: "dry-run", evidence: EVIDENCE })).toBeUndefined();
 		expect(extractPlannedBranchEvidence({ status: "success", evidence: { ...EVIDENCE, branchCreation: "hg" } })).toBeUndefined();
