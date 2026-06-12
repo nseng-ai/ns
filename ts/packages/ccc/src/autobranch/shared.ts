@@ -1,18 +1,5 @@
 export { formatPendingWorktreeCommandDetails as formatCommandDetails } from "asdl-dev/pending-worktree";
 
-export interface StatusInput {
-	setStatus: (message: string | undefined) => void;
-}
-
-export async function withStatus<T>(input: StatusInput, message: string, action: () => Promise<T>): Promise<T> {
-	input.setStatus(message);
-	try {
-		return await action();
-	} finally {
-		input.setStatus(undefined);
-	}
-}
-
 export function truncateText(text: string, maxChars: number): string {
 	if (text.length <= maxChars) {
 		return text;

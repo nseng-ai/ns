@@ -33,6 +33,8 @@ export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
 	slotExec: Pick<ExtensionAPI, "exec">;
+	notify: (message: string, level?: "info" | "warning" | "error") => void;
+	setStatus: (message: string | undefined) => void;
 }
 
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
@@ -47,13 +49,20 @@ export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
 export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void> {
 	const createdBranch = await createAutobranchCheckpointFlow(input);
 	if (!createdBranch.ok) {
+		input.notify(createdBranch.error, "error");
 		return;
 	}
 
-	if (!createdBranch.isCleanAfter) {
+	for (const warning of createdBranch.warnings) {
+		input.notify(warning, "warning");
+	}
+
+	const branchName = parseCreatedBranchName(createdBranch.summary);
+	const isCleanAfter = createdBranch.summary.includes("Working directory is clean.");
+	if (!isCleanAfter) {
 		input.notify(
 			[
-				`Autoslot created ${createdBranch.branchName}, but slot movement was skipped.`,
+				`Autoslot created ${branchName}, but slot movement was skipped.`,
 				"The worktree is not clean; `slot checkout --current` requires a clean worktree.",
 			].join("\n"),
 			"warning",
@@ -65,7 +74,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	try {
 		const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
 		if (!slot.ok) {
-			input.notify([`Autoslot created ${createdBranch.branchName}, but slot checkout failed.`, "", slot.error].join("\n"), "error");
+			input.notify([`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"), "error");
 			return;
 		}
 
@@ -84,6 +93,11 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 }
 
+function parseCreatedBranchName(summary: string): string {
+	const firstLine = summary.split("\n")[0] ?? "";
+	return firstLine.replace(/^New branch: /, "").replace(/ \(base slug .*\)$/, "");
+}
+
 async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
 	await ctx.waitForIdle();
 	try {
@@ -99,7 +113,7 @@ async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandCo
 					message,
 				),
 			notify: (message, level) => {
-				ctx.ui.notify(message, level === "success" ? "info" : level);
+				ctx.ui.notify(message, level);
 			},
 			setStatus: (message) => {
 				ctx.ui.setStatus(STATUS_KEY, message);

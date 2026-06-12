@@ -32,7 +32,6 @@ export interface AutobranchPreparationInput {
 	snapshot: PendingWorktreeSnapshot;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
-	setStatus: (message: string | undefined) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 }
@@ -146,23 +145,18 @@ async function readUntrackedSnippets(input: AutobranchPreparationInput, root: st
 }
 
 async function generateSlugFromChanges(input: AutobranchPreparationInput, snapshot: AutobranchSnapshot): Promise<PreparedBaseSlugResult> {
-	input.setStatus("generating branch slug…");
-	try {
-		const prompt = buildSlugPrompt(snapshot);
-		const result = await deriveBranchSlug({ cwd: input.cwd, prompt, exec: input.exec });
-		if (result.ok) {
-			return { ok: true, baseSlug: result.baseSlug, source: result.source };
-		}
-
-		const fallbackSlug = fallbackSlugFromSnapshot(snapshot);
-		if (fallbackSlug) {
-			return { ok: true, baseSlug: fallbackSlug, source: "fallback", warning: { kind: "slug_model_failed", fallbackSlug } };
-		}
-
-		return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${result.formattedFailure}` };
-	} finally {
-		input.setStatus(undefined);
+	const prompt = buildSlugPrompt(snapshot);
+	const result = await deriveBranchSlug({ cwd: input.cwd, prompt, exec: input.exec });
+	if (result.ok) {
+		return { ok: true, baseSlug: result.baseSlug, source: result.source };
 	}
+
+	const fallbackSlug = fallbackSlugFromSnapshot(snapshot);
+	if (fallbackSlug) {
+		return { ok: true, baseSlug: fallbackSlug, source: "fallback", warning: { kind: "slug_model_failed", fallbackSlug } };
+	}
+
+	return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${result.formattedFailure}` };
 }
 
 function buildSlugPrompt(snapshot: AutobranchSnapshot): string {

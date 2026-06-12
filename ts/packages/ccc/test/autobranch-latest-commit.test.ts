@@ -28,7 +28,6 @@ function createSnapshot(branch = "feature/base"): PendingWorktreeSnapshot {
 
 function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	const calls: Array<{ command: string; args: string[] }> = [];
-	const status: string[] = [];
 	const upstreamMode = options.upstreamMode ?? "ahead";
 	const snapshot = createSnapshot(options.currentBranch ?? "feature/base");
 	const existingBranches = options.existingBranches ?? new Set<string>();
@@ -37,11 +36,6 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		cwd: "/repo",
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
-		setStatus: (message: string | undefined) => {
-			if (message !== undefined) {
-				status.push(message);
-			}
-		},
 		exec: async (command: string, args: string[]) => {
 			calls.push({ command, args });
 			if (command === "gt" && args[0] === "trunk") {
@@ -84,7 +78,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			return ok();
 		},
 	};
-	return { input, calls, status };
+	return { input, calls };
 }
 
 function piPrompt(calls: Array<{ command: string; args: string[] }>): string {
@@ -135,9 +129,6 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		cwd: "/repo",
 		plan: basePlan({ sourceBranch }),
 		now: () => 123,
-		setStatus: (message) => {
-			events.push(`status:${message ?? "clear"}`);
-		},
 		exec: async (command, args) => {
 			events.push(`exec:${command} ${args.join(" ")}`);
 			if (command === "git" && args[0] === "for-each-ref") {

@@ -68,11 +68,6 @@ function createHarness(options: HarnessOptions = {}) {
 			expect(preparedSnapshot.diff).toBe(snapshot.diff);
 			return prepareResult;
 		},
-		setStatus: (message) => {
-			if (message) {
-				events.push(`status:${message}`);
-			}
-		},
 		readFile: async (path) => {
 			readPaths.push(path);
 			const basename = path.split("/").pop() ?? path;

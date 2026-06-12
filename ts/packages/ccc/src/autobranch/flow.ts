@@ -15,7 +15,6 @@ import {
 } from "./preparation.ts";
 import { runAutobranchTransaction, type AutobranchTransactionResult } from "./transaction.ts";
 
-export const AUTOBRANCH_COMMAND_NAME = "code:autobranch";
 const GIT_TIMEOUT_MS = 30_000;
 
 export interface AutobranchFlowInput {
@@ -24,20 +23,14 @@ export interface AutobranchFlowInput {
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
 	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
-	notify: (message: string, level: "info" | "warning" | "error" | "success") => void;
-	setStatus: (message: string | undefined) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 	now?: (() => number) | undefined;
 }
 
 export type AutobranchFlowResult =
-	| {
-			ok: true;
-			branchName: string;
-			isCleanAfter: boolean;
-	  }
-	| { ok: false };
+	| { ok: true; summary: string; warnings: string[] }
+	| { ok: false; error: string };
 
 export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput): Promise<AutobranchFlowResult> {
 	const loaded = await loadPendingWorktreeSnapshot({
@@ -45,8 +38,7 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 		execGit: (args, timeout) => input.exec("git", args, input.cwd, timeout),
 	});
 	if (!loaded.ok) {
-		input.notify(formatAutobranchSnapshotError(loaded.error), "error");
-		return { ok: false };
+		return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };
 	}
 
 	const snapshot = loaded.snapshot;
@@ -56,8 +48,6 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 			args: input.args,
 			snapshot,
 			exec: input.exec,
-			notify: input.notify,
-			setStatus: input.setStatus,
 			now: input.now,
 		});
 	}
@@ -72,51 +62,39 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		snapshot,
 		exec: input.exec,
 		prepareCheckpointMessage: input.prepareCheckpointMessage,
-		setStatus: input.setStatus,
 		...(input.readFile ? { readFile: input.readFile } : {}),
 		...(input.stat ? { stat: input.stat } : {}),
 	});
 	if (!prepared.ok) {
-		input.notify(formatAutobranchPreparationFailure(prepared), "error");
-		return { ok: false };
+		return { ok: false, error: formatAutobranchPreparationFailure(prepared) };
 	}
 
-	for (const warning of prepared.warnings) {
-		input.notify(formatAutobranchPreparationWarning(warning), "warning");
-	}
-
+	const warnings = prepared.warnings.map(formatAutobranchPreparationWarning);
 	const transaction = await runAutobranchTransaction({
 		cwd: input.cwd,
 		branchName: prepared.plan.branchName,
 		checkpointMessage: prepared.plan.checkpointMessage,
 		exec: input.exec,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
-		setStatus: input.setStatus,
 		now: input.now,
 	});
 	if (!transaction.ok) {
-		input.notify(formatAutobranchTransactionFailure(transaction, prepared.plan.branchName), "error");
-		return { ok: false };
+		return { ok: false, error: formatAutobranchTransactionFailure(transaction, prepared.plan.branchName) };
 	}
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
 	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
 	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
 
-	input.notify(
-		[
+	return {
+		ok: true,
+		summary: [
 			`New branch: ${prepared.plan.branchName}${suffix}`,
 			`Stacked on: ${snapshot.branch}`,
 			`Commit: ${transaction.commitSummary}`,
 			isClean ? "Working directory is clean." : "Warning: working directory is not clean after checkpoint.",
 		].join("\n"),
-		isClean ? "success" : "warning",
-	);
-
-	return {
-		ok: true,
-		branchName: prepared.plan.branchName,
-		isCleanAfter: isClean,
+		warnings,
 	};
 }
 
@@ -126,7 +104,7 @@ function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
 		return `Not inside a git repository.\n${details}`;
 	}
 	if (error.kind === "detached_head") {
-		return `Detached HEAD; check out a branch before running /${AUTOBRANCH_COMMAND_NAME}.\n${details}`;
+		return `Detached HEAD; check out a branch before autobranching.\n${details}`;
 	}
 	if (error.kind === "status_failed") {
 		return `Could not read git status.\n${details}`;

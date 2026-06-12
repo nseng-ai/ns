@@ -85,7 +85,7 @@ function createHarness(options: HarnessOptions = {}) {
 			events.push("commit");
 			return { summary: "abc123 [cp] Update autoslot tests" };
 		},
-		notify: (message, level) => notifications.push({ message, level }),
+		notify: (message, level) => notifications.push({ message, level: level ?? "info" }),
 		setStatus: (message) => statuses.push(message),
 	};
 
