@@ -240,7 +240,7 @@ export function formatPostSubmitFailureOutput({
 		"",
 		formatOutputSection("stdout", submitted.output.stdout),
 		formatOutputSection("stderr", submitted.output.stderr),
-		formatBufferedCommandSection("$ gt pr", currentPr.output, CURRENT_PR_TIMEOUT_MS),
+		formatBufferedCommandSection("$ gt branch info --no-interactive", currentPr.output, CURRENT_PR_TIMEOUT_MS),
 		...(currentPr.kind === "no_current_pr" ? ["", ...formatNoCurrentPrRecoveryGuidance()] : []),
 	]
 		.filter(Boolean)
