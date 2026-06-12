@@ -3,15 +3,24 @@ import { z } from "zod";
 import { isRecord } from "@asdl/core/primitives";
 
 import { BRANCH_CREATION_METHODS, type BranchContextEvidence } from "./branch-context-creation.ts";
+import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 
 export const BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE = "branch-context-output";
 
-export type BranchContextOutputStatus = "usage" | "dry-run" | "success" | "failure" | "cancelled";
+export type BranchContextOutputDetails =
+	| { status: "usage" }
+	| { status: "dry-run"; targetBranch: string; key: string }
+	| { status: "success"; evidence: BranchContextEvidence }
+	| { status: "loaded-plan" }
+	| { status: "reuse" }
+	| { status: "failure"; error: string }
+	| { status: "cancelled" };
 
-export interface BranchContextOutputDetails {
-	status: BranchContextOutputStatus;
-	evidence?: BranchContextEvidence;
-	error?: string;
+export interface BranchContextOutputMessage {
+	customType: typeof BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE;
+	content: string;
+	display: true;
+	details: BranchContextOutputDetails;
 }
 
 const nonEmptyEvidenceStringSchema = z.string().min(1);
@@ -34,6 +43,15 @@ const successfulBranchContextOutputDetailsSchema = z.object({
 	evidence: branchContextEvidenceSchema,
 });
 
+export function buildBranchContextOutputMessage(content: string, details: BranchContextOutputDetails): BranchContextOutputMessage {
+	return {
+		customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+		content,
+		display: true,
+		details,
+	};
+}
+
 export function extractBranchContextEvidence(details: unknown): BranchContextEvidence | undefined {
 	const result = successfulBranchContextOutputDetailsSchema.safeParse(details);
 	if (!result.success) {
@@ -54,6 +72,16 @@ export function extractBranchContextEvidenceFromSessionEntry(entry: unknown): Br
 		return undefined;
 	}
 	return extractBranchContextEvidence(message.details);
+}
+
+export function findLatestBranchContextEvidence(entries: readonly unknown[]): BranchContextEvidence | undefined {
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const evidence = extractBranchContextEvidenceFromSessionEntry(entries[index]);
+		if (evidence !== undefined && evidence.namespace === BRANCH_CONTEXT_NAMESPACE) {
+			return evidence;
+		}
+	}
+	return undefined;
 }
 
 function extractMessageFromEntry(entry: unknown): Record<string, unknown> | undefined {

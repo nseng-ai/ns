@@ -1,22 +1,23 @@
 import { Text, type Component } from "@earendil-works/pi-tui";
-import { formatBranchContextUpAndImplFollowUpFlow, formatImplBranchContextCommand, runBranchContextUpAndImplLaunch } from "@asdl/ccc/branch-context-up-and-impl";
+import { formatBranchContextUpAndImplFollowUpFlow, runBranchContextUpAndImplLaunch } from "@asdl/ccc/branch-context-up-and-impl";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_PLAN_KEY,
-	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+	buildBranchContextOutputMessage,
 	buildImplBranchContextPrompt,
 	createBranchContextContext,
 	createBranchContextFromFile as createBranchContextFromFilePrimitive,
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatExistingBranchContextReuse,
+	formatImplBranchContextCommand,
+	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatLoadedAttachedPlanEvidence,
 	formatBranchContextEvidence,
 	loadBranchContextPlan,
 	resolveExistingBranchContextReuse,
 	type BranchCreationMethod,
 	type ExistingBranchContextReuse,
-	type LoadedAttachedPlan,
 	type PlanContentSlugEvidence,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
@@ -40,11 +41,10 @@ const WRITE_PLAN_COMMAND_NAME = "enriched-plan:save";
 const WRITE_GRILLED_PLAN_COMMAND_NAME = "enriched-plan:grill-and-save";
 const CREATE_BRANCH_CONTEXT_COMMAND_NAME = "branch-context:from-plan";
 const UP_AND_IMPL_COMMAND_NAME = "branch-context:upstack-impl-session";
-const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "branch-context:impl";
 const WRITE_PLAN_TOOL_STATUS_KEY = "enriched-plan:save";
 const BRANCH_CONTEXT_STATUS_KEY = "branch-context:from-plan";
 const UP_AND_IMPL_STATUS_KEY = "branch-context:upstack-impl-session";
-const IMPL_BRANCH_CONTEXT_STATUS_KEY = "branch-context:impl";
+const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -234,7 +234,7 @@ The saved-plan filename is only a locator. If the model cannot derive and valida
 
 export const UP_AND_IMPL_USAGE = `Usage: /branch-context:upstack-impl-session [options] [absolute-or-home-plan-file.md]
 
-Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /branch-context:impl for the attached plan in that new session.
+Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run ${formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)} for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
@@ -248,7 +248,7 @@ The current branch must be trunk or a Graphite-tracked branch; otherwise this co
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
-This command intentionally models the manual flow: /branch-context:from-plan --graphite, git checkout <branch>, /new, then /branch-context:impl in the new Pi session.`;
+This command intentionally models the manual flow: /branch-context:from-plan --graphite, git checkout <branch>, /new, then ${formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)} in the new Pi session.`;
 
 const WRITE_PLAN_PROMPT_NAME = "plans-write";
 const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
@@ -672,7 +672,7 @@ async function handleImplBranchContextCommand(
 			planStoreRoot: resolvePlanStoreRootOption(options),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
-		presentBranchContextMessage(pi, ctx, formatLoadedAttachedPlanEvidence(plan), { status: "success", loadedPlan: plan }, "info");
+		presentBranchContextMessage(pi, ctx, formatLoadedAttachedPlanEvidence(plan), { status: "loaded-plan" }, "info");
 		pi.sendUserMessage(buildImplBranchContextPrompt(plan));
 	} catch (error) {
 		presentBranchContextFailure(pi, ctx, "Failed to load branch-context plan.", error);
@@ -723,7 +723,7 @@ async function handleCreateBranchContextCommand(
 			pi,
 			ctx,
 			`Dry run: no branch was created and no plan was attached.\n\n${previewText}`,
-			{ status: "dry-run", preview },
+			{ status: "dry-run", targetBranch: preview.targetBranch, key: preview.key },
 			"info",
 		);
 		return;
@@ -732,9 +732,9 @@ async function handleCreateBranchContextCommand(
 	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "creating branch and attaching plan…");
 	try {
 		const evidence = await createBranchContextFromPreview({ pi, preview, ctx, operations: resolveBranchContextOperations(options) });
-		presentBranchContextMessage(pi, ctx, formatBranchContextEvidence(evidence), { status: "success", preview, evidence }, "info");
+		presentBranchContextMessage(pi, ctx, formatBranchContextEvidence(evidence), { status: "success", evidence }, "info");
 	} catch (error) {
-		presentBranchContextFailure(pi, ctx, "Failed to create branch context and attach the plan.", error, preview);
+		presentBranchContextFailure(pi, ctx, "Failed to create branch context and attach the plan.", error);
 	} finally {
 		ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, undefined);
 	}
@@ -785,7 +785,7 @@ async function handleUpAndImplCommand(
 			pi,
 			ctx,
 			formatUpAndImplDryRunMessage(formatCreateBranchContextPreview(preview), preview.targetBranch, preview.key),
-			{ status: "dry-run", preview },
+			{ status: "dry-run", targetBranch: preview.targetBranch, key: preview.key },
 			"info",
 		);
 		return;
@@ -797,7 +797,7 @@ async function handleUpAndImplCommand(
 		evidence = await createBranchContextFromPreview({ pi, preview, ctx, operations: resolveBranchContextOperations(options) });
 	} catch (error) {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
-		presentBranchContextFailure(pi, ctx, "Failed to create branch context and attach the plan.", error, preview);
+		presentBranchContextFailure(pi, ctx, "Failed to create branch context and attach the plan.", error);
 		return;
 	}
 
@@ -807,8 +807,7 @@ async function handleUpAndImplCommand(
 		mode: "created",
 		target: evidence,
 		successBody: formatBranchContextEvidence(evidence),
-		details: { preview, evidence },
-		failurePreview: preview,
+		outputDetails: { status: "success", evidence },
 	});
 }
 
@@ -855,7 +854,7 @@ async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReus
 			pi,
 			ctx,
 			formatUpAndImplDryRunMessage(formatExistingBranchContextReuse(reuse), reuse.branch, reuse.key),
-			{ status: "dry-run", reuse },
+			{ status: "dry-run", targetBranch: reuse.branch, key: reuse.key },
 			"info",
 		);
 		return;
@@ -867,7 +866,7 @@ async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReus
 		mode: "reused",
 		target: reuse,
 		successBody: `Reusing existing branch context and attached plan.\n\n${formatExistingBranchContextReuse(reuse)}`,
-		details: { reuse },
+		outputDetails: { status: "reuse" },
 	});
 }
 
@@ -912,15 +911,14 @@ interface UpAndImplLaunchTailOptions {
 	mode: UpAndImplMode;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	successBody: string;
-	details: Pick<BranchContextMessageDetails, "preview" | "evidence" | "reuse">;
-	failurePreview?: CreateBranchContextPreview;
+	outputDetails: BranchContextOutputDetails;
 }
 
 async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Promise<void> {
 	const { pi, ctx, mode, target } = options;
-	presentBranchContextMessage(pi, ctx, options.successBody, { status: "success", ...options.details }, "info");
+	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
-	const launchResult = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: UP_AND_IMPL_STATUS_KEY, evidence: target });
+	const launchResult = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: UP_AND_IMPL_STATUS_KEY, target });
 	if (launchResult.type === "launched") {
 		return;
 	}
@@ -929,13 +927,13 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 			pi,
 			ctx,
 			formatUpAndImplCancelledMessage(mode, launchResult.branch, launchResult.key),
-			{ status: "cancelled", ...options.details },
+			{ status: "cancelled" },
 			"warning",
 		);
 		return;
 	}
 
-	presentBranchContextFailure(pi, ctx, formatUpAndImplLaunchFailureTitle(mode, launchResult.phase), launchResult.message, options.failurePreview);
+	presentBranchContextFailure(pi, ctx, formatUpAndImplLaunchFailureTitle(mode, launchResult.phase), launchResult.message);
 }
 
 function formatUpAndImplDryRunMessage(body: string, branch: string, key: string): string {
@@ -1168,18 +1166,6 @@ function formatSavedPlanFileEvidenceWithSlugModel(
 	return `${formatSavedPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
 
-interface BranchContextMessageDetails extends BranchContextOutputDetails {
-	preview?: CreateBranchContextPreview;
-	loadedPlan?: LoadedAttachedPlan;
-	/**
-	 * Reuse successes intentionally carry no `evidence`: an ExistingBranchContextReuse has only
-	 * branch/key/source and lacks the slug/commit/sourceFile fields the evidence schema in
-	 * `@asdl/branch-context` session-artifact requires, so `extractBranchContextEvidence` consumers
-	 * (session-candidate scanning, `ccc:workspace:open-branch` inference) do not see them.
-	 */
-	reuse?: ExistingBranchContextReuse;
-}
-
 async function resolveSelectedSavedPlanFile(
 	pi: ExtensionAPI,
 	args: CreateBranchContextArgs,
@@ -1232,35 +1218,20 @@ function deriveBranchContextTargetBranch(
 	return deriveTargetBranch(undefined, slug);
 }
 
-function presentBranchContextFailure(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	title: string,
-	error: unknown,
-	preview?: CreateBranchContextPreview,
-): void {
+function presentBranchContextFailure(pi: ExtensionAPI, ctx: CommandContext, title: string, error: unknown): void {
 	const message = error instanceof Error ? error.message : String(error);
-	const details: BranchContextMessageDetails = { status: "failure", error: message };
-	if (preview !== undefined) {
-		details.preview = preview;
-	}
-	presentBranchContextMessage(pi, ctx, `${title}\n\n${message}`, details, "error");
+	presentBranchContextMessage(pi, ctx, `${title}\n\n${message}`, { status: "failure", error: message }, "error");
 }
 
 function presentBranchContextMessage(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	content: string,
-	details: BranchContextMessageDetails,
+	details: BranchContextOutputDetails,
 	level: NotifyLevel,
 ): void {
 	if (pi.sendMessage) {
-		pi.sendMessage({
-			customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
-			content,
-			display: true,
-			details,
-		});
+		pi.sendMessage(buildBranchContextOutputMessage(content, details));
 		return;
 	}
 

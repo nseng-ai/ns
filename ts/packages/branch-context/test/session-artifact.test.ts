@@ -3,9 +3,12 @@ import { describe, expect, test } from "vitest";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+	buildBranchContextOutputMessage,
 	extractBranchContextEvidence,
 	extractBranchContextEvidenceFromSessionEntry,
+	findLatestBranchContextEvidence,
 	formatBranchContextEvidence,
+	type BranchContextEvidence,
 } from "@asdl/branch-context";
 
 const EVIDENCE = {
@@ -24,6 +27,15 @@ const EVIDENCE = {
 describe("branch-context session artifact", () => {
 	test("defines the branch-context output message type", () => {
 		expect(BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE).toBe("branch-context-output");
+	});
+
+	test("builds canonical branch-context output messages", () => {
+		expect(buildBranchContextOutputMessage("Created branch context.", { status: "success", evidence: EVIDENCE })).toEqual({
+			customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+			content: "Created branch context.",
+			display: true,
+			details: { status: "success", evidence: EVIDENCE },
+		});
 	});
 
 	test("extracts success evidence from output details", () => {
@@ -71,6 +83,24 @@ describe("branch-context session artifact", () => {
 		};
 
 		expect(extractBranchContextEvidenceFromSessionEntry(entry)).toEqual(EVIDENCE);
+	});
+
+	test("finds the latest branch-context evidence with the canonical namespace", () => {
+		const older = { ...EVIDENCE, branch: "branch-contexts/older" };
+		const wrongNamespace = { ...EVIDENCE, branch: "branch-contexts/wrong-namespace", namespace: "other" };
+		const latest = { ...EVIDENCE, branch: "branch-contexts/latest" };
+		const entryWith = (evidence: BranchContextEvidence): unknown => ({
+			type: "message",
+			message: {
+				role: "custom",
+				customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+				display: true,
+				content: "Created branch context and attached plan.",
+				details: { status: "success", evidence },
+			},
+		});
+
+		expect(findLatestBranchContextEvidence([entryWith(older), entryWith(latest), entryWith(wrongNamespace)])).toEqual(latest);
 	});
 
 	test("rejects entries that are not branch-context output messages", () => {

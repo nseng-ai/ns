@@ -1,6 +1,6 @@
-import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
+import { formatImplBranchContextCommand, type BranchContextEvidence } from "@asdl/branch-context";
 import type { ExecResult } from "@asdl/core/exec";
-import { BRANCH_CONTEXT_PLAN_KEY, type BranchContextEvidence } from "@asdl/branch-context";
+import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 
 export interface BranchContextUpAndImplHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
@@ -29,7 +29,7 @@ export interface BranchContextUpAndImplLaunchOptions {
 	host: BranchContextUpAndImplHost;
 	ctx: BranchContextUpAndImplContext;
 	statusKey: string;
-	evidence: Pick<BranchContextEvidence, "branch" | "key">;
+	target: Pick<BranchContextEvidence, "branch" | "key">;
 	signal?: AbortSignal;
 }
 
@@ -43,7 +43,7 @@ export type BranchContextUpAndImplLaunchResult =
 const CHECKOUT_TIMEOUT_MS = 30_000;
 
 export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAndImplLaunchOptions): Promise<BranchContextUpAndImplLaunchResult> {
-	const { branch, key } = options.evidence;
+	const { branch, key } = options.target;
 	const statusUpdater = buildStatusUpdater(options);
 	let isReplacementSessionActive = false;
 	let phase: BranchContextUpAndImplLaunchPhase = "checkout";
@@ -63,7 +63,7 @@ export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAn
 		const newSessionOptions: BranchContextUpAndImplNewSessionOptions = {
 			withSession: async (newCtx) => {
 				isReplacementSessionActive = true;
-				await newCtx.sendUserMessage(formatImplBranchContextCommand(options.evidence.key));
+				await newCtx.sendUserMessage(formatImplBranchContextCommand(key));
 			},
 		};
 		if (parentSession !== undefined) {
@@ -91,11 +91,6 @@ export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAn
 	} finally {
 		setLaunchStatus(statusUpdater, undefined);
 	}
-}
-
-export function formatImplBranchContextCommand(key: string): string {
-	if (key === BRANCH_CONTEXT_PLAN_KEY) return "/branch-context:impl";
-	return `/branch-context:impl ${key}`;
 }
 
 export function formatBranchContextUpAndImplFollowUpFlow(targetBranch: string, key: string): string {

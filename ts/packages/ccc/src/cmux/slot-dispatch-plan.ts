@@ -2,17 +2,19 @@ import { basename } from "node:path";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
-	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 	buildBranchContextCreateOperation,
+	buildBranchContextOutputMessage,
 	createBranchContextContext,
 	createBranchContextFromFile,
 	derivePlanContentSlug,
 	formatBranchContextEvidence,
 	formatBranchContextCreateFailure,
 	formatBranchContextCreatePreview,
+	formatImplBranchContextCommand,
 	resolveBranchContextCreatePreviewContext,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
+	type BranchContextOutputDetails,
 } from "@asdl/branch-context";
 import {
 	findLatestSessionSavedPlanFile,
@@ -23,7 +25,6 @@ import {
 import { formatCommand, formatShellArg } from "@asdl/core/exec";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
-import { formatImplBranchContextCommand } from "../branch-context-up-and-impl.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "../slot-checkout.ts";
 import { repositoryNameFromPath } from "./worktree-description.ts";
@@ -69,8 +70,7 @@ interface FormatDryRunOptions {
 }
 
 interface FormatFinalSuccessOptions {
-	targetBranch: string;
-	key: string;
+	operation: Pick<BranchContextCreateOperation, "branch" | "key">;
 	target: SlotCheckoutTarget;
 	launchOptions: PiLaunchOptions;
 }
@@ -142,7 +142,7 @@ async function handleCommand(
 				pi,
 				ctx,
 				formatDryRun({ plan: selectedPlan, checkout, operation, branchContextPreview, launchOptions }),
-				{ status: "dry-run", selectedPlan, targetBranch: operation.branch, key: operation.key, operation },
+				{ status: "dry-run", targetBranch: operation.branch, key: operation.key },
 				"info",
 			);
 			return;
@@ -236,19 +236,15 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	presentBranchContextMessage(pi, ctx, formatBranchContextEvidence(evidence), { status: "success", evidence }, "info");
 
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launched = await openBranchInCmuxSlot({
+	await openBranchInCmuxSlot({
 		pi,
 		cwd: checkout.directory.repoRoot,
 		branchName: operation.branch,
-		command: formatPiLaunchCommand(operation.key, launchOptions),
+		command: formatPiLaunchCommand(operation, launchOptions),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		onStatus: (message) => setStatus(ctx, message),
-		successMessage: (target) =>
-			formatFinalSuccess({ targetBranch: operation.branch, key: operation.key, target, launchOptions }),
+		successMessage: (target) => formatFinalSuccess({ operation, target, launchOptions }),
 	});
-	if ("error" in launched) {
-		return;
-	}
 }
 
 type PresentLevel = Exclude<NotifyLevel, "success">;
@@ -257,16 +253,11 @@ function presentBranchContextMessage(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	content: string,
-	details: unknown,
+	details: BranchContextOutputDetails,
 	level: PresentLevel,
 ): void {
 	if (pi.sendMessage) {
-		pi.sendMessage({
-			customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
-			content,
-			display: true,
-			details,
-		});
+		pi.sendMessage(buildBranchContextOutputMessage(content, details));
 		return;
 	}
 
@@ -283,7 +274,7 @@ function setStatus(ctx: CommandContext, value: string | undefined): void {
 
 function formatDryRun(options: FormatDryRunOptions): string {
 	const { plan, checkout, operation, branchContextPreview, launchOptions } = options;
-	const launchCommand = formatPiLaunchCommand(operation.key, launchOptions);
+	const launchCommand = formatPiLaunchCommand(operation, launchOptions);
 	const description = `${repositoryNameFromPath(checkout.directory.repoRoot) ?? basename(checkout.directory.repoRoot)}/${operation.branch}`;
 	return [
 		"Dry run: no branch was created, no plan was attached, and no cmux workspace was opened.",
@@ -317,19 +308,19 @@ function formatCccBranchContextCreateFailure(operation: BranchContextCreateOpera
 }
 
 function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
-	const { targetBranch, key, target, launchOptions } = options;
+	const { operation, target, launchOptions } = options;
 	return [
 		"Dispatched plan in cmux workspace.",
-		`Branch: ${targetBranch}`,
+		`Branch: ${operation.branch}`,
 		`Slot: ${target.slotName}`,
 		`Worktree: ${target.worktreePath}`,
-		`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${key}`,
-		`Command: ${formatPiLaunchCommand(key, launchOptions)}`,
+		`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${operation.key}`,
+		`Command: ${formatPiLaunchCommand(operation, launchOptions)}`,
 	].join("\n");
 }
 
-function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): string {
-	return buildPiLaunchCommand(formatImplBranchContextCommand(key), launchOptions);
+function formatPiLaunchCommand(operation: Pick<BranchContextCreateOperation, "key">, launchOptions: PiLaunchOptions): string {
+	return buildPiLaunchCommand(formatImplBranchContextCommand(operation.key), launchOptions);
 }
 
 function formatUnexpectedError(error: unknown): string {

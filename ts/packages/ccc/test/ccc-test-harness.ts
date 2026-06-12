@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
+import { BRANCH_CONTEXT_PLAN_KEY } from "@asdl/branch-context";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, normalizeRepoOriginUrl } from "@asdl/plans";
 import type {
 	AgentEndContext,
@@ -23,7 +24,7 @@ export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";
 export const BRANCH = "cmux-summary-hooks";
 export const PLAN_SLUG = "cmux-summary-hooks";
-export const PLAN_KEY = "plan.md";
+export const PLAN_KEY = BRANCH_CONTEXT_PLAN_KEY;
 export const SAVED_PLAN_FILENAME = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "source-branch";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";

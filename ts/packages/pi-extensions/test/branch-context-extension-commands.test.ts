@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { join, resolve } from "node:path";
 
-import { BRANCH_CONTEXT_NAMESPACE } from "@asdl/branch-context";
+import { BRANCH_CONTEXT_NAMESPACE, formatImplBranchContextCommand } from "@asdl/branch-context";
 import { NoSavedPlanAvailableError } from "@asdl/plans";
 import registerBranchContextExtension, {
 	CREATE_BRANCH_CONTEXT_USAGE,
@@ -43,6 +43,8 @@ import {
 } from "./branch-context-extension-support.ts";
 
 const CUSTOM_PLAN_KEY = "custom-plan.md";
+const DEFAULT_IMPL_COMMAND = formatImplBranchContextCommand(PLAN_KEY);
+const CUSTOM_IMPL_COMMAND = formatImplBranchContextCommand(CUSTOM_PLAN_KEY);
 
 function missingPlanStoreError(): Error {
 	return new NoSavedPlanAvailableError({
@@ -752,7 +754,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Created branch context and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 		expect(context.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
 		expect(events.indexOf("new-session")).toBeGreaterThan(events.indexOf("status"));
 		expect(events.indexOf("replacement-send")).toBeGreaterThan(events.indexOf("new-session"));
@@ -791,7 +793,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${IMPL_BRANCH}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
 
 	test("branch-context:upstack-impl-session reuses a non-default session-created attached plan", async () => {
@@ -819,7 +821,7 @@ describe("plan workflow commands", () => {
 
 		pi.assertDone();
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${CUSTOM_PLAN_KEY}`);
-		expect(context.replacementUserMessages).toEqual([`/branch-context:impl ${CUSTOM_PLAN_KEY}`]);
+		expect(context.replacementUserMessages).toEqual([CUSTOM_IMPL_COMMAND]);
 	});
 
 	test("branch-context:upstack-impl-session reuses an explicit branch when the local plan store is missing", async () => {
@@ -843,7 +845,7 @@ describe("plan workflow commands", () => {
 			{ command: "git", args: ["checkout", explicitBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: explicit --branch");
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
 
 	test("branch-context:upstack-impl-session dry-run describes explicit branch reuse without checkout", async () => {
@@ -868,7 +870,7 @@ describe("plan workflow commands", () => {
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("Dry run: no branch would be created, no plan would be attached, no checkout would happen");
 		expect(content).toContain(`git checkout ${explicitBranch}`);
-		expect(content).toContain("/branch-context:impl");
+		expect(content).toContain(DEFAULT_IMPL_COMMAND);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
@@ -898,7 +900,7 @@ describe("plan workflow commands", () => {
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain(`Branch Memory key: ${CUSTOM_PLAN_KEY}`);
 		expect(content).toContain(`git checkout ${IMPL_BRANCH}`);
-		expect(content).toContain(`/branch-context:impl ${CUSTOM_PLAN_KEY}`);
+		expect(content).toContain(CUSTOM_IMPL_COMMAND);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
@@ -924,7 +926,7 @@ describe("plan workflow commands", () => {
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: current branch");
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
 
 	test("branch-context:upstack-impl-session fails clearly for ambiguous session candidates", async () => {
@@ -1018,7 +1020,7 @@ describe("plan workflow commands", () => {
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: current branch");
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
 
 	test("branch-context:upstack-impl-session aggregates session and current-branch failures into one error", async () => {
@@ -1070,7 +1072,7 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
 
 	test("branch-context:upstack-impl-session reports created-path cancellation with manual recovery", async () => {
@@ -1086,7 +1088,7 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		const content = pi.sentMessages.at(-1)?.content ?? "";
 		expect(content).toContain(
-			`Created branch context, attached the plan, and checked out ${PLAN_SLUG}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`,
+			`Created branch context, attached the plan, and checked out ${PLAN_SLUG}, but starting the implementation session was cancelled. Run ${DEFAULT_IMPL_COMMAND} to continue.`,
 		);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
@@ -1118,7 +1120,7 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		const content = pi.sentMessages.at(-1)?.content ?? "";
 		expect(content).toContain(
-			`Reused existing branch context, verified the attached plan, and checked out ${IMPL_BRANCH}, but starting the implementation session was cancelled. Run /branch-context:impl ${CUSTOM_PLAN_KEY} to continue.`,
+			`Reused existing branch context, verified the attached plan, and checked out ${IMPL_BRANCH}, but starting the implementation session was cancelled. Run ${CUSTOM_IMPL_COMMAND} to continue.`,
 		);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
@@ -1139,7 +1141,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`git checkout ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).not.toContain("gt up");
 		expect(pi.sentMessages[0]?.content).toContain("/new");
-		expect(pi.sentMessages[0]?.content).toContain("/branch-context:impl");
+		expect(pi.sentMessages[0]?.content).toContain(DEFAULT_IMPL_COMMAND);
 	});
 
 	test("branch-context:upstack-impl-session surfaces create failures before checkout", async () => {
@@ -1191,7 +1193,7 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({ command: "git", args: ["checkout", PLAN_SLUG] });
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
 
 	test("branch-context:from-plan --plain-git override keeps the slug branch under the Graphite default", async () => {
