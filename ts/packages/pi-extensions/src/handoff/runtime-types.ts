@@ -5,6 +5,7 @@ export type { ExecResult } from "@asdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
+export type ExtensionMode = "tui" | "rpc" | "json" | "print";
 
 export interface AutocompleteItem {
 	value: string;
@@ -74,7 +75,7 @@ export type MessageRenderer = (message: CustomMessage, options: { expanded: bool
 export interface BaseRuntimeContext {
 	cwd: string;
 	hasUI: boolean;
-	mode?: "tui" | "rpc" | "json" | "print";
+	mode: ExtensionMode;
 	model?: ModelInfo;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;

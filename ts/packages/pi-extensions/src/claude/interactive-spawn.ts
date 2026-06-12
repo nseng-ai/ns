@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 
-import type { InteractiveClaudeInvocation, InteractiveClaudeRunResult } from "./handoff-command.ts";
+import type { InteractiveClaudeInvocation, InteractiveClaudeRunResult } from "./interactive-claude.ts";
 
 export function runInteractiveClaudeWithSpawnSync(invocation: InteractiveClaudeInvocation): InteractiveClaudeRunResult {
 	const ignoreSigint = (): void => {};

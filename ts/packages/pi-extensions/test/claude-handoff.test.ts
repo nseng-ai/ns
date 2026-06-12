@@ -16,24 +16,27 @@ import {
 	ROOT,
 	branchStep,
 	createContext,
+	getRegisteredCommand,
+	getRegisteredTool,
 	skillCommandInfo,
 	step,
 	withTempSkill,
 } from "./handoff-test-fakes.ts";
 
 interface FakeRunClaude {
-	(invocation: InteractiveClaudeInvocation): InteractiveClaudeRunResult;
+	run(invocation: InteractiveClaudeInvocation): InteractiveClaudeRunResult;
 	readonly invocations: InteractiveClaudeInvocation[];
 }
 
 function fakeRunClaude(result: InteractiveClaudeRunResult): FakeRunClaude {
 	const invocations: InteractiveClaudeInvocation[] = [];
-	const runClaude = ((invocation: InteractiveClaudeInvocation): InteractiveClaudeRunResult => {
-		invocations.push({ ...invocation, env: { ...invocation.env } });
-		return result;
-	}) as FakeRunClaude;
-	Object.defineProperty(runClaude, "invocations", { value: invocations });
-	return runClaude;
+	return {
+		invocations,
+		run(invocation: InteractiveClaudeInvocation): InteractiveClaudeRunResult {
+			invocations.push({ ...invocation, env: { ...invocation.env } });
+			return result;
+		},
+	};
 }
 
 interface RegisterTestCommandOptions {
@@ -43,7 +46,7 @@ interface RegisterTestCommandOptions {
 
 function registerTestCommand(pi: FakePi, options: RegisterTestCommandOptions = {}): FakeRunClaude {
 	const runClaude = options.runClaude ?? fakeRunClaude({ type: "exited", code: 0, signal: null });
-	registerClaudeHandoffCommand(pi, { runClaude, env: options.env ?? {} });
+	registerClaudeHandoffCommand(pi, { runClaude: runClaude.run, env: options.env ?? {} });
 	return runClaude;
 }
 
@@ -54,24 +57,19 @@ describe("claude handoff command", () => {
 
 		expect([...pi.commands.keys()]).toEqual([CLAUDE_HANDOFF_COMMAND_NAME]);
 		expect([...pi.tools.keys()]).toEqual([CLAUDE_HANDOFF_LAUNCH_TOOL_NAME]);
-		expect(pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME)?.description).toBe(
+		expect(getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME).description).toBe(
 			"Create a handoff, then pick it up in an interactive Claude Code session.",
 		);
 	});
 
 	test.each([
 		{ name: "rpc mode", options: { mode: "rpc" as const, hasCustomUi: true } },
-		{ name: "missing mode", options: { hasCustomUi: true } },
 		{ name: "missing custom UI", options: { mode: "tui" as const, hasCustomUi: false } },
 	])("refuses command outside an interactive TUI: $name", async ({ options }) => {
 		const pi = new FakePi();
 		const runClaude = registerTestCommand(pi);
 		const context = createContext(options);
-		const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
-		expect(command).toBeDefined();
-		if (command === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_COMMAND_NAME} was not registered`);
-		}
+		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 		await command.handler("focus", context.ctx);
 
@@ -92,11 +90,7 @@ describe("claude handoff command", () => {
 			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
 			registerTestCommand(pi);
 			const context = createContext({ mode: "tui", hasCustomUi: true });
-			const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
-			expect(command).toBeDefined();
-			if (command === undefined) {
-				throw new Error(`${CLAUDE_HANDOFF_COMMAND_NAME} was not registered`);
-			}
+			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 			await command.handler("handoff the auth work", context.ctx);
 
@@ -118,17 +112,29 @@ describe("claude handoff command", () => {
 		const pi = new FakePi([branchStep()]);
 		registerTestCommand(pi);
 		const context = createContext({ mode: "tui", hasCustomUi: true, inputResponse: "continue from handoff" });
-		const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
-		expect(command).toBeDefined();
-		if (command === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_COMMAND_NAME} was not registered`);
-		}
+		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 		await command.handler("", context.ctx);
 
 		pi.assertDone();
 		expect(context.inputs).toEqual([{ title: "What should the future session continue from this handoff?", placeholder: undefined }]);
 		expect(pi.sentUserMessages[0]).toContain("continue from handoff");
+	});
+
+	test("command validates continuation focus before creating prompt", async () => {
+		const pi = new FakePi([branchStep()]);
+		const runClaude = registerTestCommand(pi);
+		const context = createContext({ mode: "tui", hasCustomUi: true });
+		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
+
+		await command.handler("!!!", context.ctx);
+
+		pi.assertDone();
+		expect(runClaude.invocations).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(context.notifications).toEqual([
+			{ message: "Continuation focus must contain at least one letter or number.", level: "error" },
+		]);
 	});
 
 	test.each([
@@ -138,11 +144,7 @@ describe("claude handoff command", () => {
 		const pi = new FakePi([branch]);
 		const runClaude = registerTestCommand(pi);
 		const context = createContext({ mode: "tui", hasCustomUi: true });
-		const command = pi.commands.get(CLAUDE_HANDOFF_COMMAND_NAME);
-		expect(command).toBeDefined();
-		if (command === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_COMMAND_NAME} was not registered`);
-		}
+		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 		await command.handler("focus", context.ctx);
 
@@ -155,15 +157,17 @@ describe("claude handoff command", () => {
 	});
 
 	test("launch tool verifies the handoff exists and launches Claude with pickup instructions", async () => {
-		const env = { PATH: "/bin", HOME: "/home/me", ANTHROPIC_API_KEY: "secret", ANTHROPIC_AUTH_TOKEN: "token" };
+		const env = {
+			PATH: "/bin",
+			HOME: "/home/me",
+			ANTHROPIC_API_KEY: "secret",
+			ANTHROPIC_AUTH_TOKEN: "token",
+			ANTHROPIC_BASE_URL: "https://anthropic.example",
+		};
 		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
 		const runClaude = registerTestCommand(pi, { runClaude: fakeRunClaude({ type: "exited", code: 0, signal: null }), env });
 		const context = createContext({ mode: "tui", hasCustomUi: true });
-		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} was not registered`);
-		}
+		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 
 		const result = await tool.execute("tool-call", { branch: BRANCH, slug: "fix-auth-flow" }, undefined, undefined, context.ctx);
 
@@ -179,7 +183,13 @@ describe("claude handoff command", () => {
 		expect(runClaude.invocations[0]?.prompt).toContain(`/handoff:pickup --branch ${BRANCH} fix-auth-flow`);
 		expect(runClaude.invocations[0]?.prompt).toContain("Do not create a new handoff");
 		expect(runClaude.invocations[0]?.env).toEqual({ PATH: "/bin", HOME: "/home/me" });
-		expect(env).toEqual({ PATH: "/bin", HOME: "/home/me", ANTHROPIC_API_KEY: "secret", ANTHROPIC_AUTH_TOKEN: "token" });
+		expect(env).toEqual({
+			PATH: "/bin",
+			HOME: "/home/me",
+			ANTHROPIC_API_KEY: "secret",
+			ANTHROPIC_AUTH_TOKEN: "token",
+			ANTHROPIC_BASE_URL: "https://anthropic.example",
+		});
 	});
 
 	test.each([
@@ -189,11 +199,7 @@ describe("claude handoff command", () => {
 		const pi = new FakePi();
 		const runClaude = registerTestCommand(pi);
 		const context = createContext(options);
-		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} was not registered`);
-		}
+		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 
 		const result = await tool.execute("tool-call", { branch: BRANCH, slug: "fix-auth-flow" }, undefined, undefined, context.ctx);
 
@@ -207,11 +213,7 @@ describe("claude handoff command", () => {
 		const pi = new FakePi();
 		const runClaude = registerTestCommand(pi);
 		const context = createContext({ mode: "tui", hasCustomUi: true });
-		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} was not registered`);
-		}
+		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 
 		const result = await tool.execute("tool-call", { branch: BRANCH, slug: "Bad.md" }, undefined, undefined, context.ctx);
 
@@ -236,11 +238,7 @@ describe("claude handoff command", () => {
 		const pi = new FakePi([check]);
 		const runClaude = registerTestCommand(pi);
 		const context = createContext({ mode: "tui", hasCustomUi: true });
-		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} was not registered`);
-		}
+		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 
 		const result = await tool.execute("tool-call", { branch: BRANCH, slug: "fix-auth-flow" }, undefined, undefined, context.ctx);
 
@@ -255,11 +253,7 @@ describe("claude handoff command", () => {
 		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
 		const runClaude = registerTestCommand(pi, { runClaude: fakeRunClaude({ type: "spawn-failed", message: "spawn claude ENOENT" }) });
 		const context = createContext({ mode: "tui", hasCustomUi: true });
-		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
-		expect(tool).toBeDefined();
-		if (tool === undefined) {
-			throw new Error(`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} was not registered`);
-		}
+		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 
 		const result = await tool.execute("tool-call", { branch: BRANCH, slug: "fix-auth-flow" }, undefined, undefined, context.ctx);
 
@@ -276,15 +270,28 @@ describe("claude handoff command", () => {
 		expect(createPrompt).toContain("before launching Claude Code");
 		expect(createPrompt).toContain("```text\ncontinue work\n```");
 		expect(createPrompt).toContain(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
+		expect(createPrompt).toContain(`\`\`\`text\n/handoff:pickup --branch ${BRANCH} <returned-slug>\n\`\`\``);
 
 		const pickupPrompt = buildClaudePickupPrompt(BRANCH, "continue-work");
 		expect(pickupPrompt).toContain("handoff-pickup");
 		expect(pickupPrompt).toContain("Entry: continue-work.md");
 		expect(pickupPrompt).toContain("Do not create a new handoff");
 
-		const env = { PATH: "/bin", ANTHROPIC_API_KEY: "secret", ANTHROPIC_AUTH_TOKEN: "token", EMPTY: undefined };
+		const env = {
+			PATH: "/bin",
+			ANTHROPIC_API_KEY: "secret",
+			ANTHROPIC_AUTH_TOKEN: "token",
+			ANTHROPIC_BASE_URL: "https://anthropic.example",
+			EMPTY: undefined,
+		};
 		const scrubbed = scrubClaudeEnv(env);
 		expect(scrubbed).toEqual({ PATH: "/bin", EMPTY: undefined });
-		expect(env).toEqual({ PATH: "/bin", ANTHROPIC_API_KEY: "secret", ANTHROPIC_AUTH_TOKEN: "token", EMPTY: undefined });
+		expect(env).toEqual({
+			PATH: "/bin",
+			ANTHROPIC_API_KEY: "secret",
+			ANTHROPIC_AUTH_TOKEN: "token",
+			ANTHROPIC_BASE_URL: "https://anthropic.example",
+			EMPTY: undefined,
+		});
 	});
 });

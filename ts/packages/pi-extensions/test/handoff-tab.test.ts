@@ -245,6 +245,7 @@ describe("handoff-tab extension", () => {
 		expect(updates).toHaveLength(5);
 		expect(context.statuses).toEqual([
 			"verifying saved handoff…",
+			undefined,
 			"resolving cmux caller…",
 			"creating cmux tab…",
 			"naming cmux tab…",

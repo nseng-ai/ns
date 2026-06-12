@@ -37,6 +37,7 @@ class FakePi {
 
 class FakeCommandContext implements CommandContext {
 	readonly cwd = "/repo";
+	readonly mode = "tui";
 	readonly hasUI: boolean;
 	readonly selectedLabels: string[];
 	readonly notifications: Array<{ message: string; level: "info" | "warning" | "error" | undefined }> = [];

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import handoffExtension, { type CommandContext, type ExecResult, type ExtensionAPI } from "../src/handoff.ts";
+import type { RenderComponent, TuiHandle } from "../src/handoff/runtime-types.ts";
 
 export const ROOT = "/repo";
 export const BRANCH = "feature/handoff";
@@ -163,6 +164,22 @@ export function cmuxCreateSurfaceStep(): ScriptedExec {
 	);
 }
 
+export function getRegisteredCommand(pi: FakePi, name: string): RegisteredCommand {
+	const command = pi.commands.get(name);
+	if (command === undefined) {
+		throw new Error(`${name} was not registered`);
+	}
+	return command;
+}
+
+export function getRegisteredTool(pi: FakePi, name: string): RegisteredTool {
+	const tool = pi.tools.get(name);
+	if (tool === undefined) {
+		throw new Error(`${name} was not registered`);
+	}
+	return tool;
+}
+
 export function cmuxCreateSurfaceRefStep(): ScriptedExec {
 	return step(
 		"cmux",
@@ -259,12 +276,7 @@ export function createContext(
 
 	if (options.hasCustomUi) {
 		ui.custom = async <T>(
-			factory: (
-				tui: { stop(): void; start(): void; requestRender(force?: boolean): void },
-				theme: unknown,
-				keybindings: unknown,
-				done: (value: T) => void,
-			) => { render(width: number): string[]; invalidate(): void },
+			factory: (tui: TuiHandle, theme: unknown, keybindings: unknown, done: (value: T) => void) => RenderComponent,
 		): Promise<T> => {
 			let doneCalled = false;
 			let doneValue: T | undefined;
@@ -297,7 +309,7 @@ export function createContext(
 	const ctx: CommandContext = {
 		cwd: ROOT,
 		hasUI: options.hasUI ?? true,
-		...(options.mode === undefined ? {} : { mode: options.mode }),
+		mode: options.mode ?? "tui",
 		ui,
 		async waitForIdle(): Promise<void> {
 			waits += 1;
@@ -307,11 +319,12 @@ export function createContext(
 	return { ctx, notifications, selections, inputs, statuses, tuiEvents, waitForIdleCalls: () => waits };
 }
 
-export async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "handoff-tab",
-	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: {
+interface RunExtensionCommandOptions {
+	register(pi: FakePi): void;
+	commandName: string;
+	args: string;
+	script?: ScriptedExec[];
+	contextOptions?: {
 		hasUI?: boolean;
 		mode?: CommandContext["mode"];
 		hasCustomUi?: boolean;
@@ -319,7 +332,33 @@ export async function runCommand(
 		selectIndex?: number;
 		inputResponse?: string;
 		inputUnavailable?: boolean;
-	} = {},
+	};
+	commandInfos?: CommandInfo[];
+	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean };
+}
+
+export async function runExtensionCommand(options: RunExtensionCommandOptions): Promise<{
+	pi: FakePi;
+	notifications: Notification[];
+	selections: Selection[];
+	inputs: InputPrompt[];
+	statuses: Array<string | undefined>;
+	tuiEvents: string[];
+	waitForIdleCalls: () => number;
+}> {
+	const pi = new FakePi(options.script, options.commandInfos, options.piOptions);
+	options.register(pi);
+	const command = getRegisteredCommand(pi, options.commandName);
+	const context = createContext(options.contextOptions);
+	await command.handler(options.args, context.ctx);
+	return { pi, ...context };
+}
+
+export async function runCommand(
+	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "handoff-tab",
+	args: string,
+	script: ScriptedExec[] = [],
+	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},
 	commandInfos: CommandInfo[] = [],
 	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
 ): Promise<{
@@ -331,16 +370,15 @@ export async function runCommand(
 	tuiEvents: string[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos, piOptions);
-	handoffExtension(pi);
-	const command = pi.commands.get(commandName);
-	expect(command).toBeDefined();
-	if (command === undefined) {
-		throw new Error(`${commandName} was not registered`);
-	}
-	const context = createContext(contextOptions);
-	await command.handler(args, context.ctx);
-	return { pi, ...context };
+	return runExtensionCommand({
+		register: handoffExtension,
+		commandName,
+		args,
+		script,
+		contextOptions,
+		commandInfos,
+		piOptions,
+	});
 }
 
 export function listJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {

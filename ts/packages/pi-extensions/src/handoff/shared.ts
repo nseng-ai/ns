@@ -34,6 +34,11 @@ Confirm the current branch before writing unless the user explicitly names a bra
 
 export type HandoffExistsResult = { type: "exists" } | { type: "missing" } | { type: "failed"; message: string };
 
+export interface HandoffStartMessages {
+	ready: string;
+	fallbackLabel: string;
+}
+
 export async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<string | undefined> {
 	const focus = rawArgs.trim();
 	if (focus.length > 0) {
@@ -103,6 +108,20 @@ export function setStatus(ctx: BaseRuntimeContext, key: string, value: string | 
 	if (ctx.hasUI) {
 		ctx.ui.setStatus?.(key, value);
 	}
+}
+
+export function createHandoffStartMessage(
+	messages: HandoffStartMessages,
+	skill: Awaited<ReturnType<typeof expandHandoffSkill>>,
+	skillReadError: string | undefined,
+): string {
+	if (skill !== undefined) {
+		return messages.ready;
+	}
+	if (skillReadError !== undefined) {
+		return `Could not read handoff-create skill; using fallback ${messages.fallbackLabel}. ${skillReadError}`;
+	}
+	return `handoff-create skill was not found; using fallback ${messages.fallbackLabel}.`;
 }
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {

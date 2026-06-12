@@ -13,6 +13,7 @@ import {
 	PICKUP_HANDOFF_COMMAND_NAME,
 	CREATE_HANDOFF_FALLBACK,
 	CREATE_HANDOFF_SKILL_NAME,
+	createHandoffStartMessage,
 	currentBranch,
 	expandHandoffSkill,
 	fencedBlock,
@@ -20,6 +21,7 @@ import {
 	formatStartupFailure,
 	resolveCreateFocus,
 	setStatus,
+	type HandoffStartMessages,
 } from "./handoff/shared.ts";
 import type {
 	CommandContext,
@@ -35,6 +37,11 @@ export { buildHandoffTabPrompt, deriveSemanticHandoffSlug };
 
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
 const MAX_PREVIEW_CHARS = 240;
+
+const CREATE_HANDOFF_START_MESSAGES = {
+	ready: "Starting handoff create workflow…",
+	fallbackLabel: "handoff-create workflow prompt",
+} satisfies HandoffStartMessages;
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [semantic-slug|search words]
 
@@ -101,7 +108,7 @@ export type HandoffItemsParseResult = { type: "valid"; items: HandoffListItem[] 
 
 export type HandoffKeysParseResult = { type: "valid"; keys: string[] } | { type: "invalid"; message: string };
 
-export type HandoffItemsLoadResult = { type: "loaded"; items: HandoffListItem[] } | { type: "failed"; message: string };
+type HandoffItemsLoadResult = { type: "loaded"; items: HandoffListItem[] } | { type: "failed"; message: string };
 
 export function parsePickupHandoffArgs(rawArgs: string): HandoffArgsParseResult<PickupHandoffArgs> {
 	const parsed: PickupHandoffArgs = { help: false, selector: [] };
@@ -431,7 +438,7 @@ async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: C
 	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(createHandoffStartMessage(skill, skillReadError), skill ? "info" : "warning");
+		ctx.ui.notify(createHandoffStartMessage(CREATE_HANDOFF_START_MESSAGES, skill, skillReadError), skill ? "info" : "warning");
 	}
 	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
 }
@@ -570,17 +577,7 @@ async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: 
 	emitHandoffList(pi, ctx, details);
 }
 
-function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandHandoffSkill>>, skillReadError: string | undefined): string {
-	if (skill !== undefined) {
-		return "Starting handoff create workflow…";
-	}
-	if (skillReadError !== undefined) {
-		return `Could not read handoff-create skill; using fallback handoff-create workflow prompt. ${skillReadError}`;
-	}
-	return "handoff-create skill was not found; using fallback handoff-create workflow prompt.";
-}
-
-export async function listHandoffItems(
+async function listHandoffItems(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	options: { branch: string } | { allBranches: true },
@@ -640,7 +637,7 @@ async function chooseHandoff(
 	return labelToKey.get(selected);
 }
 
-export async function previewHandoffItems(
+async function previewHandoffItems(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	items: HandoffListItem[],
