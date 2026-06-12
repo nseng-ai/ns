@@ -9,6 +9,8 @@ import {
 	buildListRowCells,
 	buildOverviewRowCells,
 	buildUsageBarSegments,
+	bundlePersistenceLine,
+	bundleStatusBarText,
 	composeListRowText,
 	composeOverviewRowText,
 	composeRowText,
@@ -17,6 +19,7 @@ import {
 	delegationClaimText,
 	delegationSummaryLine,
 	fitToWidth,
+	formatByteSize,
 	formatCompactNumber,
 	formatTokenCount,
 	formatUsage,
@@ -103,6 +106,30 @@ describe("formatUsage", () => {
 		expect(formatUsage(undefined)).toBe("usage pending");
 		expect(formatUsage({ tokens: null, contextWindow: 200_000, percent: null })).toBe("usage pending / 200k");
 		expect(formatUsage({ tokens: 100_000, contextWindow: 200_000, percent: 50 })).toBe("100k / 200k (50.0%)");
+	});
+});
+
+describe("bundle persistence text", () => {
+	test("renders line and status bar text for all persistence states", () => {
+		const persisted = {
+			type: "persisted",
+			ordinal: 2,
+			dir: "/bundle/2",
+			byteSize: 1_536,
+			sessionTotalBytes: 2_048,
+			isReused: true,
+			manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 3, capturedAt: "now" },
+		} as const;
+
+		expect(formatByteSize(1_536)).toBe("2 KB");
+		expect(bundlePersistenceLine({ type: "pending" })).toBe("bundle: writing…");
+		expect(bundleStatusBarText({ type: "pending" })).toBe("ctx profile · bundle writing");
+		expect(bundlePersistenceLine({ type: "skipped", reason: "empty-context" })).toBe("bundle: skipped · no conversation yet");
+		expect(bundleStatusBarText({ type: "skipped", reason: "empty-context" })).toBe("ctx profile · no conversation yet");
+		expect(bundlePersistenceLine({ type: "failed", message: "disk full" })).toBe("bundle: unavailable · disk full");
+		expect(bundleStatusBarText({ type: "failed", message: "disk full" })).toBe("ctx profile · bundle unavailable");
+		expect(bundlePersistenceLine(persisted)).toBe("bundle: #2 · 2 KB · session 2 KB · reused");
+		expect(bundleStatusBarText(persisted)).toBe("ctx profile · bundle #2");
 	});
 });
 

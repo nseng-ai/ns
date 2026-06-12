@@ -5,7 +5,7 @@ import { captureCurrentState, createProfilerState, startBundlePersist } from "..
 import { FakeBundleStore, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
 
 describe("context-profiler bundle", () => {
-	test("refuses to build before any context message list exists", () => {
+	test("refuses to build before any conversation context exists", () => {
 		const result = buildBundleSnapshot({
 			messages: null,
 			systemPrompt: "sys",
@@ -17,7 +17,22 @@ describe("context-profiler bundle", () => {
 			liveSource: "branch-fallback",
 		});
 
-		expect(result).toEqual({ ok: false, error: { code: "no-provider-context", message: "no provider context has been captured yet" } });
+		expect(result).toEqual({ ok: false, error: { code: "empty-context", message: "no conversation context to bundle yet" } });
+	});
+
+	test("refuses to persist an empty conversation context", () => {
+		const result = buildBundleSnapshot({
+			messages: [],
+			systemPrompt: "sys",
+			promptOptions: null,
+			sessionId: "sid",
+			cwd: "/repo",
+			model: "p/m",
+			usage: undefined,
+			liveSource: "session-context",
+		});
+
+		expect(result).toEqual({ ok: false, error: { code: "empty-context", message: "no conversation context to bundle yet" } });
 	});
 
 	test("serializes one verbatim JSON message per line", () => {
@@ -96,22 +111,27 @@ describe("context-profiler bundle", () => {
 
 		expect(result.initial).toEqual({ type: "pending" });
 		expect(await result.whenPersisted).toMatchObject({ ordinal: 1 });
-		expect(state.latestContextSource).toBe("session-context");
+		expect(state.latestContext?.source).toBe("session-context");
 		expect(store.persistedSnapshots[0]?.messagesJsonl).toContain("already here");
 	});
 
-	test("bundle persist skip explains missing context without requiring a throwaway prompt", async () => {
-		const state = createProfilerState();
-		const profile = makeProfile(sequentialTurns(2), { liveSource: "branch-fallback" });
+	test("bundle persist skips a fresh session with no conversation", async () => {
+		const ctx = {
+			getSystemPrompt: () => "system",
+			sessionManager: {
+				getEntries: () => [],
+				getLeafId: () => null,
+			},
+		} as never;
+		const state = captureCurrentState(ctx, createProfilerState());
+		const profile = makeProfile([], { liveSource: "session-context" });
 		const store = new FakeBundleStore({
 			persistResult: { ok: false, error: { code: "io-error", message: "should not persist" } },
 		});
 
 		const result = startBundlePersist({ store, state, profile, sessionId: "sid", onUpdate: () => {} });
 
-		expect(result.initial).toMatchObject({ type: "skipped", reason: "no-provider-context" });
-		expect(result.initial.type === "skipped" && result.initial.message).toContain("contextEvents=0");
-		expect(result.initial.type === "skipped" && result.initial.message).not.toContain("Send one normal prompt");
+		expect(result.initial).toEqual({ type: "skipped", reason: "empty-context" });
 		expect(await result.whenPersisted).toBeNull();
 		expect(store.persistedSnapshots).toEqual([]);
 	});

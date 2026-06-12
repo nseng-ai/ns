@@ -240,7 +240,7 @@ export function bundlePersistenceLine(state: BundlePersistenceState): string {
 		case "pending":
 			return "bundle: writing…";
 		case "skipped":
-			return "bundle: no provider context yet";
+			return "bundle: skipped · no conversation yet";
 		case "failed":
 			return `bundle: unavailable · ${state.message}`;
 		case "persisted": {
@@ -255,7 +255,7 @@ export function bundleStatusBarText(state: BundlePersistenceState): string {
 		case "pending":
 			return "ctx profile · bundle writing";
 		case "skipped":
-			return "ctx profile · no provider context";
+			return "ctx profile · no conversation yet";
 		case "failed":
 			return "ctx profile · bundle unavailable";
 		case "persisted":

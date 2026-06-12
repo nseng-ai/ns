@@ -383,13 +383,13 @@ describe("deriveLiveTurns", () => {
 				message: { role: "user", content: "hi" },
 			},
 		] as unknown as SessionEntry[];
-		const live = deriveLiveTurns({ contextMessages: [], branchEntries });
+		const live = deriveLiveTurns({ context: { messages: [], source: "context-event" }, branchEntries });
 		expect(live.source).toBe("context-event");
 		expect(live.turns).toHaveLength(0);
 	});
 
 	test("uses session-context provenance for reconstructed reload snapshots", () => {
-		const live = deriveLiveTurns({ contextMessages: [{ role: "user", content: "hi" }], contextSource: "session-context", branchEntries: [] });
+		const live = deriveLiveTurns({ context: { messages: [{ role: "user", content: "hi" }], source: "session-context" }, branchEntries: [] });
 		expect(live.source).toBe("session-context");
 		expect(live.turns).toHaveLength(1);
 	});
@@ -404,7 +404,7 @@ describe("deriveLiveTurns", () => {
 				message: { role: "user", content: "hi" },
 			},
 		] as unknown as SessionEntry[];
-		const live = deriveLiveTurns({ contextMessages: null, branchEntries });
+		const live = deriveLiveTurns({ context: null, branchEntries });
 		expect(live.source).toBe("branch-fallback");
 		expect(live.turns).toHaveLength(1);
 	});

@@ -32,7 +32,7 @@ export interface BundleSnapshot {
 
 export type BuildBundleSnapshotResult =
 	| { ok: true; value: BundleSnapshot }
-	| { ok: false; error: { code: "no-provider-context" | "unserializable-message"; message: string } };
+	| { ok: false; error: { code: "empty-context" | "unserializable-message"; message: string } };
 
 export interface BuildBundleSnapshotOptions {
 	messages: readonly unknown[] | null;
@@ -47,8 +47,8 @@ export interface BuildBundleSnapshotOptions {
 }
 
 export function buildBundleSnapshot(options: BuildBundleSnapshotOptions): BuildBundleSnapshotResult {
-	if (options.messages === null) {
-		return { ok: false, error: { code: "no-provider-context", message: "no provider context has been captured yet" } };
+	if (options.messages === null || options.messages.length === 0) {
+		return { ok: false, error: { code: "empty-context", message: "no conversation context to bundle yet" } };
 	}
 	const lines: string[] = [];
 	for (const [index, message] of options.messages.entries()) {
@@ -62,7 +62,7 @@ export function buildBundleSnapshot(options: BuildBundleSnapshotOptions): BuildB
 			return unserializable(index + 1, errorMessage(error));
 		}
 	}
-	const messagesJsonl = `${lines.join("\n")}${lines.length === 0 ? "" : "\n"}`;
+	const messagesJsonl = `${lines.join("\n")}\n`;
 	const contentHash = computeBundleContentHash(messagesJsonl);
 	return {
 		ok: true,
@@ -115,7 +115,7 @@ export interface PersistedBundle {
 
 export type BundlePersistenceState =
 	| { type: "pending" }
-	| { type: "skipped"; reason: "no-provider-context"; message: string }
+	| { type: "skipped"; reason: "empty-context" }
 	| ({ type: "persisted" } & PersistedBundle)
 	| { type: "failed"; message: string };
 

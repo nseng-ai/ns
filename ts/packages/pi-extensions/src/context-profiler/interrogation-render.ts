@@ -16,7 +16,7 @@ export function buildChatLines(state: TranscriptState, width: number): ChatLine[
 		if (last?.role === "assistant") {
 			return [...lines.slice(0, -1), { ...last, text: appendCursor(last.text, width) }];
 		}
-		return [...lines, { role: "assistant", text: "assistant ▌" }];
+		return [...lines, { role: "assistant", text: "agent: ▌" }];
 	}
 	return lines;
 }

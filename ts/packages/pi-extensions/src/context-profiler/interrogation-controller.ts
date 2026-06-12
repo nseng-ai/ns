@@ -5,7 +5,7 @@ import { buildInterrogationSystemPrompt, buildInterrogationUserMessage, scopesEq
 import type { InterrogationSession, InterrogationSessionFactory } from "./interrogation-session.ts";
 import { appendNotice, appendUser, applyInterrogationEvent, createTranscript, type TranscriptState } from "./interrogation-transcript.ts";
 
-export type InterrogationAvailability = { ok: true } | { ok: false; reason: string };
+type InterrogationAvailability = { ok: true } | { ok: false; reason: string };
 
 export interface InterrogationViewPort {
 	readonly state: TranscriptState;
@@ -33,6 +33,7 @@ export class InterrogationController implements InterrogationViewPort {
 	private isStarting: boolean;
 	private unavailableReason: string | null;
 	private lastScope: InterrogationScope | null;
+	private disposed: boolean;
 
 	constructor(options: InterrogationControllerOptions) {
 		this.bundle = options.bundle;
@@ -45,6 +46,7 @@ export class InterrogationController implements InterrogationViewPort {
 		this.isStarting = false;
 		this.unavailableReason = null;
 		this.lastScope = null;
+		this.disposed = false;
 	}
 
 	get bundleOrdinal(): number {
@@ -55,7 +57,8 @@ export class InterrogationController implements InterrogationViewPort {
 		return { ...this.transcript, entries: [...this.transcript.entries] };
 	}
 
-	async ensureStarted(): Promise<InterrogationAvailability> {
+	private async ensureStarted(): Promise<InterrogationAvailability> {
+		if (this.disposed) return { ok: false, reason: "interrogation was closed" };
 		if (this.session !== null) return { ok: true };
 		if (this.unavailableReason !== null) return { ok: false, reason: this.unavailableReason };
 		if (this.isStarting) return { ok: false, reason: "interrogation agent is still spawning" };
@@ -74,6 +77,10 @@ export class InterrogationController implements InterrogationViewPort {
 			modelRegistry: this.modelRegistry,
 		});
 		this.isStarting = false;
+		if (this.disposed) {
+			if (result.ok) result.value.dispose();
+			return { ok: false, reason: "interrogation was closed" };
+		}
 		if (!result.ok) return this.markUnavailable(result.error.message);
 		this.session = result.value;
 		this.session.subscribe((event) => {
@@ -112,6 +119,7 @@ export class InterrogationController implements InterrogationViewPort {
 	}
 
 	dispose(): void {
+		this.disposed = true;
 		this.session?.dispose();
 		this.session = null;
 	}

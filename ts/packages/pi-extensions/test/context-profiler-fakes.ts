@@ -148,12 +148,19 @@ export class FakeInterrogationSession implements InterrogationSession {
 	}
 }
 
+export interface FakeInterrogationSessionFactoryOptions {
+	result?: CreateInterrogationSessionResult;
+	gate?: Promise<void>;
+}
+
 export class FakeInterrogationSessionFactory implements InterrogationSessionFactory {
 	private readonly result: CreateInterrogationSessionResult;
+	private readonly gate: Promise<void> | null;
 	private readonly calls: Array<{ bundleDir: string; systemPrompt: string }> = [];
 
-	constructor(result: CreateInterrogationSessionResult = { ok: true, value: new FakeInterrogationSession() }) {
-		this.result = result;
+	constructor(options: FakeInterrogationSessionFactoryOptions = {}) {
+		this.result = options.result ?? { ok: true, value: new FakeInterrogationSession() };
+		this.gate = options.gate ?? null;
 	}
 
 	get createCalls(): ReadonlyArray<{ bundleDir: string; systemPrompt: string }> {
@@ -162,6 +169,7 @@ export class FakeInterrogationSessionFactory implements InterrogationSessionFact
 
 	async create(options: Parameters<InterrogationSessionFactory["create"]>[0]): Promise<CreateInterrogationSessionResult> {
 		this.calls.push({ bundleDir: options.bundleDir, systemPrompt: options.systemPrompt });
+		if (this.gate !== null) await this.gate;
 		return this.result;
 	}
 }

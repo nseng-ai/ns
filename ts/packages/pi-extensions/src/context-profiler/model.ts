@@ -145,7 +145,13 @@ export interface LiveRegion extends AnalysisVerdicts {
 	episodeIndex: number | null;
 }
 
-export type LiveSource = "context-event" | "session-context" | "branch-fallback";
+export type CapturedContextSource = "context-event" | "session-context";
+export type LiveSource = CapturedContextSource | "branch-fallback";
+
+export interface CapturedContext {
+	messages: readonly unknown[];
+	source: CapturedContextSource;
+}
 
 export interface TurnCapInfo {
 	originalCount: number;
@@ -306,9 +312,7 @@ function skillContentText(skill: Skill): string {
 
 export interface LiveTurnsInput {
 	/** Messages from the latest `context` event or reconstructed session context, or null if neither exists yet. */
-	contextMessages: readonly unknown[] | null;
-	/** Provenance for `contextMessages`. */
-	contextSource?: LiveSource | null;
+	context: CapturedContext | null;
 	/** Session-branch entries, the last-resort display fallback. */
 	branchEntries: readonly SessionEntry[];
 }
@@ -319,8 +323,8 @@ export interface LiveTurnsInput {
  * display fallback when no message list could be assembled.
  */
 export function deriveLiveTurns(input: LiveTurnsInput): { turns: LiveTurn[]; source: LiveSource } {
-	if (input.contextMessages !== null) {
-		return { turns: buildTurnsFromMessages(input.contextMessages), source: input.contextSource ?? "context-event" };
+	if (input.context !== null) {
+		return { turns: buildTurnsFromMessages(input.context.messages), source: input.context.source };
 	}
 	return { turns: buildTurnsFromEntries(input.branchEntries), source: "branch-fallback" };
 }
