@@ -113,6 +113,7 @@ Assumptions:
 - Stack orchestration operations (`stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`) have no Graphite dependency; they need only the PR gateway, the payload store, and the already-ported classification/planning core. Confirmed 2026-06-09 during the stack-orchestration port.
 - `prepare-run`'s contested-thread reopen is a GitHub write (`unresolve_review_thread`) already covered by the ported TypeScript mutation gateway and fakes; porting it did not require new live-write validation. Confirmed 2026-06-09.
 - Managed-operation envelope output now matches Python `json.dumps(..., indent=2)` `ensure_ascii` escaping for non-ASCII content; this was a latent TypeScript parity gap closed during the `prepare-run-summarize` branch.
+- Confirmed 2026-06-12: the package-local payload/reference helper path no longer relies on the known broad generic empty-payload cast or the prepare-run manifest parity test's double-cast laundering. PR #1350 corroborates the fix: field-reference-only payload loading starts from an explicit record accumulator, and the parity test consumes the exported prepare-run manifest input type directly.
 
 Decided (2026-06-09 endgame decisions):
 
