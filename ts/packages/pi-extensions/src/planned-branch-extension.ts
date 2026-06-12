@@ -134,11 +134,26 @@ interface NewSessionOptions {
 	withSession?(ctx: ReplacedSessionContext): Promise<void> | void;
 }
 
+export interface PlannedBranchOperations {
+	loadPlannedBranchPlan: typeof loadPlannedBranchPlan;
+	createPlannedBranchFromFile: typeof createPlannedBranchFromFilePrimitive;
+	writeSavedPlanFile: typeof writeSavedPlanFilePrimitive;
+	resolveSelectedSavedPlanFile: typeof resolveSelectedSavedPlanFilePrimitive;
+}
+
 export interface PlannedBranchExtensionOptions {
 	plannedBranchDefaultCreation?: BranchCreationMethod;
 	plannedBranchPrefix?: string;
 	planStoreRoot?: string;
+	plannedBranchOperations?: PlannedBranchOperations | undefined;
 }
+
+const realPlannedBranchOperations: PlannedBranchOperations = {
+	loadPlannedBranchPlan,
+	createPlannedBranchFromFile: createPlannedBranchFromFilePrimitive,
+	writeSavedPlanFile: writeSavedPlanFilePrimitive,
+	resolveSelectedSavedPlanFile: resolveSelectedSavedPlanFilePrimitive,
+};
 
 export interface CreatePlannedBranchArgs {
 	help: boolean;
@@ -675,8 +690,9 @@ async function handleImplPlannedBranchCommand(
 
 	ctx.ui.setStatus(IMPL_PLANNED_BRANCH_STATUS_KEY, "loading attached plan…");
 	try {
+		const operations = resolvePlannedBranchOperations(options);
 		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};
-		const plan = await loadPlannedBranchPlan(pi, params, {
+		const plan = await operations.loadPlannedBranchPlan(pi, params, {
 			cwd: ctx.cwd,
 			planStoreRoot: resolvePlanStoreRootOption(options),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
@@ -739,7 +755,7 @@ async function handleCreatePlannedBranchCommand(
 
 	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "creating branch and attaching plan…");
 	try {
-		const evidence = await createPlannedBranchFromPreview(pi, preview, ctx);
+		const evidence = await createPlannedBranchFromPreview({ pi, preview, ctx, operations: resolvePlannedBranchOperations(options) });
 		presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
 	} catch (error) {
 		presentPlannedBranchFailure(pi, ctx, "Failed to create planned branch and attach the plan.", error, preview);
@@ -798,7 +814,7 @@ async function handleUpAndImplCommand(
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "creating branch and attaching plan…");
 	let evidence: PlannedBranchEvidence;
 	try {
-		evidence = await createPlannedBranchFromPreview(pi, preview, ctx);
+		evidence = await createPlannedBranchFromPreview({ pi, preview, ctx, operations: resolvePlannedBranchOperations(options) });
 	} catch (error) {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
 		presentPlannedBranchFailure(pi, ctx, "Failed to create planned branch and attach the plan.", error, preview);
@@ -823,11 +839,19 @@ async function handleUpAndImplCommand(
 	presentPlannedBranchFailure(pi, ctx, title, launchResult.message, preview);
 }
 
-async function createPlannedBranchFromPreview(
-	pi: ExtensionAPI,
-	preview: CreatePlannedBranchPreview,
-	ctx: CommandContext,
-): Promise<PlannedBranchEvidence> {
+interface CreatePlannedBranchFromPreviewOptions {
+	pi: ExtensionAPI;
+	preview: CreatePlannedBranchPreview;
+	ctx: CommandContext;
+	operations: PlannedBranchOperations;
+}
+
+async function createPlannedBranchFromPreview({
+	pi,
+	preview,
+	ctx,
+	operations,
+}: CreatePlannedBranchFromPreviewOptions): Promise<PlannedBranchEvidence> {
 	const params: { slug: string; filePath: string; branchCreation: BranchCreationMethod; branchName?: string; summary?: string } = {
 		slug: preview.slug,
 		filePath: preview.filePath,
@@ -840,7 +864,7 @@ async function createPlannedBranchFromPreview(
 		params.summary = preview.summary;
 	}
 
-	return createPlannedBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
+	return operations.createPlannedBranchFromFile(pi, params, { cwd: ctx.cwd });
 }
 
 function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {
@@ -876,6 +900,7 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExt
 			required: ["content"],
 		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const operations = resolvePlannedBranchOperations(options);
 			try {
 				emitWriteSourcePlanProgress(onUpdate, ctx, "Validating saved plan input…", { phase: "validating" });
 				const toolParams = parseWriteSavedPlanFileToolParams(params);
@@ -915,7 +940,7 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExt
 					{ phase: "writing-file", slug: slugEvidence.slug },
 				);
 				emitWriteSourcePlanProgress(onUpdate, ctx, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
-				const evidence = await writeSavedPlanFilePrimitive(pi, buildSavedPlanFileParams(toolParams, slugEvidence.slug), {
+				const evidence = await operations.writeSavedPlanFile(pi, buildSavedPlanFileParams(toolParams, slugEvidence.slug), {
 					cwd: ctx.cwd,
 					signal,
 					planStoreRoot: resolvePlanStoreRootOption(options),
@@ -1060,7 +1085,8 @@ async function resolveSelectedSavedPlanFile(
 	ctx: CommandContext,
 	options: PlannedBranchExtensionOptions,
 ): Promise<SelectedSavedPlanFile> {
-	return resolveSelectedSavedPlanFilePrimitive(pi, {
+	const operations = resolvePlannedBranchOperations(options);
+	return operations.resolveSelectedSavedPlanFile(pi, {
 		cwd: ctx.cwd,
 		planStoreRoot: resolvePlanStoreRootOption(options),
 		explicitPath: args.filePath,
@@ -1074,6 +1100,10 @@ function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): { filePath:
 		return { filePath: selected.filePath, fileName: selected.fileName };
 	}
 	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
+}
+
+function resolvePlannedBranchOperations(options: PlannedBranchExtensionOptions): PlannedBranchOperations {
+	return options.plannedBranchOperations ?? realPlannedBranchOperations;
 }
 
 function resolvePlannedBranchDefaultCreation(options: PlannedBranchExtensionOptions): BranchCreationMethod {

@@ -185,6 +185,32 @@ describe("planned-branch create execution", () => {
 		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile: filePath }]);
 	});
 
+	test("local branch presence failures fail before creating a branch or attaching the plan", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			localBranchPresenceFailures: {
+				[TARGET_BRANCH]: { type: "failure" },
+			},
+		});
+		const brmem = new InMemoryPlannedBranchBrmemGateway();
+		const graphite = new InMemoryPlannedBranchGraphiteGateway();
+		const filePath = await makePlanFile();
+
+		await expect(
+			createPlannedBranchFromFile(
+				NO_COMMANDS,
+				{ slug: PLAN_SLUG, filePath, branchName: TARGET_BRANCH, branchCreation: "plain-git" },
+				{ cwd: ROOT, git, brmem, graphite },
+			),
+		).rejects.toThrow("Could not determine local branch presence.");
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
 	test("untracked Graphite parents fail before creating a branch or attaching the plan", async () => {
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" }, currentBranch: SOURCE_BRANCH, headCommit: START_POINT });
 		const brmem = new InMemoryPlannedBranchBrmemGateway();
