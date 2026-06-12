@@ -4,7 +4,7 @@ import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { gatewayFailureResult, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
-import { PayloadStore } from "./payload-store.ts";
+import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
@@ -72,7 +72,7 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 	return { type: "exit", exit: ok(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value)) };
 }
 
-export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: unknown): unknown {
+export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: PayloadReference): unknown {
 	return buildGetFeedbackPayloadManifest({
 		payload_reference: payloadReference,
 		pr_number: snapshot.pr_number,

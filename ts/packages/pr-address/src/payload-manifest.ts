@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { PRDiscussionComment, PRReview, PRReviewThread, RestructuredFile } from "./gateways.ts";
 const payloadReferenceSchema = z.looseObject({
 	payload_path: z.string(),
 });
@@ -67,13 +68,39 @@ export const prepareRunPayloadManifestInputSchema = z.looseObject({
 	returncode: z.number().int().nullable().default(null),
 });
 
-type PayloadReference = z.infer<typeof payloadReferenceSchema>;
-type Review = z.infer<typeof reviewSchema>;
-type ReviewComment = z.infer<typeof reviewCommentSchema>;
-type ReviewThread = z.infer<typeof reviewThreadSchema>;
-type DiscussionComment = z.infer<typeof discussionCommentSchema>;
-type GetFeedbackPayloadManifestInput = z.infer<typeof getFeedbackPayloadManifestInputSchema>;
-type PrepareRunPayloadManifestInput = z.infer<typeof prepareRunPayloadManifestInputSchema>;
+interface PayloadReference {
+	payload_path: string;
+}
+type Review = PRReview;
+type ReviewComment = PRReviewThread["comments"][number];
+type ReviewThread = PRReviewThread;
+type DiscussionComment = PRDiscussionComment;
+interface GetFeedbackPayloadManifestInput {
+	payload_reference: PayloadReference;
+	pr_number: number;
+	reviews: readonly PRReview[];
+	review_threads: readonly PRReviewThread[];
+	discussion_comments: readonly PRDiscussionComment[];
+}
+interface PrepareRunPayloadManifestInput {
+	payload_reference: PayloadReference;
+	found: boolean;
+	current_branch?: string | null | undefined;
+	number?: number | null | undefined;
+	title?: string | null | undefined;
+	url?: string | null | undefined;
+	head_ref_name?: string | null | undefined;
+	base_ref_name?: string | null | undefined;
+	state?: string | null | undefined;
+	reviews?: readonly PRReview[] | undefined;
+	review_threads?: readonly PRReviewThread[] | undefined;
+	discussion_comments?: readonly PRDiscussionComment[] | undefined;
+	reopened_thread_ids?: readonly string[] | undefined;
+	restructured_files?: readonly RestructuredFile[] | undefined;
+	warnings?: readonly string[] | undefined;
+	error?: string | null | undefined;
+	returncode?: number | null | undefined;
+}
 
 interface FeedbackCounts {
 	reviews: number;
@@ -84,45 +111,52 @@ interface FeedbackCounts {
 	discussion_comments: number;
 }
 
-export function buildGetFeedbackPayloadManifest(input: unknown): unknown {
-	const parsed = getFeedbackPayloadManifestInputSchema.parse(input);
+interface FeedbackCollections {
+	reviews: readonly Review[];
+	review_threads: readonly ReviewThread[];
+	discussion_comments: readonly DiscussionComment[];
+}
+
+export function buildGetFeedbackPayloadManifest(input: GetFeedbackPayloadManifestInput): unknown {
 	return {
 		payload_mode: "payload",
-		payload_reference: parsed.payload_reference,
-		pr_number: parsed.pr_number,
-		counts: feedbackCounts(parsed),
-		reviews: reviewManifestItems(parsed.reviews),
-		review_threads: threadManifestItems(parsed.review_threads),
-		discussion_comments: discussionManifestItems(parsed.discussion_comments),
+		payload_reference: input.payload_reference,
+		pr_number: input.pr_number,
+		counts: feedbackCounts(input),
+		reviews: reviewManifestItems(input.reviews),
+		review_threads: threadManifestItems(input.review_threads),
+		discussion_comments: discussionManifestItems(input.discussion_comments),
 	};
 }
 
-export function buildPrepareRunPayloadManifest(input: unknown): unknown {
-	const parsed = prepareRunPayloadManifestInputSchema.parse(input);
+export function buildPrepareRunPayloadManifest(input: PrepareRunPayloadManifestInput): unknown {
+	const reviews = input.reviews ?? [];
+	const reviewThreads = input.review_threads ?? [];
+	const discussionComments = input.discussion_comments ?? [];
 	return {
 		payload_mode: "payload",
-		payload_reference: parsed.payload_reference,
-		found: parsed.found,
-		current_branch: parsed.current_branch,
-		number: parsed.number,
-		title: parsed.title,
-		url: parsed.url,
-		head_ref_name: parsed.head_ref_name,
-		base_ref_name: parsed.base_ref_name,
-		state: parsed.state,
-		counts: parsed.found ? feedbackCounts(parsed) : null,
-		reviews: reviewManifestItems(parsed.reviews),
-		review_threads: threadManifestItems(parsed.review_threads),
-		discussion_comments: discussionManifestItems(parsed.discussion_comments),
-		reopened_thread_ids: [...parsed.reopened_thread_ids],
-		restructured_files: [...parsed.restructured_files],
-		warnings: [...parsed.warnings],
-		error: parsed.error,
-		returncode: parsed.returncode,
+		payload_reference: input.payload_reference,
+		found: input.found,
+		current_branch: input.current_branch ?? null,
+		number: input.number ?? null,
+		title: input.title ?? null,
+		url: input.url ?? null,
+		head_ref_name: input.head_ref_name ?? null,
+		base_ref_name: input.base_ref_name ?? null,
+		state: input.state ?? null,
+		counts: input.found ? feedbackCounts({ reviews, review_threads: reviewThreads, discussion_comments: discussionComments }) : null,
+		reviews: reviewManifestItems(reviews),
+		review_threads: threadManifestItems(reviewThreads),
+		discussion_comments: discussionManifestItems(discussionComments),
+		reopened_thread_ids: [...(input.reopened_thread_ids ?? [])],
+		restructured_files: [...(input.restructured_files ?? [])],
+		warnings: [...(input.warnings ?? [])],
+		error: input.error ?? null,
+		returncode: input.returncode ?? null,
 	};
 }
 
-function feedbackCounts(input: Pick<GetFeedbackPayloadManifestInput | PrepareRunPayloadManifestInput, "reviews" | "review_threads" | "discussion_comments">): FeedbackCounts {
+function feedbackCounts(input: FeedbackCollections): FeedbackCounts {
 	const resolvedCount = input.review_threads.filter((thread) => thread.is_resolved).length;
 	return {
 		reviews: input.reviews.length,

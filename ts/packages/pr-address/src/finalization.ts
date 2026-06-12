@@ -53,7 +53,7 @@ const checkpointSchema = z.looseObject({
 	thread_summary: threadSummarySchema.nullable().default(null),
 	non_thread_outcomes: z.array(nonThreadOutcomeSchema).default([]),
 });
-const finalizeRunInputSchema = z.looseObject({
+export const finalizeRunInputSchema = z.looseObject({
 	feedback: feedbackManifestSchema,
 	checkpoints: z.array(checkpointSchema).default([]),
 });
@@ -82,6 +82,58 @@ interface SkippedItem {
 	summary: string | null;
 }
 
+interface FinalizeRunCounts {
+	checkpoint_batches: number;
+	complete_batches: number;
+	incomplete_batches: number;
+	unresolved_threads: number;
+	unresolved_unskipped_threads: number;
+	resolved_threads_from_checkpoints: number;
+	failed_threads_from_checkpoints: number;
+	skipped_threads: number;
+	skipped_non_thread_items: number;
+}
+
+interface FinalizeRunThreadSummary {
+	thread_id: string;
+	path: string;
+	line: number | null;
+	start_line: number | null;
+	is_outdated: boolean;
+	is_resolved: boolean;
+	comment_count: number;
+	item_pointer: string | null;
+}
+
+interface FinalizeRunCheckpointSummary {
+	batch_id: string;
+	valid: boolean;
+	batch_complete: boolean;
+	commit_sha: string | null;
+	changed_files: string[];
+	checkpoint_reference: unknown;
+	resolved_thread_ids: string[];
+	failed_thread_ids: string[];
+	skipped_thread_ids: string[];
+	non_thread_outcomes: NonThreadOutcome[];
+	failed_validation_commands: Array<z.infer<typeof validationCommandSchema>>;
+}
+
+export interface FinalizeRunResult {
+	valid: boolean;
+	ready_to_stop: boolean;
+	all_feedback_addressed: boolean;
+	pr_number: number;
+	payload_path: string | null;
+	counts: FinalizeRunCounts;
+	unresolved_threads: FinalizeRunThreadSummary[];
+	unresolved_unskipped_threads: FinalizeRunThreadSummary[];
+	skipped_items: SkippedItem[];
+	checkpoint_summaries: FinalizeRunCheckpointSummary[];
+	errors: FinalizeRunError[];
+	warnings: string[];
+}
+
 export async function runFinalizeRunOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
@@ -97,12 +149,11 @@ export async function runFinalizeRunOperation(invocation: ExecOperationInvocatio
 	});
 	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 	const result = finalizeRun(payloadResult.value);
-	if (resultValue(result, "valid") === true && resultValue(result, "ready_to_stop") === true) return { type: "exit", exit: ok(result) };
+	if (result.valid && result.ready_to_stop) return { type: "exit", exit: ok(result) };
 	return { type: "exit", exit: negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result) };
 }
 
-export function finalizeRun(input: unknown): Record<string, unknown> {
-	const request = finalizeRunInputSchema.parse(input);
+export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {
 	const errors: FinalizeRunError[] = [];
 	const warnings: string[] = [];
 	let invalidErrorCount = 0;
@@ -177,7 +228,7 @@ function validateUniqueBatchIds(request: FinalizeRunInput, errors: FinalizeRunEr
 	return duplicateBatchIds.length;
 }
 
-function checkpointSummariesForRequest(checkpoints: readonly Checkpoint[]): unknown[] {
+function checkpointSummariesForRequest(checkpoints: readonly Checkpoint[]): FinalizeRunCheckpointSummary[] {
 	return checkpoints.map((checkpoint) => {
 		const threadSummaryValue = checkpoint.thread_summary;
 		return {
@@ -252,7 +303,7 @@ function checkpointErrors(checkpoint: Checkpoint): FinalizeRunError[] {
 	return errors;
 }
 
-function threadSummary(thread: ThreadManifestItem): Record<string, unknown> {
+function threadSummary(thread: ThreadManifestItem): FinalizeRunThreadSummary {
 	return {
 		thread_id: thread.thread_id,
 		path: thread.path,
@@ -274,9 +325,5 @@ function errorItem(options: { code: string; message: string; batchId?: string | 
 		review_id: options.reviewId ?? null,
 		discussion_comment_id: options.discussionCommentId ?? null,
 	};
-}
-
-function resultValue(value: Record<string, unknown>, key: string): unknown {
-	return value[key];
 }
 

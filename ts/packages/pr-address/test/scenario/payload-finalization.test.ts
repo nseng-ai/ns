@@ -5,11 +5,11 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { recordBatchCheckpoint } from "../../src/batch-checkpoint.ts";
+import { recordBatchCheckpoint, recordBatchCheckpointInputSchema } from "../../src/batch-checkpoint.ts";
 import { runCli, type CliDeps } from "../../src/cli.ts";
-import { finalizeRun } from "../../src/finalization.ts";
-import { buildGetFeedbackPayloadManifest, buildPrepareRunPayloadManifest } from "../../src/payload-manifest.ts";
-import { buildResolveThreadBatchPayload } from "../../src/resolve-thread-batch-payload.ts";
+import { finalizeRun, finalizeRunInputSchema } from "../../src/finalization.ts";
+import { buildGetFeedbackPayloadManifest, buildPrepareRunPayloadManifest, getFeedbackPayloadManifestInputSchema, prepareRunPayloadManifestInputSchema } from "../../src/payload-manifest.ts";
+import { buildResolveThreadBatchPayload, buildResolveThreadBatchPayloadInputSchema } from "../../src/resolve-thread-batch-payload.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
@@ -85,7 +85,7 @@ describe("payload manifest TypeScript parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			expect(buildGetFeedbackPayloadManifest(input)).toEqual(expected);
+			expect(buildGetFeedbackPayloadManifest(getFeedbackPayloadManifestInputSchema.parse(input))).toEqual(expected);
 		});
 	}
 
@@ -94,7 +94,7 @@ describe("payload manifest TypeScript parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			expect(buildPrepareRunPayloadManifest(input)).toEqual(expected);
+			expect(buildPrepareRunPayloadManifest(prepareRunPayloadManifestInputSchema.parse(input) as unknown as Parameters<typeof buildPrepareRunPayloadManifest>[0])).toEqual(expected);
 		});
 	}
 });
@@ -105,7 +105,7 @@ describe("resolve-thread batch payload TypeScript parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			expect(buildResolveThreadBatchPayload(input)).toEqual(expected);
+			expect(buildResolveThreadBatchPayload(buildResolveThreadBatchPayloadInputSchema.parse(input))).toEqual(expected);
 		});
 	}
 });
@@ -116,7 +116,7 @@ describe("batch checkpoint TypeScript helper parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			expect(recordBatchCheckpoint(input)).toEqual(expected);
+			expect(recordBatchCheckpoint(recordBatchCheckpointInputSchema.parse(input))).toEqual(expected);
 		});
 	}
 });
@@ -127,7 +127,7 @@ describe("finalize-run TypeScript parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			expect(finalizeRun(input)).toEqual(expected);
+			expect(finalizeRun(finalizeRunInputSchema.parse(input))).toEqual(expected);
 		});
 	}
 });

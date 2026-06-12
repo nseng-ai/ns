@@ -186,8 +186,7 @@ async function writeCheckpointArtifact(checkpointResult: RecordBatchCheckpointRe
 	return await storeResult.value.writeJsonArtifact({ descriptor: "pr-address-batch-checkpoint", role: "summary", payload: artifact });
 }
 
-export function recordBatchCheckpoint(input: unknown): RecordBatchCheckpointResult {
-	const request = recordBatchCheckpointInputSchema.parse(input);
+export function recordBatchCheckpoint(request: RecordBatchCheckpointInput): RecordBatchCheckpointResult {
 	const plan = request.plan;
 	const batchId = request.batch_id.trim();
 	const commitSha = trimOptional(request.commit_sha);
