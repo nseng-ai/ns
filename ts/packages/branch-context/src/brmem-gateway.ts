@@ -60,6 +60,7 @@ export interface BranchContextBrmemGateway {
 	attachPlan(params: BrmemAttachPlanParams): Promise<BrmemResult<BrmemPutData>>;
 	listAttachedPlans(params: BrmemCwdParams & { branch: string }): Promise<BrmemResult<AttachedPlanEntry[]>>;
 	getAttachedPlan(params: BrmemAttachmentParams): Promise<BrmemResult<BrmemGetContent>>;
+	deleteEntry(params: BrmemAttachmentParams): Promise<BrmemResult<void>>;
 }
 
 interface CommandRun {
@@ -175,6 +176,15 @@ export class RealBranchContextBrmemGateway implements BranchContextBrmemGateway 
 				},
 			};
 		}
+	}
+
+	async deleteEntry(params: BrmemAttachmentParams): Promise<BrmemResult<void>> {
+		const run = await this.runBrmem(params, ["delete", params.key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", params.branch, "--format", "json"]);
+		if (!run.ok) return run;
+		if (run.value.result.code !== 0 || run.value.result.killed) {
+			return { ok: false, error: failure("brmem_delete_failed", "brmem delete failed", run.value) };
+		}
+		return { ok: true, value: undefined };
 	}
 
 	private async runBrmem(params: BrmemCwdParams, args: string[]): Promise<CommandRunResult> {

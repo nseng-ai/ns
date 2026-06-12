@@ -25,6 +25,21 @@ export {
 	type BrmemResult,
 	type BranchContextBrmemGateway,
 } from "./brmem-gateway.ts";
+export {
+	attachBranchContextEntry,
+	checkBranchContextEntry,
+	deleteBranchContextEntry,
+	formatAttachEvidence,
+	formatCheckEvidence,
+	formatDeleteEvidence,
+	formatListEvidence,
+	listBranchContextEntries,
+	type AttachBranchContextParams,
+	type BranchContextAttachEvidence,
+	type BranchContextCheckEvidence,
+	type BranchContextDeleteEvidence,
+	type BranchContextPrimitiveOptions,
+} from "./attach.ts";
 export { runCli, type CliDeps } from "./cli.ts";
 export {
 	MAX_PLAN_CONTENT_CHARS,
