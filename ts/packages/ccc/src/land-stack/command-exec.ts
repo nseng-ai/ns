@@ -6,7 +6,7 @@ import {
 	type ExecResult,
 } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
+import { GRAPHITE_METADATA_DB_NAME, MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
 import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 export interface CheckedOutElsewhere {
@@ -49,9 +49,9 @@ export function normalizeCommandFinish(command: string, args: string[], result: 
 	if (deleteBranch && result.code !== 0 && !result.killed && isGtDeleteMissingBranch(result, deleteBranch)) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
-	// /code:land's only sqlite3 use is reading Graphite topology, so successful
-	// sqlite3 commands in the land stream can carry this domain label.
-	if (command === "sqlite3" && result.code === 0) {
+	// /code:land reads Graphite topology from Graphite's metadata database;
+	// avoid labeling unrelated sqlite3 commands just because the binary matches.
+	if (command === "sqlite3" && result.code === 0 && args.some((arg) => arg.endsWith(GRAPHITE_METADATA_DB_NAME))) {
 		return { result, note: "read Graphite stack topology" };
 	}
 	return { result };
@@ -97,10 +97,6 @@ export function parseGitCheckedOutElsewhere(result: ExecResult): CheckedOutElsew
 	const path = match[2];
 	if (!branch || !path) return undefined;
 	return { branch, path };
-}
-
-export function isGtDeleteCheckedOutElsewhere(result: ExecResult): boolean {
-	return parseGitCheckedOutElsewhere(result) !== undefined;
 }
 
 export function stripAnsi(text: string): string {

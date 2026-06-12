@@ -133,8 +133,8 @@ export function usage(): string {
 export function formatSuccessSummary(
 	landed: LandedPr[],
 	descendantMaintenance: DescendantMaintenancePlan,
-	warnings: LandingWarning[] = [],
-	cleanup: RemainingCleanup = emptyRemainingCleanup(),
+	warnings: LandingWarning[],
+	cleanup: RemainingCleanup,
 ): string {
 	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
 	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
@@ -158,7 +158,7 @@ export function formatSuccessSummary(
 		lines.push(`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`);
 	}
 	if (cleanup.detachedWorktreeTrunk) {
-		lines.push(`  - This worktree was detached at ${cleanup.detachedWorktreeTrunk} so the final landed local branch could be deleted.`);
+		lines.push(`  - This worktree was detached at ${cleanup.detachedWorktreeTrunk} to delete the final landed local branch.`);
 	}
 	if (cleanup.retainedLocalBranches.length === 0) {
 		lines.push("  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
@@ -176,10 +176,6 @@ export function formatSuccessSummary(
 		}
 	}
 	return lines.join("\n");
-}
-
-function emptyRemainingCleanup(): RemainingCleanup {
-	return { retainedLocalBranches: [], detachedWorktreeTrunk: undefined };
 }
 
 function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
