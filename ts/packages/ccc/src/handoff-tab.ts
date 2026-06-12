@@ -11,8 +11,6 @@ export interface HandoffTabLaunchParams {
 	pickupCommand: string;
 }
 
-export type HandoffExistsResult = { type: "exists" } | { type: "missing" } | { type: "failed"; message: string };
-
 export type HandoffTabLaunchResult =
 	| { type: "launched"; branch: string; slug: string; tabTitle: string; surfaceId: string; workspaceId: string; command: string }
 	| { type: "failed"; message: string; branch?: string; slug?: string; surfaceId?: string; workspaceId?: string };
@@ -36,25 +34,10 @@ export interface HandoffTabLaunchOptions {
 	params: HandoffTabLaunchParams;
 	signal: AbortSignal | undefined;
 	onUpdate: ((update: HandoffTabLaunchUpdate) => void) | undefined;
-	checkHandoffExists(branch: string, key: string): Promise<HandoffExistsResult>;
 }
 
 export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promise<HandoffTabLaunchResult> {
-	updateProgress(options, "Verifying saved handoff…", "verifying saved handoff…");
 	try {
-		const exists = await options.checkHandoffExists(options.params.branch, options.params.key);
-		if (exists.type === "missing") {
-			return {
-				type: "failed",
-				branch: options.params.branch,
-				slug: options.params.slug,
-				message: `No handoff ${options.params.slug} found on branch ${options.params.branch}; no cmux tab was opened.`,
-			};
-		}
-		if (exists.type === "failed") {
-			return { type: "failed", branch: options.params.branch, slug: options.params.slug, message: exists.message };
-		}
-
 		const launchContext = options.model === undefined ? {} : { model: options.model };
 		const thinkingLevelHost = {
 			getThinkingLevel(): ThinkingLevel {

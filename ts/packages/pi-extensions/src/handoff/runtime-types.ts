@@ -5,6 +5,7 @@ export type { ExecResult } from "@asdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
+export type ExtensionMode = "tui" | "rpc" | "json" | "print";
 
 export interface AutocompleteItem {
 	value: string;
@@ -71,11 +72,17 @@ export interface ToolDefinition {
 
 export type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
+export interface SessionManagerLike {
+	/** Path to the current Pi session file, when one is available. */
+	getSessionFile?(): string | undefined;
+}
+
 export interface BaseRuntimeContext {
 	cwd: string;
 	hasUI: boolean;
-	mode?: "tui" | "rpc" | "json" | "print";
+	mode: ExtensionMode;
 	model?: ModelInfo;
+	sessionManager?: SessionManagerLike;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;

@@ -86,7 +86,7 @@ export function handleContext(event: ContextEvent, state: ProfilerState): Profil
  * Re-capture the prompt state directly from the context. `before_agent_start`
  * only fires on the next turn, so opening or refreshing the profiler pulls
  * what it can immediately. `getSystemPromptOptions()` is not part of the
- * pinned 0.78.0 extension surface, so it is probed at runtime: when the
+ * pinned 0.79.1 extension surface, so it is probed at runtime: when the
  * running Pi provides it, options re-capture works; otherwise the last
  * `before_agent_start` capture stands and only the assembled prompt refreshes.
  */

@@ -1,4 +1,4 @@
 packages:
   - packages/*
 patchedDependencies:
-  '@earendil-works/pi-ai@0.78.0': patches/@earendil-works%2Fpi-ai@0.78.0.patch
+  '@earendil-works/pi-ai@0.79.1': patches/@earendil-works%2Fpi-ai@0.79.1.patch

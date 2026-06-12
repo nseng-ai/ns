@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { launchHandoffTab, type HandoffExistsResult, type HandoffTabLaunchHost } from "../src/handoff-tab.ts";
+import { launchHandoffTab, type HandoffTabLaunchHost } from "../src/handoff-tab.ts";
 import { FakeCommandContext, FakePi, step } from "./ccc-test-harness.ts";
 
 const BRANCH = "feature/handoff";
@@ -77,19 +77,11 @@ function sendStep(command: string, surfaceId = "surface-1", workspaceId = "works
 	return step("cmux", ["send", "--workspace", workspaceId, "--surface", surfaceId, "--window", "window-1", "--", `${command}\n`], {});
 }
 
-function existingChecker(recordCall: (call: { branch: string; key: string }) => void): (branch: string, key: string) => Promise<HandoffExistsResult> {
-	return async (branch, key) => {
-		recordCall({ branch, key });
-		return { type: "exists" };
-	};
-}
-
 describe("handoff-tab launch orchestration", () => {
-	test("launches after the injected existence check succeeds", async () => {
+	test("launches a focused pickup tab", async () => {
 		const command = "pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi({ script: [cmuxIdentifyStep(), cmuxCreateSurfaceStep(), renameStep(), sendStep(command)] });
 		const ctx = new FakeCommandContext({ model: { provider: "anthropic", id: "claude-sonnet-4-5" } });
-		const checkerCalls: Array<{ branch: string; key: string }> = [];
 		const updates: unknown[] = [];
 
 		const result = await launchHandoffTab({
@@ -102,11 +94,9 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: (update) => updates.push(update),
-			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
-		expect(checkerCalls).toEqual([{ branch: BRANCH, key: KEY }]);
 		expect(result).toEqual({
 			type: "launched",
 			branch: BRANCH,
@@ -117,14 +107,12 @@ describe("handoff-tab launch orchestration", () => {
 			command,
 		});
 		expect(updates).toEqual([
-			{ content: [{ type: "text", text: "Verifying saved handoff…" }] },
 			{ content: [{ type: "text", text: "Resolving cmux caller context…" }] },
 			{ content: [{ type: "text", text: "Creating focused cmux tab…" }] },
 			{ content: [{ type: "text", text: "Naming cmux tab…" }] },
 			{ content: [{ type: "text", text: "Launching pickup Pi…" }] },
 		]);
 		expect(ctx.statuses.map((status) => status.value)).toEqual([
-			"verifying saved handoff…",
 			"resolving cmux caller…",
 			"creating cmux tab…",
 			"naming cmux tab…",
@@ -137,7 +125,6 @@ describe("handoff-tab launch orchestration", () => {
 		const command = "pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi({ script: [cmuxIdentifyStep(), cmuxCreateSurfaceRefStep(), renameStep("surface:1", "workspace:1"), sendStep(command, "surface:1", "workspace:1")] });
 		const ctx = new FakeCommandContext();
-		const checkerCalls: Array<{ branch: string; key: string }> = [];
 
 		const result = await launchHandoffTab({
 			host: pi,
@@ -149,60 +136,10 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
 		expect(result).toMatchObject({ type: "launched", surfaceId: "surface:1", workspaceId: "workspace:1", command });
-	});
-
-	test("stops before cmux if the injected checker returns missing", async () => {
-		const pi = new FakePi();
-		const ctx = new FakeCommandContext();
-
-		const result = await launchHandoffTab({
-			host: pi,
-			cwd: ctx.cwd,
-			model: undefined,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
-			statusKey: STATUS_KEY,
-			params: params(),
-			signal: undefined,
-			onUpdate: undefined,
-			checkHandoffExists: async () => ({ type: "missing" }),
-		});
-
-		pi.assertDone();
-		expect(pi.execCalls).toEqual([]);
-		expect(result).toEqual({
-			type: "failed",
-			branch: BRANCH,
-			slug: SLUG,
-			message: `No handoff ${SLUG} found on branch ${BRANCH}; no cmux tab was opened.`,
-		});
-	});
-
-	test("returns checker failure before cmux", async () => {
-		const pi = new FakePi();
-		const ctx = new FakeCommandContext();
-
-		const result = await launchHandoffTab({
-			host: pi,
-			cwd: ctx.cwd,
-			model: undefined,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
-			statusKey: STATUS_KEY,
-			params: params(),
-			signal: undefined,
-			onUpdate: undefined,
-			checkHandoffExists: async () => ({ type: "failed", message: "brmem failed" }),
-		});
-
-		pi.assertDone();
-		expect(pi.execCalls).toEqual([]);
-		expect(result).toEqual({ type: "failed", branch: BRANCH, slug: SLUG, message: "brmem failed" });
 	});
 
 	test("reports manual recovery when rename fails after surface creation", async () => {
@@ -218,7 +155,6 @@ describe("handoff-tab launch orchestration", () => {
 			],
 		});
 		const ctx = new FakeCommandContext();
-		const checkerCalls: Array<{ branch: string; key: string }> = [];
 
 		const result = await launchHandoffTab({
 			host: pi,
@@ -230,7 +166,6 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
@@ -257,7 +192,6 @@ describe("handoff-tab launch orchestration", () => {
 		});
 		const hostWithoutThinking: HandoffTabLaunchHost = { exec: (cmd, args, options) => pi.exec(cmd, args, options) };
 		const ctx = new FakeCommandContext();
-		const checkerCalls: Array<{ branch: string; key: string }> = [];
 
 		const result = await launchHandoffTab({
 			host: hostWithoutThinking,
@@ -269,7 +203,6 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
@@ -286,7 +219,6 @@ describe("handoff-tab launch orchestration", () => {
 		const pi = new FakePi({ script: [cmuxIdentifyStep(), cmuxCreateSurfaceStep(), renameStep(), sendStep(command)] });
 		pi.setThinkingLevel("high");
 		const ctx = new FakeCommandContext({ model: { provider: "openai-codex", id: "gpt-5.4-mini" } });
-		const checkerCalls: Array<{ branch: string; key: string }> = [];
 
 		const result = await launchHandoffTab({
 			host: pi,
@@ -298,7 +230,6 @@ describe("handoff-tab launch orchestration", () => {
 			params: params(),
 			signal: undefined,
 			onUpdate: undefined,
-			checkHandoffExists: existingChecker((call) => checkerCalls.push(call)),
 		});
 
 		pi.assertDone();
