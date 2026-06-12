@@ -40,9 +40,6 @@ function createHarness(options: HarnessOptions = {}) {
 			events.push(`commit:${message}`);
 			return commitResult;
 		},
-		setStatus: (message) => {
-			events.push(`status:${message ?? "clear"}`);
-		},
 	};
 	return { input, events };
 }

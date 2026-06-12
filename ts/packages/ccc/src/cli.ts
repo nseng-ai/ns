@@ -100,10 +100,9 @@ export async function runCli(args: readonly string[], deps: CccCliDeps = {}): Pr
 }
 
 async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest): Promise<number> {
-	let hasError = false;
 	const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
 	const autobranch = ctx.autobranch ?? {};
-	await createAutobranchCheckpointFlow({
+	const result = await createAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd, timeout, env: ctx.env }),
@@ -116,26 +115,20 @@ async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest):
 					ctx.cwd,
 					message,
 				)),
-		notify: (message, level) => {
-			const text = `${message.trimEnd()}\n`;
-			if (level === "error") {
-				hasError = true;
-				ctx.stderr(text);
-				return;
-			}
-			if (level === "warning") {
-				ctx.stderr(text);
-				return;
-			}
-			ctx.stdout(text);
-		},
-		setStatus: () => {},
 		...(autobranch.readFile === undefined ? {} : { readFile: autobranch.readFile }),
 		...(autobranch.stat === undefined ? {} : { stat: autobranch.stat }),
 		...(autobranch.now === undefined ? {} : { now: autobranch.now }),
 	});
 
-	return hasError ? 1 : 0;
+	if (!result.ok) {
+		ctx.stderr(`${result.error.trimEnd()}\n`);
+		return 1;
+	}
+	for (const warning of result.warnings) {
+		ctx.stderr(`${warning.trimEnd()}\n`);
+	}
+	ctx.stdout(`${result.summary.trimEnd()}\n`);
+	return 0;
 }
 
 function runtimeInfo(): string {

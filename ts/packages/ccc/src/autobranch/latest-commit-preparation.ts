@@ -16,7 +16,6 @@ export interface LatestCommitPreparationInput {
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
-	setStatus: (message: string | undefined) => void;
 }
 
 interface LatestCommitFacts {
@@ -196,21 +195,16 @@ function nonEmptyLines(value: string): string[] {
 		.filter((line) => line.length > 0);
 }
 
-async function prepareLatestCommitSlug(input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "setStatus">, facts: LatestCommitFacts): Promise<PreparedLatestCommitSlugResult> {
-	input.setStatus("generating branch slug…");
-	try {
-		const result = await deriveBranchSlug({ cwd: input.cwd, prompt: buildLatestCommitSlugPrompt(facts), exec: input.exec });
-		if (result.ok) {
-			return { ok: true, baseSlug: result.baseSlug, source: result.source };
-		}
-		return {
-			ok: false,
-			kind: "slug_generation_failed",
-			error: `Could not derive a branch slug for the latest commit. Rerun with --slug <name>.\n${result.formattedFailure}`,
-		};
-	} finally {
-		input.setStatus(undefined);
+async function prepareLatestCommitSlug(input: Pick<LatestCommitPreparationInput, "cwd" | "exec">, facts: LatestCommitFacts): Promise<PreparedLatestCommitSlugResult> {
+	const result = await deriveBranchSlug({ cwd: input.cwd, prompt: buildLatestCommitSlugPrompt(facts), exec: input.exec });
+	if (result.ok) {
+		return { ok: true, baseSlug: result.baseSlug, source: result.source };
 	}
+	return {
+		ok: false,
+		kind: "slug_generation_failed",
+		error: `Could not derive a branch slug for the latest commit. Rerun with --slug <name>.\n${result.formattedFailure}`,
+	};
 }
 
 function buildLatestCommitSlugPrompt(facts: LatestCommitFacts): string {

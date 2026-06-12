@@ -2,126 +2,31 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { runCli } from "../../src/cli.ts";
+import { createGitWorldExec, eventIndex, type GitWorldExecOptions } from "../autobranch-test-helpers.ts";
 
 interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	commands: AutobranchCommandFake;
+	commands: CommandExecApi & { events: string[] };
 	commits: string[];
 }
 
-interface FakeOptions {
-	isCleanWorktree?: boolean;
-	isDetachedHead?: boolean;
-	shouldGtCreateFail?: boolean;
-	upstreamMode?: "none" | "ahead" | "contains";
-}
+type FakeOptions = Pick<GitWorldExecOptions, "isCleanWorktree" | "isDetachedHead" | "shouldGtCreateFail" | "upstreamMode" | "shouldDeleteBackupFail">;
 
 class AutobranchCommandFake implements CommandExecApi {
-	readonly events: string[] = [];
-	private readonly options: FakeOptions;
-	private readonly sourceBranch = "feature/base";
-	private currentBranch = "feature/base";
-	private head = "abc123def456";
-	private statusCalls = 0;
-	private stashMessage = "";
+	readonly events: string[];
+	private readonly execWorld: ReturnType<typeof createGitWorldExec>["exec"];
 
 	constructor(options: FakeOptions = {}) {
-		this.options = options;
+		const world = createGitWorldExec(options);
+		this.events = world.events;
+		this.execWorld = world.exec;
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		void options;
-		this.events.push(`${command} ${args.join(" ")}`);
-		if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel") {
-			return ok("/repo\n");
-		}
-		if (command === "git" && args[0] === "symbolic-ref") {
-			return this.options.isDetachedHead === true ? fail("not a symbolic ref") : ok(`${this.sourceBranch}\n`);
-		}
-		if (command === "git" && args[0] === "status") {
-			this.statusCalls += 1;
-			const firstStatus = this.options.isCleanWorktree === true ? "" : " M file.ts\n";
-			return ok(this.statusCalls === 1 ? firstStatus : "");
-		}
-		if (command === "git" && args[0] === "diff" && args[1] === "HEAD^") {
-			return ok("diff --git a/file.ts b/file.ts\n+committed\n");
-		}
-		if (command === "git" && args[0] === "diff") {
-			return ok("diff --git a/file.ts b/file.ts\n+pending\n");
-		}
-		if (command === "git" && args[0] === "ls-files") {
-			return ok("");
-		}
-		if (command === "git" && args[0] === "check-ref-format") {
-			return ok();
-		}
-		if (command === "git" && args[0] === "show-ref") {
-			return { code: 1, stdout: "", stderr: "", killed: false };
-		}
-		if (command === "git" && args[0] === "stash" && args[1] === "push") {
-			this.stashMessage = args.at(-1) ?? "";
-			return ok("Saved working directory\n");
-		}
-		if (command === "git" && args[0] === "stash" && args[1] === "list") {
-			return ok(`stash@{0}\0On ${this.sourceBranch}: ${this.stashMessage}\n`);
-		}
-		if (command === "git" && args[0] === "stash" && args[1] === "pop") {
-			return ok("restored\n");
-		}
-		if (command === "gt" && args[0] === "trunk") {
-			return ok("master\n");
-		}
-		if (command === "gt" && args[0] === "children") {
-			return ok("");
-		}
-		if (command === "gt" && args[0] === "create") {
-			if (this.options.shouldGtCreateFail === true) {
-				return fail("gt create failed");
-			}
-			this.currentBranch = args[1] ?? this.currentBranch;
-			return ok("created\n");
-		}
-		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
-			return ok(`${this.currentBranch}\n`);
-		}
-		if (command === "git" && args[0] === "branch" && args[1] === "-D") {
-			return ok("deleted\n");
-		}
-		if (command === "git" && args[0] === "branch") {
-			return ok();
-		}
-		if (command === "git" && args[0] === "for-each-ref") {
-			if (this.options.upstreamMode === "contains") {
-				return ok(`origin/${this.sourceBranch}\n`);
-			}
-			return ok("");
-		}
-		if (command === "git" && args[0] === "merge-base") {
-			return this.options.upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "", killed: false };
-		}
-		if (command === "git" && args[0] === "rev-list") {
-			return ok("abc123def456 parent987654\n");
-		}
-		if (command === "git" && args[0] === "log" && args.includes("--format=%B")) {
-			return ok("Add latest commit support\n");
-		}
-		if (command === "git" && args[0] === "rev-parse" && args[1] === "HEAD") {
-			return ok(`${this.head}\n`);
-		}
-		if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
-			this.head = args[2] ?? this.head;
-			return ok();
-		}
-		if (command === "git" && args[0] === "checkout") {
-			this.currentBranch = args[1] ?? this.currentBranch;
-			return ok();
-		}
-		if (command === "pi") {
-			return ok("model-derived-branch\n");
-		}
-		return ok();
+		return this.execWorld(command, args);
 	}
 }
 
@@ -153,20 +58,8 @@ function runWithFakes(args: readonly string[], options: FakeOptions = {}): CliRu
 	};
 }
 
-function ok(stdout = "", stderr = ""): ExecResult {
-	return { code: 0, stdout, stderr, killed: false };
-}
-
-function fail(stderr: string, code = 1): ExecResult {
-	return { code, stdout: "", stderr, killed: false };
-}
-
 function output(run: Pick<CliRun, "stdout" | "stderr">): { stdout: string; stderr: string } {
 	return { stdout: run.stdout.join(""), stderr: run.stderr.join("") };
-}
-
-function eventIndex(events: readonly string[], prefix: string): number {
-	return events.findIndex((event) => event.startsWith(prefix));
 }
 
 describe("ccc CLI", () => {
@@ -250,12 +143,26 @@ describe("ccc CLI", () => {
 		const detached = runWithFakes(["exec", "autobranch"], { isDetachedHead: true });
 		expect(await detached.exit).toBe(1);
 		expect(output(detached).stdout).toBe("");
-		expect(output(detached).stderr).toContain("Detached HEAD; check out a branch before running /code:autobranch.");
+		expect(output(detached).stderr).toContain("Detached HEAD; check out a branch before autobranching.");
 
 		const graphite = runWithFakes(["exec", "autobranch", "--slug", "failed branch"], { shouldGtCreateFail: true });
 		expect(await graphite.exit).toBe(1);
 		expect(output(graphite).stdout).toBe("");
 		expect(output(graphite).stderr).toContain("Failed to create Graphite branch failed-branch.");
 		expect(output(graphite).stderr).toContain("Restored pending changes to the original branch.");
+	});
+
+	test("clean worktree backup deletion warning goes to stderr while summary stays on stdout", async () => {
+		const run = runWithFakes(["exec", "autobranch", "--slug", "Latest Commit Branch"], {
+			isCleanWorktree: true,
+			upstreamMode: "none",
+			shouldDeleteBackupFail: true,
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(output(run).stdout).toContain("New branch: latest-commit-branch");
+		expect(output(run).stdout).toContain("Moved commit: abc123d Add latest commit support");
+		expect(output(run).stdout).not.toContain("recovery branch");
+		expect(output(run).stderr).toContain("Warning: recovery branch autobranch-backup/feature/base/123 could not be deleted");
 	});
 });

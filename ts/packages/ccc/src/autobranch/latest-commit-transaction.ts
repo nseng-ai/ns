@@ -1,7 +1,7 @@
 import type { CommandResult } from "asdl-dev/checkpoint-flow";
 
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
-import { formatCommandDetails, withStatus } from "./shared.ts";
+import { formatCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
 import { normalizeBranchSlugText } from "@asdl/pi-extension-runtime/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
@@ -36,7 +36,6 @@ export interface LatestCommitTransactionInput {
 	cwd: string;
 	plan: LatestCommitAutobranchPlan;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
-	setStatus: (message: string | undefined) => void;
 	now?: (() => number) | undefined;
 }
 
@@ -54,9 +53,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		return { ok: false, kind: "backup_branch_name_unavailable", sourceBranch: input.plan.sourceBranch };
 	}
 
-	const backupCreated = await withStatus(input, "creating recovery branch…", () =>
-		input.exec("git", ["branch", backupBranch.name, input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS),
-	);
+	const backupCreated = await input.exec("git", ["branch", backupBranch.name, input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS);
 	if (backupCreated.code !== 0) {
 		return { ok: false, kind: "backup_create_failed", error: formatCommandDetails(backupCreated) };
 	}
@@ -72,9 +69,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		};
 	}
 
-	const created = await withStatus(input, `creating ${input.plan.branchName}…`, () =>
-		input.exec("gt", ["create", input.plan.branchName, "--no-interactive", "--no-ai"], input.cwd, GT_TIMEOUT_MS),
-	);
+	const created = await input.exec("gt", ["create", input.plan.branchName, "--no-interactive", "--no-ai"], input.cwd, GT_TIMEOUT_MS);
 	if (created.code !== 0) {
 		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
@@ -87,9 +82,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		};
 	}
 
-	const resetBranch = await withStatus(input, `moving ${input.plan.branchName} to original commit…`, () =>
-		input.exec("git", ["reset", "--hard", input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS),
-	);
+	const resetBranch = await input.exec("git", ["reset", "--hard", input.plan.originalHeadSha], input.cwd, GIT_TIMEOUT_MS);
 	if (resetBranch.code !== 0) {
 		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
@@ -116,7 +109,7 @@ export async function runLatestCommitAutobranchTransaction(input: LatestCommitTr
 		};
 	}
 
-	const deleted = await withStatus(input, "cleaning up recovery branch…", () => input.exec("git", ["branch", "-D", backupBranch.name], input.cwd, GIT_TIMEOUT_MS));
+	const deleted = await input.exec("git", ["branch", "-D", backupBranch.name], input.cwd, GIT_TIMEOUT_MS);
 	if (deleted.code !== 0) {
 		return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: false, backupBranch: backupBranch.name, backupDeleteError: formatCommandDetails(deleted) };
 	}
@@ -140,7 +133,7 @@ async function resetSourceBranchToParent(input: LatestCommitTransactionInput): P
 		return { ok: false, error: `Expected HEAD ${input.plan.originalHeadSha}, but found ${currentHead.stdout.trim()}.` };
 	}
 
-	const reset = await withStatus(input, "resetting source branch…", () => input.exec("git", ["reset", "--hard", input.plan.parentSha], input.cwd, GIT_TIMEOUT_MS));
+	const reset = await input.exec("git", ["reset", "--hard", input.plan.parentSha], input.cwd, GIT_TIMEOUT_MS);
 	if (reset.code !== 0) {
 		return { ok: false, error: formatCommandDetails(reset) };
 	}
