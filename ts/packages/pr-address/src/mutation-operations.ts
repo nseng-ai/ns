@@ -7,6 +7,7 @@ import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGatew
 import { loadJsonInput } from "./json-input.ts";
 import { gatewayFailureDetail, gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
+import { trimOptional } from "./string-values.ts";
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("local_branch"), branch: z.string() }).strict(),
@@ -358,12 +359,6 @@ function provenanceShapeError(provenance: ProvenanceInput): string | null {
 function resolutionModeArgument(value: string | undefined): { type: "ok"; value: ResolutionReplyMode } | { type: "error"; message: string } {
 	if (value === "fixed" || value === "pre_existing" || value === "explained" || value === "planned") return { type: "ok", value };
 	return { type: "error", message: `resolve-thread-with-reply requires a mode argument using one of: ${VALID_RESOLUTION_MODES.join(", ")}.` };
-}
-
-function trimOptional(value: string | null | undefined): string | null {
-	if (value === null || value === undefined) return null;
-	const trimmed = value.trim();
-	return trimmed === "" ? null : trimmed;
 }
 
 function invalid(message: string): { type: "error"; errorType: "invalid_request"; message: string } {
