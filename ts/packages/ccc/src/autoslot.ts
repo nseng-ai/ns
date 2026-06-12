@@ -1,11 +1,25 @@
+import process from "node:process";
+
 import type { ExtensionAPI } from "@asdl/pi-extension-runtime/cmux/types";
-import { buildAutobranchFlowInput, type AutobranchCommandContext } from "./autobranch.ts";
-import { createAutobranchCheckpointFlow, parseAutobranchArgs, type AutobranchFlowInput } from "./autobranch/flow.ts";
+import {
+	commitPreparedCheckpointMessageWithAsdlDev,
+	prepareCheckpointMessageWithAsdlDev,
+} from "./autobranch/asdl-dev-checkpoint.ts";
+import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
 
 const COMMAND_NAME = "code:autoslot";
 const STATUS_KEY = "autoslot";
+
+export interface AutobranchCommandContext {
+	cwd: string;
+	ui: {
+		notify(message: string, level?: "info" | "warning" | "error"): void;
+		setStatus(key: string, value: string | undefined): void;
+	};
+	waitForIdle(): Promise<void>;
+}
 
 export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
 	registerCommand(
@@ -74,10 +88,44 @@ async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandCo
 	await ctx.waitForIdle();
 	try {
 		await createAutoslotFlow({
-			...buildAutobranchFlowInput({ pi, ctx, args, statusKey: STATUS_KEY }),
+			cwd: ctx.cwd,
+			args,
+			exec: (command, commandArgs, cwd, timeout) => pi.exec(command, commandArgs, { cwd, timeout }),
+			prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot, process.env),
+			commitPreparedCheckpointMessage: (message) =>
+				commitPreparedCheckpointMessageWithAsdlDev(
+					(command, commandArgs, commandCwd, timeout) => pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
+					ctx.cwd,
+					message,
+				),
+			notify: (message, level) => {
+				ctx.ui.notify(message, level === "success" ? "info" : level);
+			},
+			setStatus: (message) => {
+				ctx.ui.setStatus(STATUS_KEY, message);
+			},
 			slotExec: pi,
 		});
 	} finally {
 		ctx.ui.setStatus(STATUS_KEY, undefined);
 	}
+}
+
+function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
+	const parts = argsText.trim().split(/\s+/).filter(Boolean);
+	const parsed: ParsedAutobranchArgs = {};
+	for (let index = 0; index < parts.length; index += 1) {
+		const part = parts[index];
+		const next = parts[index + 1];
+		if (part === "--slug" && next) {
+			parsed.slug = next;
+			index += 1;
+		} else if (part?.startsWith("--slug=")) {
+			const value = part.slice("--slug=".length);
+			if (value) {
+				parsed.slug = value;
+			}
+		}
+	}
+	return parsed;
 }

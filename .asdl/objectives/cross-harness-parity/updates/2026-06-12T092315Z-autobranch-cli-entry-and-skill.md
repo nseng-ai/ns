@@ -8,7 +8,7 @@ Implementation evidence:
 
 - `@asdl/ccc` now ships a `ccc` bin with a hidden agent-facing `ccc exec autobranch` operation.
 - The CLI delegates to the existing CCC autobranch orchestration for both dirty-worktree and latest-commit transactions instead of duplicating the stash/Graphite/recovery logic.
-- Pi `/code:autobranch` remains a thin adapter importing the same CCC core.
+- Pi `/code:autobranch` is registered through `registerCliCommandExtension` and invokes `ccc exec autobranch` through in-process `runCli`.
 - `code-autobranch` is installed as an internal first-party skill and delegates to `ccc exec autobranch`.
 - `ts/packages/ccc/test/scenario/autobranch-cli.test.ts` covers CLI help/version/runtime, hidden `exec` help, dirty-worktree success, latest-commit success, requested slugs, unknown-argument behavior, and failure exit codes/stderr.
 
