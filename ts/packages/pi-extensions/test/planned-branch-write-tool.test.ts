@@ -103,7 +103,7 @@ describe("write_saved_plan_file tool", () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
 		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { plannedBranchOperations: fakes.operations });
+		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
 		const tool = registeredTool(pi, "write_saved_plan_file");
 
 		const result = await tool.execute(
@@ -133,7 +133,7 @@ describe("write_saved_plan_file tool", () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
 		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { plannedBranchOperations: fakes.operations });
+		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const updates: ToolUpdate[] = [];
 		const toolContext = createToolContext({ hasUI: true });
@@ -257,7 +257,7 @@ describe("write_saved_plan_file tool", () => {
 		);
 		const final = renderResult({ content: [{ type: "text", text: "Path: /tmp/plan.md" }] }, { isPartial: false }, undefined, undefined);
 
-		expect(partial.render(100).join("\n")).toContain("Saving planned-branch plan…");
+		expect(partial.render(100).join("\n")).toContain("Saving branch-context plan…");
 		expect(partial.render(100).join("\n")).toContain("Deriving saved-plan filename slug with Codex…");
 		expect(final.render(100).join("\n").trimEnd()).toBe("Path: /tmp/plan.md");
 	});

@@ -87,7 +87,7 @@ describe("writeSavedPlanFile", () => {
 
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const expectedPath = join(planStoreRoot, repoKey, branchKey, PLAN_KEY);
+		const expectedPath = join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}.md`);
 
 		pi.assertDone();
 		expect(evidence).toEqual({
@@ -126,7 +126,7 @@ describe("writeSavedPlanFile", () => {
 		const origin = "git@github.com:owner/repo.git";
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const filePath = join(planStoreRoot, repoKey, branchKey, PLAN_KEY);
+		const filePath = join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}.md`);
 		await mkdir(dirname(filePath), { recursive: true });
 		await writeFile(filePath, "# Existing Plan\n", "utf8");
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ stdout: `${origin}\n` })]);

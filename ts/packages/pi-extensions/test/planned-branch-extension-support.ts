@@ -4,33 +4,33 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import registerPlannedBranchExtension, {
-	CREATE_PLANNED_BRANCH_USAGE,
+import registerBranchContextExtension, {
+	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
-	PLAN_BRANCH_NAMESPACE,
+	BRANCH_CONTEXT_NAMESPACE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
-	formatCreatePlannedBranchPreview,
+	formatCreateBranchContextPreview,
 	formatSavedPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
-	parseCreatePlannedBranchArgs,
+	parseCreateBranchContextArgs,
 	validatePlanSlug,
 	writeSavedPlanFile,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
-	type PlannedBranchOperations,
+	type BranchContextOperations,
 	type SavedPlanFileEvidence,
 	type ToolContext,
 	type ToolDefinition,
 } from "../src/planned-branch-extension.ts";
-import { buildPlanContentSlugPrompt, type LoadedAttachedPlan, type PlannedBranchEvidence } from "@asdl/planned-branch";
-import { formatPlanBranchEvidence } from "../src/planned-branch-output.ts";
+import { buildPlanContentSlugPrompt, type LoadedAttachedPlan, type BranchContextEvidence } from "@asdl/branch-context";
+import { formatBranchContextEvidence } from "../src/planned-branch-output.ts";
 import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL, type SelectedSavedPlanFile } from "@asdl/plans";
 import type { ExecOptions } from "@asdl/core/exec";
@@ -39,12 +39,12 @@ export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../..");
 export const ROOT = "/repo";
 export const PLAN_SLUG = "branch-scoped-plan-extension";
-export const PLAN_KEY = `${PLAN_SLUG}.md`;
+export const PLAN_KEY = "plan.md";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 export const SOURCE_BRANCH = "source-branch";
-export const TARGET_BRANCH = "planned-branches/wire-create-planned-branch-command";
-export const IMPL_BRANCH = `planned-branches/${PLAN_SLUG}`;
-export const IMPL_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${IMPL_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
+export const TARGET_BRANCH = "branch-contextes/wire-create-branch-context-command";
+export const IMPL_BRANCH = `branch-contextes/${PLAN_SLUG}`;
+export const IMPL_REF = `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${IMPL_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 export const DEFAULT_PLAN_CONTENT = "# Test Plan\n\nDo the work.\n";
 export const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Implement from it.\n";
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
@@ -140,40 +140,40 @@ export class FakePi implements ExtensionAPI {
 	}
 }
 
-export interface PlannedBranchOperationFakes {
-	operations: PlannedBranchOperations;
-	loadPlanCalls: Array<Parameters<PlannedBranchOperations["loadPlannedBranchPlan"]>>;
-	createBranchCalls: Array<Parameters<PlannedBranchOperations["createPlannedBranchFromFile"]>>;
-	writePlanCalls: Array<Parameters<PlannedBranchOperations["writeSavedPlanFile"]>>;
-	selectPlanCalls: Array<Parameters<PlannedBranchOperations["resolveSelectedSavedPlanFile"]>>;
+export interface BranchContextOperationFakes {
+	operations: BranchContextOperations;
+	loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>>;
+	createBranchCalls: Array<Parameters<BranchContextOperations["createBranchContextFromFile"]>>;
+	writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>>;
+	selectPlanCalls: Array<Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>>;
 }
 
-export function createPlannedBranchOperationFakes(
-	overrides: Partial<PlannedBranchOperations> = {},
-): PlannedBranchOperationFakes {
-	const loadPlanCalls: Array<Parameters<PlannedBranchOperations["loadPlannedBranchPlan"]>> = [];
-	const createBranchCalls: Array<Parameters<PlannedBranchOperations["createPlannedBranchFromFile"]>> = [];
-	const writePlanCalls: Array<Parameters<PlannedBranchOperations["writeSavedPlanFile"]>> = [];
-	const selectPlanCalls: Array<Parameters<PlannedBranchOperations["resolveSelectedSavedPlanFile"]>> = [];
+export function createBranchContextOperationFakes(
+	overrides: Partial<BranchContextOperations> = {},
+): BranchContextOperationFakes {
+	const loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>> = [];
+	const createBranchCalls: Array<Parameters<BranchContextOperations["createBranchContextFromFile"]>> = [];
+	const writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>> = [];
+	const selectPlanCalls: Array<Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>> = [];
 	return {
 		loadPlanCalls,
 		createBranchCalls,
 		writePlanCalls,
 		selectPlanCalls,
 		operations: {
-			async loadPlannedBranchPlan(...args) {
+			async loadBranchContextPlan(...args) {
 				loadPlanCalls.push(args);
-				if (overrides.loadPlannedBranchPlan !== undefined) {
-					return overrides.loadPlannedBranchPlan(...args);
+				if (overrides.loadBranchContextPlan !== undefined) {
+					return overrides.loadBranchContextPlan(...args);
 				}
 				return attachedPlan();
 			},
-			async createPlannedBranchFromFile(...args) {
+			async createBranchContextFromFile(...args) {
 				createBranchCalls.push(args);
-				if (overrides.createPlannedBranchFromFile !== undefined) {
-					return overrides.createPlannedBranchFromFile(...args);
+				if (overrides.createBranchContextFromFile !== undefined) {
+					return overrides.createBranchContextFromFile(...args);
 				}
-				return plannedBranchEvidenceFromParams(args[1]);
+				return branchContextEvidenceFromParams(args[1]);
 			},
 			async writeSavedPlanFile(...args) {
 				writePlanCalls.push(args);
@@ -198,7 +198,7 @@ export function attachedPlan(input: Partial<LoadedAttachedPlan> = {}): LoadedAtt
 	const content = input.content ?? IMPL_PLAN_CONTENT;
 	return {
 		branch: input.branch ?? IMPL_BRANCH,
-		namespace: input.namespace ?? PLAN_BRANCH_NAMESPACE,
+		namespace: input.namespace ?? BRANCH_CONTEXT_NAMESPACE,
 		selectedKey: input.selectedKey ?? PLAN_KEY,
 		refName: input.refName ?? IMPL_REF,
 		content,
@@ -209,28 +209,28 @@ export function attachedPlan(input: Partial<LoadedAttachedPlan> = {}): LoadedAtt
 	};
 }
 
-export function plannedBranchEvidence(input: Partial<PlannedBranchEvidence> = {}): PlannedBranchEvidence {
+export function branchContextEvidence(input: Partial<BranchContextEvidence> = {}): BranchContextEvidence {
 	return {
 		slug: input.slug ?? PLAN_SLUG,
 		branch: input.branch ?? PLAN_SLUG,
 		branchCreation: input.branchCreation ?? "plain-git",
 		startPoint: input.startPoint ?? START_POINT,
-		namespace: input.namespace ?? PLAN_BRANCH_NAMESPACE,
+		namespace: input.namespace ?? BRANCH_CONTEXT_NAMESPACE,
 		key: input.key ?? PLAN_KEY,
-		refName: input.refName ?? `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${(input.branch ?? PLAN_SLUG).replaceAll("/", "---")}:${input.key ?? PLAN_KEY}`,
+		refName: input.refName ?? `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${(input.branch ?? PLAN_SLUG).replaceAll("/", "---")}:${input.key ?? PLAN_KEY}`,
 		commit: input.commit ?? "abc123",
 		sourceFile: input.sourceFile ?? "/tmp/plan.md",
 		...(input.summary === undefined ? {} : { summary: input.summary }),
 	};
 }
 
-export function plannedBranchEvidenceFromParams(rawParams: unknown): PlannedBranchEvidence {
+export function branchContextEvidenceFromParams(rawParams: unknown): BranchContextEvidence {
 	const params = rawParams as { slug: string; filePath: string; branchCreation: "plain-git" | "graphite"; branchName?: string; summary?: string };
-	return plannedBranchEvidence({
+	return branchContextEvidence({
 		slug: params.slug,
 		branch: params.branchName ?? params.slug,
 		branchCreation: params.branchCreation,
-		key: `${params.slug}.md`,
+		key: PLAN_KEY,
 		sourceFile: params.filePath,
 		...(params.summary === undefined ? {} : { summary: params.summary }),
 	});
@@ -367,23 +367,14 @@ export function brmemListAttachedPlansStep(
 	entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>,
 	result: Partial<ExecResult> = {},
 ): ScriptedExec {
-	return step("brmem", ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"], {
-		stdout: JSON.stringify({
-			exit_code: 0,
-			data: {
-				entries: entries.map((entry) => ({
-					namespace: entry.namespace ?? PLAN_BRANCH_NAMESPACE,
-					key: entry.key,
-					branch: entry.branch ?? branch,
-					ref_name: entry.refName ?? `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${(entry.branch ?? branch).replaceAll("/", "---")}:${entry.key}`,
-				})),
-			},
-		}),
+	const hasPlanEntry = entries.some((entry) => entry.key === PLAN_KEY && (entry.branch ?? branch) === branch);
+	return step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"], {
+		code: hasPlanEntry ? 0 : 1,
 		...result,
 	});
 }
 
-export async function makeTempDir(prefix = "planned-branch-extension-"): Promise<string> {
+export async function makeTempDir(prefix = "branch-context-extension-"): Promise<string> {
 	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
 	tempDirs.push(dir);
 	return dir;
@@ -446,12 +437,12 @@ export function sourcePlanToolResultEntryForTool(evidence: SavedPlanFileEvidence
 	};
 }
 
-export function plannedBranchOutputMessageEntry(content: string, details?: unknown): unknown {
+export function branchContextOutputMessageEntry(content: string, details?: unknown): unknown {
 	return {
 		type: "message",
 		message: {
 			role: "custom",
-			customType: "planned-branch-output",
+			customType: "branch-context-output",
 			display: true,
 			content,
 			...(details === undefined ? {} : { details }),
@@ -564,27 +555,49 @@ export function registeredTool(pi: FakePi, name = "write_saved_plan_file"): Tool
 	return tool;
 }
 
+const registerPlannedBranchExtension = registerBranchContextExtension;
+const CREATE_PLANNED_BRANCH_USAGE = CREATE_BRANCH_CONTEXT_USAGE;
+const PLAN_BRANCH_NAMESPACE = BRANCH_CONTEXT_NAMESPACE;
+const createPlannedBranchOperationFakes = createBranchContextOperationFakes;
+const formatCreatePlannedBranchPreview = formatCreateBranchContextPreview;
+const formatPlanBranchEvidence = formatBranchContextEvidence;
+const parseCreatePlannedBranchArgs = parseCreateBranchContextArgs;
+const plannedBranchEvidence = branchContextEvidence;
+const plannedBranchOutputMessageEntry = branchContextOutputMessageEntry;
+
+type PlannedBranchOperations = BranchContextOperations;
+type PlannedBranchEvidence = BranchContextEvidence;
+
 
 export {
+	registerBranchContextExtension,
 	registerPlannedBranchExtension,
+	CREATE_BRANCH_CONTEXT_USAGE,
 	CREATE_PLANNED_BRANCH_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
+	BRANCH_CONTEXT_NAMESPACE,
 	PLAN_BRANCH_NAMESPACE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
+	formatCreateBranchContextPreview,
 	formatCreatePlannedBranchPreview,
 	formatSavedPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
+	parseCreateBranchContextArgs,
 	parseCreatePlannedBranchArgs,
 	validatePlanSlug,
 	writeSavedPlanFile,
 	buildPlanContentSlugPrompt,
+	formatBranchContextEvidence,
 	formatPlanBranchEvidence,
+	createPlannedBranchOperationFakes,
+	plannedBranchEvidence,
+	plannedBranchOutputMessageEntry,
 	buildSavedPlanContentSlugPrompt,
 	buildSlugModelArgs,
 	DEFAULT_FAST_MODEL,
@@ -600,11 +613,13 @@ export type {
 	CommandContext,
 	ExecResult,
 	ExtensionAPI,
+	BranchContextOperations,
 	PlannedBranchOperations,
 	SavedPlanFileEvidence,
 	ToolContext,
 	ToolDefinition,
 	LoadedAttachedPlan,
+	BranchContextEvidence,
 	PlannedBranchEvidence,
 	SelectedSavedPlanFile,
 	ExecOptions,

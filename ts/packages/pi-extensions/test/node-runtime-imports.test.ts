@@ -26,14 +26,14 @@ const PROJECT_EXTENSION_ADAPTERS = [
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@asdl/ccc/worktree-status/graphite-metadata",
 	"@asdl/core/exec",
-	"@asdl/planned-branch",
+	"@asdl/branch-context",
 	"@asdl/plans",
 	"asdl-dev/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
 	"@asdl/core/exec",
-	"@asdl/planned-branch",
+	"@asdl/branch-context",
 	"@asdl/plans",
 	"asdl-dev/checkpoint-flow",
 ] as const;

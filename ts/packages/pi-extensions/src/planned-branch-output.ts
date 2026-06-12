@@ -1,10 +1,10 @@
 export {
-	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
-	extractPlannedBranchEvidence,
-	formatPlanBranchEvidence,
-} from "@asdl/planned-branch";
+	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+	extractBranchContextEvidence,
+	formatBranchContextEvidence,
+} from "@asdl/branch-context";
 export type {
-	PlannedBranchEvidence,
-	PlannedBranchOutputDetails,
-	PlannedBranchOutputStatus,
-} from "@asdl/planned-branch";
+	BranchContextEvidence,
+	BranchContextOutputDetails,
+	BranchContextOutputStatus,
+} from "@asdl/branch-context";

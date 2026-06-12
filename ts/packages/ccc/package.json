@@ -13,9 +13,10 @@
     "./handoff-tab": "./src/handoff-tab.ts",
     "./land": "./src/land.ts",
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
-    "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts",
+    "./branch-context-up-and-impl": "./src/branch-context-up-and-impl.ts",
     "./worktree-status": "./src/worktree-status.ts",
-    "./worktree-status/graphite-metadata": "./src/worktree-status/graphite-metadata.ts"
+    "./worktree-status/graphite-metadata": "./src/worktree-status/graphite-metadata.ts",
+    "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
@@ -25,7 +26,7 @@
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
-    "@asdl/planned-branch": "workspace:*",
+    "@asdl/branch-context": "workspace:*",
     "@asdl/plans": "workspace:*",
     "asdl-dev": "workspace:*",
     "zod": "^4.4.3"
