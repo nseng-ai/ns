@@ -24,14 +24,16 @@ Start with narrow repo facts:
 ```bash
 git status --short
 git branch --show-current
-gt branch info 2>/dev/null || true
+gt parent --no-interactive 2>/dev/null || true
 git diff --name-status
 git diff --name-status <base>...HEAD  # when the branch base is known
 rg -n "pi\\.registerCommand|registerCliCommandExtension|registerTool\\(" ts/packages/pi-extensions/src -g '!**/node_modules/**'
 find skills -maxdepth 2 -name SKILL.md | sort
 ```
 
-Prefer the Graphite parent from `gt branch info` as the branch diff base when available, because this repo uses Graphite stacks. If Graphite is unavailable, use a best-effort plain git base (`origin/master`, `master`, `origin/main`, `main`) without failing the review.
+Prefer the Graphite parent from `gt parent --no-interactive` as the branch diff base when available, because this repo uses Graphite stacks. If Graphite is unavailable, use a best-effort plain git base (`origin/master`, `master`, `origin/main`, `main`) without failing the review.
+
+Do not parse `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` display output for machine topology decisions. For current-stack topology use `slot gt exec stack-branches` or `slot gt exec stack-branches --format json`; reserve display commands only for human visual confirmation or diagnostics.
 
 For diff-scoped review, inspect changed files before the full inventory. For full-sweep review, inspect all registration sites and the current skill inventory.
 

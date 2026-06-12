@@ -78,9 +78,11 @@ After loading the selected Objective and confirming it is not closed, collect fa
    ```
 
 3. Base discovery:
-   - Prefer Graphite when available: run `gt branch info` and extract `Parent: <branch>`.
+   - Prefer Graphite when available: run `gt parent --no-interactive` and use its stdout as the base branch.
    - Else use `baseRefName` from `gh pr view` when current-branch PR evidence is available.
    - Else use a plain-git default/trunk best effort from available refs.
+
+   Do not parse `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` display output for machine topology decisions. Use `gt parent --no-interactive` for the current Graphite parent and `slot gt exec stack-branches` (or `--format json`) for current-stack topology; reserve display commands only for human visual confirmation or diagnostics.
 
 4. Local branch evidence when base is known:
 
