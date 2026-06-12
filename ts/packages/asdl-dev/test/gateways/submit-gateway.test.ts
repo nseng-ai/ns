@@ -5,8 +5,8 @@ import {
 	parseGtLogStack,
 	parseParentBranch,
 	RealSubmitMetadataGateway,
-} from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
-import { RealSubmitGateway } from "asdl-dev/src/submit.ts";
+} from "../../src/submit-pr-metadata-prewrite.ts";
+import { RealSubmitGateway } from "../../src/submit.ts";
 import { ScriptedCommandRunner, startupErrorStep, step } from "../support/scripted-command-runner.ts";
 
 describe("RealSubmitGateway", () => {

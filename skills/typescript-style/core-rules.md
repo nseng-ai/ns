@@ -49,6 +49,13 @@ new or touched code while preserving local conventions.
 - **Follow the project's import suffix convention.** Strip-only Node/Bun projects often use `.ts` in
   relative imports; compiled ESM projects may require `.js`; bundled projects may omit suffixes. Do not
   mix conventions within a package.
+- **Use explicit package exports for internal monorepo boundaries.** Consumers should not deep-import
+  another package's `src/` files; enforce the boundary with a package `exports` map. Prefer curated
+  subpath exports such as `pkg/checkpoint-flow` when path-level greppability matters. Avoid collapsing a
+  package into one root barrel if it would make every consumer look like `from "pkg"`, load unrelated
+  modules, hide circular edges, or make `rg` navigation fuzzy. In agent-heavy codebases, grep-able import
+  paths are an architectural property. Package self-reference through exported subpaths is appropriate
+  for tests of public primitives; use relative imports only for truly private internals.
 - **Read external types from `node_modules` or docs.** Do not guess library shapes, and do not weaken
   your code to satisfy stale dependency types without checking whether an upgrade is the right fix.
 

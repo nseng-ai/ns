@@ -1,4 +1,4 @@
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
 
 export type UpstreamMode = "contains" | "ahead" | "none" | "failed";
 

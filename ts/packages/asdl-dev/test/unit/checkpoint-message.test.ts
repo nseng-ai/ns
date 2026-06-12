@@ -6,7 +6,7 @@ import {
 	formatCheckpointValidationFeedback,
 	validateCheckpointMessage,
 	type CheckpointMessageIssue,
-} from "asdl-dev/src/checkpoint-message.ts";
+} from "../../src/checkpoint-message.ts";
 
 const validOneBullet = `[cp] Update checkpoint tests
 

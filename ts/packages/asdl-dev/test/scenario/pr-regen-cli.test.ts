@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCli } from "asdl-dev/src/cli.ts";
-import { GENERATED_BODY_MARKER } from "asdl-dev/src/pr-description.ts";
+import { runCli } from "asdl-dev/cli";
+import { GENERATED_BODY_MARKER } from "../../src/pr-description.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
 function runWithFakes(args: readonly string[], state: InMemoryContextState = {}, options: { env?: Record<string, string | undefined> } = {}) {

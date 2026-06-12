@@ -2,6 +2,13 @@
   "name": "asdl-dev",
   "private": true,
   "type": "module",
+  "exports": {
+    "./checkpoint-flow": "./src/checkpoint-flow.ts",
+    "./cli": "./src/cli.ts",
+    "./context": "./src/context.ts",
+    "./pending-worktree": "./src/pending-worktree.ts",
+    "./text-generation": "./src/text-generation.ts"
+  },
   "bin": {
     "asdl-dev": "./src/cli.ts"
   },

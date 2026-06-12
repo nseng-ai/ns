@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ASDL_DEV_PACKAGE_ROOT = fileURLToPath(new URL("../../asdl-dev/", import.meta.url));
 const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../ccc/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = [
@@ -27,14 +28,22 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@asdl/core/exec",
 	"@asdl/planned-branch",
 	"@asdl/plans",
-	"asdl-dev/src/cli.ts",
+	"asdl-dev/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
 	"@asdl/core/exec",
 	"@asdl/planned-branch",
 	"@asdl/plans",
-	"asdl-dev/src/checkpoint-flow.ts",
+	"asdl-dev/checkpoint-flow",
+] as const;
+
+const ASDL_DEV_EXPORT_IMPORTS = [
+	"asdl-dev/checkpoint-flow",
+	"asdl-dev/cli",
+	"asdl-dev/context",
+	"asdl-dev/pending-worktree",
+	"asdl-dev/text-generation",
 ] as const;
 
 interface NodeEvalOptions {
@@ -71,6 +80,16 @@ describe("Node runtime import smoke", () => {
 
 		expectSuccessfulNodeRun(result);
 		expect(result.stdout).toContain("imported 4 package specifiers");
+	});
+
+	test("asdl-dev package imports every declared export subpath under Node", () => {
+		const result = runNodeEval({
+			cwd: ASDL_DEV_PACKAGE_ROOT,
+			source: buildPackageImportScript(ASDL_DEV_EXPORT_IMPORTS),
+		});
+
+		expectSuccessfulNodeRun(result);
+		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 });
 

@@ -13,6 +13,8 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Untyped external input starts as `unknown` and is parsed/narrowed by Zod schemas or guards.
 - [ ] Type imports are top-level; runtime lazy imports are used only for runtime reasons.
 - [ ] Relative import suffixes match the package convention.
+- [ ] Cross-package imports use declared package exports, not undeclared `src/` deep imports; subpath
+      exports are used when they preserve useful grep-able paths.
 
 ## Types
 

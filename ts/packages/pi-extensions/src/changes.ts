@@ -7,7 +7,7 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
-} from "asdl-dev/src/pending-worktree.ts";
+} from "asdl-dev/pending-worktree";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
 
 const COMMAND_NAME = "code:changes";
