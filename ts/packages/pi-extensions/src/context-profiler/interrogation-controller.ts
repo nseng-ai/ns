@@ -16,6 +16,7 @@ export interface InterrogationViewPort {
 
 export interface InterrogationControllerOptions {
 	bundle: PersistedBundle;
+	// pi-ai exposes runnable models as Model<Api>; keep that external seam explicit at the controller boundary.
 	model: Model<Api>;
 	modelRegistry: ModelRegistry;
 	factory: InterrogationSessionFactory;
@@ -24,6 +25,7 @@ export interface InterrogationControllerOptions {
 
 export class InterrogationController implements InterrogationViewPort {
 	private readonly bundle: PersistedBundle;
+	// Matches the pi-ai Model<Api> library seam accepted by the session factory.
 	private readonly model: Model<Api>;
 	private readonly modelRegistry: ModelRegistry;
 	private readonly factory: InterrogationSessionFactory;
@@ -33,7 +35,7 @@ export class InterrogationController implements InterrogationViewPort {
 	private isStarting: boolean;
 	private unavailableReason: string | null;
 	private lastScope: InterrogationScope | null;
-	private disposed: boolean;
+	private isDisposed: boolean;
 
 	constructor(options: InterrogationControllerOptions) {
 		this.bundle = options.bundle;
@@ -46,7 +48,7 @@ export class InterrogationController implements InterrogationViewPort {
 		this.isStarting = false;
 		this.unavailableReason = null;
 		this.lastScope = null;
-		this.disposed = false;
+		this.isDisposed = false;
 	}
 
 	get bundleOrdinal(): number {
@@ -58,7 +60,7 @@ export class InterrogationController implements InterrogationViewPort {
 	}
 
 	private async ensureStarted(): Promise<InterrogationAvailability> {
-		if (this.disposed) return { ok: false, reason: "interrogation was closed" };
+		if (this.isDisposed) return { ok: false, reason: "interrogation was closed" };
 		if (this.session !== null) return { ok: true };
 		if (this.unavailableReason !== null) return { ok: false, reason: this.unavailableReason };
 		if (this.isStarting) return { ok: false, reason: "interrogation agent is still spawning" };
@@ -77,7 +79,7 @@ export class InterrogationController implements InterrogationViewPort {
 			modelRegistry: this.modelRegistry,
 		});
 		this.isStarting = false;
-		if (this.disposed) {
+		if (this.isDisposed) {
 			if (result.ok) result.value.dispose();
 			return { ok: false, reason: "interrogation was closed" };
 		}
@@ -119,7 +121,7 @@ export class InterrogationController implements InterrogationViewPort {
 	}
 
 	dispose(): void {
-		this.disposed = true;
+		this.isDisposed = true;
 		this.session?.dispose();
 		this.session = null;
 	}

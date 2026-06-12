@@ -183,10 +183,15 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 	return { initial: { type: "pending" }, whenPersisted };
 }
 
+export interface SegmentationCacheAccess {
+	read(): SegmentationCacheEntry | null;
+	write(entry: SegmentationCacheEntry): void;
+}
+
 export interface StartSegmentationOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
-	state: ProfilerState;
+	cache: SegmentationCacheAccess;
 	/** Bypass the fingerprint cache and always recompute (the `r` refresh path). */
 	force: boolean;
 	onUpdate: (segmentation: SegmentationState) => void;
@@ -202,7 +207,7 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	detach: () => void;
 	completion: Promise<SegmentationBatchOutcome>;
 } {
-	const { gateway, profile, state, force, onUpdate } = options;
+	const { cache, gateway, profile, force, onUpdate } = options;
 	let isDetached = false;
 	const detach = (): void => {
 		isDetached = true;
@@ -221,13 +226,13 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 		if (isDetached) return;
 		onUpdate({ type: "error", message });
 	};
-	const cached = state.segmentationCache;
+	const cached = cache.read();
 	if (!force && cached !== null && cached.fingerprint === fingerprint) {
 		const analysis = initialAnalysisStatuses(cached.episodes);
 		const completion = runMissingEpisodeAnalysis({
 			gateway,
 			profile,
-			state,
+			cache,
 			fingerprint,
 			episodes: cached.episodes,
 			summary: cached.summary,
@@ -242,7 +247,7 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	const completion = runFreshSegmentation({
 		gateway,
 		profile,
-		state,
+		cache,
 		fingerprint,
 		signal,
 		canWriteCache: () => !isDetached,
@@ -255,7 +260,7 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 interface RunFreshSegmentationOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
-	state: ProfilerState;
+	cache: SegmentationCacheAccess;
 	fingerprint: string;
 	signal: AbortSignal;
 	canWriteCache: () => boolean;
@@ -282,13 +287,13 @@ async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promi
 	const summary = result.value.summary;
 	const analysis = initialAnalysisStatuses(episodes);
 	if (options.canWriteCache()) {
-		rememberSegmentationCache(options.state, { fingerprint: options.fingerprint, episodes, summary, delegations });
+		options.cache.write({ fingerprint: options.fingerprint, episodes, summary, delegations });
 		options.onReady({ episodes, summary, delegations, analysis });
 	}
 	return runMissingEpisodeAnalysis({
 		gateway: options.gateway,
 		profile: options.profile,
-		state: options.state,
+		cache: options.cache,
 		fingerprint: options.fingerprint,
 		episodes,
 		summary,
@@ -303,7 +308,7 @@ async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promi
 interface RunEpisodeAnalysisOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
-	state: ProfilerState;
+	cache: SegmentationCacheAccess;
 	fingerprint: string;
 	episodes: readonly EpisodeAnnotation[];
 	summary: string | null;
@@ -358,9 +363,9 @@ async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Pr
 
 function emitAnalysisUpdate(options: RunEpisodeAnalysisOptions, episodes: readonly EpisodeAnnotation[], analysis: readonly EpisodeAnalysisStatus[]): void {
 	if (!options.canWriteCache()) return;
-	const currentCache = options.state.segmentationCache;
+	const currentCache = options.cache.read();
 	if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
-	rememberSegmentationCache(options.state, { ...currentCache, episodes: [...episodes] });
+	options.cache.write({ ...currentCache, episodes: [...episodes] });
 	options.onUpdate({ episodes, summary: options.summary, delegations: options.delegations, analysis });
 }
 
@@ -402,10 +407,6 @@ function readyState(options: ReadyStateOptions): SegmentationState {
 
 function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {
 	return episodes.map((episode): EpisodeAnalysisStatus => hasAnalysisVerdicts(episode) ? "ready" : "loading");
-}
-
-function rememberSegmentationCache(state: ProfilerState, entry: SegmentationCacheEntry): void {
-	state.segmentationCache = entry;
 }
 
 function hasAnalysisVerdicts(episode: EpisodeAnnotation): boolean {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createProfilerState, startSegmentationBatch } from "../src/context-profiler/runtime.ts";
+import { createProfilerState, startSegmentationBatch, type SegmentationCacheAccess } from "../src/context-profiler/runtime.ts";
 import { computeSegmentationFingerprint, type SegmentationState } from "../src/context-profiler/segmentation.ts";
 import type { AnalysisModelGateway, SegmentationCallResult } from "../src/context-profiler/analysis-model-gateway.ts";
 import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
@@ -30,6 +30,15 @@ function collectUpdates(): { updates: SegmentationState[]; onUpdate: (state: Seg
 	return { updates, onUpdate: (state) => updates.push(state) };
 }
 
+function mutableCache(state: ReturnType<typeof createProfilerState>): SegmentationCacheAccess {
+	return {
+		read: () => state.segmentationCache,
+		write: (entry) => {
+			state.segmentationCache = entry;
+		},
+	};
+}
+
 async function settled(): Promise<void> {
 	// Three microtask hops cover segmentation plus one wave of episode-analysis handlers.
 	await Promise.resolve();
@@ -44,7 +53,7 @@ describe("startSegmentationBatch", () => {
 		const profile = makeProfile(sequentialTurns(5));
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile, state, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({ gateway, profile, cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 
@@ -76,12 +85,12 @@ describe("startSegmentationBatch", () => {
 		const state = createProfilerState();
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
 		const profile = makeProfile(sequentialTurns(5));
-		const seeded = startSegmentationBatch({ gateway, profile, state, force: false, onUpdate: () => {} });
+		const seeded = startSegmentationBatch({ gateway, profile, cache: mutableCache(state), force: false, onUpdate: () => {} });
 		expect(seeded.initial.type).toBe("loading");
 		await settled();
 
 		const { updates, onUpdate } = collectUpdates();
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({
 			type: "ready",
 			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
@@ -110,7 +119,7 @@ describe("startSegmentationBatch", () => {
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS, analysisResult: { ok: true, value: { efficiency: "mixed", relevance: "still-useful", summary: null } } });
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile, state, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({ gateway, profile, cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({
 			type: "ready",
 			summary: "A short session.",
@@ -149,7 +158,7 @@ describe("startSegmentationBatch", () => {
 		});
 		const { updates, onUpdate } = collectUpdates();
 
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		await settled();
 
 		expect(updates[1]).toMatchObject({
@@ -168,7 +177,7 @@ describe("startSegmentationBatch", () => {
 		});
 		const { updates, onUpdate } = collectUpdates();
 
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		await settled();
 
 		expect(updates[0]).toMatchObject({ type: "ready", analysis: ["loading"] });
@@ -179,10 +188,10 @@ describe("startSegmentationBatch", () => {
 	test("a changed snapshot misses the cache", async () => {
 		const state = createProfilerState();
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate: () => {} });
+		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate: () => {} });
 		await settled();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(6)), state, force: false, onUpdate: () => {} });
+		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(6)), cache: mutableCache(state), force: false, onUpdate: () => {} });
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 		expect(gateway.calls).toHaveLength(2);
@@ -193,11 +202,11 @@ describe("startSegmentationBatch", () => {
 		const state = createProfilerState();
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
 		const profile = makeProfile(sequentialTurns(5));
-		startSegmentationBatch({ gateway, profile, state, force: false, onUpdate: () => {} });
+		startSegmentationBatch({ gateway, profile, cache: mutableCache(state), force: false, onUpdate: () => {} });
 		await settled();
 		const firstCache = state.segmentationCache;
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: true, onUpdate: () => {} });
+		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: true, onUpdate: () => {} });
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 		expect(gateway.calls).toHaveLength(2);
@@ -212,7 +221,7 @@ describe("startSegmentationBatch", () => {
 		});
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 
@@ -225,7 +234,7 @@ describe("startSegmentationBatch", () => {
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(2)), state, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(2)), cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({ type: "idle" });
 		await settled();
 		expect(updates).toEqual([]);
@@ -241,7 +250,7 @@ describe("startSegmentationBatch", () => {
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS, gate });
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial, detach } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		const { initial, detach } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({ type: "loading" });
 		detach();
 		release();
@@ -256,7 +265,7 @@ describe("startSegmentationBatch", () => {
 		const gateway = new FakeSegmentationGateway({ result: { ok: false, error: { code: "aborted", message: "segmentation request aborted" } } });
 		const { updates, onUpdate } = collectUpdates();
 
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		await settled();
 		expect(updates).toEqual([]);
 	});
@@ -265,7 +274,7 @@ describe("startSegmentationBatch", () => {
 		const state = createProfilerState();
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway: new RejectingSegmentationGateway(), profile: makeProfile(sequentialTurns(5)), state, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({ gateway: new RejectingSegmentationGateway(), profile: makeProfile(sequentialTurns(5)), cache: mutableCache(state), force: false, onUpdate });
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 
@@ -289,7 +298,7 @@ describe("startSegmentationBatch", () => {
 			startSegmentationBatch({
 				gateway,
 				profile: makeProfile(sequentialTurns(5)),
-				state,
+				cache: mutableCache(state),
 				force: false,
 				onUpdate: (segmentation) => {
 					updates.push(segmentation);
