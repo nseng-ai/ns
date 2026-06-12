@@ -34,10 +34,8 @@ export interface AutobranchFlowInput {
 export type AutobranchFlowResult =
 	| {
 			ok: true;
-			mode: "dirty" | "latest_commit";
 			branchName: string;
 			isCleanAfter: boolean;
-			summary: string;
 	  }
 	| { ok: false };
 
@@ -136,10 +134,8 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 
 	return {
 		ok: true,
-		mode: "dirty",
 		branchName: prepared.plan.branchName,
 		isCleanAfter: isClean,
-		summary: transaction.commitSummary,
 	};
 }
 

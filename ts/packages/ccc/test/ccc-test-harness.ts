@@ -360,6 +360,7 @@ export function slotCheckoutJson(branch: string): string {
 			slot_name: "slot-01",
 			branch_name: branch,
 			worktree_path: WORKTREE,
+			cd_command: `cd ${WORKTREE}`,
 			already_assigned: false,
 		},
 	});

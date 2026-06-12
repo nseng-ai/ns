@@ -1,17 +1,7 @@
-export interface CommandResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-	killed?: boolean;
-}
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 
-export interface PendingWorktreeSnapshot {
-	root: string;
-	branch: string;
-	status: string;
-	diff: string;
-	clean: boolean;
-}
+export type { CommandResult, PendingWorktreeSnapshot };
 
 export type UpstreamMode = "contains" | "ahead" | "none" | "failed";
 
