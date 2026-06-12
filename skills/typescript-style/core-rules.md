@@ -178,8 +178,14 @@ Full reasoning: `references/philosophy.md` plus the case studies.
   real abstractions, not decoration.
 - **Event names are stable strings.** Use a consistent casing convention (`snake_case` is a good
   default) and treat them as API.
-- **Barrels are curated.** Prefer explicit named exports and `export type {}`. Avoid `export *` from
-  public package roots unless the project intentionally exposes the whole subtree.
+- **Package public surfaces are curated and greppable.** For internal packages, the `exports` map is the
+  deliberate public surface: cross-package consumers import declared entries, not `pkg/src/*` private
+  paths. Multi-module packages should prefer explicit subpath exports such as
+  `@org/workflows/checkpoint-flow` over wildcard entries like `./*` or `./src/*`, which recreate deep
+  imports under a public-looking path. A small root entry is fine for genuinely package-level
+  primitives, but root-only barrels that re-export every module, leaving consumers to import only
+  `@org/workflows`, hide ownership and make `rg` navigation worse. Any remaining barrel uses explicit
+  named exports and `export type {}` rather than broad `export *` by default.
 
 ---
 
