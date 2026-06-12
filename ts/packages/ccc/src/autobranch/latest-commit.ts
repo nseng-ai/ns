@@ -1,6 +1,7 @@
 import type { CommandResult } from "asdl-dev/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 
+import type { AutobranchFlowResult } from "./flow.ts";
 import { formatLatestCommitPreparationFailure, formatLatestCommitTransactionFailure } from "./latest-commit-formatting.ts";
 import { prepareLatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 import { runLatestCommitAutobranchTransaction } from "./latest-commit-transaction.ts";
@@ -21,11 +22,11 @@ export interface LatestCommitAutobranchInput {
 	now?: (() => number) | undefined;
 }
 
-export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobranchInput): Promise<void> {
+export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobranchInput): Promise<AutobranchFlowResult> {
 	const prepared = await prepareLatestCommitAutobranchPlan(input);
 	if (!prepared.ok) {
 		input.notify(formatLatestCommitPreparationFailure(prepared), "error");
-		return;
+		return { ok: false };
 	}
 
 	const transaction = await runLatestCommitAutobranchTransaction({
@@ -37,7 +38,7 @@ export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobr
 	});
 	if (!transaction.ok) {
 		input.notify(formatLatestCommitTransactionFailure(transaction), "error");
-		return;
+		return { ok: false };
 	}
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
@@ -53,4 +54,12 @@ export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobr
 		lines.push(`Warning: recovery branch ${transaction.backupBranch} could not be deleted: ${transaction.backupDeleteError}`);
 	}
 	input.notify(lines.join("\n"), isClean && transaction.backupDeleted ? "success" : "warning");
+
+	return {
+		ok: true,
+		mode: "latest_commit",
+		branchName: prepared.plan.branchName,
+		isCleanAfter: isClean,
+		summary: transaction.commitSummary,
+	};
 }

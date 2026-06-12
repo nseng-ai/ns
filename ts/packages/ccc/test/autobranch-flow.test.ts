@@ -16,6 +16,7 @@ interface HarnessOptions {
 	shouldStashPopFail?: boolean;
 	isDetachedHead?: boolean;
 	isCleanWorktree?: boolean;
+	isDirtyAfterAutobranch?: boolean;
 	upstreamMode?: UpstreamMode;
 }
 
@@ -61,7 +62,10 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "status") {
 				statusCalls += 1;
-				return ok(statusCalls === 1 ? (options.isCleanWorktree ? "" : " M file.ts\n") : "");
+				if (statusCalls === 1) {
+					return ok(options.isCleanWorktree ? "" : " M file.ts\n");
+				}
+				return ok(options.isDirtyAfterAutobranch ? " M file.ts\n" : "");
 			}
 			if (command === "git" && args[0] === "diff" && args[1] === "HEAD^") {
 				return ok("diff --git a/file.ts b/file.ts\n+committed\n");
@@ -162,8 +166,9 @@ describe("createAutobranchCheckpointFlow", () => {
 	test("message preparation failure happens before stash or Graphite branch creation", async () => {
 		const harness = createHarness({ prepareResult: { ok: false, error: "checkpoint prep failed" } });
 
-		await createAutobranchCheckpointFlow(harness.input);
+		const result = await createAutobranchCheckpointFlow(harness.input);
 
+		expect(result).toEqual({ ok: false });
 		expect(harness.events).toContain("prepare");
 		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
 		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
@@ -173,8 +178,9 @@ describe("createAutobranchCheckpointFlow", () => {
 	test("clean worktree extracts the latest commit instead of preparing a checkpoint", async () => {
 		const harness = createHarness({ isCleanWorktree: true, upstreamMode: "none" });
 
-		await createAutobranchCheckpointFlow(harness.input);
+		const result = await createAutobranchCheckpointFlow(harness.input);
 
+		expect(result).toEqual({ ok: true, mode: "latest_commit", branchName: "test-branch", isCleanAfter: true, summary: "abc123d Update committed feature" });
 		expect(harness.events).not.toContain("prepare");
 		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
 		expect(eventIndex(harness.events, "exec:git rev-list --parents -n 1 HEAD")).toBeGreaterThan(-1);
@@ -196,8 +202,9 @@ describe("createAutobranchCheckpointFlow", () => {
 	test("dirty worktree creates a branch for the dirty checkpoint without upstream inspection", async () => {
 		const harness = createHarness();
 
-		await createAutobranchCheckpointFlow(harness.input);
+		const result = await createAutobranchCheckpointFlow(harness.input);
 
+		expect(result).toEqual({ ok: true, mode: "dirty", branchName: "test-branch", isCleanAfter: true, summary: "abc123 [cp] Update checkpoint tests" });
 		expect(harness.events).toContain("prepare");
 		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
 		expect(eventIndex(harness.events, "exec:gt create test-branch")).toBeGreaterThan(-1);

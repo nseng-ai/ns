@@ -48,11 +48,14 @@ describe("code extension registration", () => {
 			"code:submit",
 			"code:pr-regen",
 			"code:autobranch",
+			"code:autoslot",
 			"code:land",
 			"code:pr-feedback-watch",
 		]);
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("autobranch")).toBe(false);
+		expect(pi.commands.has("autoslot")).toBe(false);
+		expect(pi.commands.has("code:autobranch-slot")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
 		expect(pi.commands.has("summary")).toBe(false);
 		expect(pi.commands.has("submit")).toBe(false);
@@ -74,6 +77,7 @@ describe("code extension registration", () => {
 			"asdl-dev pr-regen: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);
 		expect(pi.commands.get("code:autobranch")?.description).toContain("latest commit when the worktree is clean");
+		expect(pi.commands.get("code:autoslot")?.description).toContain("managed slot worktree");
 		expect(pi.commands.get("code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
@@ -100,6 +104,7 @@ describe("code extension registration", () => {
 			"code:submit",
 			"code:pr-regen",
 			"code:autobranch",
+			"code:autoslot",
 			"code:land",
 			"code:pr-feedback-watch",
 			"dev:preview-url",
