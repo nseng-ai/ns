@@ -15,6 +15,7 @@ import {
 } from "./feedback-manifest-contracts.ts";
 import {
 	ACTION_COMPLEXITIES,
+	APPROVAL_REQUIRED_COMPLEXITIES,
 	INFORMATIONAL_THREAD_DECISIONS,
 	actionComplexitySchema,
 	feedbackPlanDiscussionActionItemSchema,
@@ -41,9 +42,9 @@ import {
 	type PlanSourceKind,
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput, readJsonInputText } from "./json-input.ts";
+import { isRecord } from "./operation-support.ts";
 
 const FILL_DISPOSITION_PLACEHOLDER = "<fill: actionable|informational>";
-const APPROVAL_REQUIRED_COMPLEXITIES = new Set<ActionComplexity>(["cross_cutting", "complex"]);
 
 const classificationLocatorSchema = z.looseObject({
 	json_pointer: z.string(),
@@ -1322,10 +1323,6 @@ function kindLabel(kind: ValidationItemKind): string {
 function pythonRepr(value: string | null): string {
 	if (value === null) return "None";
 	return `'${value}'`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function jsonParseMessage(error: unknown): string {

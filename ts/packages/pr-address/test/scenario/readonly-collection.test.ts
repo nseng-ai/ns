@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { discussionComment, InMemoryPrAddressGitHubGateway, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
+import { discussionComment, fakePrAddressContext, InMemoryPrAddressGitHubGateway, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
 
 interface CliRun {
 	exit: Promise<number>;
@@ -32,7 +32,7 @@ function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubG
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy, github },
+			context: fakePrAddressContext({ legacy, github }),
 			cwd: "/repo",
 			env,
 			stdin: async () => "",

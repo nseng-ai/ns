@@ -5,7 +5,7 @@ import { formatErrorMessage } from "@asdl/core";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { gatewayFailureDetail, gatewayFailureExit, gatewayOptions, githubGateway } from "./operation-support.ts";
+import { gatewayFailureDetail, gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
@@ -124,10 +124,9 @@ export const resolveThreadBatchOperation = defineExecOperation({
 async function runReplyToReviewOperation(ctx: PrAddressExecContext, request: z.output<typeof replyToReviewParseSchema>): Promise<ClinkrExit<unknown>> {
 	const summaryMarkdown = trimOptional(request.summary_markdown);
 	if (summaryMarkdown === null) return failure("invalid_request", "summary_markdown must not be empty");
-	const gateway = githubGateway(ctx);
-	if (gateway.type === "error") return gateway.exit;
+	const gateway = ctx.context.github;
 	const body = formatReviewReply({ reviewAuthor: request.review_author, summaryMarkdown });
-	const result = await gateway.gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
+	const result = await gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", result.failure);
 	return ok({ body, comment: result.value });
 }
@@ -135,12 +134,11 @@ async function runReplyToReviewOperation(ctx: PrAddressExecContext, request: z.o
 async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request: z.output<typeof replyToDiscussionParseSchema>): Promise<ClinkrExit<unknown>> {
 	const response = trimOptional(request.response);
 	if (response === null) return failure("invalid_request", "response must not be empty");
-	const gateway = githubGateway(ctx);
-	if (gateway.type === "error") return gateway.exit;
+	const gateway = ctx.context.github;
 	const body = formatDiscussionReply({ commentAuthor: request.comment_author, originalBody: request.original_body, response });
-	const comment = await gateway.gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
+	const comment = await gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
 	if (comment.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", comment.failure);
-	const reaction = await gateway.gateway.addPrDiscussionCommentReaction(request.comment_id, "+1", gatewayOptions(ctx));
+	const reaction = await gateway.addPrDiscussionCommentReaction(request.comment_id, "+1", gatewayOptions(ctx));
 	if (reaction.type === "failure") {
 		return ok({ body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.failure)}` });
 	}
@@ -150,9 +148,8 @@ async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request:
 async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadWithReplyParseSchema>): Promise<ClinkrExit<unknown>> {
 	const requestResult = await normalizeResolutionFromRequest(ctx, request);
 	if (requestResult.type === "error") return failure(requestResult.errorType, requestResult.message);
-	const gateway = githubGateway(ctx);
-	if (gateway.type === "error") return gateway.exit;
-	const result = await applyResolution(gateway.gateway, requestResult.value, gatewayOptions(ctx));
+	const gateway = ctx.context.github;
+	const result = await applyResolution(gateway, requestResult.value, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit(result.prefix, result.failure);
 	return ok(result.value);
 }
@@ -171,13 +168,12 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 	const normalized = await normalizeResolveThreadBatchPayload(payloadResult.value, ctx);
 	if (normalized.type === "error") return failure(normalized.errorType, normalized.message);
-	const gateway = githubGateway(ctx);
-	if (gateway.type === "error") return gateway.exit;
+	const gateway = ctx.context.github;
 	const results: ResolveThreadBatchItemResult[] = [];
 	for (let index = 0; index < normalized.value.length; index += 1) {
 		const item = normalized.value[index];
 		if (item === undefined) continue;
-		const result = await applyResolution(gateway.gateway, item, gatewayOptions(ctx));
+		const result = await applyResolution(gateway, item, gatewayOptions(ctx));
 		if (result.type === "failure") {
 			results.push({ index, thread_id: item.threadId, mode: item.mode, status: "failed", error_type: "gateway_error", error_message: gatewayFailureDetail(result.failure) });
 			if (!payloadResult.value.continue_on_error) {
@@ -285,17 +281,15 @@ async function validateResolutionProvenance(
 	const shapeError = provenanceShapeError(provenance);
 	if (shapeError !== null) return invalid(shapeError);
 	if (provenance.kind === "local_branch") {
-		const gateway = gitGateway(ctx);
-		if (gateway.type === "error") return { type: "error", errorType: "invalid_request", message: "local_branch planned provenance requires a git gateway for validation" };
+		const gateway = ctx.context.git;
 		const branch = provenance.branch.trim();
-		const result = await gateway.gateway.getBranchHeadOid(branch, gatewayOptions(ctx));
+		const result = await gateway.getBranchHeadOid(branch, gatewayOptions(ctx));
 		if (result.type === "found") return { type: "ok", value: { kind: "local_branch", branch, branch_head_oid: result.oid } };
 		if (result.type === "missing") return invalid(`planned provenance local branch does not exist or cannot be resolved: ${branch} (${result.stderr})`);
 		return { type: "error", errorType: "invalid_request", message: `planned provenance local branch does not exist or cannot be resolved: ${branch} (${gatewayFailureDetail(result.failure)})` };
 	}
-	const gateway = githubGateway(ctx);
-	if (gateway.type === "error") return { type: "error", errorType: "invalid_request", message: "pr planned provenance requires a PR gateway for validation" };
-	const result = await gateway.gateway.getPr(provenance.pr_number, gatewayOptions(ctx));
+	const gateway = ctx.context.github;
+	const result = await gateway.getPr(provenance.pr_number, gatewayOptions(ctx));
 	if (result.type === "miss") return invalid(`planned provenance PR does not exist: #${provenance.pr_number}`);
 	if (result.type === "failure") return { type: "error", errorType: "pr_gateway_failure", message: `Failed to validate planned provenance PR #${provenance.pr_number}: ${gatewayFailureDetail(result.failure)}` };
 	return {
@@ -370,12 +364,6 @@ function trimOptional(value: string | null | undefined): string | null {
 	if (value === null || value === undefined) return null;
 	const trimmed = value.trim();
 	return trimmed === "" ? null : trimmed;
-}
-
-function gitGateway(ctx: PrAddressExecContext): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error" } {
-	const gateway = ctx.context.git;
-	if (gateway === undefined) return { type: "error" };
-	return { type: "ok", gateway };
 }
 
 function invalid(message: string): { type: "error"; errorType: "invalid_request"; message: string } {

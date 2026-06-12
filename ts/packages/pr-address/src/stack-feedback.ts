@@ -9,9 +9,8 @@ import {
 	type FeedbackPlanningResult,
 } from "./classification-core.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
+import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import { loadArtifactReference, loadJsonInput, loadOperationPayload, type JsonInputResult, type OperationPayloadField } from "./json-input.ts";
-import { githubGateway } from "./operation-support.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import {
 	compactPrepResult,
@@ -21,7 +20,6 @@ import {
 	type StackFeedbackPrInput,
 } from "./stack-feedback-prep-core.ts";
 
-const APPROVAL_REQUIRED_COMPLEXITIES = new Set<ActionComplexity>(["cross_cutting", "complex"]);
 const nullableStringSchema = z.string().nullable().default(null);
 
 const discussionTriageHintSchema = z.enum(["automation", "human_like", "needs_agent_review"]);
@@ -246,14 +244,13 @@ async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request:
 	const validationMessage = stackInputValidationMessage(payloadResult.value.stack);
 	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const github = githubGateway(ctx);
-	if (github.type === "error") return github.exit;
+	const github = ctx.context.github;
 
 	const prepared = await prepareStackFeedbackStack({
 		ctx,
 		store,
 		stack: payloadResult.value.stack,
-		github: github.gateway,
+		github,
 		shouldIncludeResolved: request.include_resolved,
 		shouldIncludeEmptyReviews: request.include_empty_reviews,
 	});

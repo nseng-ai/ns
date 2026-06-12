@@ -11,6 +11,7 @@ import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClas
 import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
 import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
+import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
 const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
@@ -72,7 +73,7 @@ function runWithNoFallback(args: readonly string[], deps: Pick<CliDeps, "stdin">
 	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: REPO_ROOT,
 			env: { PATH: "/fake/bin" },
 			stdin: deps.stdin,

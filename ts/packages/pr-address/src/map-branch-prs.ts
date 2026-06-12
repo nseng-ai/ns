@@ -4,7 +4,7 @@ import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { gatewayFailureExit, gatewayOptions, githubGateway } from "./operation-support.ts";
+import { gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -56,9 +56,7 @@ async function runMapBranchPrsOperation(ctx: PrAddressExecContext, request: MapB
 	const validationMessage = branchesValidationMessage(branches, "map-branch-prs");
 	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const github = githubGateway(ctx);
-	if (github.type === "error") return github.exit;
-	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, ctx });
+	const mapping = await mapBranchesToOpenPrs({ branches, github: ctx.context.github, ctx });
 	if (mapping.type === "error") return mapping.exit;
 	const result = mapping.value;
 	if (result.missing_branches.length === 0) return ok(result);

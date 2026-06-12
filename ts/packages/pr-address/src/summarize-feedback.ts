@@ -4,7 +4,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
-import { gatewayFailureMessage, gatewayOptions, githubGateway } from "./operation-support.ts";
+import { gatewayFailureMessage, gatewayOptions } from "./operation-support.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
 
@@ -119,9 +119,8 @@ async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request:
 		return failure("invalid_request", `body_chars must be between 1 and ${MAX_BODY_CHARS}`);
 	}
 
-	const github = githubGateway(ctx);
-	if (github.type === "error") return github.exit;
-	const lookupResult = await github.gateway.getPr(request.pr_number, gatewayOptions(ctx));
+	const github = ctx.context.github;
+	const lookupResult = await github.getPr(request.pr_number, gatewayOptions(ctx));
 	if (lookupResult.type === "failure") {
 		return failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR ${request.pr_number}`, lookupResult.failure));
 	}
@@ -136,7 +135,7 @@ async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request:
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
-		gateway: github.gateway,
+		gateway: github,
 		prNumber: lookupResult.pr.number,
 		shouldIncludeResolved: request.include_resolved,
 		shouldIncludeEmptyReviews: request.include_empty_reviews,

@@ -4,6 +4,7 @@ import { runCli } from "../../src/cli.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import {
 	discussionComment,
+	fakePrAddressContext,
 	InMemoryPrAddressGitGateway,
 	InMemoryPrAddressGitHubGateway,
 	review,
@@ -37,11 +38,11 @@ function run(args: readonly string[], options: RunOptions = {}): CliRun {
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
-			context: {
+			context: fakePrAddressContext({
 				legacy,
 				...(options.github === undefined ? {} : { github: options.github }),
 				...(options.git === undefined ? {} : { git: options.git }),
-			},
+			}),
 			cwd: "/tmp/not-a-repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => options.stdin ?? "",
@@ -112,11 +113,6 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 		expect(await repoRun.exit).toBe(2);
 		const envelope = JSON.parse(repoRun.stdout.join("")) as MachineEnvelope;
 		expect(envelope.error_type).not.toBe("repo_context_required");
-	});
-
-	test("a flagged operation proceeds when the context has no git gateway (fail-open)", async () => {
-		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json"], { github: feedbackGithub() });
-		expect(await repoRun.exit).toBe(0);
 	});
 
 	test("a flagged operation proceeds when the repo-context probe itself fails (fail-open)", async () => {

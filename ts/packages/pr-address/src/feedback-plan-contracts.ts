@@ -3,6 +3,8 @@ import { z } from "zod";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 
 export const ACTION_COMPLEXITIES = ["pre_existing", "local", "single_file", "cross_cutting", "complex"] as const;
+/** Complexities whose plan batches require explicit approval before execution. */
+export const APPROVAL_REQUIRED_COMPLEXITIES: ReadonlySet<ActionComplexity> = new Set(["cross_cutting", "complex"]);
 export const INFORMATIONAL_THREAD_DECISIONS = ["act", "dismiss", "skip"] as const;
 export const INFORMATIONAL_REASONS = [
 	"resolved_reference",

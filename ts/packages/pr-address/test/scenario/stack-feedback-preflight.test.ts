@@ -9,6 +9,7 @@ import type { PayloadClock } from "../../src/payload-store.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import {
 	discussionComment,
+	fakePrAddressContext,
 	InMemoryPrAddressGitHubGateway,
 	prSummary,
 	review,
@@ -86,7 +87,7 @@ function runPreflight(args: readonly string[], options: { github?: InMemoryPrAdd
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(["exec", "stack-feedback-preflight", ...args, "--format", "json"], {
-			context: { legacy, ...(options.github === undefined ? {} : { github: options.github }), payloadClock: fixedClock() },
+			context: fakePrAddressContext({ legacy, ...(options.github === undefined ? {} : { github: options.github }), payloadClock: fixedClock() }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: options.root, ASDL_PAYLOAD_SESSION_ID: SESSION_ID },
 			stdin: async () => options.stdin ?? "",

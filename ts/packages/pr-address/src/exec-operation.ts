@@ -58,19 +58,15 @@ function requireOperationSchemaDocument(operation: string): JsonSchemaDocument {
  * LBYL precondition for operations that call GitHub: `gh` resolves `owner/repo`
  * from the cwd's git remotes, so running outside a repository fails lazily and
  * confusingly mid-fetch. Fail fast with a clear error instead. The probe is
- * fail-open: a missing git gateway or a probe failure must never block a run
- * that would have succeeded.
+ * fail-open: a probe failure must never block a run that would have succeeded.
  */
 function withRepoContextPrecondition<S extends z.ZodObject, T>(
 	handler: ClinkrHandler<PrAddressExecContext, S, T>,
 ): ClinkrHandler<PrAddressExecContext, S, T> {
 	return async (ctx, request) => {
-		const git = ctx.context.git;
-		if (git !== undefined) {
-			const probe = await git.isInsideWorkTree({ cwd: ctx.cwd, env: ctx.env });
-			if (probe.type === "outside") {
-				return failure("repo_context_required", "pr-address must run inside the target git repository (gh resolves the repo from the current directory).");
-			}
+		const probe = await ctx.context.git.isInsideWorkTree({ cwd: ctx.cwd, env: ctx.env });
+		if (probe.type === "outside") {
+			return failure("repo_context_required", "pr-address must run inside the target git repository (gh resolves the repo from the current directory).");
 		}
 		return handler(ctx, request);
 	};

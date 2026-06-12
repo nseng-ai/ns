@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
+import { fakePrAddressContext, InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
 
 interface CliRun {
 	exit: Promise<number>;
@@ -30,7 +30,7 @@ function runWithGithub(args: readonly string[], options: { github?: InMemoryPrAd
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy, ...(options.github === undefined ? {} : { github: options.github }) },
+			context: fakePrAddressContext({ legacy, ...(options.github === undefined ? {} : { github: options.github }) }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => options.stdin ?? "",
@@ -178,12 +178,4 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(envelope.message).toBe("Failed to list open PRs: gh: network down");
 	});
 
-	test("fails with missing_gateway when the context has no GitHub gateway", async () => {
-		const run = runWithGithub(["exec", "map-branch-prs", "--format", "json"], {
-			stdin: JSON.stringify({ branches: ["feature-a"] }),
-		});
-		expect(await run.exit).toBe(2);
-		expect(parseEnvelope(run).error_type).toBe("missing_gateway");
-		expect(run.legacy.calls).toEqual([]);
-	});
 });

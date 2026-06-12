@@ -9,7 +9,7 @@ import type { PayloadClock } from "../../src/payload-store.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "../../src/gateways.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { fakePrAddressContext, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
 interface FixtureArtifact {
 	relative_path: string;
@@ -124,7 +124,7 @@ function runManaged(args: readonly string[], options: { github?: PrAddressGitHub
 	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github: options.github, payloadClock: fixedClock(options.clockIso) },
+			context: fakePrAddressContext({ legacy, ...(options.github === undefined ? {} : { github: options.github }), payloadClock: fixedClock(options.clockIso) }),
 			cwd: "/repo",
 			env: options.env,
 			stdin: async () => options.stdin ?? "",
@@ -173,18 +173,6 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 		const envelope = JSON.parse(run.stdout.join("")) as { data: { stack_summary_reference: { payload_path: string; payload_bytes: number } } };
 		const reference = envelope.data.stack_summary_reference;
 		expect(reference.payload_bytes).toBe((await stat(reference.payload_path)).size);
-	});
-
-	test("fails with missing_gateway when the GitHub gateway is absent", async () => {
-		const root = await makePayloadRoot();
-		const run = runManaged(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
-			env: payloadEnv("session", root, prepFixture.session_id),
-			clockIso: prepFixture.clock_iso,
-		});
-
-		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { exit_code: number; error_type: string };
-		expect(envelope.error_type).toBe("missing_gateway");
 	});
 
 	test("rejects unknown options without invoking the gateway", async () => {
@@ -457,7 +445,7 @@ describe("stack feedback usage-error guards", () => {
 			const stderr: string[] = [];
 			const legacy = new InMemoryLegacyPrAddressGateway([0]);
 			const exit = await runCli(["exec", ...usageErrorArgs], {
-				context: { legacy },
+				context: fakePrAddressContext({ legacy }),
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
 				stdin: async () => "",
