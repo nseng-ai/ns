@@ -55,7 +55,6 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("cp")).toBe(false);
 		expect(pi.commands.has("autobranch")).toBe(false);
 		expect(pi.commands.has("autoslot")).toBe(false);
-		expect(pi.commands.has("code:autobranch-slot")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
 		expect(pi.commands.has("summary")).toBe(false);
 		expect(pi.commands.has("submit")).toBe(false);

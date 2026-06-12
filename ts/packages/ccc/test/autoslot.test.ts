@@ -1,8 +1,7 @@
 import { describe, expect, test } from "vitest";
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
-import type { AutobranchSlotFlowInput } from "../src/autobranch-slot.ts";
-import { createAutobranchSlotFlow, registerAutobranchSlotCommand, type AutobranchSlotCommandContext } from "../src/autobranch-slot.ts";
-import { fail, ok } from "./autobranch-test-helpers.ts";
+import type { AutoslotFlowInput } from "../src/autoslot.ts";
+import { createAutoslotFlow, registerAutoslotCommand, type AutoslotCommandContext } from "../src/autoslot.ts";
+import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	mode?: "dirty" | "latest_commit";
@@ -62,7 +61,7 @@ function createHarness(options: HarnessOptions = {}) {
 		throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
 	};
 
-	const input: AutobranchSlotFlowInput = {
+	const input: AutoslotFlowInput = {
 		cwd: "/repo",
 		args: { slug: "test-branch" },
 		now: () => 123,
@@ -92,36 +91,35 @@ function createHarness(options: HarnessOptions = {}) {
 	return { input, events, notifications, statuses };
 }
 
-describe("autoslot autobranch flow", () => {
-	test("registers /code:autoslot without the old proposed command name", () => {
-		const commands = new Map<string, { description?: string; handler(args: string, ctx: AutobranchSlotCommandContext): Promise<void> | void }>();
-		registerAutobranchSlotCommand({
+describe("autoslot flow", () => {
+	test("registers only /code:autoslot", () => {
+		const commands = new Map<string, { description?: string; handler(args: string, ctx: AutoslotCommandContext): Promise<void> | void }>();
+		registerAutoslotCommand({
 			registerCommand: (name, command) => commands.set(name, command),
 			exec: async () => ({ code: 0, stdout: "", stderr: "" }),
 		});
 
 		expect([...commands.keys()]).toEqual(["code:autoslot"]);
-		expect(commands.has("code:autobranch-slot")).toBe(false);
 		expect(commands.get("code:autoslot")?.description).toContain("managed slot worktree");
 	});
 
-	test("successful dirty autobranch runs slot checkout current", async () => {
+	test("successful dirty autoslot runs slot checkout current", async () => {
 		const harness = createHarness();
 
-		await createAutobranchSlotFlow(harness.input);
+		await createAutoslotFlow(harness.input);
 
 		expect(harness.events).toContain("commit");
 		expect(harness.events).toContain("slot:slot checkout --current --format json");
 		expect(harness.notifications.at(-1)).toEqual({
 			level: "info",
-			message: ["Autobranch moved to slot.", "Branch: test-branch", "Slot: slot-01", "Worktree: /slots/slot-01", "Next: cd /slots/slot-01"].join("\n"),
+			message: ["Autoslot moved branch to slot.", "Branch: test-branch", "Slot: slot-01", "Worktree: /slots/slot-01", "Next: cd /slots/slot-01"].join("\n"),
 		});
 	});
 
-	test("successful latest-commit autobranch runs slot checkout current", async () => {
+	test("successful latest-commit autoslot runs slot checkout current", async () => {
 		const harness = createHarness({ mode: "latest_commit" });
 
-		await createAutobranchSlotFlow(harness.input);
+		await createAutoslotFlow(harness.input);
 
 		expect(harness.events).toContain("exec:git reset --hard parent987654");
 		expect(harness.events).toContain("exec:gt create test-branch --no-interactive --no-ai");
@@ -129,19 +127,19 @@ describe("autoslot autobranch flow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("Worktree: /slots/slot-01");
 	});
 
-	test("autobranch failure skips slot checkout", async () => {
+	test("branch creation failure skips slot checkout", async () => {
 		const harness = createHarness({ prepareResult: { ok: false, error: "checkpoint prep failed" } });
 
-		await createAutobranchSlotFlow(harness.input);
+		await createAutoslotFlow(harness.input);
 
 		expect(harness.events.some((event) => event.startsWith("slot:slot checkout"))).toBe(false);
 		expect(harness.notifications).toContainEqual({ level: "error", message: "checkpoint prep failed" });
 	});
 
-	test("dirty post-autobranch worktree warns and skips slot checkout", async () => {
+	test("dirty post-autoslot worktree warns and skips slot checkout", async () => {
 		const harness = createHarness({ isDirtyAfterAutobranch: true });
 
-		await createAutobranchSlotFlow(harness.input);
+		await createAutoslotFlow(harness.input);
 
 		expect(harness.events.some((event) => event.startsWith("slot:slot checkout"))).toBe(false);
 		expect(harness.notifications.at(-1)?.level).toBe("warning");
@@ -151,11 +149,11 @@ describe("autoslot autobranch flow", () => {
 	test("slot checkout failure reports useful error after autobranch succeeds", async () => {
 		const harness = createHarness({ slotStdout: JSON.stringify({ exit_code: 3, error_type: "no_available_slot", message: "No clean detached slot is available." }) });
 
-		await createAutobranchSlotFlow(harness.input);
+		await createAutoslotFlow(harness.input);
 
 		expect(harness.events).toContain("slot:slot checkout --current --format json");
 		expect(harness.notifications.at(-1)?.level).toBe("error");
-		expect(harness.notifications.at(-1)?.message).toContain("Autobranch created test-branch, but slot checkout failed.");
+		expect(harness.notifications.at(-1)?.message).toContain("Autoslot created test-branch, but slot checkout failed.");
 		expect(harness.notifications.at(-1)?.message).toContain("No clean detached slot is available.");
 	});
 });

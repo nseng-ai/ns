@@ -6,7 +6,7 @@ const SLOT_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_ERROR_LINES = 80;
 
-export interface SlotCheckoutCurrentTarget {
+export interface AutoslotCheckoutTarget {
 	slotName: string;
 	branchName: string;
 	worktreePath: string;
@@ -14,57 +14,57 @@ export interface SlotCheckoutCurrentTarget {
 	isAlreadyAssigned: boolean;
 }
 
-export type SlotCheckoutCurrentResult =
-	| { ok: true; target: SlotCheckoutCurrentTarget }
+export type AutoslotCheckoutResult =
+	| { ok: true; target: AutoslotCheckoutTarget }
 	| { ok: false; error: string };
 
-export interface SlotCheckoutCurrentExecResult {
+export interface AutoslotCheckoutExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed?: boolean;
 }
 
-export interface SlotCheckoutCurrentExecAPI {
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<SlotCheckoutCurrentExecResult>;
+export interface AutoslotCheckoutExecAPI {
+	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<AutoslotCheckoutExecResult>;
 }
 
-export async function checkoutCurrentSlot(pi: SlotCheckoutCurrentExecAPI, cwd: string): Promise<SlotCheckoutCurrentResult> {
+export async function checkoutAutoslot(pi: AutoslotCheckoutExecAPI, cwd: string): Promise<AutoslotCheckoutResult> {
 	const args = ["checkout", "--current", "--format", "json"];
 	const result = await pi.exec("slot", args, { cwd, timeout: SLOT_TIMEOUT_MS });
-	const parsed = parseSlotCheckoutCurrentTarget(result.stdout);
+	const parsed = parseAutoslotCheckoutTarget(result.stdout);
 	if (parsed.ok) {
 		return parsed;
 	}
 
-	const failure = parseSlotCheckoutFailureEnvelope(result.stdout);
+	const failure = parseAutoslotFailureEnvelope(result.stdout);
 	if (failure !== undefined) {
 		return { ok: false, error: failure };
 	}
 
 	return {
 		ok: false,
-		error: formatSlotCheckoutCurrentFailure(result, args, parsed.error),
+		error: formatAutoslotCheckoutFailure(result, args, parsed.error),
 	};
 }
 
-function parseSlotCheckoutCurrentTarget(stdout: string): SlotCheckoutCurrentResult {
+function parseAutoslotCheckoutTarget(stdout: string): AutoslotCheckoutResult {
 	const parsed = parseMachineEnvelopeData(stdout, {
 		label: "slot checkout --current JSON",
 		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 	});
-	if (parsed.type === "invalid") {
+	if (parsed.type !== "valid") {
 		return { ok: false, error: parsed.message };
 	}
 
-	const target = coerceSlotCheckoutCurrentTarget(parsed.data);
+	const target = coerceAutoslotCheckoutTarget(parsed.data);
 	if (!target.ok) {
 		return target;
 	}
 	return { ok: true, target: target.target };
 }
 
-function coerceSlotCheckoutCurrentTarget(data: Record<string, unknown>): SlotCheckoutCurrentResult {
+function coerceAutoslotCheckoutTarget(data: Record<string, unknown>): AutoslotCheckoutResult {
 	if (
 		typeof data.slot_name !== "string" ||
 		typeof data.branch_name !== "string" ||
@@ -86,7 +86,7 @@ function coerceSlotCheckoutCurrentTarget(data: Record<string, unknown>): SlotChe
 	};
 }
 
-function parseSlotCheckoutFailureEnvelope(stdout: string): string | undefined {
+function parseAutoslotFailureEnvelope(stdout: string): string | undefined {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
@@ -103,7 +103,7 @@ function parseSlotCheckoutFailureEnvelope(stdout: string): string | undefined {
 	return `slot checkout --current failed with exit_code ${parsed.exit_code}${status}.`;
 }
 
-function formatSlotCheckoutCurrentFailure(result: SlotCheckoutCurrentExecResult, args: readonly string[], parseError: string): string {
+function formatAutoslotCheckoutFailure(result: AutoslotCheckoutExecResult, args: readonly string[], parseError: string): string {
 	return [
 		"slot checkout --current failed with unreadable JSON output.",
 		parseError,
