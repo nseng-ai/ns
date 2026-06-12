@@ -36,8 +36,14 @@ function fakeRunClaude(result: InteractiveClaudeRunResult): FakeRunClaude {
 	return runClaude;
 }
 
-function registerTestCommand(pi: FakePi, runClaude = fakeRunClaude({ type: "exited", code: 0, signal: null }), env = {}): FakeRunClaude {
-	registerClaudeHandoffCommand(pi, { runClaude, env });
+interface RegisterTestCommandOptions {
+	runClaude?: FakeRunClaude;
+	env?: Record<string, string | undefined>;
+}
+
+function registerTestCommand(pi: FakePi, options: RegisterTestCommandOptions = {}): FakeRunClaude {
+	const runClaude = options.runClaude ?? fakeRunClaude({ type: "exited", code: 0, signal: null });
+	registerClaudeHandoffCommand(pi, { runClaude, env: options.env ?? {} });
 	return runClaude;
 }
 
@@ -151,7 +157,7 @@ describe("claude handoff command", () => {
 	test("launch tool verifies the handoff exists and launches Claude with pickup instructions", async () => {
 		const env = { PATH: "/bin", HOME: "/home/me", ANTHROPIC_API_KEY: "secret", ANTHROPIC_AUTH_TOKEN: "token" };
 		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
-		const runClaude = registerTestCommand(pi, fakeRunClaude({ type: "exited", code: 0, signal: null }), env);
+		const runClaude = registerTestCommand(pi, { runClaude: fakeRunClaude({ type: "exited", code: 0, signal: null }), env });
 		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(tool).toBeDefined();
@@ -247,7 +253,7 @@ describe("claude handoff command", () => {
 
 	test("launch tool reports spawn failure after resuming the TUI", async () => {
 		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
-		const runClaude = registerTestCommand(pi, fakeRunClaude({ type: "spawn-failed", message: "spawn claude ENOENT" }));
+		const runClaude = registerTestCommand(pi, { runClaude: fakeRunClaude({ type: "spawn-failed", message: "spawn claude ENOENT" }) });
 		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = pi.tools.get(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(tool).toBeDefined();
