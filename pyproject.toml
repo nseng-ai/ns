@@ -99,7 +99,7 @@ src = [
   "packages/packagechk/src",
   "packages/vibechk/src",
 ]
-exclude = [".claude/", ".agents/skills/"]
+exclude = [".git/", ".claude/", ".agents/skills/"]
 force-exclude = true
 
 [tool.ruff.lint]

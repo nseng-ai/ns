@@ -6,12 +6,12 @@
 
 This slice should prove migration patterns that later capability ports can reuse: command runtime shape, boundary schemas, gateway seams, golden and scenario parity, wrapper distribution, installed-skill behavior, and safe Python fallback retirement.
 
-As of 2026-06-10 this record also owns the TS-package quality remediation absorbed from `pr-address-ts-thermo-review-followups` and the payload/reference consolidation absorbed from `payload-reference-generalization`, so all work on `ts/packages/pr-address` sequences in one roadmap. The clinkr shell migration of the `pr-address` CLI is owned by `ts-cli-foundation` and only coordinated here.
+As of 2026-06-10 this record also owns the TS-package quality remediation absorbed from `pr-address-ts-thermo-review-followups` and the payload/reference consolidation absorbed from `payload-reference-generalization`, so all work on `ts/packages/pr-address` sequences in one roadmap. As of 2026-06-12 this record also owns the `pr-address` consumer migration onto `@asdl/clinkr`; `ts-cli-foundation` owns the reusable framework/core provider layer and this record owns package-specific adoption, compatibility fallout, and sequencing.
 
 ## Scope
 
 - Public `pr-address` skill invocation and wrapper behavior in both local-checkout and installed-skill contexts.
-- Standalone `pr-address` CLI compatibility and the expected `asdl pr-address ...` integration path, including `pr-address exec ... --format json` machine envelopes.
+- Standalone `pr-address` CLI compatibility, including migration of the command shell onto `@asdl/clinkr`, preservation of legacy-Python fallback dispatch until retirement, and the expected `asdl pr-address ...` integration path while it remains active. This includes `pr-address exec ... --format json` machine envelopes.
 - Current operation families: PR feedback preparation and fetching, payload artifact management, classification scaffold/validation/planning, selected detail lookup, batch checkpointing, stack feedback planning and diff helpers, resolve/reply payload builders, GitHub mutation helpers, and finalization.
 - Adapter-neutral TypeScript core logic with gateway boundaries for git, GitHub, filesystem, process, package/distribution, and other external behavior the later port needs.
 - Scenario, golden, and contract parity evidence sufficient to preserve stable behavior while identifying accidental Python implementation details.
@@ -23,7 +23,7 @@ As of 2026-06-10 this record also owns the TS-package quality remediation absorb
 - Structural decomposition of the two >1,300-line files (`operation-schemas.ts`, `classification-core.ts`) along boundaries the import graph already proves.
 - Deduplication: a single operation table (registry + schema docs + help), a shared operation-support layer, a shared thread-decision engine between the single-PR and stack resolve-payload builders, and ports of the Python `thread_index` / `string_values` shared modules.
 - Test-suite hardening and fixture regeneration/provenance machinery on the Python side while the reference is in-repo.
-- Payload/reference consolidation: one shared XOR-source resolver in `json-input.ts`, one reference-validation/diagnostics rule, a declarative `loadOperationPayload` per-operation payload spec, and stdin-edge documentation plus scenario pinning.
+- Payload/reference consolidation: one shared XOR-source resolver in `json-input.ts`, one reference-validation/diagnostics rule, a package-local declarative `loadOperationPayload` per-operation payload spec, and stdin-edge documentation plus scenario pinning. Do not extract first-class clinkr payload/reference support from this Objective unless a second consumer outside pr-address proves the seam in a later decision.
 
 ## Non-Goals
 
@@ -35,12 +35,12 @@ As of 2026-06-10 this record also owns the TS-package quality remediation absorb
 - No replacement of semantic LLM judgment with brittle deterministic review-comment classification.
 - No new abstraction beyond what deletes existing duplication — the remediation bar is fewer concepts, not rearranged ones.
 - No breaking of the byte-parity envelope contract while the Python reference is live; restructurings must keep envelope text and artifact write order identical except where a parity correction explicitly updates them.
-- No clinkr framework work itself — `@asdl/clinkr` and the pr-address shell migration onto it are owned by `ts-cli-foundation`.
+- No clinkr framework work itself — `@asdl/clinkr` reusable API design belongs to `ts-cli-foundation`. This record owns only the `pr-address` consumer migration onto the existing framework and any package-local compatibility adapters needed for that migration.
 
 ## Completion Criteria
 
 - Current public `pr-address` CLI, skill, JSON, wrapper, documentation, and safety contracts are inventoried and classified as durable contract versus incidental Python behavior.
-- A TypeScript implementation becomes the default for public `pr-address` invocation in local-checkout and installed-skill contexts.
+- A TypeScript implementation becomes the default for public `pr-address` invocation in local-checkout and installed-skill contexts, and the standalone `pr-address` CLI shell builds its command tree through `@asdl/clinkr` rather than a hand-rolled argv/help path.
 - The standalone CLI, expected plugin/asdl integration path, JSON envelopes, payload artifact behavior, validation-before-action semantics, mutation-helper safety rules, and no-push guarantee are preserved or intentionally changed with explicit compatibility rationale.
 - Fake-driven unit and scenario tests, golden/contract parity, wrapper checks, and limited safe real-adapter smoke evidence cover the migration.
 - Public skill docs, wrapper behavior, README/developer docs, and distribution instructions point to TypeScript paths: local checkout execution plus the bundled installed-skill artifact.
@@ -134,7 +134,7 @@ Risks:
 - `packages/asdl-pr-address/docs/development.md` currently has a stale operation inventory relative to the skill, CLI reference, source registration, scenario tests, and golden fixtures; using it as the sole port inventory source would miss newer helpers and safety surfaces.
 - Internal sequencing (from the 2026-06-10 absorption of the remediation and payload records): the Python-reference-dependent rows — parity corrections, fixture regeneration/provenance, and contract-consolidation parity arbitration — MUST land before the `python-deletion` endgame branch; once the in-repo reference is gone they become substantially more expensive or impossible to verify. The former cross-objective "multiple records touch the same package" drift risks are resolved by the consolidation itself.
 - Fixture-byte coupling: error-message unification and parity corrections touch envelope bytes; careless fixture refresh could mask real regressions. Every fixture diff must be individually attributable to a deliberate message-template or parity change.
-- clinkr divergence: pr-address migrates to clinkr last (under `ts-cli-foundation`). If the payload-spec design here ignores clinkr conventions, the eventual lift becomes a rewrite instead of a move. Mitigation: keep spec conventions clinkr-compatible — snake_case schema keys and the `--<key>-reference` option derivation.
+- clinkr divergence: pr-address migrates to clinkr last, but the consumer migration is owned here while the framework is owned by `ts-cli-foundation`. If the payload-spec design ignores clinkr conventions, the eventual shell migration becomes a rewrite instead of a move. Mitigation: keep spec conventions clinkr-compatible — snake_case schema keys and the `--<key>-reference` option derivation — while keeping `loadOperationPayload` package-local until another consumer proves a shared-framework need.
 
 ## Open Questions
 
@@ -149,8 +149,8 @@ Risks:
 
 Decided 2026-06-10 (consolidation):
 
-- Spec-driven option/schema generation from the payload spec (the former payload-reference #5b) dissolves into the clinkr shell migration rather than landing standalone, per the overlap note's own recommendation.
-- Final ownership of `loadOperationPayload` (clinkr first-class vs package-local) is the `ts-cli-foundation` payload-home decision row; this record keeps the spec design clinkr-compatible in the meantime.
+- Spec-driven option/schema generation from the payload spec (the former payload-reference #5b) dissolves into this record's pr-address clinkr shell migration rather than landing standalone, per the overlap note's own recommendation.
+- Final ownership of `loadOperationPayload` is package-local in this record for now. `@asdl/clinkr` should not grow first-class payload/reference support until at least one second consumer proves the seam.
 
 Resolved 2026-06-09 (see Decided entries under Assumptions and Risks):
 

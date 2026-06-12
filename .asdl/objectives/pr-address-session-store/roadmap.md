@@ -2,6 +2,8 @@
 
 ## Work
 
+Dependency gate: do not start these implementation rows until `pr-address-typescript-port` is closed. That predecessor owns the TS cutover, clinkr shell migration, bundle/distribution, plugin retirement, Python deletion, and compatibility-preserving payload/reference cleanup. This Objective begins only after the CLI is TS-only and can intentionally redesign the workflow contract.
+
 - [ ] Define the session artifact-kind and resolution contract.
   - Reserved PR-scoped descriptors per artifact kind; latest-of-kind as max sequence among matching descriptors; no index file. Validate the contract against both single-PR and stack flows on paper before any helper migrates — this resolves the descriptor-taxonomy and reference-format open questions.
   - Evidence: contract recorded in the Objective updates plus descriptor constants and a resolution module with fake-driven tests covering PR scoping, per-batch kinds, and concurrent-writer sequences.
