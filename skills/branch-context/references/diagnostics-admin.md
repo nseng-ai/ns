@@ -7,7 +7,8 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 - Prefer `enriched-plan exec resolve` for saved-plan resolution.
 - Prefer `enriched-plan list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
 - Prefer `branch-context exec load` for attached-plan loading.
-- Use `brmem list/get` read-only only when diagnosing Branch Memory attachment state.
+- Prefer `branch-context exec list/check` for read-only branch-context entry inspection.
+- Use `brmem list/get` read-only only when branch-context helpers are insufficient for diagnosing Branch Memory attachment state.
 - Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/enriched-plan/`; do not perform broad home-directory traversals.
 - Prefer deterministic CLI helpers over manual file or Branch Memory operations when available.
 
@@ -44,7 +45,15 @@ When manually inspecting saved plans:
 
 ## Read-only attached-plan inspection
 
-Inspect Branch Memory attachments directly only for diagnostics — not as a replacement for the create/load workflows:
+Inspect branch-context entries with deterministic helpers first:
+
+```bash
+branch-context exec list --branch <branch> --format json
+branch-context exec check <key> --branch <branch> --format json
+branch-context exec load [<key>] --prompt-file <path> --format json
+```
+
+Inspect Branch Memory attachments directly only as a diagnostic fallback — not as a replacement for the create/load workflows:
 
 ```bash
 brmem list --namespace branch-context --branch <branch>

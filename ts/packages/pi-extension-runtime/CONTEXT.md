@@ -26,7 +26,7 @@ _Avoid_: shell executor, gateway, subprocess policy.
 
 **Branch Memory command helper**:
 The neutral runtime helper for discovering likely `brmem` command candidates, running one candidate through an injected Pi exec gateway, normalizing command-not-found/startup failures, and formatting unavailable-command diagnostics for higher layers. It does not own Branch Memory storage policy or any workflow namespace contract.
-_Avoid_: Branch Memory system owner, planned-branch attachment owner, CCC observability owner, direct process gateway.
+_Avoid_: Branch Memory system owner, branch-context attachment owner, CCC observability owner, direct process gateway.
 
 **Objective selection helper**:
 The neutral active-Objective selection pipeline shared by Objective extension commands and CCC stack implementation orchestration: load `objective list --format json`, inspect Objective path changes versus trunk and checkout state, present changed-first picker choices, and return one explicit Objective selector or no selection. It does not register slash commands or own Objective storage/update semantics.

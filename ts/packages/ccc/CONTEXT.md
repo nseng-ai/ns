@@ -1,11 +1,11 @@
 # @asdl/ccc
 
-`@asdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, planned branches, and worktree flows. CCC composes lower-level capabilities; those lower-level packages and runtime modules must not import CCC.
+`@asdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities; those lower-level packages and runtime modules must not import CCC.
 
 ## Language
 
 **CCC**:
-The durable private TypeScript layer for coordinating multi-step, repo-opinionated command-and-control workflows that span Pi command surfaces, cmux workspaces, Graphite stack operations, Objective implementation, handoff continuation, planned-branch execution, autobranch/unified-land behavior, and worktree-status presentation.
+The durable private TypeScript layer for coordinating multi-step, repo-opinionated command-and-control workflows that span Pi command surfaces, cmux workspaces, Graphite stack operations, Objective implementation, handoff continuation, branch-context implementation, autobranch/unified-land behavior, and worktree-status presentation.
 _Avoid_: public slash-command namespace, published npm package, replacement for cmux, replacement for Graphite, generic automation framework.
 
 **Cmux Command and Control**:
@@ -21,7 +21,7 @@ The dependency direction rule: CCC may depend on lower-level packages, CLIs, and
 _Avoid_: circular helper import, public API promise, compatibility alias.
 
 **Lower capability**:
-A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as `@asdl/pi-extension-runtime` helper contracts, planned-branch creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
+A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as `@asdl/pi-extension-runtime` helper contracts, branch-context creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
 _Avoid_: CCC submodule, orchestrator, command surface.
 
 **Project-local adapter**:
@@ -69,5 +69,5 @@ The clean-worktree `/code:autobranch` mutation path that creates a recovery bran
 _Avoid_: dirty-worktree stash path, plain `gt create`, landing command.
 
 **Orchestration candidate**:
-An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, planned-branch up-and-impl, handoff-tab, remaining source-control wrappers, and worktree-status behavior.
+An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, branch-context upstack implementation sessions, handoff-tab, remaining source-control wrappers, and worktree-status behavior.
 _Avoid_: moved implementation, immediate dependency, completed consolidation.

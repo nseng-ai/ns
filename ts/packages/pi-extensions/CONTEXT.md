@@ -21,7 +21,7 @@ The private TypeScript workspace package at `ts/packages/pi-extensions/` that ho
 _Avoid_: published npm API, stable library boundary, global Pi extension, CCC itself.
 
 **CCC orchestration layer**:
-The private TypeScript workspace package at `ts/packages/ccc/` for repo-opinionated command-and-control workflows spanning Pi, cmux, Graphite, Objectives, handoffs, planned branches, and worktree flows. CCC-owned Pi command surfaces use the `ccc` slash-command prefix while preserving `cmux` terminology for the external tool and workspace domain.
+The private TypeScript workspace package at `ts/packages/ccc/` for repo-opinionated command-and-control workflows spanning Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC-owned Pi command surfaces use the `ccc` slash-command prefix while preserving `cmux` terminology for the external tool and workspace domain.
 _Avoid_: Pi discovery adapter, `/cmux:*` compatibility alias, lower capability package, public npm API.
 
 **Structured grill UI surface**:
@@ -81,43 +81,43 @@ A reviewed Markdown implementation plan written before an implementation branch 
 _Avoid_: attached plan, Branch Memory entry, checked-in plan.
 
 **Local plan store**:
-The machine-local pre-branch store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/`. Saved plans use `<slug>.md`.
+The machine-local pre-branch store at `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/`. Saved plans use `<slug>.md`.
 _Avoid_: Branch Memory namespace, repo docs directory, objective update.
 
 **Saved-plan filename slug**:
 The `<slug>` filename stem in the Local plan store, derived by the write-plan workflow from the final reviewed plan content as a semantic local locator for a reviewed plan file.
-_Avoid_: planned-branch slug, Branch Memory key, target branch, arbitrary slug.
+_Avoid_: branch-context slug, Branch Memory key, target branch, arbitrary slug.
 
 **Source branch plan file**:
 One saved plan file scoped to the repository and source branch where planning happened.
 _Avoid_: attached plan, implementation branch plan, source file unqualified.
 
-**Planned-branch slug**:
-The implementation slug derived from the saved plan body by the workflow surface before calling `planned-branch exec create`. It drives the default target branch and the attached-plan key.
-_Avoid_: saved-plan filename slug, path stem, deterministic fallback.
+**Branch-context slug**:
+The implementation slug derived from the saved plan body by the workflow surface before calling `branch-context exec from-plan`. It drives the default target branch; the attached-plan key remains fixed as `plan.md`.
+_Avoid_: saved-plan filename slug, Branch Memory key, path stem, deterministic fallback.
 
-**Planned branch**:
-An implementation branch created from a saved plan and carrying that plan as branch-scoped context.
-_Avoid_: brmem branch, Objective branch, plan branch.
+**Branch context**:
+The standing Branch Memory context attached to a branch in namespace `branch-context`. A plan can be the founding entry, but the branch is not a special branch type.
+_Avoid_: planned branch, brmem branch, Objective branch, plan branch.
 
 **Attached plan**:
-The canonical Markdown implementation plan stored on a planned branch in Branch Memory namespace `planned-branch` with key `<planned-branch-slug>.md`.
+The canonical Markdown implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context` with key `plan.md`.
 _Avoid_: saved plan, local plan store file, prompt template.
 
 **Branch Memory attachment**:
-The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `planned-branch` namespace contract.
-_Avoid_: Branch Memory policy, brmem-owned workflow, package import edge.
+The planning-layer use of `branch-context` attach/load/list/check/delete helpers over the Branch Memory namespace contract.
+_Avoid_: Branch Memory policy, raw brmem workflow, package import edge.
 
-**Planned-branch skill family**:
-The shippable agent-skill capability made of the `planned-branch` umbrella/reference skill plus the installed `plans-write`, create, and implement step skills that use it as their shared planned-branch model.
-_Avoid_: one-off skill, internal docs dependency, hidden installation requirement.
+**Branch-context skill family**:
+The shippable agent-skill capability made of the `branch-context` umbrella/reference skill plus the installed `enriched-plan-save`, `from-plan`, and `branch-context-impl` step skills that use it as their shared branch-context model.
+_Avoid_: planned-branch skill family, one-off skill, internal docs dependency, hidden installation requirement.
 
-**Plans write prompt policy**:
-The checked-in `.asdl/prompts/plans-write.md` static prompt body consumed by `/plans:write` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt plans-write --format json` with built-in fallback for usability.
+**Enriched-plan save prompt policy**:
+The checked-in `.asdl/prompts/plans-write.md` static prompt body consumed by `/enriched-plan:save` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt plans-write --format json` with built-in fallback for usability.
 _Avoid_: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
 
-**Plans grill-and-write prompt**:
-The Pi-only embedded prompt consumed by `/plans:grill-and-write`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal Saved plan with `write_saved_plan_file`.
+**Enriched-plan grill-and-save prompt**:
+The Pi-only embedded prompt consumed by `/enriched-plan:grill-and-save`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal Saved plan with `write_saved_plan_file`.
 _Avoid_: repo-editable prompt policy, cross-agent skill contract, new storage artifact, Branch Memory attachment.
 
 **Handoff artifact**:
@@ -145,7 +145,7 @@ Storage evidence for a handoff: branch plus Branch Memory namespace `handoff` an
 _Avoid_: public command vocabulary, picker label, default success copy, `handoffs` as the target namespace.
 
 **Branch creation method**:
-The selected planned-branch creation strategy, currently `plain-git` or `graphite`.
+The selected branch-context from-plan creation strategy, currently `plain-git` or `graphite`.
 _Avoid_: branch type, storage backend, target branch name.
 
 **Code command prefix**:
