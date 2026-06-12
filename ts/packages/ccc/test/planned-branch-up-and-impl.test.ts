@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import assert from "node:assert";
 
 import {
 	formatPlannedBranchUpAndImplFollowUpFlow,
@@ -114,7 +113,7 @@ describe("planned-branch up-and-impl CCC launch orchestration", () => {
 		expect(result).toEqual({ type: "failed", branch: BRANCH, key: KEY, phase: "checkout", message: "git is unavailable" });
 	});
 
-	test("returns cancellation with manual recovery", async () => {
+	test("returns cancellation facts for the caller to format", async () => {
 		const pi = new FakePi({ script: [checkoutStep()] });
 		const ctx = new FakeUpAndImplContext();
 		ctx.shouldCancelNewSession = true;
@@ -122,8 +121,7 @@ describe("planned-branch up-and-impl CCC launch orchestration", () => {
 		const result = await runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
 
 		pi.assertDone();
-		assert(result.type === "cancelled");
-		expect(result.message).toContain(`/planned-branch:impl ${KEY}`);
+		expect(result).toEqual({ type: "cancelled", branch: BRANCH, key: KEY });
 		expect(ctx.statuses.at(-1)).toEqual({ key: STATUS_KEY, value: undefined });
 	});
 

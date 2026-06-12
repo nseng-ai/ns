@@ -37,7 +37,7 @@ export type PlannedBranchUpAndImplLaunchPhase = "checkout" | "new-session";
 
 export type PlannedBranchUpAndImplLaunchResult =
 	| { type: "launched"; branch: string; key: string; parentSession?: string }
-	| { type: "cancelled"; branch: string; key: string; message: string; parentSession?: string }
+	| { type: "cancelled"; branch: string; key: string; parentSession?: string }
 	| { type: "failed"; branch: string; key: string; phase: PlannedBranchUpAndImplLaunchPhase; message: string; parentSession?: string };
 
 const CHECKOUT_TIMEOUT_MS = 30_000;
@@ -72,13 +72,7 @@ export async function runPlannedBranchUpAndImplLaunch(options: PlannedBranchUpAn
 
 		const result = await options.ctx.newSession(newSessionOptions);
 		if (result.cancelled) {
-			return {
-				type: "cancelled",
-				branch,
-				key,
-				message: `Created planned branch, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${key} to continue.`,
-				...parentSessionPart,
-			};
+			return { type: "cancelled", branch, key, ...parentSessionPart };
 		}
 
 		return { type: "launched", branch, key, ...parentSessionPart };

@@ -31,7 +31,10 @@ The public workflow surface is:
 For Pi users, `/planned-branch:upstack-impl-session` stacks the planned branch on the
 current branch with Graphite by default everywhere, with `--plain-git` as an
 escape hatch, then combines `git checkout <branch>`, a fresh Pi session, and
-`/planned-branch:impl` after a plan has been written.
+`/planned-branch:impl` after a plan has been written. If the Saved plan is no
+longer available in the current source branch's Local plan store but an existing
+Planned branch already has an Attached plan, the command can reuse that branch
+instead of trying to create or attach anything again.
 
 The agent skills form a bundled planned-branch skill family: the `planned-branch`
 umbrella/reference skill plus write-plan, create, and implement step entrypoints.
@@ -157,27 +160,133 @@ Key: <planned-branch-slug>.md
 Branch: <target-implementation-branch>
 ```
 
-### Start implementation in one Pi command
+### Start or resume implementation in one Pi command
 
 Pi users in this repo can run `/planned-branch:upstack-impl-session` after
-`/plans:write` to perform the common implementation flow in one
-step:
+`/plans:write` to create or resume a Planned branch and start implementation in
+a fresh Pi session. The command has one user-facing workflow: find the Planned
+branch and Attached plan to implement, check out that branch, create a new Pi
+session, and run `/planned-branch:impl <attached-plan-key>` there.
 
 ```text
-/planned-branch:create
-git checkout <branch>
-/new
-/planned-branch:impl <attached-plan-key>
+Resolve Saved plan from Local plan store
+├─ found: create Planned branch and attach plan
+└─ no Saved plan available: verify an existing Planned branch with an Attached plan
+
+Selected Planned branch + Attached plan key
+→ git checkout <branch>
+→ create a new Pi session (/new)
+→ send /planned-branch:impl <attached-plan-key> in that new session
 ```
 
-The command defaults to Graphite stacking on the current branch regardless of
-extension options; `--plain-git` opts out to plain Git branch creation. The
-current branch must be trunk or Graphite-tracked, otherwise the command fails
-before creating a branch or attaching a plan. It checks out the created branch
-by exact branch name with `git checkout <branch>`, starts a new Pi session, and
-sends `/planned-branch:impl <key>` in that new session. `--dry-run` previews the
-selected saved plan and the follow-up flow without creating a branch, checking
-out a branch, starting a new session, or sending an implementation prompt.
+The command is for starting implementation from a reviewed Saved plan without
+manually creating the Planned branch, checking it out, opening a new Pi session,
+and loading the Attached plan. It also makes the same command safe to rerun when
+the Planned branch and Attached plan already exist but the original Saved plan is
+not available from the current source branch's Local plan store.
+
+#### Creation and resumption
+
+On the creation path, the command resolves a Saved plan from the Local plan
+store. With no explicit plan path, it prefers the most recent Saved plan created
+in the current Pi session, then falls back to the newest Markdown file in the
+current repository/source-branch Local plan store directory. An explicit plan
+path may be absolute or current-user home-relative with `~` or `~/`; a leading
+`@` is accepted and stripped, and the normalized path must be absolute and end
+in `.md`.
+
+After resolving the Saved plan, the command derives the planned-branch slug from
+the plan content, creates the target Planned branch, and attaches the plan in
+Branch Memory namespace `planned-branch` with key `<planned-branch-slug>.md`.
+
+On the resumption path, Saved-plan resolution has failed only because no Saved
+plan is available for the current repository/source branch: the Local plan store
+directory is missing, or it exists but contains no Markdown plan files. That
+narrow failure means the command may be running after the Planned branch was
+already created. Other Saved-plan resolution failures still fail normally.
+
+Resumption verifies candidate branches by listing Attached plans in Branch Memory
+namespace `planned-branch`. This verification is read-only: it does not create a
+branch, attach a plan, or write Branch Memory.
+
+Candidate selection order for resumption is:
+
+1. `--branch <name>`: verify that exact branch has one selectable Attached plan.
+   No other candidates are tried.
+2. Current-session `planned-branch-output`: verify the single `{ branch, key }`
+   candidate from prior planned-branch command output in the current Pi session.
+3. Current Git branch: verify the current branch has one selectable Attached
+   plan. This is useful when you are already checked out on the Planned branch.
+
+Candidates are verified in that order and the first verified candidate wins. If
+no candidate verifies, the command fails with one message listing every
+verification failure, including a current branch that could not be resolved.
+
+After either creation or resumption selects a branch/key, the command checks out
+the exact branch with `git checkout <branch>`, creates a new Pi session, and
+sends `/planned-branch:impl <key>` in that new session. Resumption success and
+cancellation messages say the branch and Attached plan were reused; they do not
+claim that a branch was newly created.
+
+By default this command stacks newly-created target branches on the current
+branch with Graphite regardless of extension options. The current branch must be
+trunk or a Graphite-tracked branch for creation; otherwise the command fails
+before creating a branch or attaching a plan. Pass `--plain-git` to use plain Git
+branch creation instead; that branch will not be part of a Graphite stack.
+
+Ambiguity is explicit. If the current session contains multiple candidate
+Planned branches, the command refuses to choose implicitly and asks you to rerun
+with `--branch <target-branch>`. If an Attached plan cannot be selected
+unambiguously on the chosen branch, rerun `/planned-branch:impl <key>` manually
+from that branch or inspect the attached-plan keys first.
+
+#### Options
+
+```text
+/planned-branch:upstack-impl-session [options] [absolute-or-home-plan-file.md]
+```
+
+- `--dry-run`: preview the selected plan and follow-up flow without mutating. On
+  both paths, no branch would be created, no plan would be attached, no checkout
+  would happen, no new session would be created, and no implementation prompt
+  would be sent.
+- `--branch <name>`: on the creation path, use an explicit target branch name
+  while keeping the Attached plan key derived from the planned-branch slug. On
+  the resumption path, verify and reuse that exact existing branch.
+- `--graphite`: default creation behavior; stack the target branch on the
+  current branch with Graphite.
+- `--plain-git`: create with plain Git instead; no Graphite tracking is added.
+- `--yes`, `-y`: compatibility no-op. Resolved planned branches create without
+  an extra confirmation prompt.
+- `--help`, `-h`: show command help.
+
+#### Recovery examples
+
+Preview what the command would do:
+
+```text
+/planned-branch:upstack-impl-session --dry-run
+```
+
+Resume from a branch created earlier in the same Pi session after the source
+branch no longer has a Saved plan in its Local plan store:
+
+```text
+/planned-branch:upstack-impl-session
+```
+
+If resumption reports multiple candidates, choose explicitly:
+
+```text
+/planned-branch:upstack-impl-session --branch <target-branch>
+```
+
+If checkout or new-session launch is cancelled after resumption succeeds,
+continue from the checked-out Planned branch with the reported key:
+
+```text
+/planned-branch:impl <attached-plan-key>
+```
 
 ### Load and implement an attached plan
 

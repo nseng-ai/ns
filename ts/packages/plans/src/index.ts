@@ -40,6 +40,7 @@ export {
 	validatePlanSlug,
 } from "./plan-persistence.ts";
 export {
+	NoSavedPlanAvailableError,
 	buildPlanFileName,
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
@@ -53,6 +54,7 @@ export {
 	sanitizePlanPathSegment,
 	writeSavedPlanFile,
 	type LatestSavedPlanFileEvidence,
+	type NoSavedPlanAvailableReason,
 	type PlanStoreDirectoryEvidence,
 	type PlanStoreOptions,
 	type PlanStoreRepoEvidence,

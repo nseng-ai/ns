@@ -74,6 +74,20 @@ interface RepoIdentity {
 	identity: string;
 }
 
+export type NoSavedPlanAvailableReason = "missing-directory" | "no-plan-files";
+
+export class NoSavedPlanAvailableError extends Error {
+	readonly reason: NoSavedPlanAvailableReason;
+	readonly directoryPath: string;
+
+	constructor(params: { reason: NoSavedPlanAvailableReason; directoryPath: string; message: string }) {
+		super(params.message);
+		this.name = "NoSavedPlanAvailableError";
+		this.reason = params.reason;
+		this.directoryPath = params.directoryPath;
+	}
+}
+
 export function defaultPlanStoreRoot(): string {
 	return join(homedir(), ".asdl", "planned-branch", "plans");
 }
@@ -261,13 +275,15 @@ export async function findLatestSavedPlanFile(
 	}
 
 	if (candidates.length === 0) {
-		throw new Error(
-			[
+		throw new NoSavedPlanAvailableError({
+			reason: "no-plan-files",
+			directoryPath: directory.directoryPath,
+			message: [
 				`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store for the current repository and branch.`,
 				`Plan store directory: ${directory.directoryPath}`,
 				"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
 			].join("\n"),
-		);
+		});
 	}
 
 	const latest = candidates.sort(compareLatestSavedPlanCandidates)[0];
@@ -387,8 +403,10 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Pr
 		return await readdir(directory.directoryPath, { withFileTypes: true });
 	} catch (error) {
 		if (isNodeError(error) && error.code === "ENOENT") {
-			throw new Error(
-				[
+			throw new NoSavedPlanAvailableError({
+				reason: "missing-directory",
+				directoryPath: directory.directoryPath,
+				message: [
 					"No local plan store directory exists for the current repository and branch.",
 					`Plan store directory: ${directory.directoryPath}`,
 					`Repo key: ${directory.repoKey}`,
@@ -396,7 +414,7 @@ async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Pr
 					`Branch path segment: ${directory.branchKey}`,
 					"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
 				].join("\n"),
-			);
+			});
 		}
 		throw error;
 	}

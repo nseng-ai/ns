@@ -4,6 +4,7 @@ import {
 	PLAN_BRANCH_NAMESPACE,
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	extractPlannedBranchEvidence,
+	extractPlannedBranchEvidenceFromSessionEntry,
 	formatPlanBranchEvidence,
 } from "@asdl/planned-branch";
 
@@ -45,6 +46,67 @@ describe("planned-branch session artifact", () => {
 		expect(extractPlannedBranchEvidence({ status: "success", evidence: { ...EVIDENCE, branchCreation: "hg" } })).toBeUndefined();
 		expect(extractPlannedBranchEvidence({ status: "success", evidence: { ...EVIDENCE, commit: "" } })).toBeUndefined();
 		expect(extractPlannedBranchEvidence({ status: "success", evidence: { ...EVIDENCE, summary: 123 } })).toBeUndefined();
+	});
+
+	test("extracts evidence from a wrapped session history entry", () => {
+		const entry = {
+			type: "message",
+			message: {
+				role: "custom",
+				customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+				display: true,
+				content: "Created planned branch and attached plan.",
+				details: { status: "success", evidence: EVIDENCE },
+			},
+		};
+
+		expect(extractPlannedBranchEvidenceFromSessionEntry(entry)).toEqual(EVIDENCE);
+	});
+
+	test("extracts evidence from a bare message-shaped entry", () => {
+		const entry = {
+			customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+			content: "Created planned branch and attached plan.",
+			details: { status: "success", evidence: EVIDENCE },
+		};
+
+		expect(extractPlannedBranchEvidenceFromSessionEntry(entry)).toEqual(EVIDENCE);
+	});
+
+	test("rejects entries that are not planned-branch output messages", () => {
+		expect(extractPlannedBranchEvidenceFromSessionEntry(undefined)).toBeUndefined();
+		expect(extractPlannedBranchEvidenceFromSessionEntry(null)).toBeUndefined();
+		expect(extractPlannedBranchEvidenceFromSessionEntry("Created planned branch and attached plan.")).toBeUndefined();
+		expect(extractPlannedBranchEvidenceFromSessionEntry({ type: "message", message: "prose, not a record" })).toBeUndefined();
+		expect(
+			extractPlannedBranchEvidenceFromSessionEntry({
+				type: "message",
+				message: { role: "custom", customType: "other-output", display: true, content: "x", details: { status: "success", evidence: EVIDENCE } },
+			}),
+		).toBeUndefined();
+		expect(
+			extractPlannedBranchEvidenceFromSessionEntry({
+				type: "toolResult",
+				toolName: "write_saved_plan_file",
+				details: { status: "success", evidence: EVIDENCE },
+			}),
+		).toBeUndefined();
+	});
+
+	test("rejects planned-branch output entries whose details are not full success evidence", () => {
+		const entryWith = (details: unknown): unknown => ({
+			type: "message",
+			message: { role: "custom", customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE, display: true, content: "x", details },
+		});
+
+		expect(extractPlannedBranchEvidenceFromSessionEntry(entryWith(undefined))).toBeUndefined();
+		expect(extractPlannedBranchEvidenceFromSessionEntry(entryWith({ status: "failure", error: "boom" }))).toBeUndefined();
+		// Reuse-shaped success details carry only branch/key/source — intentionally not evidence-bearing.
+		expect(
+			extractPlannedBranchEvidenceFromSessionEntry(
+				entryWith({ status: "success", reuse: { branch: EVIDENCE.branch, key: EVIDENCE.key, source: "current-branch" } }),
+			),
+		).toBeUndefined();
 	});
 
 	test("formats evidence with the planned-branch domain formatter", () => {

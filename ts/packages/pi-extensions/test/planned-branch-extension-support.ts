@@ -362,6 +362,27 @@ export function gitCheckoutStep(branch: string, result: Partial<ExecResult> = {}
 	return step("git", ["checkout", branch], result);
 }
 
+export function brmemListAttachedPlansStep(
+	branch: string,
+	entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>,
+	result: Partial<ExecResult> = {},
+): ScriptedExec {
+	return step("brmem", ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"], {
+		stdout: JSON.stringify({
+			exit_code: 0,
+			data: {
+				entries: entries.map((entry) => ({
+					namespace: entry.namespace ?? PLAN_BRANCH_NAMESPACE,
+					key: entry.key,
+					branch: entry.branch ?? branch,
+					ref_name: entry.refName ?? `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${(entry.branch ?? branch).replaceAll("/", "---")}:${entry.key}`,
+				})),
+			},
+		}),
+		...result,
+	});
+}
+
 export async function makeTempDir(prefix = "planned-branch-extension-"): Promise<string> {
 	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
 	tempDirs.push(dir);
@@ -425,7 +446,7 @@ export function sourcePlanToolResultEntryForTool(evidence: SavedPlanFileEvidence
 	};
 }
 
-export function plannedBranchOutputMessageEntry(content: string): unknown {
+export function plannedBranchOutputMessageEntry(content: string, details?: unknown): unknown {
 	return {
 		type: "message",
 		message: {
@@ -433,6 +454,7 @@ export function plannedBranchOutputMessageEntry(content: string): unknown {
 			customType: "planned-branch-output",
 			display: true,
 			content,
+			...(details === undefined ? {} : { details }),
 		},
 	};
 }

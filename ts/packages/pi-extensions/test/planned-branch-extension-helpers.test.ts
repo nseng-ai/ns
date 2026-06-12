@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { NoSavedPlanAvailableError } from "@asdl/plans";
+
 import {
 	CREATE_PLANNED_BRANCH_USAGE,
 	DEFAULT_FAST_MODEL,
@@ -150,18 +152,19 @@ describe("source branch plan path helpers", () => {
 		});
 	});
 
-	test("reports a clear error when the local plan store directory is missing", async () => {
+	test("reports a typed error when the local plan store directory is missing", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		await expect(findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
-			/No local plan store directory exists[\s\S]*Create a saved plan first/,
-		);
+		const promise = findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
+		await expect(promise).rejects.toThrow(/No local plan store directory exists[\s\S]*Create a saved plan first/);
+		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
+		await expect(promise).rejects.toMatchObject({ reason: "missing-directory" });
 		pi.assertDone();
 	});
 
-	test("reports a clear error when no Markdown saved plans exist", async () => {
+	test("reports a typed error when no Markdown saved plans exist", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -169,9 +172,10 @@ describe("source branch plan path helpers", () => {
 		await writeFile(join(directoryPath, "notes.txt"), "not a plan", "utf8");
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 
-		await expect(findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot })).rejects.toThrow(
-			/No Markdown saved plan files exist[\s\S]*Create a saved plan first/,
-		);
+		const promise = findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
+		await expect(promise).rejects.toThrow(/No Markdown saved plan files exist[\s\S]*Create a saved plan first/);
+		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
+		await expect(promise).rejects.toMatchObject({ reason: "no-plan-files" });
 		pi.assertDone();
 	});
 
