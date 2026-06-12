@@ -443,7 +443,7 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.stdout.join("")).not.toContain("Generated PR descriptions:");
 		expect(run.stdout.join("")).toContain("Skipped PR descriptions (body looks hand-edited):");
 		expect(run.stdout.join("")).toContain("#456 https://github.com/acme/project/pull/456");
-		expect(run.stdout.join("")).toContain("Checkout the branch and run `asdl-dev pr-regen --force` to overwrite a hand-edited body.");
+		expect(run.stdout.join("")).toContain("Checkout the branch and run `asdl-dev pr-regen` to regenerate a hand-edited body.");
 		expect(run.githubPr.viewPrCalls).toEqual([{ cwd: "/work", number: 456 }]);
 		expect(run.githubPr.getPrCommitMessagesCalls).toEqual([{ cwd: "/work", number: 456 }]);
 		expect(run.githubPr.editPrCalls).toEqual([]);

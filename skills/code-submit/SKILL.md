@@ -30,7 +30,7 @@ The CLI owns the orchestration:
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
 - generates title/body descriptions for submitted PRs whose bodies are empty, carry the asdl generated-body marker, or exactly match a commit message body (the prefill `gt submit` writes into every new PR);
-- lists PRs whose bodies look hand-edited as skipped in the success output, with a pointer to `asdl-dev pr-regen --force`;
+- lists PRs whose bodies look hand-edited as skipped in the success output, with a pointer to `asdl-dev pr-regen`;
 - reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures.
 
 If the CLI says a restack is required:
@@ -59,7 +59,7 @@ To regenerate the current branch PR explicitly, run:
 asdl-dev pr-regen
 ```
 
-`submit` and `pr-regen` overwrite a PR body only when it is empty, carries the asdl generated-body marker, or exactly matches one of the PR's commit message bodies (gt's prefill for new PRs). Anything else is treated as hand-edited: `submit` skips it and reports the skip; `pr-regen` refuses. Use `asdl-dev pr-regen --force` only when the user explicitly wants to overwrite a manually edited PR body.
+`submit` overwrites a PR body only when it is empty, carries the asdl generated-body marker, or exactly matches one of the PR's commit message bodies (gt's prefill for new PRs). Anything else is treated as hand-edited: `submit` skips it and reports the skip. Explicit `asdl-dev pr-regen` regenerates both the title and body for the current branch PR, replacing any existing body.
 
 ## Failure handling
 

@@ -39,7 +39,7 @@ export function formatSubmitSuccessText(
 			"Skipped PR descriptions (body looks hand-edited):",
 			...descriptions.skipped.map(formatPrLinkTextRow),
 			"",
-			"Checkout the branch and run `asdl-dev pr-regen --force` to overwrite a hand-edited body.",
+			"Checkout the branch and run `asdl-dev pr-regen` to regenerate a hand-edited body.",
 		);
 	}
 	return lines.join("\n");
