@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok } from "@asdl/clinkr";
-import { loadJsonInput, resolveXorSourceInput } from "./json-input.ts";
+import { loadOperationPayload, operationPayloadValueOptions, type OperationPayloadField } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
@@ -26,6 +26,15 @@ const buildStackResolveThreadPayloadsInputSchema = z.looseObject({
 const buildStackResolveThreadPayloadsWirePayloadSchema = buildStackResolveThreadPayloadsInputSchema.extend({
 	stack_plan: z.unknown().optional(),
 });
+type BuildStackResolveThreadPayloadsWirePayload = z.infer<typeof buildStackResolveThreadPayloadsWirePayloadSchema>;
+const buildStackResolveThreadPayloadsFields = [
+	{
+		key: "stack_plan",
+		artifactDescription: "a stack-feedback-plan data artifact",
+		referenceSchema: z.unknown(),
+		inputName: "stack plan",
+	},
+] as const satisfies readonly OperationPayloadField<BuildStackResolveThreadPayloadsWirePayload, keyof BuildStackResolveThreadPayloadsWirePayload & string>[];
 
 const stackPlanItemSchema = z.looseObject({
 	pr_number: z.number().int(),
@@ -124,34 +133,18 @@ interface BuildStackResolveThreadPayloadsResult {
 
 export async function runBuildStackResolveThreadPayloadsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
 
-	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file", "--stack-plan-reference"]);
+	const options = parseManagedOptions(invocation.args, operationPayloadValueOptions(buildStackResolveThreadPayloadsFields));
 	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
-	const payloadResult = await loadJsonInput({
-		optionValue: options.options.values.get("--payload-json"),
-		filePath: options.options.values.get("--payload-file"),
+	const payloadResult = await loadOperationPayload(invocation, {
 		commandName: "build-stack-resolve-thread-payloads",
 		inputDescription: "JSON payload",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
-		schema: buildStackResolveThreadPayloadsWirePayloadSchema,
-		stdin: invocation.deps.stdin,
+		payloadSchema: buildStackResolveThreadPayloadsWirePayloadSchema,
+		values: options.options.values,
+		fields: buildStackResolveThreadPayloadsFields,
 	});
 	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 
-	const stackPlanResult = await resolveXorSourceInput({
-		commandName: "build-stack-resolve-thread-payloads",
-		embeddedValue: payloadResult.value.stack_plan,
-		embeddedKey: "stack_plan",
-		referencePath: options.options.values.get("--stack-plan-reference"),
-		optionName: "--stack-plan-reference",
-		artifactDescription: "a stack-feedback-plan data artifact",
-		referenceSchema: z.unknown(),
-		inputName: "stack plan",
-	});
-	if (stackPlanResult.type === "error") return { type: "exit", exit: failure(stackPlanResult.error.errorType, stackPlanResult.error.message) };
-	const request = { ...payloadResult.value, stack_plan: stackPlanResult.value };
-
-	const result = buildStackResolveThreadPayloads(request);
+	const result = buildStackResolveThreadPayloads(payloadResult.value);
 	if (result.valid) return { type: "exit", exit: ok(result) };
 	return { type: "exit", exit: negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", result) };
 }

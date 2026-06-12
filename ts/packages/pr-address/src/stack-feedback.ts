@@ -9,7 +9,7 @@ import {
 	type FeedbackPlanningResult,
 } from "./classification-core.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadArtifactReference, loadJsonInput, resolveXorSourceInput, type JsonInputResult } from "./json-input.ts";
+import { loadArtifactReference, loadJsonInput, loadOperationPayload, operationPayloadValueOptions, type JsonInputResult, type OperationPayloadField } from "./json-input.ts";
 import { githubGateway, parseReadOptions } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
@@ -79,6 +79,14 @@ const stackFeedbackPlanInputSchema = z.looseObject({
 const stackFeedbackPlanPayloadSchema = stackFeedbackPlanInputSchema.extend({
 	prep: stackPrepResultInputSchema.optional(),
 });
+type StackFeedbackPlanPayload = z.infer<typeof stackFeedbackPlanPayloadSchema>;
+const stackFeedbackPlanPayloadFields = [
+	{
+		key: "prep",
+		artifactDescription: "the stack-feedback-prep data object",
+		referenceSchema: stackPrepResultInputSchema,
+	},
+] as const satisfies readonly OperationPayloadField<StackFeedbackPlanPayload, keyof StackFeedbackPlanPayload & string>[];
 
 type StackPrepPrResultInput = z.infer<typeof stackPrepPrResultSchema>;
 type StackPrepResultInput = z.infer<typeof stackPrepResultInputSchema>;
@@ -245,7 +253,7 @@ export async function runStackFeedbackPrepOperation(invocation: ExecOperationInv
 }
 
 export async function runStackFeedbackPlanOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--payload-json", "--payload-file", "--prep-reference", "--payload-session-id", "--stdout-mode"], []);
+	const parsed = parseReadOptions(invocation.args, operationPayloadValueOptions(stackFeedbackPlanPayloadFields, ["--payload-session-id", "--stdout-mode"]), []);
 	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-plan: ${unexpectedPositional}`);
@@ -262,29 +270,15 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	if (storeResult.type === "error") return exitFailure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
-	const payloadResult = await loadJsonInput({
-		optionValue: parsed.options.values.get("--payload-json"),
-		filePath: parsed.options.values.get("--payload-file"),
+	const payloadResult = await loadOperationPayload(invocation, {
 		commandName: "stack-feedback-plan",
 		inputDescription: "stack feedback plan JSON payload",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
-		schema: stackFeedbackPlanPayloadSchema,
-		stdin: invocation.deps.stdin,
+		payloadSchema: stackFeedbackPlanPayloadSchema,
+		values: parsed.options.values,
+		fields: stackFeedbackPlanPayloadFields,
 	});
 	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
-
-	const prepResult = await resolveXorSourceInput({
-		commandName: "stack-feedback-plan",
-		embeddedValue: payloadResult.value.prep,
-		embeddedKey: "prep",
-		referencePath: parsed.options.values.get("--prep-reference"),
-		optionName: "--prep-reference",
-		artifactDescription: "the stack-feedback-prep data object",
-		referenceSchema: stackPrepResultInputSchema,
-	});
-	if (prepResult.type === "error") return exitFailure(prepResult.error.errorType, prepResult.error.message);
-	const payload: StackFeedbackPlanInput = { ...payloadResult.value, prep: prepResult.value };
+	const payload = payloadResult.value as StackFeedbackPlanInput;
 
 	const classificationsResult = classificationsByPr(payload);
 	if (classificationsResult.type === "error") return exitFailure("invalid_request", classificationsResult.message);

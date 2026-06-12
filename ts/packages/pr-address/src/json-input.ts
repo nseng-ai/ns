@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
+import type { ExecOperationInvocation } from "./operation-registry.ts";
+
 export interface JsonInputError {
 	errorType: "invalid_json" | "invalid_request";
 	message: string;
@@ -70,6 +72,22 @@ export interface ResolveXorSourceInputOptions<T> {
 	artifactDescription: string;
 	referenceSchema: z.ZodType<T>;
 	inputName?: string | undefined;
+}
+
+export interface OperationPayloadField<TPayload extends object, TKey extends keyof TPayload & string> {
+	key: TKey;
+	artifactDescription: string;
+	referenceSchema: z.ZodType<TPayload[TKey]>;
+	inputName?: string | undefined;
+}
+
+export interface LoadOperationPayloadOptions<TPayload extends object> {
+	commandName: string;
+	inputDescription: string;
+	payloadSchema: z.ZodType<TPayload>;
+	values: ReadonlyMap<string, string>;
+	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[];
+	payloadOptionalWhenAllFieldsReferenced?: boolean | undefined;
 }
 
 /**
@@ -143,6 +161,60 @@ export async function resolveXorSourceInput<T>(options: ResolveXorSourceInputOpt
 		artifactDescription: options.artifactDescription,
 		schema: options.referenceSchema,
 	});
+}
+
+export function operationPayloadReferenceOption(key: string): `--${string}` {
+	return `--${key.replaceAll("_", "-")}-reference`;
+}
+
+export function operationPayloadValueOptions<TPayload extends object>(
+	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[],
+	additionalOptions: readonly string[] = [],
+): readonly string[] {
+	return ["--payload-json", "--payload-file", ...fields.map((field) => operationPayloadReferenceOption(field.key)), ...additionalOptions];
+}
+
+export async function loadOperationPayload<TPayload extends object>(
+	invocation: ExecOperationInvocation,
+	options: LoadOperationPayloadOptions<TPayload>,
+): Promise<JsonInputResult<TPayload>> {
+	const hasPayloadOption = options.values.has("--payload-json") || options.values.has("--payload-file");
+	const hasAllReferences = options.fields.length > 0 && options.fields.every((field) => options.values.has(operationPayloadReferenceOption(field.key)));
+	let payload: TPayload;
+	if (!hasPayloadOption && options.payloadOptionalWhenAllFieldsReferenced === true && hasAllReferences) {
+		payload = {} as TPayload;
+	} else {
+		const payloadResult = await loadJsonInput({
+			optionValue: options.values.get("--payload-json"),
+			filePath: options.values.get("--payload-file"),
+			commandName: options.commandName,
+			inputDescription: options.inputDescription,
+			optionName: "--payload-json",
+			fileOptionName: "--payload-file",
+			schema: options.payloadSchema,
+			stdin: invocation.deps.stdin,
+		});
+		if (payloadResult.type === "error") return payloadResult;
+		payload = payloadResult.value;
+	}
+
+	const resolvedPayload: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
+	for (const field of options.fields) {
+		const referenceOption = operationPayloadReferenceOption(field.key);
+		const result = await resolveXorSourceInput({
+			commandName: options.commandName,
+			embeddedValue: resolvedPayload[field.key] as TPayload[typeof field.key] | undefined,
+			embeddedKey: field.key,
+			referencePath: options.values.get(referenceOption),
+			optionName: referenceOption,
+			artifactDescription: field.artifactDescription,
+			referenceSchema: field.referenceSchema,
+			inputName: field.inputName,
+		});
+		if (result.type === "error") return result;
+		resolvedPayload[field.key] = result.value;
+	}
+	return { type: "ok", value: resolvedPayload as TPayload };
 }
 
 export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {

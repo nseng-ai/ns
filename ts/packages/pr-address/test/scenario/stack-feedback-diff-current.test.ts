@@ -128,6 +128,22 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		expect(envelope.data.summary).toMatchObject({ planned_still_unresolved: 1, new_unresolved_threads: 0 });
 	});
 
+	test("ignores stdin when every diff input is supplied by reference", async () => {
+		const dir = await makeTempDir();
+		const planPath = join(dir, "stack-plan.json");
+		const prepPath = join(dir, "current-prep.json");
+		await writeFile(planPath, JSON.stringify(stackPlan({ threadId: "PRRT_1" })), "utf8");
+		await writeFile(prepPath, JSON.stringify(referencedCurrentPrep()), "utf8");
+
+		const run = runDiffWithArgs(
+			["--stack-plan-reference", planPath, "--current-prep-reference", prepPath],
+			JSON.stringify({ stack_plan: { would_conflict_if_read: true }, current_prep: { would_conflict_if_read: true } }),
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseDiffEnvelope(run.stdout.join("")).data.safe_to_resolve_planned).toBe(true);
+	});
+
 	test("combines one reference with the embedded payload key", async () => {
 		const dir = await makeTempDir();
 		const planPath = join(dir, "stack-plan.json");
