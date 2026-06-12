@@ -28,6 +28,7 @@ import {
 	startBundlePersist,
 	startSegmentationBatch,
 	type ProfilerState,
+	type SegmentationCacheEntry,
 } from "./context-profiler/runtime.ts";
 import { bundleStatusBarText } from "./context-profiler/render.ts";
 import type { SegmentationState } from "./context-profiler/segmentation.ts";
@@ -77,6 +78,14 @@ class ProfilerRuntimeStore {
 
 	current(): ProfilerState {
 		return this.state;
+	}
+
+	readSegmentationCache(): SegmentationCacheEntry | null {
+		return this.state.segmentationCache;
+	}
+
+	writeSegmentationCache(entry: SegmentationCacheEntry): void {
+		this.state = { ...this.state, segmentationCache: entry };
 	}
 
 	handleBeforeAgentStart(event: BeforeAgentStartEvent): void {
@@ -157,7 +166,16 @@ function openProfiler(options: OpenProfilerOptions): void {
 		session.detachSegmentation?.();
 		const persist = startBundlePersist({ store: bundleStore, state: workState, profile: workProfile, sessionId: ctx.sessionManager.getSessionId(), onUpdate: onPersistenceUpdate });
 		onPersistenceUpdate(persist.initial);
-		const segmentation = startSegmentationBatch({ gateway, profile: workProfile, state: workState, force, onUpdate: onSegmentationUpdate });
+		const segmentation = startSegmentationBatch({
+			gateway,
+			profile: workProfile,
+			cache: {
+				read: () => runtime.readSegmentationCache(),
+				write: (entry) => runtime.writeSegmentationCache(entry),
+			},
+			force,
+			onUpdate: onSegmentationUpdate,
+		});
 		session.detachSegmentation = segmentation.detach;
 		joinEpisodesWrite({
 			whenPersisted: persist.whenPersisted,
