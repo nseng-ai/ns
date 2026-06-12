@@ -7,7 +7,7 @@
   },
   "files": ["src"],
   "bin": {
-    "plans": "./src/cli.ts"
+    "enriched-plan": "./src/cli.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

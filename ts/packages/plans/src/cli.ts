@@ -73,8 +73,8 @@ export interface PlansCliContext {
 
 export function buildCli(): ClinkrGroup<PlansCliContext> {
 	const root = new ClinkrGroup<PlansCliContext>({
-		name: "plans",
-		description: "Saved planned-branch plan operations.",
+		name: "enriched-plan",
+		description: "Enriched-plan operations. An enriched plan is any plan saved into asdl.",
 		version: VERSION,
 		runtimeInfo,
 	});
@@ -96,7 +96,7 @@ export function buildCli(): ClinkrGroup<PlansCliContext> {
 	});
 	execGroup.command(
 		legacyCommand({
-			name: "write",
+			name: "save",
 			description: "Save a source-branch plan file in the local store.",
 			schema: writeRequestSchema,
 			errorType: PLANS_ERROR_TYPE,
@@ -295,7 +295,7 @@ async function readStdin(): Promise<string> {
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/plans bin plans -> ts/packages/plans/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @asdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

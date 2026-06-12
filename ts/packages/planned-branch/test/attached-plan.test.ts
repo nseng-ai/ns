@@ -339,7 +339,7 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, []) }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/No planned-branch entries[\s\S]*plans exec write[\s\S]*planned-branch exec create/);
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/No planned-branch entries[\s\S]*enriched-plan exec save[\s\S]*planned-branch exec create/);
 
 		pi.assertDone();
 	});

@@ -89,7 +89,7 @@ export class NoSavedPlanAvailableError extends Error {
 }
 
 export function defaultPlanStoreRoot(): string {
-	return join(homedir(), ".asdl", "planned-branch", "plans");
+	return join(homedir(), ".asdl", "enriched-plan");
 }
 
 export function normalizeRepoOriginUrl(rawUrl: string): string {

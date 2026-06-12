@@ -4,11 +4,11 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 
 ## General diagnostics posture
 
-- Prefer `plans exec resolve` for saved-plan resolution.
-- Prefer `plans list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
+- Prefer `enriched-plan exec resolve` for saved-plan resolution.
+- Prefer `enriched-plan list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
 - Prefer `planned-branch exec load-plan` for attached-plan loading.
 - Use `brmem list/get` read-only only when diagnosing Branch Memory attachment state.
-- Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/planned-branch/plans/`; do not perform broad home-directory traversals.
+- Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/enriched-plan/`; do not perform broad home-directory traversals.
 - Prefer deterministic CLI helpers over manual file or Branch Memory operations when available.
 
 ## Common recovery cases
@@ -26,13 +26,13 @@ Use this reference for non-happy-path planned-branch work. Keep diagnostics narr
 Path convention:
 
 ```text
-~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
+~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 ```
 
 For current-repo read-only inspection, prefer:
 
 ```bash
-plans list
+enriched-plan list
 ```
 
 When manually inspecting saved plans:

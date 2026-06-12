@@ -246,10 +246,10 @@ describe("buildWritePlanPrompt", () => {
 	test("includes local plan store instructions without branch creation", () => {
 		const prompt = buildWritePlanPrompt("add a tiny docs note plan for testing");
 
-		expect(prompt).toContain("/plans:write request");
+		expect(prompt).toContain("/enriched-plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain("write_saved_plan_file");
-		expect(prompt).toContain("~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md");
+		expect(prompt).toContain("~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
@@ -277,7 +277,7 @@ describe("buildWritePlanPrompt", () => {
 	test("uses custom static prompt body without changing dynamic header", () => {
 		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n");
 
-		expect(prompt).toBe(`This is a /plans:write request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
+		expect(prompt).toBe(`This is a /enriched-plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
 	});
 
 	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
@@ -325,7 +325,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 	test("includes structured grill requirements and save/no-save contract", () => {
 		const prompt = buildWriteGrilledPlanPrompt("plan the grilled command variant");
 
-		expect(prompt).toContain("/plans:grill-and-write");
+		expect(prompt).toContain("/enriched-plan:grill-and-save");
 		expect(prompt).toContain("plan the grilled command variant");
 		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain("grill_ask");

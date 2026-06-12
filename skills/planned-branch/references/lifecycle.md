@@ -25,7 +25,7 @@ Use this reference to keep planned-branch storage, slugs, branches, and workflow
 
 ```text
 Local plan store:
-~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
+~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
 
 Attached plan:
 Branch Memory namespace: planned-branch
@@ -47,17 +47,17 @@ Pi slash commands and CLI commands are equal first-class workflow surfaces over 
 
 Pi surfaces:
 
-- `/plans:write`
-- `/plans:grill-and-write` (Pi-only structured UI over the same Saved plan artifact)
+- `/enriched-plan:save`
+- `/enriched-plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
 - `/planned-branch:create`
 - `/planned-branch:upstack-impl-session`
 - `/planned-branch:impl`
 
 CLI surfaces:
 
-- `plans list` for read-only local saved-plan store inspection
-- `plans exec write`
-- `plans exec resolve`
+- `enriched-plan list` for read-only local saved-plan store inspection
+- `enriched-plan exec save`
+- `enriched-plan exec resolve`
 - `planned-branch exec create`
 - `planned-branch exec load-plan`
 

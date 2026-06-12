@@ -79,15 +79,15 @@ describe("write_saved_plan_file tool", () => {
 			additionalProperties?: boolean;
 		};
 
-		expect(tool.description).toContain("~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md");
+		expect(tool.description).toContain("~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");
 		expect(tool.description).toContain("Codex-backed slug model");
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/plans:write");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/plans:grill-and-write");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/enriched-plan:save");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/enriched-plan:grill-and-save");
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
@@ -159,14 +159,14 @@ describe("write_saved_plan_file tool", () => {
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "validating" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "deriving-slug" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "writing-file", slug: PLAN_SLUG });
-		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Validating saved plan input…" });
-		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Deriving saved-plan filename slug with Codex…" });
+		expect(toolContext.statuses).toContainEqual({ key: "enriched-plan:save", value: "Validating saved plan input…" });
+		expect(toolContext.statuses).toContainEqual({ key: "enriched-plan:save", value: "Deriving saved-plan filename slug with Codex…" });
 		expect(toolContext.statuses).toContainEqual({
-			key: "plans:write",
+			key: "enriched-plan:save",
 			value: `Derived slug ${PLAN_SLUG}; resolving repo/branch and writing plan file…`,
 		});
-		expect(toolContext.statuses).toContainEqual({ key: "plans:write", value: "Writing plan file…" });
-		expect(toolContext.statuses.at(-1)).toEqual({ key: "plans:write", value: undefined });
+		expect(toolContext.statuses).toContainEqual({ key: "enriched-plan:save", value: "Writing plan file…" });
+		expect(toolContext.statuses.at(-1)).toEqual({ key: "enriched-plan:save", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
 		expect(fakes.writePlanCalls[0]?.[1]).toEqual({ slug: PLAN_SLUG, content, summary: "Plan the local plan store file." });
@@ -200,8 +200,8 @@ describe("write_saved_plan_file tool", () => {
 
 		expect(pi.execCalls).toEqual([]);
 		expect(toolContext.statuses).toEqual([
-			{ key: "plans:write", value: "Validating saved plan input…" },
-			{ key: "plans:write", value: undefined },
+			{ key: "enriched-plan:save", value: "Validating saved plan input…" },
+			{ key: "enriched-plan:save", value: undefined },
 		]);
 	});
 
