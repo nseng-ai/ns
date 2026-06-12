@@ -31,6 +31,16 @@ export interface AutobranchFlowInput {
 	now?: (() => number) | undefined;
 }
 
+export type AutobranchFlowResult =
+	| {
+			ok: true;
+			mode: "dirty" | "latest_commit";
+			branchName: string;
+			isCleanAfter: boolean;
+			summary: string;
+	  }
+	| { ok: false };
+
 export function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 	const parsed: ParsedAutobranchArgs = {};
@@ -50,19 +60,19 @@ export function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
 	return parsed;
 }
 
-export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput): Promise<void> {
+export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput): Promise<AutobranchFlowResult> {
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,
 		execGit: (args, timeout) => input.exec("git", args, input.cwd, timeout),
 	});
 	if (!loaded.ok) {
 		input.notify(formatAutobranchSnapshotError(loaded.error), "error");
-		return;
+		return { ok: false };
 	}
 
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
-		await createLatestCommitAutobranchFlow({
+		return createLatestCommitAutobranchFlow({
 			cwd: input.cwd,
 			args: input.args,
 			snapshot,
@@ -71,13 +81,12 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 			setStatus: input.setStatus,
 			now: input.now,
 		});
-		return;
 	}
 
-	await runDirtyAutobranchFlow(input, snapshot);
+	return runDirtyAutobranchFlow(input, snapshot);
 }
 
-async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<void> {
+async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<AutobranchFlowResult> {
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
 		args: input.args,
@@ -90,7 +99,7 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 	});
 	if (!prepared.ok) {
 		input.notify(formatAutobranchPreparationFailure(prepared), "error");
-		return;
+		return { ok: false };
 	}
 
 	for (const warning of prepared.warnings) {
@@ -108,7 +117,7 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 	});
 	if (!transaction.ok) {
 		input.notify(formatAutobranchTransactionFailure(transaction, prepared.plan.branchName), "error");
-		return;
+		return { ok: false };
 	}
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
@@ -124,6 +133,14 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		].join("\n"),
 		isClean ? "success" : "warning",
 	);
+
+	return {
+		ok: true,
+		mode: "dirty",
+		branchName: prepared.plan.branchName,
+		isCleanAfter: isClean,
+		summary: transaction.commitSummary,
+	};
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
