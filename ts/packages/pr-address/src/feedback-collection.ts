@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { gatewayFailureResult, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
@@ -142,11 +140,3 @@ export function contestedThreadIds(reviewThreads: readonly PRReviewThread[]): re
 	}
 	return contested;
 }
-
-export const getFeedbackInlineResultSchema = z.looseObject({
-	payload_mode: z.literal("inline"),
-	pr_number: z.number().int(),
-	reviews: z.array(z.unknown()),
-	review_threads: z.array(z.unknown()),
-	discussion_comments: z.array(z.unknown()),
-});

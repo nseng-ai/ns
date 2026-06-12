@@ -144,7 +144,10 @@ Risks:
 - Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
 - What are the exact build inputs, runtime requirements, and refresh story for the bundled installed-skill artifact (Node version floor, single-file vs directory bundle, how installed skills pick up new bundles)?
 - Should the `stack-feedback-prep` parallel-fetch phase flip on before or after cutover, given fetch-failure disk-state differs from Python under partial failure (stdout/exit parity is preserved either way)?
-- Is `writeTextArtifact` (no production caller) needed by upcoming log-artifact operations, or should it be deleted in the dead-code sweep?
+
+Decided 2026-06-12 (dead-code sweep):
+
+- `writeTextArtifact` stays in the payload store for now. It has no production caller, but the store still models `log` artifacts, parity fixtures write text artifacts, and lookup-negative tests use log artifacts to prove JSON lookups reject non-JSON roles. Deleting it would narrow the store contract rather than remove unreachable implementation plumbing.
 
 Decided 2026-06-10 (consolidation):
 

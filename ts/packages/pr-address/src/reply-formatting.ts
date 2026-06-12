@@ -42,10 +42,6 @@ export interface FormatDiscussionReplyOptions {
 	timestamp?: string | undefined;
 }
 
-export function validResolutionModesText(): string {
-	return VALID_RESOLUTION_MODES.join(", ");
-}
-
 export function formatResolutionReply(options: FormatResolutionReplyOptions): string {
 	const summary = resolutionSummary(options);
 	return [summary, "", `Addressed via _pr-address_ at ${options.timestamp ?? utcTimestamp()}`, RESOLUTION_MARKER].join("\n");

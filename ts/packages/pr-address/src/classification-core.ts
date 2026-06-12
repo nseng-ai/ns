@@ -39,6 +39,7 @@ import {
 	type PlanSourceKind,
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput, readJsonInputText } from "./json-input.ts";
+import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const FILL_DISPOSITION_PLACEHOLDER = "<fill: actionable|informational>";
@@ -195,12 +196,12 @@ interface ClassifiedLookup {
 }
 
 export async function runClassificationTemplateOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseOptions(invocation.args, ["--manifest-json", "--manifest-file"]);
+	const options = parseManagedOptions(invocation.args, ["--manifest-json", "--manifest-file"]);
 	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 
 	const manifestResult = await loadJsonObjectSource({
-		inlineJson: options.values.get("--manifest-json"),
-		filePath: options.values.get("--manifest-file"),
+		inlineJson: options.options.values.get("--manifest-json"),
+		filePath: options.options.values.get("--manifest-file"),
 		canReadStdin: true,
 		commandName: "classification-template",
 		inputName: "compact manifest",
@@ -216,7 +217,7 @@ export async function runClassificationTemplateOperation(invocation: ExecOperati
 }
 
 export async function runValidateFeedbackClassificationOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseOptions(invocation.args, [
+	const options = parseManagedOptions(invocation.args, [
 		"--payload-json",
 		"--payload-file",
 		"--manifest-json",
@@ -226,7 +227,7 @@ export async function runValidateFeedbackClassificationOperation(invocation: Exe
 	]);
 	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 
-	const payloadResult = await loadValidatePayload(options.values, invocation.deps.stdin);
+	const payloadResult = await loadValidatePayload(options.options.values, invocation.deps.stdin);
 	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.errorType, payloadResult.message) };
 
 	const result = validateFeedbackClassification({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
@@ -235,12 +236,12 @@ export async function runValidateFeedbackClassificationOperation(invocation: Exe
 }
 
 export async function runPlanFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseOptions(invocation.args, ["--payload-json", "--payload-file"]);
+	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
 	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
 
 	const payloadResult = await loadJsonInput({
-		optionValue: options.values.get("--payload-json"),
-		filePath: options.values.get("--payload-file"),
+		optionValue: options.options.values.get("--payload-json"),
+		filePath: options.options.values.get("--payload-file"),
 		commandName: "plan-feedback",
 		inputDescription: "JSON payload",
 		optionName: "--payload-json",
@@ -1204,24 +1205,6 @@ async function loadJsonObjectSource(options: {
 	return { type: "ok", value: parsed };
 }
 
-function parseOptions(args: readonly string[], valueOptions: readonly string[]): { type: "ok"; values: Map<string, string> } | { type: "error"; message: string } {
-	const values = new Map<string, string>();
-	for (let index = 0; index < args.length; index += 1) {
-		const arg = args[index];
-		if (arg === undefined) continue;
-		if (arg === "--json-schema") continue;
-		if (valueOptions.includes(arg)) {
-			const value = args[index + 1];
-			if (value === undefined) return { type: "error", message: `${arg} requires a value.` };
-			values.set(arg, value);
-			index += 1;
-			continue;
-		}
-		return { type: "error", message: `Unknown option for managed pr-address operation: ${arg}` };
-	}
-	return { type: "ok", values };
-}
-
 function classificationLocatorRef(locator: BodyLocator): Record<string, string | null> {
 	return {
 		json_pointer: locator.json_pointer,
@@ -1302,10 +1285,6 @@ function pythonRepr(value: string | null): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isActionComplexity(value: unknown): value is ActionComplexity {
-	return typeof value === "string" && ACTION_COMPLEXITIES.includes(value as ActionComplexity);
 }
 
 function jsonParseMessage(error: unknown): string {
