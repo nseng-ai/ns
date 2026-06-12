@@ -37,7 +37,6 @@ Lazy-loading router for rare code workflows. This skill keeps the installed surf
 | `stackify-branch` | `gt-stackify-branch`   | `references/gt-stackify-branch.md` |
 | `stacker-agent`   | `stacker`              | `references/stacker-agent.md`      |
 | `parity-review`   | `cross-harness-parity` | `references/parity-review.md`      |
-| `stack-address`   | `pr-stack-address`     | `references/stack-address.md`      |
 | `gh-ci-debug`     | `ci-debug`             | `references/gh-ci-debug.md`        |
 
 ## Menu prompt
@@ -50,6 +49,5 @@ Which code workflow should I load?
 2. stackify-branch — split one branch into a clean Graphite stack
 3. stacker-agent — serial multi-slice implementation coordinator
 4. parity-review — review Pi command/tool changes for cross-harness parity
-5. stack-address — address unresolved feedback across a Graphite PR stack
-6. gh-ci-debug — diagnose a failing GitHub Actions run or PR check
+5. gh-ci-debug — diagnose a failing GitHub Actions run or PR check
 ```

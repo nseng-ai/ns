@@ -35,6 +35,11 @@
       "sourceType": "local",
       "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
     },
+    "stack-address": {
+      "source": "skills/stack-address",
+      "sourceType": "local",
+      "computedHash": "a3f4ccdd0f34ee1b55ee621cf1940e71c97d45ffce04febb605c166caf6c0a2e"
+    },
     "create-bun-typescript-project": {
       "source": "skills/create-bun-typescript-project",
       "sourceType": "local",
@@ -128,7 +133,7 @@
     "code-workflows": {
       "source": "skills/code-workflows",
       "sourceType": "local",
-      "computedHash": "4620e81d3d2f9f07970dfe4a3196496086b494ca78a44c63c2d6c6b52b788d73"
+      "computedHash": "5900f4113e876f4a0aa275460ee35a302fc3881a2676a21f0900df146a7ac638"
     },
     "objective": {
       "source": "skills/objective",

@@ -1,4 +1,22 @@
-<!-- Loaded through `code-workflows`. -->
+---
+name: stack-address
+description: "Use when the user explicitly wants a stack-wide PR feedback pass: address all feedback in this Graphite stack, make an omnibus PR for stack feedback, retroactively resolve comments across the stack, or run pr-address across every PR in the stack. Also triggers for legacy names code-stack-address or pr-stack-address."
+metadata:
+  internal: true
+allowed-tools:
+  - "Bash(gt *)"
+  - "Bash(git *)"
+  - "Bash(gh *)"
+  - "Bash(pr-address *)"
+  - "Bash(uv run *)"
+  - "Bash(just *)"
+  - "Bash(make *)"
+  - Read
+  - Edit
+  - Write
+  - Grep
+  - Glob
+---
 
 # stack-address
 

@@ -108,12 +108,12 @@ describe("code workflows extension", () => {
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext();
 
-		await command.handler("pr-stack-address", ctx);
+		await command.handler("cross-harness-parity", ctx);
 
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.messages).toHaveLength(1);
-		expect(pi.messages[0]?.content).toContain("Selected route: `stack-address`");
-		expect(ctx.editorText).toBe("Use code-workflows stack-address");
+		expect(pi.messages[0]?.content).toContain("Selected route: `parity-review`");
+		expect(ctx.editorText).toBe("Use code-workflows parity-review");
 		expect(ctx.selectedLabels).toEqual([]);
 	});
 
@@ -137,7 +137,6 @@ describe("code workflows extension", () => {
 			{ value: "stackify-branch", label: "stackify-branch" },
 			{ value: "stacker-agent", label: "stacker-agent" },
 			{ value: "stacker", label: "stacker" },
-			{ value: "stack-address", label: "stack-address" },
 		]);
 	});
 });
