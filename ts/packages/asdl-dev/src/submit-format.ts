@@ -72,15 +72,15 @@ function formatSubmitOutputTail(stdout: string, stderr: string): string {
 
 export function formatPreflightFailureOutput(output: SubmitCommandOutput): string {
 	const reason = output.startupError
-		? `gt submit --dry-run could not start: ${output.startupError}. Submission was not attempted.`
+		? `gt submit -nps --no-ai --no-interactive --dry-run could not start: ${output.startupError}. Submission was not attempted.`
 		: output.killed
-			? `gt submit --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
-			: `gt submit -nps --no-ai --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
+			? `gt submit -nps --no-ai --no-interactive --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `gt submit -nps --no-ai --no-interactive --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
 
 	return [
 		reason,
 		"",
-		"$ gt submit -nps --no-ai --dry-run",
+		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -95,7 +95,7 @@ export function formatRestackRequiredOutput(output: SubmitCommandOutput): string
 		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to let asdl-dev run `gt restack --no-interactive`.",
 		"Submission was not attempted.",
 		"",
-		"$ gt submit -nps --no-ai --dry-run",
+		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -113,11 +113,11 @@ export function formatRestackConfirmationPrompt(output: SubmitCommandOutput): Su
 			"",
 			"If confirmed, asdl-dev will run:",
 			"$ gt restack --no-interactive",
-			"$ gt submit -nps --no-ai",
+			"$ gt submit -nps --no-ai --no-interactive",
 			"",
 			"If restack hits conflicts or fails, submission will stop before `gt submit`.",
 			"",
-			"$ gt submit -nps --no-ai --dry-run",
+			"$ gt submit -nps --no-ai --no-interactive --dry-run",
 			"",
 			formatOutputSection("stdout", output.stdout),
 			formatOutputSection("stderr", output.stderr),
@@ -132,7 +132,7 @@ export function formatRestackDeclinedOutput(output: SubmitCommandOutput): string
 		"Restack was not run. Submission was not attempted.",
 		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to skip the prompt.",
 		"",
-		"$ gt submit -nps --no-ai --dry-run",
+		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -162,9 +162,9 @@ export function formatRestackConflictOutput(output: SubmitCommandOutput, conflic
 export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput): string {
 	return [
 		"Graphite readiness changed after restack. Submission was not attempted, and PR metadata was not prepared.",
-		"Run `gt submit -nps --no-ai --dry-run`, resolve the reported issue, then run `asdl-dev submit` again.",
+		"Run `gt submit -nps --no-ai --no-interactive --dry-run`, resolve the reported issue, then run `asdl-dev submit` again.",
 		"",
-		"$ gt submit -nps --no-ai --dry-run",
+		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -204,7 +204,11 @@ export function formatPrewriteFailureOutput(error: string, amendedBranches: read
 }
 
 export function formatSubmitFailureOutput(output: SubmitCommandOutput, prewrittenMetadata: readonly PreparedSubmitPrMetadata[]): string {
-	const reason = output.startupError ?? (output.killed ? "gt submit timed out and was killed." : `gt submit -nps --no-ai failed with exit code ${output.exitCode}.`);
+	const reason = output.startupError
+		? `gt submit -nps --no-ai --no-interactive could not start: ${output.startupError}.`
+		: output.killed
+			? "gt submit -nps --no-ai --no-interactive timed out and was killed."
+			: `gt submit -nps --no-ai --no-interactive failed with exit code ${output.exitCode}.`;
 	return [
 		reason,
 		...(prewrittenMetadata.length === 0
@@ -213,7 +217,7 @@ export function formatSubmitFailureOutput(output: SubmitCommandOutput, prewritte
 					"Local PR metadata commit messages were prepared before submit; rerun asdl-dev submit after resolving the Graphite failure.",
 				]),
 		"",
-		"$ gt submit -nps --no-ai",
+		"$ gt submit -nps --no-ai --no-interactive",
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -232,7 +236,7 @@ export function formatPostSubmitFailureOutput({
 	return [
 		formatPostSubmitFailureReason(submitted.semanticFailureCause, currentPr),
 		"",
-		"$ gt submit -nps --no-ai",
+		"$ gt submit -nps --no-ai --no-interactive",
 		"",
 		formatOutputSection("stdout", submitted.output.stdout),
 		formatOutputSection("stderr", submitted.output.stderr),

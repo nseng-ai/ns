@@ -20,8 +20,8 @@ import { prepareSubmitPrMetadata, type SubmitMetadataGateway } from "./submit-pr
 import { formatPrDescriptionFailureText, generateSubmitPrDescriptions } from "./submit-pr-descriptions.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
-const SUBMIT_ARGS = ["submit", "-nps", "--no-ai"] as const;
-const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--dry-run"] as const;
+const SUBMIT_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive"] as const;
+const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--dry-run"] as const;
 const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["pr"] as const;
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
