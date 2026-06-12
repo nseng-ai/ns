@@ -1,21 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { BRANCH_CONTEXT_NAMESPACE, formatBranchContextEvidence } from "@asdl/branch-context";
-import {
-	DEFAULT_FAST_MODEL,
-	NoSavedPlanAvailableError,
-	buildRepoPlanStoreKey,
-	encodeBranchForPlanPath,
-	findLatestSavedPlanFile,
-	formatSavedPlanFileEvidence,
-	isPathInside,
-	normalizePlanFilePath,
-	normalizeRepoOriginUrl,
-	validatePlanSlug,
-} from "@asdl/plans";
+import { BRANCH_CONTEXT_PLAN_KEY } from "@asdl/branch-context";
+import { DEFAULT_FAST_MODEL } from "@asdl/plans";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	buildWriteGrilledPlanPrompt,
@@ -25,162 +13,12 @@ import {
 } from "../src/branch-context-extension.ts";
 
 import {
-	FakePi,
-	PLAN_KEY,
 	PLAN_SLUG,
 	REPO_ROOT,
 	ROOT,
-	START_POINT,
 	TARGET_BRANCH,
 	contentSlugEvidence,
-	gitCurrentBranchStep,
-	gitOriginStep,
-	gitRootStep,
-	makeTempDir,
-	planStoreDirectory,
-	writePlanStoreFile,
 } from "./branch-context-extension-support.ts";
-describe("validatePlanSlug", () => {
-	test("accepts specific 3-7 word kebab slugs", () => {
-		for (const slug of [
-			"branch-scoped-plan-extension",
-			"attached-plan-command",
-			"semantic-plan-persistence-tool",
-		]) {
-			expect(validatePlanSlug(slug)).toBeUndefined();
-		}
-	});
-
-	test("rejects invalid slug shapes", () => {
-		for (const slug of [
-			"",
-			"Branch-Scoped-Plan",
-			"branch scoped plan",
-			"branch-scoped-plan.md",
-			"attached-plan",
-			"one-two-three-four-five-six-seven-eight",
-			"implementation-plan-task",
-			"branch-2026-plan-tool",
-		]) {
-			expect(validatePlanSlug(slug)).toBeDefined();
-		}
-	});
-});
-
-describe("source branch plan path helpers", () => {
-	test("normalizes repository origin URLs deterministically", () => {
-		expect(normalizeRepoOriginUrl("git@github.com:owner/repo.git")).toBe("ssh://git@github.com/owner/repo");
-		expect(normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git")).toBe("https://github.com/Owner/Repo");
-		expect(normalizeRepoOriginUrl("https://github.com/owner/repo.git///")).toBe("https://github.com/owner/repo");
-	});
-
-	test("encodes branch names as one safe path segment", () => {
-		expect(encodeBranchForPlanPath("main")).toBe("main");
-		expect(encodeBranchForPlanPath("branch-contexts/add-widget")).toBe("branch-contexts---add-widget");
-		expect(encodeBranchForPlanPath("feature/add widget+docs")).toBe("feature---add-widget-docs");
-	});
-
-	test("builds GitHub repo plan store repo keys from owner and repo", () => {
-		const scpLike = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("git@github.com:owner/repo.git"));
-		const https = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("https://github.com/owner/repo.git"));
-		const mixedCaseHttps = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git"));
-		const different = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("git@github.com:owner/other.git"));
-
-		expect(scpLike).toBe("gh--owner--repo");
-		expect(https).toBe(scpLike);
-		expect(mixedCaseHttps).toBe(scpLike);
-		expect(different).toBe("gh--owner--other");
-	});
-
-	test("builds deterministic non-GitHub fallback plan store repo keys without hashes", () => {
-		expect(buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("git@gitlab.com:Owner/Repo.git"))).toBe(
-			"ssh-git-gitlab.com-Owner-Repo",
-		);
-		expect(buildRepoPlanStoreKey("/repo", "/repo")).toBe("repo");
-	});
-
-	test("finds the newest saved Markdown plan file", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "branch-contexts/add-widget";
-		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await writePlanStoreFile(directoryPath, "older-source-plan.md", 1_700_000_000_000);
-		const newestPath = await writePlanStoreFile(directoryPath, "newer-source-plan.md", 1_800_000_000_000);
-		await writePlanStoreFile(directoryPath, "ignored-source-plan.txt", 1_900_000_000_000);
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-
-		const evidence = await findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
-
-		pi.assertDone();
-		expect(evidence).toMatchObject({
-			slug: "newer-source-plan",
-			filePath: newestPath,
-			fileName: "newer-source-plan.md",
-			repoKey: "gh--owner--repo",
-			sourceBranch,
-			branchKey: "branch-contexts---add-widget",
-			directoryPath,
-		});
-	});
-
-	test("reports a typed error when the local plan store directory is missing", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "main";
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-
-		const promise = findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
-		await expect(promise).rejects.toThrow(/No local plan store directory exists[\s\S]*Create a saved plan first/);
-		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
-		await expect(promise).rejects.toMatchObject({ reason: "missing-directory" });
-		pi.assertDone();
-	});
-
-	test("reports a typed error when no Markdown saved plans exist", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "main";
-		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await mkdir(directoryPath, { recursive: true });
-		await writeFile(join(directoryPath, "notes.txt"), "not a plan", "utf8");
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-
-		const promise = findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
-		await expect(promise).rejects.toThrow(/No Markdown saved plan files exist[\s\S]*Create a saved plan first/);
-		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
-		await expect(promise).rejects.toMatchObject({ reason: "no-plan-files" });
-		pi.assertDone();
-	});
-
-	test("treats the latest filename stem as a locator even when it is not a valid branch slug", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "main";
-		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await writePlanStoreFile(directoryPath, "valid-source-plan.md", 1_700_000_000_000);
-		const latestPath = await writePlanStoreFile(directoryPath, "bad.md", 1_800_000_000_000);
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-
-		const evidence = await findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
-
-		pi.assertDone();
-		expect(evidence.slug).toBe("bad");
-		expect(evidence.filePath).toBe(latestPath);
-	});
-
-	test("tie-breaks exact matching mtimes by filename path", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "main";
-		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await writePlanStoreFile(directoryPath, "alpha-source-plan.md", 1_800_000_000_000);
-		const expectedPath = await writePlanStoreFile(directoryPath, "zeta-source-plan.md", 1_800_000_000_000);
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-
-		const evidence = await findLatestSavedPlanFile(pi, { cwd: ROOT, planStoreRoot });
-
-		pi.assertDone();
-		expect(evidence.slug).toBe("zeta-source-plan");
-		expect(evidence.filePath).toBe(expectedPath);
-	});
-
-});
-
 describe("branch-context:from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
@@ -211,7 +49,6 @@ describe("branch-context:from-plan argument parsing", () => {
 		expect(() => parseCreateBranchContextArgs("/tmp/one.md /tmp/two.md")).toThrow("at most one");
 	});
 });
-
 describe("buildWritePlanPrompt", () => {
 	test("includes local plan store instructions without branch creation", () => {
 		const prompt = buildWritePlanPrompt("add a tiny docs note plan for testing");
@@ -290,7 +127,6 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
 	});
 });
-
 describe("buildWriteGrilledPlanPrompt", () => {
 	test("includes structured grill requirements and save/no-save contract", () => {
 		const prompt = buildWriteGrilledPlanPrompt("plan the grilled command variant");
@@ -317,7 +153,6 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(buildWriteGrilledPlanPrompt("   ")).toContain("User steering for this planning request: (none)");
 	});
 });
-
 describe("formatCreateBranchContextPreview", () => {
 	test("reports latest saved plan and target details", () => {
 		const text = formatCreateBranchContextPreview({
@@ -328,9 +163,8 @@ describe("formatCreateBranchContextPreview", () => {
 			fileName: "local-filename-plan.md",
 			targetBranch: TARGET_BRANCH,
 			branchCreation: "graphite",
+			isExplicitTargetBranch: false,
 			slugEvidence: contentSlugEvidence(),
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
 			repoIdentitySource: "origin-url",
@@ -348,7 +182,7 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
 		expect(text).toContain("Branch creation: graphite");
-		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(text).toContain(`Branch Memory key: ${BRANCH_CONTEXT_PLAN_KEY}`);
 	});
 
 	test("reports session-derived latest saved plan", () => {
@@ -360,9 +194,8 @@ describe("formatCreateBranchContextPreview", () => {
 			fileName: "session-file-plan.md",
 			targetBranch: TARGET_BRANCH,
 			branchCreation: "plain-git",
+			isExplicitTargetBranch: false,
 			slugEvidence: contentSlugEvidence(),
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
 			repoIdentitySource: "origin-url",
@@ -377,78 +210,3 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 	});
 });
-
-describe("formatBranchContextEvidence", () => {
-	test("reports all created branch and Branch Memory evidence", () => {
-		const text = formatBranchContextEvidence({
-			slug: PLAN_SLUG,
-			branch: TARGET_BRANCH,
-			branchCreation: "graphite",
-			startPoint: START_POINT,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
-			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---wire-create-branch-context-command:${PLAN_KEY}`,
-			commit: "abc123",
-			sourceFile: "/tmp/plan.md",
-			summary: "Plan the branch-creating flow.",
-		});
-
-		expect(text).toContain("Created branch context and attached plan.");
-		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
-		expect(text).toContain("Branch creation: graphite");
-		expect(text).toContain(`Start point: ${START_POINT}`);
-		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
-		expect(text).toContain(`Key: ${PLAN_KEY}`);
-		expect(text).toContain("Ref: refs/brmem/ns/branch-context/branch-contexts---wire-create-branch-context-command");
-		expect(text).toContain("Commit: abc123");
-		expect(text).toContain("Source file: /tmp/plan.md");
-		expect(text).toContain("Summary: Plan the branch-creating flow.");
-	});
-});
-
-describe("formatSavedPlanFileEvidence", () => {
-	test("reports all local plan store evidence", () => {
-		const text = formatSavedPlanFileEvidence({
-			slug: PLAN_SLUG,
-			repoRoot: ROOT,
-			repoKey: "gh--owner--repo",
-			repoIdentitySource: "origin-url",
-			sourceBranch: "branch-contexts/add-widget",
-			branchKey: "branch-contexts---add-widget",
-			filePath: "/plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
-			summary: "Plan the local plan store file.",
-		});
-
-		expect(text).toContain("Saved plan file in local plan store.");
-		expect(text).toContain("Path: /plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md");
-		expect(text).toContain("Repo key: gh--owner--repo");
-		expect(text).toContain(`Repo root: ${ROOT}`);
-		expect(text).toContain("Repo identity source: origin-url");
-		expect(text).toContain("Source branch: branch-contexts/add-widget");
-		expect(text).toContain("Branch path segment: branch-contexts---add-widget");
-		expect(text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(text).toContain("Summary: Plan the local plan store file.");
-	});
-});
-
-describe("isPathInside", () => {
-	test("handles sibling prefixes correctly", () => {
-		expect(isPathInside("/repo", "/repo/file.md")).toBe(true);
-		expect(isPathInside("/repo", "/repo/nested/file.md")).toBe(true);
-		expect(isPathInside("/repo", "/repo-other/file.md")).toBe(false);
-		expect(isPathInside("/repo", "/repo2/file.md")).toBe(false);
-	});
-});
-
-describe("normalizePlanFilePath", () => {
-	test("strips leading @ and expands current-user home shorthand", () => {
-		const scenarioPath = join(homedir(), ".claude", "plans", "where-would-we-host-mossy-lampson.md");
-
-		expect(normalizePlanFilePath("@/tmp/my-source-plan.md")).toBe("/tmp/my-source-plan.md");
-		expect(normalizePlanFilePath("~")).toBe(homedir());
-		expect(normalizePlanFilePath("~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(scenarioPath);
-		expect(normalizePlanFilePath("@~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(scenarioPath);
-		expect(normalizePlanFilePath("relative-source-plan.md")).toBe("relative-source-plan.md");
-	});
-});
-

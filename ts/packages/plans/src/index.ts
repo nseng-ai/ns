@@ -64,6 +64,11 @@ export {
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
 export {
+	buildSavedPlanContentSlugPrompt,
+	deriveSavedPlanContentSlug,
+	type SavedPlanContentSlugEvidence,
+} from "./saved-plan-content-slug.ts";
+export {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	extractSavedPlanFileEvidenceFromSessionEntry,
 	findLatestSessionSavedPlanFile,

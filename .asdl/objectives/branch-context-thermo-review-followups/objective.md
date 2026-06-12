@@ -52,3 +52,14 @@ None blocking. The two questions from creation were resolved with code evidence 
 - The dry-run `details` fields are consumed by nothing programmatic: `extractBranchContextEvidence` parses only the `status: "success"` + `evidence` variant via `successfulBranchContextOutputDetailsSchema`. The typed contract keeps a dry-run variant only where fields add information beyond the human-readable content string.
 
 Remaining execution-detail judgment call (not a blocker): if the `thermo-followups/package-cleanup` slice produces too much pinned-message test churn to review comfortably, it may split into a src-refactor branch and a test-split branch — same theses, one extra stack entry.
+
+## Closure
+
+Closed as completed by the four-branch follow-up stack:
+
+- `thermo-followups/vocabulary-and-docs` aligned branch-context vocabulary/docs with ADR 0006, restored workflow invariants, documented primitives, and rebaselined active CONTEXT surfaces.
+- `thermo-followups/package-cleanup` removed `@asdl/branch-context` gateway fallback plumbing, deleted the duplicate validation layer, trimmed the public surface, and split the package scenario tests.
+- `thermo-followups/canonical-contracts` moved the impl-command formatter and output-message contract into `@asdl/branch-context` and updated ccc/pi-extensions consumers.
+- `thermo-followups/extension-decomposition` fixed status sequencing, split the Pi extension by command family, and moved plans-domain saved-plan slug/file/primitive tests to `@asdl/plans`.
+
+Evidence is recorded in the roadmap rows and the 2026-06-12 Semantic Updates. Validation passed on each branch with the documented per-slice commands, including full TypeScript validation for the three code slices. Parked zod-boundary and cosmetic residue remain intentionally out of scope. PR submission/merge remains manual and is not part of this Objective's closure.
