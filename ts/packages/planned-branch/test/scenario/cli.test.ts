@@ -8,7 +8,7 @@ import { PLAN_BRANCH_NAMESPACE } from "../../src/constants.ts";
 import { encodeBranchForPlanPath } from "@asdl/plans";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryPlannedBranchBrmemGateway, type InMemoryBrmemGatewayState } from "../support/in-memory-brmem-gateway.ts";
-import { InMemoryPlannedBranchGitGateway, type InMemoryGitGatewayState } from "../support/in-memory-git-gateway.ts";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
 import { InMemoryPlannedBranchGraphiteGateway, type InMemoryGraphiteGatewayState } from "../support/in-memory-graphite-gateway.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
@@ -140,7 +140,7 @@ interface CliRun {
 	stdout: string[];
 	stderr: string[];
 	commands: FakeCommands;
-	git: InMemoryPlannedBranchGitGateway;
+	git: InMemoryGitGateway;
 	brmem: InMemoryPlannedBranchBrmemGateway;
 	graphite: InMemoryPlannedBranchGraphiteGateway;
 }
@@ -170,10 +170,10 @@ function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] =
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const commands = new FakeCommands(script);
-	const git = new InMemoryPlannedBranchGitGateway({
+	const git = new InMemoryGitGateway({
 		repoRoot: options.cwd,
 		optionalRepoRoot: options.cwd,
-		sourceBranch: SOURCE_BRANCH,
+		currentBranch: SOURCE_BRANCH,
 		...(options.git ?? {}),
 	});
 	const brmem = new InMemoryPlannedBranchBrmemGateway(options.brmem);
@@ -227,9 +227,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function expectNoGitOrBrmemCalls(run: CliRun): void {
 	expect(run.git.repoRootCalls).toEqual([]);
 	expect(run.git.optionalRepoRootCalls).toEqual([]);
-	expect(run.git.sourceBranchCalls).toEqual([]);
-	expect(run.git.implementationBranchCalls).toEqual([]);
-	expect(run.git.defaultBranchCalls).toEqual([]);
+	expect(run.git.currentBranchCalls).toEqual([]);
+	expect(run.git.trunkBranchCalls).toEqual([]);
 	expect(run.git.originUrlCalls).toEqual([]);
 	expect(run.git.headCommitCalls).toEqual([]);
 	expect(run.git.validateBranchRefCalls).toEqual([]);
@@ -560,7 +559,7 @@ describe("planned-branch exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "json"], [], {
 			cwd: repoRoot,
-			git: { implementationBranch: branch, defaultBranch: "main" },
+			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -592,7 +591,7 @@ describe("planned-branch exec", () => {
 		const run = runWithFakes(["exec", "load-plan", "--format", "json"], [], {
 			cwd: repoRoot,
 			planStoreRoot,
-			git: { implementationBranch: SOURCE_BRANCH, defaultBranch: "main" },
+			git: { currentBranch: SOURCE_BRANCH, trunkBranch: "main" },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -618,7 +617,7 @@ describe("planned-branch exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--prompt-file", promptFile, "--format", "json"], [], {
 			cwd: repoRoot,
-			git: { implementationBranch: branch, defaultBranch: "main" },
+			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -646,7 +645,7 @@ describe("planned-branch exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content", "--include-prompt", "--format", "json"], [], {
 			cwd: repoRoot,
-			git: { implementationBranch: branch, defaultBranch: "main" },
+			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -674,7 +673,7 @@ describe("planned-branch exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const fakes = {
 			cwd: repoRoot,
-			git: { implementationBranch: branch, defaultBranch: "main" },
+			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		};
 		const withFlags = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--include-content", "--include-prompt"], [], fakes);
@@ -757,7 +756,7 @@ describe("planned-branch CLI surface pinning", () => {
 		const content = "# Attached Plan\n";
 		const run = runWithFakes(["exec", "load-plan", PLAN_SLUG, "--format", "human"], [], {
 			cwd: repoRoot,
-			git: { implementationBranch: branch, defaultBranch: "main" },
+			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -818,7 +817,7 @@ describe("planned-branch CLI surface pinning", () => {
 		const content = "# Attached Plan\n";
 		const placedAfterFlag = runWithFakes(["exec", "load-plan", "--format", "json", PLAN_SLUG], [], {
 			cwd: repoRoot,
-			git: { implementationBranch: branch, defaultBranch: "main" },
+			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 		expect(await placedAfterFlag.exit).toBe(0);

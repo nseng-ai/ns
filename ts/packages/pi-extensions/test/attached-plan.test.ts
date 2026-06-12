@@ -13,10 +13,10 @@ import {
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
 	type PlannedBranchBrmemGateway,
-	type PlannedBranchGitGateway,
 } from "@asdl/planned-branch";
 import { PLAN_BRANCH_NAMESPACE } from "@asdl/planned-branch";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { GitGateway } from "@asdl/core/git";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
 
 const ROOT = "/repo";
@@ -109,11 +109,24 @@ function gitRootStep(root: string = ROOT): ScriptedExec {
 }
 
 function gitCurrentBranchStep(branch: string = PLAN_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${branch}\n`, ...result });
+	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
 function gitDefaultBranchStep(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec {
-	return step("git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], result);
+	return step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], result);
+}
+
+function gitBranchPresenceStep(branch: string, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}`], result);
+}
+
+function gitDefaultBranchProbeSteps(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec[] {
+	const stdout = result.stdout ?? "origin/master\n";
+	const candidate = stdout.trim().startsWith("origin/") ? stdout.trim().slice("origin/".length) : stdout.trim();
+	if ((result.code ?? 0) === 0 && candidate.length > 0) {
+		return [gitDefaultBranchStep(result), gitBranchPresenceStep(candidate)];
+	}
+	return [gitDefaultBranchStep(result), gitBranchPresenceStep("main", { code: 1, stderr: "missing" }), gitBranchPresenceStep("master", { code: 1, stderr: "missing" })];
 }
 
 function brmemListStep(branch: string, result: Partial<ExecResult>): ScriptedExec {
@@ -179,7 +192,7 @@ function successfulLoadScript(input: {
 	return [
 		gitRootStep(),
 		gitCurrentBranchStep(branch),
-		gitDefaultBranchStep(input.defaultBranchResult ?? { stdout: "origin/master\n" }),
+		...gitDefaultBranchProbeSteps(input.defaultBranchResult ?? { stdout: "origin/master\n" }),
 		brmemListStep(branch, { stdout: listEnvelope(branch, entries) }),
 		brmemGetStep(branch, key, { stdout: getStdout }),
 	];
@@ -194,7 +207,7 @@ function attachedPlanEntry(key: string, branch: string = PLAN_BRANCH): AttachedP
 	};
 }
 
-function fakeGitGateway(branch: string = PLAN_BRANCH): PlannedBranchGitGateway {
+function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 	return {
 		async repoRoot() {
 			return { ok: true, value: ROOT };
@@ -202,13 +215,10 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): PlannedBranchGitGateway {
 		async optionalRepoRoot() {
 			return { type: "found", value: ROOT };
 		},
-		async sourceBranch() {
+		async currentBranch() {
 			return { ok: true, value: branch };
 		},
-		async implementationBranch() {
-			return { ok: true, value: branch };
-		},
-		async defaultBranch() {
+		async trunkBranch() {
 			return { type: "found", value: "main" };
 		},
 		async originUrl() {
@@ -255,8 +265,9 @@ describe("loadAttachedPlan", () => {
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
 			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
-			{ command: "git", args: ["symbolic-ref", "--short", "HEAD"] },
-			{ command: "git", args: ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"] },
+			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "git", args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"] },
+			{ command: "git", args: ["rev-parse", "--verify", "refs/heads/master"] },
 			{ command: "brmem", args: ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_BRANCH, "--format", "json"] },
 			{ command: "brmem", args: ["get", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", PLAN_BRANCH, "--format", "json"] },
 		]);
@@ -324,7 +335,7 @@ describe("loadAttachedPlan", () => {
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(),
-			gitDefaultBranchStep(),
+			...gitDefaultBranchProbeSteps(),
 			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, []) }),
 		]);
 
@@ -386,7 +397,7 @@ describe("loadAttachedPlan", () => {
 			const pi = new FakePi([
 				gitRootStep(),
 				gitCurrentBranchStep(branch),
-				gitDefaultBranchStep({ stdout: branch === "develop" ? "origin/develop\n" : "origin/main\n" }),
+				...gitDefaultBranchProbeSteps({ stdout: branch === "develop" ? "origin/develop\n" : "origin/main\n" }),
 			]);
 
 			await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(
@@ -411,7 +422,7 @@ describe("loadAttachedPlan", () => {
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(),
-			gitDefaultBranchStep(),
+			...gitDefaultBranchProbeSteps(),
 			brmemListStep(PLAN_BRANCH, { code: 2, stderr: "list failed" }),
 		]);
 
@@ -424,7 +435,7 @@ describe("loadAttachedPlan", () => {
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(),
-			gitDefaultBranchStep(),
+			...gitDefaultBranchProbeSteps(),
 			brmemListStep(PLAN_BRANCH, { code: 127, stderr: "brmem: command not found" }),
 		]);
 
@@ -438,7 +449,7 @@ describe("loadAttachedPlan", () => {
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(),
-			gitDefaultBranchStep(),
+			...gitDefaultBranchProbeSteps(),
 			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, [{ key: PLAN_KEY }]) }),
 			brmemGetStep(PLAN_BRANCH, PLAN_KEY, { code: 2, stderr: "get failed" }),
 		]);

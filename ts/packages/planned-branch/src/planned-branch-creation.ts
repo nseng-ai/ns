@@ -4,13 +4,11 @@ import {
 	type PlannedBranchBrmemGateway,
 } from "./brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
-import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
 import { RealPlannedBranchGraphiteGateway, type PlannedBranchGraphiteGateway } from "./graphite-gateway.ts";
 import { formatCommand, type CommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { buildPlanFileName, normalizeSummary, resolvePlanSourceFile, validatePlanSlug } from "@asdl/plans";
-
-import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
 export { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 
@@ -31,7 +29,7 @@ export interface CreatePlannedBranchFromFileParams {
 export interface CreatePlannedBranchFromFileOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-	git?: PlannedBranchGitGateway | undefined;
+	git?: GitGateway | undefined;
 	brmem?: PlannedBranchBrmemGateway | undefined;
 	graphite?: PlannedBranchGraphiteGateway | undefined;
 }
@@ -71,14 +69,14 @@ export async function createPlannedBranchFromFile(
 	options: CreatePlannedBranchFromFileOptions,
 ): Promise<PlannedBranchEvidence> {
 	const operation = buildPlannedBranchCreateOperation(rawParams);
-	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
 	const graphite = options.graphite ?? new RealPlannedBranchGraphiteGateway(pi);
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
 		rawFilePath: operation.filePath,
 		signal: options.signal,
-		git: adaptPlannedBranchGitGateway(git),
+		git,
 	});
 
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
@@ -156,9 +154,9 @@ export function buildPlannedBranchCreateOperation(rawParams: unknown): PlannedBr
 
 export async function resolvePlannedBranchCreatePreviewContext(
 	pi: CommandExecApi,
-	options: { cwd: string; signal?: AbortSignal | undefined; git?: PlannedBranchGitGateway | undefined },
+	options: { cwd: string; signal?: AbortSignal | undefined; git?: GitGateway | undefined },
 ): Promise<PlannedBranchCreatePreviewContext> {
-	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	return { startPoint: await resolveStartPoint(git, options.cwd, options.signal) };
 }
 
@@ -331,7 +329,7 @@ export function validateTargetBranchName(branch: string): string | undefined {
 }
 
 async function checkBranchRefFormat(
-	git: PlannedBranchGitGateway,
+	git: GitGateway,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
@@ -342,7 +340,7 @@ async function checkBranchRefFormat(
 	}
 }
 
-async function resolveStartPoint(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveStartPoint(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const head = await git.headCommit({ cwd, signal });
 	if (!head.ok) {
 		throw new Error(head.error.message);
@@ -351,7 +349,7 @@ async function resolveStartPoint(git: PlannedBranchGitGateway, cwd: string, sign
 }
 
 async function assertLocalBranchAbsent(
-	git: PlannedBranchGitGateway,
+	git: GitGateway,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
@@ -412,7 +410,7 @@ interface CreatePlainGitBranchOptions {
 
 interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {}
 
-async function createPlanBranch(git: PlannedBranchGitGateway, graphite: PlannedBranchGraphiteGateway, options: CreatePlanBranchOptions): Promise<void> {
+async function createPlanBranch(git: GitGateway, graphite: PlannedBranchGraphiteGateway, options: CreatePlanBranchOptions): Promise<void> {
 	if (options.method === "graphite") {
 		await createGraphiteBranch(git, graphite, options);
 		return;
@@ -420,14 +418,14 @@ async function createPlanBranch(git: PlannedBranchGitGateway, graphite: PlannedB
 	await createPlainGitBranch(git, options);
 }
 
-async function createPlainGitBranch(git: PlannedBranchGitGateway, options: CreatePlainGitBranchOptions): Promise<void> {
+async function createPlainGitBranch(git: GitGateway, options: CreatePlainGitBranchOptions): Promise<void> {
 	const create = await git.createBranchAtHead({ cwd: options.cwd, branch: options.branch, signal: options.signal });
 	if (!create.ok) {
 		throw new Error(create.error.message);
 	}
 }
 
-async function createGraphiteBranch(git: PlannedBranchGitGateway, graphite: PlannedBranchGraphiteGateway, options: CreateGraphiteBranchOptions): Promise<void> {
+async function createGraphiteBranch(git: GitGateway, graphite: PlannedBranchGraphiteGateway, options: CreateGraphiteBranchOptions): Promise<void> {
 	const parentBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
 	const parentTracked = await graphite.checkBranchTracked({ cwd: options.cwd, branch: parentBranch, signal: options.signal });
 	if (!parentTracked.ok) {
@@ -461,8 +459,8 @@ async function createGraphiteBranch(git: PlannedBranchGitGateway, graphite: Plan
 	}
 }
 
-async function resolveCurrentBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
-	const branch = await git.sourceBranch({ cwd, signal });
+async function resolveCurrentBranch(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const branch = await git.currentBranch({ cwd, signal });
 	if (!branch.ok) {
 		if (branch.error.code === "detached_head") {
 			throw new Error("Graphite branch creation requires a named current branch; the current checkout appears to be detached.");

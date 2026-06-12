@@ -5,10 +5,8 @@ import { TextEncoder } from "node:util";
 import { RealPlannedBranchBrmemGateway, type AttachedPlanEntry, type PlannedBranchBrmemGateway } from "./brmem-gateway.ts";
 import { PLAN_BRANCH_NAMESPACE } from "./constants.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { resolveSelectedSavedPlanFile } from "@asdl/plans";
-
-import { RealPlannedBranchGitGateway, type PlannedBranchGitGateway } from "./git-gateway.ts";
-import { adaptPlannedBranchGitGateway } from "./plans-git-adapter.ts";
 
 const PLANNED_BRANCH_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/planned-branch-impl.md", import.meta.url), "utf8").trimEnd();
 const ATTACHED_PLAN_SUFFIX = ".md";
@@ -37,7 +35,7 @@ export interface LoadAttachedPlanParams {
 export interface LoadAttachedPlanOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-	git?: PlannedBranchGitGateway | undefined;
+	git?: GitGateway | undefined;
 	brmem?: PlannedBranchBrmemGateway | undefined;
 	planStoreRoot?: string | undefined;
 	sessionEntries?: readonly unknown[] | undefined;
@@ -118,7 +116,7 @@ export async function loadAttachedPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	const git = options.git ?? new RealPlannedBranchGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	const brmem = options.brmem ?? new RealPlannedBranchBrmemGateway(pi);
 	const branch = await resolveSafeImplementationBranch(git, options.cwd, options.signal);
 	const list = await brmem.listAttachedPlans({ cwd: options.cwd, branch, signal: options.signal });
@@ -159,7 +157,7 @@ async function loadSavedPlanFallback(
 ): Promise<LoadedAttachedPlan> {
 	const selected = await resolveSelectedSavedPlanFile(pi, {
 		cwd: options.cwd,
-		git: adaptPlannedBranchGitGateway(options.git),
+		git: options.git,
 		planStoreRoot: options.planStoreRoot,
 		sessionEntries: options.sessionEntries,
 		shouldFallbackToLatest: true,
@@ -294,21 +292,21 @@ export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): stri
 	].join("\n");
 }
 
-async function resolveSafeImplementationBranch(git: PlannedBranchGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveSafeImplementationBranch(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const repoRoot = await git.repoRoot({ cwd, signal });
 	if (!repoRoot.ok) {
 		throw new Error(["Cannot load attached plan: not in a Git repository.", "", repoRoot.error.message].join("\n"));
 	}
 
-	const branchResult = await git.implementationBranch({ cwd, signal });
+	const branchResult = await git.currentBranch({ cwd, signal });
 	if (!branchResult.ok) {
 		throw new Error(["Cannot load attached plan from detached HEAD. Check out a feature branch first.", "", branchResult.error.message].join("\n"));
 	}
 	const branch = branchResult.value;
 
-	const defaultBranch = await git.defaultBranch({ cwd, signal });
-	const defaultBranchValue = defaultBranch.type === "found" ? defaultBranch.value : undefined;
-	if (branch === "main" || branch === "master" || branch === defaultBranchValue) {
+	const trunkBranch = await git.trunkBranch({ cwd, signal });
+	const trunkBranchValue = trunkBranch.type === "found" ? trunkBranch.value : undefined;
+	if (branch === "main" || branch === "master" || branch === trunkBranchValue) {
 		throw new Error(`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`);
 	}
 
