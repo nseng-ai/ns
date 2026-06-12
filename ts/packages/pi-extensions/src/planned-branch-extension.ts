@@ -7,10 +7,13 @@ import {
 	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
 	derivePlanContentSlug,
 	deriveTargetBranch,
+	formatExistingPlannedBranchReuse,
 	formatLoadedAttachedPlanEvidence,
 	formatPlanBranchEvidence,
 	loadPlannedBranchPlan,
+	resolveExistingPlannedBranchReuse,
 	type BranchCreationMethod,
+	type ExistingPlannedBranchReuse,
 	type LoadedAttachedPlan,
 	type PlanContentSlugEvidence,
 	type PlannedBranchEvidence,
@@ -19,6 +22,7 @@ import {
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import {
+	NoSavedPlanAvailableError,
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	formatSavedPlanFileEvidence,
 	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
@@ -792,19 +796,22 @@ async function handleUpAndImplCommand(
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
 		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, { ...options, plannedBranchDefaultCreation: "graphite" });
-	} catch (error) {
-		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
-		return;
-	} finally {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+	} catch (error) {
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		if (!(error instanceof NoSavedPlanAvailableError)) {
+			presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
+			return;
+		}
+		await handleUpAndImplExistingReuse({ pi, args, ctx, originalError: error });
+		return;
 	}
 
 	if (args.dryRun) {
-		const previewText = formatCreatePlannedBranchPreview(preview);
 		presentPlannedBranchMessage(
 			pi,
 			ctx,
-			`Dry run: no branch was created, no checkout happened, no new session was started, and no implementation prompt was sent.\n\n${previewText}\n\nNew-session implementation flow:\n${formatPlannedBranchUpAndImplFollowUpFlow(preview.targetBranch, preview.key)}`,
+			formatUpAndImplDryRunMessage(formatCreatePlannedBranchPreview(preview), preview.targetBranch, preview.key),
 			{ status: "dry-run", preview },
 			"info",
 		);
@@ -821,22 +828,15 @@ async function handleUpAndImplCommand(
 		return;
 	}
 
-	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
-
-	const launchResult = await runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: UP_AND_IMPL_STATUS_KEY, evidence });
-	if (launchResult.type === "launched") {
-		return;
-	}
-	if (launchResult.type === "cancelled") {
-		presentPlannedBranchMessage(pi, ctx, launchResult.message, { status: "cancelled", preview, evidence }, "warning");
-		return;
-	}
-
-	const title =
-		launchResult.phase === "checkout"
-			? "Created planned branch and attached the plan, but failed to check out the planned branch."
-			: "Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.";
-	presentPlannedBranchFailure(pi, ctx, title, launchResult.message, preview);
+	await runUpAndImplLaunchTail({
+		pi,
+		ctx,
+		mode: "created",
+		target: evidence,
+		successBody: formatPlanBranchEvidence(evidence),
+		details: { preview, evidence },
+		failurePreview: preview,
+	});
 }
 
 interface CreatePlannedBranchFromPreviewOptions {
@@ -844,6 +844,58 @@ interface CreatePlannedBranchFromPreviewOptions {
 	preview: CreatePlannedBranchPreview;
 	ctx: CommandContext;
 	operations: PlannedBranchOperations;
+}
+
+interface HandleUpAndImplExistingReuseOptions {
+	pi: ExtensionAPI;
+	args: CreatePlannedBranchArgs;
+	ctx: CommandContext;
+	originalError: unknown;
+}
+
+async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReuseOptions): Promise<void> {
+	const { pi, args, ctx, originalError } = options;
+	let reuse: ExistingPlannedBranchReuse;
+	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding existing planned branch…");
+	try {
+		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
+		reuse = await resolveExistingPlannedBranchReuse(
+			pi,
+			args.branchName === undefined ? { sessionEntries } : { explicitBranch: args.branchName, sessionEntries },
+			{ cwd: ctx.cwd },
+		);
+	} catch (reuseError) {
+		presentPlannedBranchMessage(
+			pi,
+			ctx,
+			formatExistingReuseFailureMessage(originalError, reuseError),
+			{ status: "failure", error: formatErrorMessage(reuseError) },
+			"error",
+		);
+		return;
+	} finally {
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+	}
+
+	if (args.dryRun) {
+		presentPlannedBranchMessage(
+			pi,
+			ctx,
+			formatUpAndImplDryRunMessage(formatExistingPlannedBranchReuse(reuse), reuse.branch, reuse.key),
+			{ status: "dry-run", reuse },
+			"info",
+		);
+		return;
+	}
+
+	await runUpAndImplLaunchTail({
+		pi,
+		ctx,
+		mode: "reused",
+		target: reuse,
+		successBody: `Reusing existing planned branch and attached plan.\n\n${formatExistingPlannedBranchReuse(reuse)}`,
+		details: { reuse },
+	});
 }
 
 async function createPlannedBranchFromPreview({
@@ -865,6 +917,74 @@ async function createPlannedBranchFromPreview({
 	}
 
 	return operations.createPlannedBranchFromFile(pi, params, { cwd: ctx.cwd });
+}
+
+function formatExistingReuseFailureMessage(originalError: unknown, reuseError: unknown): string {
+	return [
+		"Failed to resolve saved plan file or derive branch slug.",
+		"",
+		"Original saved-plan resolution failure:",
+		formatErrorMessage(originalError),
+		"",
+		"Existing planned-branch reuse failure:",
+		formatErrorMessage(reuseError),
+	].join("\n");
+}
+
+type UpAndImplMode = "created" | "reused";
+
+interface UpAndImplLaunchTailOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	mode: UpAndImplMode;
+	target: Pick<PlannedBranchEvidence, "branch" | "key">;
+	successBody: string;
+	details: Pick<PlannedBranchMessageDetails, "preview" | "evidence" | "reuse">;
+	failurePreview?: CreatePlannedBranchPreview;
+}
+
+async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Promise<void> {
+	const { pi, ctx, mode, target } = options;
+	presentPlannedBranchMessage(pi, ctx, options.successBody, { status: "success", ...options.details }, "info");
+
+	const launchResult = await runPlannedBranchUpAndImplLaunch({ host: pi, ctx, statusKey: UP_AND_IMPL_STATUS_KEY, evidence: target });
+	if (launchResult.type === "launched") {
+		return;
+	}
+	if (launchResult.type === "cancelled") {
+		presentPlannedBranchMessage(
+			pi,
+			ctx,
+			formatUpAndImplCancelledMessage(mode, launchResult.branch, launchResult.key),
+			{ status: "cancelled", ...options.details },
+			"warning",
+		);
+		return;
+	}
+
+	presentPlannedBranchFailure(pi, ctx, formatUpAndImplLaunchFailureTitle(mode, launchResult.phase), launchResult.message, options.failurePreview);
+}
+
+function formatUpAndImplDryRunMessage(body: string, branch: string, key: string): string {
+	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatPlannedBranchUpAndImplFollowUpFlow(branch, key)}`;
+}
+
+function formatUpAndImplLaunchFailureTitle(mode: UpAndImplMode, phase: "checkout" | "new-session"): string {
+	if (mode === "created") {
+		return phase === "checkout"
+			? "Created planned branch and attached the plan, but failed to check out the planned branch."
+			: "Created planned branch, attached the plan, and checked out the planned branch, but failed to start the implementation session.";
+	}
+	return phase === "checkout"
+		? "Reused existing planned branch and attached plan, but failed to check out the planned branch."
+		: "Reused existing planned branch, verified the attached plan, and checked out the planned branch, but failed to start the implementation session.";
+}
+
+function formatUpAndImplCancelledMessage(mode: UpAndImplMode, branch: string, key: string): string {
+	if (mode === "created") {
+		return `Created planned branch, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${key} to continue.`;
+	}
+	return `Reused existing planned branch, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${key} to continue.`;
 }
 
 function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {
@@ -1077,6 +1197,13 @@ function formatSavedPlanFileEvidenceWithSlugModel(
 interface PlannedBranchMessageDetails extends PlannedBranchOutputDetails {
 	preview?: CreatePlannedBranchPreview;
 	loadedPlan?: LoadedAttachedPlan;
+	/**
+	 * Reuse successes intentionally carry no `evidence`: an ExistingPlannedBranchReuse has only
+	 * branch/key/source and lacks the slug/commit/sourceFile fields the evidence schema in
+	 * `@asdl/planned-branch` session-artifact requires, so `extractPlannedBranchEvidence` consumers
+	 * (session-candidate scanning, `ccc:workspace:open-branch` inference) do not see them.
+	 */
+	reuse?: ExistingPlannedBranchReuse;
 }
 
 async function resolveSelectedSavedPlanFile(

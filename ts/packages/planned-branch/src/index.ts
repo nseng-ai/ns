@@ -67,7 +67,17 @@ export {
 export {
 	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
 	extractPlannedBranchEvidence,
+	extractPlannedBranchEvidenceFromSessionEntry,
 	formatPlanBranchEvidence,
 	type PlannedBranchOutputDetails,
 	type PlannedBranchOutputStatus,
 } from "./session-artifact.ts";
+export {
+	formatExistingPlannedBranchReuse,
+	resolveExistingPlannedBranchReuse,
+	type ExistingPlannedBranchCandidate,
+	type ExistingPlannedBranchReuse,
+	type ExistingPlannedBranchReuseSource,
+	type ResolveExistingPlannedBranchReuseOptions,
+	type ResolveExistingPlannedBranchReuseParams,
+} from "./existing-branch-reuse.ts";

@@ -1,6 +1,5 @@
-import { PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE, extractPlannedBranchEvidence } from "@asdl/planned-branch";
+import { extractPlannedBranchEvidenceFromSessionEntry } from "@asdl/planned-branch";
 
-import { isRecord } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {
 	AutocompleteItem,
@@ -124,20 +123,7 @@ export function findLatestPlannedBranchSelection(entries: unknown[]): PlannedBra
 }
 
 function extractPlannedBranchSelection(entry: unknown): PlannedBranchSelection | undefined {
-	const message = extractMessageFromEntry(entry);
-	if (message === undefined) {
-		return undefined;
-	}
-
-	return extractStructuredPlannedBranchSelection(message);
-}
-
-function extractStructuredPlannedBranchSelection(message: Record<string, unknown>): PlannedBranchSelection | undefined {
-	if (customTypeFromMessage(message) !== PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE) {
-		return undefined;
-	}
-
-	const evidence = extractPlannedBranchEvidence(message.details);
+	const evidence = extractPlannedBranchEvidenceFromSessionEntry(entry);
 	if (evidence === undefined) {
 		return undefined;
 	}
@@ -183,23 +169,6 @@ function formatInferredBranchConfirmation(selection: PlannedBranchSelection): st
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
-}
-
-function extractMessageFromEntry(entry: unknown): Record<string, unknown> | undefined {
-	if (!isRecord(entry)) {
-		return undefined;
-	}
-	if (isRecord(entry.message)) {
-		return entry.message;
-	}
-	if (typeof entry.customType === "string" || entry.content !== undefined) {
-		return entry;
-	}
-	return undefined;
-}
-
-function customTypeFromMessage(message: Record<string, unknown>): string | undefined {
-	return typeof message.customType === "string" ? message.customType : undefined;
 }
 
 function createBranchAutocompleteProvider(

@@ -14,10 +14,29 @@ def _roaster_workflow_text() -> str:
 def test_roaster_workflow_discovers_applicable_ci_review_definitions() -> None:
     workflow = _roaster_workflow_text()
 
-    assert 'BASE_REF="${{ github.event.pull_request.base.ref }}"' in workflow
+    assert "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}" in workflow
+    assert "PR_NUMBER: ${{ github.event.pull_request.number }}" in workflow
+    assert (
+        " ".join(
+            (
+                'BASE_REF=$(gh pr view "$PR_NUMBER"',
+                '--repo "$GITHUB_REPOSITORY"',
+                "--json baseRefName --jq .baseRefName)",
+            )
+        )
+        in workflow
+    )
     assert (
         'uv run roaster review list --applicable --base-ref "$BASE_REF" --format json' in workflow
     )
+
+
+def test_roaster_workflow_prints_discover_failure_envelope() -> None:
+    workflow = _roaster_workflow_text()
+
+    assert "output=$(uv run roaster review list" in workflow
+    assert "printf '%s\\n' \"$output\"" in workflow
+    assert 'exit "$status"' in workflow
 
 
 def test_roaster_workflow_fetches_full_history_for_discover_diff() -> None:
@@ -50,9 +69,10 @@ def test_roaster_workflow_posts_inline_findings_before_summary_comment() -> None
 
 def test_roaster_workflow_posts_comments_before_exiting_with_roaster_status() -> None:
     workflow = _roaster_workflow_text()
+    review_job = workflow[workflow.index("\n  review:") :]
 
-    post_summary_index = workflow.index("uv run roaster exec post-findings-comment")
-    exit_index = workflow.index('exit "$status"')
+    post_summary_index = review_job.index("uv run roaster exec post-findings-comment")
+    exit_index = review_job.index('exit "$status"')
 
     assert post_summary_index < exit_index
-    assert 'printf \'%s\' "$output" > "$roaster_output_file"' in workflow
+    assert 'printf \'%s\' "$output" > "$roaster_output_file"' in review_job
