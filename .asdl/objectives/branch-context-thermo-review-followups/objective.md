@@ -2,7 +2,7 @@
 
 ## Thesis
 
-The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-context-key-plumbing/structural-cleanups`) renamed planned-branch to branch-context and rethreaded the impl key, but a thermo-nuclear quality review found that the stack cleaned *around* structural debt its own rewrite exposed rather than deleting it: optional-gateway plumbing repeated across five entry modules, a dead `unknown`-params validation layer, the canonical impl-command formatter stranded one layer too low, and new vocabulary docs that contradict ADR 0006's core decision. This objective completes the remediation **before the stack merges**, so the stack lands with self-consistent vocabulary, documented primitives, and the plumbing debt deleted rather than renamed.
+The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-context-key-plumbing/structural-cleanups`) renamed planned-branch to branch-context and rethreaded the impl key, but a thermo-nuclear quality review found that the stack cleaned _around_ structural debt its own rewrite exposed rather than deleting it: optional-gateway plumbing repeated across five entry modules, a dead `unknown`-params validation layer, the canonical impl-command formatter stranded one layer too low, and new vocabulary docs that contradict ADR 0006's core decision. This objective completes the remediation **before the stack merges**, so the stack lands with self-consistent vocabulary, documented primitives, and the plumbing debt deleted rather than renamed.
 
 ## Scope
 
@@ -10,7 +10,7 @@ The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-
 - Structural refactors in `ts/packages/branch-context`, `ts/packages/ccc`, and `ts/packages/pi-extensions`: required-context refactor, dead validation layer deletion, impl-command relocation, barrel trim, canonical message-contract typing, and the stack-introduced status-sequencing regression plus small rename residue.
 - Test health: splitting `branch-context/test/scenario/cli.test.ts` below 1k lines with the dead scripted-exec harness removed, decomposing the extension file and its commands test, and relocating the stranded `@asdl/plans` primitive tests.
 - CONTEXT rebaseline for `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `CONTEXT-MAP.md` — absorbed from the closed `additive-plan-vocabulary` objective's parked rebaseline item (`roadmap.md:140`), with widened scope: that item named only the enriched-plan retirements and omitted the planned-branch→branch-context rewrites entirely. The closed record stays untouched per consolidation rules.
-- All work lands as additional branches or amendments within the existing stack before it merges.
+- All work lands as four new Graphite branches (`thermo-followups/vocabulary-and-docs`, `thermo-followups/package-cleanup`, `thermo-followups/canonical-contracts`, `thermo-followups/extension-decomposition`) stacked on top of `branch-context-key-plumbing/structural-cleanups`, before the stack merges. The roadmap's Work rows map one-to-one onto these branches in order, sized for `objective-stack-impl` slices.
 
 ## Non-Goals
 
@@ -38,6 +38,7 @@ The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-
 ## Assumptions and Risks
 
 - **Assumption**: the extension decomposition is consumer-invisible because the `.pi/extensions/branch-context.ts` adapter imports only the default export. Verified for the adapter during review; re-verify there are no other importers before splitting.
+- **Assumption**: the barrel-trim surface is exactly the ~26-symbol import inventory enumerated in the roadmap (extracted from all `@asdl/branch-context` imports across ccc and pi-extensions src+test, multi-line aware), and `runCli` needs no export because `package.json` bin points directly at `src/cli.ts`. Re-run the import inventory before trimming in case intervening stack work adds consumers.
 - **Assumption**: all 44 `runWithFakes(...)` calls in `cli.test.ts` pass empty scripts, making the `FakeCommands`/`ScriptedExec` machinery unreachable. Verified by review read-through; re-confirm mechanically (grep) before deletion.
 - **Risk**: many messages and help texts are pinned in scenario tests, so behavior-preserving refactors will still churn test expectations (e.g. the unreachable "Invalid plan slug" message). Mitigation: treat any pinned-message change as a signal to re-check that behavior actually didn't change.
 - **Risk**: CONTEXT rebaseline scope creep — CONTEXT edits invite broader vocabulary work. Bounded to the three files plus the CONTEXT-MAP rows that name dead surfaces.
@@ -45,5 +46,9 @@ The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-
 
 ## Open Questions
 
-- Where exactly `formatImplBranchContextCommand` lands in `@asdl/branch-context` — `constants.ts` (beside `BRANCH_CONTEXT_PLAN_KEY`, which owns the other half of the elision rule) or `session-artifact.ts` (beside the evidence formatting). Review recommended constants.ts.
-- Whether the dry-run `details` fields emitted by `slot-dispatch-plan.ts` (`status: "dry-run"`, `selectedPlan`, `targetBranch`, `key`, `operation`) are consumed by anything — `extractBranchContextEvidence` only reads `status: "success"` + `evidence`. If nothing consumes them, drop them when typing the contract; if something does, extend `BranchContextOutputDetails`.
+None blocking. The two questions from creation were resolved with code evidence (recorded in `updates/2026-06-12-stack-impl-flesh-out.md`):
+
+- `formatImplBranchContextCommand` lands in a new `src/impl-command.ts` module in `@asdl/branch-context` — `constants.ts` stays a pure constants file; the formatter imports `BRANCH_CONTEXT_PLAN_KEY` from it.
+- The dry-run `details` fields are consumed by nothing programmatic: `extractBranchContextEvidence` parses only the `status: "success"` + `evidence` variant via `successfulBranchContextOutputDetailsSchema`. The typed contract keeps a dry-run variant only where fields add information beyond the human-readable content string.
+
+Remaining execution-detail judgment call (not a blocker): if the `thermo-followups/package-cleanup` slice produces too much pinned-message test churn to review comfortably, it may split into a src-refactor branch and a test-split branch — same theses, one extra stack entry.
