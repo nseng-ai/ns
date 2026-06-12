@@ -76,6 +76,33 @@ export function buildClaudeHandoffPrompt(options: { skillBlock: string | undefin
 	return buildHandoffLaunchPrompt(CLAUDE_HANDOFF_PROMPT_COPY, options);
 }
 
+const CLAUDE_HANDOFF_SESSION_NAME_PREFIX = "claude-handoff";
+
+/**
+ * Derive a compact source Pi session id from a session file path. Returns the
+ * file's basename without its extension, or undefined when no usable id can be
+ * extracted (missing, blank, or directory-only paths).
+ */
+export function deriveSourcePiSessionId(sessionFile: string | undefined): string | undefined {
+	if (sessionFile === undefined) {
+		return undefined;
+	}
+	const basename = sessionFile.trim().split(/[/\\]/).pop() ?? "";
+	const stem = basename.replace(/\.[^.]+$/, "");
+	return stem === "" ? undefined : stem;
+}
+
+/**
+ * Build the visually distinctive Claude Code session name for a handoff pickup.
+ * Includes the source Pi session id when available, otherwise falls back to the
+ * slug-only form.
+ */
+export function buildClaudeHandoffSessionName(slug: string, sessionFile: string | undefined): string {
+	const base = `${CLAUDE_HANDOFF_SESSION_NAME_PREFIX}: ${slug}`;
+	const sessionId = deriveSourcePiSessionId(sessionFile);
+	return sessionId === undefined ? base : `${base} | from-pi-session: ${sessionId}`;
+}
+
 export function buildClaudePickupPrompt(branch: string, slug: string): string {
 	const key = handoffSlugToKey(slug);
 	return `Use the installed handoff-pickup skill to pick up this saved handoff, then present the handoff summary and wait for the user's next instruction.
@@ -135,7 +162,8 @@ export function buildClaudeHandoffLaunchTool(pi: ExtensionAPI, deps: ClaudeHando
 
 			onUpdate?.({ content: [{ type: "text", text: "Launching Claude Code to pick up the saved handoff…" }] });
 			const prompt = buildClaudePickupPrompt(params.branch, params.slug);
-			const outcome = await runInteractiveClaudeInStoppedTui(interactiveCtx.ctx, prompt, deps, interactiveCtx.ctx.ui.custom);
+			const name = buildClaudeHandoffSessionName(params.slug, ctx.sessionManager?.getSessionFile?.());
+			const outcome = await runInteractiveClaudeInStoppedTui(interactiveCtx.ctx, prompt, name, deps, interactiveCtx.ctx.ui.custom);
 			if (outcome.type === "spawn-failed") {
 				return handoffLaunchToolFailure(`Failed to launch Claude Code: ${outcome.message}. Is Claude Code installed and on PATH?`);
 			}
@@ -180,12 +208,13 @@ function asInteractiveClaudeContext(ctx: BaseRuntimeContext): { type: "valid"; c
 async function runInteractiveClaudeInStoppedTui(
 	ctx: BaseRuntimeContext,
 	prompt: string,
+	name: string,
 	deps: ClaudeHandoffDeps,
 	custom: CustomUiFunction,
 ): Promise<InteractiveClaudeRunResult> {
 	return custom<InteractiveClaudeRunResult>((tui, _theme, _keybindings, done): RenderComponent => {
 		tui.stop();
-		const result = deps.runClaude({ cwd: ctx.cwd, prompt, env: scrubClaudeEnv(deps.env) });
+		const result = deps.runClaude({ cwd: ctx.cwd, prompt, name, env: scrubClaudeEnv(deps.env) });
 		tui.start();
 		tui.requestRender(true);
 		done(result);

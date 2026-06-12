@@ -72,11 +72,17 @@ export interface ToolDefinition {
 
 export type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
+export interface SessionManagerLike {
+	/** Path to the current Pi session file, when one is available. */
+	getSessionFile?(): string | undefined;
+}
+
 export interface BaseRuntimeContext {
 	cwd: string;
 	hasUI: boolean;
 	mode: ExtensionMode;
 	model?: ModelInfo;
+	sessionManager?: SessionManagerLike;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;

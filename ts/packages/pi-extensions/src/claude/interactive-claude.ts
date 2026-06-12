@@ -2,6 +2,8 @@ export interface InteractiveClaudeInvocation {
 	cwd: string;
 	prompt: string;
 	env: Record<string, string | undefined>;
+	/** Display name passed to `claude --name`; omitted when no name is available. */
+	name?: string;
 }
 
 export type InteractiveClaudeRunResult =

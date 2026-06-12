@@ -9,7 +9,8 @@ export function runInteractiveClaudeWithSpawnSync(invocation: InteractiveClaudeI
 	process.on("SIGINT", ignoreSigint);
 	try {
 		process.stdout.write("\x1b[2J\x1b[H");
-		const result = spawnSync("claude", [invocation.prompt], {
+		const args = invocation.name === undefined ? [invocation.prompt] : ["--name", invocation.name, invocation.prompt];
+		const result = spawnSync("claude", args, {
 			cwd: invocation.cwd,
 			stdio: "inherit",
 			env: invocation.env,

@@ -4,7 +4,9 @@ import {
 	CLAUDE_HANDOFF_COMMAND_NAME,
 	CLAUDE_HANDOFF_LAUNCH_TOOL_NAME,
 	buildClaudeHandoffPrompt,
+	buildClaudeHandoffSessionName,
 	buildClaudePickupPrompt,
+	deriveSourcePiSessionId,
 	registerClaudeHandoffCommand,
 	scrubClaudeEnv,
 	type InteractiveClaudeInvocation,
@@ -182,6 +184,7 @@ describe("claude handoff command", () => {
 		expect(runClaude.invocations[0]?.prompt).toContain("Entry: fix-auth-flow.md");
 		expect(runClaude.invocations[0]?.prompt).toContain(`/handoff:pickup --branch ${BRANCH} fix-auth-flow`);
 		expect(runClaude.invocations[0]?.prompt).toContain("Do not create a new handoff");
+		expect(runClaude.invocations[0]?.name).toBe("claude-handoff: fix-auth-flow");
 		expect(runClaude.invocations[0]?.env).toEqual({ PATH: "/bin", HOME: "/home/me" });
 		expect(env).toEqual({
 			PATH: "/bin",
@@ -190,6 +193,20 @@ describe("claude handoff command", () => {
 			ANTHROPIC_AUTH_TOKEN: "token",
 			ANTHROPIC_BASE_URL: "https://anthropic.example",
 		});
+	});
+
+	test("launch tool names the Claude session with the source Pi session id when available", async () => {
+		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
+		const runClaude = registerTestCommand(pi);
+		const context = createContext({ mode: "tui", hasCustomUi: true, sessionFile: "/home/me/.pi/sessions/sess-9f3c.jsonl" });
+		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
+
+		const result = await tool.execute("tool-call", { branch: BRANCH, slug: "fix-auth-flow" }, undefined, undefined, context.ctx);
+
+		pi.assertDone();
+		expect(result.isError).toBeUndefined();
+		expect(runClaude.invocations).toHaveLength(1);
+		expect(runClaude.invocations[0]?.name).toBe("claude-handoff: fix-auth-flow | from-pi-session: sess-9f3c");
 	});
 
 	test.each([
@@ -293,5 +310,29 @@ describe("claude handoff command", () => {
 			ANTHROPIC_BASE_URL: "https://anthropic.example",
 			EMPTY: undefined,
 		});
+	});
+
+	test.each([
+		{ name: "posix path with extension", input: "/home/me/.pi/sessions/sess-9f3c.jsonl", expected: "sess-9f3c" },
+		{ name: "windows path with extension", input: "C:\\Users\\me\\sessions\\abc123.jsonl", expected: "abc123" },
+		{ name: "bare filename", input: "sess-9f3c.jsonl", expected: "sess-9f3c" },
+		{ name: "no extension", input: "/sessions/abc123", expected: "abc123" },
+		{ name: "multiple dots strips only last", input: "/sessions/2026-06-12.abc.jsonl", expected: "2026-06-12.abc" },
+		{ name: "surrounding whitespace", input: "  /sessions/abc123.jsonl  ", expected: "abc123" },
+		{ name: "undefined", input: undefined, expected: undefined },
+		{ name: "empty string", input: "", expected: undefined },
+		{ name: "whitespace only", input: "   ", expected: undefined },
+		{ name: "directory path with trailing slash", input: "/sessions/", expected: undefined },
+		{ name: "dotfile only", input: "/sessions/.jsonl", expected: undefined },
+	])("deriveSourcePiSessionId: $name", ({ input, expected }) => {
+		expect(deriveSourcePiSessionId(input)).toBe(expected);
+	});
+
+	test("buildClaudeHandoffSessionName includes the session id when derivable and falls back otherwise", () => {
+		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/sess-9f3c.jsonl")).toBe(
+			"claude-handoff: fix-auth-flow | from-pi-session: sess-9f3c",
+		);
+		expect(buildClaudeHandoffSessionName("fix-auth-flow", undefined)).toBe("claude-handoff: fix-auth-flow");
+		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/")).toBe("claude-handoff: fix-auth-flow");
 	});
 });

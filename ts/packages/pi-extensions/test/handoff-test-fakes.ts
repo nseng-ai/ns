@@ -234,6 +234,7 @@ export function createContext(
 		selectIndex?: number;
 		inputResponse?: string;
 		inputUnavailable?: boolean;
+		sessionFile?: string;
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -315,6 +316,10 @@ export function createContext(
 			waits += 1;
 		},
 	};
+
+	if (options.sessionFile !== undefined) {
+		ctx.sessionManager = { getSessionFile: () => options.sessionFile };
+	}
 
 	return { ctx, notifications, selections, inputs, statuses, tuiEvents, waitForIdleCalls: () => waits };
 }
