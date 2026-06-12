@@ -30,9 +30,23 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-uv
       - id: list
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          BASE_REF="${{ github.event.pull_request.base.ref }}"
-          output=$(uv run roaster review list --applicable --base-ref "$BASE_REF" --format json)
+          if [ -n "${PR_NUMBER:-}" ]; then
+            BASE_REF=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)
+          else
+            BASE_REF="${{ github.event.pull_request.base.ref }}"
+          fi
+
+          status=0
+          output=$(uv run roaster review list --applicable --base-ref "$BASE_REF" --format json) || status=$?
+          if [ "$status" -ne 0 ]; then
+            printf '%s\n' "$output"
+            exit "$status"
+          fi
+
           reviews=$(printf '%s' "$output" | jq -c '.data.keys')
           count=$(printf '%s' "$output" | jq '.data.count')
           {
