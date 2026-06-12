@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Agents should not parse human-facing Graphite output such as `gt ls`, `gt ls --stack`, or `gt log --stack` when they need stack topology. ASDL already has programmatic Graphite metadata readers, but the agent-facing workflows still lack a single canonical structured command. This Objective tracks consolidating Graphite stack facts behind explicit `gt`-named exec helpers, updating skills to use those helpers, and pushing the remaining stack-address preflight mechanics into tested CLI surfaces.
+Agents should not parse human-facing Graphite output such as `gt ls`, `gt ls --stack`, or `gt log --stack` when they need stack topology. ASDL now has a canonical structured `slot gt exec stack-branches` command for current-stack branch discovery; this Objective tracks moving agent-facing workflows onto it, deciding any remaining structured Graphite exec facts, and pushing the remaining stack-address preflight mechanics into tested CLI surfaces.
 
 ## Scope
 
@@ -34,7 +34,7 @@ Agents should not parse human-facing Graphite output such as `gt ls`, `gt ls --s
 
 Assumptions:
 
-- `asdl_core.gt.GtGateway.stack()` and the existing Graphite metadata reader are the right starting point for Python-side structured stack facts. Revised during contract design: the starting point holds, but `StackInfo` reports forks, cycles, and missing metadata rows only as prose warning strings, which cannot support fail-closed classification at the CLI layer; structured walk diagnostics on `StackInfo` were implemented as the prerequisite slice. The remaining CLI row can now classify stack-walk hazards without string-matching warnings.
+- `asdl_core.gt.GtGateway.stack()` and the existing Graphite metadata reader are the right starting point for Python-side structured stack facts. Revised during contract design and implementation: the starting point held after adding structured walk diagnostics to `StackInfo`, and `slot gt exec stack-branches` now classifies stack-walk hazards without string-matching warning prose.
 - `slot gt` is the appropriate explicit Graphite dependency boundary for reusable Graphite exec commands.
 - `pr-address exec map-branch-prs` should remain Graphite-neutral and consume branch lists supplied by a Graphite-aware caller or preflight helper.
 - The broader stack-address preflight helper can be designed without collapsing too much semantic agent judgment into CLI code.
@@ -42,7 +42,7 @@ Assumptions:
 Risks:
 
 - Graphite's metadata DB is private and schema-versioned; structured helpers must fail closed and provide clear remediation when metadata is missing, stale, or unsupported.
-- Forked stacks can make a linear trunk-to-tip branch list ambiguous. The helper must expose or reject ambiguity rather than silently following an arbitrary first child. Decision recorded: fail closed by default with a `forked_stack` error naming the fork point and children; `--downstack` is the unambiguous escape hatch. Partially de-risked in code: `StackInfo` now exposes fork diagnostics with the fork branch and children; the exec helper still needs to convert those diagnostics into the fail-closed command contract.
+- Forked stacks can make a linear trunk-to-tip branch list ambiguous. De-risked for the canonical helper: `slot gt exec stack-branches` fails closed by default with a `forked_stack` error naming the fork point and children; `--downstack` is the unambiguous escape hatch, with out-of-scope descendant forks downgraded to warnings.
 - Over-consolidating into one helper could blur domain boundaries between Graphite topology, GitHub PR mapping, and PR feedback collection.
 - Some existing `gt ls`/`gt log` references may be human-only verification guidance; replacing all mentions mechanically could remove useful visual checks.
 - Replacing the TypeScript submit parser may require careful coordination with `asdl-dev` submit metadata behavior and may not be worth doing in the first implementation slice.

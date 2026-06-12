@@ -12,7 +12,7 @@
 
 - [x] Implement and test the `slot gt exec stack-branches` helper.
       Build the hidden exec subgroup under `slot gt` on the structured-diagnostics `StackInfo`. Cover branch ordering, current branch inclusion, trunk exclusion, current-on-trunk behavior, untracked branch behavior, missing metadata, scope-relevant warning fail-closed behavior, `--downstack`, and fork/ambiguity behavior. Share trunk-exclusion/dedupe logic with `collect_stack_branches` rather than forking it (note: that helper excludes current; the exec command includes it).
-      Done: hidden `slot gt exec stack-branches` now emits compact pipe-safe branch JSON, supports `--format json`, includes the current branch while excluding trunk, treats current-on-trunk as negative with data, and classifies structured `StackInfo.diagnostics` fail-closed with `--downstack` warning downgrades. Evidence: targeted asdl-slots scenario/unit suite passed (`67 passed`), `just fix`, `just ty`, and full `just test` passed (`2477 passed`).
+      Done: hidden `slot gt exec stack-branches` now emits compact pipe-safe branch JSON, supports `--format json`, includes the current branch while excluding trunk, treats current-on-trunk as negative with data, and classifies structured `StackInfo.diagnostics` fail-closed with `--downstack` warning downgrades. Evidence: targeted asdl-slots scenario/unit suite passed, `just fix`, `just ty`, and full `just test` passed.
 
 - [ ] Replace agent-facing `gt ls --stack` parsing guidance.
       Update `stack-address` and related PR-address references so the stack branch list comes from the canonical structured helper. Audit other skills that mention `gt ls` or `gt log` and distinguish human visual confirmation from machine topology decisions.
