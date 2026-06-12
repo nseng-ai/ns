@@ -393,7 +393,7 @@ describe("asdl-dev preview-url success behavior", () => {
 		const run = runWithFakes(
 			["preview-url", "--branch", "feature/override", "--json"],
 			{
-				git: { currentBranch: { kind: "detached" } },
+				git: { currentBranch: { type: "detached" } },
 				vercel: { deployments: [deploymentRecord({ meta: { githubCommitRef: "feature/override", branchAlias: "override-alias.vercel.app" }, inspection: { id: "dpl_override", url: "override.vercel.app", aliases: ["override-alias.vercel.app"] }, url: "override.vercel.app" })] },
 			},
 		);
@@ -420,7 +420,7 @@ describe("asdl-dev preview-url success behavior", () => {
 
 describe("asdl-dev preview-url failure behavior", () => {
 	test("detached head returns structured JSON failure and exits 1", async () => {
-		const run = runWithFakes(["preview-url", "--json"], { git: { currentBranch: { kind: "detached" } } });
+		const run = runWithFakes(["preview-url", "--json"], { git: { currentBranch: { type: "detached" } } });
 
 		expect(await run.exit).toBe(1);
 		const payload = parseJsonOutput(run) as { success: false; error: { code: string } };
@@ -565,7 +565,7 @@ describe("asdl-dev CLI surface pinning", () => {
 		const run = runWithFakes(
 			["preview-url", "--branch", "feature/old", "--branch", "feature/new", "--json"],
 			{
-				git: { currentBranch: { kind: "detached" } },
+				git: { currentBranch: { type: "detached" } },
 				vercel: {
 					deployments: [
 						deploymentRecord({
@@ -585,7 +585,7 @@ describe("asdl-dev CLI surface pinning", () => {
 
 	test("supports inline --branch=value syntax", async () => {
 		const run = runWithFakes(["preview-url", "--branch=feature/inline", "--json"], {
-			git: { currentBranch: { kind: "detached" } },
+			git: { currentBranch: { type: "detached" } },
 			vercel: {
 				deployments: [
 					deploymentRecord({
@@ -604,7 +604,7 @@ describe("asdl-dev CLI surface pinning", () => {
 	});
 
 	test("pins compact preview-url JSON failure bytes", async () => {
-		const run = runWithFakes(["preview-url", "--json"], { git: { currentBranch: { kind: "detached" } } });
+		const run = runWithFakes(["preview-url", "--json"], { git: { currentBranch: { type: "detached" } } });
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe(
@@ -612,7 +612,8 @@ describe("asdl-dev CLI surface pinning", () => {
 				success: false,
 				error: {
 					code: "detached_head",
-					message: "Could not determine current branch; HEAD may be detached. Pass --branch to select a branch explicitly.",
+					message: "git branch --show-current returned no current branch.\nCommand: git branch --show-current",
+					displayCommand: "git branch --show-current",
 				},
 			})}\n`,
 		);

@@ -1,7 +1,7 @@
 import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "@asdl/core/exec";
+import type { GitGateway } from "@asdl/core/git";
 
 import { commandFailure } from "./gateways/command-failure.ts";
-import type { GitGateway } from "./gateways/git.ts";
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import { preparePrDescription, resolvePrDescriptionGeneration, type PromptSource } from "./pr-description.ts";

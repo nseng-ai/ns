@@ -1,4 +1,5 @@
-import type { GitGateway } from "./gateways/git.ts";
+import type { GitGateway } from "@asdl/core/git";
+
 import type { GithubPrGateway } from "./gateways/github-pr.ts";
 import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 import type { PromptSource } from "./pr-description.ts";

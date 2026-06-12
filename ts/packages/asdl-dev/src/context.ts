@@ -1,5 +1,7 @@
+import { NodeCommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+
 import { RealCheckpointGateway, type CheckpointGateway } from "./checkpoint.ts";
-import { RealGitGateway, type GitGateway } from "./gateways/git.ts";
 import { RealGithubPrGateway, type GithubPrGateway } from "./gateways/github-pr.ts";
 import { RealVercelProjectConfigStore, type VercelProjectConfigStore } from "./gateways/project-config.ts";
 import { RealVercelDeploymentGateway, type VercelDeploymentGateway } from "./gateways/vercel.ts";
@@ -29,7 +31,7 @@ export function createTextGenerationGateway(backend: TextGenerationBackend = DEF
 
 export function createRealAsdlDevContext(): AsdlDevContext {
 	return {
-		git: new RealGitGateway(),
+		git: new RealGitGateway(new NodeCommandExecApi()),
 		vercel: new RealVercelDeploymentGateway(),
 		projectConfig: new RealVercelProjectConfigStore(),
 		checkpoint: new RealCheckpointGateway(),

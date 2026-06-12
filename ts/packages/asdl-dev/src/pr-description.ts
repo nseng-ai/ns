@@ -2,9 +2,9 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
+import type { GitGateway } from "@asdl/core/git";
 import { formatErrorMessage } from "@asdl/core/primitives";
 
-import type { GitGateway } from "./gateways/git.ts";
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
 import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";

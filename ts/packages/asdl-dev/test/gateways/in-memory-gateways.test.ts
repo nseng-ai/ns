@@ -20,8 +20,8 @@ describe("in-memory git gateway", () => {
 
 	test("models detached head and repo-root failure states", async () => {
 		const git = new InMemoryGitGateway({
-			currentBranch: { kind: "detached" },
-			repoRoot: { kind: "failure", error: { code: "repo_root_unresolved", message: "no root" } },
+			currentBranch: { type: "detached" },
+			repoRoot: { type: "failure", error: { code: "repo_root_failed", message: "no root" } },
 		});
 
 		const branch = await git.currentBranch({ cwd: "/work" });
@@ -30,7 +30,7 @@ describe("in-memory git gateway", () => {
 		expect(branch.error.code).toBe("detached_head");
 
 		const root = await git.repoRoot({ cwd: "/work" });
-		expect(root).toEqual({ ok: false, error: { code: "repo_root_unresolved", message: "no root" } });
+		expect(root).toEqual({ ok: false, error: { code: "repo_root_failed", message: "no root" } });
 	});
 });
 
