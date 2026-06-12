@@ -1,4 +1,5 @@
-import type { GitGateway } from "./gateways/git.ts";
+import type { GitGateway } from "@asdl/core/git";
+
 import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "./gateways/github-pr.ts";
 import {
 	appendGeneratedMarker,

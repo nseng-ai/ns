@@ -1,6 +1,7 @@
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
+
 import type { CheckpointGateway } from "asdl-dev/src/checkpoint.ts";
 import type { AsdlDevContext } from "asdl-dev/src/context.ts";
-import type { GitGateway } from "asdl-dev/src/gateways/git.ts";
 import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "asdl-dev/src/gateways/github-pr.ts";
 import type { ProjectConfigReadResult, VercelProjectConfigStore } from "asdl-dev/src/gateways/project-config.ts";
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "asdl-dev/src/gateways/vercel.ts";
@@ -22,67 +23,8 @@ import type {
 } from "asdl-dev/src/submit.ts";
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/src/text-generation.ts";
 
-export type FakeCurrentBranchState = string | { kind: "detached" } | { kind: "failure"; error?: ErrorInfo };
-export type FakeRepoRootState = string | { kind: "failure"; error?: ErrorInfo };
-
-export interface InMemoryGitGatewayState {
-	currentBranch?: FakeCurrentBranchState;
-	repoRoot?: FakeRepoRootState;
-}
-
-export interface GitCall {
-	cwd: string;
-}
-
-export class InMemoryGitGateway implements GitGateway {
-	private readonly currentBranchState: FakeCurrentBranchState;
-	private readonly repoRootState: FakeRepoRootState;
-	private readonly currentBranchLog: GitCall[] = [];
-	private readonly repoRootLog: GitCall[] = [];
-
-	constructor(state: InMemoryGitGatewayState = {}) {
-		this.currentBranchState = state.currentBranch ?? "feature/demo";
-		this.repoRootState = state.repoRoot ?? "/repo";
-	}
-
-	get currentBranchCalls(): readonly GitCall[] {
-		return this.currentBranchLog.map((call) => ({ ...call }));
-	}
-
-	get repoRootCalls(): readonly GitCall[] {
-		return this.repoRootLog.map((call) => ({ ...call }));
-	}
-
-	async currentBranch(params: { cwd: string }): Promise<GatewayResult<string>> {
-		this.currentBranchLog.push({ cwd: params.cwd });
-		if (typeof this.currentBranchState === "string") {
-			const branch = nonBlank(this.currentBranchState);
-			if (branch === undefined) {
-				return err(detachedHeadError());
-			}
-			return ok(branch);
-		}
-
-		if (this.currentBranchState.kind === "detached") {
-			return err(detachedHeadError());
-		}
-
-		return err(this.currentBranchState.error ?? { code: "branch_unresolved", message: "Could not resolve the current git branch." });
-	}
-
-	async repoRoot(params: { cwd: string }): Promise<GatewayResult<string>> {
-		this.repoRootLog.push({ cwd: params.cwd });
-		if (typeof this.repoRootState === "string") {
-			const repoRoot = nonBlank(this.repoRootState);
-			if (repoRoot === undefined) {
-				return err({ code: "repo_root_unresolved", message: "Git repository root command returned no path." });
-			}
-			return ok(repoRoot);
-		}
-
-		return err(this.repoRootState.error ?? { code: "repo_root_unresolved", message: "Could not resolve the git repository root." });
-	}
-}
+export { InMemoryGitGateway };
+export type { InMemoryGitGatewayState };
 
 export type FakePendingWorktreeSnapshotState =
 	| PendingWorktreeSnapshot
@@ -577,7 +519,7 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	githubPr: InMemoryGithubPrGateway;
 	textGeneration: InMemoryTextGenerationGateway;
 } {
-	const git = new InMemoryGitGateway(state.git);
+	const git = new InMemoryGitGateway({ currentBranch: "feature/demo", repoRoot: "/repo", ...state.git });
 	const vercel = new InMemoryVercelDeploymentGateway(state.vercel);
 	const projectConfig = new InMemoryVercelProjectConfigStore(state.projectConfig);
 	const checkpoint = new InMemoryCheckpointGateway(state.checkpoint);
@@ -875,18 +817,6 @@ function vercelUnavailableError(): ErrorInfo {
 	};
 }
 
-function detachedHeadError(): ErrorInfo {
-	return {
-		code: "detached_head",
-		message: "Could not determine current branch; HEAD may be detached. Pass --branch to select a branch explicitly.",
-	};
-}
-
 function normalizeUrl(value: string): string {
 	return value.replace(/^https?:\/\//, "");
-}
-
-function nonBlank(value: string | undefined): string | undefined {
-	const trimmed = value?.trim();
-	return trimmed === undefined || trimmed === "" ? undefined : trimmed;
 }

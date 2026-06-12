@@ -252,6 +252,9 @@ function failure(
 	if (error.details !== undefined) {
 		errorInfo.details = error.details;
 	}
+	if (error.displayCommand !== undefined) {
+		errorInfo.displayCommand = error.displayCommand;
+	}
 
 	const payload: PreviewUrlFailurePayload = { success: false, error: errorInfo };
 	if (context.branch !== undefined) {

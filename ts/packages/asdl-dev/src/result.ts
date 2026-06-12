@@ -2,6 +2,7 @@ export interface ErrorInfo {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
+	displayCommand?: string;
 }
 
 export type GatewayResult<T> =
