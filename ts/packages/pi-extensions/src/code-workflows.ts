@@ -63,12 +63,6 @@ const ROUTES = [
 		summary: "review Pi command/tool changes for cross-harness parity",
 	},
 	{
-		route: "stack-address",
-		aliases: ["pr-stack-address"],
-		reference: "skills/code-workflows/references/stack-address.md",
-		summary: "address unresolved feedback across a Graphite PR stack",
-	},
-	{
 		route: "gh-ci-debug",
 		aliases: ["ci-debug"],
 		reference: "skills/code-workflows/references/gh-ci-debug.md",
