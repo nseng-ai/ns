@@ -55,6 +55,7 @@ Required frontmatter:
 Optional frontmatter:
 
 - `default_model` — used when `roaster review run` is called without `--model`.
+- `applies_to` — path applicability as `{ include: [repo-relative globs], exclude?: [repo-relative globs] }`.
 
 All definitions under `reviews/` are CI reviewers. The previous local/manual filtering metadata is no longer part of the format.
 

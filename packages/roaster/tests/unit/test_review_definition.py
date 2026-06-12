@@ -10,6 +10,7 @@ from roaster.review_definition import parse_review_definition
 _REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
 _TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
+_DUPLICATIVE_ABSTRACTIONS_REVIEW = _REPO_ROOT / "reviews" / "duplicative-abstractions.md"
 
 
 @pytest.mark.parametrize(
@@ -26,6 +27,21 @@ _TYPESCRIPT_STYLE_REVIEW = _REPO_ROOT / "reviews" / "typescript-style.md"
             "typescript-style",
             "haiku",
             ReviewApplicability(include=("**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts")),
+        ),
+        (
+            _DUPLICATIVE_ABSTRACTIONS_REVIEW,
+            "duplicative-abstractions",
+            "haiku",
+            ReviewApplicability(
+                include=("**/*.ts", "**/*.tsx", "**/*.py"),
+                exclude=(
+                    "**/tests/**",
+                    "**/test/**",
+                    "**/*.test.ts",
+                    "**/test_*.py",
+                    ".agents/skills/**",
+                ),
+            ),
         ),
     ],
 )

@@ -21,7 +21,7 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
 
 ## Workflow
 
-1. Draft a complete, self-contained Markdown plan for a fresh downstream session: goal, current behavior/files/symbols/tests, decisions/rationale/rejected alternatives/risks/assumptions, external findings inline, step-by-step approach, validation commands + expected results.
+1. Draft a complete, self-contained Markdown plan for a fresh downstream session: goal, current behavior/files/symbols/tests, decisions/rationale/rejected alternatives/risks/assumptions, external findings inline, step-by-step approach, validation commands + expected results. When the plan waives a canonical helper or pattern, write the waiver as positive routing for the adjacent case (e.g. "if X is later routed through the CLI, use helper Y like its siblings"), never as a bare prohibition.
 2. Derive `<saved-plan-slug>` from the plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names.
 3. Pipe the plan to `plans exec write --stdin --format json`.
 4. Report `file_path`, `slug`, `repo_key`, `source_branch`, `branch_key`, and optional `summary`. Stop after saving.

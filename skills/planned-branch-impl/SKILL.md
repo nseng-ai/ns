@@ -21,7 +21,7 @@ Reads the current branch by default and selects an attached plan from Branch Mem
 
 1. Create a temp prompt file, then run `load-plan --prompt-file "$prompt_file" --format json` (include the user's key/slug when provided).
 2. Read the returned `implementation_prompt_file` with the file-reading tool before editing code.
-3. Treat the attached plan in that prompt as authoritative unless current repo state proves it stale; if stale, explain the discrepancy before changing scope.
+3. Treat the attached plan in that prompt as authoritative unless current repo state proves it stale; if stale, explain the discrepancy before changing scope. If you go beyond or against what the plan settled, anything the plan ruled out becomes an open question again — recheck why it was ruled out, and look for an existing sibling that already does what you are about to build, before designing the extension.
 4. Implement in focused steps; run the plan's validation commands when practical.
 5. Report implemented changes, files changed, validation results, plan deviations, and unresolved follow-up.
 

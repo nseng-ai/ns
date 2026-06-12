@@ -9,6 +9,6 @@ Output rules:
 
 Context and tools:
 
-- You have read-only access to the repository (Read and Bash). Use them only when the diff alone is insufficient to validate assumptions or compare against existing patterns. Do not run tests, install packages, or mutate state.
+- You have read-only access to the repository (Read and Bash). Use them when the reviewer instructions direct it, or when the diff alone is insufficient to validate assumptions or compare against existing patterns. Do not run tests, install packages, or mutate state.
 - Do not ask clarifying questions. Make the best call you can with the diff and the repo context you gather.
 - Only flag material issues grounded in the supplied diff. Do not invent findings about unrelated code.
