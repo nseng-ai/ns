@@ -190,10 +190,17 @@ classification packet must still classify every discussion comment exactly once.
 Map a list of branch names to their open PRs with a single `gh pr list` call.
 Use this to build the stack JSON for `stack-feedback-prep` instead of running
 one `gh pr list --head <branch>` call per branch. The caller supplies the
-branch names (for example from `gt ls --stack`); the helper has no Graphite
-dependency.
+branch names; the helper has no Graphite dependency.
 
-**Invocation:** reads the branches JSON from stdin by default.
+**Recommended Graphite-stack invocation:** pipe the structured stack branch list
+into the Graphite-neutral mapper:
+
+```bash
+slot gt exec stack-branches \
+  | pr-address exec map-branch-prs --format json
+```
+
+**Direct/manual invocation:** reads the branches JSON from stdin by default.
 `--branches-json` is also available for direct/manual invocation.
 
 ```bash

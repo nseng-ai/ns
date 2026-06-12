@@ -5,6 +5,7 @@ metadata:
   internal: true
 allowed-tools:
   - "Bash(gt *)"
+  - "Bash(slot gt *)"
   - "Bash(git *)"
   - "Bash(gh *)"
   - "Bash(pr-address *)"
@@ -107,15 +108,19 @@ Stop on `2`.
 
 ### 1. Preflight and PR coverage
 
-1. Verify `gh auth status`, `gt ls --stack`, `pr-address` availability, and
-   `git status --short --branch` cleanliness.
-2. Determine the full Graphite stack from trunk through tip. If starting in the
-   middle, move to the tip only after the worktree safety check.
-3. Build the non-trunk branch list from `gt ls --stack` and map it to PRs in one
-   Graphite-neutral helper call:
+1. Verify `gh auth status`, `slot gt exec stack-branches`, `pr-address`
+   availability, and `git status --short --branch` cleanliness.
+2. Let the structured helper discover the full current Graphite stack. Its
+   default mode returns every non-trunk stack branch in trunk-to-tip PR coverage
+   order, includes the current branch, and fails closed on ambiguous topology.
+   If starting in the middle, move to the tip only after the worktree safety
+   check.
+3. Map every non-trunk stack branch to an open PR in one pipeline. The stack
+   discovery command is Graphite-specific; `map-branch-prs` remains
+   Graphite-neutral because the caller supplies branch names:
 
    ```bash
-   printf '%s' '{"branches":["feature-branch","other-branch"]}' \
+   slot gt exec stack-branches \
      | pr-address exec map-branch-prs --format json
    ```
 
