@@ -1,10 +1,9 @@
 import { z } from "zod";
 
-import { failure, negative, ok } from "@asdl/clinkr";
-import { loadOperationPayload, operationPayloadValueOptions, type OperationPayloadField } from "./json-input.ts";
-import { parseManagedOptions } from "./managed-options.ts";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 
@@ -131,22 +130,38 @@ interface BuildStackResolveThreadPayloadsResult {
 	warnings: string[];
 }
 
-export async function runBuildStackResolveThreadPayloadsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
+const buildStackResolveThreadPayloadsParseSchema = z.object({
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+	stack_plan_reference: z.string().optional(),
+});
 
-	const options = parseManagedOptions(invocation.args, operationPayloadValueOptions(buildStackResolveThreadPayloadsFields));
-	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
-	const payloadResult = await loadOperationPayload(invocation, {
+export const buildStackResolveThreadPayloadsOperation = defineExecOperation({
+	spec: {
+		name: "build-stack-resolve-thread-payloads",
+		description: "Build non-mutating per-PR resolve-thread-batch payloads from stack decisions.",
+		schema: buildStackResolveThreadPayloadsParseSchema,
+		handler: runBuildStackResolveThreadPayloadsOperation,
+	},
+});
+
+async function runBuildStackResolveThreadPayloadsOperation(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof buildStackResolveThreadPayloadsParseSchema>,
+): Promise<ClinkrExit<unknown>> {
+	const payloadResult = await loadOperationPayload({
 		commandName: "build-stack-resolve-thread-payloads",
 		inputDescription: "JSON payload",
 		payloadSchema: buildStackResolveThreadPayloadsWirePayloadSchema,
-		values: options.options.values,
+		request,
+		stdin: ctx.stdin,
 		fields: buildStackResolveThreadPayloadsFields,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const result = buildStackResolveThreadPayloads(payloadResult.value);
-	if (result.valid) return { type: "exit", exit: ok(result) };
-	return { type: "exit", exit: negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", result) };
+	if (result.valid) return ok(result);
+	return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", result);
 }
 
 export function buildStackResolveThreadPayloads(input: unknown): BuildStackResolveThreadPayloadsResult {

@@ -1,11 +1,11 @@
-import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
+import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import { buildFeedbackClassificationTemplate } from "./classification-core.ts";
+import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 
 const DIRECT_REQUEST_MARKERS = ["please", "can you", "could you", "should", "needs", "need to", "fix", "update", "question"] as const;
@@ -135,17 +135,17 @@ export interface StackFeedbackPrepCompactResult {
 }
 
 export async function prepareStackFeedbackStack(options: {
-	invocation: ExecOperationInvocation;
+	ctx: PrAddressExecContext;
 	store: PayloadStore;
 	stack: readonly StackFeedbackPrInput[];
 	github: PrAddressGitHubGateway;
 	shouldIncludeResolved: boolean;
 	shouldIncludeEmptyReviews: boolean;
-}): Promise<{ type: "ok"; value: { result: StackFeedbackPrepResult; stackSummaryReference: PayloadReference } } | { type: "error"; result: ExecOperationDispatchResult }> {
+}): Promise<{ type: "ok"; value: { result: StackFeedbackPrepResult; stackSummaryReference: PayloadReference } } | { type: "error"; exit: ClinkrFailureExit }> {
 	const prResults: StackFeedbackPrepPrResult[] = [];
 	for (const prInput of options.stack) {
 		const prepared = await prepareStackPr({
-			invocation: options.invocation,
+			ctx: options.ctx,
 			store: options.store,
 			prInput,
 			github: options.github,
@@ -164,18 +164,18 @@ export async function prepareStackFeedbackStack(options: {
 		summary: prepSummary(prResults),
 	};
 	const stackSummaryReference = await options.store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-prep", role: "summary", payload: resultWithoutReference });
-	if (stackSummaryReference.type === "error") return { type: "error", result: exitFailure(stackSummaryReference.errorType, stackSummaryReference.message) };
+	if (stackSummaryReference.type === "error") return { type: "error", exit: failure(stackSummaryReference.errorType, stackSummaryReference.message) };
 	return { type: "ok", value: { result: { ...resultWithoutReference, stack_summary_reference: stackSummaryReference.value }, stackSummaryReference: stackSummaryReference.value } };
 }
 
 async function prepareStackPr(options: {
-	invocation: ExecOperationInvocation;
+	ctx: PrAddressExecContext;
 	store: PayloadStore;
 	prInput: StackFeedbackPrInput;
 	github: PrAddressGitHubGateway;
 	shouldIncludeResolved: boolean;
 	shouldIncludeEmptyReviews: boolean;
-}): Promise<{ type: "ok"; value: StackFeedbackPrepPrResult } | { type: "error"; result: ExecOperationDispatchResult }> {
+}): Promise<{ type: "ok"; value: StackFeedbackPrepPrResult } | { type: "error"; exit: ClinkrFailureExit }> {
 	const prNumber = options.prInput.pr_number;
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: options.github,
@@ -183,9 +183,9 @@ async function prepareStackPr(options: {
 		shouldIncludeResolved: options.shouldIncludeResolved,
 		shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
 		shouldCountAllReviewThreads: false,
-		invocation: options.invocation,
+		ctx: options.ctx,
 	});
-	if (snapshotResult.type === "error") return snapshotResult;
+	if (snapshotResult.type === "error") return { type: "error", exit: snapshotResult.exit };
 	const snapshot = snapshotResult.snapshot;
 
 	const inlineResult = inlineFeedbackResult({
@@ -199,7 +199,7 @@ async function prepareStackPr(options: {
 		role: "raw",
 		payload: toMachineEnvelope(ok(inlineResult)),
 	});
-	if (rawReference.type === "error") return { type: "error", result: exitFailure(rawReference.errorType, rawReference.message) };
+	if (rawReference.type === "error") return { type: "error", exit: failure(rawReference.errorType, rawReference.message) };
 
 	const manifest = buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value);
 	const manifestView = prepManifestViewSchema.parse(manifest);
@@ -207,13 +207,13 @@ async function prepareStackPr(options: {
 	if (templateResult.type === "error") throw new Error(templateResult.message);
 
 	const manifestReference = await options.store.writeJsonArtifact({ descriptor: `pr-address-stack-manifest-pr-${prNumber}`, role: "summary", payload: manifest });
-	if (manifestReference.type === "error") return { type: "error", result: exitFailure(manifestReference.errorType, manifestReference.message) };
+	if (manifestReference.type === "error") return { type: "error", exit: failure(manifestReference.errorType, manifestReference.message) };
 	const templateReference = await options.store.writeJsonArtifact({
 		descriptor: `pr-address-stack-classification-template-pr-${prNumber}`,
 		role: "summary",
 		payload: templateResult.value,
 	});
-	if (templateReference.type === "error") return { type: "error", result: exitFailure(templateReference.errorType, templateReference.message) };
+	if (templateReference.type === "error") return { type: "error", exit: failure(templateReference.errorType, templateReference.message) };
 
 	return {
 		type: "ok",
@@ -325,8 +325,4 @@ export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryR
 			},
 		})),
 	};
-}
-
-function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: failure(errorType, message) };
 }

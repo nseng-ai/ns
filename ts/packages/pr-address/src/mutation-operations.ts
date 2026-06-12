@@ -1,12 +1,11 @@
 import { z } from "zod";
 
-import { failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
 import { formatErrorMessage } from "@asdl/core";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { parseManagedOptions } from "./managed-options.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
-import { gatewayFailureDetail, parseStrictInteger } from "./operation-support.ts";
+import { gatewayFailureDetail, gatewayFailureExit, gatewayOptions, githubGateway } from "./operation-support.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
@@ -31,7 +30,32 @@ const resolveThreadBatchPayloadSchema = z.object({
 type ProvenanceInput = z.infer<typeof provenanceInputSchema>;
 type ResolveThreadBatchPayload = z.infer<typeof resolveThreadBatchPayloadSchema>;
 
-type PositionalParseResult = { type: "ok"; positionals: readonly string[]; values: ReadonlyMap<string, string> } | { type: "error"; message: string };
+const replyToReviewParseSchema = z.object({
+	pr_number: z.int(),
+	review_author: z.string(),
+	summary_markdown: z.string(),
+});
+
+const replyToDiscussionParseSchema = z.object({
+	pr_number: z.int(),
+	comment_id: z.int(),
+	comment_author: z.string(),
+	original_body: z.string(),
+	response: z.string(),
+});
+
+const resolveThreadWithReplyParseSchema = z.object({
+	thread_id: z.string(),
+	mode: z.string(),
+	message: z.string().optional(),
+	commit_sha: z.string().optional(),
+	provenance_json: z.string().optional(),
+});
+
+const resolveThreadBatchParseSchema = z.object({
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+});
 
 interface NormalizedResolutionRequest {
 	threadId: string;
@@ -54,83 +78,106 @@ interface ResolveThreadBatchItemResult {
 	provenance?: ResolutionProvenance | null | undefined;
 }
 
-export async function runReplyToReviewOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const prNumber = integerArgument(parsed.positionals[0], "reply-to-review requires an integer PR number argument.");
-	if (prNumber.type === "error") return exitFailure("invalid_request", prNumber.message);
-	const reviewAuthor = parsed.positionals[1];
-	if (reviewAuthor === undefined) return exitFailure("invalid_request", "reply-to-review requires a review_author argument.");
-	const summaryMarkdown = trimOptional(parsed.positionals[2]);
-	if (summaryMarkdown === null) return exitFailure("invalid_request", "summary_markdown must not be empty");
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const body = formatReviewReply({ reviewAuthor, summaryMarkdown });
-	const result = await gateway.gateway.addPrDiscussionComment(prNumber.value, body, gatewayOptions(invocation));
+export const replyToReviewOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "reply-to-review",
+		description: "Post a formatted reply to a PR-level review.",
+		schema: replyToReviewParseSchema,
+		positionals: { pr_number: { position: 0 }, review_author: { position: 1 }, summary_markdown: { position: 2 } },
+		handler: runReplyToReviewOperation,
+	},
+});
+
+export const replyToDiscussionOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "reply-to-discussion",
+		description: "Reply to a PR discussion comment and add a +1 reaction when possible.",
+		schema: replyToDiscussionParseSchema,
+		positionals: { pr_number: { position: 0 }, comment_id: { position: 1 }, comment_author: { position: 2 }, original_body: { position: 3 }, response: { position: 4 } },
+		handler: runReplyToDiscussionOperation,
+	},
+});
+
+export const resolveThreadWithReplyOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "resolve-thread-with-reply",
+		description: "Reply to and resolve a PR review thread with canonical pr-address formatting.",
+		schema: resolveThreadWithReplyParseSchema,
+		positionals: { thread_id: { position: 0 }, mode: { position: 1 }, message: { position: 2 }, commit_sha: { position: 3 } },
+		handler: runResolveThreadWithReplyOperation,
+	},
+});
+
+export const resolveThreadBatchOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "resolve-thread-batch",
+		description: "Reply to and resolve multiple PR review threads from a JSON payload.",
+		schema: resolveThreadBatchParseSchema,
+		handler: runResolveThreadBatchOperation,
+	},
+});
+
+async function runReplyToReviewOperation(ctx: PrAddressExecContext, request: z.output<typeof replyToReviewParseSchema>): Promise<ClinkrExit<unknown>> {
+	const summaryMarkdown = trimOptional(request.summary_markdown);
+	if (summaryMarkdown === null) return failure("invalid_request", "summary_markdown must not be empty");
+	const gateway = githubGateway(ctx);
+	if (gateway.type === "error") return gateway.exit;
+	const body = formatReviewReply({ reviewAuthor: request.review_author, summaryMarkdown });
+	const result = await gateway.gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", result.failure);
-	return { type: "exit", exit: ok({ body, comment: result.value }) };
+	return ok({ body, comment: result.value });
 }
 
-export async function runReplyToDiscussionOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, []);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const prNumber = integerArgument(parsed.positionals[0], "reply-to-discussion requires an integer PR number argument.");
-	if (prNumber.type === "error") return exitFailure("invalid_request", prNumber.message);
-	const commentId = integerArgument(parsed.positionals[1], "reply-to-discussion requires an integer comment_id argument.");
-	if (commentId.type === "error") return exitFailure("invalid_request", commentId.message);
-	const commentAuthor = parsed.positionals[2];
-	if (commentAuthor === undefined) return exitFailure("invalid_request", "reply-to-discussion requires a comment_author argument.");
-	const originalBody = parsed.positionals[3];
-	if (originalBody === undefined) return exitFailure("invalid_request", "reply-to-discussion requires an original_body argument.");
-	const response = trimOptional(parsed.positionals[4]);
-	if (response === null) return exitFailure("invalid_request", "response must not be empty");
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const body = formatDiscussionReply({ commentAuthor, originalBody, response });
-	const comment = await gateway.gateway.addPrDiscussionComment(prNumber.value, body, gatewayOptions(invocation));
+async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request: z.output<typeof replyToDiscussionParseSchema>): Promise<ClinkrExit<unknown>> {
+	const response = trimOptional(request.response);
+	if (response === null) return failure("invalid_request", "response must not be empty");
+	const gateway = githubGateway(ctx);
+	if (gateway.type === "error") return gateway.exit;
+	const body = formatDiscussionReply({ commentAuthor: request.comment_author, originalBody: request.original_body, response });
+	const comment = await gateway.gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
 	if (comment.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", comment.failure);
-	const reaction = await gateway.gateway.addPrDiscussionCommentReaction(commentId.value, "+1", gatewayOptions(invocation));
+	const reaction = await gateway.gateway.addPrDiscussionCommentReaction(request.comment_id, "+1", gatewayOptions(ctx));
 	if (reaction.type === "failure") {
-		return { type: "exit", exit: ok({ body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${commentId.value}: ${gatewayFailureDetail(reaction.failure)}` }) };
+		return ok({ body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.failure)}` });
 	}
-	return { type: "exit", exit: ok({ body, comment: comment.value, reaction_added: true, reaction: reaction.value }) };
+	return ok({ body, comment: comment.value, reaction_added: true, reaction: reaction.value });
 }
 
-export async function runResolveThreadWithReplyOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseMutationPositionals(invocation.args, ["--provenance-json"]);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const requestResult = await normalizeResolutionFromPositionals(invocation, parsed.positionals, parsed.values.get("--provenance-json"));
-	if (requestResult.type === "error") return exitFailure(requestResult.errorType, requestResult.message);
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
-	const result = await applyResolution(gateway.gateway, requestResult.value, gatewayOptions(invocation));
+async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadWithReplyParseSchema>): Promise<ClinkrExit<unknown>> {
+	const requestResult = await normalizeResolutionFromRequest(ctx, request);
+	if (requestResult.type === "error") return failure(requestResult.errorType, requestResult.message);
+	const gateway = githubGateway(ctx);
+	if (gateway.type === "error") return gateway.exit;
+	const result = await applyResolution(gateway.gateway, requestResult.value, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit(result.prefix, result.failure);
-	return { type: "exit", exit: ok(result.value) };
+	return ok(result.value);
 }
 
-export async function runResolveThreadBatchOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return exitFailure("invalid_request", options.message);
+async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadBatchParseSchema>): Promise<ClinkrExit<unknown>> {
 	const payloadResult = await loadJsonInput({
-		optionValue: options.options.values.get("--payload-json"),
-		filePath: options.options.values.get("--payload-file"),
+		optionValue: request.payload_json,
+		filePath: request.payload_file,
 		commandName: "resolve-thread-batch",
 		inputDescription: "JSON payload",
 		optionName: "--payload-json",
 		fileOptionName: "--payload-file",
 		schema: resolveThreadBatchPayloadSchema,
-		stdin: invocation.deps.stdin,
+		stdin: ctx.stdin,
 	});
-	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
-	const normalized = await normalizeResolveThreadBatchPayload(payloadResult.value, invocation);
-	if (normalized.type === "error") return exitFailure(normalized.errorType, normalized.message);
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
+	const normalized = await normalizeResolveThreadBatchPayload(payloadResult.value, ctx);
+	if (normalized.type === "error") return failure(normalized.errorType, normalized.message);
+	const gateway = githubGateway(ctx);
+	if (gateway.type === "error") return gateway.exit;
 	const results: ResolveThreadBatchItemResult[] = [];
 	for (let index = 0; index < normalized.value.length; index += 1) {
 		const item = normalized.value[index];
 		if (item === undefined) continue;
-		const result = await applyResolution(gateway.gateway, item, gatewayOptions(invocation));
+		const result = await applyResolution(gateway.gateway, item, gatewayOptions(ctx));
 		if (result.type === "failure") {
 			results.push({ index, thread_id: item.threadId, mode: item.mode, status: "failed", error_type: "gateway_error", error_message: gatewayFailureDetail(result.failure) });
 			if (!payloadResult.value.continue_on_error) {
@@ -142,35 +189,34 @@ export async function runResolveThreadBatchOperation(invocation: ExecOperationIn
 		results.push({ index, thread_id: result.value.thread_id, mode: item.mode, status: "resolved", body: result.value.body, comment: result.value.comment, is_resolved: result.value.is_resolved, provenance: result.value.provenance });
 	}
 	const batchResult = batchResultFrom(results, normalized.value.length);
-	if (batchResult.all_succeeded) return { type: "exit", exit: ok(batchResult) };
-	return { type: "exit", exit: negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, batchResult) };
+	if (batchResult.all_succeeded) return ok(batchResult);
+	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, batchResult);
 }
 
-async function normalizeResolutionFromPositionals(
-	invocation: ExecOperationInvocation,
-	positionals: readonly string[],
-	provenanceJson: string | undefined,
+async function normalizeResolutionFromRequest(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof resolveThreadWithReplyParseSchema>,
 ): Promise<{ type: "ok"; value: NormalizedResolutionRequest } | { type: "error"; errorType: string; message: string }> {
-	const threadId = positionals[0]?.trim() ?? "";
+	const threadId = request.thread_id.trim();
 	if (threadId === "") return invalid("resolve-thread-with-reply requires a non-empty thread_id argument.");
-	const modeResult = resolutionModeArgument(positionals[1]);
+	const modeResult = resolutionModeArgument(request.mode);
 	if (modeResult.type === "error") return invalid(modeResult.message);
-	const provenance = parseProvenanceJson(provenanceJson, "resolve-thread-with-reply");
+	const provenance = parseProvenanceJson(request.provenance_json, "resolve-thread-with-reply");
 	if (provenance.type === "error") return provenance;
 	return await normalizeResolutionRequest({
 		threadId,
 		mode: modeResult.value,
-		message: positionals[2] ?? null,
-		commitSha: positionals[3] ?? null,
+		message: request.message ?? null,
+		commitSha: request.commit_sha ?? null,
 		provenanceInput: provenance.value,
-		invocation,
+		ctx,
 		itemLabel: null,
 	});
 }
 
 async function normalizeResolveThreadBatchPayload(
 	payload: ResolveThreadBatchPayload,
-	invocation: ExecOperationInvocation,
+	ctx: PrAddressExecContext,
 ): Promise<{ type: "ok"; value: readonly NormalizedResolutionRequest[] } | { type: "error"; errorType: string; message: string }> {
 	if (payload.items.length === 0) return invalid("resolve-thread-batch payload must include at least one item");
 	const seen = new Set<string>();
@@ -193,7 +239,7 @@ async function normalizeResolveThreadBatchPayload(
 			message: item.message,
 			commitSha: effectiveCommitSha,
 			provenanceInput: item.provenance,
-			invocation,
+			ctx,
 			itemLabel: `items[${index}]`,
 		});
 		if (normalizedItem.type === "error") return normalizedItem;
@@ -208,7 +254,7 @@ async function normalizeResolutionRequest(options: {
 	message: string | null;
 	commitSha: string | null;
 	provenanceInput: ProvenanceInput | null;
-	invocation: ExecOperationInvocation;
+	ctx: PrAddressExecContext;
 	itemLabel: string | null;
 }): Promise<{ type: "ok"; value: NormalizedResolutionRequest } | { type: "error"; errorType: string; message: string }> {
 	const message = trimOptional(options.message);
@@ -225,7 +271,7 @@ async function normalizeResolutionRequest(options: {
 		if (message === null) return invalid("mode='planned' requires a non-empty message");
 		if (commitSha !== null) return invalid(options.itemLabel === null ? "mode='planned' must not include commit_sha" : `${options.itemLabel} mode='planned' must not include item commit_sha`);
 		if (options.provenanceInput === null) return invalid("mode='planned' requires provenance");
-		const provenanceResult = await validateResolutionProvenance(options.provenanceInput, options.invocation);
+		const provenanceResult = await validateResolutionProvenance(options.provenanceInput, options.ctx);
 		if (provenanceResult.type === "error") return provenanceResult;
 		provenance = provenanceResult.value;
 	}
@@ -234,22 +280,22 @@ async function normalizeResolutionRequest(options: {
 
 async function validateResolutionProvenance(
 	provenance: ProvenanceInput,
-	invocation: ExecOperationInvocation,
+	ctx: PrAddressExecContext,
 ): Promise<{ type: "ok"; value: ResolutionProvenance } | { type: "error"; errorType: string; message: string }> {
 	const shapeError = provenanceShapeError(provenance);
 	if (shapeError !== null) return invalid(shapeError);
 	if (provenance.kind === "local_branch") {
-		const gateway = gitGateway(invocation);
+		const gateway = gitGateway(ctx);
 		if (gateway.type === "error") return { type: "error", errorType: "invalid_request", message: "local_branch planned provenance requires a git gateway for validation" };
 		const branch = provenance.branch.trim();
-		const result = await gateway.gateway.getBranchHeadOid(branch, gatewayOptions(invocation));
+		const result = await gateway.gateway.getBranchHeadOid(branch, gatewayOptions(ctx));
 		if (result.type === "found") return { type: "ok", value: { kind: "local_branch", branch, branch_head_oid: result.oid } };
 		if (result.type === "missing") return invalid(`planned provenance local branch does not exist or cannot be resolved: ${branch} (${result.stderr})`);
 		return { type: "error", errorType: "invalid_request", message: `planned provenance local branch does not exist or cannot be resolved: ${branch} (${gatewayFailureDetail(result.failure)})` };
 	}
-	const gateway = githubGateway(invocation);
+	const gateway = githubGateway(ctx);
 	if (gateway.type === "error") return { type: "error", errorType: "invalid_request", message: "pr planned provenance requires a PR gateway for validation" };
-	const result = await gateway.gateway.getPr(provenance.pr_number, gatewayOptions(invocation));
+	const result = await gateway.gateway.getPr(provenance.pr_number, gatewayOptions(ctx));
 	if (result.type === "miss") return invalid(`planned provenance PR does not exist: #${provenance.pr_number}`);
 	if (result.type === "failure") return { type: "error", errorType: "pr_gateway_failure", message: `Failed to validate planned provenance PR #${provenance.pr_number}: ${gatewayFailureDetail(result.failure)}` };
 	return {
@@ -296,26 +342,6 @@ function batchResultFrom(results: readonly ResolveThreadBatchItemResult[], total
 	return { total, resolved, failed, skipped, all_succeeded: failed === 0 && skipped === 0 && resolved === total, results };
 }
 
-function parseMutationPositionals(args: readonly string[], valueOptions: readonly string[]): PositionalParseResult {
-	const positionals: string[] = [];
-	const values = new Map<string, string>();
-	for (let index = 0; index < args.length; index += 1) {
-		const arg = args[index];
-		if (arg === undefined) continue;
-		if (arg === "--") continue;
-		if (valueOptions.includes(arg)) {
-			const value = args[index + 1];
-			if (value === undefined) return { type: "error", message: `${arg} requires a value.` };
-			values.set(arg, value);
-			index += 1;
-			continue;
-		}
-		if (arg.startsWith("--")) return { type: "error", message: `Unknown option for managed pr-address operation: ${arg}` };
-		positionals.push(arg);
-	}
-	return { type: "ok", positionals, values };
-}
-
 function parseProvenanceJson(value: string | undefined, commandName: string): { type: "ok"; value: ProvenanceInput | null } | { type: "error"; errorType: string; message: string } {
 	if (value === undefined || trimOptional(value) === null) return { type: "ok", value: null };
 	let parsed: unknown;
@@ -335,12 +361,6 @@ function provenanceShapeError(provenance: ProvenanceInput): string | null {
 	return null;
 }
 
-function integerArgument(value: string | undefined, message: string): { type: "ok"; value: number } | { type: "error"; message: string } {
-	const numeric = value === undefined ? undefined : parseStrictInteger(value);
-	if (numeric === undefined) return { type: "error", message };
-	return { type: "ok", value: numeric };
-}
-
 function resolutionModeArgument(value: string | undefined): { type: "ok"; value: ResolutionReplyMode } | { type: "error"; message: string } {
 	if (value === "fixed" || value === "pre_existing" || value === "explained" || value === "planned") return { type: "ok", value };
 	return { type: "error", message: `resolve-thread-with-reply requires a mode argument using one of: ${VALID_RESOLUTION_MODES.join(", ")}.` };
@@ -352,28 +372,10 @@ function trimOptional(value: string | null | undefined): string | null {
 	return trimmed === "" ? null : trimmed;
 }
 
-function githubGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitHubGateway } | { type: "error"; result: ExecOperationDispatchResult } {
-	const gateway = invocation.deps.context.github;
-	if (gateway === undefined) return { type: "error", result: { type: "exit", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a GitHub gateway.") } };
-	return { type: "ok", gateway };
-}
-
-function gitGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error" } {
-	const gateway = invocation.deps.context.git;
+function gitGateway(ctx: PrAddressExecContext): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error" } {
+	const gateway = ctx.context.git;
 	if (gateway === undefined) return { type: "error" };
 	return { type: "ok", gateway };
-}
-
-function gatewayOptions(invocation: ExecOperationInvocation): GatewayOptions {
-	return { cwd: invocation.deps.cwd, env: invocation.deps.env };
-}
-
-function gatewayFailureExit(prefix: string, gatewayFailure: GatewayFailure): ExecOperationDispatchResult {
-	return exitFailure("pr_gateway_failure", `${prefix}: ${gatewayFailureDetail(gatewayFailure)}`);
-}
-
-function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: failure(errorType, message) };
 }
 
 function invalid(message: string): { type: "error"; errorType: "invalid_request"; message: string } {

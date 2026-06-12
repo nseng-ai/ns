@@ -3,12 +3,11 @@ import { basename } from "node:path";
 
 import { z } from "zod";
 
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { parseManagedOptions } from "./managed-options.ts";
 import { readJsonPayloadArtifact, resolveJsonPointer as resolvePayloadJsonPointer } from "./payload-lookup.ts";
 import { PayloadStore, type PayloadClock, type PayloadReference } from "./payload-store.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -24,16 +23,28 @@ const DETAIL_KIND_PATTERNS: ReadonlyArray<{ pattern: RegExp; detailKind: DetailK
 	{ pattern: /^\/data\/discussion_comments\/(0|[1-9][0-9]*)\/body$/, detailKind: "discussion_comment_body" },
 ];
 
-export async function runReadFeedbackDetailOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, ["--payload-path", "--json-pointer"]);
-	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
-	const payloadPath = options.options.values.get("--payload-path");
-	const jsonPointer = options.options.values.get("--json-pointer");
-	if (payloadPath === undefined) return { type: "exit", exit: failure("invalid_request", "--payload-path requires a value.") };
-	if (jsonPointer === undefined) return { type: "exit", exit: failure("invalid_request", "--json-pointer requires a value.") };
+const readFeedbackDetailParseSchema = z.object({
+	payload_path: z.string().optional(),
+	json_pointer: z.string().optional(),
+});
+
+export const readFeedbackDetailOperation = defineExecOperation({
+	spec: {
+		name: "read-feedback-detail",
+		description: "Read one selected PR feedback body or item from a raw payload artifact.",
+		schema: readFeedbackDetailParseSchema,
+		handler: runReadFeedbackDetailOperation,
+	},
+});
+
+async function runReadFeedbackDetailOperation(_ctx: PrAddressExecContext, request: z.output<typeof readFeedbackDetailParseSchema>): Promise<ClinkrExit<unknown>> {
+	const payloadPath = request.payload_path;
+	const jsonPointer = request.json_pointer;
+	if (payloadPath === undefined) return failure("invalid_request", "--payload-path requires a value.");
+	if (jsonPointer === undefined) return failure("invalid_request", "--json-pointer requires a value.");
 	const result = await readFeedbackDetail({ payloadPath, jsonPointer });
-	if (result.type === "error") return { type: "exit", exit: failure(result.errorType, result.message) };
-	return { type: "exit", exit: ok(result.value) };
+	if (result.type === "error") return failure(result.errorType, result.message);
+	return ok(result.value);
 }
 
 export async function readFeedbackDetail(options: { payloadPath: string; jsonPointer: string }): Promise<{ type: "ok"; value: unknown } | { type: "error"; errorType: string; message: string }> {
@@ -95,21 +106,32 @@ interface ReadFeedbackDetailsResult {
 
 type ReadFeedbackDetailsOutcome = { type: "ok"; value: ReadFeedbackDetailsResult } | { type: "error"; errorType: string; message: string };
 
-export async function runReadFeedbackDetailsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, ["--selection-json"]);
-	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
+const readFeedbackDetailsParseSchema = z.object({
+	selection_json: z.string().optional(),
+});
+
+export const readFeedbackDetailsOperation = defineExecOperation({
+	spec: {
+		name: "read-feedback-details",
+		description: "Read selected PR feedback bodies or items into a summary payload artifact.",
+		schema: readFeedbackDetailsParseSchema,
+		handler: runReadFeedbackDetailsOperation,
+	},
+});
+
+async function runReadFeedbackDetailsOperation(ctx: PrAddressExecContext, request: z.output<typeof readFeedbackDetailsParseSchema>): Promise<ClinkrExit<unknown>> {
 	const selectionResult = await loadJsonInput({
-		optionValue: options.options.values.get("--selection-json"),
+		optionValue: request.selection_json,
 		commandName: "read-feedback-details",
 		inputDescription: "selection JSON",
 		optionName: "--selection-json",
 		schema: readFeedbackDetailsSelectionSchema,
-		stdin: invocation.deps.stdin,
+		stdin: ctx.stdin,
 	});
-	if (selectionResult.type === "error") return { type: "exit", exit: failure(selectionResult.error.errorType, selectionResult.error.message) };
-	const result = await readFeedbackDetails({ selection: selectionResult.value, clock: invocation.deps.context.payloadClock });
-	if (result.type === "error") return { type: "exit", exit: failure(result.errorType, result.message) };
-	return { type: "exit", exit: ok(result.value) };
+	if (selectionResult.type === "error") return failure(selectionResult.error.errorType, selectionResult.error.message);
+	const result = await readFeedbackDetails({ selection: selectionResult.value, clock: ctx.context.payloadClock });
+	if (result.type === "error") return failure(result.errorType, result.message);
+	return ok(result.value);
 }
 
 export async function readFeedbackDetails(options: { selection: ReadFeedbackDetailsSelection; clock?: PayloadClock | undefined }): Promise<ReadFeedbackDetailsOutcome> {

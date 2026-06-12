@@ -8,10 +8,10 @@ import {
 	type FeedbackClassificationValidationResult,
 	type FeedbackPlanningResult,
 } from "./classification-core.ts";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadArtifactReference, loadJsonInput, loadOperationPayload, operationPayloadValueOptions, type JsonInputResult, type OperationPayloadField } from "./json-input.ts";
-import { githubGateway, parseReadOptions } from "./operation-support.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
+import { loadArtifactReference, loadJsonInput, loadOperationPayload, type JsonInputResult, type OperationPayloadField } from "./json-input.ts";
+import { githubGateway } from "./operation-support.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import {
 	compactPrepResult,
@@ -21,7 +21,6 @@ import {
 	type StackFeedbackPrInput,
 } from "./stack-feedback-prep-core.ts";
 
-const STDOUT_MODES = new Set(["full", "compact"]);
 const APPROVAL_REQUIRED_COMPLEXITIES = new Set<ActionComplexity>(["cross_cutting", "complex"]);
 const nullableStringSchema = z.string().nullable().default(null);
 
@@ -208,80 +207,101 @@ interface StackFeedbackPlanResult {
 	summary: StackFeedbackPlanSummary | null;
 }
 
-export async function runStackFeedbackPrepOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--stack-json", "--stack-reference", "--payload-session-id", "--stdout-mode"], ["--include-resolved", "--include-empty-reviews"]);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const unexpectedPositional = parsed.options.positionals[0];
-	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-prep: ${unexpectedPositional}`);
-	const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-	// Invalid --stdout-mode values keep legacy click usage-error behavior.
-	if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+const stackFeedbackPrepParseSchema = z.object({
+	stack_json: z.string().optional(),
+	stack_reference: z.string().optional(),
+	payload_session_id: z.string().optional(),
+	stdout_mode: z.enum(["full", "compact"]).default("full"),
+	include_resolved: z.boolean().default(false),
+	include_empty_reviews: z.boolean().default(false),
+});
 
+export const stackFeedbackPrepOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "stack-feedback-prep",
+		description: "Fetch stack PR feedback, write payload artifacts, and build classification templates.",
+		schema: stackFeedbackPrepParseSchema,
+		handler: runStackFeedbackPrepOperation,
+	},
+});
+
+async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPrepParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the stack JSON; preserve that ordering.
 	const storeResult = await PayloadStore.fromEnvironment({
-		explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,
-		env: invocation.deps.env,
-		clock: invocation.deps.context.payloadClock,
+		explicitSessionId: request.payload_session_id ?? null,
+		env: ctx.env,
+		clock: ctx.context.payloadClock,
 	});
-	if (storeResult.type === "error") return exitFailure(storeResult.errorType, storeResult.message);
+	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
 	const payloadResult = await resolvePrepStackInput({
-		stackJson: parsed.options.values.get("--stack-json"),
-		stackReference: parsed.options.values.get("--stack-reference"),
-		stdin: invocation.deps.stdin,
+		stackJson: request.stack_json,
+		stackReference: request.stack_reference,
+		stdin: ctx.stdin,
 	});
-	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const validationMessage = stackInputValidationMessage(payloadResult.value.stack);
-	if (validationMessage !== null) return exitFailure("invalid_request", validationMessage);
+	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const github = githubGateway(invocation);
-	if (github.type === "error") return github.result;
+	const github = githubGateway(ctx);
+	if (github.type === "error") return github.exit;
 
 	const prepared = await prepareStackFeedbackStack({
-		invocation,
+		ctx,
 		store,
 		stack: payloadResult.value.stack,
 		github: github.gateway,
-		shouldIncludeResolved: parsed.options.flags.has("--include-resolved"),
-		shouldIncludeEmptyReviews: parsed.options.flags.has("--include-empty-reviews"),
+		shouldIncludeResolved: request.include_resolved,
+		shouldIncludeEmptyReviews: request.include_empty_reviews,
 	});
-	if (prepared.type === "error") return prepared.result;
-	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPrepResult(prepared.value.result, prepared.value.stackSummaryReference)) };
-	return { type: "exit", exit: ok(prepared.value.result) };
+	if (prepared.type === "error") return prepared.exit;
+	if (request.stdout_mode === "compact") return ok(compactPrepResult(prepared.value.result, prepared.value.stackSummaryReference));
+	return ok(prepared.value.result);
 }
 
-export async function runStackFeedbackPlanOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, operationPayloadValueOptions(stackFeedbackPlanPayloadFields, ["--payload-session-id", "--stdout-mode"]), []);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const unexpectedPositional = parsed.options.positionals[0];
-	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-plan: ${unexpectedPositional}`);
-	const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-	// Invalid --stdout-mode values keep legacy click usage-error behavior.
-	if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+const stackFeedbackPlanParseSchema = z.object({
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+	prep_reference: z.string().optional(),
+	payload_session_id: z.string().optional(),
+	stdout_mode: z.enum(["full", "compact"]).default("full"),
+});
 
+export const stackFeedbackPlanOperation = defineExecOperation({
+	spec: {
+		name: "stack-feedback-plan",
+		description: "Validate stack feedback classifications and merge deterministic per-PR plans.",
+		schema: stackFeedbackPlanParseSchema,
+		handler: runStackFeedbackPlanOperation,
+	},
+});
+
+async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPlanParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the plan payload; preserve that ordering.
 	const storeResult = await PayloadStore.fromEnvironment({
-		explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,
-		env: invocation.deps.env,
-		clock: invocation.deps.context.payloadClock,
+		explicitSessionId: request.payload_session_id ?? null,
+		env: ctx.env,
+		clock: ctx.context.payloadClock,
 	});
-	if (storeResult.type === "error") return exitFailure(storeResult.errorType, storeResult.message);
+	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
-	const payloadResult = await loadOperationPayload(invocation, {
+	const payloadResult = await loadOperationPayload({
 		commandName: "stack-feedback-plan",
 		inputDescription: "stack feedback plan JSON payload",
 		payloadSchema: stackFeedbackPlanPayloadSchema,
-		values: parsed.options.values,
+		request,
+		stdin: ctx.stdin,
 		fields: stackFeedbackPlanPayloadFields,
 	});
-	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 	const payload = payloadResult.value as StackFeedbackPlanInput;
 
 	const classificationsResult = classificationsByPr(payload);
-	if (classificationsResult.type === "error") return exitFailure("invalid_request", classificationsResult.message);
+	if (classificationsResult.type === "error") return failure("invalid_request", classificationsResult.message);
 	const classificationByPr = classificationsResult.value;
 
 	const validations = payload.prep.stack.map((prResult) => validateFeedbackClassification({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }));
@@ -299,11 +319,10 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 	};
 	if (!validationSummary.all_valid) {
 		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary });
-		const negativeExit: ClinkrExit<unknown> = negative(
+		return negative(
 			"Stack feedback classification failed validation; no stack plan produced.",
-			stdoutMode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
+			request.stdout_mode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
 		);
-		return { type: "exit", exit: negativeExit };
 	}
 
 	const perPrPlans = payload.prep.stack.map((prResult) => planFeedback({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }));
@@ -315,10 +334,10 @@ export async function runStackFeedbackPlanOperation(invocation: ExecOperationInv
 		perPrPlans,
 	});
 	const stackPlanReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-plan", role: "summary", payload: resultWithoutReference });
-	if (stackPlanReference.type === "error") return exitFailure(stackPlanReference.errorType, stackPlanReference.message);
+	if (stackPlanReference.type === "error") return failure(stackPlanReference.errorType, stackPlanReference.message);
 	const result: StackFeedbackPlanResult = { ...resultWithoutReference, stack_plan_reference: stackPlanReference.value };
-	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPlanResult(result)) };
-	return { type: "exit", exit: ok(result) };
+	if (request.stdout_mode === "compact") return ok(compactPlanResult(result));
+	return ok(result);
 }
 
 async function resolvePrepStackInput(options: {
@@ -670,8 +689,4 @@ function requiredAt<T>(values: readonly T[], index: number): T {
 	const value = values[index];
 	if (value === undefined) throw new Error(`Missing aligned per-PR value at index ${index}.`);
 	return value;
-}
-
-function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: failure(errorType, message) };
 }

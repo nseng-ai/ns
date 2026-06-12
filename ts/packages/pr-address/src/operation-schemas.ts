@@ -1301,3 +1301,8 @@ export function buildOperationSchemaDocument(operation: string): JsonSchemaDocum
 	const builder = SCHEMA_DOCUMENT_BUILDERS.get(operation);
 	return builder?.();
 }
+
+/** Operation names with a pinned schema document; the exec table must match 1:1. */
+export function operationSchemaDocumentNames(): readonly string[] {
+	return [...SCHEMA_DOCUMENT_BUILDERS.keys()];
+}

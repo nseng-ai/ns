@@ -155,12 +155,13 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(parseEnvelope(run).error_type).toBe("invalid_json");
 	});
 
-	test("rejects an unexpected positional argument with invalid_request", async () => {
+	test("rejects an unexpected positional argument with a commander usage error", async () => {
+		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
+		// error (stderr, exit 2), never a machine envelope — click parity.
 		const run = runWithGithub(["exec", "map-branch-prs", "extra", "--format", "json"], { github: stackedGithub() });
 		expect(await run.exit).toBe(2);
-		const envelope = parseEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toBe("Unexpected argument for map-branch-prs: extra");
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.\n");
 	});
 
 	test("maps a gh listing failure to pr_gateway_failure", async () => {

@@ -105,19 +105,24 @@ describe("reply formatting TypeScript parity", () => {
 
 describe("mutation operations use fake gateways", () => {
 	test("mutation positional integers reject non-decimal forms before mutation", async () => {
+		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
+		// error (stderr, exit 2), never a machine envelope — click parity.
 		const review = runWithFakes(["exec", "reply-to-review", "1e2", "reviewer", "Done.", "--format", "json"]);
 		expect(await review.exit).toBe(2);
-		expect(JSON.parse(review.stdout.join(""))).toMatchObject({ error_type: "invalid_request", message: "reply-to-review requires an integer PR number argument." });
+		expect(review.stdout.join("")).toBe("");
+		expect(review.stderr.join("")).toContain("expected an integer");
 		expect(review.github.comments).toEqual([]);
 
 		const discussion = runWithFakes(["exec", "reply-to-discussion", "42", "0x10", "reviewer", "Original", "Done.", "--format", "json"]);
 		expect(await discussion.exit).toBe(2);
-		expect(JSON.parse(discussion.stdout.join(""))).toMatchObject({ error_type: "invalid_request", message: "reply-to-discussion requires an integer comment_id argument." });
+		expect(discussion.stdout.join("")).toBe("");
+		expect(discussion.stderr.join("")).toContain("expected an integer");
 		expect(discussion.github.comments).toEqual([]);
 	});
 
 	test("reply builders post formatted comments and preserve reaction warning success", async () => {
-		const review = runWithFakes(["exec", "reply-to-review", "42", "reviewer", "--", "- Updated tests", "--format", "json"]);
+		// Options must precede `--` (click parity); everything after it is positional.
+		const review = runWithFakes(["exec", "reply-to-review", "42", "reviewer", "--format", "json", "--", "- Updated tests"]);
 		expect(await review.exit).toBe(0);
 		const reviewBody = JSON.parse(review.stdout.join("")).data.body as string;
 		expect(reviewBody).toContain("Addressed review feedback from @reviewer:");

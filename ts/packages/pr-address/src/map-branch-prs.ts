@@ -1,14 +1,20 @@
 import { z } from "zod";
 
-import { failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
+import { gatewayFailureExit, gatewayOptions, githubGateway } from "./operation-support.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
 });
+
+const mapBranchPrsParseSchema = z.object({
+	branches_json: z.string().optional(),
+});
+
+type MapBranchPrsRequest = z.output<typeof mapBranchPrsParseSchema>;
 
 export interface BranchPrEntry {
 	branch: string;
@@ -25,42 +31,47 @@ export interface MapBranchPrsResult {
 	summary: { requested: number; matched: number; missing: number };
 }
 
-export async function runMapBranchPrsOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--branches-json"], []);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const unexpectedPositional = parsed.options.positionals[0];
-	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for map-branch-prs: ${unexpectedPositional}`);
+export const mapBranchPrsOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "map-branch-prs",
+		description: "Map local branches to open PRs.",
+		schema: mapBranchPrsParseSchema,
+		handler: runMapBranchPrsOperation,
+	},
+});
 
+async function runMapBranchPrsOperation(ctx: PrAddressExecContext, request: MapBranchPrsRequest): Promise<ClinkrExit<unknown>> {
 	const payloadResult = await loadJsonInput({
-		optionValue: parsed.options.values.get("--branches-json"),
+		optionValue: request.branches_json,
 		commandName: "map-branch-prs",
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: mapBranchPrsInputSchema,
-		stdin: invocation.deps.stdin,
+		stdin: ctx.stdin,
 	});
-	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const branches = payloadResult.value.branches;
 	const validationMessage = branchesValidationMessage(branches, "map-branch-prs");
-	if (validationMessage !== null) return exitFailure("invalid_request", validationMessage);
+	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const github = githubGateway(invocation);
-	if (github.type === "error") return github.result;
-	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, invocation });
-	if (mapping.type === "error") return mapping.result;
+	const github = githubGateway(ctx);
+	if (github.type === "error") return github.exit;
+	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, ctx });
+	if (mapping.type === "error") return mapping.exit;
 	const result = mapping.value;
-	if (result.missing_branches.length === 0) return { type: "exit", exit: ok(result) };
-	return { type: "exit", exit: negative(`No open PR found for branches: ${result.missing_branches.join(", ")}`, result) };
+	if (result.missing_branches.length === 0) return ok(result);
+	return negative(`No open PR found for branches: ${result.missing_branches.join(", ")}`, result);
 }
 
 export async function mapBranchesToOpenPrs(options: {
 	branches: readonly string[];
 	github: PrAddressGitHubGateway;
-	invocation: ExecOperationInvocation;
-}): Promise<{ type: "ok"; value: MapBranchPrsResult } | { type: "error"; result: ExecOperationDispatchResult }> {
-	const openPrsResult = await options.github.listOpenPrs(gatewayOptions(options.invocation));
-	if (openPrsResult.type === "failure") return { type: "error", result: exitFailure("pr_gateway_failure", gatewayFailureMessage("Failed to list open PRs", openPrsResult.failure)) };
+	ctx: PrAddressExecContext;
+}): Promise<{ type: "ok"; value: MapBranchPrsResult } | { type: "error"; exit: ClinkrFailureExit }> {
+	const openPrsResult = await options.github.listOpenPrs(gatewayOptions(options.ctx));
+	if (openPrsResult.type === "failure") return { type: "error", exit: gatewayFailureExit("Failed to list open PRs", openPrsResult.failure) };
 
 	const prsByHeadBranch = lowestNumberedPrByHeadBranch(openPrsResult.value);
 	const branchPrs: BranchPrEntry[] = [];
@@ -116,8 +127,4 @@ function duplicateValues(values: readonly string[]): string[] {
 		seen.add(value);
 	}
 	return [...duplicates];
-}
-
-function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: failure(errorType, message) };
 }

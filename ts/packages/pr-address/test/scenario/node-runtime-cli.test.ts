@@ -36,7 +36,9 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Usage: pr-address");
 		expect(result.stdout).toContain("--runtime");
-		expect(result.stdout).toContain("exec");
+		// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from
+		// top-level help (Python parity) while staying invocable.
+		expect(result.stdout).not.toContain("exec");
 	});
 
 	test("prints TypeScript runtime diagnostics", () => {

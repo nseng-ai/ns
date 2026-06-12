@@ -90,13 +90,14 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		expect(envelope.error_type).toBe("invalid_json");
 	});
 
-	test("rejects unknown options as invalid_request", async () => {
+	test("rejects unknown options with a commander usage error", async () => {
+		// PINNED CLINKR SEMANTICS: unknown options are a raw commander usage
+		// error (stderr, exit 2), never a machine envelope — click parity.
 		const run = runManaged(["exec", "build-stack-resolve-thread-payloads", "--bogus", "--format", "json"]);
 
 		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("--bogus");
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 	});
 
 	test("accepts --payload-file for the full payload", async () => {
