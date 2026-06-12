@@ -101,7 +101,7 @@ export type HandoffItemsParseResult = { type: "valid"; items: HandoffListItem[] 
 
 export type HandoffKeysParseResult = { type: "valid"; keys: string[] } | { type: "invalid"; message: string };
 
-type HandoffItemsLoadResult = { type: "loaded"; items: HandoffListItem[] } | { type: "failed"; message: string };
+export type HandoffItemsLoadResult = { type: "loaded"; items: HandoffListItem[] } | { type: "failed"; message: string };
 
 export function parsePickupHandoffArgs(rawArgs: string): HandoffArgsParseResult<PickupHandoffArgs> {
 	const parsed: PickupHandoffArgs = { help: false, selector: [] };
@@ -580,7 +580,7 @@ function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandHandof
 	return "handoff-create skill was not found; using fallback handoff-create workflow prompt.";
 }
 
-async function listHandoffItems(
+export async function listHandoffItems(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	options: { branch: string } | { allBranches: true },
@@ -640,7 +640,7 @@ async function chooseHandoff(
 	return labelToKey.get(selected);
 }
 
-async function previewHandoffItems(
+export async function previewHandoffItems(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	items: HandoffListItem[],

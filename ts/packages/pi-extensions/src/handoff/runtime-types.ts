@@ -41,6 +41,12 @@ export interface RenderComponent {
 	invalidate(): void;
 }
 
+export interface TuiHandle {
+	stop(): void;
+	start(): void;
+	requestRender(force?: boolean): void;
+}
+
 export interface ToolResult<Details = unknown> {
 	content: Array<{ type: "text"; text: string }>;
 	details?: Details;
@@ -68,11 +74,16 @@ export type MessageRenderer = (message: CustomMessage, options: { expanded: bool
 export interface BaseRuntimeContext {
 	cwd: string;
 	hasUI: boolean;
+	mode?: "tui" | "rpc" | "json" | "print";
 	model?: ModelInfo;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
+		custom?<T>(
+			factory: (tui: TuiHandle, theme: unknown, keybindings: unknown, done: (value: T) => void) => RenderComponent,
+			options?: unknown,
+		): Promise<T>;
 	};
 }
 
