@@ -2,8 +2,8 @@ import { Buffer } from "node:buffer";
 import { readFile as nodeReadFile, stat as nodeStat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
-import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./slug.ts";

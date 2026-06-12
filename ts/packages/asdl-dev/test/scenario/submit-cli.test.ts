@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { runCli } from "asdl-dev/src/cli.ts";
-import { GENERATED_BODY_MARKER } from "asdl-dev/src/pr-description.ts";
-import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
-import type { SubmitPrLink } from "asdl-dev/src/gt-output.ts";
-import type { SubmitStackNewBranch } from "asdl-dev/src/submit-pr-metadata-prewrite.ts";
-import type { SubmitCommandOutput, SubmitOutputStream } from "asdl-dev/src/submit.ts";
+import { runCli } from "asdl-dev/cli";
+import { GENERATED_BODY_MARKER } from "../../src/pr-description.ts";
+import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
+import type { SubmitPrLink } from "../../src/gt-output.ts";
+import type { SubmitStackNewBranch } from "../../src/submit-pr-metadata-prewrite.ts";
+import type { SubmitCommandOutput, SubmitOutputStream } from "../../src/submit.ts";
 import { inMemoryContext, type InMemoryContextState } from "../support/in-memory-gateways.ts";
 
 interface OutputEvent {

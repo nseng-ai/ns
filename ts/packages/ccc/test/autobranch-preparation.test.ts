@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
-import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch/preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@asdl/pi-extension-runtime/branch-slug";
 import { buildSlugModelArgs } from "@asdl/plans";

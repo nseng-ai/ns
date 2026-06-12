@@ -1,4 +1,4 @@
-import { listAsdlDevCommands, runCli, type AsdlDevCommandInfo } from "asdl-dev/src/cli.ts";
+import { listAsdlDevCommands, runCli, type AsdlDevCommandInfo } from "asdl-dev/cli";
 
 import { registerCliCommandExtension, type ExtensionAPI } from "./cli-command-extension.ts";
 

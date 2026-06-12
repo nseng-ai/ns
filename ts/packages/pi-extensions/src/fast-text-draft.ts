@@ -2,7 +2,7 @@ import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@as
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
 import { callPiModelText, type PiModelRegistryLike } from "./pi-model-call.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 

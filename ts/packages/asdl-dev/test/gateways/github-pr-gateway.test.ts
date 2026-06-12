@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
 import type { CommandRunner } from "@asdl/core/exec";
-import { RealGithubPrGateway } from "asdl-dev/src/gateways/github-pr.ts";
+import { RealGithubPrGateway } from "../../src/gateways/github-pr.ts";
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
 describe("RealGithubPrGateway", () => {

@@ -1,4 +1,4 @@
-export { formatPendingWorktreeCommandDetails as formatCommandDetails } from "asdl-dev/src/pending-worktree.ts";
+export { formatPendingWorktreeCommandDetails as formatCommandDetails } from "asdl-dev/pending-worktree";
 
 export interface StatusInput {
 	setStatus: (message: string | undefined) => void;

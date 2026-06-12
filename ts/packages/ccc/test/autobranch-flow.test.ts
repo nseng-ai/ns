@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
-import type { PendingWorktreeSnapshot } from "asdl-dev/src/pending-worktree.ts";
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch/flow.ts";
 import { eventIndex, fail, ok, type UpstreamMode } from "./autobranch-test-helpers.ts";
 

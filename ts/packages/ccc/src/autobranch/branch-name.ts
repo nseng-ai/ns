@@ -1,4 +1,4 @@
-import type { CommandResult } from "asdl-dev/src/checkpoint-flow.ts";
+import type { CommandResult } from "asdl-dev/checkpoint-flow";
 
 import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@asdl/pi-extension-runtime/branch-slug";
 
