@@ -3,8 +3,8 @@ import { mkdir, open, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@asdl/core/primitives";
 
@@ -24,7 +24,7 @@ export interface PlanStoreOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
-	git?: PlansGitGateway | undefined;
+	git?: GitGateway | undefined;
 }
 
 export interface PlanStoreRepoEvidence {
@@ -164,7 +164,7 @@ export async function resolvePlanStoreRepoDirectory(
 	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<PlanStoreRepoEvidence> {
-	const git = options.git ?? new RealPlansGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
 	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
@@ -182,7 +182,7 @@ export async function resolvePlanStoreDirectory(
 	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
-	const git = options.git ?? new RealPlansGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
 	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
 	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
@@ -341,7 +341,7 @@ function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 	return { slug, content, summary };
 }
 
-async function resolveRequiredGitRepoRoot(git: PlansGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveRequiredGitRepoRoot(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const root = await git.repoRoot({ cwd, signal });
 	if (!root.ok) {
 		throw new Error(root.error.message);
@@ -349,7 +349,7 @@ async function resolveRequiredGitRepoRoot(git: PlansGitGateway, cwd: string, sig
 	return realpathIfPossible(root.value);
 }
 
-async function resolveCurrentBranch(git: PlansGitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveCurrentBranch(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const branch = await git.currentBranch({ cwd, signal });
 	if (!branch.ok) {
 		if (branch.error.code === "detached_head") {
@@ -366,7 +366,7 @@ interface RepoIdentityOptions {
 	signal?: AbortSignal | undefined;
 }
 
-async function resolveRepoIdentity(git: PlansGitGateway, options: RepoIdentityOptions): Promise<RepoIdentity> {
+async function resolveRepoIdentity(git: GitGateway, options: RepoIdentityOptions): Promise<RepoIdentity> {
 	const origin = await git.originUrl({ cwd: options.cwd, signal: options.signal });
 	if (origin.type === "error") {
 		throw new Error(origin.error.message);

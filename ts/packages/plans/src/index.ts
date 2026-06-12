@@ -32,14 +32,6 @@ export {
 	type SlugModelFailure,
 } from "./model-slug.ts";
 export {
-	RealPlansGitGateway,
-	type GitCwdParams,
-	type GitErrorInfo,
-	type GitOptionalResult,
-	type GitResult,
-	type PlansGitGateway,
-} from "./git-gateway.ts";
-export {
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeSummary,

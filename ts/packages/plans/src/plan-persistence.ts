@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { CommandExecApi } from "@asdl/core/exec";
-import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
 const GENERIC_SLUG_WORDS = new Set([
 	"plan",
@@ -76,17 +76,17 @@ export interface ResolvePlanSourceFileOptions {
 	cwd: string;
 	rawFilePath: string;
 	signal?: AbortSignal | undefined;
-	git?: PlansGitGateway | undefined;
+	git?: GitGateway | undefined;
 }
 
 export interface ResolveGitRepoRootOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
-	git?: PlansGitGateway | undefined;
+	git?: GitGateway | undefined;
 }
 
 export async function resolvePlanSourceFile(pi: CommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
-	const git = options.git ?? new RealPlansGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
 		throw new Error(`Plan file path must be absolute or home-relative; got ${displayNonEmpty(normalizedPath)}.`);
@@ -115,7 +115,7 @@ export async function resolvePlanSourceFile(pi: CommandExecApi, options: Resolve
 }
 
 export async function resolveGitRepoRoot(pi: CommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
-	const git = options.git ?? new RealPlansGitGateway(pi);
+	const git = options.git ?? new RealGitGateway(pi);
 	const root = await git.optionalRepoRoot({ cwd: options.cwd, signal: options.signal });
 	return root.type === "found" ? resolve(root.value) : undefined;
 }
