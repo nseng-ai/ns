@@ -327,7 +327,7 @@ function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 }
 
 function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): string {
-	return buildPiLaunchCommand(`/branch-context:impl ${key}`, launchOptions);
+	return buildPiLaunchCommand("/branch-context:impl", launchOptions);
 }
 
 function formatUnexpectedError(error: unknown): string {

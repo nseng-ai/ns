@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/planned-branch/saved-plan-content-slug.ts";
+import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/branch-context/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
 import type { ExecResult } from "@asdl/core/exec";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
@@ -79,7 +79,7 @@ describe("deriveSavedPlanContentSlug", () => {
 
 		expect(prompt).toContain(SAVED_PLAN_CONTENT.trim());
 		expect(prompt).toContain("Do not use the current branch, repository name, request text, filename, or path.");
-		expect(prompt).not.toContain("planned-branches/add-widget");
+		expect(prompt).not.toContain("branch-contextes/add-widget");
 		expect(prompt).not.toContain("/tmp/saved-plan.md");
 	});
 });

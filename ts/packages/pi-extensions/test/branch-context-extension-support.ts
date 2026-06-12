@@ -28,10 +28,10 @@ import registerBranchContextExtension, {
 	type SavedPlanFileEvidence,
 	type ToolContext,
 	type ToolDefinition,
-} from "../src/planned-branch-extension.ts";
+} from "../src/branch-context-extension.ts";
 import { buildPlanContentSlugPrompt, type LoadedAttachedPlan, type BranchContextEvidence } from "@asdl/branch-context";
-import { formatBranchContextEvidence } from "../src/planned-branch-output.ts";
-import { buildSavedPlanContentSlugPrompt } from "../src/planned-branch/saved-plan-content-slug.ts";
+import { formatBranchContextEvidence } from "../src/branch-context-output.ts";
+import { buildSavedPlanContentSlugPrompt } from "../src/branch-context/saved-plan-content-slug.ts";
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL, type SelectedSavedPlanFile } from "@asdl/plans";
 import type { ExecOptions } from "@asdl/core/exec";
 
@@ -555,49 +555,26 @@ export function registeredTool(pi: FakePi, name = "write_saved_plan_file"): Tool
 	return tool;
 }
 
-const registerPlannedBranchExtension = registerBranchContextExtension;
-const CREATE_PLANNED_BRANCH_USAGE = CREATE_BRANCH_CONTEXT_USAGE;
-const PLAN_BRANCH_NAMESPACE = BRANCH_CONTEXT_NAMESPACE;
-const createPlannedBranchOperationFakes = createBranchContextOperationFakes;
-const formatCreatePlannedBranchPreview = formatCreateBranchContextPreview;
-const formatPlanBranchEvidence = formatBranchContextEvidence;
-const parseCreatePlannedBranchArgs = parseCreateBranchContextArgs;
-const plannedBranchEvidence = branchContextEvidence;
-const plannedBranchOutputMessageEntry = branchContextOutputMessageEntry;
-
-type PlannedBranchOperations = BranchContextOperations;
-type PlannedBranchEvidence = BranchContextEvidence;
-
-
 export {
 	registerBranchContextExtension,
-	registerPlannedBranchExtension,
 	CREATE_BRANCH_CONTEXT_USAGE,
-	CREATE_PLANNED_BRANCH_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	BRANCH_CONTEXT_NAMESPACE,
-	PLAN_BRANCH_NAMESPACE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
 	formatCreateBranchContextPreview,
-	formatCreatePlannedBranchPreview,
 	formatSavedPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
 	parseCreateBranchContextArgs,
-	parseCreatePlannedBranchArgs,
 	validatePlanSlug,
 	writeSavedPlanFile,
 	buildPlanContentSlugPrompt,
 	formatBranchContextEvidence,
-	formatPlanBranchEvidence,
-	createPlannedBranchOperationFakes,
-	plannedBranchEvidence,
-	plannedBranchOutputMessageEntry,
 	buildSavedPlanContentSlugPrompt,
 	buildSlugModelArgs,
 	DEFAULT_FAST_MODEL,
@@ -614,13 +591,11 @@ export type {
 	ExecResult,
 	ExtensionAPI,
 	BranchContextOperations,
-	PlannedBranchOperations,
 	SavedPlanFileEvidence,
 	ToolContext,
 	ToolDefinition,
 	LoadedAttachedPlan,
 	BranchContextEvidence,
-	PlannedBranchEvidence,
 	SelectedSavedPlanFile,
 	ExecOptions,
 };

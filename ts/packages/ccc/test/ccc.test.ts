@@ -251,7 +251,7 @@ describe("CCC cmux command suite", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/branch-context:impl plan.md'",
+					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium /branch-context:impl",
 				], {}),
 			],
 		});

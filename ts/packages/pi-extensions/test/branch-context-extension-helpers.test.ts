@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { NoSavedPlanAvailableError } from "@asdl/plans";
 
 import {
-	CREATE_PLANNED_BRANCH_USAGE,
+	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_FAST_MODEL,
 	DEFAULT_PLAN_CONTENT,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -11,7 +11,7 @@ import {
 	IMPL_BRANCH,
 	IMPL_PLAN_CONTENT,
 	IMPL_REF,
-	PLAN_BRANCH_NAMESPACE,
+	BRANCH_CONTEXT_NAMESPACE,
 	PLAN_KEY,
 	PLAN_SLUG,
 	REPO_ROOT,
@@ -28,13 +28,13 @@ import {
 	buildWritePlanPrompt,
 	contentSlugEvidence,
 	createContext,
-	createPlannedBranchOperationFakes,
+	createBranchContextOperationFakes,
 	createToolContext,
 	dirname,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
-	formatCreatePlannedBranchPreview,
-	formatPlanBranchEvidence,
+	formatCreateBranchContextPreview,
+	formatBranchContextEvidence,
 	formatSavedPlanFileEvidence,
 	gitCheckoutStep,
 	gitCurrentBranchStep,
@@ -48,15 +48,15 @@ import {
 	mkdir,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
-	parseCreatePlannedBranchArgs,
+	parseCreateBranchContextArgs,
 	planSlugExecCall,
 	planSlugStep,
 	planStoreDirectory,
-	plannedBranchEvidence,
-	plannedBranchOutputMessageEntry,
+	branchContextEvidence,
+	branchContextOutputMessageEntry,
 	readFile,
 	registeredTool,
-	registerPlannedBranchExtension,
+	registerBranchContextExtension,
 	resolve,
 	resolveWritePlanPromptStep,
 	savedPlanFileContent,
@@ -69,7 +69,7 @@ import {
 	writePlanStoreFile,
 	writeSavedPlanFile,
 	type ToolUpdate,
-} from "./planned-branch-extension-support.ts";
+} from "./branch-context-extension-support.ts";
 describe("validatePlanSlug", () => {
 	test("accepts specific 3-7 word kebab slugs", () => {
 		for (const slug of [
@@ -106,7 +106,7 @@ describe("source branch plan path helpers", () => {
 
 	test("encodes branch names as one safe path segment", () => {
 		expect(encodeBranchForPlanPath("main")).toBe("main");
-		expect(encodeBranchForPlanPath("planned-branches/add-widget")).toBe("planned-branches---add-widget");
+		expect(encodeBranchForPlanPath("branch-contextes/add-widget")).toBe("branch-contextes---add-widget");
 		expect(encodeBranchForPlanPath("feature/add widget+docs")).toBe("feature---add-widget-docs");
 	});
 
@@ -131,7 +131,7 @@ describe("source branch plan path helpers", () => {
 
 	test("finds the newest saved Markdown plan file", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "planned-branches/add-widget";
+		const sourceBranch = "branch-contextes/add-widget";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		await writePlanStoreFile(directoryPath, "older-source-plan.md", 1_700_000_000_000);
 		const newestPath = await writePlanStoreFile(directoryPath, "newer-source-plan.md", 1_800_000_000_000);
@@ -147,7 +147,7 @@ describe("source branch plan path helpers", () => {
 			fileName: "newer-source-plan.md",
 			repoKey: "gh--owner--repo",
 			sourceBranch,
-			branchKey: "planned-branches---add-widget",
+			branchKey: "branch-contextes---add-widget",
 			directoryPath,
 		});
 	});
@@ -211,34 +211,34 @@ describe("source branch plan path helpers", () => {
 
 });
 
-describe("planned-branch:create argument parsing", () => {
+describe("branch-context:from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
-		expect(parseCreatePlannedBranchArgs("")).toEqual({ help: false, dryRun: false, yes: false });
-		expect(parseCreatePlannedBranchArgs("--dry-run --yes --graphite --branch planned-branches/add-widget /tmp/my-source-plan.md")).toEqual({
+		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
+		expect(parseCreateBranchContextArgs("--dry-run --yes --graphite --branch branch-contextes/add-widget /tmp/my-source-plan.md")).toEqual({
 			help: false,
 			dryRun: true,
 			yes: true,
 			branchCreation: "graphite",
-			branchName: "planned-branches/add-widget",
+			branchName: "branch-contextes/add-widget",
 			filePath: "/tmp/my-source-plan.md",
 		});
-		expect(parseCreatePlannedBranchArgs("-y --plain-git --branch=planned-branches/add-widget @/tmp/my-source-plan.md")).toEqual({
+		expect(parseCreateBranchContextArgs("-y --plain-git --branch=branch-contextes/add-widget @/tmp/my-source-plan.md")).toEqual({
 			help: false,
 			dryRun: false,
 			yes: true,
 			branchCreation: "plain-git",
-			branchName: "planned-branches/add-widget",
+			branchName: "branch-contextes/add-widget",
 			filePath: "@/tmp/my-source-plan.md",
 		});
-		expect(parseCreatePlannedBranchArgs("--help").help).toBe(true);
-		expect(parseCreatePlannedBranchArgs("-h").help).toBe(true);
+		expect(parseCreateBranchContextArgs("--help").help).toBe(true);
+		expect(parseCreateBranchContextArgs("-h").help).toBe(true);
 	});
 
 	test("rejects parse errors before mutation", () => {
-		expect(() => parseCreatePlannedBranchArgs("--graphite --plain-git")).toThrow("Cannot pass both");
-		expect(() => parseCreatePlannedBranchArgs("--unknown")).toThrow("Unknown flag");
-		expect(() => parseCreatePlannedBranchArgs("--branch")).toThrow("Missing value");
-		expect(() => parseCreatePlannedBranchArgs("/tmp/one.md /tmp/two.md")).toThrow("at most one");
+		expect(() => parseCreateBranchContextArgs("--graphite --plain-git")).toThrow("Cannot pass both");
+		expect(() => parseCreateBranchContextArgs("--unknown")).toThrow("Unknown flag");
+		expect(() => parseCreateBranchContextArgs("--branch")).toThrow("Missing value");
+		expect(() => parseCreateBranchContextArgs("/tmp/one.md /tmp/two.md")).toThrow("at most one");
 	});
 });
 
@@ -348,9 +348,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 	});
 });
 
-describe("formatCreatePlannedBranchPreview", () => {
+describe("formatCreateBranchContextPreview", () => {
 	test("reports latest saved plan and target details", () => {
-		const text = formatCreatePlannedBranchPreview({
+		const text = formatCreateBranchContextPreview({
 			mode: "latest",
 			slug: PLAN_SLUG,
 			savedPlanFileStem: "local-filename-plan",
@@ -359,7 +359,7 @@ describe("formatCreatePlannedBranchPreview", () => {
 			targetBranch: TARGET_BRANCH,
 			branchCreation: "graphite",
 			slugEvidence: contentSlugEvidence(),
-			namespace: PLAN_BRANCH_NAMESPACE,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: PLAN_KEY,
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
@@ -382,7 +382,7 @@ describe("formatCreatePlannedBranchPreview", () => {
 	});
 
 	test("reports session-derived latest saved plan", () => {
-		const text = formatCreatePlannedBranchPreview({
+		const text = formatCreateBranchContextPreview({
 			mode: "session",
 			slug: PLAN_SLUG,
 			savedPlanFileStem: "session-file-plan",
@@ -391,7 +391,7 @@ describe("formatCreatePlannedBranchPreview", () => {
 			targetBranch: TARGET_BRANCH,
 			branchCreation: "plain-git",
 			slugEvidence: contentSlugEvidence(),
-			namespace: PLAN_BRANCH_NAMESPACE,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: PLAN_KEY,
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
@@ -408,16 +408,16 @@ describe("formatCreatePlannedBranchPreview", () => {
 	});
 });
 
-describe("formatPlanBranchEvidence", () => {
+describe("formatBranchContextEvidence", () => {
 	test("reports all created branch and Branch Memory evidence", () => {
-		const text = formatPlanBranchEvidence({
+		const text = formatBranchContextEvidence({
 			slug: PLAN_SLUG,
 			branch: TARGET_BRANCH,
 			branchCreation: "graphite",
 			startPoint: START_POINT,
-			namespace: PLAN_BRANCH_NAMESPACE,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: PLAN_KEY,
-			refName: `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/planned-branches---wire-create-planned-branch-command:${PLAN_KEY}`,
+			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contextes---wire-create-branch-context-command:${PLAN_KEY}`,
 			commit: "abc123",
 			sourceFile: "/tmp/plan.md",
 			summary: "Plan the branch-creating flow.",
@@ -427,9 +427,9 @@ describe("formatPlanBranchEvidence", () => {
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
 		expect(text).toContain("Branch creation: graphite");
 		expect(text).toContain(`Start point: ${START_POINT}`);
-		expect(text).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
+		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 		expect(text).toContain(`Key: ${PLAN_KEY}`);
-		expect(text).toContain("Ref: refs/brmem/ns/branch-context/planned-branches---wire-create-planned-branch-command");
+		expect(text).toContain("Ref: refs/brmem/ns/branch-context/branch-contextes---wire-create-branch-context-command");
 		expect(text).toContain("Commit: abc123");
 		expect(text).toContain("Source file: /tmp/plan.md");
 		expect(text).toContain("Summary: Plan the branch-creating flow.");
@@ -443,19 +443,19 @@ describe("formatSavedPlanFileEvidence", () => {
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
 			repoIdentitySource: "origin-url",
-			sourceBranch: "planned-branches/add-widget",
-			branchKey: "planned-branches---add-widget",
-			filePath: "/plans/gh--owner--repo/planned-branches---add-widget/branch-scoped-plan-extension.md",
+			sourceBranch: "branch-contextes/add-widget",
+			branchKey: "branch-contextes---add-widget",
+			filePath: "/plans/gh--owner--repo/branch-contextes---add-widget/branch-scoped-plan-extension.md",
 			summary: "Plan the local plan store file.",
 		});
 
 		expect(text).toContain("Saved plan file in local plan store.");
-		expect(text).toContain("Path: /plans/gh--owner--repo/planned-branches---add-widget/branch-scoped-plan-extension.md");
+		expect(text).toContain("Path: /plans/gh--owner--repo/branch-contextes---add-widget/branch-scoped-plan-extension.md");
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain(`Repo root: ${ROOT}`);
 		expect(text).toContain("Repo identity source: origin-url");
-		expect(text).toContain("Source branch: planned-branches/add-widget");
-		expect(text).toContain("Branch path segment: planned-branches---add-widget");
+		expect(text).toContain("Source branch: branch-contextes/add-widget");
+		expect(text).toContain("Branch path segment: branch-contextes---add-widget");
 		expect(text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(text).toContain("Summary: Plan the local plan store file.");
 	});

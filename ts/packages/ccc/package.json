@@ -15,8 +15,7 @@
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
     "./branch-context-up-and-impl": "./src/branch-context-up-and-impl.ts",
     "./worktree-status": "./src/worktree-status.ts",
-    "./worktree-status/graphite-metadata": "./src/worktree-status/graphite-metadata.ts",
-    "./planned-branch-up-and-impl": "./src/planned-branch-up-and-impl.ts"
+    "./worktree-status/graphite-metadata": "./src/worktree-status/graphite-metadata.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

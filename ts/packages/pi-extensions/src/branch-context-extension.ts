@@ -1,5 +1,5 @@
 import { Text, type Component } from "@earendil-works/pi-tui";
-import { formatBranchContextUpAndImplFollowUpFlow, runBranchContextUpAndImplLaunch } from "@asdl/ccc/planned-branch-up-and-impl";
+import { formatBranchContextUpAndImplFollowUpFlow, runBranchContextUpAndImplLaunch } from "@asdl/ccc/branch-context-up-and-impl";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
@@ -32,7 +32,7 @@ import {
 } from "@asdl/plans";
 import { isRecord } from "./cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
-import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./planned-branch/saved-plan-content-slug.ts";
+import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./branch-context/saved-plan-content-slug.ts";
 
 export type { ExecResult } from "@asdl/core/exec";
 export {
@@ -67,13 +67,13 @@ export type {
 
 const WRITE_PLAN_COMMAND_NAME = "enriched-plan:save";
 const WRITE_GRILLED_PLAN_COMMAND_NAME = "enriched-plan:grill-and-save";
-const CREATE_BRANCH_CONTEXT_COMMAND_NAME = "planned-branch:create";
-const UP_AND_IMPL_COMMAND_NAME = "planned-branch:upstack-impl-session";
-const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "planned-branch:impl";
+const CREATE_BRANCH_CONTEXT_COMMAND_NAME = "branch-context:from-plan";
+const UP_AND_IMPL_COMMAND_NAME = "branch-context:upstack-impl-session";
+const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "branch-context:impl";
 const WRITE_PLAN_TOOL_STATUS_KEY = "enriched-plan:save";
-const BRANCH_CONTEXT_STATUS_KEY = "planned-branch:create";
-const UP_AND_IMPL_STATUS_KEY = "planned-branch:upstack-impl-session";
-const IMPL_BRANCH_CONTEXT_STATUS_KEY = "planned-branch:impl";
+const BRANCH_CONTEXT_STATUS_KEY = "branch-context:from-plan";
+const UP_AND_IMPL_STATUS_KEY = "branch-context:upstack-impl-session";
+const IMPL_BRANCH_CONTEXT_STATUS_KEY = "branch-context:impl";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -245,9 +245,9 @@ export interface ExtensionAPI {
 	sendUserMessage(content: string): void;
 }
 
-export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /branch-context:create [options] [absolute-or-home-plan-file.md]
+export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /branch-context:from-plan [options] [absolute-or-home-plan-file.md]
 
-Create a branch context from a saved plan. The branch slug and attached-plan key are derived from the plan content by a tiny Pi model, then the plan is attached to the branch in Branch Memory.
+Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, then the plan is attached to the branch in Branch Memory as plan.md.
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
@@ -263,7 +263,7 @@ The saved-plan filename is only a locator. If the model cannot derive and valida
 
 export const UP_AND_IMPL_USAGE = `Usage: /branch-context:upstack-impl-session [options] [absolute-or-home-plan-file.md]
 
-Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /planned-branch:impl for the attached plan in that new session.
+Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /branch-context:impl for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
@@ -277,7 +277,7 @@ The current branch must be trunk or a Graphite-tracked branch; otherwise this co
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
-This command intentionally models the manual flow: /planned-branch:create --graphite, git checkout <branch>, /new, then /planned-branch:impl <key> in the new Pi session.`;
+This command intentionally models the manual flow: /branch-context:from-plan --graphite, git checkout <branch>, /new, then /branch-context:impl in the new Pi session.`;
 
 const WRITE_PLAN_PROMPT_NAME = "plans-write";
 const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
@@ -966,7 +966,7 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 }
 
 function formatUpAndImplDryRunMessage(body: string, branch: string, key: string): string {
-	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextUpAndImplFollowUpFlow(branch, key)}`;
+	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextUpAndImplFollowUpFlow(branch)}`;
 }
 
 function formatUpAndImplLaunchFailureTitle(mode: UpAndImplMode, phase: "checkout" | "new-session"): string {
@@ -982,9 +982,9 @@ function formatUpAndImplLaunchFailureTitle(mode: UpAndImplMode, phase: "checkout
 
 function formatUpAndImplCancelledMessage(mode: UpAndImplMode, branch: string, key: string): string {
 	if (mode === "created") {
-		return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${key} to continue.`;
+		return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`;
 	}
-	return `Reused existing branch context, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /planned-branch:impl ${key} to continue.`;
+	return `Reused existing branch context, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`;
 }
 
 function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExtensionOptions): ToolDefinition {

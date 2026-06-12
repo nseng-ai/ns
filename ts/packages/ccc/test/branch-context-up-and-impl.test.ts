@@ -5,7 +5,7 @@ import {
 	runBranchContextUpAndImplLaunch,
 	type BranchContextUpAndImplContext,
 	type BranchContextUpAndImplNewSessionOptions,
-} from "../src/planned-branch-up-and-impl.ts";
+} from "../src/branch-context-up-and-impl.ts";
 import { FakePi, ROOT, step } from "./ccc-test-harness.ts";
 
 const BRANCH = "branch-contextes/widget-flow";
@@ -68,7 +68,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		pi.assertDone();
 		expect(pi.execCalls).toEqual([{ command: "git", args: ["checkout", BRANCH], options: { cwd: ROOT, timeout: 30_000 } }]);
 		expect(ctx.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
-		expect(ctx.replacementUserMessages).toEqual([`/planned-branch:impl ${KEY}`]);
+		expect(ctx.replacementUserMessages).toEqual(["/branch-context:impl"]);
 		expect(ctx.statuses).toEqual([
 			{ key: STATUS_KEY, value: "checking out branch context…" },
 			{ key: STATUS_KEY, value: "starting implementation session…" },
@@ -78,7 +78,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 	});
 
 	test("formats the manual follow-up flow", () => {
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, KEY)).toBe(`git checkout ${BRANCH}\n/new\n/planned-branch:impl ${KEY}`);
+		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH)).toBe(`git checkout ${BRANCH}\n/new\n/branch-context:impl`);
 	});
 
 	test("returns checkout failure without starting a new session", async () => {

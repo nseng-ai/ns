@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	CREATE_PLANNED_BRANCH_USAGE,
+	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_FAST_MODEL,
 	DEFAULT_PLAN_CONTENT,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -9,7 +9,7 @@ import {
 	IMPL_BRANCH,
 	IMPL_PLAN_CONTENT,
 	IMPL_REF,
-	PLAN_BRANCH_NAMESPACE,
+	BRANCH_CONTEXT_NAMESPACE,
 	PLAN_KEY,
 	PLAN_SLUG,
 	REPO_ROOT,
@@ -26,13 +26,13 @@ import {
 	buildWritePlanPrompt,
 	contentSlugEvidence,
 	createContext,
-	createPlannedBranchOperationFakes,
+	createBranchContextOperationFakes,
 	createToolContext,
 	dirname,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
-	formatCreatePlannedBranchPreview,
-	formatPlanBranchEvidence,
+	formatCreateBranchContextPreview,
+	formatBranchContextEvidence,
 	formatSavedPlanFileEvidence,
 	gitCheckoutStep,
 	gitCurrentBranchStep,
@@ -46,15 +46,15 @@ import {
 	mkdir,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
-	parseCreatePlannedBranchArgs,
+	parseCreateBranchContextArgs,
 	planSlugExecCall,
 	planSlugStep,
 	planStoreDirectory,
-	plannedBranchEvidence,
-	plannedBranchOutputMessageEntry,
+	branchContextEvidence,
+	branchContextOutputMessageEntry,
 	readFile,
 	registeredTool,
-	registerPlannedBranchExtension,
+	registerBranchContextExtension,
 	resolve,
 	resolveWritePlanPromptStep,
 	savedPlanFileContent,
@@ -67,11 +67,11 @@ import {
 	writePlanStoreFile,
 	writeSavedPlanFile,
 	type ToolUpdate,
-} from "./planned-branch-extension-support.ts";
+} from "./branch-context-extension-support.ts";
 describe("writeSavedPlanFile", () => {
 	test("writes a source branch saved plan file with origin identity evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "planned-branches/add-widget";
+		const sourceBranch = "branch-contextes/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep({ stdout: `${origin}\n` })]);
 
@@ -122,7 +122,7 @@ describe("writeSavedPlanFile", () => {
 
 	test("refuses to overwrite an existing local plan store file", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "planned-branches/add-widget";
+		const sourceBranch = "branch-contextes/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
