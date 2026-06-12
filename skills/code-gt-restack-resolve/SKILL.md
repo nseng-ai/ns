@@ -1,6 +1,8 @@
 ---
 name: code-gt-restack-resolve
 description: "Restack the current Graphite stack with conflict resolution — full stack by default like `gt restack`, downstack on request. Auto-merge mechanically-safe conflicts (verified with project checks) and escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
+model: opus
+context: fork
 allowed-tools:
   - "Bash(gt *)"
   - "Bash(git status *)"
