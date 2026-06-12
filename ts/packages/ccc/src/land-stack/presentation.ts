@@ -13,6 +13,7 @@ import type {
 	LandingPlan,
 	LandingWarning,
 	NotifyLevel,
+	RemainingCleanup,
 } from "./types.ts";
 import { formatConflict, formatSlotConflict } from "./worktrees.ts";
 
@@ -46,6 +47,16 @@ export function formatPlan(plan: LandingPlan): string {
 	}
 
 	lines.push("");
+	if (managedSlotConflicts.length > 0) {
+		lines.push("Before merging, this command will ask before freeing these landing-branch slots only:");
+		for (const conflict of managedSlotConflicts) {
+			lines.push(`  - ${formatSlotConflict(conflict)}`);
+		}
+	} else {
+		lines.push("No landing-branch managed slot cleanup is required before merging.");
+	}
+
+	lines.push("");
 	if (prSubmitRequirements.length > 0) {
 		const restackTarget = restackTargetForSubmit(plan);
 		lines.push(
@@ -69,23 +80,13 @@ export function formatPlan(plan: LandingPlan): string {
 		lines.push("No pre-merge PR submit/update is required.");
 	}
 
-	lines.push("");
-	if (managedSlotConflicts.length > 0) {
-		lines.push("Before merging, this command will ask before freeing these landing-branch slots only:");
-		for (const conflict of managedSlotConflicts) {
-			lines.push(`  - ${formatSlotConflict(conflict)}`);
-		}
-	} else {
-		lines.push("No landing-branch managed slot cleanup is required before merging.");
-	}
-
 	lines.push(
 		"",
 		"For each merged PR:",
 		"  - gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
 		`  - verify PR is MERGED on ${stack.trunk}`,
 		"  - if another landing branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
-		"  - gt delete <landed-branch> -f -q, except when descendant maintenance is skipped to avoid collateral child restacks",
+		`  - gt delete <landed-branch> -f -q, detaching this worktree at ${stack.trunk} before retrying when the final landed branch is checked out here, except when descendant maintenance is skipped to avoid collateral child restacks`,
 		"  - restack/submit the next landing branch when required; descendant restack/update is optional after target PRs land",
 		"",
 		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure before all target PRs land.",
@@ -120,9 +121,10 @@ export function usage(): string {
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
+		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup may detach this worktree at trunk before retrying deletion.",
 		"",
 		"Options:",
-		"  --yes, -y    Skip stack landing confirmation. PR submit/update and landing-branch managed slot cleanup still require explicit UI confirmation.",
+		"  --yes, -y    Skip stack landing confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
 		"  --dry-run    Show the plan and exit before mutating anything.",
 		"  --help, -h   Show this help.",
 	].join("\n");
@@ -132,6 +134,7 @@ export function formatSuccessSummary(
 	landed: LandedPr[],
 	descendantMaintenance: DescendantMaintenancePlan,
 	warnings: LandingWarning[] = [],
+	cleanup: RemainingCleanup = emptyRemainingCleanup(),
 ): string {
 	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
 	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
@@ -149,8 +152,17 @@ export function formatSuccessSummary(
 		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
 		lines.push(`Reason: ${descendantMaintenance.reason}.`);
 	}
-	lines.push("Remote branches were not deleted.");
-	lines.push("Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
+	lines.push("", "Remaining cleanup:");
+	lines.push("  - Remote branches were not deleted.");
+	for (const retained of cleanup.retainedLocalBranches) {
+		lines.push(`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`);
+	}
+	if (cleanup.detachedWorktreeTrunk) {
+		lines.push(`  - This worktree was detached at ${cleanup.detachedWorktreeTrunk} so the final landed local branch could be deleted.`);
+	}
+	if (cleanup.retainedLocalBranches.length === 0) {
+		lines.push("  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
+	}
 	if (warningEntries.length > 0) {
 		lines.push("", `Completed with ${warningEntries.length} warning${warningEntries.length === 1 ? "" : "s"}:`);
 		for (const warning of warningEntries) {
@@ -164,6 +176,10 @@ export function formatSuccessSummary(
 		}
 	}
 	return lines.join("\n");
+}
+
+function emptyRemainingCleanup(): RemainingCleanup {
+	return { retainedLocalBranches: [], detachedWorktreeTrunk: undefined };
 }
 
 function landingWarningLevel(warning: LandingWarning): "warning" | "info" {

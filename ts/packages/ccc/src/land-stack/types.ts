@@ -164,6 +164,16 @@ export interface LandingWarning {
 	notificationAction?: string;
 }
 
+export interface RetainedLocalBranchCleanup {
+	branch: string;
+	path: string;
+}
+
+export interface RemainingCleanup {
+	retainedLocalBranches: RetainedLocalBranchCleanup[];
+	detachedWorktreeTrunk: string | undefined;
+}
+
 export interface CommandStreamFinish {
 	result: ExecResult;
 	note?: string;

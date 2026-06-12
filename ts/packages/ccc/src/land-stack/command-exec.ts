@@ -49,6 +49,11 @@ export function normalizeCommandFinish(command: string, args: string[], result: 
 	if (deleteBranch && result.code !== 0 && !result.killed && isGtDeleteMissingBranch(result, deleteBranch)) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
+	// /code:land's only sqlite3 use is reading Graphite topology, so successful
+	// sqlite3 commands in the land stream can carry this domain label.
+	if (command === "sqlite3" && result.code === 0) {
+		return { result, note: "read Graphite stack topology" };
+	}
 	return { result };
 }
 

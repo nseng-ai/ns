@@ -42,7 +42,7 @@ export class LandStackCommandStream {
 				? finish.note
 					? ` — ${finish.note}`
 					: ""
-				: ` — exit ${result.code}${result.killed ? " (killed or timed out)" : ""}`;
+				: ` — exit ${result.code}${result.killed ? " (killed or timed out)" : ""}${finish.note ? ` — ${finish.note}` : ""}`;
 		const lines = [`${icon} $ ${commandDisplay}${suffix}`];
 		if (result.code !== 0) {
 			lines.push(...commandStreamOutputLines(result));
