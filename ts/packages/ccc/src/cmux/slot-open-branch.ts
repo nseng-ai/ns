@@ -1,4 +1,4 @@
-import { extractBranchContextEvidenceFromSessionEntry } from "@asdl/branch-context";
+import { extractBranchContextEvidenceFromSessionEntry, type BranchContextEvidence } from "@asdl/branch-context";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {
@@ -14,18 +14,9 @@ interface BranchCandidate {
 	scope: "local" | "remote";
 }
 
-interface BranchContextSelection {
-	branchName: string;
-	key?: string;
-	commit?: string;
-	sourceFile?: string;
-	branchCreation?: string;
-	startPoint?: string;
-}
-
 type ResolvedBranch =
 	| { inferred: false; branchName: string }
-	| { inferred: true; branchName: string; selection: BranchContextSelection }
+	| { inferred: true; branchName: string; evidence: BranchContextEvidence }
 	| { error: string };
 
 export interface HandleCccSlotOpenBranchOptions {
@@ -75,7 +66,7 @@ export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOp
 	}
 
 	if (resolved.inferred) {
-		const confirmed = await confirmInferredBranch(ctx, resolved.selection);
+		const confirmed = await confirmInferredBranch(ctx, resolved.evidence);
 		if (!confirmed) {
 			ctx.ui.notify("Cancelled; no cmux workspace was opened.", "info");
 			return;
@@ -99,43 +90,27 @@ export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOp
 async function resolveInferredBranchContext(ctx: {
 	sessionManager?: { getBranch?: () => unknown[] };
 }): Promise<
-	| { inferred: true; branchName: string; selection: BranchContextSelection }
+	| { inferred: true; branchName: string; evidence: BranchContextEvidence }
 	| { error: string }
 > {
 	const entries = ctx.sessionManager?.getBranch?.() ?? [];
-	const selection = findLatestBranchContextSelection(entries);
-	if (!selection) {
+	const evidence = findLatestBranchContextSelection(entries);
+	if (!evidence) {
 		return {
 			error: `Usage: /${COMMAND_NAME} <branch>\nNo latest [branch-context-output] branch found in the current session branch.`,
 		};
 	}
-	return { inferred: true, branchName: selection.branchName, selection };
+	return { inferred: true, branchName: evidence.branch, evidence };
 }
 
-export function findLatestBranchContextSelection(entries: unknown[]): BranchContextSelection | undefined {
+export function findLatestBranchContextSelection(entries: unknown[]): BranchContextEvidence | undefined {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
-		const selection = extractBranchContextSelection(entries[index]);
-		if (selection !== undefined) {
-			return selection;
+		const evidence = extractBranchContextEvidenceFromSessionEntry(entries[index]);
+		if (evidence !== undefined) {
+			return evidence;
 		}
 	}
 	return undefined;
-}
-
-function extractBranchContextSelection(entry: unknown): BranchContextSelection | undefined {
-	const evidence = extractBranchContextEvidenceFromSessionEntry(entry);
-	if (evidence === undefined) {
-		return undefined;
-	}
-
-	return {
-		branchName: evidence.branch,
-		key: evidence.key,
-		commit: evidence.commit,
-		sourceFile: evidence.sourceFile,
-		branchCreation: evidence.branchCreation,
-		startPoint: evidence.startPoint,
-	};
 }
 
 async function confirmInferredBranch(
@@ -146,29 +121,27 @@ async function confirmInferredBranch(
 			notify(message: string, level?: "info" | "warning" | "error"): void;
 		};
 	},
-	selection: BranchContextSelection,
+	evidence: BranchContextEvidence,
 ): Promise<boolean> {
 	if (!ctx.hasUI || ctx.ui.confirm === undefined) {
 		ctx.ui.notify(`Cannot infer /${COMMAND_NAME} branch without an interactive confirmation UI.`, "error");
 		return false;
 	}
 
-	const details = formatInferredBranchConfirmation(selection);
+	const details = formatInferredBranchConfirmation(evidence);
 	return ctx.ui.confirm("Use branch context?", details);
 }
 
-function formatInferredBranchConfirmation(selection: BranchContextSelection): string {
+function formatInferredBranchConfirmation(evidence: BranchContextEvidence): string {
 	return [
-		`Use branch "${selection.branchName}" from the latest [branch-context-output] and open it in a new cmux workspace?`,
+		`Use branch "${evidence.branch}" from the latest [branch-context-output] and open it in a new cmux workspace?`,
 		"",
-		selection.key ? `Key: ${selection.key}` : undefined,
-		selection.branchCreation ? `Branch creation: ${selection.branchCreation}` : undefined,
-		selection.startPoint ? `Start point: ${selection.startPoint}` : undefined,
-		selection.commit ? `Commit: ${selection.commit}` : undefined,
-		selection.sourceFile ? `Source file: ${selection.sourceFile}` : undefined,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
+		`Key: ${evidence.key}`,
+		`Branch creation: ${evidence.branchCreation}`,
+		`Start point: ${evidence.startPoint}`,
+		`Commit: ${evidence.commit}`,
+		`Source file: ${evidence.sourceFile}`,
+	].join("\n");
 }
 
 function createBranchAutocompleteProvider(

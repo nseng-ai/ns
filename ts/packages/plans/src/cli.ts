@@ -29,7 +29,7 @@ const listRequestSchema = z.object({
 	plan_store_root: z.string().optional().describe("Plan store root directory (relative paths resolve against cwd)."),
 });
 
-const writeRequestSchema = z.object({
+const saveRequestSchema = z.object({
 	slug: z.string().describe("Saved plan slug."),
 	summary: z.string().optional().describe("Optional saved-plan summary."),
 	stdin: z.boolean().optional().describe("Read plan content from stdin."),
@@ -41,7 +41,7 @@ const resolveRequestSchema = z.object({
 });
 
 type ListRequest = z.infer<typeof listRequestSchema>;
-type WriteRequest = z.infer<typeof writeRequestSchema>;
+type SaveRequest = z.infer<typeof saveRequestSchema>;
 type ResolveRequest = z.infer<typeof resolveRequestSchema>;
 
 interface ExplicitResolvePlanEvidence {
@@ -98,9 +98,9 @@ export function buildCli(): ClinkrGroup<PlansCliContext> {
 		legacyCommand({
 			name: "save",
 			description: "Save a source-branch plan file in the local store.",
-			schema: writeRequestSchema,
+			schema: saveRequestSchema,
 			errorType: PLANS_ERROR_TYPE,
-			run: handleWrite,
+			run: handleSave,
 		}),
 	);
 	execGroup.command(
@@ -145,7 +145,7 @@ async function handleList(ctx: PlansCliContext, request: ListRequest): Promise<L
 	};
 }
 
-async function handleWrite(ctx: PlansCliContext, request: WriteRequest): Promise<LegacyPayload> {
+async function handleSave(ctx: PlansCliContext, request: SaveRequest): Promise<LegacyPayload> {
 	const slugError = validatePlanSlug(request.slug);
 	if (slugError !== undefined) throw new Error(`Invalid saved plan slug: ${slugError}`);
 	if (Boolean(request.stdin) === (request.content_file !== undefined)) {

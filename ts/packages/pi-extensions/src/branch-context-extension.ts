@@ -35,37 +35,6 @@ import { isRecord } from "./cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "./grill-ui.ts";
 import { deriveSavedPlanContentSlug, type SavedPlanContentSlugEvidence } from "./branch-context/saved-plan-content-slug.ts";
 
-export type { ExecResult } from "@asdl/core/exec";
-export {
-	BRANCH_CONTEXT_NAMESPACE,
-	createBranchContextFromFile,
-	deriveTargetBranch,
-	validateTargetBranchName,
-} from "@asdl/branch-context";
-export {
-	buildRepoPlanStoreKey,
-	defaultPlanStoreRoot,
-	encodeBranchForPlanPath,
-	findLatestSavedPlanFile,
-	formatSavedPlanFileEvidence,
-	isPathInside,
-	normalizePlanFilePath,
-	normalizeRepoOriginUrl,
-	resolvePlanStoreDirectory,
-	sanitizePlanPathSegment,
-	validatePlanSlug,
-	writeSavedPlanFile,
-} from "@asdl/plans";
-export type { BranchCreationMethod, CreateBranchContextFromFileParams } from "@asdl/branch-context";
-export type {
-	LatestSavedPlanFileEvidence,
-	PlanStoreDirectoryEvidence,
-	RepoIdentitySource,
-	SavedPlanFileEvidence,
-	SavedPlanFileParams,
-	PlanStoreOptions,
-} from "@asdl/plans";
-
 const WRITE_PLAN_COMMAND_NAME = "enriched-plan:save";
 const WRITE_GRILLED_PLAN_COMMAND_NAME = "enriched-plan:grill-and-save";
 const CREATE_BRANCH_CONTEXT_COMMAND_NAME = "branch-context:from-plan";
@@ -252,7 +221,7 @@ Create a branch context from a saved plan. The branch slug is derived from the p
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
-  --yes, -y          Compatibility no-op; resolved branch contextes create without confirmation.
+  --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
   --graphite         Create the target branch with Graphite.
   --plain-git        Create the target branch with plain Git.
   --branch <name>    Use an explicit target branch name.
@@ -268,7 +237,7 @@ Stack a branch context on the current branch with Graphite, attach the saved pla
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
-  --yes, -y          Compatibility no-op; resolved branch contextes create without confirmation.
+  --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
   --graphite         Default: stack the target branch on the current branch with Graphite.
   --plain-git        Escape hatch: create with plain Git instead; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name.
@@ -562,10 +531,9 @@ export async function resolveCreateBranchContextPreview(
 ): Promise<CreateBranchContextPreview> {
 	const selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
 	const selectedFile = selectedSavedPlanFileInfo(selected);
-	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "deriving branch slug from plan content…");
 	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedFile.filePath, cwd: ctx.cwd });
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
-	const targetBranch = derivePlannedTargetBranch(args, slugEvidence.slug, options);
+	const targetBranch = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const base = {
 		slug: slugEvidence.slug,
 		savedPlanFileStem: selected.savedPlanFileStem,
@@ -738,6 +706,7 @@ async function handleCreateBranchContextCommand(
 	let preview: CreateBranchContextPreview;
 	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "finding saved plan…");
 	try {
+		ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "deriving branch slug from plan content…");
 		preview = await resolveCreateBranchContextPreview(pi, args, ctx, options);
 	} catch (error) {
 		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
@@ -796,6 +765,7 @@ async function handleUpAndImplCommand(
 	let preview: CreateBranchContextPreview;
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
+		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "deriving branch slug from plan content…");
 		preview = await resolveCreateBranchContextPreview(pi, args, ctx, { ...options, branchContextDefaultCreation: "graphite" });
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
 	} catch (error) {
@@ -1024,16 +994,16 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExt
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const operations = resolveBranchContextOperations(options);
 			try {
-				emitWriteSourcePlanProgress(onUpdate, ctx, "Validating saved plan input…", { phase: "validating" });
+				emitWriteSavedPlanProgress(onUpdate, ctx, "Validating saved plan input…", { phase: "validating" });
 				const toolParams = parseWriteSavedPlanFileToolParams(params);
-				emitWriteSourcePlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
+				emitWriteSavedPlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
 				const slugStartedAt = Date.now();
 				const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
-					onUpdate === undefined && !canSetWriteSourcePlanStatus(ctx)
+					onUpdate === undefined && !canSetWriteSavedPlanStatus(ctx)
 						? undefined
 						: setInterval(() => {
 								const elapsedSeconds = Math.round((Date.now() - slugStartedAt) / 1_000);
-								emitWriteSourcePlanProgress(
+								emitWriteSavedPlanProgress(
 									onUpdate,
 									ctx,
 									`Deriving saved-plan filename slug with Codex… ${elapsedSeconds}s elapsed`,
@@ -1055,13 +1025,13 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExt
 						clearInterval(slugProgressInterval);
 					}
 				}
-				emitWriteSourcePlanProgress(
+				emitWriteSavedPlanProgress(
 					onUpdate,
 					ctx,
 					`Derived slug ${slugEvidence.slug}; resolving repo/branch and writing plan file…`,
 					{ phase: "writing-file", slug: slugEvidence.slug },
 				);
-				emitWriteSourcePlanProgress(onUpdate, ctx, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
+				emitWriteSavedPlanProgress(onUpdate, ctx, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
 				const evidence = await operations.writeSavedPlanFile(pi, buildSavedPlanFileParams(toolParams, slugEvidence.slug), {
 					cwd: ctx.cwd,
 					signal,
@@ -1073,7 +1043,7 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExt
 					details,
 				};
 			} finally {
-				setWriteSourcePlanStatus(ctx, undefined);
+				setWriteSavedPlanStatus(ctx, undefined);
 			}
 		},
 		renderCall(args, _theme, context) {
@@ -1089,24 +1059,24 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExt
 	};
 }
 
-function emitWriteSourcePlanProgress(
+function emitWriteSavedPlanProgress(
 	onUpdate: ToolUpdateHandler | undefined,
 	ctx: ToolContext,
 	text: string,
 	details: WriteSavedPlanFileProgressDetails,
 ): void {
 	onUpdate?.({ content: [{ type: "text", text }], details });
-	setWriteSourcePlanStatus(ctx, text);
+	setWriteSavedPlanStatus(ctx, text);
 }
 
-function setWriteSourcePlanStatus(ctx: ToolContext, value: string | undefined): void {
+function setWriteSavedPlanStatus(ctx: ToolContext, value: string | undefined): void {
 	if (ctx.hasUI === false) {
 		return;
 	}
 	ctx.ui?.setStatus?.(WRITE_PLAN_TOOL_STATUS_KEY, value);
 }
 
-function canSetWriteSourcePlanStatus(ctx: ToolContext): boolean {
+function canSetWriteSavedPlanStatus(ctx: ToolContext): boolean {
 	if (ctx.hasUI === false) {
 		return false;
 	}
@@ -1243,7 +1213,7 @@ function resolvePlanStoreRootOption(options: BranchContextExtensionOptions): str
 	return options.planStoreRoot;
 }
 
-function derivePlannedTargetBranch(
+function deriveBranchContextTargetBranch(
 	args: CreateBranchContextArgs,
 	slug: string,
 	options: BranchContextExtensionOptions,

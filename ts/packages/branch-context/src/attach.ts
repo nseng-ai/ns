@@ -1,10 +1,10 @@
 import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
 import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
-import { attachBranchContext, type BranchContextEvidence } from "./branch-context-creation.ts";
+import { assertBrmemEntryAbsent, attachBranchContext } from "./branch-context-creation.ts";
 import { RealBranchContextBrmemGateway, type AttachedPlanEntry, type BranchContextBrmemGateway, type BrmemPutData } from "./brmem-gateway.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { listSavedPlans, resolvePlanSourceFile } from "@asdl/plans";
+import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@asdl/plans";
 
 export interface BranchContextPrimitiveOptions {
 	cwd: string;
@@ -21,14 +21,11 @@ export interface AttachBranchContextParams {
 	branch?: string | undefined;
 }
 
-export interface BranchContextAttachEvidence {
+export type BranchContextAttachEvidence = BrmemPutData & { planSlug?: string };
+
+export interface BranchContextListEvidence {
 	branch: string;
-	namespace: string;
-	key: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
-	planSlug?: string;
+	entries: AttachedPlanEntry[];
 }
 
 export interface BranchContextCheckEvidence {
@@ -45,19 +42,24 @@ export interface BranchContextDeleteEvidence {
 	deleted: boolean;
 }
 
+interface BranchContextPrimitiveContext {
+	git: GitGateway;
+	brmem: BranchContextBrmemGateway;
+	branch: string;
+}
+
 export async function attachBranchContextEntry(
 	pi: CommandExecApi,
 	params: AttachBranchContextParams,
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextAttachEvidence> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
-	const branch = await resolveAttachBranch(git, options, params.branch);
-	const source = await resolveAttachSource(pi, params, options);
+	const context = await resolveBranchContextPrimitiveContext(pi, options, params.branch);
+	const source = await resolveAttachSource(pi, params, { ...options, git: context.git });
+	await assertBrmemEntryAbsent(context.brmem, options.cwd, context.branch, source.key, options.signal);
 	const data = await attachBranchContext({
-		brmem,
+		brmem: context.brmem,
 		cwd: options.cwd,
-		branch,
+		branch: context.branch,
 		key: source.key,
 		sourceFile: source.sourceFile,
 		signal: options.signal,
@@ -69,13 +71,11 @@ export async function listBranchContextEntries(
 	pi: CommandExecApi,
 	params: { branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
-): Promise<AttachedPlanEntry[]> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
-	const branch = await resolveAttachBranch(git, options, params.branch);
-	const list = await brmem.listAttachedPlans({ cwd: options.cwd, branch, signal: options.signal });
+): Promise<BranchContextListEvidence> {
+	const context = await resolveBranchContextPrimitiveContext(pi, options, params.branch);
+	const list = await context.brmem.listAttachedPlans({ cwd: options.cwd, branch: context.branch, signal: options.signal });
 	if (!list.ok) throw new Error(list.error.message);
-	return list.value;
+	return { branch: context.branch, entries: list.value };
 }
 
 export async function checkBranchContextEntry(
@@ -83,13 +83,11 @@ export async function checkBranchContextEntry(
 	params: { key: string; branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextCheckEvidence> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
-	const branch = await resolveAttachBranch(git, options, params.branch);
+	const context = await resolveBranchContextPrimitiveContext(pi, options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const presence = await brmem.attachmentPresence({ cwd: options.cwd, branch, key, signal: options.signal });
+	const presence = await context.brmem.attachmentPresence({ cwd: options.cwd, branch: context.branch, key, signal: options.signal });
 	if (presence.type === "error") throw new Error(presence.error.message);
-	return { branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, present: presence.type === "present" };
+	return { branch: context.branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, present: presence.type === "present" };
 }
 
 export async function deleteBranchContextEntry(
@@ -97,13 +95,11 @@ export async function deleteBranchContextEntry(
 	params: { key: string; branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextDeleteEvidence> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
-	const branch = await resolveAttachBranch(git, options, params.branch);
+	const context = await resolveBranchContextPrimitiveContext(pi, options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const deleted = await brmem.deleteEntry({ cwd: options.cwd, branch, key, signal: options.signal });
+	const deleted = await context.brmem.deleteEntry({ cwd: options.cwd, branch: context.branch, key, signal: options.signal });
 	if (!deleted.ok) throw new Error(deleted.error.message);
-	return { branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, deleted: true };
+	return { branch: context.branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, deleted: true };
 }
 
 export function formatAttachEvidence(evidence: BranchContextAttachEvidence): string {
@@ -149,11 +145,9 @@ async function resolveAttachSource(
 		if (params.key !== undefined || params.filePath !== undefined) {
 			throw new Error("Pass either --plan <slug> or <key> --file <path>, not both.");
 		}
-		const matches = (await listSavedPlans(pi, { cwd: options.cwd, git: options.git, planStoreRoot: options.planStoreRoot, signal: options.signal })).filter(
-			(plan) => plan.slug === params.planSlug,
-		);
+		const available = await listSavedPlans(pi, planStoreOptions(options));
+		const matches = available.filter((plan) => plan.slug === params.planSlug);
 		if (matches.length === 0) {
-			const available = await listSavedPlans(pi, { cwd: options.cwd, git: options.git, planStoreRoot: options.planStoreRoot, signal: options.signal });
 			throw new Error([`No saved plan found for slug \`${params.planSlug}\`.`, "", "Available slugs:", ...available.map((plan) => `- ${plan.slug}`)].join("\n"));
 		}
 		if (matches.length > 1) {
@@ -172,6 +166,17 @@ async function resolveAttachSource(
 	};
 }
 
+async function resolveBranchContextPrimitiveContext(
+	pi: CommandExecApi,
+	options: BranchContextPrimitiveOptions,
+	requestedBranch: string | undefined,
+): Promise<BranchContextPrimitiveContext> {
+	const git = options.git ?? new RealGitGateway(pi);
+	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
+	const branch = await resolveAttachBranch(git, options, requestedBranch);
+	return { git, brmem, branch };
+}
+
 async function resolveAttachBranch(git: GitGateway, options: BranchContextPrimitiveOptions, requestedBranch: string | undefined): Promise<string> {
 	const branch = requestedBranch?.trim();
 	if (branch !== undefined && branch.length > 0) return branch;
@@ -182,14 +187,18 @@ async function resolveAttachBranch(git: GitGateway, options: BranchContextPrimit
 	return current.value;
 }
 
+function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOptions {
+	return {
+		cwd: options.cwd,
+		...(options.git === undefined ? {} : { git: options.git }),
+		...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	};
+}
+
 function attachEvidence(data: BrmemPutData, planSlug: string | undefined): BranchContextAttachEvidence {
 	return {
-		branch: data.branch,
-	namespace: data.namespace,
-		key: data.key,
-		refName: data.refName,
-		commit: data.commit,
-		sourceFile: data.sourceFile,
+		...data,
 		...(planSlug === undefined ? {} : { planSlug }),
 	};
 }

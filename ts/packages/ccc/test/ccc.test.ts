@@ -276,7 +276,7 @@ describe("CCC cmux command suite", () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const outsideDir = await makeTempDir();
-		const outsidePlanFile = join(outsideDir, PLAN_KEY);
+		const outsidePlanFile = join(outsideDir, `${PLAN_SLUG}.md`);
 		await writeFile(outsidePlanFile, "# Outside Plan\n", "utf8");
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
 		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
@@ -285,7 +285,7 @@ describe("CCC cmux command suite", () => {
 		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
-		expect(notificationMessages(ctx).join("\n")).toContain("Session saved-plan evidence basename must match slug");
+		expect(notificationMessages(ctx).join("\n")).toContain("outside the current local plan store directory");
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 		expect(pi.sentMessages).toEqual([]);
 	});

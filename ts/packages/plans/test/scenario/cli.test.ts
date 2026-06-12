@@ -59,7 +59,7 @@ const EXEC_HELP = [
 	"                            file.",
 	"",
 ].join("\n");
-const WRITE_HELP = [
+const SAVE_HELP = [
 	"Usage: enriched-plan exec save [options]",
 	"",
 	"Save a source-branch plan file in the local store.",
@@ -221,8 +221,8 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		[["exec"], EXEC_HELP],
 		[["exec", "--help"], EXEC_HELP],
 		[["exec", "-h"], EXEC_HELP],
-		[["exec", "save", "--help"], WRITE_HELP],
-		[["exec", "save", "-h"], WRITE_HELP],
+		[["exec", "save", "--help"], SAVE_HELP],
+		[["exec", "save", "-h"], SAVE_HELP],
 		[["exec", "resolve", "--help"], RESOLVE_HELP],
 		[["exec", "resolve", "-h"], RESOLVE_HELP],
 	])("prints exact help for %j", async (args, help) => {
@@ -348,7 +348,7 @@ describe("plans list CLI pins", () => {
 	});
 });
 
-describe("plans exec write pins", () => {
+describe("plans exec save pins", () => {
 	test("pins missing slug usage errors, input exclusivity, and JSON failure bytes", async () => {
 		const missingHuman = await runWithFakes(["exec", "save", "--stdin"]);
 		expect(await missingHuman.exit).toBe(2);

@@ -24,6 +24,7 @@ export const WORKTREE = "/slot/worktree";
 export const BRANCH = "cmux-summary-hooks";
 export const PLAN_SLUG = "cmux-summary-hooks";
 export const PLAN_KEY = "plan.md";
+export const SAVED_PLAN_FILENAME = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "source-branch";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 export const FAST_MODEL: ModelInfo = { provider: "openai-codex", id: "gpt-5.4-mini" };
@@ -425,7 +426,7 @@ export async function writeTempSkill(body: string): Promise<string> {
 export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string, options: { fileName?: string; content?: string } = {}): Promise<string> {
 	const directoryPath = cmuxPlanStoreDirectory(planStoreRoot, repoRoot);
 	await mkdir(directoryPath, { recursive: true });
-	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}.md`);
+	const planFile = join(directoryPath, options.fileName ?? SAVED_PLAN_FILENAME);
 	await writeFile(planFile, options.content ?? "# Plan\n", "utf8");
 	return planFile;
 }
