@@ -10,6 +10,7 @@ interface RegisteredCommand {
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: string[] = [];
+	result = { stdout: "New branch: example\n", stderr: "", code: 0, killed: false };
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
@@ -17,13 +18,7 @@ class FakePi {
 
 	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }> {
 		this.execCalls.push(`${command} ${args.join(" ")} cwd=${options?.cwd ?? ""} timeout=${options?.timeout ?? 0}`);
-		if (command === "git" && args.join(" ") === "rev-parse --show-toplevel") {
-			return { stdout: "/repo\n", stderr: "", code: 0, killed: false };
-		}
-		if (command === "git" && args.join(" ") === "symbolic-ref --short HEAD") {
-			return { stdout: "", stderr: "fatal: ref HEAD is not a symbolic ref", code: 1, killed: false };
-		}
-		throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
+		return this.result;
 	}
 }
 
@@ -47,7 +42,7 @@ class FakeContext implements AutobranchCommandContext {
 }
 
 describe("autobranch command registration", () => {
-	test("registers code:autobranch and waits for idle before running the flow", async () => {
+	test("registers code:autobranch and delegates to the ccc exec CLI", async () => {
 		const pi = new FakePi();
 		registerAutobranchCommand(pi);
 
@@ -58,15 +53,23 @@ describe("autobranch command registration", () => {
 		await command?.handler("--slug example", ctx);
 
 		expect(ctx.hasWaited).toBe(true);
-		expect(pi.execCalls).toEqual([
-			"git rev-parse --show-toplevel cwd=/repo timeout=30000",
-			"git symbolic-ref --short HEAD cwd=/repo timeout=30000",
+		expect(pi.execCalls).toEqual(["ccc exec autobranch --slug example cwd=/repo timeout=600000"]);
+		expect(ctx.statuses).toEqual([
+			{ key: "autobranch", value: "running ccc exec autobranch…" },
+			{ key: "autobranch", value: undefined },
 		]);
-		expect(ctx.notifications).toEqual([
-			{
-				message: "Detached HEAD; check out a branch before running /code:autobranch.\nexit 1: fatal: ref HEAD is not a symbolic ref",
-				level: "error",
-			},
-		]);
+		expect(ctx.notifications).toEqual([{ message: "New branch: example", level: "info" }]);
+	});
+
+	test("surfaces CLI stderr as an error when ccc exec autobranch fails", async () => {
+		const pi = new FakePi();
+		pi.result = { stdout: "", stderr: "Detached HEAD\n", code: 1, killed: false };
+		registerAutobranchCommand(pi);
+
+		const ctx = new FakeContext();
+		await pi.commands.get("code:autobranch")?.handler("", ctx);
+
+		expect(pi.execCalls).toEqual(["ccc exec autobranch cwd=/repo timeout=600000"]);
+		expect(ctx.notifications).toEqual([{ message: "Detached HEAD", level: "error" }]);
 	});
 });

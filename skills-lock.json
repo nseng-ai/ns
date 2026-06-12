@@ -115,6 +115,11 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ef32aea0a8fab9b365ff9e08a95f8d353e20ca21ea46ec2e73587c86dd341351"
     },
+    "code-autobranch": {
+      "source": "skills/code-autobranch",
+      "sourceType": "local",
+      "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
+    },
     "code-checkpoint": {
       "source": "skills/code-checkpoint",
       "sourceType": "local",

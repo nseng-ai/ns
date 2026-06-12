@@ -2,6 +2,9 @@
   "name": "@asdl/ccc",
   "private": true,
   "type": "module",
+  "bin": {
+    "ccc": "./src/cli.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
@@ -19,11 +22,13 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/ccc/test"
   },
   "dependencies": {
+    "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/planned-branch": "workspace:*",
     "@asdl/plans": "workspace:*",
-    "asdl-dev": "workspace:*"
+    "asdl-dev": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {}
 }
