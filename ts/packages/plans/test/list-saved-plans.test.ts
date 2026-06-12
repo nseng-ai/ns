@@ -4,20 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
-import {
-	buildRepoPlanStoreKey,
-	encodeBranchForPlanPath,
-	listSavedPlans,
-	normalizeRepoOriginUrl,
-	runCli,
-	sanitizePlanPathSegment,
-	type GitCwdParams,
-	type GitOptionalResult,
-	type GitResult,
-	type PlansGitGateway,
-} from "../src/index.ts";
+import type { GitGateway } from "@asdl/core/git";
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { buildRepoPlanStoreKey, encodeBranchForPlanPath, listSavedPlans, normalizeRepoOriginUrl, runCli, sanitizePlanPathSegment } from "../src/index.ts";
 
 const ORIGIN = "git@github.com:Owner/Repo.git";
+const SOURCE_BRANCH = "feature/source-plan";
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -274,7 +266,7 @@ interface Fixture {
 	repoRoot: string;
 	planStoreRoot: string;
 	repoKey: string;
-	git: PlansGitGateway;
+	git: GitGateway;
 }
 
 interface JsonListPayload {
@@ -310,7 +302,7 @@ async function makeFixture(): Promise<Fixture> {
 	const repoRoot = await makeTempDir();
 	const planStoreRoot = await makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(repoRoot, ORIGIN);
-	return { repoRoot, planStoreRoot, repoKey, git: new FakePlansGitGateway(repoRoot, ORIGIN) };
+	return { repoRoot, planStoreRoot, repoKey, git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }) };
 }
 
 async function makeTempDir(): Promise<string> {
@@ -360,32 +352,3 @@ const unusedCommands: CommandExecApi = {
 	},
 };
 
-class FakePlansGitGateway implements PlansGitGateway {
-	private readonly repoRootValue: string;
-	private readonly origin: string;
-
-	constructor(repoRootValue: string, origin: string) {
-		this.repoRootValue = repoRootValue;
-		this.origin = origin;
-	}
-
-	repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
-		void params;
-		return Promise.resolve({ ok: true, value: this.repoRootValue });
-	}
-
-	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		void params;
-		return Promise.resolve({ type: "found", value: this.repoRootValue });
-	}
-
-	currentBranch(params: GitCwdParams): Promise<GitResult<string>> {
-		void params;
-		return Promise.resolve({ ok: true, value: "feature/source-plan" });
-	}
-
-	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		void params;
-		return Promise.resolve({ type: "found", value: this.origin });
-	}
-}

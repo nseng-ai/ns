@@ -4,16 +4,10 @@ import { homedir, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
 import { type CommandExecApi, type ExecOptions } from "@asdl/core/exec";
+import type { GitGateway } from "@asdl/core/git";
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 
-import {
-	buildRepoPlanStoreKey,
-	encodeBranchForPlanPath,
-	runCli,
-	type GitCwdParams,
-	type GitOptionalResult,
-	type GitResult,
-	type PlansGitGateway,
-} from "../../src/index.ts";
+import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 
 const ORIGIN = "git@github.com:Owner/Repo.git";
 const SOURCE_BRANCH = "feature/source-plan";
@@ -117,14 +111,14 @@ interface Fixture {
 	planStoreRoot: string;
 	repoKey: string;
 	branchKey: string;
-	git: PlansGitGateway;
+	git: GitGateway;
 }
 
 interface RunWithFakesOptions {
 	cwd?: string;
 	planStoreRoot?: string;
 	stdin?: () => Promise<string>;
-	git?: PlansGitGateway;
+	git?: GitGateway;
 }
 
 async function runWithFakes(args: readonly string[], options: RunWithFakesOptions = {}): Promise<CliRun> {
@@ -136,7 +130,7 @@ async function runWithFakes(args: readonly string[], options: RunWithFakesOption
 		stderr,
 		exit: runCli(args, {
 			cwd,
-			git: options.git ?? new FakePlansGitGateway(cwd, ORIGIN),
+			git: options.git ?? new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
 			commands: unusedCommands,
 			stdin: options.stdin,
 			stdout: (text) => stdout.push(text),
@@ -151,7 +145,7 @@ async function makeFixture(): Promise<Fixture> {
 	const planStoreRoot = await makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(repoRoot, ORIGIN);
 	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
-	return { repoRoot, planStoreRoot, repoKey, branchKey, git: new FakePlansGitGateway(repoRoot, ORIGIN) };
+	return { repoRoot, planStoreRoot, repoKey, branchKey, git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }) };
 }
 
 async function makeTempDir(prefix = "plans-cli-scenario-"): Promise<string> {
@@ -198,38 +192,6 @@ const unusedCommands: CommandExecApi = {
 		throw new Error("Unexpected command execution in test.");
 	},
 };
-
-class FakePlansGitGateway implements PlansGitGateway {
-	private readonly repoRootValue: string;
-	private readonly origin: string;
-	private readonly branch: string;
-
-	constructor(repoRootValue: string, origin: string, branch = SOURCE_BRANCH) {
-		this.repoRootValue = repoRootValue;
-		this.origin = origin;
-		this.branch = branch;
-	}
-
-	repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
-		void params;
-		return Promise.resolve({ ok: true, value: this.repoRootValue });
-	}
-
-	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		void params;
-		return Promise.resolve({ type: "found", value: this.repoRootValue });
-	}
-
-	currentBranch(params: GitCwdParams): Promise<GitResult<string>> {
-		void params;
-		return Promise.resolve({ ok: true, value: this.branch });
-	}
-
-	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		void params;
-		return Promise.resolve({ type: "found", value: this.origin });
-	}
-}
 
 describe("plans CLI help, version, and dispatch pins", () => {
 	test.each([[[]], [["-h"]], [["--help"]]])("prints top-level help for %j", async (args) => {

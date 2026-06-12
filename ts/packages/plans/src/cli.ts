@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import { RealPlansGitGateway, type PlansGitGateway } from "./git-gateway.ts";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { normalizePlanFilePath, resolvePlanSourceFile, validatePlanSlug } from "./plan-persistence.ts";
 import {
 	findLatestSavedPlanFile,
@@ -55,7 +55,7 @@ type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEviden
 
 export interface CliDeps {
 	commands?: CommandExecApi | undefined;
-	git?: PlansGitGateway | undefined;
+	git?: GitGateway | undefined;
 	cwd?: string | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
@@ -65,7 +65,7 @@ export interface CliDeps {
 
 export interface PlansCliContext {
 	commands: CommandExecApi;
-	git: PlansGitGateway;
+	git: GitGateway;
 	cwd: string;
 	stdin: () => Promise<string>;
 	planStoreRoot?: string;
@@ -122,7 +122,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const commands = deps.commands ?? new NodeCommandExecApi();
 	const context: PlansCliContext = {
 		commands,
-		git: deps.git ?? new RealPlansGitGateway(commands),
+		git: deps.git ?? new RealGitGateway(commands),
 		cwd: deps.cwd ?? process.cwd(),
 		stdin: deps.stdin ?? readStdin,
 		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
