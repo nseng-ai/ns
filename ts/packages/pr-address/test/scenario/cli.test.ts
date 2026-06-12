@@ -214,6 +214,30 @@ describe("pr-address CLI", () => {
 		expect(exitCodeForExit(ok({}))).toBe(0);
 		expect(toMachineEnvelope(failure("invalid_request", "bad input"))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 	});
+
+	test("strictly rejects non-decimal integer forms before managed operations run", async () => {
+		for (const value of ["1e2", "0x10", "12.5", "12abc"]) {
+			const prRun = runWithFakeLegacy(["exec", "get-feedback", value, "--format=json"]);
+			expect(await prRun.exit).toBe(2);
+			expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "invalid_request", message: "get-feedback requires an integer PR number argument." });
+			expect(prRun.legacy.calls).toEqual([]);
+
+			const bodyCharsRun = runWithFakeLegacy(["exec", "summarize-feedback", "123", "--body-chars", value, "--format=json"]);
+			expect(await bodyCharsRun.exit).toBe(2);
+			expect(JSON.parse(bodyCharsRun.stdout.join(""))).toMatchObject({ error_type: "invalid_request", message: "body_chars must be an integer" });
+			expect(bodyCharsRun.legacy.calls).toEqual([]);
+		}
+	});
+
+	test("accepts plain decimal integers before reaching later gateway validation", async () => {
+		const prRun = runWithFakeLegacy(["exec", "get-feedback", "123", "--format=json"]);
+		expect(await prRun.exit).toBe(2);
+		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "payload_session_required" });
+
+		const bodyCharsRun = runWithFakeLegacy(["exec", "summarize-feedback", "123", "--body-chars", "12", "--format=json"]);
+		expect(await bodyCharsRun.exit).toBe(2);
+		expect(JSON.parse(bodyCharsRun.stdout.join(""))).toMatchObject({ error_type: "missing_gateway" });
+	});
 });
 
 describe("pr-address CLI surface pinning", () => {
@@ -237,20 +261,29 @@ describe("pr-address CLI surface pinning", () => {
 		expect(run.legacy.calls).toEqual([]);
 	});
 
-	test("inline --format=json is not recognized by machine-envelope detection", async () => {
+	test("--format json and --format=json select machine-envelope output and are stripped before handlers", async () => {
+		const seenArgs: Array<readonly string[]> = [];
 		const registry = createExecOperationRegistry([
 			{
 				name: "envelope",
-				handler: async () => ({ type: "exit", exit: failure("invalid_request", "bad input") }),
+				handler: async ({ args }) => {
+					seenArgs.push(args);
+					return { type: "exit", exit: failure("invalid_request", "bad input") };
+				},
 			},
 		]);
-		const run = runWithFakeLegacy(["exec", "envelope", "--format=json"], { deps: { registry } });
+		const spacedRun = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { registry } });
+		const inlineRun = runWithFakeLegacy(["exec", "envelope", "--format=json"], { deps: { registry } });
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: bad input\n");
-		expect(run.legacy.calls).toEqual([]);
-		// PINNED QUIRK (clinkr-migration): pr-address does not accept --format=json inline syntax.
+		expect(await spacedRun.exit).toBe(2);
+		expect(await inlineRun.exit).toBe(2);
+		expect(JSON.parse(spacedRun.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		expect(JSON.parse(inlineRun.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		expect(spacedRun.stderr.join("")).toBe("");
+		expect(inlineRun.stderr.join("")).toBe("");
+		expect(spacedRun.legacy.calls).toEqual([]);
+		expect(inlineRun.legacy.calls).toEqual([]);
+		expect(seenArgs).toEqual([[], []]);
 	});
 
 	test("first --format flag wins for machine-envelope detection", async () => {
@@ -269,7 +302,7 @@ describe("pr-address CLI surface pinning", () => {
 		expect(await json.exit).toBe(2);
 		expect(json.stderr.join("")).toBe("");
 		expect(JSON.parse(json.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
-		// PINNED QUIRK (clinkr-migration): hasFormatJson uses indexOf, so the first --format value wins and --format human is tolerated.
+		// Match Click-style option handling: the first --format value wins and --format human is tolerated.
 	});
 
 	test("pins indent-2 ensure_ascii machine envelope bytes", async () => {
